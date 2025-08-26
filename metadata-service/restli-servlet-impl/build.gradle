@@ -56,6 +56,8 @@ dependencies {
   implementation externalDependency.opentelemetryAnnotations
 
   runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackJackson
+  runtimeOnly externalDependency.logbackJsonClassic
 
   annotationProcessor externalDependency.lombok
 

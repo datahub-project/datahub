@@ -2,6 +2,7 @@ import { Icon, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ContextPath from '@app/previewV2/ContextPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -17,6 +18,7 @@ const Wrapper = styled.div`
 const TextWrapper = styled.div`
     display: flex;
     flex-direction: column;
+    // TODO: Add this as a prop if needed
     max-width: 600px;
 `;
 
@@ -30,9 +32,9 @@ type Props = {
 };
 
 export default function EntitySearchInputResultV2({ entity }: Props) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistry() as EntityRegistry;
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const platformIcon = properties?.platform?.properties?.logoUrl;
+    const platformIcon = entityRegistry.getPlatformProperties?.(entity.type, entity)?.properties?.logoUrl;
 
     const displayedEntityType = getDisplayedEntityType(properties, entityRegistry, entity.type);
 

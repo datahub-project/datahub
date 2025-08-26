@@ -1,0 +1,100 @@
+import { Alert, Select } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ContainerSelector } from '@app/automations/fields/ContainerSelector';
+import { StepHeader } from '@app/automations/fields/components';
+import type { ComponentBaseProps } from '@app/automations/types';
+import { PreviewImage } from '@src/app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { type DataPlatform, EntityType } from '@types';
+
+// State Type (ensures the state is correctly applied across templates)
+export type PlatformSelectorStateType = {
+    platforms: string[];
+    containers: string[];
+};
+const StyledOption = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+// Component
+export const PlatformSelector = ({ state, props, passStateToParent }: ComponentBaseProps) => {
+    // Defined in @app/automations/fields/index
+    const { platforms = [], containers = [] } = state as PlatformSelectorStateType;
+
+    // Defined in @app/automations/fields/index
+    const { enableContainerSelection } = props;
+
+    // Get selectables platforms
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: {
+                types: [EntityType.DataPlatform],
+                query: '*',
+                start: 0,
+                count: 100,
+            },
+        },
+        fetchPolicy: 'cache-first',
+    });
+
+    const dataPlatforms =
+        (data?.searchAcrossEntities?.searchResults?.flatMap((e) => e.entity) as DataPlatform[]) ||
+        ([] as DataPlatform[]);
+
+    return (
+        <>
+            <Select
+                value={platforms || []}
+                loading={loading}
+                mode="multiple"
+                placeholder="Select platforms…"
+                onSelect={(platformUrn: string) => {
+                    passStateToParent({ platforms: [...platforms, platformUrn] });
+                }}
+                onDeselect={(platformUrn: string) => {
+                    passStateToParent({ platforms: platforms.filter((p) => platformUrn !== p) });
+                }}
+            >
+                {dataPlatforms.map((platform) => (
+                    <Select.Option value={platform.urn} key={platform.urn}>
+                        <StyledOption>
+                            {platform.properties?.logoUrl ? (
+                                <PreviewImage
+                                    preview={false}
+                                    src={platform.properties?.logoUrl}
+                                    placeholder
+                                    alt={platform?.properties?.displayName || platform?.name}
+                                />
+                            ) : null}
+                            <span>{platform?.properties?.displayName || platform?.name}</span>
+                        </StyledOption>
+                    </Select.Option>
+                ))}
+            </Select>
+            {enableContainerSelection && platforms.length > 0 && (
+                <div>
+                    <StepHeader>
+                        <p style={{ marginBottom: '0.25em', marginTop: '0.75em' }}>
+                            Now choose the containers for these platforms.
+                        </p>
+                    </StepHeader>
+                    <ContainerSelector
+                        state={{ containers }}
+                        props={{ platforms }}
+                        passStateToParent={(value) => passStateToParent({ platforms, ...value })}
+                    />
+                </div>
+            )}
+            <Alert
+                type="warning"
+                message="Currently, a maximum of 10k assets can be classified using a single automation. Use filters to narrow down your selection set!"
+                style={{ marginTop: '0.5em' }}
+            />
+        </>
+    );
+};

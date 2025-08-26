@@ -6,7 +6,7 @@ import {
     FAILURE_COLOR_HEX,
     SUCCESS_COLOR_HEX,
     WARNING_COLOR_HEX,
-} from '@app/entity/shared/tabs/Dataset/Validations/utils';
+} from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 
 export const StyledCheckOutlined = styled(CheckOutlined)`
     color: ${SUCCESS_COLOR_HEX};

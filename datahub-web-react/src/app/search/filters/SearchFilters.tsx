@@ -1,3 +1,4 @@
+// eslint-disable import/no-default-export
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -26,7 +27,7 @@ interface Props {
     onChangeMode: (mode: FilterMode) => void;
 }
 
-export default function SearchFilters({
+export const SearchFilters = ({
     loading,
     mode,
     availableFilters,
@@ -36,7 +37,7 @@ export default function SearchFilters({
     onClearFilters,
     onChangeUnionType,
     onChangeMode,
-}: Props) {
+}: Props) => {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
 
     /**
@@ -77,4 +78,8 @@ export default function SearchFilters({
             )}
         </SearchFiltersWrapper>
     );
-}
+};
+
+// To support having both versions (v1 & v2) imported to the same components this needed to be a named export
+// To ensure that other components that are using the absolute export remain unaffected, we're also exporting as default
+export default SearchFilters;

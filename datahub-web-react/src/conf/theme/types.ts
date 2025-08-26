@@ -3,6 +3,7 @@ import { Color } from '@src/alchemy-components/theme/config';
 export type Theme = {
     styles: {
         'primary-color'?: string;
+        'primary-color-gradient'?: string;
         'layout-header-background': string;
         'layout-header-color': string;
         'layout-body-background': string;
@@ -20,6 +21,8 @@ export type Theme = {
         'homepage-background-lower-fade': string;
         'box-shadow': string;
         'box-shadow-hover': string;
+        'box-shadow-navbar-redesign'?: string;
+        'border-radius-navbar-redesign'?: string;
         'highlight-color': string;
         'highlight-border-color': string;
     };

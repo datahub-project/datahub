@@ -50,15 +50,6 @@ Note that DataHub CLI does not support Python 2.x.
 :::
 
 </TabItem>
-<TabItem value="poetry" label="poetry">
-
-```bash
-poetry add acryl-datahub
-poetry shell
-datahub version
-```
-
-</TabItem>
 </Tabs>
 
 ## Start DataHub

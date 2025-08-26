@@ -14,6 +14,7 @@ import {
     Health,
     HealthStatus,
     HealthStatusType,
+    InstitutionalMemoryMetadata,
     Maybe,
     Operation,
     ScrollResults,
@@ -179,6 +180,8 @@ const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus):
                 return 'See failing assertions →';
             case HealthStatusType.Incidents:
                 return 'See active incidents →';
+            case HealthStatusType.Tests:
+                return 'See failing governance tests →';
             default:
                 return 'See failed checks →';
         }
@@ -197,6 +200,8 @@ const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus):
                 return 'All assertions are passing';
             case HealthStatusType.Incidents:
                 return 'No active incidents';
+            case HealthStatusType.Tests:
+                return 'No failing governance tests';
             default:
                 return 'All checks are passing';
         }
@@ -219,21 +224,21 @@ const mergeHealth = (
 
             viewedHealthType.add(source.type);
 
-            const { type, status, causes } = source;
+            const { type, status } = source;
 
             const destHealth = destinationArray?.find((dest) => dest.type === type);
             const destStatus = destHealth?.status;
-            const destCauses = destHealth?.causes;
 
             const finalStatus = mergeHealthStatus(destStatus, status);
+            // TODO: count up totals of source.latestAssertionStatusByType.$.total
+            // TODO: count up totals of source.activeIncidentHealthDetails?.count
+            // This will result in a better message instead of vaguely 'See active incidents →'.
             const finalMessage = mergeHealthMessage(type, finalStatus);
-            const finalCauses = [...(causes || []), ...(destCauses || [])];
 
             return {
                 type,
                 status: finalStatus,
                 message: finalMessage,
-                causes: finalCauses,
             };
         })
         .filter((health) => health !== null);
@@ -278,6 +283,44 @@ function structuredPropertiesMerge(isPrimary, key) {
         return (secondary, primary) => {
             return merge(secondary, primary, {
                 arrayMerge: mergeStructuredProperties,
+                customMerge: customMerge.bind({}, isPrimary),
+            });
+        };
+    }
+    return (secondary, primary) => {
+        return merge(secondary, primary, {
+            arrayMerge: combineMerge,
+            customMerge: customMerge.bind({}, isPrimary),
+        });
+    };
+}
+
+function mergeInstitutionalMemoryElements(
+    destinationArray: Maybe<InstitutionalMemoryMetadata[]> | undefined,
+    sourceArray: Maybe<InstitutionalMemoryMetadata[]> | undefined,
+    _options,
+) {
+    if (!sourceArray?.length) return destinationArray || [];
+
+    // links should be unique by url and label
+    const filteredDestinationArray =
+        destinationArray?.filter(
+            (destinationElement) =>
+                sourceArray.findIndex(
+                    (sourceElement) =>
+                        sourceElement.url === destinationElement.url &&
+                        sourceElement.label === destinationElement.label,
+                ) === -1,
+        ) || [];
+
+    return [...sourceArray, ...filteredDestinationArray];
+}
+
+function institutionalMemoryMerge(isPrimary, key) {
+    if (key === 'elements') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: mergeInstitutionalMemoryElements,
                 customMerge: customMerge.bind({}, isPrimary),
             });
         };
@@ -353,6 +396,14 @@ function customMerge(isPrimary, key) {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),
                 customMerge: customMerge.bind({}, isPrimary),
+            });
+        };
+    }
+    if (key === 'institutionalMemory') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: getArrayMergeFunction(key),
+                customMerge: institutionalMemoryMerge.bind({}, isPrimary),
             });
         };
     }

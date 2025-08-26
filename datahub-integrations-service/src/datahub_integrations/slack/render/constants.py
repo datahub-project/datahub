@@ -1,0 +1,6 @@
+ACRYL_COLORS = [
+    "#11ADA0",
+    "#00615F",
+    "#003A3B",
+]
+ACRYL_COLOR = ACRYL_COLORS[0]

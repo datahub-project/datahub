@@ -38,6 +38,7 @@ export const IncidentResolveButton = ({
     privileges?: EntityPrivileges;
 }) => {
     const canEditIncidents = privileges?.canEditIncidents || false;
+
     const me = useUserContext();
     const [showResolvePopup, setShowResolvePopup] = useState(false);
     const [incidentResolver, setIncidentResolver] = useState<CorpUser | any>(null);

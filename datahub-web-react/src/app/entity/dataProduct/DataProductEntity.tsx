@@ -10,6 +10,7 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import { SidebarViewDefinitionSection } from '@app/entity/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
@@ -99,6 +100,9 @@ export class DataProductEntity implements Entity<DataProduct> {
     getSidebarSections = () => [
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
         },
         {
             component: SidebarOwnerSection,

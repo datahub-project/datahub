@@ -3,7 +3,10 @@ import styled from 'styled-components';
 
 import analytics, { DocRequestCTASource, EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { getFormAssociations } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import {
+    filterFormAssociationsForUser,
+    getFormAssociations,
+} from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 import FormSelectionModal from '@app/entity/shared/entityForm/FormSelectionModal/FormSelectionModal';
 import FormInfo from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/FormInfo';
 import EntityFormModal from '@app/entityV2/shared/entityForm/EntityFormModal';
@@ -20,8 +23,9 @@ export default function SidebarFormInfoWrapper() {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [selectedFormUrn, setSelectedFormUrn] = useState<string | null>(null);
     const formAssociations = getFormAssociations(entityData);
+    const filteredAssociations = formAssociations.filter((association) => filterFormAssociationsForUser(association));
 
-    if (!formAssociations.length) return null;
+    if (!filteredAssociations.length) return null;
 
     function openFormModal() {
         analytics.event({
@@ -29,8 +33,8 @@ export default function SidebarFormInfoWrapper() {
             source: DocRequestCTASource.AssetPage,
         });
 
-        if (formAssociations.length === 1) {
-            setSelectedFormUrn(formAssociations[0].form.urn);
+        if (filteredAssociations.length === 1) {
+            setSelectedFormUrn(filteredAssociations[0].form.urn);
             setIsFormVisible(true);
         } else {
             setIsFormSelectionModalVisible(true);

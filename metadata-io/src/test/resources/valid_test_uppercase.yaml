@@ -1,0 +1,10 @@
+on:
+  types:
+    - dataset
+  conditions:
+    - property: editableDatasetProperties.description
+      operator: EQUALS
+      values: ["value1"]
+rules:
+  - query: editableDatasetProperties.description
+    operation: EXISTS

@@ -119,5 +119,23 @@ record StructuredPropertyDefinition {
       }
     }
     lastModified: optional AuditStamp
-}
 
+    /**
+     * The filter status of this structured property - whether it will show up in search filters or not
+     * Deprecated! Use structuredPropertySettings.showInSearchFilters instead
+     */
+    @Searchable = {
+      "fieldType": "KEYWORD"
+    }
+    @deprecated
+    filterStatus: optional enum StructuredPropertyFilterStatus {
+    /**
+     * This structured property will show up in search filters
+     */
+    ENABLED
+    /**
+     * This structured property will not show up in search filters
+    */
+    DISABLED
+  } = "DISABLED"
+}

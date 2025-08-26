@@ -47,6 +47,7 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
         finalCriteria,
         scrollId,
         null,
-        count);
+        count,
+        null);
   }
 }

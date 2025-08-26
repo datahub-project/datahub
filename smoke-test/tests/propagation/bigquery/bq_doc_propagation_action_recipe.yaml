@@ -1,0 +1,29 @@
+name: bigquery-tag-propagation
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8080/schema-registry/api/}
+
+action:
+  type: "datahub_integrations.propagation.bigquery.tag_propagator:BigqueryTagPropagatorAction"
+  config:
+    bigquery:
+      taxonomy: "DataHub2"
+      project_id: "harshal-playground-306419"
+      #project_id: "${BIGQUERY_PROJECT_ID}"
+      #extra_client_options:
+      #  location: "EU"
+      credential:
+        project_id: "harshal-playground-306419"
+
+    tag_propagation: # Configs to enable or disable propagating tags to BigQuery
+      enabled: true
+      #tag_prefixes: ["urn:li:tag:1", "urn:li:tag:2"]
+    term_propagation: # Configs to enable or disable propagating terms to BigQuery
+      enabled: true
+    description_sync:
+      enabled: true
+      table_description_sync_enabled: true
+      column_description_sync_enabled: true

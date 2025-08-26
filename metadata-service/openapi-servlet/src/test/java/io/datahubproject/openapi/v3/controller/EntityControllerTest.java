@@ -86,6 +86,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -165,7 +166,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             eq(Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING")))),
             nullable(String.class),
             nullable(String.class),
-            anyInt()))
+            anyInt(),
+            eq(null)))
         .thenReturn(expectedResultAscending);
     ScrollResult expectedResultDescending =
         new ScrollResult()
@@ -185,7 +187,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                     SearchUtil.sortBy("urn", SortOrder.valueOf("DESCENDING")))),
             nullable(String.class),
             nullable(String.class),
-            anyInt()))
+            anyInt(),
+            eq(null)))
         .thenReturn(expectedResultDescending);
     // Mock entity aspect
     when(mockEntityService.getEnvelopedVersionedAspects(
@@ -473,6 +476,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     public TimeseriesAspectService timeseriesAspectService() {
       return timeseriesAspectService;
     }
+
+    @MockBean public SchemaRegistry schemaRegistry;
   }
 
   @Test
@@ -555,7 +560,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             any(),
             nullable(String.class),
             nullable(String.class),
-            anyInt()))
+            anyInt(),
+            nullable(String.class)))
         .thenReturn(expectedResult);
 
     when(mockEntityService.getEnvelopedVersionedAspects(
@@ -599,7 +605,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             any(),
             nullable(String.class),
             eq("10m"),
-            anyInt()))
+            anyInt(),
+            nullable(String.class)))
         .thenReturn(expectedResult);
 
     when(mockEntityService.getEnvelopedVersionedAspects(

@@ -1,7 +1,7 @@
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 
-import { TestResultType } from '@types';
+import { TestResult, TestResultType } from '@src/types.generated';
 
 /**
  * Returns the display text assoociated with an Test Result Type
@@ -47,4 +47,11 @@ export const getResultIcon = (result: TestResultType) => {
         default:
             throw new Error(`Unsupported Test Result Type ${result} provided.`);
     }
+};
+
+/**
+ * Filters out tests based on specified categories to exclude
+ */
+export const excludeTestsByCategories = (tests: TestResult[], categoriesToExclude: string[]) => {
+    return tests.filter((test) => test.test?.category && !categoriesToExclude.includes(test.test?.category));
 };

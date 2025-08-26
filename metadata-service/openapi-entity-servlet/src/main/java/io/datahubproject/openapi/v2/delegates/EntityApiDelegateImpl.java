@@ -1,13 +1,12 @@
 package io.datahubproject.openapi.v2.delegates;
 
-import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
+import static com.linkedin.metadata.authorization.ApiOperation.*;
+import static io.datahubproject.openapi.util.ReflectionCache.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.AuthorizerChain;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -87,7 +86,7 @@ public class EntityApiDelegateImpl<I, O, S> {
   private final EntityService<?> _entityService;
   private final SearchService _searchService;
   private final EntitiesController _v1Controller;
-  private final AuthorizerChain _authorizationChain;
+  private final Authorizer _authorizationChain;
   private final Class<I> _reqClazz;
   private final Class<O> _respClazz;
   private final Class<S> _scrollRespClazz;
@@ -103,7 +102,7 @@ public class EntityApiDelegateImpl<I, O, S> {
       EntityService<?> entityService,
       SearchService searchService,
       EntitiesController entitiesController,
-      AuthorizerChain authorizationChain,
+      Authorizer authorizationChain,
       Class<I> reqClazz,
       Class<O> respClazz,
       Class<S> scrollRespClazz) {
@@ -649,7 +648,8 @@ public class EntityApiDelegateImpl<I, O, S> {
             sortCriteria,
             scrollId,
             null,
-            count);
+            count,
+            null);
 
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(

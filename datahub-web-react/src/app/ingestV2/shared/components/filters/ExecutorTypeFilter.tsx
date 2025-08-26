@@ -1,22 +1,19 @@
 import { SimpleSelect } from '@components';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 
 export const EXECUTOR_TYPE_ALL_VALUE = 'All';
 export const EXECUTOR_TYPE_UI_VALUE = 'UI';
 export const EXECUTOR_TYPE_CLI_VALUE = 'CLI';
 
 interface Props {
-    defaultValues?: string[];
-    onUpdate?: (selectedValues: string[]) => void;
+    values: string[];
+    onUpdate: (selectedValues: string[]) => void;
 }
 
-export default function ExecutorTypeFilter({ defaultValues, onUpdate }: Props) {
-    const [values, setValues] = useState<string[]>(defaultValues || [EXECUTOR_TYPE_ALL_VALUE]);
-
+export default function ExecutorTypeFilter({ values, onUpdate }: Props) {
     const onUpdateHandler = useCallback(
         (selectedValues: string[]) => {
-            setValues(selectedValues);
-            onUpdate?.(selectedValues);
+            onUpdate(selectedValues);
         },
         [onUpdate],
     );

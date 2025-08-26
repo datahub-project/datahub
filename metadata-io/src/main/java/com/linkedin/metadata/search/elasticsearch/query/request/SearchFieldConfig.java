@@ -29,7 +29,20 @@ public class SearchFieldConfig {
   // Fields that can be filtered on directly, without appending the ".keyword" suffix.
   // TODO: This exclusion should be dynamic, based on @Searchable annotation field type. Not
   // hardcoded.
-  public static final Set<String> KEYWORD_FIELDS = Set.of("urn", "runId", "_index", "deprecated");
+  public static final Set<String> KEYWORD_FIELDS =
+      Set.of(
+          "urn",
+          "runId",
+          "_index",
+          "rowCount",
+          "columnCount",
+          "uniqueUserCountLast30DaysFeature",
+          "writeCountLast30DaysFeature",
+          "viewCountLast30DaysFeature",
+          "usageCountLast30DaysFeature",
+          "createdAt",
+          "lastModifiedAt",
+          "deprecated");
   public static final Set<String> PATH_HIERARCHY_FIELDS = Set.of("browsePathV2");
   public static final float URN_BOOST_SCORE = 10.0f;
 
@@ -65,6 +78,8 @@ public class SearchFieldConfig {
           SearchableAnnotation.FieldType.DATETIME,
           SearchableAnnotation.FieldType.OBJECT,
           SearchableAnnotation.FieldType.MAP_ARRAY);
+  private static final Set<SearchableAnnotation.FieldType> NUMERIC_TYPES =
+      Set.of(SearchableAnnotation.FieldType.DOUBLE);
   // NOT true for `urn`
   public static final Set<SearchableAnnotation.FieldType> TYPES_WITH_URN_TEXT =
       Set.of(SearchableAnnotation.FieldType.URN, SearchableAnnotation.FieldType.URN_PARTIAL);
@@ -262,6 +277,8 @@ public class SearchFieldConfig {
       return KEYWORD_ANALYZER;
     } else if (TYPES_WITH_URN_TEXT.contains(fieldType)) {
       return URN_SEARCH_ANALYZER;
+    } else if (NUMERIC_TYPES.contains(fieldType)) {
+      return KEYWORD_ANALYZER;
     } else {
       throw new IllegalStateException(
           String.format("Unknown analyzer for fieldName: %s, fieldType: %s", fieldName, fieldType));

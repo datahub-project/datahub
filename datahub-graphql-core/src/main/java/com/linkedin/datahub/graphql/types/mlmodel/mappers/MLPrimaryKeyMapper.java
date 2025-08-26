@@ -9,7 +9,9 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -20,13 +22,8 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyEditableProperties;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -37,6 +34,8 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.MLPrimaryKeyKey;
+import com.linkedin.metadata.search.features.LineageFeatures;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.ml.metadata.EditableMLPrimaryKeyProperties;
 import com.linkedin.ml.metadata.MLPrimaryKeyProperties;
 import com.linkedin.structured.StructuredProperties;
@@ -62,7 +61,7 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.MLPRIMARY_KEY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     MappingHelper<MLPrimaryKey> mappingHelper = new MappingHelper<>(aspectMap, result);
@@ -117,6 +116,18 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        SHARE_ASPECT_NAME,
+        (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
+    mappingHelper.mapToResult(
+        ORIGIN_ASPECT_NAME,
+        (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
+    mappingHelper.mapToResult(
+        LINEAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLineageFeatures(
+                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
+
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLPrimaryKey.class);
     } else {

@@ -1,0 +1,14 @@
+namespace com.linkedin.inferred
+
+/**
+ * Aspect for representing Inferred Metadata for dataset's schema fields
+ */
+@Aspect = {
+  "name": "schemaFieldsInferredMetadata"
+}
+record SchemaFieldsInferredMetadata {
+  /**
+   * Inferred Metadata for dataset's schema fields
+   */
+  schemaFieldsInferredMetadata: array[SchemaFieldInferredMetadata]
+}

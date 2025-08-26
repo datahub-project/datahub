@@ -43,7 +43,7 @@ public class MetadataChangeProposalConfig {
   @Accessors(chain = true)
   public static class ThrottleConfig {
     boolean enabled;
-    Integer threshold;
+    Integer threshold = Integer.MAX_VALUE;
     Integer maxAttempts;
     Integer initialIntervalMs;
     Integer multiplier;

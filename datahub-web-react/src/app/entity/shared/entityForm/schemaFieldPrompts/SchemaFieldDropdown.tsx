@@ -28,9 +28,10 @@ interface Props {
     field: SchemaField;
     prompts: FormPrompt[];
     associatedUrn?: string;
+    schemaFields?: SchemaField[];
 }
 
-export default function SchemaFieldDropdown({ field, prompts, associatedUrn }: Props) {
+export default function SchemaFieldDropdown({ field, prompts, associatedUrn, schemaFields }: Props) {
     const [isExpanded, setIsExpanded] = useState(false);
     return (
         <StyledCollapse onChange={() => setIsExpanded(!isExpanded)}>
@@ -39,7 +40,13 @@ export default function SchemaFieldDropdown({ field, prompts, associatedUrn }: P
                 key="0"
             >
                 {prompts.map((prompt) => (
-                    <Prompt key={prompt.id} prompt={prompt as FormPrompt} field={field} associatedUrn={associatedUrn} />
+                    <Prompt
+                        key={prompt.id}
+                        prompt={prompt as FormPrompt}
+                        field={field}
+                        associatedUrn={associatedUrn}
+                        schemaFields={schemaFields}
+                    />
                 ))}
             </Collapse.Panel>
         </StyledCollapse>

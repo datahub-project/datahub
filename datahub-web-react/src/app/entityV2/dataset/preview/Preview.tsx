@@ -136,8 +136,11 @@ export const Preview = ({
                     <DatasetStatsSummaryView
                         columnCount={columnCount}
                         rowCount={rowCount}
+                        sizeInBytes={statsSummary?.sizeInBytes}
                         queryCountLast30Days={statsSummary?.queryCountLast30Days}
+                        queryCountPercentileLast30Days={statsSummary?.queryCountPercentileLast30Days}
                         uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                        uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
                         color={ANTD_GRAY[8]}
                     />
                 )

@@ -60,6 +60,7 @@ export default function ExecutionsTable({
         status: getIngestionSourceStatus(execution.result),
         showRollback: execution.source?.latestSuccessfulExecution?.urn === execution.urn,
         cliIngestion: execution.input.executorId === CLI_EXECUTOR_ID,
+        privileges: execution.source?.privileges,
     }));
 
     const handleConfirmRollback = useCallback(() => {
@@ -141,7 +142,7 @@ export default function ExecutionsTable({
                 columns={tableColumns}
                 data={tableData}
                 isScrollable
-                isLoading={loading}
+                isLoading={loading && !tableData.length}
                 onRowClick={(record) => setFocusExecutionUrn(record.urn)}
                 footer={
                     isLastPage ? (

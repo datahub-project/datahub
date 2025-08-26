@@ -1,0 +1,9 @@
+source:
+  type: 'datahub_integrations.sources.remote_actions.remote_action_source.RemoteActionSource'
+  config:
+    lookback_days: 7
+    force_full_refresh: false # Set to true to force full refresh and discard previous state
+    action_urn: urn:li:dataHubAction:remote_hello_world
+    action_spec:
+      type: hello_world
+      config: {}

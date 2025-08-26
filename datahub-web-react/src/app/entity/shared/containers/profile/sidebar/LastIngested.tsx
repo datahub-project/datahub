@@ -1,13 +1,14 @@
 import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Image, Popover } from 'antd';
+import { Popover } from '@components';
+import { Image } from 'antd';
 import moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
+import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';

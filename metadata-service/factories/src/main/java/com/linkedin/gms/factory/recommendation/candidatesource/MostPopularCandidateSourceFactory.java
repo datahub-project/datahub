@@ -10,6 +10,7 @@ import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -33,9 +34,12 @@ public class MostPopularCandidateSourceFactory {
   @Qualifier("entityService")
   private EntityService<?> entityService;
 
+  @Value("${recommendationService.mostPopular.offline}")
+  private Boolean fetchOffline;
+
   @Bean(name = "mostPopularCandidateSource")
   @Nonnull
   protected MostPopularSource getInstance() {
-    return new MostPopularSource(searchClient, indexConvention, entityService);
+    return new MostPopularSource(searchClient, indexConvention, entityService, fetchOffline);
   }
 }

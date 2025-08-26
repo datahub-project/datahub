@@ -1,15 +1,17 @@
 package com.linkedin.metadata.search.utils;
 
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
+import static com.linkedin.metadata.utils.SearchUtil.URN_FIELD;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -33,7 +35,16 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
+import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -51,15 +62,16 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -95,7 +107,24 @@ public class ESAccessControlUtilTest {
           () ->
               ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
           null,
+          () -> TestOperationContexts.emptyActiveUsersRetrieverContext(null),
           null,
+          null,
+          null);
+
+  private static final OperationContext DISABLED_CONTEXT =
+      TestOperationContexts.systemContext(
+          () ->
+              OperationContextConfig.builder()
+                  .allowSystemAuthentication(true)
+                  .viewAuthorizationConfiguration(
+                      ViewAuthorizationConfiguration.builder().enabled(false).build())
+                  .build(),
+          () -> SYSTEM_AUTH,
+          () ->
+              ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
+          null,
+          () -> TestOperationContexts.emptyActiveUsersRetrieverContext(null),
           null,
           null,
           null);
@@ -288,6 +317,54 @@ public class ESAccessControlUtilTest {
                                                   .setCondition(PolicyMatchCondition.STARTS_WITH)
                                                   .setValues(
                                                       new StringArray(List.of(PREFIX_MATCH)))))))))
+          .put(
+              "resourceType",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(
+                                      new PolicyMatchCriterionArray(
+                                          List.of(
+                                              new PolicyMatchCriterion()
+                                                  .setField("RESOURCE_TYPE")
+                                                  .setCondition(PolicyMatchCondition.EQUALS)
+                                                  .setValues(
+                                                      new StringArray(List.of("domain")))))))))
+          .put(
+              "resourceTypeCasing",
+              new DataHubPolicyInfo()
+                  .setDisplayName("")
+                  .setState(PoliciesConfig.ACTIVE_POLICY_STATE)
+                  .setType(PoliciesConfig.METADATA_POLICY_TYPE)
+                  .setActors(
+                      new DataHubActorFilter()
+                          .setAllUsers(true)
+                          .setGroups(new UrnArray())
+                          .setUsers(new UrnArray()))
+                  .setPrivileges(new StringArray(List.of(VIEW_PRIVILEGE)))
+                  .setResources(
+                      new DataHubResourceFilter()
+                          .setFilter(
+                              new PolicyMatchFilter()
+                                  .setCriteria(
+                                      new PolicyMatchCriterionArray(
+                                          List.of(
+                                              new PolicyMatchCriterion()
+                                                  .setField("resource_type")
+                                                  .setCondition(PolicyMatchCondition.EQUALS)
+                                                  .setValues(
+                                                      new StringArray(List.of("domain")))))))))
           .build();
 
   /** User A is a technical owner of the result User B has no ownership */
@@ -587,22 +664,30 @@ public class ESAccessControlUtilTest {
 
   private static OperationContext sessionWithUserAGroupAandC(List<DataHubPolicyInfo> policies)
       throws RemoteInvocationException, URISyntaxException {
-    return sessionWithUserGroups(USER_A_AUTH, policies, List.of(TEST_GROUP_A, TEST_GROUP_C));
+    return sessionWithUserGroups(USER_A_AUTH, policies, List.of(TEST_GROUP_A, TEST_GROUP_C), true);
   }
 
   private static OperationContext sessionWithUserBNoGroup(List<DataHubPolicyInfo> policies)
       throws RemoteInvocationException, URISyntaxException {
-    return sessionWithUserGroups(USER_B_AUTH, policies, List.of());
+    return sessionWithUserGroups(USER_B_AUTH, policies, List.of(), true);
+  }
+
+  private static OperationContext sessionWithUserBAndViewAthorizationDisabled(
+      List<DataHubPolicyInfo> policies) throws RemoteInvocationException, URISyntaxException {
+    return sessionWithUserGroups(USER_B_AUTH, policies, List.of(), false);
   }
 
   private static OperationContext sessionWithUserGroups(
-      Authentication auth, List<DataHubPolicyInfo> policies, List<Urn> groups)
+      Authentication auth,
+      List<DataHubPolicyInfo> policies,
+      List<Urn> groups,
+      Boolean isViewAuthorizationEnabled)
       throws RemoteInvocationException, URISyntaxException {
     Urn actorUrn = UrnUtils.getUrn(auth.getActor().toUrnStr());
+    OperationContext opContext = isViewAuthorizationEnabled ? ENABLED_CONTEXT : DISABLED_CONTEXT;
     Authorizer dataHubAuthorizer =
-        new TestDataHubAuthorizer(
-            ENABLED_CONTEXT, policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
-    return ENABLED_CONTEXT.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
+        new TestDataHubAuthorizer(opContext, policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
+    return opContext.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
   }
 
   public static class TestDataHubAuthorizer extends DataHubAuthorizer {
@@ -614,7 +699,7 @@ public class ESAccessControlUtilTest {
         @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
         throws RemoteInvocationException, URISyntaxException {
       super(
-          ENABLED_CONTEXT,
+          opContext,
           mockUserGroupEntityClient(userGroups, resourceOwnerTypes),
           0,
           0,
@@ -762,5 +847,401 @@ public class ESAccessControlUtilTest {
               });
       return mockEntityClient;
     }
+  }
+
+  // Saas Only
+
+  private static final Optional<QueryBuilder> TEST_USER_A_DEFAULT =
+      Optional.of(
+          QueryBuilders.boolQuery()
+              .should(
+                  QueryBuilders.boolQuery()
+                      .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_A.toString()))))
+              .minimumShouldMatch(1));
+
+  private static final Optional<QueryBuilder> TEST_USER_B_DEFAULT =
+      Optional.of(
+          QueryBuilders.boolQuery()
+              .should(
+                  QueryBuilders.boolQuery()
+                      .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_B.toString()))))
+              .minimumShouldMatch(1));
+
+  @Test
+  public void testAllUsersFilter() throws RemoteInvocationException, URISyntaxException {
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allUsers")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(filter, Optional.empty());
+
+    // USER B
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("allUsers")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldNotAddFiltersWithEmptyEntityNamesWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+
+    assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldNotAddWithNullForEntityNamesWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+
+    assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldNotAddWithEntityNamesWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userBContext, List.of(DOMAIN_ENTITY_NAME));
+
+    assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldAddWithIngestionSourceEntityNameWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(
+            userBContext, List.of(INGESTION_SOURCE_ENTITY_NAME));
+
+    assertEquals(filter, TEST_USER_B_DEFAULT);
+  }
+
+  @Test
+  public void
+      testShouldThrowExceptionWithNotOnlyIngestionSourceEntityNameWhenViewAuthorizationDisabled()
+          throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    assertThrows(
+        RuntimeException.class,
+        () -> {
+          ESAccessControlUtil.buildAccessControlFilters(
+              userBContext, List.of(INGESTION_SOURCE_ENTITY_NAME, DOMAIN_ENTITY_NAME));
+        });
+  }
+
+  @Test
+  public void testUserAFilter() throws RemoteInvocationException, URISyntaxException {
+    // USER A
+    OperationContext userAContext = sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(filter, Optional.empty());
+
+    // USER B
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("userA")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(filter, TEST_USER_B_DEFAULT, "Expected default self filter for User B");
+  }
+
+  @Test
+  public void testAllGroupsFilter() throws RemoteInvocationException, URISyntaxException {
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allGroups")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(filter, Optional.empty());
+
+    // USER B
+    OperationContext userBContext =
+        sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("allGroups")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        TEST_USER_B_DEFAULT,
+        "Expected default self filter for User B since not part of a group");
+  }
+
+  @Test
+  public void testSingleGroupsFilter() throws RemoteInvocationException, URISyntaxException {
+    // Group B
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("groupB")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        TEST_USER_A_DEFAULT,
+        "Expected default self filter for User A since not part of a group B");
+
+    // USER B
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("groupB")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        TEST_USER_B_DEFAULT,
+        "Expected default self filter for User B since not part of a group");
+
+    // Group C
+    // USER A
+    userAContext = sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("groupC")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(filter, Optional.empty());
+
+    // USER B
+    userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("groupC")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        TEST_USER_B_DEFAULT,
+        "Expected default self filter for User B since not part of a group");
+  }
+
+  @Test
+  public void testAnyOwnerFilter() throws RemoteInvocationException, URISyntaxException {
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("anyOwner")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.termsQuery(
+                        "owners.keyword",
+                        List.of(
+                            TEST_USER_A.toString(),
+                            TEST_GROUP_C.toString(),
+                            TEST_GROUP_A.toString())))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_A.toString()))))
+                .minimumShouldMatch(1)));
+
+    // USER B
+    OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("anyOwner")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_B.toString()))))
+                .should(QueryBuilders.termsQuery("owners.keyword", List.of(TEST_USER_B.toString())))
+                .minimumShouldMatch(1)));
+  }
+
+  @Test
+  public void testBusinessOwnerFilter() throws RemoteInvocationException, URISyntaxException {
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("businessOwner")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_A.toString()))))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .should(
+                            QueryBuilders.termsQuery(
+                                "ownerTypes.urn:li:ownershipType:__system__business_owner.keyword",
+                                List.of(
+                                    TEST_USER_A.toString(),
+                                    TEST_GROUP_C.toString(),
+                                    TEST_GROUP_A.toString())))
+                        .minimumShouldMatch(1))
+                .minimumShouldMatch(1)));
+
+    // USER B
+    OperationContext userBContext =
+        sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("businessOwner")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_B.toString()))))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .should(
+                            QueryBuilders.termsQuery(
+                                "ownerTypes.urn:li:ownershipType:__system__business_owner.keyword",
+                                List.of(TEST_USER_B.toString())))
+                        .minimumShouldMatch(1))
+                .minimumShouldMatch(1)));
+  }
+
+  @Test
+  public void testDomainFilter() throws RemoteInvocationException, URISyntaxException {
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    OperationContext mockGraphUserAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("domainA"))).toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(null))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(mock(SearchRetriever.class))
+                    .build())
+            .build(USER_A_AUTH, false);
+
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            nullable(Filter.class),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
+            any(),
+            eq(Set.of(Constants.IS_PART_OF_RELATIONSHIP_NAME)),
+            eq(new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING)),
+            any(),
+            eq(null),
+            eq(GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT),
+            eq(null),
+            eq(null)))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        DOMAIN_B.toString(),
+                        DOMAIN_A.toString(),
+                        RelationshipDirection.OUTGOING,
+                        null))));
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(
+            mockGraphUserAContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_A.toString()))))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(
+                            QueryBuilders.termsQuery(
+                                "domains.keyword",
+                                List.of(DOMAIN_A.toString(), DOMAIN_B.toString()))))
+                .minimumShouldMatch(1)));
+  }
+
+  @Test
+  public void testPrefixMatchFilter() throws RemoteInvocationException, URISyntaxException {
+    GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
+    OperationContext mockGraphUserAContext =
+        sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("urnPrefixAllUsers"))).toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(null))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(mock(SearchRetriever.class))
+                    .build())
+            .build(USER_A_AUTH, false);
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(
+            mockGraphUserAContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery("urn", List.of(TEST_USER_A.toString()))))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(
+                            QueryBuilders.boolQuery()
+                                .minimumShouldMatch(1)
+                                .should(QueryBuilders.prefixQuery("urn", PREFIX_MATCH))))
+                .minimumShouldMatch(1)));
+  }
+
+  @Test
+  public void testResourceTypeCriteria() throws RemoteInvocationException, URISyntaxException {
+    // USER A
+    OperationContext userAContext =
+        sessionWithUserAGroupAandC(
+            List.of(TEST_POLICIES.get("resourceType"), TEST_POLICIES.get("resourceTypeCasing")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .minimumShouldMatch(1)
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(ES_INDEX_FIELD, "domainindex_v2")))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(URN_FIELD, TEST_USER_A.toString())))));
+
+    // USER B
+    OperationContext userBContext =
+        sessionWithUserBNoGroup(
+            List.of(TEST_POLICIES.get("resourceType"), TEST_POLICIES.get("resourceTypeCasing")));
+
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+    assertEquals(
+        filter,
+        Optional.of(
+            QueryBuilders.boolQuery()
+                .minimumShouldMatch(1)
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(URN_FIELD, TEST_USER_B.toString())))
+                .should(
+                    QueryBuilders.boolQuery()
+                        .filter(QueryBuilders.termsQuery(ES_INDEX_FIELD, "domainindex_v2")))));
   }
 }

@@ -7,6 +7,8 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';
+import { QualityTabContextProvider } from '@app/entityV2/shared/tabs/Dataset/Validations/QualityTabContextProvider';
+import { ValidationTabPaths } from '@app/entityV2/shared/tabs/Dataset/Validations/constants';
 import { DataContractTab } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractTab';
 import { useGetValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/useGetValidationsTab';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -45,13 +47,7 @@ const TabContentWrapper = styled.div`
     }
 `;
 
-enum TabPaths {
-    ASSERTIONS = 'List',
-    DATA_CONTRACT = 'Data Contract',
-    SUMMARY = 'Summary',
-}
-
-const DEFAULT_TAB = TabPaths.SUMMARY;
+const DEFAULT_TAB = ValidationTabPaths.SUMMARY;
 
 /**
  * Acryl-specific component used for rendering the Entity Validations Tab.
@@ -64,7 +60,7 @@ export const AcrylValidationsTab = () => {
     const isRenderingSiblings = (entityData?.siblingsSearch?.total && !isHideSiblingMode) || false;
     const appConfig = useAppConfig();
 
-    const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
+    const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(ValidationTabPaths));
 
     // If no tab was selected, select a default tab.
     useEffect(() => {
@@ -84,7 +80,7 @@ export const AcrylValidationsTab = () => {
                     <TabTitle>Summary</TabTitle>
                 </>
             ),
-            path: TabPaths.SUMMARY,
+            path: ValidationTabPaths.SUMMARY,
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertionSummaryTab />,
             id: 'summary',
@@ -95,7 +91,7 @@ export const AcrylValidationsTab = () => {
                     <TabTitle>Assertions</TabTitle>
                 </>
             ),
-            path: TabPaths.ASSERTIONS,
+            path: ValidationTabPaths.ASSERTIONS,
             disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertionList />,
             id: 'assertions',
@@ -110,7 +106,7 @@ export const AcrylValidationsTab = () => {
                     <TabTitle>Data Contract</TabTitle>
                 </>
             ),
-            path: TabPaths.DATA_CONTRACT,
+            path: ValidationTabPaths.DATA_CONTRACT,
             content: <DataContractTab />,
             disabled: isRenderingSiblings,
             tip: isRenderingSiblings ? (
@@ -148,9 +144,11 @@ export const AcrylValidationsTab = () => {
                     </Tooltip>
                 ))}
             </TabToolbar>
-            <TabContentWrapper>
-                {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
-            </TabContentWrapper>
+            <QualityTabContextProvider>
+                <TabContentWrapper>
+                    {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
+                </TabContentWrapper>
+            </QualityTabContextProvider>
         </>
     );
 };

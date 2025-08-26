@@ -1,0 +1,325 @@
+{
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tickets_mv,PROD)",
+  "aspects": {
+    "container": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517001140
+      },
+      "name": "container",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999438,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "container": "urn:li:container:199e66d51aeb64f24dbf5a0af94baf7e"
+      }
+    },
+    "browsePathsV2": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517001877
+      },
+      "name": "browsePathsV2",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999438,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "path": [
+          {
+            "urn": "urn:li:container:87934f7f3e4b5c53cee8ab7c386ca91c",
+            "id": "urn:li:container:87934f7f3e4b5c53cee8ab7c386ca91c"
+          },
+          {
+            "urn": "urn:li:container:199e66d51aeb64f24dbf5a0af94baf7e",
+            "id": "urn:li:container:199e66d51aeb64f24dbf5a0af94baf7e"
+          }
+        ]
+      }
+    },
+    "datasetKey": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517000106
+      },
+      "name": "datasetKey",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999437,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "name": "dev.public.tickets_mv",
+        "platform": "urn:li:dataPlatform:redshift",
+        "origin": "PROD"
+      }
+    },
+    "dataPlatformInstance": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517000106
+      },
+      "name": "dataPlatformInstance",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999437,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "platform": "urn:li:dataPlatform:redshift"
+      }
+    },
+    "viewProperties": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517001787
+      },
+      "name": "viewProperties",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999438,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "viewLanguage": "SQL",
+        "viewLogic": "CREATE MATERIALIZED VIEW tickets_mv AS\n    select   catgroup,\n    sum(qtysold) as sold\n    from     category c, event e, sales s\n    where    c.catid = e.catid\n    and      e.eventid = s.eventid\n    group by catgroup",
+        "materialized": true
+      }
+    },
+    "share": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717676224692
+      },
+      "name": "share",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastRunId": "no-run-id-provided",
+        "lastObserved": 1717676224692,
+        "runId": "no-run-id-provided"
+      },
+      "version": 0,
+      "value": {
+        "lastShareResults": []
+      }
+    },
+    "subTypes": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517001508
+      },
+      "name": "subTypes",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999438,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "typeNames": [
+          "View"
+        ]
+      }
+    },
+    "datasetProperties": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517000801
+      },
+      "name": "datasetProperties",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999438,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "name": "tickets_mv",
+        "customProperties": {},
+        "qualifiedName": "dev.public.tickets_mv",
+        "tags": []
+      }
+    },
+    "schemaMetadata": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517000106
+      },
+      "name": "schemaMetadata",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717516999437,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "created": {
+          "actor": "urn:li:corpuser:unknown",
+          "time": 0
+        },
+        "platformSchema": {
+          "com.linkedin.schema.MySqlDDL": {
+            "tableSchema": ""
+          }
+        },
+        "lastModified": {
+          "actor": "urn:li:corpuser:unknown",
+          "time": 0
+        },
+        "schemaName": "dev.public.tickets_mv",
+        "fields": [
+          {
+            "nullable": true,
+            "fieldPath": "catgroup",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "globalTags": {
+              "tags": []
+            },
+            "nativeDataType": "CHARACTER VARYING(10)",
+            "recursive": false
+          },
+          {
+            "nullable": true,
+            "fieldPath": "sold",
+            "isPartOfKey": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "globalTags": {
+              "tags": []
+            },
+            "nativeDataType": "BIGINT",
+            "recursive": false
+          }
+        ],
+        "version": 0,
+        "hash": "",
+        "platform": "urn:li:dataPlatform:redshift"
+      }
+    },
+    "upstreamLineage": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517016881
+      },
+      "name": "upstreamLineage",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717517016776,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "actor": "urn:li:corpuser:_ingestion",
+              "time": 1717517016774
+            },
+            "type": "VIEW",
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.category,PROD)",
+            "created": {
+              "actor": "urn:li:corpuser:_ingestion",
+              "time": 0
+            },
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.tickets_mv%2CPROD%29"
+          },
+          {
+            "auditStamp": {
+              "actor": "urn:li:corpuser:_ingestion",
+              "time": 1717517016774
+            },
+            "type": "VIEW",
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.event,PROD)",
+            "created": {
+              "actor": "urn:li:corpuser:_ingestion",
+              "time": 0
+            },
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.tickets_mv%2CPROD%29"
+          },
+          {
+            "auditStamp": {
+              "actor": "urn:li:corpuser:_ingestion",
+              "time": 1717517016774
+            },
+            "type": "VIEW",
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD)",
+            "created": {
+              "actor": "urn:li:corpuser:_ingestion",
+              "time": 0
+            },
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.tickets_mv%2CPROD%29"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tickets_mv,PROD),catgroup)"
+            ],
+            "confidenceScore": 0.9,
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.category,PROD),catgroup)"
+            ],
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.tickets_mv%2CPROD%29"
+          },
+          {
+            "downstreamType": "FIELD",
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.tickets_mv,PROD),sold)"
+            ],
+            "confidenceScore": 0.9,
+            "upstreamType": "FIELD_SET",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.sales,PROD),qtysold)"
+            ],
+            "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aredshift%2Cdev.public.tickets_mv%2CPROD%29"
+          }
+        ]
+      }
+    },
+    "status": {
+      "created": {
+        "actor": "urn:li:corpuser:__datahub_system",
+        "time": 1717517017705
+      },
+      "name": "status",
+      "type": "VERSIONED",
+      "systemMetadata": {
+        "lastObserved": 1717517016788,
+        "lastRunId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913",
+        "runId": "6e074c9e-a88a-4e85-899b-a2f3cb94b913"
+      },
+      "version": 0,
+      "value": {
+        "removed": false
+      }
+    }
+  },
+  "entityName": "dataset"
+}

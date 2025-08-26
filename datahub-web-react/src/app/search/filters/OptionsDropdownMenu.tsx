@@ -60,6 +60,7 @@ interface Props {
     updateSearchQuery: (query: string) => void;
     searchPlaceholder?: string;
     style?: CSSProperties;
+    hideSearchBar?: boolean;
     filter?: FacetMetadata;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
@@ -72,6 +73,7 @@ export default function OptionsDropdownMenu({
     updateSearchQuery,
     searchPlaceholder,
     style,
+    hideSearchBar,
     filter,
     manuallyUpdateFilters,
 }: Props) {
@@ -90,24 +92,26 @@ export default function OptionsDropdownMenu({
     return (
         <DropdownMenu data-testid="filter-dropdown" style={style}>
             <ScrollableContent>
-                <SearchBar
-                    initialQuery={searchQuery}
-                    placeholderText={searchPlaceholder || ''}
-                    suggestions={[]}
-                    hideRecommendations
-                    style={{
-                        padding: 12,
-                        paddingBottom: 5,
-                    }}
-                    inputStyle={{
-                        height: 30,
-                        fontSize: 12,
-                        borderRadius: 8,
-                    }}
-                    onSearch={() => null}
-                    onQueryChange={(q) => updateSearchQuery(q)}
-                    entityRegistry={entityRegistry}
-                />
+                {!hideSearchBar && (
+                    <SearchBar
+                        initialQuery={searchQuery}
+                        placeholderText={searchPlaceholder || ''}
+                        suggestions={[]}
+                        hideRecommendations
+                        style={{
+                            padding: 12,
+                            paddingBottom: 5,
+                        }}
+                        inputStyle={{
+                            height: 30,
+                            fontSize: 12,
+                            borderRadius: 8,
+                        }}
+                        onSearch={() => null}
+                        onQueryChange={(q) => updateSearchQuery(q)}
+                        entityRegistry={entityRegistry}
+                    />
+                )}
                 {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}
                 {isLoading && (
                     <LoadingWrapper>

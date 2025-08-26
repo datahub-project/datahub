@@ -1,6 +1,6 @@
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { Button, Divider, Space, Tag, Typography, message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import EntityGroups from '@app/entity/shared/EntityGroups';
@@ -22,7 +22,6 @@ import {
 } from '@app/entity/shared/SidebarStyledComponents';
 import UserEditProfileModal from '@app/entity/user/UserEditProfileModal';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
-import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { getCountryName } from '@src/app/shared/sidebar/components';
 
@@ -85,23 +84,6 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const me = useUserContext();
     const isProfileOwner = me?.user?.urn === urn;
-
-    const { updateTitle } = useBrowserTitle();
-
-    useEffect(() => {
-        // You can use the title and updateTitle function here
-        // For example, updating the title when the component mounts
-        if (name) {
-            updateTitle(`User | ${name}`);
-        }
-        // // Don't forget to clean up the title when the component unmounts
-        return () => {
-            if (name) {
-                // added to condition for rerendering issue
-                updateTitle('');
-            }
-        };
-    }, [name, updateTitle]);
 
     const getEditModalData = {
         urn,

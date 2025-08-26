@@ -1,0 +1,21 @@
+namespace com.linkedin.test
+
+/**
+ * Report related to the actions applied in this test
+ */
+record TestActionsReport {
+  /**
+   * Errors related to the actions applied in this test
+  */
+  errors: optional array[TestActionsError]
+
+  /**
+   * The total number of entities that are affected by the actions of this test
+  */
+  totalEntityCount: optional long
+
+  /**
+   * The number of entities that have already been acted upon by this test automation
+  */
+  processedEntityCount: optional long
+}

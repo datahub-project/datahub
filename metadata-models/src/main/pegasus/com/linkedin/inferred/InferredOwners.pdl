@@ -1,0 +1,19 @@
+namespace com.linkedin.inferred
+
+import com.linkedin.common.Owner
+
+/**
+ * Records inferred ownership information along with its provenance
+ * All owners in this record share same provenance
+ */
+record InferredOwners {
+    /**
+     * Inferred ownership details
+     */    
+    owners: array[Owner]
+
+    /**
+     * Provenance details about this inference
+     */
+    source: InferredMetadataSource 
+}

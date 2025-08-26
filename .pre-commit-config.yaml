@@ -25,11 +25,39 @@ repos:
         files: ^datahub-actions/.*\.(py|toml)$
         pass_filenames: false
 
+      - id: datahub-executor-lint-fix
+        name: datahub-executor Lint Fix
+        entry: ./gradlew :datahub-executor:lintFix
+        language: system
+        files: ^datahub-executor/.*\.py$
+        pass_filenames: false
+
       - id: datahub-graphql-core-spotless
         name: datahub-graphql-core Spotless Apply
         entry: ./gradlew :datahub-graphql-core:spotlessApply
         language: system
         files: ^datahub-graphql-core/.*\.java$
+        pass_filenames: false
+
+      - id: datahub-integrations-service-spotless
+        name: datahub-integrations-service Spotless Apply
+        entry: ./gradlew :datahub-integrations-service:spotlessApply
+        language: system
+        files: ^datahub-integrations-service/.*\.java$
+        pass_filenames: false
+
+      - id: datahub-integrations-service-lint-fix
+        name: datahub-integrations-service Lint Fix
+        entry: ./gradlew :datahub-integrations-service:lintFix
+        language: system
+        files: ^datahub-integrations-service/.*\.py$
+        pass_filenames: false
+
+      - id: datahub-integrations-service-clients-java-spotless
+        name: datahub-integrations-service/clients/java Spotless Apply
+        entry: ./gradlew :datahub-integrations-service:clients:java:spotlessApply
+        language: system
+        files: ^datahub-integrations-service/clients/java/.*\.java$
         pass_filenames: false
 
       - id: datahub-upgrade-spotless
@@ -100,6 +128,13 @@ repos:
         entry: ./gradlew :metadata-ingestion:lintFix
         language: system
         files: ^metadata-ingestion/.*\.(py|toml)$
+        pass_filenames: false
+
+      - id: metadata-ingestion-modules-acryl-cloud-lint-fix
+        name: metadata-ingestion-modules/acryl-cloud Lint Fix
+        entry: ./gradlew :metadata-ingestion-modules:acryl-cloud:lintFix
+        language: system
+        files: ^metadata-ingestion-modules/acryl-cloud/.*\.py$
         pass_filenames: false
 
       - id: metadata-ingestion-modules-airflow-plugin-lint-fix
@@ -277,6 +312,13 @@ repos:
         files: ^metadata-operation-context/.*\.java$
         pass_filenames: false
 
+      - id: metadata-service-admin-servlet-impl-spotless
+        name: metadata-service/admin-servlet-impl Spotless Apply
+        entry: ./gradlew :metadata-service:admin-servlet-impl:spotlessApply
+        language: system
+        files: ^metadata-service/admin-servlet-impl/.*\.java$
+        pass_filenames: false
+
       - id: metadata-service-auth-config-spotless
         name: metadata-service/auth-config Spotless Apply
         entry: ./gradlew :metadata-service:auth-config:spotlessApply
@@ -368,6 +410,13 @@ repos:
         files: ^metadata-service/openapi-entity-servlet/generators/.*\.java$
         pass_filenames: false
 
+      - id: metadata-service-openapi-metadatatests-servlet-spotless
+        name: metadata-service/openapi-metadatatests-servlet Spotless Apply
+        entry: ./gradlew :metadata-service:openapi-metadatatests-servlet:spotlessApply
+        language: system
+        files: ^metadata-service/openapi-metadatatests-servlet/.*\.java$
+        pass_filenames: false
+
       - id: metadata-service-openapi-servlet-spotless
         name: metadata-service/openapi-servlet Spotless Apply
         entry: ./gradlew :metadata-service:openapi-servlet:spotlessApply
@@ -431,6 +480,13 @@ repos:
         files: ^metadata-service/schema-registry-servlet/.*\.java$
         pass_filenames: false
 
+      - id: metadata-service-scim-api-spotless
+        name: metadata-service/scim-api Spotless Apply
+        entry: ./gradlew :metadata-service:scim-api:spotlessApply
+        language: system
+        files: ^metadata-service/scim-api/.*\.java$
+        pass_filenames: false
+
       - id: metadata-service-services-spotless
         name: metadata-service/services Spotless Apply
         entry: ./gradlew :metadata-service:services:spotlessApply
@@ -452,6 +508,13 @@ repos:
         files: ^metadata-service/war/.*\.java$
         pass_filenames: false
 
+      - id: metadata-test-util-java-spotless
+        name: metadata-test-util/java Spotless Apply
+        entry: ./gradlew :metadata-test-util:java:spotlessApply
+        language: system
+        files: ^metadata-test-util/java/.*\.java$
+        pass_filenames: false
+
       - id: metadata-utils-spotless
         name: metadata-utils Spotless Apply
         entry: ./gradlew :metadata-utils:spotlessApply
@@ -464,6 +527,13 @@ repos:
         entry: ./gradlew :mock-entity-registry:spotlessApply
         language: system
         files: ^mock-entity-registry/.*\.java$
+        pass_filenames: false
+
+      - id: notifications-spotless
+        name: notifications Spotless Apply
+        entry: ./gradlew :notifications:spotlessApply
+        language: system
+        files: ^notifications/.*\.java$
         pass_filenames: false
 
       - id: smoke-test-lint-fix
@@ -493,3 +563,10 @@ repos:
         language: system
         files: ^(metadata-ingestion-modules/.*|metadata-models/.*)$
         pass_filenames: false
+
+      - id: web-react-lint-fix
+        name: web-react lint fix
+        entry: .github/scripts/web_react_lint.sh
+        language: system
+        pass_filenames: false
+        files: datahub-web-react/.*\.(js|jsx|ts|tsx)

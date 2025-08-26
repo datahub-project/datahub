@@ -7,7 +7,8 @@ import styled from 'styled-components';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { TestResults } from '@app/entity/shared/tabs/Dataset/Governance/TestResults';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { AcrylTestResults } from '@app/entity/shared/tabs/Dataset/Governance/AcrylTestResults';
 import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
 import { GOVERNANCE_TAB_NAME } from '@app/entityV2/dataset/constants';
 
@@ -30,9 +31,10 @@ const DEFAULT_TAB = TabPaths.TESTS;
  * Component used for rendering the Entity Governance Tab.
  */
 export const GovernanceTab = () => {
-    const { entityData } = useEntityData();
     const history = useHistory();
     const { pathname } = useLocation();
+    const { urn, entityData } = useEntityData();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const passingTests = (entityData as any)?.testResults?.passing || [];
     const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
@@ -44,9 +46,9 @@ export const GovernanceTab = () => {
     useEffect(() => {
         if (!selectedTab && basePath.endsWith(GOVERNANCE_TAB_NAME)) {
             // Route to the default tab.
-            history.replace(`${basePath}/${DEFAULT_TAB}`);
+            history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }
-    }, [selectedTab, basePath, history]);
+    }, [selectedTab, basePath, history, isHideSiblingMode]);
 
     /**
      * The top-level Toolbar tabs to display.
@@ -61,7 +63,7 @@ export const GovernanceTab = () => {
             ),
             path: TabPaths.TESTS,
             disabled: totalTests === 0,
-            content: <TestResults passing={passingTests} failing={maybeFailingTests} />,
+            content: <AcrylTestResults urn={urn} />,
         },
     ];
 
@@ -71,6 +73,7 @@ export const GovernanceTab = () => {
                 <div>
                     {tabs.map((tab) => (
                         <TabButton
+                            key={tab.path}
                             type="text"
                             disabled={tab.disabled}
                             selected={selectedTab === tab.path}

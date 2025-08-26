@@ -318,7 +318,22 @@ public interface EntityClient {
       List<SortCriterion> sortCriteria)
       throws RemoteInvocationException {
     return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, List.of());
+        opContext, entities, input, filter, start, count, sortCriteria, List.of(), null);
+  }
+
+  @Nonnull
+  default SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      int start,
+      @Nullable Integer count,
+      List<SortCriterion> sortCriteria,
+      @Nullable String predicateJson)
+      throws RemoteInvocationException {
+    return searchAcrossEntities(
+        opContext, entities, input, filter, start, count, sortCriteria, List.of(), predicateJson);
   }
 
   /**
@@ -329,7 +344,8 @@ public interface EntityClient {
    * @param filter search filters
    * @param start start offset for search results
    * @param count max number of search results requested
-   * @param facets list of facets we want aggregations for
+   * @param facets list of facets we want aggregations for SAAS ONLY *
+   * @param predicateJson json string of a predicate rule to be used as a filter for the query
    * @return Snapshot key
    * @throws RemoteInvocationException when unable to execute request
    */
@@ -341,7 +357,8 @@ public interface EntityClient {
       int start,
       @Nullable Integer count,
       List<SortCriterion> sortCriteria,
-      @Nonnull List<String> facets)
+      @Nonnull List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException;
 
   /**
@@ -369,7 +386,32 @@ public interface EntityClient {
       @Nullable Integer count)
       throws RemoteInvocationException {
     return scrollAcrossEntities(
-        opContext, entities, input, filter, scrollId, keepAlive, sortCriteria, count, List.of());
+        opContext,
+        entities,
+        input,
+        filter,
+        scrollId,
+        keepAlive,
+        sortCriteria,
+        count,
+        List.of(),
+        null);
+  }
+
+  @Nonnull
+  default ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      List<SortCriterion> sortCriteria,
+      @Nullable Integer limit,
+      List<String> facets)
+      throws RemoteInvocationException {
+    return scrollAcrossEntities(
+        opContext, entities, input, filter, scrollId, keepAlive, sortCriteria, limit, facets, null);
   }
 
   /**
@@ -392,8 +434,9 @@ public interface EntityClient {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
-      @Nullable Integer limit,
-      List<String> facets)
+      @Nullable Integer count,
+      List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException;
 
   /**

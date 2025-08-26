@@ -79,6 +79,12 @@ const NoGroupMembers = styled(Empty)`
     padding: 40px;
 `;
 
+const StyledMoreOutlined = styled(MoreOutlined)`
+    &:hover {
+        cursor: pointer;
+    }
+`;
+
 type Props = {
     urn: string;
     pageSize: number;
@@ -185,7 +191,12 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     return (
         <>
             <Row style={ADD_MEMBER_STYLE}>
-                <AddMember type="text" disabled={isExternalGroup} onClick={onClickEditMembers}>
+                <AddMember
+                    type="text"
+                    disabled={isExternalGroup}
+                    onClick={onClickEditMembers}
+                    data-testid="add-group-member-button"
+                >
                     <UserAddOutlined />
                     <AddMemberText>Add Member</AddMemberText>
                 </AddMember>
@@ -214,7 +225,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                                 <MemberColumn xl={1} lg={1} md={1} sm={1} xs={1}>
                                     <MemberEditIcon>
                                         <Dropdown menu={{ items: getItems(item) }}>
-                                            <MoreOutlined />
+                                            <StyledMoreOutlined />
                                         </Dropdown>
                                     </MemberEditIcon>
                                 </MemberColumn>

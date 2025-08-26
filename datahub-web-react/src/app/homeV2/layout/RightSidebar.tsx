@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { Announcements } from '@app/homeV2/action/announcement/Announcements';
+import { PendingTasks } from '@app/homeV2/action/task/PendingTasks';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: boolean }>`
@@ -36,20 +37,22 @@ const Content = styled.div`
 export const RightSidebar = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [hasAnnouncements, setHasAnnouncements] = useState<boolean | null>(null);
+    const [hasPendingTasks, setHasPendingTasks] = useState<boolean | null>(null);
 
     const [isSidebarHidden, setIsSidebarHidden] = useState<boolean>(true);
 
     useEffect(() => {
         if (!isShowNavBarRedesign) return;
 
-        const hasData = hasAnnouncements;
+        const hasData = hasAnnouncements || hasPendingTasks;
         setIsSidebarHidden(!hasData);
-    }, [isShowNavBarRedesign, hasAnnouncements, setIsSidebarHidden]);
+    }, [isShowNavBarRedesign, hasAnnouncements, hasPendingTasks, setIsSidebarHidden]);
 
     return (
         <Container $isHidden={isSidebarHidden} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Content>
                 <Announcements setHasAnnouncements={setHasAnnouncements} />
+                <PendingTasks setHasPendingTasks={setHasPendingTasks} />
             </Content>
         </Container>
     );

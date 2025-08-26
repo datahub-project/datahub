@@ -17,7 +17,14 @@ import {
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { AssertionResultType, AssertionRunEventsResult, AssertionRunStatus, DataPlatform, EntityType } from '@types';
+import {
+    AssertionResultType,
+    AssertionRunEventsResult,
+    AssertionRunStatus,
+    AssertionSourceType,
+    DataPlatform,
+    EntityType,
+} from '@types';
 
 const RESULT_CHART_WIDTH_PX = 800;
 
@@ -66,6 +73,7 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                 const gmtTime = resultTime.toUTCString();
                 const resultUrl = result.externalUrl;
                 const isInitializing = result.type === AssertionResultType.Init;
+                const isSmartAssertion = result.assertion?.source?.type === AssertionSourceType.Inferred;
                 const errorMessage = getResultErrorMessage(result);
                 const platformName =
                     (platform && entityRegistry.getDisplayName(EntityType.DataPlatform, platform)) || undefined;
@@ -81,7 +89,7 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                         title: (
                             <>
                                 <AssertionResultIcon>{getResultIcon(result.type)}</AssertionResultIcon>
-                                <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
+                                <Typography.Text strong>{getResultText(result.type, isSmartAssertion)}</Typography.Text>
                             </>
                         ),
                         content: (
@@ -91,7 +99,9 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                                 </AssertionResultDetailsContainer>
                                 {isInitializing && (
                                     <AssertionResultInitializingMessage>
-                                        Collecting the information required to evaluate this assertion.
+                                        {isSmartAssertion
+                                            ? 'Collecting data to train the model. Evaluation will begin once training is complete. This can take up to 7 days.'
+                                            : 'Collecting the information required to evaluate this assertion. Evaluation will begin once the information is collected.'}
                                     </AssertionResultInitializingMessage>
                                 )}
                                 {errorMessage && (

@@ -28,11 +28,15 @@ export const TagTermLabel = ({ entity, termName }: Props) => {
     }
 
     if (entity?.type === EntityType.GlossaryTerm) {
-        return <TermLabel name={entityRegistry.getDisplayName(entity.type, entity)} />;
+        return <TermLabel name={entityRegistry.getDisplayName(entity.type, entity)} type={entity?.type} />;
+    }
+
+    if (entity?.type === EntityType.GlossaryNode) {
+        return <TermLabel name={entityRegistry.getDisplayName(entity.type, entity)} type={entity?.type} />;
     }
 
     if (termName) {
-        return <TermLabel name={termName} />;
+        return <TermLabel name={termName} type={entity?.type} />;
     }
     return null;
 };

@@ -5,6 +5,7 @@ import React from 'react';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
 import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { getShouldShowProposeButton } from '@app/entity/shared/tabs/Documentation/components/DescriptionEditor';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -97,5 +98,18 @@ describe('markdown sanitization', () => {
         const sanitizedText = DOMPurify.sanitize(text);
 
         expect(sanitizedText).toBe(text);
+    });
+});
+
+describe('DescriptionEditor', () => {
+    it('should show the propose button for entity types that support description proposals', () => {
+        expect(getShouldShowProposeButton(EntityType.GlossaryTerm)).toBe(true);
+        expect(getShouldShowProposeButton(EntityType.GlossaryNode)).toBe(true);
+        expect(getShouldShowProposeButton(EntityType.Dataset)).toBe(true);
+    });
+
+    it('should not show the propose button for non-Glossary entities', () => {
+        const shouldShowProposeButton = getShouldShowProposeButton(EntityType.Domain);
+        expect(shouldShowProposeButton).toBe(false);
     });
 });

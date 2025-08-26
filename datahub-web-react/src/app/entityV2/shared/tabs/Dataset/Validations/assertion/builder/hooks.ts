@@ -2,20 +2,39 @@ import { message } from 'antd';
 import { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 
+import { getFreshnessSourceOption } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { DatasetFreshnessSourceType } from '@types';
+
+type ChangeSourceOptionContext = {
+    sourceType: DatasetFreshnessSourceType;
+    updateSourceType: (value: string) => void;
+};
+
+// Custom hook to update the source type when a condition is met
+export const useChangeSourceOptionIf = (
+    condition: boolean,
+    { sourceType, updateSourceType }: ChangeSourceOptionContext,
+) => {
+    useEffect(() => {
+        if (condition) {
+            const sourceOption = getFreshnessSourceOption(sourceType);
+            updateSourceType(sourceOption.name);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [condition]);
+};
+
+export const getAssertionUrl = (urn: string, baseUrl: string) => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('assertion_urn', urn);
+    return `${baseUrl}?${queryParams.toString()}`;
+};
 
 export const useAssertionURNCopyLink = (urn: string) => {
     const onCopyLink = () => {
-        const assertionUrn = urn;
-
-        // Create a URL with the assertion_urn query parameter
-        const currentUrl = new URL(window.location.href);
-
-        // Add or update the assertion_urn query parameter
-        currentUrl.searchParams.set('assertion_urn', encodeURIComponent(assertionUrn));
-
-        // The updated URL with the new or modified query parameter
-        const assertionUrl = currentUrl.href;
+        const assertionUrl = getAssertionUrl(urn, window.location.origin + window.location.pathname);
 
         // Copy the URL to the clipboard
         navigator.clipboard.writeText(assertionUrl).then(

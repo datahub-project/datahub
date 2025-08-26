@@ -1,0 +1,134 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+import com.linkedin.common.TagAssociation
+
+/**
+ * Tracks extra context around an assertion
+ * Useful for doing realtime analytic queries to ES
+ */
+record AssertionAnalyticsContext {
+
+  /**
+    * Type of assertion.
+    */
+  @TimeseriesField = {}
+  type: AssertionType
+
+  /**
+   * Creator of the assertion.
+   */
+  @TimeseriesField = {}
+  creator: optional Urn
+
+  /**
+   * The Domains attached to the entity's parent Asset
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasAsserteeDomain",
+      "addToFilters": true
+    }
+  }
+  @TimeseriesField = {}
+  asserteeDomains: optional array[Urn]
+
+  /**
+   * The Data Products attached to the entity's parent Asset
+   */
+  @Searchable = {
+    "/*": {
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasAsserteeDataProduct",
+      "addToFilters": true
+    }
+  }
+  @TimeseriesField = {}
+  asserteeDataProducts: optional array[Urn]
+
+  /**
+   * The Tags attached to the entity's parent Asset
+   */
+  @Searchable = {
+    "/*": {
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasAsserteeTags",
+        "addToFilters": true
+    }
+  }
+  asserteeTags: optional array[Urn]
+
+  /**
+   * The Glossary Terms attached to the entity's parent Asset
+   */
+  @Searchable = {
+    "/*": {
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasAsserteeGlossaryTerms",
+        "addToFilters": true
+    }
+  }
+  @TimeseriesField = {}
+  asserteeGlossaryTerms: optional array[Urn]
+
+  /**
+   * Parent Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name
+   * (Caveat: only corpuser is currently supported in the frontend.)
+   */
+  @Searchable = {
+    "/*": {
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasAsserteeOwners",
+        "addToFilters": true
+    }
+  }
+  @TimeseriesField = {}
+  asserteeOwners: optional array[Urn]
+
+  /**
+   * Data Platform for parent
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true
+  }
+  @TimeseriesField = {}
+  asserteeDataPlatform: optional Urn
+
+  /**
+   * Instance of the parent's data platform (e.g. db instance)
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "addToFilters": true
+  }
+  @TimeseriesField = {}
+  asserteeDataPlatformInstance: optional Urn
+
+  /**
+   * Only provided if the Assertion is of type 'Column'. The glossary terms associated with the target column.
+   */
+  @Searchable = {
+    "/*": {
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasAsserteeSchemaFieldGlossaryTerms",
+        "addToFilters": true
+    }
+  }
+  @TimeseriesField = {}
+  asserteeSchemaFieldGlossaryTerms: optional array[Urn]
+
+  /**
+   * Only provided if the Assertion is of type 'Column'. The tags associated with the target column.
+   */
+  @Searchable = {
+    "/*": {
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasAsserteeSchemaFieldTags",
+        "addToFilters": true
+    }
+  }
+  @TimeseriesField = {}
+  asserteeSchemaFieldTags: optional array[Urn]
+}

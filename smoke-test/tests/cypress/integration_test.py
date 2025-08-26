@@ -29,6 +29,10 @@ TEST_DBT_DATA_FILENAME = "cypress_dbt_data.json"
 TEST_PATCH_DATA_FILENAME = "patch-data.json"
 TEST_ONBOARDING_DATA_FILENAME: str = "onboarding.json"
 
+ACRYL_MAIN_TEST_DATA_FILENAME = "acryl-main-data.json"
+ACRYL_MAIN_INCIDENT_DATA_FILENAME = "incidents_test.json"
+ACRYL_MAIN_QUERY_DATA_FILENAME = "query-data.json"
+
 HOME_PAGE_ONBOARDING_IDS: List[str] = [
     "global-welcome-to-datahub",
     "home-page-ingestion",
@@ -55,6 +59,7 @@ ENTITY_PROFILE_ONBOARDING_IDS: List[str] = [
     "entity-profile-tags",
     "entity-profile-glossary-terms",
     "entity-profile-domains",
+    "entity-profile-subscriptions",
 ]
 
 INGESTION_ONBOARDING_IDS: List[str] = [
@@ -126,6 +131,10 @@ def update_fixture_timestamps(cypress_test_data_dir: str) -> None:
         cypress_test_data_dir: Directory containing the test data files
     """
     timestamp_config: dict = {
+        ACRYL_MAIN_QUERY_DATA_FILENAME: [
+            "$.*.aspect.json.created.time",
+            "$.*.aspect.json.lastModified.time",
+        ],
         # Add more files and their timestamp paths as needed
     }
 
@@ -165,6 +174,16 @@ def ingest_data(auth_session, graph_client):
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_INCIDENT_DATA_FILENAME}"
     )
     ingest_time_lineage(graph_client)
+    # acryl-main-data is for data specific to tests in the acryl-main-branch to avoid merge conflicts with OSS
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_TEST_DATA_FILENAME}"
+    )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_INCIDENT_DATA_FILENAME}"
+    )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_QUERY_DATA_FILENAME}"
+    )
     print_now()
     print("completed ingesting test data")
 
@@ -190,6 +209,16 @@ def ingest_cleanup_data(auth_session, graph_client):
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_INCIDENT_DATA_FILENAME}"
     )
 
+    # acryl-main-data is for data specific to tests in the acryl-main-branch to avoid merge conflicts with OSS
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_TEST_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_INCIDENT_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_QUERY_DATA_FILENAME}"
+    )
     print_now()
     print("deleting onboarding data file")
     if os.path.exists(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"):
@@ -242,27 +271,32 @@ def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     tag_arg = ""
+    parallel_arg = ""
     test_strategy = os.getenv("TEST_STRATEGY", None)
     if record_key:
         record_arg = " --record "
-        batch_number = os.getenv("BATCH_NUMBER")
-        batch_count = os.getenv("BATCH_COUNT")
-        if batch_number and batch_count:
-            batch_suffix = f"-{batch_number}{batch_count}"
-        else:
-            batch_suffix = ""
-        tag_arg = f" --tag {test_strategy}{batch_suffix}"
+        parallel_arg = f" --parallel --ci-build-id={os.getenv('CI_BUILD_ID')}"
+        # batch_number = os.getenv("BATCH_NUMBER")
+        # batch_count = os.getenv("BATCH_COUNT")
+        # if batch_number and batch_count:
+        #    batch_suffix = f"-{batch_number}{batch_count}"
+        # else:
+        #    batch_suffix = ""
+        # tag_arg = f" --tag {test_strategy}{batch_suffix}"
     else:
         record_arg = " "
 
     print(f"test strategy is {test_strategy}")
     test_spec_arg = ""
-    specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
+    # specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
+    specs_str = ",".join(
+        [f"**/{f}" for f in _get_js_files("tests/cypress/cypress/e2e")]
+    )
     test_spec_arg = f" --spec '{specs_str}' "
 
     print("Running Cypress tests with command")
     node_options = "--max-old-space-size=6000"
-    command = f'NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {test_spec_arg} {tag_arg} --config numTestsKeptInMemory=2'
+    command = f'NO_COLOR=1 NODE_OPTIONS="{node_options}" npx cypress run {record_arg} {parallel_arg} {test_spec_arg} {tag_arg} --config numTestsKeptInMemory=2'
     print(command)
     # Add --headed --spec '**/mutations/mutations.js' (change spec name)
     # in case you want to see the browser for debugging

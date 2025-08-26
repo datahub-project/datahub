@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.IncidentsSummary;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -28,8 +30,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class IncidentService extends BaseService {
 
-  public IncidentService(@Nonnull final SystemEntityClient entityClient) {
-    super(entityClient);
+  public IncidentService(
+      @Nonnull final SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**

@@ -9,8 +9,9 @@ import analytics, { EventType } from '@src/app/analytics';
 import { MenuItem } from '@src/app/govern/structuredProperties/styledComponents';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
-import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
+import { EntityType, Maybe, SchemaFieldEntity, StructuredPropertyEntity } from '@src/types.generated';
 
 export const MoreOptionsContainer = styled.div`
     display: flex;
@@ -36,9 +37,11 @@ interface Props {
     values?: (string | number | null)[];
     refetch?: () => void;
     isAddMode?: boolean;
+    fieldEntity?: Maybe<SchemaFieldEntity>;
 }
 
-export function EditColumn({ structuredProperty, associatedUrn, values, refetch, isAddMode }: Props) {
+export function EditColumn({ structuredProperty, associatedUrn, values, refetch, isAddMode, fieldEntity }: Props) {
+    const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const { refetch: entityRefetch } = useEntityContext();
     const { entityType } = useEntityData();
@@ -132,13 +135,17 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                 closeModal={() => setIsEditModalVisible(false)}
                 refetch={refetch}
                 isAddMode={isAddMode}
+                fieldEntity={fieldEntity}
             />
             <ConfirmationModal
                 isOpen={showConfirmRemove}
                 handleClose={handleRemoveClose}
                 handleConfirm={() => handleRemoveProperty()}
                 modalTitle="Confirm Remove Structured Property"
-                modalText={`Are you sure you want to remove ${structuredProperty.definition.displayName} from this asset?`}
+                modalText={`Are you sure you want to remove ${entityRegistry.getDisplayName(
+                    structuredProperty.type,
+                    structuredProperty,
+                )} from this asset?`}
             />
         </>
     );

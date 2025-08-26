@@ -1,9 +1,12 @@
 package com.linkedin.metadata.config;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.metadata.config.aws.AWSConfiguration;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
+import com.linkedin.metadata.config.events.EventSinksConfiguration;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.notification.NotificationConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
@@ -61,6 +64,13 @@ public class DataHubAppConfiguration {
   /** The base URL where DataHub is hosted. */
   private String baseUrl;
 
+  // fork related configs go below this line
+  /** Event mirroring related configs */
+  private EventSinksConfiguration eventSinks;
+
+  /** Notification related configs */
+  private NotificationConfiguration notifications;
+
   /** Configuration for caching */
   private CacheConfiguration cache;
 
@@ -73,6 +83,21 @@ public class DataHubAppConfiguration {
   /** GraphQL Configurations */
   private GraphQLConfiguration graphQL;
 
+  /** Configuration for the integrations service. */
+  private IntegrationsServiceConfiguration integrationsService;
+
+  /** Configuration for the monitor service. */
+  private MonitorServiceConfiguration monitorService;
+
+  /** Configuration related to datahub executors */
+  private ExecutorConfiguration executors;
+
+  /** Configuration related to classifications and automations */
+  private ClassificationConfiguration classificationConfig;
+
+  /** Configuration for the execution of assertions */
+  private AssertionMonitorsConfiguration assertionMonitors;
+
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
 
@@ -84,4 +109,12 @@ public class DataHubAppConfiguration {
 
   /* Secret service configuration */
   private SecretServiceConfiguration secretService;
+
+  /** EntityService configuration */
+  private EntityServiceConfiguration entityService;
+
+  // SaaS Only Config
+
+  /** AWS Integration Configuration */
+  private AWSConfiguration aws;
 }

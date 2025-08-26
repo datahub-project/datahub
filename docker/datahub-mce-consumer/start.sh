@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${SKIP_KAFKA_CHECK:=true}
+
 WAIT_FOR_KAFKA=""
 if [[ $SKIP_KAFKA_CHECK != true ]]; then
   WAIT_FOR_KAFKA=" -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') "

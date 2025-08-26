@@ -14,6 +14,8 @@ import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import SearchSortSelect from '@src/app/search/sorting/SearchSortSelect';
+import useSortInput from '@src/app/search/sorting/useSortInput';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -76,6 +78,8 @@ export const SearchSelect = ({
     const [unionType, setUnionType] = useState(UnionType.AND);
     const [showFilters, setShowFilters] = useState(false);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [sortOption, setSortOption] = useState<string | undefined>();
+    const sortInput = useSortInput(sortOption);
 
     // Compute search filters
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -102,6 +106,7 @@ export const SearchSelect = ({
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [...filtersWithoutEntities, finalEntityFilter],
+                sortInput,
             },
         },
     });
@@ -171,6 +176,7 @@ export const SearchSelect = ({
                     onQueryChange={onSearch}
                     entityRegistry={entityRegistry}
                 />
+                <SearchSortSelect selectedSortOption={sortOption} setSelectedSortOption={setSortOption} />
             </SearchBarContainer>
             {!hideToolbar && (
                 <TabToolbar>
@@ -181,6 +187,7 @@ export const SearchSelect = ({
                         showActions={false}
                         refetch={refetch}
                         selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
                     />
                 </TabToolbar>
             )}

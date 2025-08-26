@@ -28,6 +28,7 @@ const SearchResult = styled(Link)`
     gap: 8px;
     height: 100%;
     padding: 6px 8px;
+    overflow: hidden;
     width: 100%;
     &:hover {
         background-color: ${ANTD_GRAY[3]};

@@ -2,6 +2,7 @@ import { Button, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { FULL_TABLE_PARTITION_KEYS } from '@app/entity/shared/tabs/Dataset/Stats/constants';
 import ColumnStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
 import TableStats from '@app/entity/shared/tabs/Dataset/Stats/snapshot/TableStats';
 import { formatBytes, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
@@ -14,6 +15,7 @@ export const ChartTable = styled(Table)`
 
 export type Props = {
     profiles: Array<DatasetProfile>;
+    areAllProfilesPartitioned: boolean;
 };
 
 const bytesFormatter = (bytes: number) => {
@@ -22,7 +24,7 @@ const bytesFormatter = (bytes: number) => {
     return `${formattedBytes.number} ${formattedBytes.unit} (${fullBytes} bytes)`;
 };
 
-export default function ProfilingRunsChart({ profiles }: Props) {
+export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned }: Props) {
     const [showModal, setShowModal] = useState(false);
     const [selectedProfileIndex, setSelectedProfileIndex] = useState(-1);
 
@@ -43,18 +45,21 @@ export default function ProfilingRunsChart({ profiles }: Props) {
             rowCount: profile.rowCount?.toString() || 'unknown',
             columnCount: profile.columnCount?.toString() || 'unknown',
             sizeInBytes: profile.sizeInBytes ? bytesFormatter(profile.sizeInBytes) : 'unknown',
+            partition: profile.partitionSpec?.partition || '',
         };
     });
 
     const tableColumns = [
         {
-            title: 'Date',
+            title: areAllProfilesPartitioned ? 'Partition' : 'Date',
             key: 'Date',
             dataIndex: 'timestamp',
             render: (title, record, index) => {
                 return (
                     <Button type="text" onClick={() => showProfileModal(index)}>
-                        <Typography.Text underline>{title}</Typography.Text>
+                        <Typography.Text underline>
+                            {FULL_TABLE_PARTITION_KEYS.includes(record.partition) ? title : record.partition}
+                        </Typography.Text>
                     </Button>
                 );
             },

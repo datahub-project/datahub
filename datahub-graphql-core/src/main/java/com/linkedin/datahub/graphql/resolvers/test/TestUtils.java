@@ -12,6 +12,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.test.util.TestMd5;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import java.util.Map;
@@ -35,6 +36,7 @@ public class TestUtils {
     final TestDefinition result = new TestDefinition();
     result.setType(TestDefinitionType.JSON); // Always JSON for now.
     result.setJson(testDefInput.getJson(), SetMode.IGNORE_NULL);
+    result.setMd5(TestMd5.getMd5(testDefInput.getJson()), SetMode.IGNORE_NULL);
     return result;
   }
 

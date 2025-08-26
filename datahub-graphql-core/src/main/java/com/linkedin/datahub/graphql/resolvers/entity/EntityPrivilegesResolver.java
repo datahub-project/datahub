@@ -14,8 +14,10 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
+import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
+import com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeprecationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -24,6 +26,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
@@ -130,6 +133,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
             context, urn, "ignored", Collections.singleton(WILDCARD_URN)));
     result.setCanEditSchemaFieldGlossaryTerms(
         LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
+    result.setCanEditSchemaFieldStructuredProperties(
+        AuthorizationUtils.canEditProperties(urn, context, "ignored"));
     result.setCanEditSchemaFieldDescription(
         DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn));
     result.setCanViewDatasetUsage(AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn));
@@ -138,6 +143,16 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanViewDatasetOperations(
         AuthorizationUtils.isViewDatasetOperationsAuthorized(context, urn));
     addCommonPrivileges(result, urn, context);
+
+    // Acryl-only start //
+    result.setCanEditMonitors(MonitorUtils.isAuthorizedToUpdateEntityMonitors(urn, context));
+    result.setCanEditSqlAssertionMonitors(
+        MonitorUtils.isAuthorizedToUpdateSqlAssertionMonitors(urn, context));
+    result.setCanEditDataContract(DataContractUtils.canEditDataContract(context, urn));
+    result.setCanProposeDataContract(DataContractUtils.canProposeDataContract(context, urn));
+
+    // Acryl-only end //
+
     return result;
   }
 
@@ -164,7 +179,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
     result.setCanEditLineage(canEditEntityLineage(urn, context));
-    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
+    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context, null));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditIncidents(IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context));
@@ -181,5 +196,22 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
+    result.setCanShareEntity(AuthorizationUtils.canShareEntity(urn, context));
+    result.setCanProposeDescription(
+        ProposalUtils.isAuthorizedToProposeDescription(context, urn, null));
+    result.setCanProposeGlossaryTerms(ProposalUtils.isAuthorizedToProposeTerms(context, urn, null));
+    result.setCanProposeTags(ProposalUtils.isAuthorizedToProposeTags(context, urn, null));
+    result.setCanProposeDomains(ProposalUtils.isAuthorizedToProposeDomains(context, urn));
+    result.setCanProposeOwners(ProposalUtils.isAuthorizedToProposeOwners(context, urn));
+    result.setCanProposeStructuredProperties(
+        ProposalUtils.isAuthorizedToProposeStructuredProperties(context, urn, null));
+    result.setCanProposeSchemaFieldDescription(
+        ProposalUtils.isAuthorizedToProposeDescription(context, urn, "ignored"));
+    result.setCanProposeSchemaFieldGlossaryTerms(
+        ProposalUtils.isAuthorizedToProposeTerms(context, urn, "ignored"));
+    result.setCanProposeSchemaFieldTags(
+        ProposalUtils.isAuthorizedToProposeTags(context, urn, "ignored"));
+    result.setCanProposeSchemaFieldStructuredProperties(
+        ProposalUtils.isAuthorizedToProposeStructuredProperties(context, urn, "ignored"));
   }
 }

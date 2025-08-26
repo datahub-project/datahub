@@ -75,11 +75,10 @@ export const IncidentDetailDrawer = ({
                 />
                 {showEditor ? (
                     <IncidentEditor
-                        onClose={onCancel}
+                        entity={entity}
                         data={incident}
                         mode={mode}
                         incidentUrn={incident?.urn}
-                        entity={entity}
                         onSubmit={handleSubmit}
                     />
                 ) : (

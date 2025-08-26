@@ -1,0 +1,23 @@
+namespace com.linkedin.monitor
+
+/**
+ * Information about an Assertion monitor.
+ */
+record AssertionMonitor {
+    /**
+    * Specs for each assertion to evaluate
+    * This will always have 1 reference. Modelling error caused it to be an array.
+    * If it is != 1 then we have data corruption.
+    */
+    assertions: array[AssertionEvaluationSpec]
+
+    /**
+    * Specific settings for an assertion monitor
+    */
+    settings: optional AssertionMonitorSettings
+
+    /**
+     * The status of the bootstrap actions performed on the assertion.
+     */
+    bootstrapStatus: optional AssertionMonitorBootstrapStatus
+}

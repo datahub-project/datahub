@@ -1,5 +1,6 @@
 import { LockOutlined } from '@ant-design/icons';
-import { List, Tag, Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { List, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -90,7 +91,7 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
                         urn={group.urn}
                         entityType={EntityType.CorpGroup}
                         entityData={group}
-                        menuItems={new Set([EntityMenuItems.DELETE])}
+                        menuItems={new Set([EntityMenuItems.DELETE, EntityMenuItems.COPY_URN])}
                         size={20}
                         onDeleteEntity={onDelete}
                         options={{ hideDeleteMessage: false, skipDeleteWait: true }}

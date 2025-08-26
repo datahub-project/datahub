@@ -62,7 +62,8 @@ public class GlossaryNodeChildrenCountResolver
                     0,
                     0, // 0 entity count because we don't want resolved entities
                     Collections.emptyList(),
-                    ImmutableList.of("_entityType"));
+                    ImmutableList.of("_entityType"),
+                    null);
             Optional<AggregationMetadata> aggMetadata =
                 result.getMetadata().getAggregations().stream()
                     .filter(a -> a.getName().equals("_entityType"))

@@ -11,6 +11,7 @@ import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityPro
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
@@ -24,6 +25,7 @@ import { EntityType, GlossaryNode, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
+    EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
@@ -98,9 +100,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                         name: 'Documentation',
                         component: DocumentationTab,
                         icon: FileOutlined,
-                        properties: {
-                            hideLinksButton: true,
-                        },
                     },
                     {
                         name: 'Properties',
@@ -124,9 +123,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getSidebarSections = () => [
         {
             component: SidebarAboutSection,
-            properties: {
-                hideLinksButton: true,
-            },
         },
         {
             component: SidebarNotesSection,
@@ -142,6 +138,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         },
         {
             component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

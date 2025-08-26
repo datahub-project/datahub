@@ -65,7 +65,6 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
             ) : (
                 <NameLabelWrapper>
                     <Tooltip
-                        color="#373D44"
                         placement="topRight"
                         overlayStyle={{ minWidth: 'min-content' }}
                         title={structuredProperty ? <StructuredPropertyTooltip propertyRow={propertyRow} /> : ''}

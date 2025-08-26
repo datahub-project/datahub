@@ -1,0 +1,26 @@
+# Dockerfiles specific to Acryl
+version: "3.8"
+services:
+  datahub-integrations-service:
+    container_name: datahub-integrations-service
+    hostname: datahub-integrations-service
+    build:
+      context: ../
+      dockerfile: docker/datahub-integrations-service/Dockerfile
+    image: ${DATAHUB_INTEGRATIONS_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service}:${DATAHUB_VERSION:-head}
+    env_file:
+      - datahub-integrations-service/env/docker.env
+    ports:
+      - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
+  datahub-executor-coordinator:
+    container_name: datahub-executor-coordinator
+    hostname: datahub-executor
+    build:
+      context: ../
+      dockerfile: docker/datahub-executor/Dockerfile
+    image: ${DATAHUB_MONITORS_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor}:${DATAHUB_VERSION:-head}
+    env_file: datahub-executor/env/docker.env
+    ports:
+      - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004
+    depends_on:
+      - datahub-gms

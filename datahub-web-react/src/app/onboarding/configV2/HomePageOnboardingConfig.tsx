@@ -4,7 +4,7 @@ import React from 'react';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
-import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
+import acrylMainDiagram from '@images/datahub-flow-diagram-light.png';
 
 export const V2_SEARCH_BAR_ID = 'v2-search-bar';
 export const V2_HOME_PAGE_MOST_POPULAR_ID = 'v2-home-page-most-popular';
@@ -23,6 +23,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
             <div>
                 <div
                     style={{
+                        backgroundColor: 'white',
                         width: '540px', // Adjusted width to be wider than the image
                         borderRadius: '10px',
                         display: 'flex',
@@ -31,9 +32,9 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                         margin: '0 auto 20px auto',
                     }}
                 >
-                    <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
+                    <Image preview={false} height={184} width={500} src={acrylMainDiagram} />
                 </div>
-                <Typography.Title level={3}>Welcome to DataHub Core! </Typography.Title>
+                <Typography.Title level={3}>Welcome to DataHub Cloud! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
                     <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
                     within your organization. You can:
@@ -151,6 +152,35 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                 <p>
                     This is your <strong> Personal Sidebar</strong>. It contains links to assets you own, groups you are
                     in, your subscriptions and more.
+                </p>
+            </Typography.Paragraph>
+        ),
+    },
+    {
+        id: V2_HOME_PAGE_PENDING_TASKS_ID,
+        selector: `#${V2_HOME_PAGE_PENDING_TASKS_ID}`,
+        title: 'Pending Tasks 📝',
+        content: (
+            <Typography.Paragraph>
+                <p>
+                    Your <strong> Pending Tasks</strong> will show up here. These are tasks that you need to complete to
+                    make your data leaders happy.
+                </p>
+                <p>
+                    <strong>Warning</strong>: Completing these tasks may result in feelings of euphoria!
+                </p>
+            </Typography.Paragraph>
+        ),
+    },
+    {
+        id: V2_HOME_PAGE_LEARNING_CENTER_ID,
+        selector: `#${V2_HOME_PAGE_LEARNING_CENTER_ID}`,
+        title: '',
+        content: (
+            <Typography.Paragraph>
+                <p>
+                    Your <strong> Pending Tasks</strong> will show up here. These are tasks that you need to complete to
+                    make your data leaders happy. Warning: Completing these tasks may result in feelings of euphoria!
                 </p>
             </Typography.Paragraph>
         ),

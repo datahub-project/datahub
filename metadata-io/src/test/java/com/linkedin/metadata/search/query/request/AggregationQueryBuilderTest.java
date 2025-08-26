@@ -700,7 +700,7 @@ public class AggregationQueryBuilderTest {
     AspectRetriever mockAspectRetriever = getMockAspectRetriever(propertyUrn);
 
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
-    builder.addCriterionFiltersToAggregationMetadata(
+    builder.addFacetFiltersToAggregationMetadata(
         criterion, aggregationMetadataList, mockAspectRetriever);
 
     // ensure we add the correct structured prop aggregation here
@@ -743,7 +743,7 @@ public class AggregationQueryBuilderTest {
 
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     aggregationMetadataList.add(aggregationMetadata);
-    builder.addCriterionFiltersToAggregationMetadata(
+    builder.addFacetFiltersToAggregationMetadata(
         criterion, aggregationMetadataList, mockAspectRetriever);
 
     Assert.assertEquals(aggregationMetadataList.size(), 1);
@@ -1318,6 +1318,7 @@ public class AggregationQueryBuilderTest {
     DataMap definition = new DataMap();
     definition.put("qualifiedName", "test_me.one");
     definition.put("valueType", "urn:li:dataType:datahub.string");
+    //    definition.put("entityTypes", new ArrayList<>());
     Aspect definitionAspect = new Aspect(definition);
     aspectMap.put(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, definitionAspect);
     mockResult.put(propertyUrn, aspectMap);

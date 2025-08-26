@@ -1,4 +1,6 @@
-import { AccessTokenDuration, AccessTokenType } from '@types';
+import { EMAIL_SINK, SLACK_SINK } from '@app/settings/platform/types';
+
+import { AccessTokenDuration, AccessTokenType, AppConfig, GlobalSettings } from '@types';
 
 /** A type of DataHub Access Token. */
 export const ACCESS_TOKEN_TYPES = [{ text: 'Personal', type: AccessTokenType.Personal }];
@@ -38,5 +40,27 @@ export const getTokenExpireDate = (duration: AccessTokenDuration) => {
             return 'This token will never expire.';
         default:
             return AccessTokenDuration.OneMonth;
+    }
+};
+
+const isPresent = (value?: string | null) => {
+    return value !== null && value !== undefined;
+};
+
+// TODO: Make this use the standard NotificationSinkType instead of this frontend id.
+export const isSinkEnabled = (
+    sinkId: string,
+    settings?: Partial<GlobalSettings> | null,
+    appConfig?: Partial<AppConfig> | null,
+) => {
+    switch (sinkId) {
+        case SLACK_SINK.id: {
+            // This is a HACK. We should actually make a call to hcheck connection settings.
+            return isPresent(settings?.integrationSettings?.slackSettings?.defaultChannelName);
+        }
+        case EMAIL_SINK.id:
+            return appConfig?.featureFlags?.emailNotificationsEnabled || false;
+        default:
+            return false;
     }
 };

@@ -18,6 +18,7 @@ export type Query = {
     createdBy?: ActorWithDisplayNameFragment | null;
     poweredEntity?: Entity;
     usedBy?: CorpUser[];
+    runsPercentileLast30days?: number | null;
     columns?: SchemaFieldEntity[];
 };
 

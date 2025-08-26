@@ -22,6 +22,8 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '@graphql/search.generated';
 
+// DataHub Cloud Only (For Now)
+
 const Body = styled.div`
     display: flex;
     flex-direction: row;
@@ -57,7 +59,7 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
 
-const FIFTH_SECOND_IN_MS = 100;
+const FIFTH_SECOND_IN_MS = 200;
 
 type Props = React.PropsWithChildren<{
     hideSearchBar?: boolean;

@@ -1,0 +1,21 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for a recommendation module
+ */
+@Aspect = {
+  "name": "recommendationModuleKey"
+}
+record RecommendationModuleKey {
+  /**
+   * Module ID for the recommendation module
+   */
+  moduleId: string
+
+  /**
+   * Identifier for the specific module
+   */
+  identifier: string
+}

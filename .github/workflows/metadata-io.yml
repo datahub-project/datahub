@@ -4,6 +4,8 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
+      - acryl-main
     paths:
       - "**/*.gradle"
       - "li-utils/**"
@@ -101,7 +103,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Upload
         uses: actions/upload-artifact@v4

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search;
 
+import static com.linkedin.metadata.search.utils.QueryUtils.excludeIngestionSourceEntity;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.data.template.LongMap;
@@ -99,7 +100,7 @@ public class SearchService {
     try {
       return result
           .copy()
-          .setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
+          .setEntities(new SearchEntityArray(_searchRanker.rank(opContext, result.getEntities())));
     } catch (Exception e) {
       log.error("Failed to rank: {}, exception - {}", result, e.toString());
       throw new RuntimeException("Failed to rank " + result.toString());
@@ -114,9 +115,10 @@ public class SearchService {
       @Nullable Filter postFilters,
       List<SortCriterion> sortCriteria,
       int from,
-      @Nullable Integer size) {
+      @Nullable Integer size,
+      @Nullable String predicateJson) {
     return searchAcrossEntities(
-        opContext, entities, input, postFilters, sortCriteria, from, size, null);
+        opContext, entities, input, postFilters, sortCriteria, from, size, null, predicateJson);
   }
 
   /**
@@ -143,12 +145,13 @@ public class SearchService {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size,
-      @Nullable List<String> facets) {
+      @Nullable List<String> facets,
+      @Nullable String predicateJson) {
 
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     log.debug(
         String.format(
-            "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
+            "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
             entities, input, postFilters, sortCriteria, from, size));
 
     final List<String> finalFacets = facetInput(facets);
@@ -157,9 +160,31 @@ public class SearchService {
       // Optimization: If the indices are all empty, return empty result
       return getEmptySearchResult(from, size);
     }
-    SearchResult result =
-        _cachingEntitySearchService.search(
-            opContext, nonEmptyEntities, input, postFilters, sortCriteria, from, size, finalFacets);
+    SearchResult result;
+    if (predicateJson != null) {
+      result =
+          _cachingEntitySearchService.predicateSearch(
+              opContext,
+              nonEmptyEntities,
+              input,
+              postFilters,
+              sortCriteria,
+              from,
+              size,
+              finalFacets,
+              predicateJson);
+    } else {
+      result =
+          _cachingEntitySearchService.search(
+              opContext,
+              nonEmptyEntities,
+              input,
+              postFilters,
+              sortCriteria,
+              from,
+              size,
+              finalFacets);
+    }
     result
         .getMetadata()
         .setAggregations(
@@ -184,7 +209,12 @@ public class SearchService {
     if (lowercaseEntities.isEmpty()) {
       return opContext.withSpan(
           "getNonEmptyEntities",
-          () -> _entityDocCountCache.getNonEmptyEntities(opContext),
+          // Saas only: Exclude ingestion source entity type from list of entities as we can't
+          // search by it in some cases when searching with another entities.
+          // (see
+          // com.linkedin.metadata.search.utils.ESAccessControlUtil.shouldApplyAccessControlFilters
+          // for details)
+          () -> excludeIngestionSourceEntity(_entityDocCountCache.getNonEmptyEntities(opContext)),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
@@ -214,7 +244,8 @@ public class SearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      @Nullable Integer size) {
+      @Nullable Integer size,
+      @Nullable String predicateJson) {
     return scrollAcrossEntities(
         opContext,
         entities,
@@ -224,7 +255,8 @@ public class SearchService {
         scrollId,
         keepAlive,
         size,
-        List.of());
+        List.of(),
+        predicateJson);
   }
 
   /**
@@ -252,7 +284,8 @@ public class SearchService {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       @Nullable Integer size,
-      @Nullable List<String> facets) {
+      @Nullable List<String> facets,
+      @Nullable String predicateJson) {
 
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
     final List<String> finalFacets = facetInput(facets);
@@ -265,17 +298,32 @@ public class SearchService {
       // No indices with non-zero entries: skip querying and return empty result
       return getEmptyScrollResult(size);
     }
-    ScrollResult result =
-        _cachingEntitySearchService.scroll(
-            opContext,
-            entitiesToSearch,
-            input,
-            postFilters,
-            sortCriteria,
-            scrollId,
-            keepAlive,
-            size,
-            finalFacets);
+    ScrollResult result;
+    if (predicateJson != null) {
+      result =
+          _cachingEntitySearchService.predicateScroll(
+              opContext,
+              entities,
+              input,
+              postFilters,
+              sortCriteria,
+              scrollId,
+              keepAlive,
+              size,
+              predicateJson);
+    } else {
+      result =
+          _cachingEntitySearchService.scroll(
+              opContext,
+              entitiesToSearch,
+              input,
+              postFilters,
+              sortCriteria,
+              scrollId,
+              keepAlive,
+              size,
+              finalFacets);
+    }
 
     result
         .getMetadata()

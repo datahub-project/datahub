@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.entitytype;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -12,6 +13,16 @@ import javax.annotation.Nonnull;
  * Storage Entities
  */
 public class EntityTypeMapper {
+
+  private static final Map<EntityType, String> ACRYL_ENTITY_TYPE_TO_NAME =
+      ImmutableMap.<EntityType, String>builder()
+          .put(EntityType.DATAHUB_CONNECTION, Constants.DATAHUB_CONNECTION_ENTITY_NAME)
+          .put(EntityType.MONITOR, Constants.MONITOR_ENTITY_NAME)
+          .put(EntityType.ACTIONS_PIPELINE, Constants.ACTIONS_PIPELINE_ENTITY_NAME)
+          .put(EntityType.REMOTE_EXECUTOR, AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)
+          .put(EntityType.REMOTE_EXECUTOR_POOL, AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME)
+          .put(EntityType.SUBSCRIPTION, AcrylConstants.SUBSCRIPTION_ENTITY_NAME)
+          .build();
 
   static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
       ImmutableMap.<EntityType, String>builder()
@@ -53,6 +64,7 @@ public class EntityTypeMapper {
           .put(EntityType.INCIDENT, Constants.INCIDENT_ENTITY_NAME)
           .put(EntityType.ROLE, Constants.ROLE_ENTITY_NAME)
           .put(EntityType.STRUCTURED_PROPERTY, Constants.STRUCTURED_PROPERTY_ENTITY_NAME)
+          .put(EntityType.ACTION_REQUEST, Constants.ACTION_REQUEST_ENTITY_NAME)
           .put(EntityType.FORM, Constants.FORM_ENTITY_NAME)
           .put(EntityType.DATA_TYPE, Constants.DATA_TYPE_ENTITY_NAME)
           .put(EntityType.ENTITY_TYPE, Constants.ENTITY_TYPE_ENTITY_NAME)
@@ -60,6 +72,7 @@ public class EntityTypeMapper {
           .put(EntityType.BUSINESS_ATTRIBUTE, Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)
           .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
           .put(EntityType.APPLICATION, Constants.APPLICATION_ENTITY_NAME)
+          .putAll(ACRYL_ENTITY_TYPE_TO_NAME) // SaaS only
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

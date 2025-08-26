@@ -9,6 +9,7 @@ import { AssetsYouOwn } from '@app/homeV2/reference/sections/assets/AssetsYouOwn
 import { DomainsYouOwn } from '@app/homeV2/reference/sections/domains/DomainsYouOwn';
 import { GlossaryNodesYouOwn } from '@app/homeV2/reference/sections/glossary/GlossaryNodesYouOwn';
 import { GroupsYouAreIn } from '@app/homeV2/reference/sections/groups/GroupsYouAreIn';
+import { AssetsYouSubscribeTo } from '@app/homeV2/reference/sections/subscriptions/AssetsYouSubscribeTo';
 import { TagsYouOwn } from '@app/homeV2/reference/sections/tags/TagsYouOwn';
 import { ReferenceSectionProps } from '@app/homeV2/reference/types';
 import { PersonaType } from '@app/homeV2/shared/types';
@@ -63,6 +64,18 @@ const ALL_SECTIONS: ReferenceSection[] = [
         id: 'AssetsYouOwn',
         component: AssetsYouOwn,
         sectionName: PersonalSidebarSection.YourAssets,
+        personas: [
+            PersonaType.BUSINESS_USER,
+            PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_STEWARD,
+            PersonaType.DATA_LEADER,
+            PersonaType.DATA_ENGINEER,
+        ],
+    },
+    {
+        id: 'AssetsYouSubscribeTo',
+        component: AssetsYouSubscribeTo,
+        sectionName: PersonalSidebarSection.AssetsYouSubscribeTo,
         personas: [
             PersonaType.BUSINESS_USER,
             PersonaType.TECHNICAL_USER,

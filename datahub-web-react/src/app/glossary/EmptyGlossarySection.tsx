@@ -50,16 +50,18 @@ function EmptyGlossarySection(props: Props) {
                     </>
                 }
             >
-                <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateTermModalVisible(true)}>
+                {/* not disabled on acryl-main due to ability to propose */}
+                <StyledButton onClick={() => setIsCreateTermModalVisible(true)}>
                     <PlusOutlined /> Add Term
                 </StyledButton>
-                <StyledButton disabled={!canCreateGlossaryEntity} onClick={() => setIsCreateNodeModalVisible(true)}>
+                <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
                     <PlusOutlined /> Add Term Group
                 </StyledButton>
             </StyledEmpty>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={!!canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetchForTerms}
                 />
@@ -67,6 +69,7 @@ function EmptyGlossarySection(props: Props) {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={!!canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
                 />

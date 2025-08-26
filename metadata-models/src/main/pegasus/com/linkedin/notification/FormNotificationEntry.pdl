@@ -1,0 +1,18 @@
+namespace com.linkedin.notification
+
+import com.linkedin.common.Time
+
+/**
+ * Info about a specific form notification
+ */
+record FormNotificationEntry {
+  /**
+   * The time at which this notification was sent in milliseconds
+   */
+  time: Time
+
+  /**
+   * The notification scenario type for this notification record
+   */
+  notificationType: string
+}

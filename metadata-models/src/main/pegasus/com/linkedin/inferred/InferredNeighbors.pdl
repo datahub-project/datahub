@@ -1,0 +1,14 @@
+namespace com.linkedin.inferred
+
+/**
+ * Aspect for representing neighbor entities as inferred by various algorithms
+ */
+@Aspect = {
+  "name": "inferredNeighbors"
+}
+record InferredNeighbors {
+  /**
+   * Neighbors of an entity as determined by algorithm
+   */
+  inferredNeighbors: array[InferredNeighbor]
+}

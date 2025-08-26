@@ -28,11 +28,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
+    DomainParamsClass,
     FormActorAssignmentClass,
     FormInfoClass,
     FormPromptClass,
+    GlossaryTermsParamsClass,
     OwnerClass,
     OwnershipClass,
+    OwnershipParamsClass,
     OwnershipTypeClass,
     StructuredPropertyParamsClass,
 )
@@ -52,9 +55,40 @@ FILTER_CRITERION_TAGS = "tags.keyword"
 FILTER_CRITERION_GLOSSARY_TERMS = "glossaryTerms.keyword"
 
 
+class PromptCardinality(Enum):
+    SINGLE = "SINGLE"
+    MULTIPLE = "MULTIPLE"
+
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
+
+
+class OwnershipParams(ConfigModel):
+    cardinality: Optional[str] = None
+    allowed_owners: Optional[List[str]] = None
+    allowed_ownership_types: Optional[List[str]] = None
+
+
+class GlossaryTermsParams(ConfigModel):
+    cardinality: Optional[str] = None
+    allowed_terms: Optional[List[str]] = None
+    allowed_term_groups: Optional[List[str]] = None
+
+
+class DomainParams(ConfigModel):
+    allowed_domains: Optional[List[str]] = None
+
+
 class PromptType(Enum):
     STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
     FIELDS_STRUCTURED_PROPERTY = "FIELDS_STRUCTURED_PROPERTY"
+    OWNERSHIP = "OWNERSHIP"
+    DOCUMENTATION = "DOCUMENTATION"
+    FIELDS_DOCUMENTATION = "FIELDS_DOCUMENTATION"
+    GLOSSARY_TERMS = "GLOSSARY_TERMS"
+    FIELDS_GLOSSARY_TERMS = "FIELDS_GLOSSARY_TERMS"
+    DOMAIN = "DOMAIN"
 
     @classmethod
     def has_value(cls, value):
@@ -69,6 +103,9 @@ class Prompt(ConfigModel):
     structured_property_id: Optional[str] = None
     structured_property_urn: Optional[str] = None
     required: Optional[bool] = None
+    ownership_params: Optional[OwnershipParams] = None
+    glossary_terms_params: Optional[GlossaryTermsParams] = None
+    domain_params: Optional[DomainParams] = None
 
     @validator("structured_property_urn", pre=True, always=True)
     def structured_property_urn_must_be_present(cls, v, values):
@@ -184,6 +221,10 @@ class Forms(ConfigModel):
                     logger.warning(
                         f"Prompt id not provided. Setting prompt id to {prompt.id}"
                     )
+                if not PromptType.has_value(prompt.type):
+                    raise Exception(
+                        f"Prompt type {prompt.type} is not a valid type. Please try again with a valid Prompt type."
+                    )
                 if prompt.structured_property_urn:
                     structured_property_urn = prompt.structured_property_urn
                     if emitter.exists(structured_property_urn):
@@ -204,7 +245,12 @@ class Forms(ConfigModel):
                         f"Prompt type is {prompt.type} but no structured properties exist. Unable to create form."
                     )
                 if (
-                    prompt.type == PromptType.FIELDS_STRUCTURED_PROPERTY.value
+                    prompt.type
+                    in (
+                        PromptType.FIELDS_STRUCTURED_PROPERTY.value,
+                        PromptType.FIELDS_DOCUMENTATION.value,
+                        PromptType.FIELDS_GLOSSARY_TERMS.value,
+                    )
                     and prompt.required
                 ):
                     raise Exception(
@@ -224,6 +270,9 @@ class Forms(ConfigModel):
                             if prompt.structured_property_urn
                             else None
                         ),
+                        glossaryTermsParams=self.get_glossary_terms_params(prompt),
+                        ownershipParams=self.get_ownership_params(prompt),
+                        domainParams=self.get_domain_params(prompt),
                         required=prompt.required,
                     )
                 )
@@ -231,6 +280,60 @@ class Forms(ConfigModel):
             logger.warning(f"No prompts exist on form {self.urn}. Is that intended?")
 
         return prompts
+
+    def get_glossary_terms_params(
+        self, prompt: Prompt
+    ) -> Union[None, GlossaryTermsParamsClass]:
+        if prompt.type not in (
+            PromptType.GLOSSARY_TERMS.value,
+            PromptType.FIELDS_GLOSSARY_TERMS.value,
+        ):
+            return None
+
+        glossary_terms_params = GlossaryTermsParamsClass(cardinality="MULTIPLE")
+        if prompt.glossary_terms_params:
+            if prompt.glossary_terms_params.cardinality:
+                glossary_terms_params.cardinality = (
+                    prompt.glossary_terms_params.cardinality
+                )
+            if prompt.glossary_terms_params.allowed_terms:
+                glossary_terms_params.allowedTerms = (
+                    prompt.glossary_terms_params.allowed_terms
+                )
+            if prompt.glossary_terms_params.allowed_term_groups:
+                glossary_terms_params.allowedTermGroups = (
+                    prompt.glossary_terms_params.allowed_term_groups
+                )
+
+        return glossary_terms_params
+
+    def get_ownership_params(self, prompt: Prompt) -> Union[None, OwnershipParamsClass]:
+        if prompt.type != PromptType.OWNERSHIP.value:
+            return None
+
+        ownership_params = OwnershipParamsClass(cardinality="MULTIPLE")
+        if prompt.ownership_params:
+            if prompt.ownership_params.cardinality:
+                ownership_params.cardinality = prompt.ownership_params.cardinality
+            if prompt.ownership_params.allowed_owners:
+                ownership_params.allowedOwners = prompt.ownership_params.allowed_owners
+            if prompt.ownership_params.allowed_ownership_types:
+                ownership_params.allowedOwnershipTypes = (
+                    prompt.ownership_params.allowed_ownership_types
+                )
+
+        return ownership_params
+
+    def get_domain_params(self, prompt: Prompt) -> Union[None, DomainParamsClass]:
+        if prompt.type != PromptType.DOMAIN.value:
+            return None
+
+        if prompt.domain_params and prompt.domain_params.allowed_domains:
+            return DomainParamsClass(
+                allowedDomains=prompt.domain_params.allowed_domains
+            )
+
+        return None
 
     def create_form_actors(
         self, actors: Optional[Actors] = None
@@ -401,6 +504,13 @@ class Forms(ConfigModel):
                     structured_property_urn=(
                         prompt_raw.structuredPropertyParams.urn
                         if prompt_raw.structuredPropertyParams
+                        else None
+                    ),
+                    ownership_params=(
+                        OwnershipParams(
+                            cardinality=prompt_raw.ownershipParams.cardinality
+                        )
+                        if prompt_raw.ownershipParams
                         else None
                     ),
                 )

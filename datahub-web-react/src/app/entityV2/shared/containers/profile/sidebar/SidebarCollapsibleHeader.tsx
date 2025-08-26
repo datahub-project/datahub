@@ -1,6 +1,6 @@
-import { colors } from '@components';
-import { Typography } from 'antd';
-import React, { useContext } from 'react';
+import { ListChecks } from '@phosphor-icons/react';
+import { Tooltip, Typography } from 'antd';
+import React, { useContext, useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -10,6 +10,12 @@ import { TitleAction } from '@app/entityV2/shared/containers/profile/sidebar/Tit
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { Modal, colors } from '@src/alchemy-components';
+import { ProposalList } from '@src/app/taskCenterV2/proposalsV2/ProposalList';
+import { entityHasProposals } from '@src/app/taskCenterV2/proposalsV2/utils';
+import { useAppConfig } from '@src/app/useAppConfig';
+
+import { ActionRequestStatus, FilterOperator } from '@types';
 
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
@@ -54,6 +60,24 @@ const RightActions = styled.div`
     gap: 8px;
 `;
 
+const TasksIcon = styled.span`
+    display: flex;
+    position: relative;
+    cursor: pointer;
+    margin-right: 4px;
+`;
+
+const PillDot = styled.div<{ $isSelected?: boolean }>`
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: ${(props) => props.theme.styles['primary-color']};
+    border-radius: 6px;
+    border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
+    top: -2px;
+    left: 14px;
+`;
+
 interface Props {
     currentTab?: EntitySidebarTab;
     headerDropdownItems?: Set<EntityMenuItems>;
@@ -61,6 +85,9 @@ interface Props {
 
 export default function SidebarCollapsibleHeader({ currentTab, headerDropdownItems }: Props) {
     const { isClosed, forLineage, separateSiblings } = useContext(EntitySidebarContext);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
+    const [showProposalsModal, setShowProposalsModal] = useState(false);
 
     const currentTabName = currentTab?.name;
     const actionType = currentTab?.properties?.actionType;
@@ -69,6 +96,11 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
 
+    const handleModalClose = () => {
+        setShowProposalsModal(false);
+        refetch();
+    };
+
     return (
         <Controls isCollapsed={isClosed}>
             {!isClosed && currentTab && (
@@ -76,6 +108,15 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     <Top>
                         <TabTitle>{currentTabName}</TabTitle>
                         <RightActions>
+                            {showTaskCenterRedesign && entityHasProposals(entityData) && (
+                                <Tooltip title="Tasks" placement="right">
+                                    <TasksIcon>
+                                        <ListChecks onClick={() => setShowProposalsModal(true)} size={20} />
+                                        {/* Always show the PillDot for now */}
+                                        <PillDot />
+                                    </TasksIcon>
+                                </Tooltip>
+                            )}
                             {actionType && <TitleAction actionType={actionType} icon={icon} />}
                             {forLineage && (
                                 <ViewInPlatform hideSiblingActions={separateSiblings} urn={urn} data={entityData} />
@@ -92,6 +133,28 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                             )}
                         </RightActions>
                     </Top>
+                    {showProposalsModal && (
+                        // TODO: Add Proposals count Badge in the Modal title
+                        <Modal width="90%" title="Proposals" onCancel={handleModalClose}>
+                            <ProposalList
+                                height="700px"
+                                initialFilters={[
+                                    {
+                                        field: 'status',
+                                        condition: FilterOperator.Equal,
+                                        values: [ActionRequestStatus.Pending],
+                                        negated: false,
+                                    },
+                                    {
+                                        field: 'resource',
+                                        condition: FilterOperator.Equal,
+                                        values: [urn],
+                                        negated: false,
+                                    },
+                                ]}
+                            />
+                        </Modal>
+                    )}
                 </Title>
             )}
         </Controls>

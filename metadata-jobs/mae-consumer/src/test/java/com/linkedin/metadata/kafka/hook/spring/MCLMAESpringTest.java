@@ -9,6 +9,7 @@ import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
+import com.linkedin.metadata.kafka.hook.incident.IncidentActivityEventHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
@@ -63,6 +64,11 @@ public class MCLMAESpringTest extends AbstractTestNGSpringContextTests {
         1,
         registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof IncidentsSummaryHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof IncidentActivityEventHook)
             .count());
   }
 

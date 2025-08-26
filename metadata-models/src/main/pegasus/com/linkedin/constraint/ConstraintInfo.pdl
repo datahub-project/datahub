@@ -1,0 +1,38 @@
+namespace com.linkedin.constraint
+import com.linkedin.policy.DataHubResourceFilter
+
+/**
+ * Information about a constraint.
+ */
+@Aspect = {
+  "name": "constraintInfo"
+}
+record ConstraintInfo {
+  /**
+   * Display name of the constraint
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  displayName: string
+
+  /**
+   * Description of the Constraint
+   */
+  description: optional string
+
+  /**
+   * The type of constraint
+   */
+  type: string
+
+  /**
+   * The resource that the policy applies to. Not required for some 'Platform' privileges.
+   */
+  resources: optional DataHubResourceFilter
+
+  /**
+   * Parameters specific for a particular Constraint type
+   */
+  params: optional ConstraintParams
+}

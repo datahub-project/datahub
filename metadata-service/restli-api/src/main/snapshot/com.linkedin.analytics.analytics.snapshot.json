@@ -56,9 +56,10 @@
                         "type" : "enum",
                         "name" : "Condition",
                         "doc" : "The matching condition in a filter criterion",
-                        "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IEQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "START_WITH", "DESCENDANTS_INCL", "ANCESTORS_INCL", "RELATED_INCL" ],
+                        "symbols" : [ "CONTAIN", "END_WITH", "EQUAL", "IEQUAL", "IS_NULL", "EXISTS", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "IN", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO", "BETWEEN", "START_WITH", "DESCENDANTS_INCL", "ANCESTORS_INCL", "RELATED_INCL" ],
                         "symbolDocs" : {
                           "ANCESTORS_INCL" : "Represent the relation: URN field matches any nested parent in addition to the given URN",
+                          "BETWEEN" : "Represent the relation within an inclusive range, e.g. 3 <= ownerCount <= 5. Note that the values in Criterion must have two entries for a lower and upper bound.",
                           "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile",
                           "DESCENDANTS_INCL" : "Represent the relation: URN field any nested children in addition to the given URN",
                           "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
@@ -173,6 +174,11 @@
               } ]
             },
             "doc" : "Bucket size (like a day/hour etc) for the date grouping buckets.",
+            "optional" : true
+          }, {
+            "name" : "timeZone",
+            "type" : "string",
+            "doc" : "Optional specified time zone to take into account when grouping by date",
             "optional" : true
           } ]
         }

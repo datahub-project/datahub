@@ -17,6 +17,7 @@ import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/si
 import { UserAssets } from '@app/entityV2/user/UserAssets';
 import UserGroups from '@app/entityV2/user/UserGroups';
 import UserSideBar from '@app/entityV2/user/UserSidebar';
+import { UserSubscriptions } from '@app/entityV2/user/UserSubscriptions';
 import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
@@ -38,9 +39,10 @@ export interface Props {
 export enum TabType {
     Assets = 'Owner Of',
     Groups = 'Groups',
+    Subscription = 'Subscriptions',
 }
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups, TabType.Subscription];
 
 const GROUP_PAGE_SIZE = 20;
 
@@ -132,6 +134,14 @@ export default function UserProfile({ urn }: Props) {
                 content: <UserGroups urn={urn} initialRelationships={userGroups} pageSize={GROUP_PAGE_SIZE} />,
                 display: {
                     enabled: () => userGroups?.length > 0,
+                },
+            },
+            {
+                name: TabType.Subscription,
+                path: TabType.Subscription.toLocaleLowerCase(),
+                content: <UserSubscriptions urn={urn} />,
+                display: {
+                    enabled: () => true,
                 },
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));

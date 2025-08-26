@@ -6,10 +6,12 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.features.FeatureExtractor;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.SneakyThrows;
 import lombok.Value;
 
@@ -28,12 +30,15 @@ public abstract class SearchRanker<U extends Comparable<? super U>> {
   public abstract U score(SearchEntity searchEntity);
 
   /** Rank the input list of entities */
-  public List<SearchEntity> rank(List<SearchEntity> originalList) {
+  public List<SearchEntity> rank(
+      @Nonnull OperationContext opContext, List<SearchEntity> originalList) {
     List<SearchEntity> entitiesToRank = originalList;
     if (!getFeatureExtractors().isEmpty()) {
       entitiesToRank =
           Streams.zip(
-                  originalList.stream(), fetchFeatures(originalList).stream(), this::updateFeatures)
+                  originalList.stream(),
+                  fetchFeatures(opContext, originalList).stream(),
+                  this::updateFeatures)
               .collect(Collectors.toList());
     }
     return entitiesToRank.stream()
@@ -44,14 +49,15 @@ public abstract class SearchRanker<U extends Comparable<? super U>> {
   }
 
   /** Fetch features for each entity returned using the feature extractors */
-  private List<Features> fetchFeatures(List<SearchEntity> originalList) {
+  private List<Features> fetchFeatures(
+      @Nonnull OperationContext opContext, List<SearchEntity> originalList) {
     List<Features> originalFeatures =
         originalList.stream()
             .map(SearchEntity::getFeatures)
             .map(Features::from)
             .collect(Collectors.toList());
     return ConcurrencyUtils.transformAndCollectAsync(
-            getFeatureExtractors(), extractor -> extractor.extractFeatures(originalList))
+            getFeatureExtractors(), extractor -> extractor.extractFeatures(opContext, originalList))
         .stream()
         .reduce(originalFeatures, Features::merge);
   }

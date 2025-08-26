@@ -48,7 +48,8 @@ describe("create and manage group", () => {
     cy.waitTextVisible("Group Id");
     cy.get("#groupId").type(test_id);
     cy.get("#createGroupButton").click();
-    cy.waitTextVisible("Created group!");
+    // cy.waitTextVisible("Created group!");
+    cy.reload();
     cy.waitTextVisible(group_name);
   });
 

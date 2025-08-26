@@ -4,6 +4,8 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
+      - acryl-main
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -25,7 +27,7 @@ env:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
@@ -51,6 +53,8 @@ jobs:
             # metadata-ingestion and airflow-plugin each have dedicated build jobs
             "except_metadata_ingestion",
             "frontend",
+            "integrations-service",
+            "executor",
           ]
         timezone: ["UTC"]
         include:
@@ -89,6 +93,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Gradle build (and test) for NOT metadata ingestion
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        # Acryl-only changes for acryl-cloud, integrations-service, executor
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
         run: |
           ./gradlew build \
@@ -105,6 +110,13 @@ jobs:
             -x :metadata-ingestion-modules:prefect-plugin:check \
             -x :metadata-ingestion-modules:gx-plugin:build \
             -x :metadata-ingestion-modules:gx-plugin:check \
+            -x :datahub-actions:build \
+            -x :metadata-ingestion-modules:acryl-cloud:build \
+            -x :metadata-ingestion-modules:acryl-cloud:check \
+            -x :datahub-integrations-service:build \
+            -x :datahub-integrations-service:check \
+            -x :datahub-executor:build \
+            -x :datahub-executor:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
             -x :metadata-integration:java:datahub-schematron:cli:test
@@ -113,9 +125,17 @@ jobs:
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew :datahub-frontend:build :datahub-web-react:build
+          ./gradlew -PwithCoverage :datahub-frontend:build :datahub-web-react:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Gradle build (and test) for integrations-service
+        if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew :datahub-integrations-service:build --parallel
+      - name: Gradle build (and test) for executor
+        if: ${{  matrix.command == 'executor' && needs.setup.outputs.backend_change == 'true' }}
+        run: |
+          ./gradlew :datahub-executor:build --parallel
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
@@ -124,7 +144,10 @@ jobs:
         run: |
           echo "BACKEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "FRONTEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(datahub-frontend|datahub-web-react).*\.(xml|json)$' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
+          echo "INTEGRATION_SERVICE_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-integrations-service' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
+          echo "EXECUTOR_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-executor' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
       - name: Generate tz artifact name
+        if: always()
         run: echo "NAME_TZ=$(echo ${{ matrix.timezone }} | tr '/' '-')" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         if: always()
@@ -189,6 +212,32 @@ jobs:
           name: ${{ matrix.command }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
+      - name: Upload integration-service coverage to Codecov
+        if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.INTEGRATION_SERVICE_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: integration-service
+          name: ${{ matrix.command }}
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+      - name: Upload executor coverage to Codecov
+        if: ${{  matrix.command == 'executor' && needs.setup.outputs.backend_change == 'true' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.EXECUTOR_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: executor
+          name: ${{ matrix.command }}
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release'  }}
         uses: codecov/test-results-action@v1
@@ -217,7 +266,7 @@ jobs:
         run: python python-build/generate_ingestion_docker.py --check
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Upload
         uses: actions/upload-artifact@v4

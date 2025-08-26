@@ -144,7 +144,7 @@ describe("lineage_graph", () => {
       "cypress_health_test",
     );
 
-    // find the checkbox for cypress_health_test (data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)") is the
+    // find the checkbox for fct_cypress_users_deleted (data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)") is the
     // test id for a sibling of the checkbox, we want to find that id, find its parent, and click the checkbox
 
     cy.get(

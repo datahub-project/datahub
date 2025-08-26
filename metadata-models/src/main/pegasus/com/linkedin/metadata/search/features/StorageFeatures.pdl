@@ -1,0 +1,50 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.Urn
+
+@Aspect = {
+  "name": "storageFeatures"
+}
+record StorageFeatures {
+  /**
+   * The total size in bytes.
+   */
+  @Searchable = {
+    "fieldName": "sizeInBytesFeature",
+    "fieldType": "COUNT"
+  }
+  sizeInBytes: optional long
+
+  /**
+   * The percentile of size in bytes relative to other assets from the data plaform instance.
+   */
+  sizeInBytesPercentile: optional long
+
+  /**
+   * The absolute rank of size in bytes relative to other assets from the data plaform instance.
+   */
+  sizeInBytesRank: optional long
+
+  /**
+   * The total row count.
+   */
+  @Searchable = {
+    "fieldName": "rowCountFeature",
+    "fieldType": "COUNT"
+  }
+  rowCount: optional long
+
+  /**
+   * The percentile of the total row / document count relative to other assets from the data platform instance.
+   */
+  @Searchable = {
+    "fieldName": "rowCountPercentile",
+    "fieldType": "COUNT"
+  }
+  rowCountPercentile: optional int
+
+  /**
+   * The absolute rank of size in bytes relative to other assets from the data plaform instance.
+   */
+  rowCountRank: optional int
+}

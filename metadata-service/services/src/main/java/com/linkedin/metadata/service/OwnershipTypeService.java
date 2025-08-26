@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.key.OwnershipTypeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.ownership.OwnershipTypeInfo;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -34,8 +36,11 @@ public class OwnershipTypeService extends BaseService {
 
   public static final String SYSTEM_ID = "__system__";
 
-  public OwnershipTypeService(@Nonnull SystemEntityClient entityClient) {
-    super(entityClient);
+  public OwnershipTypeService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**

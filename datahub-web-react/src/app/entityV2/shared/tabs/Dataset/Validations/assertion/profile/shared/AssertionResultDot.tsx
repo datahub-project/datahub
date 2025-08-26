@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 import { getResultDotIcon } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
-import { AssertionResultType, AssertionRunEvent } from '@types';
+import { AssertionRunEvent } from '@types';
 
 const StyledAssertionResultDotContainer = styled.div`
     display: flex;
@@ -17,7 +17,7 @@ type Props = {
 
 // TODO: Add our beautiful new tooltip here.
 export const AssertionResultDot = ({ run, disabled, size = 14 }: Props) => {
-    const icon = getResultDotIcon(run?.result?.type as AssertionResultType, size, disabled);
+    const icon = getResultDotIcon(run?.result?.type, size, disabled);
     return (
         <StyledAssertionResultDotContainer
             className="assertion-result-dot"

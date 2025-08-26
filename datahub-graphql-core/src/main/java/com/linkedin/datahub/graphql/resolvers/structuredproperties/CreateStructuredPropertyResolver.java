@@ -25,6 +25,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
+import com.linkedin.structured.StructuredPropertyFilterStatus;
 import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.structured.StructuredPropertySettings;
 import graphql.schema.DataFetcher;
@@ -158,6 +159,10 @@ public class CreateStructuredPropertyResolver
     }
     if (input.getCardinality() != null) {
       builder.setCardinality(PropertyCardinality.valueOf(input.getCardinality().toString()));
+    }
+    if (input.getFilterStatus() != null) {
+      builder.setFilterStatus(
+          StructuredPropertyFilterStatus.valueOf(input.getFilterStatus().toString()));
     }
     builder.setCreated(context.getOperationContext().getAuditStamp());
     builder.setLastModified(context.getOperationContext().getAuditStamp());

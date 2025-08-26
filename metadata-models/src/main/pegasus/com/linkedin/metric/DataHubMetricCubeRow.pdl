@@ -1,0 +1,38 @@
+namespace com.linkedin.metric
+
+/**
+ * A base row format for each metric timeseries index.
+ */
+record DataHubMetricCubeRow {
+
+  /**
+   * The event or bucket reported time field as epoch at UTC in milli seconds.
+   * This must be provided in order to pass validation.
+   */
+  reportedTimeMillis: long
+
+  /**
+   * The first measure value - Typically this is the primary metric.
+   */
+   @TimeseriesField = {}
+   measure: double
+
+  /**
+   * The first dimension value(s). Array type to support multi-dimensionality.
+   */
+   @TimeseriesField = {}
+   dim1: optional array[string]
+
+  /**
+   * The second dimension value(s). Array type to support multi-dimensionality.
+   */
+   @TimeseriesField = {}
+   dim2: optional array[string]
+
+  /**
+   * The third dimension value(s). Array type to support multi-dimensionality.
+   */
+   @TimeseriesField = {}
+   dim3: optional array[string]
+}
+

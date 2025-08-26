@@ -13,6 +13,7 @@ import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
@@ -90,27 +91,27 @@ export const SearchSelect = ({
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
-    const finalEntityTypes = [...entityFilters, ...(fixedEntityTypes || [])];
 
-    const finalEntityFilter = finalEntityTypes.length
+    const selectedEntityTypes = entityFilters?.length ? [...entityFilters] : [];
+    const entityFilter = selectedEntityTypes.length
         ? {
               field: ENTITY_FILTER_NAME,
               condition: FilterOperator.Equal,
-              values: finalEntityTypes,
+              values: selectedEntityTypes,
               negated: false,
           }
         : undefined;
-    const finalFilters = finalEntityFilter ? [...filtersWithoutEntities, finalEntityFilter] : filtersWithoutEntities;
+    const finalFilters = entityFilter ? [...filtersWithoutEntities, entityFilter] : filtersWithoutEntities;
 
     // Execute search
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: finalEntityTypes.length ? finalEntityTypes : undefined,
+                types: fixedEntityTypes ?? [],
                 query: searchQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: finalFilters,
+                orFilters: generateOrFilters(UnionType.AND, finalFilters),
                 sortInput,
             },
         },

@@ -6,9 +6,7 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:datahub"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "MANAGE_POLICIES",
@@ -17,6 +15,7 @@
         "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "VIEW_METADATA_PROPOSALS",
         "MANAGE_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
         "MANAGE_GLOBAL_ANNOUNCEMENTS",
@@ -24,6 +23,7 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
         "MANAGE_TAGS",
+        "MANAGE_GLOBAL_SETTINGS",
         "MANAGE_GLOBAL_VIEWS",
         "RESTORE_INDICES_PRIVILEGE",
         "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
@@ -38,10 +38,18 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
+        "VIEW_DOCUMENTATION_FORMS_PAGE",
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
-        "MANAGE_HOME_PAGE_TEMPLATES"
+        "MANAGE_HOME_PAGE_TEMPLATES",
+        "GET_PLATFORM_EVENTS",
+        "CREATE_CONSTRAINTS",
+        "MANAGE_CONNECTIONS",
+        "MANAGE_MONITORS",
+        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -57,17 +65,26 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:datahub"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "VIEW_DATASET_OPERATIONS",
         "EDIT_LINEAGE",
+        "MANAGE_ENTITY_TAGS",
+        "MANAGE_ENTITY_GLOSSARY_TERMS",
+        "MANAGE_ENTITY_PROPERTIES",
+        "MANAGE_ENTITY_DOMAINS",
+        "MANAGE_ENTITY_OWNERS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS",
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_PROPERTIES",
+        "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
         "EDIT_ENTITY_ASSERTIONS",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
@@ -79,7 +96,24 @@
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EXECUTE_ENTITY"
+        "EXECUTE_ENTITY",
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "SHARE_ENTITY",
+        "MANAGE_GROUP_NOTIFICATION_SETTINGS",
+        "MANAGE_GROUP_SUBSCRIPTIONS",
+        "MANAGE_USER_SUBSCRIPTIONS",
+        "EXECUTE_ENTITY",
+        "PROPOSE_ENTITY_TAGS",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS",
+        "PROPOSE_ENTITY_DOCS",
+        "PROPOSE_ENTITY_DOMAINS",
+        "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+        "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
@@ -99,13 +133,52 @@
       },
       "privileges": [
         "VIEW_ANALYTICS",
-        "GENERATE_PERSONAL_ACCESS_TOKENS"
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "VIEW_METADATA_PROPOSALS"
       ],
       "displayName": "All Users - Base Platform Privileges",
       "description": "Grants base platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
       "state": "ACTIVE",
       "type": "PLATFORM",
       "editable": true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:ApproveProposals",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": false,
+        "allGroups": false,
+        "users": ["urn:li:corpuser:admin"]
+      },
+      "privileges": [
+        "MANAGE_ENTITY_TAGS",
+        "MANAGE_ENTITY_GLOSSARY_TERMS",
+        "MANAGE_ENTITY_PROPERTIES",
+        "MANAGE_ENTITY_DOMAINS",
+        "MANAGE_ENTITY_OWNERS",
+        "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS",
+        "MANAGE_DATASET_COL_PROPERTIES",
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS"
+      ],
+      "displayName": "Admin - Can Manage Proposals",
+      "resources": {
+        "filter": {
+          "criteria": [
+            {
+              "field": "TYPE",
+              "values": ["dataset"]
+            }
+          ]
+        }
+      },
+      "description": "Grants privileges to manage terms to admin.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
     }
   },
   {
@@ -163,9 +236,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Admin"
-        ]
+        "roles": ["urn:li:dataHubRole:Admin"]
       },
       "privileges": [
         "MANAGE_POLICIES",
@@ -181,6 +252,10 @@
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
         "MANAGE_TAGS",
+        "VIEW_METADATA_PROPOSALS",
+        "MANAGE_TESTS",
+        "MANAGE_GLOBAL_SETTINGS",
+        "CREATE_CONSTRAINTS",
         "MANAGE_GLOBAL_VIEWS",
         "RESTORE_INDICES_PRIVILEGE",
         "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
@@ -198,7 +273,14 @@
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
-        "MANAGE_HOME_PAGE_TEMPLATES"
+        "MANAGE_HOME_PAGE_TEMPLATES",
+        "GET_PLATFORM_EVENTS",
+        "VIEW_DOCUMENTATION_FORMS_PAGE",
+        "MANAGE_CONNECTIONS",
+        "MANAGE_MONITORS",
+        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -216,12 +298,11 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Admin"
-        ]
+        "roles": ["urn:li:dataHubRole:Admin"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -237,6 +318,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_PROPERTIES",
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
@@ -245,6 +327,15 @@
         "EDIT_GROUP_MEMBERS",
         "EDIT_USER_PROFILE",
         "EDIT_CONTACT_INFO",
+        "MANAGE_ENTITY_TAGS",
+        "MANAGE_ENTITY_GLOSSARY_TERMS",
+        "MANAGE_ENTITY_PROPERTIES",
+        "MANAGE_ENTITY_DOMAINS",
+        "MANAGE_ENTITY_OWNERS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS",
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_PROPERTIES",
+        "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_QUERIES",
         "SEARCH_PRIVILEGE",
@@ -257,7 +348,28 @@
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_PROPERTIES",
-        "EXECUTE_ENTITY"
+        "EXECUTE_ENTITY",
+        "EDIT_ENTITY_PROPERTIES",
+        "EDIT_ENTITY_QUERIES",
+        "MANAGE_GROUP_NOTIFICATION_SETTINGS",
+        "MANAGE_GROUP_SUBSCRIPTIONS",
+        "MANAGE_USER_SUBSCRIPTIONS",
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE",
+        "SHARE_ENTITY",
+        "EXECUTE_ENTITY",
+        "PROPOSE_ENTITY_TAGS",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS",
+        "PROPOSE_ENTITY_DOCS",
+        "PROPOSE_ENTITY_DOMAINS",
+        "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+        "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE",
+        "EDIT_ENTITY_MONITORS"
       ],
       "displayName": "Admins - Metadata Policy",
       "description": "Admins have all metadata privileges.",
@@ -275,9 +387,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "privileges": [
         "GENERATE_PERSONAL_ACCESS_TOKENS",
@@ -289,7 +399,13 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_FEATURES"
+        "VIEW_DOCUMENTATION_FORMS_PAGE",
+        "MANAGE_FEATURES",
+        "MANAGE_TESTS",
+        "CREATE_CONSTRAINTS",
+        "VIEW_METADATA_PROPOSALS",
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",
@@ -307,12 +423,11 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_DOCS",
@@ -322,8 +437,10 @@
         "EDIT_ENTITY_DATA_PRODUCTS",
         "EDIT_DEPRECATION_PRIVILEGE",
         "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_MONITORS",
         "EDIT_ENTITY_INCIDENTS",
         "EDIT_DATASET_COL_TAGS",
+        "EDIT_DATASET_COL_PROPERTIES",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
@@ -331,6 +448,15 @@
         "VIEW_DATASET_PROFILE",
         "VIEW_DATASET_OPERATIONS",
         "EDIT_TAG_COLOR",
+        "MANAGE_ENTITY_TAGS",
+        "MANAGE_ENTITY_GLOSSARY_TERMS",
+        "MANAGE_ENTITY_PROPERTIES",
+        "MANAGE_ENTITY_DOMAINS",
+        "MANAGE_ENTITY_OWNERS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS",
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_PROPERTIES",
+        "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_QUERIES",
         "SEARCH_PRIVILEGE",
@@ -342,7 +468,24 @@
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_PROPERTIES",
-        "VIEW_STRUCTURED_PROPERTIES_PAGE"
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
+        "MANAGE_GROUP_NOTIFICATION_SETTINGS",
+        "MANAGE_GROUP_SUBSCRIPTIONS",
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE",
+        "SHARE_ENTITY",
+        "PROPOSE_ENTITY_TAGS",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS",
+        "PROPOSE_ENTITY_DOCS",
+        "PROPOSE_ENTITY_DOMAINS",
+        "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+        "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE",
+        "VIEW_DOCUMENTATION_FORMS_PAGE"
       ],
       "displayName": "Editors - Metadata Policy",
       "description": "Editors have all metadata privileges.",
@@ -360,16 +503,14 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "resources": {
         "allResources": false,
         "filter": {
           "criteria": [
             {
-              "field": "RESOURCE_TYPE",
+              "field": "TYPE",
               "values": [
                 "dataset",
                 "chart",
@@ -390,9 +531,7 @@
           ]
         }
       },
-      "privileges": [
-        "EDIT_ENTITY"
-      ],
+      "privileges": ["EDIT_ENTITY"],
       "displayName": "Editors - Edit Metadata Entities",
       "description": "Editors can edit primary metadata entities.",
       "state": "ACTIVE",
@@ -409,11 +548,12 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Reader"
-        ]
+        "roles": ["urn:li:dataHubRole:Reader"]
       },
-      "privileges": [],
+      "privileges": [
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
+      ],
       "displayName": "Readers - Platform Policy",
       "description": "Readers can view analytics.",
       "state": "ACTIVE",
@@ -430,22 +570,34 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Reader"
-        ]
+        "roles": ["urn:li:dataHubRole:Reader"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "VIEW_DATASET_OPERATIONS",
+        "PROPOSE_ENTITY_TAGS",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS",
+        "PROPOSE_ENTITY_DOCS",
+        "PROPOSE_ENTITY_DOMAINS",
+        "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_ENTITY_PROPERTIES",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+        "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
+        "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "VIEW_STRUCTURED_PROPERTIES_PAGE"
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
+        "VIEW_DOCUMENTATION_FORMS_PAGE"
       ],
       "displayName": "Readers - Metadata Policy",
       "description": "Readers can view all assets.",
@@ -466,6 +618,7 @@
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -481,6 +634,7 @@
         "EDIT_DATASET_COL_TAGS",
         "EDIT_DATASET_COL_GLOSSARY_TERMS",
         "EDIT_DATASET_COL_DESCRIPTION",
+        "EDIT_DATASET_COL_PROPERTIES",
         "EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
@@ -489,6 +643,15 @@
         "EDIT_GROUP_MEMBERS",
         "EDIT_USER_PROFILE",
         "EDIT_CONTACT_INFO",
+        "MANAGE_ENTITY_TAGS",
+        "MANAGE_ENTITY_GLOSSARY_TERMS",
+        "MANAGE_ENTITY_PROPERTIES",
+        "MANAGE_ENTITY_DOMAINS",
+        "MANAGE_ENTITY_OWNERS",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS",
+        "MANAGE_DATASET_COL_TAGS",
+        "MANAGE_DATASET_COL_PROPERTIES",
+        "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
         "EDIT_LINEAGE",
         "EDIT_ENTITY_QUERIES",
         "GET_TIMELINE_PRIVILEGE",
@@ -497,7 +660,11 @@
         "GET_COUNTS_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EDIT_ENTITY_PROPERTIES"
+        "EDIT_ENTITY_PROPERTIES",
+        "MANAGE_GROUP_NOTIFICATION_SETTINGS",
+        "MANAGE_GROUP_SUBSCRIPTIONS",
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE"
       ],
       "displayName": "Asset Owners - Metadata Policy",
       "description": "Asset Owners have all metadata privileges ONLY for assets they own.",

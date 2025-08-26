@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - acryl-main
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -21,7 +22,7 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: ubuntu-22.04
+    runs-on: depot-ubuntu-22.04-small
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
     steps:
@@ -31,7 +32,7 @@ jobs:
         id: ci-optimize
 
   deploy:
-    runs-on: ubuntu-22.04
+    runs-on: depot-ubuntu-22.04-4
     permissions:
       contents: read
       deployments: write
@@ -50,14 +51,14 @@ jobs:
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew :datahub-web-react:build -x test -x check --parallel
+          ./gradlew :datahub-web-react:build -Psourcemap -x test -x check --parallel
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         uses: cloudflare/pages-action@1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: datahub-project-web-react
+          projectName: datahub-fork-web-react
           workingDirectory: datahub-web-react
           directory: dist
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

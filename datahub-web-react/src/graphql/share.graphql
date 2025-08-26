@@ -1,0 +1,27 @@
+mutation shareEntity($input: ShareEntityInput!) {
+    shareEntity(input: $input) {
+        succeeded
+        share {
+            lastShareResults {
+                ...shareResultFields
+            }
+            lastUnshareResults {
+                ...shareResultFields
+            }
+        }
+    }
+}
+
+mutation unshareEntity($input: UnshareEntityInput!) {
+    unshareEntity(input: $input) {
+        succeeded
+        share {
+            lastShareResults {
+                ...shareResultFields
+            }
+            lastUnshareResults {
+                ...shareResultFields
+            }
+        }
+    }
+}

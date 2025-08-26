@@ -37,6 +37,11 @@ record Owner {
     "name": "ownershipType",
     "entityTypes": [ "ownershipType" ]
   }
+  @Searchable = {
+    "fieldName": "ownershipTypeUrn",
+    "fieldType": "URN",
+    "queryByDefault": false,
+  }
   typeUrn: optional Urn
 
   /**

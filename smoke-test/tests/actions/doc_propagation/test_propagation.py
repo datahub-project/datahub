@@ -28,6 +28,9 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
+# Actions container not run in SaaS at the moment
+pytest.skip(allow_module_level=True)
+
 logger = logging.getLogger(__name__)
 
 DELETE_AFTER_TEST = os.getenv("DELETE_AFTER_TEST", "false").lower() == "true"
@@ -106,7 +109,7 @@ def action_env_vars(pytestconfig) -> ActionTestEnv:
                 key, value = line.split("=", 1)
                 env_vars[key] = value
 
-    return ActionTestEnv.model_validate(env_vars)
+    return ActionTestEnv.parse_obj(env_vars)
 
 
 @pytest.fixture(scope="function")
@@ -416,6 +419,7 @@ def add_field_description(f1, description, graph_client):
 )
 def check_propagated_description(downstream_field, description, graph_client):
     documentation = graph_client.get_aspect(downstream_field, models.DocumentationClass)
+    assert documentation is not None
     assert any(doc.documentation == description for doc in documentation.documentations)
 
 

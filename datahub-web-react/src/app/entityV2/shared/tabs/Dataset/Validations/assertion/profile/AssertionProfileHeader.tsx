@@ -5,9 +5,9 @@ import { Actions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion
 import { CloseButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/CloseButton';
 import { AssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionDescription';
 import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
-import { AssertionType } from '@src/types.generated';
+import { AssertionSourceType, AssertionType } from '@src/types.generated';
 
-import { Assertion, AssertionResult, DataContract } from '@types';
+import { Assertion, AssertionResult, DataContract, Monitor } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -43,8 +43,11 @@ const Title = styled.div`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
     contract?: DataContract;
     result?: AssertionResult;
+    canEditAssertion: boolean;
+    canEditMonitor: boolean;
     canEditContract: boolean;
     close: () => void;
     refetch: () => void;
@@ -52,8 +55,19 @@ type Props = {
 
 // TODO: Add support for V2 styled actions: Delete, start, stop.
 // TODO: Replace with the newer close Icon.
-export const AssertionProfileHeader = ({ assertion, contract, result, canEditContract, close, refetch }: Props) => {
+export const AssertionProfileHeader = ({
+    assertion,
+    monitor,
+    contract,
+    result,
+    canEditAssertion,
+    canEditMonitor,
+    canEditContract,
+    close,
+    refetch,
+}: Props) => {
     const isFieldAssertion = assertion?.info?.type === AssertionType.Field;
+    const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
     return (
         <>
             <NavBar>
@@ -61,7 +75,10 @@ export const AssertionProfileHeader = ({ assertion, contract, result, canEditCon
                 <ActionsWrapper>
                     <Actions
                         assertion={assertion}
+                        monitor={monitor}
                         contract={contract}
+                        canEditAssertion={canEditAssertion}
+                        canEditMonitor={canEditMonitor}
                         canEditContract={canEditContract}
                         refetch={refetch}
                     />
@@ -72,6 +89,7 @@ export const AssertionProfileHeader = ({ assertion, contract, result, canEditCon
                     {(assertion && (
                         <AssertionDescription
                             assertion={assertion}
+                            monitor={monitor}
                             options={{
                                 noSecondarySpacing: isFieldAssertion,
                                 showColumnTag: isFieldAssertion,
@@ -81,7 +99,7 @@ export const AssertionProfileHeader = ({ assertion, contract, result, canEditCon
                         'Assertion details'}
                 </Title>
                 <Status>
-                    <AssertionResultPill result={result} />
+                    <AssertionResultPill result={result} isSmartAssertion={isSmartAssertion} />
                 </Status>
             </Container>
         </>

@@ -1,0 +1,38 @@
+namespace com.linkedin.metric
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Information about the origin of the metric cube
+ */
+record DataHubMetricCubeOrigin {
+  /**
+  * Message associated with the incident
+  */
+  @Searchable = {
+    "addToFilters": true,
+    "fieldName": "originType",
+    "filterNameOverride": "Origin"
+  }
+  type: enum DataHubMetricSourceType {
+    /**
+     * Manually created metric, via UI or API.
+     */
+     MANUAL
+
+    /**
+     * Assertion monitor created the metric.
+     */
+     ASSERTION_MONITOR
+  }
+
+  /**
+  * Reference to the source that created the metric.
+  * In the case of assertion monitor, this is the URN of the assertion monitor.
+  */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  originUrn: optional Urn
+}

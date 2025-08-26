@@ -15,6 +15,9 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.directory.scim.protocol.data.ErrorResponse;
+import org.apache.directory.scim.protocol.exception.ScimException;
+import org.apache.directory.scim.spec.exception.ResourceException;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.core.Ordered;
 import org.springframework.core.convert.ConversionFailedException;
@@ -165,5 +168,15 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     log.error("Invalid JSON format: {}", request.getRequestURI(), e);
     return new ResponseEntity<>(
         Map.of("error", "Invalid JSON format", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+  }
+
+  @ExceptionHandler({ScimException.class})
+  public ResponseEntity<ErrorResponse> handleScimException(ScimException e) {
+    return e.getError().toResponseEntity();
+  }
+
+  @ExceptionHandler({ResourceException.class})
+  public ResponseEntity<ErrorResponse> handleResourceException(ResourceException e) {
+    return new ErrorResponse(HttpStatus.valueOf(e.getStatus()), e.getMessage()).toResponseEntity();
   }
 }

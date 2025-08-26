@@ -187,6 +187,12 @@ const meta: Meta = {
                 defaultValue: { summary: 'undefined' },
             },
         },
+        emptyState: {
+            description: 'Custom empty state component to render when no options are available',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+        },
     },
 
     // Define defaults

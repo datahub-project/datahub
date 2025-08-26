@@ -1,0 +1,25 @@
+on:
+  types:
+    - dataset
+  conditions:
+    - property: datasetProperties.name
+      operator: "starts_with"
+      values: ["special_prefix"]
+rules:
+  and:
+    - property: editableDatasetProperties.description
+      operator: exists
+    - property: datasetProperties.description
+      operator: contains_str
+      values: ["pii"]
+actions:
+  passing: # Should be a list.
+    type: ADD_OWNERS
+    values:
+        - "urn:li:corpuser:1"
+        - "urn:li:corpGroup:2"
+  failing:
+    type: ADD_GLOSSARY_TERMS
+    values:
+        - "urn:li:glossaryTerm:1"
+        - "urn:li:glossaryTerm:2"

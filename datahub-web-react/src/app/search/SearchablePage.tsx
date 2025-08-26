@@ -1,7 +1,6 @@
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { useHistory, useLocation } from 'react-router';
 import { useTheme } from 'styled-components';
 
@@ -13,7 +12,6 @@ import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import { getAutoCompleteInputFromQuickFilter } from '@app/search/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
 import useFilters from '@app/search/utils/useFilters';
-import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
@@ -71,32 +69,6 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
-
-    const { title, updateTitle } = useBrowserTitle();
-
-    useEffect(() => {
-        // Update the title only if it's not already set and there is a valid pathname
-        if (!title && location.pathname) {
-            const formattedPath = location.pathname
-                .split('/')
-                .filter((word) => word !== '')
-                .map((rawWord) => {
-                    // ie. personal-notifications -> Personal Notifications
-                    const words = rawWord.split('-');
-                    return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                })
-                .join(' | ');
-
-            if (formattedPath) {
-                return updateTitle(formattedPath);
-            }
-        }
-
-        // Clean up the title when the component unmounts
-        return () => {
-            updateTitle('');
-        };
-    }, [location.pathname, title, updateTitle]);
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -170,9 +142,6 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 authenticatedUserPictureLink={user?.editableProperties?.pictureLink}
                 entityRegistry={entityRegistry}
             />
-            <Helmet>
-                <title>{title}</title>
-            </Helmet>
             <div style={styles.children}>{children}</div>
         </>
     );

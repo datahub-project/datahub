@@ -13,6 +13,7 @@ import com.linkedin.datahub.upgrade.restorebackup.backupreader.BackupReaderArgs;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.EbeanAspectBackupIterator;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.LocalParquetReader;
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.ReaderWrapper;
+import com.linkedin.datahub.upgrade.restorebackup.backupreader.S3BackupReader;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -51,7 +52,13 @@ public class RestoreStorageStep implements UpgradeStep {
       final EntityService<?> entityService, final EntityRegistry entityRegistry) {
     _entityService = entityService;
     _entityRegistry = entityRegistry;
-    _backupReaders = ImmutableBiMap.of(LocalParquetReader.READER_NAME, LocalParquetReader.class);
+    _backupReaders =
+        ImmutableBiMap.of(
+            LocalParquetReader.READER_NAME,
+            LocalParquetReader.class,
+            S3BackupReader.READER_NAME,
+            S3BackupReader.class);
+
     final String readerPoolSize = System.getenv(RestoreIndices.READER_POOL_SIZE);
     final String writerPoolSize = System.getenv(RestoreIndices.WRITER_POOL_SIZE);
     int filePoolSize;
@@ -180,7 +187,7 @@ public class RestoreStorageStep implements UpgradeStep {
       try {
         aspectRecord =
             EntityUtils.toSystemAspect(
-                    context.opContext().getRetrieverContext(), aspect.toEntityAspect(), false)
+                    context.opContext().getRetrieverContext(), aspect.toEntityAspect())
                 .get()
                 .getRecordTemplate();
       } catch (Exception e) {

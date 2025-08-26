@@ -1,6 +1,7 @@
 import { red } from '@ant-design/colors';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Button, Divider, Dropdown, Empty, Modal, Pagination, Select, Typography, message } from 'antd';
+import { PageTitle } from '@components';
+import { Alert, Button, Dropdown, Empty, Modal, Pagination, Select, message } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -20,14 +21,10 @@ import { useListAccessTokensQuery, useRevokeAccessTokenMutation } from '@graphql
 import { useListUsersQuery } from '@graphql/user.generated';
 import { EntityType, FacetFilterInput } from '@types';
 
-const SourceContainer = styled.div`
+const Container = styled.div`
     width: 100%;
-    padding-top: 20px;
-    padding-right: 40px;
-    padding-left: 40px;
-    display: flex;
-    flex-direction: column;
     overflow: auto;
+    padding: 16px 20px;
 `;
 
 const TokensContainer = styled.div`
@@ -37,12 +34,7 @@ const TokensContainer = styled.div`
 const TokensHeaderContainer = styled.div`
     && {
         padding-left: 0px;
-    }
-`;
-
-const TokensTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
+        padding-bottom: 24px;
     }
 `;
 
@@ -64,14 +56,6 @@ const StyledSelect = styled(Select)`
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
     margin-right: 8px;
-`;
-
-const PersonTokenDescriptionText = styled(Typography.Paragraph)`
-    && {
-        max-width: 700px;
-        margin-top: 12px;
-        margin-bottom: 16px;
-    }
 `;
 
 const ActionButtonContainer = styled.div`
@@ -314,7 +298,7 @@ export const AccessTokens = () => {
     };
 
     return (
-        <SourceContainer>
+        <Container>
             {tokensLoading && !tokensData && (
                 <Message type="loading" content="Loading tokens..." style={{ marginTop: '10%' }} />
             )}
@@ -322,13 +306,12 @@ export const AccessTokens = () => {
             {revokeTokenError && message.error('Failed to update the Token :(')}
             <TokensContainer>
                 <TokensHeaderContainer>
-                    <TokensTitle level={2}>Manage Access Tokens</TokensTitle>
-                    <Typography.Paragraph type="secondary">
-                        Manage Access Tokens for use with DataHub APIs.
-                    </Typography.Paragraph>
+                    <PageTitle
+                        title="Manage Access Tokens"
+                        subTitle="Personal Access Tokens enable API access to DataHub with your permissions. They expire and should never be shared."
+                    />
                 </TokensHeaderContainer>
             </TokensContainer>
-            <Divider />
             {isTokenAuthEnabled === false && (
                 <StyledAlert
                     type="error"
@@ -341,11 +324,7 @@ export const AccessTokens = () => {
                     }
                 />
             )}
-            <Typography.Title level={5}>Personal Access Tokens</Typography.Title>
-            <PersonTokenDescriptionText type="secondary">
-                Personal Access Tokens allow you to make programmatic requests to DataHub&apos;s APIs. They inherit your
-                privileges and have a finite lifespan. Do not share Personal Access Tokens.
-            </PersonTokenDescriptionText>
+
             <TabToolbar>
                 <div>
                     {/* NOTE: only for SaaS. If this is brought into OSS, we will need to disable the dropdown and have the button onClick open the personal token modal */}
@@ -448,6 +427,6 @@ export const AccessTokens = () => {
                     }, 3000);
                 }}
             />
-        </SourceContainer>
+        </Container>
     );
 };

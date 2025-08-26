@@ -45,7 +45,22 @@ fragment query on QueryEntity {
             actor
         }
         origin {
-            ...searchResultFields
+            ...searchResultFieldsNoLineage
+        }
+    }
+    usageFeatures {
+        queryCountLast30Days
+        queryCountTotal
+        queryCostLast30Days
+        lastExecutedAt
+        runsPercentileLast30days
+        topUsersLast30Days {
+            urn
+            type
+            ...entityDisplayNameFields
+            ... on CorpUser {
+                ...userFields
+            }
         }
     }
     platform {

@@ -13,12 +13,14 @@ import {
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
+import { useGetProposedProperties } from '@app/entityV2/shared/tabs/Properties/useGetProposedProperties';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, StructuredProperties } from '@src/types.generated';
+import { ActionRequest, Maybe, SchemaFieldEntity, StructuredProperties } from '@src/types.generated';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -41,6 +43,7 @@ interface Props {
         fieldPath?: string;
         fieldUrn?: string;
         fieldProperties?: Maybe<StructuredProperties>;
+        fieldEntity?: Maybe<SchemaFieldEntity>;
         refetch?: () => void;
         disableEdit?: boolean;
         disableSearch?: boolean;
@@ -52,6 +55,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
     const fieldProperties = properties?.fieldProperties;
+    const fieldEntity = properties?.fieldEntity;
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
@@ -66,19 +70,26 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
+
+    const { proposedRows } = useGetProposedProperties({ fieldPath });
+    const { filteredRows: filteredProposedRows } = filterStructuredProperties(entityRegistry, proposedRows, filterText);
+
     const dataSource: PropertyRow[] = structuredPropertyRows
         .concat(customPropertyRows)
         .filter((row) => !row.structuredProperty?.settings?.isHidden);
+
+    const finalDataSource: (PropertyRow & { request?: ActionRequest })[] = [...dataSource, ...filteredProposedRows];
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
 
-    const entityUrnsToHydrate = structuredPropertyRowsRaw
-        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
-        .filter(Boolean);
+    const entityUrnsToHydrate =
+        structuredPropertyRowsRaw.flatMap((row) => row?.values?.map((v) => v.entity?.urn)).filter(Boolean) ?? [];
+    const proposedEntityUrns =
+        proposedRows.flatMap((row) => row?.values?.map((v) => v.entity?.urn)).filter(Boolean) ?? [];
 
-    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
+    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate.concat(proposedEntityUrns));
 
     const propertyTableColumns = [
         {
@@ -89,12 +100,13 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         {
             title: 'Value',
             ellipsis: true,
-            render: (propertyRow: PropertyRow) => (
+            render: (propertyRow: PropertyRow & { request?: ActionRequest }) => (
                 <ValuesColumn
                     propertyRow={propertyRow}
                     filterText={filterText}
                     hydratedEntityMap={hydratedEntityMap}
                     renderType={renderType}
+                    isProposed={propertyRow.isProposed}
                 />
             ),
         },
@@ -108,14 +120,18 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
         propertyTableColumns.push({
             title: '',
             width: '10%',
-            render: (propertyRow: PropertyRow) => (
-                <EditColumn
-                    structuredProperty={propertyRow.structuredProperty}
-                    associatedUrn={propertyRow.associatedUrn}
-                    values={propertyRow.values?.map((v) => v.value) || []}
-                    refetch={refetch}
-                />
-            ),
+            render: (propertyRow: PropertyRow) => {
+                if (propertyRow.isProposed) return null;
+                return (
+                    <EditColumn
+                        structuredProperty={propertyRow?.structuredProperty}
+                        associatedUrn={propertyRow?.associatedUrn}
+                        values={propertyRow?.values?.map((v) => v.value) || []}
+                        refetch={refetch}
+                        fieldEntity={fieldEntity}
+                    />
+                );
+            },
         } as any);
     }
 
@@ -135,7 +151,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
                 // @ts-ignore
                 columns={propertyTableColumns}
-                dataSource={dataSource}
+                dataSource={finalDataSource}
                 locale={{
                     emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}

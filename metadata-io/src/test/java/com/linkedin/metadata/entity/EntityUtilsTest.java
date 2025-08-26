@@ -118,7 +118,7 @@ public class EntityUtilsTest {
 
   @Test
   public void testToSystemAspect_NullEntityAspect() {
-    var result = EntityUtils.toSystemAspect(opContext.getRetrieverContext(), null, false);
+    var result = EntityUtils.toSystemAspect(opContext.getRetrieverContext(), null);
     assertTrue(result.isEmpty());
   }
 

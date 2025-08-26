@@ -1,7 +1,15 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
-import { Entity, FormPrompt, PropertyValue, SchemaField, StructuredPropertiesEntry } from '@types';
+import {
+    Entity,
+    FormPrompt,
+    Maybe,
+    PropertyValue,
+    SchemaField,
+    SchemaFieldEntity,
+    StructuredPropertiesEntry,
+} from '@types';
 
 export function getInitialValues(prompt: FormPrompt, entityData: GenericEntityProperties | null, field?: SchemaField) {
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
@@ -22,8 +30,11 @@ export function getInitialEntitiesForUrnPrompt(
     structuredPropertyUrn: string,
     entityData: GenericEntityProperties | null,
     selectedValues: any[],
+    fieldEntity?: Maybe<SchemaFieldEntity>,
 ) {
-    const structuredPropertyEntry = entityData?.structuredProperties?.properties?.find(
+    const structuredProperties = fieldEntity ? fieldEntity.structuredProperties : entityData?.structuredProperties;
+
+    const structuredPropertyEntry = structuredProperties?.properties?.find(
         (p) => p.structuredProperty.urn === structuredPropertyUrn,
     );
     const entities = structuredPropertyEntry?.valueEntities?.filter((e) => selectedValues.includes(e?.urn));

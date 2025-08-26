@@ -9,6 +9,7 @@ import { RightSidebar } from '@app/homeV2/layout/RightSidebar';
 import { NavBarStateType, useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import PersonalizationLoadingModal from '@app/homeV2/persona/PersonalizationLoadingModal';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { WelcomeToDataHubModal } from '@app/onboarding/WelcomeToDataHubModal';
 import { HOME_PAGE_DOMAINS_ID, HOME_PAGE_PLATFORMS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import {
     GLOBAL_WELCOME_TO_ACRYL_ID,
@@ -21,6 +22,7 @@ import {
     V2_SEARCH_BAR_VIEWS,
 } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchablePage } from '@app/searchV2/SearchablePage';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -62,13 +64,16 @@ export const HomePage = () => {
                 ]}
             />
             <SearchablePage>
-                <Container data-testid="home-page-content-container" $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    <LeftSidebar />
-                    <CenterContent />
-                    <RightSidebar />
-                </Container>
+                <ErrorBoundary>
+                    <Container data-testid="home-page-content-container" $isShowNavBarRedesign={isShowNavBarRedesign}>
+                        <LeftSidebar />
+                        <CenterContent />
+                        <RightSidebar />
+                    </Container>
+                </ErrorBoundary>
             </SearchablePage>
             <PersonalizationLoadingModal />
+            <WelcomeToDataHubModal />
         </>
     );
 };

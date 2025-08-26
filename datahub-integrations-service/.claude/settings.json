@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m:*)",
+      "Bash(ruff:*)",
+      "Bash(pytest:*)",
+      "Bash(mypy:*)",
+      "Bash(source venv/bin/activate)"
+    ],
+    "deny": []
+  }
+}

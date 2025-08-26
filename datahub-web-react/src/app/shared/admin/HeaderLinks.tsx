@@ -1,14 +1,20 @@
 import {
     ApiOutlined,
     BarChartOutlined,
-    BookOutlined,
+    DatabaseOutlined,
     DownOutlined,
+    EyeOutlined,
+    FileDoneOutlined,
+    FormOutlined,
     GlobalOutlined,
+    InboxOutlined,
     SettingOutlined,
     SolutionOutlined,
     UnorderedListOutlined,
 } from '@ant-design/icons';
-import { Button, Dropdown, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { BookBookmark } from '@phosphor-icons/react';
+import { Button, Dropdown, Menu } from 'antd';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -18,14 +24,22 @@ import DomainIcon from '@app/domain/DomainIcon';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
-import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
+import HelpDropdown from '@app/shared/admin/HelpDropdown';
+import { TaskCenterLink } from '@app/shared/admin/TaskCenterLink';
+import { useAppConfig, useBusinessAttributesFlag, useIsDocumentationFormsEnabled } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
+
+    span {
+        padding: 0;
+    }
 `;
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
+    display: flex;
+    align-items: center;
     opacity: 1;
     white-space: nowrap;
     transition: opacity 0.5s;
@@ -36,6 +50,12 @@ const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
         opacity: 0;
         width: 0;
     `}
+`;
+
+const MenuItem = styled(Menu.Item)`
+    font-size: 12px;
+    font-weight: bold;
+    max-width: 400px;
 `;
 
 const NavTitleContainer = styled.span`
@@ -60,6 +80,13 @@ const NavTitleDescription = styled.div`
     color: ${ANTD_GRAY[7]};
 `;
 
+const StyledDatabaseOutlined = styled(DatabaseOutlined)`
+    && {
+        font-size: 14px;
+        font-weight: bold;
+    }
+`;
+
 interface Props {
     areLinksHidden?: boolean;
 }
@@ -68,11 +95,18 @@ export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
+    const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
 
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    // SaaS Only
+    // Currently we only have a flag for metadata proposals.
+    // In the future, we may add configs for alerts, announcements, etc.
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
+    const isTestsEnabled = config?.testsConfig?.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showSettings = true;
@@ -82,6 +116,18 @@ export function HeaderLinks(props: Props) {
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
+    // SaaS only
+    const showActionRequests =
+        (!isDocumentationFormsEnabled && isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) ||
+        false;
+    const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
+    const showObserve = showDatasetHealth;
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled &&
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
+
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
     const items = [
@@ -89,10 +135,10 @@ export function HeaderLinks(props: Props) {
             key: 0,
             label: (
                 <Link to="/glossary">
-                    <NavTitleContainer>
-                        <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                    <NavSubItemTitleContainer>
+                        <BookBookmark style={{ fontSize: '14px', fontWeight: 'bold' }} />
                         <NavTitleText>Glossary</NavTitleText>
-                    </NavTitleContainer>
+                    </NavSubItemTitleContainer>
                     <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
                 </Link>
             ),
@@ -101,7 +147,7 @@ export function HeaderLinks(props: Props) {
             key: 1,
             label: (
                 <Link to="/domains">
-                    <NavTitleContainer>
+                    <NavSubItemTitleContainer>
                         <DomainIcon
                             style={{
                                 fontSize: 14,
@@ -109,7 +155,7 @@ export function HeaderLinks(props: Props) {
                             }}
                         />
                         <NavTitleText>Domains</NavTitleText>
-                    </NavTitleContainer>
+                    </NavSubItemTitleContainer>
                     <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                 </Link>
             ),
@@ -120,7 +166,7 @@ export function HeaderLinks(props: Props) {
                       key: 2,
                       label: (
                           <Link to="/business-attribute">
-                              <NavTitleContainer>
+                              <NavSubItemTitleContainer>
                                   <GlobalOutlined
                                       style={{
                                           fontSize: 14,
@@ -128,8 +174,54 @@ export function HeaderLinks(props: Props) {
                                       }}
                                   />
                                   <NavTitleText>Business Attribute</NavTitleText>
-                              </NavTitleContainer>
+                              </NavSubItemTitleContainer>
                               <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showTests
+            ? [
+                  {
+                      key: 3,
+                      label: (
+                          <Link to="/tests">
+                              <NavSubItemTitleContainer>
+                                  <FileDoneOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Tests</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>
+                                  Monitor policies & automate actions across data assets
+                              </NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showDocumentationCenter
+            ? [
+                  {
+                      key: 4,
+                      label: (
+                          <Link to="/govern/dashboard">
+                              <NavSubItemTitleContainer>
+                                  <FormOutlined
+                                      style={{
+                                          fontSize: 14,
+                                          fontWeight: 'bold',
+                                      }}
+                                  />
+                                  <NavTitleText>Compliance Forms</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>
+                                  Manage compliance initiatives for your data assets
+                              </NavTitleDescription>
                           </Link>
                       ),
                   },
@@ -169,6 +261,16 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
+            {showActionRequests && (
+                <LinkWrapper>
+                    <Link to="/requests">
+                        <Button type="text">
+                            <InboxOutlined /> Inbox
+                        </Button>
+                    </Link>
+                </LinkWrapper>
+            )}
+            {isDocumentationFormsEnabled && <TaskCenterLink />}
             <Dropdown trigger={['click']} menu={{ items }}>
                 <LinkWrapper>
                     <Button type="text">
@@ -176,6 +278,35 @@ export function HeaderLinks(props: Props) {
                     </Button>
                 </LinkWrapper>
             </Dropdown>
+            {showObserve && (
+                <Dropdown
+                    trigger={['click']}
+                    overlay={
+                        <Menu>
+                            {showDatasetHealth && (
+                                <MenuItem key="1">
+                                    <Link to={PageRoutes.DATASET_HEALTH_DASHBOARD}>
+                                        <NavSubItemTitleContainer>
+                                            <StyledDatabaseOutlined />
+                                            <NavTitleText>Dataset Health</NavTitleText>
+                                        </NavSubItemTitleContainer>
+                                        <NavTitleDescription>
+                                            Monitor active incidents & failing assertions across your
+                                            organization&apos;s datasets
+                                        </NavTitleDescription>
+                                    </Link>
+                                </MenuItem>
+                            )}
+                        </Menu>
+                    }
+                >
+                    <LinkWrapper>
+                        <Button type="text">
+                            <EyeOutlined /> Observe <DownOutlined style={{ fontSize: '6px' }} />
+                        </Button>
+                    </LinkWrapper>
+                </Dropdown>
+            )}
             {showIngestion && (
                 <LinkWrapper>
                     <Link to="/ingestion">
@@ -190,6 +321,7 @@ export function HeaderLinks(props: Props) {
                     </Link>
                 </LinkWrapper>
             )}
+            <HelpDropdown />
             {showSettings && (
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">

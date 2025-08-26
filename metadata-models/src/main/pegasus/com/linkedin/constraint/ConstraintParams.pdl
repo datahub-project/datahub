@@ -1,0 +1,18 @@
+namespace com.linkedin.constraint
+
+import com.linkedin.common.Urn
+
+/**
+ * Params provided for a specific instance of a constraint.
+ */
+record ConstraintParams {
+  /**
+   * An optional set of information specific to glossary node constraints.
+   */
+  hasGlossaryTermInNodeParams: optional record GlossaryTermInNodeConstraint {
+    /**
+     * The glossary node which the constrained entities must have attached to them
+     */
+    glossaryNode: Urn
+  }
+}

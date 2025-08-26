@@ -1,0 +1,204 @@
+fragment shareDetails on Share {
+  lastShareResults {
+    destination {
+      urn
+    }
+    implicitShareEntity {
+      urn
+      type
+    }
+    created {
+      time
+      actor {
+          urn
+      }
+    }
+    lastAttempt {
+      time
+      actor {
+        urn
+      }
+    }
+    lastSuccess {
+      time
+      actor {
+        urn
+      }
+    }
+    status
+    message
+    shareConfig {
+      enableUpstreamLineage
+      enableDownstreamLineage
+    }
+    statusLastUpdated
+  }
+  lastUnshareResults {
+    destination {
+      urn
+    }
+    implicitShareEntity {
+      urn
+      type
+    }
+    created {
+      time
+      actor {
+        urn
+      }
+    }
+    lastAttempt {
+      time
+      actor {
+        urn
+      }
+    }
+    lastSuccess {
+      time
+      actor {
+        urn
+      }
+    }
+    status
+    message
+    shareConfig {
+      enableUpstreamLineage
+      enableDownstreamLineage
+    }
+    statusLastUpdated
+  }
+}
+
+
+query scrollSharedEntities($scrollId: String, $count: Int!) {
+  scrollAcrossEntities(input: {
+    types: [],
+    query: "*",
+    scrollId: $scrollId,
+    count: $count,
+    orFilters: [
+        {
+            and: [
+                {
+                    field: "shareDestinations",
+                    condition: EXISTS,
+                    values: []
+                }
+            ]
+        }
+    ]
+  }) {
+    nextScrollId
+    count
+    total
+    searchResults {
+        entity {
+            urn 
+            type
+            ...on Dataset {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on Container {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on Dashboard {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on Chart {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on DataJob {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on DataFlow {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on MLModel {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on MLModelGroup {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on MLPrimaryKey {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on MLFeature {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on MLFeatureTable {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on Domain {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on DataProduct {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on Tag {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on CorpUser {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on CorpGroup {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on GlossaryTerm {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on GlossaryNode {
+                share {
+                    ...shareDetails
+                }
+            }
+            ...on Notebook {
+                share {
+                    ...shareDetails
+                }
+            }
+        }
+        matchedFields {
+            name
+            value
+        }
+        insights {
+            text
+            icon
+        }
+    }
+  }
+}

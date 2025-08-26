@@ -1,0 +1,36 @@
+namespace com.linkedin.form
+
+import com.linkedin.common.Urn
+
+/**
+ * Information specific to glossary terms prompts.
+ */
+record OwnershipParams {
+  /**
+   * Whether one or multiple owners are accepted as a response.
+   */
+  cardinality: PromptCardinality = "MULTIPLE"
+
+  /**
+   * An optional list of allowed owners to choose from
+   */
+  @Relationship = {
+    "/*": {
+      "name": "allowedOwnerOn",
+      "entityTypes": [ "corpuser", "corpGroup" ]
+    }
+  }
+  allowedOwners: optional array[Urn]
+
+  /**
+   * An optional list of ownership type urns to choose from. If this is empty, all types will be allowed.
+   * If only one type is provided, the user will be required to set that type when responding.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "allowedOwnershipTypeOn",
+      "entityTypes": [ "ownershipType" ]
+    }
+  }
+  allowedOwnershipTypes: optional array[Urn]
+}

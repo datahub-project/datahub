@@ -1,3 +1,4 @@
+// See notes gradle/docker/README.md
 import groovy.json.JsonSlurper
 import org.apache.commons.io.output.TeeOutputStream
 
@@ -148,7 +149,11 @@ project.afterEvaluate {
 
     def dockerCmd = []
 
-    dockerCmd += ["docker", "buildx", "build", "--load"]
+    if (System.getenv("DOCKER_CACHE") == "DEPOT") {
+      dockerCmd += ["depot", "build", "--load"]
+    } else {
+      dockerCmd += ["docker", "buildx", "build", "--load"]
+    }
     if (extension.platforms.get()) {
       dockerCmd << "--platform=${extension.platforms.get().join(',')}"
     }
@@ -270,10 +275,9 @@ project.afterEvaluate {
             ext.isDebug ||  !tag.contains("debug")  //Add the debug tag only if this is this is a debug build.
           }).toList()
         }
+        bake_spec_target.args = [:]
         if (extension.buildArgs.get()) {
-          bake_spec_target.args = extension.buildArgs.get()
-        } else {
-          bake_spec_target.args = [:]
+          bake_spec_target.args.putAll(extension.buildArgs.get())
         }
 
         if (extension.debugBuildArgs.get() && bake_spec_target.tags.findAll { tag -> tag.contains("debug") }.size() > 0) {

@@ -1,4 +1,5 @@
-import { Divider, Popover } from 'antd';
+import { Popover } from '@components';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -56,7 +57,7 @@ export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, place
     return (
         <Popover
             content={
-                <>
+                <div data-testid="assertion-details">
                     <Header>
                         <Icon>{getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
                         <Title>{getHealthSummaryMessage(health)}</Title>
@@ -67,7 +68,7 @@ export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, place
                             <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
                         </StatusContainer>
                     ))}
-                </>
+                </div>
             }
             color="#262626"
             placement={placement}

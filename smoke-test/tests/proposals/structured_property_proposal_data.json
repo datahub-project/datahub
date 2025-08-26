@@ -1,0 +1,119 @@
+[
+    {
+        "auditHeader": null,
+        "entityType": "structuredProperty",
+        "entityUrn": "urn:li:structuredProperty:test-property-already-applied",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "propertyDefinition",
+        "aspect": {
+            "json": {
+                "qualifiedName": "test-existing-property-name",
+                "valueType": "urn:li:dataType:datahub.string",
+                "entityTypes": ["urn:li:entityType:datahub.dataset"],
+                "cardinality": "MULTIPLE"
+            }
+        },
+        "systemMetadata": {
+          "lastObserved": 1642233600000,
+          "runId": "test-properties",
+          "registryName": null,
+          "registryVersion": null,
+          "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "structuredProperty",
+        "entityUrn": "urn:li:structuredProperty:test-property-to-apply",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "propertyDefinition",
+        "aspect": {
+          "json": {
+              "qualifiedName": "test-property-name",
+              "valueType": "urn:li:dataType:datahub.string",
+              "entityTypes": ["urn:li:entityType:datahub.dataset"],
+              "cardinality": "SINGLE"
+          }
+        },
+        "systemMetadata": {
+          "lastObserved": 1642233600000,
+          "runId": "test-properties",
+          "registryName": null,
+          "registryVersion": null,
+          "properties": null
+        }
+    },
+    {
+      "auditHeader": null,
+      "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-properties,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                "schemaName": "SampleKafkaTestProposal",
+                "platform": "urn:li:dataPlatform:kafka",
+                "version": 0,
+                "created": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "deleted": null,
+                "dataset": null,
+                "cluster": null,
+                "hash": "",
+                "platformSchema": {
+                  "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                  }
+                },
+                "fields": [
+                  {
+                    "fieldPath": "field_foo",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "description": {
+                      "string": "Foo field description"
+                    },
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false
+                  },
+                  {
+                    "fieldPath": "field_bar",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "description": {
+                      "string": "Bar field description"
+                    },
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false
+                  }
+                ],
+                "primaryKeys": null,
+                "foreignKeysSpecs": null
+              }
+            }
+          ]
+        }
+      },
+      "proposedDelta": null
+    }
+  ]

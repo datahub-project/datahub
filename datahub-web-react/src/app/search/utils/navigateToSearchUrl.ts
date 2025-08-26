@@ -15,6 +15,8 @@ export const navigateToSearchUrl = ({
     unionType = UnionType.AND,
     selectedSortOption,
     history,
+    currentPath = PageRoutes.SEARCH,
+    existingSearchParams,
 }: {
     type?: EntityType;
     query?: string;
@@ -23,6 +25,8 @@ export const navigateToSearchUrl = ({
     history: RouteComponentProps['history'];
     selectedSortOption?: string;
     unionType?: UnionType;
+    currentPath?: string;
+    existingSearchParams?: { [key: string]: string };
 }) => {
     const constructedFilters = newFilters || [];
     if (newType) {
@@ -31,6 +35,7 @@ export const navigateToSearchUrl = ({
 
     const search = QueryString.stringify(
         {
+            ...existingSearchParams,
             ...filtersToQueryStringParams(constructedFilters),
             query: encodeURIComponent(newQuery || ''),
             page: newPage,
@@ -41,7 +46,7 @@ export const navigateToSearchUrl = ({
     );
 
     history.push({
-        pathname: `${PageRoutes.SEARCH}`,
+        pathname: currentPath || `${PageRoutes.SEARCH}`,
         search,
     });
 };

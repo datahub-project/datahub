@@ -8,7 +8,8 @@ apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
-    docker_repo = 'datahub-mae-consumer'
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-mae-consumer' : 'datahub-mae-consumer'
 }
 
 dependencies {
@@ -29,6 +30,11 @@ dependencies {
     runtimeOnly externalDependency.opentelemetryExporter
     runtimeOnly externalDependency.openTelemetryExporterLogging
     runtimeOnly externalDependency.openTelemetryExporterCommon
+    implementation externalDependency.logbackJackson
+    implementation externalDependency.logbackJsonClassic
+    implementation externalDependency.janino
+    implementation externalDependency.sentry
+    implementation externalDependency.sentryLogback
 
     testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation project(':metadata-jobs:pe-consumer')
@@ -46,12 +52,12 @@ docker {
     dependsOn(bootJar)
     name "${docker_registry}/${docker_repo}:${versionTag}"
     //version "v${version}"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+    dockerfile file("${rootProject.projectDir}/docker/datahub-mae-consumer/Dockerfile")
     files bootJar.outputs.files
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
         include 'docker/monitoring/*'
-        include "docker/${docker_repo}/*"
+        include "docker/datahub-mae-consumer/*"
         include 'metadata-models/src/main/resources/*'
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())

@@ -4,6 +4,12 @@
     retention:
       version:
         maxVersions: 1
+- entity: "dataHubRemoteExecutor"
+  aspect: "dataHubRemoteExecutorStatus"
+  config:
+    retention:
+      version:
+        maxVersions: 3
 - entity: "*"
   aspect: "*"
   config:

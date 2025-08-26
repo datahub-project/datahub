@@ -25,6 +25,8 @@ vi.mock('@components', () => ({
             {icon}
         </div>
     )),
+    Tooltip: (props: any) => <span {...props} />,
+    Text: (props: any) => <p {...props} />,
     colors: {
         gray: {
             600: '#4B5563',

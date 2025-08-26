@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
@@ -18,6 +19,10 @@ const PolicyContainer = styled.div`
     padding-right: 20px;
     > div {
         margin-bottom: 32px;
+    }
+
+    ${SpacedAvatarGroup} {
+        flex-wrap: wrap;
     }
 `;
 
@@ -61,7 +66,7 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
                 <div>
                     <Typography.Title level={5}>Users</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={50} size={28} />
+                    <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={500} size={28} />
                 </div>
                 <div>
                     <Typography.Title level={5}>Associated Policies</Typography.Title>

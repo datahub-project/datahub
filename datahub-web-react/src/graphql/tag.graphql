@@ -15,6 +15,9 @@ query getTag($urn: String!) {
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }
+        assetOrigin {
+            ...originFields
+        }
     }
 }
 

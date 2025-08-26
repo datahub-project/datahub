@@ -60,7 +60,9 @@ public class ContainerEntitiesResolverTest {
                                         new CriterionArray(ImmutableList.of(filterCriterion)))))),
                 Mockito.eq(0),
                 Mockito.eq(20),
-                Mockito.eq(Collections.emptyList())))
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenReturn(
             new SearchResult()
                 .setFrom(0)

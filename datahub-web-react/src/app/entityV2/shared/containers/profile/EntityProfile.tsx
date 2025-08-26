@@ -42,6 +42,8 @@ import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '@app/onboarding/config/LineageGraphOnboardingConfig';
+import { ENTITY_PROFILE_V2_SUBSCRIPTION_ID } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
+import { useSubscriptionsEnabled } from '@app/settings/personal/notifications/utils';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
 import TabFullsizeContext from '@app/shared/TabFullsizedContext';
@@ -137,6 +139,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     flex-shrink: 0;
     padding: 0;
+    overflow: hidden;
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -202,6 +205,7 @@ export const EntityProfile = <T, U>({
     const isLineageV2 = useLineageV2();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
+    const subscriptionsEnabled = useSubscriptionsEnabled();
     const history = useHistory();
     const location = useLocation();
     const isInSearch = matchPath(location.pathname, PageRoutes.SEARCH_RESULTS) !== null;
@@ -219,6 +223,9 @@ export const EntityProfile = <T, U>({
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
     const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
     const stepIds = isLineageMode ? lineageGraphStepIds : entityStepIds;
+    const filteredStepIds = subscriptionsEnabled
+        ? stepIds
+        : stepIds.filter((id) => id !== ENTITY_PROFILE_V2_SUBSCRIPTION_ID);
 
     const routeToTab = useCallback(
         ({
@@ -365,7 +372,7 @@ export const EntityProfile = <T, U>({
                 />
             )}
             <Wrapper showAlert={showAlert && !!entityData?.status?.removed}>
-                <OnboardingTour stepIds={stepIds} />
+                <OnboardingTour stepIds={filteredStepIds} />
                 <EntityHead />
                 {showError && <ErrorSection />}
                 {showFullScreen && <LineageGraph isFullscreen />}

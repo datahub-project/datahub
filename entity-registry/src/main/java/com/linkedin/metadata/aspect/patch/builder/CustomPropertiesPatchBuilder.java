@@ -78,4 +78,9 @@ public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuild
   public T getParent() {
     return parent;
   }
+
+  @Override
+  public List<ImmutableTriple<String, String, JsonNode>> getSubPaths() {
+    return operations;
+  }
 }

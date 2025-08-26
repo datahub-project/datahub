@@ -1,4 +1,4 @@
-import { Column, Table } from '@components';
+import { Column, Table, Text, colors } from '@components';
 import { SorterResult } from 'antd/lib/table/interface';
 import * as QueryString from 'query-string';
 import React from 'react';
@@ -6,19 +6,23 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { getDisplayablePoolId } from '@app/ingestV2/executor_saas/utils';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
-import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
+import DateTimeColumn, { wrapDateTimeColumnWithHover } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
+import { EXECUTOR_TYPE_ALL_VALUE } from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
 import {
     ActionsColumn,
     NameColumn,
     OwnerColumn,
     ScheduleColumn,
+    wrapOwnerColumnWithHover,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
@@ -26,6 +30,15 @@ import { IngestionSource } from '@types';
 const StyledTable = styled(Table)`
     table-layout: fixed;
 ` as typeof Table;
+
+const LinkButton = styled(Text)`
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    color: ${colors.violet[500]};
+    display: inline-block;
+`;
 
 interface Props {
     sources: IngestionSource[];
@@ -42,6 +55,9 @@ interface Props {
     sourcesToRefetch: Set<string>;
     executedUrns: Set<string>;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    saasProps: {
+        onViewPool: (poolId: string) => void;
+    };
 }
 
 function IngestionSourceTable({
@@ -59,9 +75,12 @@ function IngestionSourceTable({
     sourcesToRefetch,
     executedUrns,
     setSelectedTab,
+    saasProps,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
+    const appConfig = useAppConfig();
+    const isPoolsDisplayEnabled = appConfig.config.featureFlags.displayExecutorPools;
 
     const tableData: IngestionSourceTableData[] = sources.map((source) => ({
         urn: source.urn,
@@ -76,11 +95,16 @@ function IngestionSourceTable({
         lastExecStatus: getSourceStatus(source, sourcesToRefetch, executedUrns),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
+        executorPoolId: source.config?.executorId, // SaaS only
+        privileges: source.privileges,
     }));
 
     const navigateToRunHistory = (record) => {
         setSelectedTab(TabType.RunHistory);
-        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
+        const selectedSourceNameFilter = [
+            { field: 'executorType', values: [EXECUTOR_TYPE_ALL_VALUE] },
+            { field: 'ingestionSource', values: [record.urn] },
+        ];
         const preserveParams = shouldPreserveParams;
         preserveParams.current = true;
 
@@ -91,7 +115,7 @@ function IngestionSourceTable({
             { arrayFormat: 'comma' },
         );
 
-        history.replace({
+        history.push({
             pathname: tabUrlMap[TabType.RunHistory],
             search,
         });
@@ -104,8 +128,9 @@ function IngestionSourceTable({
             render: (record) => {
                 return <NameColumn type={record.type} record={record} />;
             },
-            width: '25%',
+            width: '20%',
             sorter: true,
+            onCellClick: (record) => onEdit(record.urn),
         },
         {
             title: 'Schedule',
@@ -118,14 +143,45 @@ function IngestionSourceTable({
             key: 'owner',
             render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
             width: '20%',
+            cellWrapper: wrapOwnerColumnWithHover,
+        },
+        ...(isPoolsDisplayEnabled
+            ? [
+                  {
+                      // SaaS only
+                      title: 'Executor',
+                      key: 'executor',
+                      render: (record) =>
+                          record.executorPoolId && !record.cliIngestion ? (
+                              <LinkButton
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      saasProps.onViewPool(record.executorPoolId);
+                                      setSelectedTab(TabType.RemoteExecutors);
+                                  }}
+                              >
+                                  {getDisplayablePoolId({ executorPoolId: record.executorPoolId })}
+                              </LinkButton>
+                          ) : (
+                              <span>-</span>
+                          ),
+                      width: '15%',
+                  },
+              ]
+            : []),
+        {
+            title: 'Owner',
+            key: 'owner',
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
+            width: '15%',
         },
         {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => (
-                <DateTimeColumn time={record.lastExecTime} showRelative onClick={() => navigateToRunHistory(record)} />
-            ),
-            width: '20%',
+            render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
+            width: '15%',
+            onCellClick: (record) => navigateToRunHistory(record),
+            cellWrapper: wrapDateTimeColumnWithHover,
         },
         {
             title: 'Status',
@@ -137,7 +193,8 @@ function IngestionSourceTable({
                     dataTestId="ingestion-source-table-status"
                 />
             ),
-            width: '15%',
+            width: '10%',
+            onCellClick: (record) => record.lastExecUrn && setFocusExecutionUrn(record.lastExecUrn),
         },
 
         {
@@ -170,7 +227,6 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
-            onRowClick={(record) => onEdit(record.urn)}
             footer={
                 isLastPage ? (
                     <TableFooter

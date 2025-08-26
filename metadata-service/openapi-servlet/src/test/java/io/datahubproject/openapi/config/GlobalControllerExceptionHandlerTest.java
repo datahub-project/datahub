@@ -16,6 +16,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
+import org.apache.directory.scim.protocol.data.ErrorResponse;
+import org.apache.directory.scim.protocol.exception.ScimException;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -34,6 +36,10 @@ public class GlobalControllerExceptionHandlerTest {
   @Mock private HttpServletRequest mockRequest;
 
   @Mock private HttpServletResponse mockResponse;
+
+  @Mock private ScimException mockScimException;
+
+  @Mock private ErrorResponse mockErrorResponse;
 
   @BeforeMethod
   public void setUp() {
@@ -317,5 +323,20 @@ public class GlobalControllerExceptionHandlerTest {
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Invalid JSON format");
     assertEquals(response.getBody().get("message"), "Jakarta JSON parsing failed");
+  }
+
+  @Test
+  public void testHandleScimException() {
+    ResponseEntity<ErrorResponse> mockResponseEntity =
+        new ResponseEntity<>(mockErrorResponse, HttpStatus.BAD_REQUEST);
+    when(mockScimException.getError()).thenReturn(mockErrorResponse);
+    when(mockErrorResponse.toResponseEntity()).thenReturn(mockResponseEntity);
+
+    ResponseEntity<ErrorResponse> response =
+        exceptionHandler.handleScimException(mockScimException);
+
+    assertEquals(response, mockResponseEntity);
+    verify(mockScimException).getError();
+    verify(mockErrorResponse).toResponseEntity();
   }
 }

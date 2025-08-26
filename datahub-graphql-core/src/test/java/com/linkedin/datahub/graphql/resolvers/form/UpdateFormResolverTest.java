@@ -8,11 +8,14 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Form;
+import com.linkedin.datahub.graphql.generated.FormNotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.FormSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateFormInput;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -24,12 +27,24 @@ public class UpdateFormResolverTest {
   private static final String TEST_FORM_URN = "urn:li:form:1";
 
   private static final UpdateFormInput TEST_INPUT =
-      new UpdateFormInput(TEST_FORM_URN, "new name", null, null, null, null, null);
+      new UpdateFormInput(
+          TEST_FORM_URN,
+          "new name",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          new FormSettingsInput(new FormNotificationSettingsInput()));
 
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(true);
-    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient);
+    FormService mockService = Mockito.mock(FormService.class);
+    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -49,7 +64,8 @@ public class UpdateFormResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(true);
-    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient);
+    FormService mockService = Mockito.mock(FormService.class);
+    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockDenyContext();
@@ -67,7 +83,8 @@ public class UpdateFormResolverTest {
   @Test
   public void testGetFailure() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(false);
-    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient);
+    FormService mockService = Mockito.mock(FormService.class);
+    UpdateFormResolver resolver = new UpdateFormResolver(mockEntityClient, mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -77,8 +94,8 @@ public class UpdateFormResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    // Validate that ingest was called, but that caused a failure
-    Mockito.verify(mockEntityClient, Mockito.times(1))
+    // Validate that ingest was not called since there was a failure
+    Mockito.verify(mockEntityClient, Mockito.times(0))
         .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 

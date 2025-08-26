@@ -75,6 +75,7 @@ from datahub.ingestion.source.aws.tag_entities import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -274,6 +275,13 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE, "Support via the `emit_s3_lineage` config field"
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+    ],
 )
 class GlueSource(StatefulIngestionSourceBase):
     """

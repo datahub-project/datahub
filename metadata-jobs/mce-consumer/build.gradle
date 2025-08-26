@@ -46,6 +46,9 @@ dependencies {
     testImplementation externalDependency.mockito
     testImplementation externalDependency.mockitoInline
     testImplementation externalDependency.springBootTest
+
+    implementation externalDependency.azureIdentityExtensions
+    implementation externalDependency.azureIdentity
 }
 
 task avroSchemaSources(type: Copy) {

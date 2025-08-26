@@ -1,0 +1,76 @@
+# Ref: https://github.com/acryldata/datahub-fork/blob/acryl-main/datahub-graphql-core/src/main/resources/actions_pipeline.graphql#L22
+
+fragment ActionInfo on ActionPipeline {
+    urn
+    type
+    status
+    details {
+        type
+        name
+        description
+        category
+        state
+        config {
+            recipe
+            executorId
+            version
+            debugMode
+        }
+    }
+}
+
+query listActionPipelines($input: ListActionPipelinesInput!) {
+    listActionPipelines(input: $input) {
+        start
+        count
+        total
+        actionPipelines {
+            ...ActionInfo
+        }
+    }
+}
+
+query getActionPipeline($urn: String!) {
+    actionPipeline(urn: $urn) {
+        ...ActionInfo
+    }
+}
+
+query getActionPipelineStatus($urn: String!) {
+    actionPipeline(urn: $urn) {
+        status
+        details {
+            name
+            state
+            description
+        }
+    }
+}
+
+mutation createActionPipeline($input: UpdateActionPipelineInput!) {
+    createActionPipeline(input: $input)
+}
+
+mutation upsertActionPipeline($urn: String!, $input: UpdateActionPipelineInput!) {
+    upsertActionPipeline(urn: $urn, input: $input)
+}
+
+mutation stopActionPipeline($urn: String!) {
+    stopActionPipeline(urn: $urn)
+}
+
+mutation startActionPipeline($urn: String!) {
+    startActionPipeline(urn: $urn)
+}
+
+mutation rollbackActionPipeline($urn: String!) {
+    rollbackActionPipeline(urn: $urn)
+}
+
+mutation deleteActionPipeline($urn: String!) {
+    deleteActionPipeline(urn: $urn)
+}
+
+mutation bootstrapActionPipeline($urn: String!) {
+    bootstrapActionPipeline(urn: $urn)
+}

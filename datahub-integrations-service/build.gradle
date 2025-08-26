@@ -1,0 +1,189 @@
+/**
+ * Copyright 2021 Acryl Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java' // required for versioning
+    id("org.openapi.generator") version "7.4.0"
+}
+
+apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: "../gradle/docker/docker.gradle"
+
+ext {
+    python_executable = 'python3'
+    venv_name = 'venv'
+    python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-integrations-service' : 'datahub-integrations-service'
+}
+
+task installUv(type: Exec) {
+    commandLine 'bash', '-c', """
+        if ! command -v uv &> /dev/null; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+        else
+            echo "uv is already installed"
+        fi
+    """
+}
+
+task environmentSetup(type: Exec, dependsOn: installUv) {
+    def sentinel_file = "${venv_name}/.uv_venv_environment_sentinel"
+    inputs.file file('pyproject.toml')
+    outputs.file(sentinel_file)
+    commandLine 'bash', '-c',
+        "uv venv --python 3.11 --allow-existing venv && " +
+        "touch ${sentinel_file}"
+}
+
+task codegenPython(dependsOn: [":metadata-ingestion:codegen"])
+
+task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
+    inputs.files(
+        file('pyproject.toml'),
+        file('scripts/sync.sh'),
+        file('requirements.txt'),
+        file('requirements-dev.txt'),
+    )
+    outputs.file("${venv_name}/.build_install_sentinel")
+
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/sync.sh && " +
+        "touch ${venv_name}/.build_install_sentinel"
+}
+
+task install(dependsOn: [installPackage])
+
+task installDev(dependsOn: [install])
+
+task lockfileUpdate(type: Exec, dependsOn: environmentSetup) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/lockfile.sh"
+}
+task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/lockfile-check.sh"
+}
+
+def typeCheckDirs = "src/ tests/"
+def lintDirs = "src/ tests/ experiments/ scripts/"
+
+task lint(type: Exec, dependsOn: installDev) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "ruff check ${lintDirs} && " +
+        "ruff format --check ${lintDirs} && " +
+        "mypy ${typeCheckDirs}"
+}
+task lintFix(type: Exec, dependsOn: installDev) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "ruff check --fix ${lintDirs} && " +
+        "ruff format ${lintDirs}"
+}
+
+task pytest(type: Exec, dependsOn: [installDev]) {
+    commandLine 'bash', '-x', '-c',
+        "${venv_name}/bin/pytest ${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+test.finalizedBy(pytest)
+
+task cleanPythonCache(type: Exec) {
+    commandLine 'bash', '-x', '-c',
+        "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+build.dependsOn install
+check.dependsOn lockfileCheck
+check.dependsOn lint
+check.dependsOn test
+
+clean {
+    delete venv_name
+    delete 'build'
+    delete 'dist'
+}
+clean.dependsOn cleanPythonCache
+
+openApiGenerate {
+    generatorName.set("java")
+    inputSpec.set("$rootDir/datahub-integrations-service/generated/openapi/openapi.json")
+    outputDir.set("$buildDir/generated/openapi/java")
+    cleanupOutput.set(true)
+    apiPackage.set("io.datahubproject.integrations.api")
+    invokerPackage.set("io.datahubproject.integrations.invoker")
+    modelPackage.set("io.datahubproject.integrations.model")
+    generateApiTests.set(false)
+    generateModelTests.set(false)
+    configOptions.set([
+        dateLibrary: "java8",
+        'java11'             : "true",
+        'delegatePattern'    : "true",
+        'jakarta'            : "true"
+    ])
+}
+
+task codegen(type: Exec, dependsOn: [codegenPython, install]) {
+    commandLine 'bash', '-c',
+        "set -x &&" +
+        "${venv_name}/bin/python ./scripts/generate_openapi_spec.py"
+}
+
+tasks.openApiGenerate.dependsOn codegen
+tasks.codegen.dependsOn installDev
+
+build.dependsOn tasks.openApiGenerate
+
+docker {
+    dependsOn(':metadata-ingestion:codegen')
+
+    name "${docker_registry}/${docker_repo}:${versionTag}"
+    dockerfile file("${rootProject.projectDir}/docker/datahub-integrations-service/Dockerfile")
+    files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
+        include "docker/datahub-integrations-service/*"
+        include "datahub-integrations-service/src/**"
+        include "datahub-integrations-service/scripts/sync.sh"
+        include "datahub-integrations-service/static/**"
+        include "datahub-integrations-service/pyproject.toml"
+        include "datahub-integrations-service/requirements*"
+        include "metadata-ingestion/**"
+        include "datahub-actions/**"
+        include "python-build/**"
+    }.exclude {
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+    }
+    additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version, BASE_IMAGE: "${docker_registry}/datahub-ingestion"]
+
+    // Add build args if they are defined (needed for some CI or enterprise environments)
+    if (project.hasProperty('pipMirrorUrl')) {
+        dockerBuildArgs.PIP_MIRROR_URL = project.getProperty('pipMirrorUrl')
+    }
+    if (project.hasProperty('debianAptRepositoryUrl')) {
+        dockerBuildArgs.DEBIAN_REPO_URL = project.getProperty('debianAptRepositoryUrl')
+    }
+
+    debugBuildArgs = [APP_ENV:  'dev']
+
+    buildArgs(dockerBuildArgs)
+}
+

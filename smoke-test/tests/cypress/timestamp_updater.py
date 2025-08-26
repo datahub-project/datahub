@@ -7,7 +7,7 @@ from typing import Any, List
 class TimestampUpdater:
     """Updates timestamps in JSON fixture files based on configuration."""
 
-    def __init__(self, timestamp_config):
+    def __init__(self, timestamp_config: dict):
         self.timestamp_config = timestamp_config
 
     def get_current_timestamp_ms(self) -> int:

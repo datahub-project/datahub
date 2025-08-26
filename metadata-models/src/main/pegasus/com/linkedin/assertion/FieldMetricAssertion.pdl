@@ -9,7 +9,7 @@ import com.linkedin.schema.SchemaFieldSpec
 */
 record FieldMetricAssertion {
     /**
-    * The field under evaluation
+    * The field path under evaluation
     */
     @Searchable = {
       "/path": {

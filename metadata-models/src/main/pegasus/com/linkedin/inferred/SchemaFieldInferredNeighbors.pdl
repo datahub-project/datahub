@@ -1,0 +1,19 @@
+namespace com.linkedin.inferred
+
+import com.linkedin.common.Urn
+
+/**
+ * Neighbors for a particular schema field as inferred by various algorithms
+ */
+record SchemaFieldInferredNeighbors {
+  /**
+   * SchemaField Urn
+   */
+    fieldUrn: Urn
+
+
+  /**
+   * Neighbors of a schema field as determined by algorithm
+   */
+  inferredNeighbors: array[InferredNeighbor]
+}

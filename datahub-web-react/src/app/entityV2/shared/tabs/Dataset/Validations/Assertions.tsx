@@ -47,7 +47,6 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
  *
  * TODO: Note that only the legacy DATASET assertions are supported for viewing as of today.
  */
-// CAN DELETE
 export const Assertions = () => {
     const { urn, entityData } = useEntityData();
     const { data, refetch } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });

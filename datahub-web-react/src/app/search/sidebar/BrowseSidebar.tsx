@@ -1,5 +1,6 @@
 import Icon, { CaretDownFilled } from '@ant-design/icons';
-import { Select, Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Select, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

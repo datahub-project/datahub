@@ -1,0 +1,50 @@
+namespace com.linkedin.anomaly
+
+import com.linkedin.common.EntityReference
+import com.linkedin.common.Urn
+import com.linkedin.common.TimeStamp
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * A feedback log of anomalies detected by a monitor
+ * NOTE: this is an immutable log. The most recent entry for a given run can be used to determine the state of the anomaly.
+ */
+@Aspect = {
+  "name": "monitorAnomalyEvent",
+  "type": "timeseries",
+}
+record MonitorAnomalyEvent includes TimeseriesAspectBase {
+  /**
+   * The review of the anomaly, based on human-provided feedback.
+   * If this is not present, then the Anomaly has not yet been reviewed.
+   */
+  @TimeseriesField = {}
+  state: optional enum AnomalyReviewState {
+    /**
+     * The anomaly has been confirmed by a human reviewer. This means the anomaly was validated.
+     */
+    CONFIRMED
+    /**
+     * The anomaly has been dismissed, or ignored, by a human reviewer. This means the anomaly should have been ignored.
+     */
+    REJECTED
+  }
+
+  /**
+   * The source of an anomaly, i.e. how it was generated.
+   */
+  source: AnomalySource
+
+  /**
+   * @Deprecated: this matches the timestampMillis field in the TimeseriesAspectBase.
+   */
+  @TimeseriesField = {}
+  created: TimeStamp
+
+  /**
+   * The time at which the anomaly was last updated
+   * @Deprecated: this field is not used as this is an immutable log.
+   */
+  @TimeseriesField = {}
+  lastUpdated: TimeStamp
+}

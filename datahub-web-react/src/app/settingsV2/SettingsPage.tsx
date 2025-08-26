@@ -3,9 +3,12 @@ import {
     Bell,
     Funnel,
     House,
+    Question,
     ShieldCheck,
+    SignIn,
+    Sparkle,
+    SquaresFour,
     Star,
-    ToggleRight,
     Users,
     UsersThree,
     Wrench,
@@ -18,7 +21,9 @@ import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
 import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
+import { useSubscriptionsEnabled } from '@app/settingsV2/personal/notifications/utils';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -84,7 +89,7 @@ export const SettingsPage = () => {
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
-    const subscriptionsEnabled = false;
+    const subscriptionsEnabled = useSubscriptionsEnabled();
     const me = useUserContext();
     const isThemeV2 = useIsThemeV2();
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -108,7 +113,12 @@ export const SettingsPage = () => {
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
-    const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
+
+    // SaaS Only
+    const showGlobalSettings = me?.platformPrivileges?.manageGlobalSettings || false;
+    const showAiSettings = config.featureFlags.aiFeaturesEnabled && me?.platformPrivileges?.manageGlobalSettings;
+    const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
+    // End SaaS Only
 
     // Menu Items based on PATHS
     const menuItems: NavBarMenuItems = {
@@ -185,20 +195,52 @@ export const SettingsPage = () => {
                     },
                 ],
             },
+            // Platform Section (acryl-main only)
+            {
+                type: NavBarMenuItemTypes.Group,
+                title: 'Platform',
+                key: 'platform',
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Single Sign-On (SSO)',
+                        key: 'sso',
+                        link: `${url}/sso`,
+                        isHidden: !showGlobalSettings,
+                        icon: <SignIn />,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Integrations',
+                        key: 'integrations',
+                        link: `${url}/integrations`,
+                        isHidden: !showGlobalSettings,
+                        icon: <SquaresFour />,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'AI',
+                        key: 'ai',
+                        link: `${url}/ai`,
+                        isHidden: !showAiSettings,
+                        icon: <Sparkle />,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Notifications',
+                        key: 'notifications',
+                        link: `${url}/notifications`,
+                        isHidden: !showGlobalSettings,
+                        icon: <Bell />,
+                    },
+                ],
+            },
             // Manage Section
             {
                 type: NavBarMenuItemTypes.Group,
                 title: 'Manage',
                 key: 'manage',
                 items: [
-                    {
-                        type: NavBarMenuItemTypes.Item,
-                        title: 'Features',
-                        key: 'features',
-                        link: `${url}/features`,
-                        isHidden: !showFeatures,
-                        icon: <ToggleRight />,
-                    },
                     {
                         type: NavBarMenuItemTypes.Item,
                         title: 'Home Page',
@@ -214,6 +256,14 @@ export const SettingsPage = () => {
                         link: `${url}/ownership`,
                         isHidden: !showOwnershipTypes,
                         icon: <Users />,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Custom Help Link',
+                        key: 'helpLink',
+                        link: `${url}/helpLink`,
+                        isHidden: !showCustomHelpLink,
+                        icon: <Question />,
                     },
                 ],
             },
@@ -271,14 +321,16 @@ export const SettingsPage = () => {
             </NavBarContainer>
             {/* Main Content */}
             <ContentContainer>
-                <Switch>
-                    <Route exact path={path}>
-                        <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
-                    </Route>
-                    {PATHS.map((p) => (
-                        <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
-                    ))}
-                </Switch>
+                <ErrorBoundary resetKeys={[pathname]} variant="tab">
+                    <Switch>
+                        <Route exact path={path}>
+                            <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
+                        </Route>
+                        {PATHS.map((p) => (
+                            <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
+                        ))}
+                    </Switch>
+                </ErrorBoundary>
             </ContentContainer>
         </PageContainer>
     );

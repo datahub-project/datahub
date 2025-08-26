@@ -6,9 +6,15 @@ import NumberInput from '@app/entity/shared/components/styled/StructuredProperty
 import RichTextInput from '@app/entity/shared/components/styled/StructuredProperty/RichTextInput';
 import SingleSelectInput from '@app/entity/shared/components/styled/StructuredProperty/SingleSelectInput';
 import StringInput from '@app/entity/shared/components/styled/StructuredProperty/StringInput';
+import StructuredPropertyUrnInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyUrnInput';
 import StructuredPropertySearchSelectUrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
-import UrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
+import {
+    Maybe,
+    PropertyCardinality,
+    SchemaFieldEntity,
+    StdDataType,
+    StructuredPropertyEntity,
+} from '@src/types.generated';
 
 interface Props {
     structuredProperty: StructuredPropertyEntity;
@@ -16,6 +22,7 @@ interface Props {
     selectSingleValue: (value: string | number) => void;
     toggleSelectedValue: (value: string | number) => void;
     updateSelectedValues: (value: (string | number | null)[]) => void;
+    fieldEntity?: Maybe<SchemaFieldEntity>;
     canUseSearchSelectUrnInput?: boolean;
 }
 
@@ -25,6 +32,7 @@ export default function StructuredPropertyInput({
     selectedValues,
     toggleSelectedValue,
     updateSelectedValues,
+    fieldEntity,
     canUseSearchSelectUrnInput = false,
 }: Props) {
     const { allowedValues, cardinality, valueType } = structuredProperty.definition;
@@ -78,10 +86,11 @@ export default function StructuredPropertyInput({
                 />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Urn && !canUseSearchSelectUrnInput && (
-                <UrnInput
+                <StructuredPropertyUrnInput
                     structuredProperty={structuredProperty}
                     selectedValues={selectedValues as string[]}
                     updateSelectedValues={updateSelectedValues}
+                    fieldEntity={fieldEntity}
                 />
             )}
         </>

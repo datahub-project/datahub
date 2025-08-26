@@ -4,14 +4,15 @@ interface OutsideAlerterType {
     children: React.ReactNode;
     onClickOutside: () => void;
     wrapperClassName?: string;
+    style?: React.CSSProperties;
 }
 
-export default function ClickOutside({ children, onClickOutside, wrapperClassName }: OutsideAlerterType) {
+export default function ClickOutside({ children, onClickOutside, wrapperClassName, style }: OutsideAlerterType) {
     const wrapperRef = useRef<HTMLDivElement>(null);
 
     function handleClickOutside(event) {
         if (wrapperClassName) {
-            if (event.target && event.target.classList.contains(wrapperClassName)) {
+            if (event.target && event.target.classList?.contains(wrapperClassName)) {
                 onClickOutside();
             }
         } else if (!(wrapperRef.current as HTMLDivElement).contains((event.target as Node) || null)) {
@@ -28,5 +29,9 @@ export default function ClickOutside({ children, onClickOutside, wrapperClassNam
         };
     });
 
-    return <div ref={wrapperRef}>{children}</div>;
+    return (
+        <div ref={wrapperRef} style={style}>
+            {children}
+        </div>
+    );
 }

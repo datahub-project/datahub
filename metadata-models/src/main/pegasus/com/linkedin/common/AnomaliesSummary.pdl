@@ -1,0 +1,77 @@
+namespace com.linkedin.common
+
+/**
+ * Summary related to entity anomalies
+ */
+@Aspect = {
+    "name": "anomaliesSummary"
+}
+record AnomaliesSummary {
+    /**
+    * Summary details about the set of active anomalies
+    */
+    @Searchable = {
+      "/*/urn" : {
+        "fieldType": "URN",
+        "fieldName": "activeAnomalies",
+        "hasValuesFieldName": "hasActiveAnomalies",
+        "numValuesFieldName": "numActiveAnomalies",
+        "queryByDefault": false,
+      },
+      "/*/type" : {
+        "fieldType": "KEYWORD",
+        "fieldName": "activeAnomalyTypes",
+        "queryByDefault": false,
+      },
+      "/*/lastResultAt" : {
+        "fieldType": "DATETIME",
+        "fieldName": "activeAnomalyResultTimes",
+        "queryByDefault": false,
+      },
+      "/*/source" : {
+        "fieldName": "activeAnomalySources",
+        "queryByDefault": false,
+      }
+    }
+    @Relationship = {
+     "/*/urn" : {
+       "name": "ActiveAnomalies",
+       "entityTypes": [ "anomaly" ]
+     }
+    }
+    activeAnomalyDetails: array[AnomalySummaryDetails] = []
+
+    /**
+    * Summary details about the set of resolved anomalies
+    */
+    @Searchable = {
+      "/*/urn" : {
+        "fieldType": "URN",
+        "fieldName": "resolvedAnomalies",
+        "hasValuesFieldName": "hasResolvedAnomalies",
+        "numValuesFieldName": "numResolvedAnomalies",
+        "queryByDefault": false,
+      },
+      "/*/type" : {
+        "fieldType": "KEYWORD",
+        "fieldName": "resolvedAnomalyTypes",
+        "queryByDefault": false,
+      },
+      "/*/lastResultAt" : {
+       "fieldType": "DATETIME",
+       "fieldName": "resolvedAnomalyResultTimes",
+       "queryByDefault": false,
+      },
+      "/*/source" : {
+        "fieldName": "resolvedAnomalySources",
+        "queryByDefault": false,
+      }
+    }
+    @Relationship = {
+      "/*/urn" : {
+        "name": "ResolvedAnomalies",
+        "entityTypes": [ "anomaly" ]
+      }
+    }
+    resolvedAnomalyDetails: array[AnomalySummaryDetails] = []
+}

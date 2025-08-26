@@ -166,7 +166,7 @@ public class RestoreGlossaryIndicesTest {
     AspectSpec aspectSpec = mockGlossaryAspectSpecs(mockRegistry);
 
     RestoreGlossaryIndices restoreIndicesStep =
-        new RestoreGlossaryIndices(mockService, mockSearchService, mockRegistry);
+        new RestoreGlossaryIndices(mockService, mockSearchService);
     restoreIndicesStep.execute(mockContext);
 
     Mockito.verify(mockRegistry, Mockito.times(1))
@@ -254,7 +254,7 @@ public class RestoreGlossaryIndicesTest {
     AspectSpec aspectSpec = mockGlossaryAspectSpecs(mockRegistry);
 
     RestoreGlossaryIndices restoreIndicesStep =
-        new RestoreGlossaryIndices(mockService, mockSearchService, mockRegistry);
+        new RestoreGlossaryIndices(mockService, mockSearchService);
     restoreIndicesStep.execute(mockContext);
 
     Mockito.verify(mockRegistry, Mockito.times(1))
@@ -324,7 +324,7 @@ public class RestoreGlossaryIndicesTest {
         .thenReturn(response);
 
     RestoreGlossaryIndices restoreIndicesStep =
-        new RestoreGlossaryIndices(mockService, mockSearchService, mockRegistry);
+        new RestoreGlossaryIndices(mockService, mockSearchService);
     restoreIndicesStep.execute(mockContext);
 
     Mockito.verify(mockRegistry, Mockito.times(0))

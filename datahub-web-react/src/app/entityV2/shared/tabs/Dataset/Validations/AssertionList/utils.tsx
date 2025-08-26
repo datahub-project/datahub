@@ -21,10 +21,12 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import {
     ASSERTION_INFO,
+    AssertionWithMonitorDetails,
     createAssertionGroups,
     getAssertionGroupName,
     getAssertionType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { isEntityEligibleForAssertionMonitoring } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
@@ -40,6 +42,7 @@ import {
     AssertionType,
     AuditStamp,
     EntityType,
+    Monitor,
     TagAssociation,
 } from '@src/types.generated';
 
@@ -58,6 +61,7 @@ const ASSERTION_STATUS_NAME_MAP = {
     FAILURE: 'Failing',
     SUCCESS: 'Passing',
     ERROR: 'Error',
+    INIT: 'Initializing',
     [NO_STATUS]: 'No Status',
 };
 
@@ -130,7 +134,7 @@ export const useSiblingOptionsForAssertionBuilder = (
             entityData?.dataPlatformInstance?.platform.name ??
             entityData?.platform?.urn ??
             urn,
-        disabled: true,
+        disabled: !isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn),
         urn,
         platform: entityData?.platform ?? entityData?.dataPlatformInstance?.platform,
         entityType,
@@ -148,7 +152,7 @@ export const useSiblingOptionsForAssertionBuilder = (
                 sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,
-            disabled: true,
+            disabled: !isEntityEligibleForAssertionMonitoring(sibling.platform?.urn),
             platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,
             entityType: sibling.type,
         });
@@ -157,11 +161,12 @@ export const useSiblingOptionsForAssertionBuilder = (
 };
 
 // transform assertions into table data
-const mapAssertionData = (assertions: Assertion[]): AssertionListTableRow[] => {
-    return assertions.map((assertion: Assertion) => {
+const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[]): AssertionListTableRow[] => {
+    return assertions.map((assertion: AssertionWithMonitorDetails) => {
         const mostRecentRun = assertion.runEvents?.runEvents?.[0];
 
-        const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo);
+        const monitor = assertion.monitor?.relationships?.[0]?.entity;
+        const primaryPainTextLabel = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         const isCompleted = mostRecentRun?.status === AssertionRunStatus.Complete;
         const rowData: AssertionListTableRow = {
             type: getAssertionType(assertion),
@@ -175,7 +180,8 @@ const mapAssertionData = (assertions: Assertion[]): AssertionListTableRow[] => {
             lastEvaluationTimeMs: mostRecentRun?.timestampMillis,
             lastEvaluationResult: (isCompleted && mostRecentRun?.result?.type) as AssertionResultType,
             lastEvaluationUrl: (isCompleted && mostRecentRun?.result?.externalUrl) || '',
-            assertion: assertion as Assertion,
+            assertion: assertion as AssertionWithMonitorDetails,
+            monitor: monitor as Monitor,
             status: mostRecentRun?.status as AssertionRunStatus,
         };
         return rowData;
@@ -185,7 +191,7 @@ const mapAssertionData = (assertions: Assertion[]): AssertionListTableRow[] => {
 const CORE_STATUSES = [AssertionResultType.Failure, AssertionResultType.Error, AssertionResultType.Success];
 
 // Generate Assertion Group By Status
-const generateAssertionGroupByStatus = (assertions: Assertion[]): AssertionStatusGroup[] => {
+const generateAssertionGroupByStatus = (assertions: AssertionWithMonitorDetails[]): AssertionStatusGroup[] => {
     const assertionStatus = [...CORE_STATUSES, AssertionResultType.Init, NO_STATUS];
 
     const assertionGroup: AssertionStatusGroup[] = [];
@@ -269,7 +275,7 @@ const getColumnIdFromAssertion = (assertion: Assertion): string | null => {
  * 
  * 
 */
-const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
+const extractFilterOptionListFromAssertions = (assertions: AssertionWithMonitorDetails[]) => {
     const filterOptions: AssertionFilterOptions = {
         filterGroupOptions: {
             type: [],
@@ -294,7 +300,7 @@ const extractFilterOptionListFromAssertions = (assertions: Assertion[]) => {
     const remainingAssertionStatus = [...CORE_STATUSES];
     const remainingAssertionSources = [...ASSERTION_SOURCES];
 
-    assertions.forEach((assertion: Assertion) => {
+    assertions.forEach((assertion: AssertionWithMonitorDetails) => {
         // filter out tracked types
         const type = (getAssertionType(assertion) || '') as AssertionType;
         const index = remainingAssertionTypes.indexOf(type);
@@ -419,7 +425,7 @@ const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: A
     const { type, status, source, column } = filter.filterCriteria;
 
     // Apply type, status, and other filters
-    return assertions.filter((assertion: Assertion) => {
+    return assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
         const columnId = getColumnIdFromAssertion(assertion) || '';
         const matchesType = type.length === 0 || type.includes(getAssertionType(assertion) as AssertionType);
@@ -448,12 +454,13 @@ const fuse = new Fuse<AssertionWithDescription>([], {
  * 3. filter out assertions as per the selected type and status
  */
 export const getFilteredTransformedAssertionData = (
-    assertions: Assertion[],
+    assertions: AssertionWithMonitorDetails[],
     filter: AssertionListFilter,
 ): AssertionTable => {
     // Add descriptions to assertions
     const assertionsWithDescription = assertions.map((assertion) => {
-        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo);
+        const monitor = assertion.monitor?.relationships?.[0]?.entity;
+        const description = getPlainTextDescriptionFromAssertion(assertion.info as AssertionInfo, monitor);
         return {
             ...assertion,
             description,

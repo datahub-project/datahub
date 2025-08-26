@@ -96,7 +96,9 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   @VisibleForTesting
   public void refresh() {
     medianLag.putAll(getMedianLag());
-    log.info("MCL medianLag: {}", medianLag);
+    if (medianLag.keySet().stream().anyMatch(this::isThrottled)) {
+      log.warn("MCL medianLag: {}", medianLag);
+    }
   }
 
   @VisibleForTesting

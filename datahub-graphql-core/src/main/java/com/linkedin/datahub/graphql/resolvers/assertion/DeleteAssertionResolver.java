@@ -1,19 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
-
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
@@ -52,6 +45,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
               _entityClient.deleteEntity(context.getOperationContext(), assertionUrn);
 
               // Asynchronously Delete all references to the entity (to return quickly)
+              // TODO: Actually delete any monitors associated with the assertion.
               CompletableFuture.runAsync(
                   () -> {
                     try {
@@ -97,23 +91,11 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
     if (info != null) {
       // 3. check whether the actor has permission to edit the assertions on the assertee
-      final Urn asserteeUrn = getAsserteeUrnFromInfo(info);
-      return isAuthorizedToDeleteAssertionFromAssertee(context, asserteeUrn);
+      final Urn asserteeUrn = AssertionUtils.getAsserteeUrnFromInfo(info);
+      return AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
     }
 
     return true;
-  }
-
-  private boolean isAuthorizedToDeleteAssertionFromAssertee(
-      final QueryContext context, final Urn asserteeUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType()))));
-    return AuthorizationUtils.isAuthorized(
-        context, asserteeUrn.getEntityType(), asserteeUrn.toString(), orPrivilegeGroups);
   }
 
   private Urn getAsserteeUrnFromInfo(final AssertionInfo info) {

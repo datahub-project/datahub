@@ -11,6 +11,7 @@ import {
     getFieldValues,
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
+import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -33,6 +34,10 @@ const PolicyContainer = styled.div`
     padding-right: 20px;
     > div {
         margin-bottom: 32px;
+    }
+
+    ${SpacedAvatarGroup} {
+        flex-wrap: wrap;
     }
 `;
 

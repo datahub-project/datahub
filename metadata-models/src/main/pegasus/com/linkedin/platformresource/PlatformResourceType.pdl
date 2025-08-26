@@ -17,5 +17,5 @@ enum PlatformResourceType {
     /**
       * e.g. Looker mapping of all user ids
       */
-    USER_ID_MAPPING
+    USER_ID_MAPPING,
 }

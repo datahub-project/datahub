@@ -8,6 +8,8 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { formatDateString } from '@app/entity/shared/containers/profile/utils';
+import LinkPreview from '@app/integration/LinkPreview';
+import { shouldTryLinkPreview } from '@app/integration/linkPreviews';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useAddLinkMutation, useRemoveLinkMutation } from '@graphql/mutations.generated';
@@ -49,7 +51,13 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const handleDeleteLink = async (metadata: InstitutionalMemoryMetadata) => {
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl: metadata.url, resourceUrn: metadata.associatedUrn || entityUrn } },
+                variables: {
+                    input: {
+                        linkUrl: metadata.url,
+                        label: metadata.label,
+                        resourceUrn: metadata.associatedUrn || entityUrn,
+                    },
+                },
             });
             message.success({ content: 'Link Removed', duration: 2 });
         } catch (e: unknown) {
@@ -79,7 +87,13 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         if (!linkDetails) return;
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl: linkDetails.url, resourceUrn: linkDetails.associatedUrn || entityUrn } },
+                variables: {
+                    input: {
+                        linkUrl: linkDetails.url,
+                        label: linkDetails.label,
+                        resourceUrn: linkDetails.associatedUrn || entityUrn,
+                    },
+                },
             });
             await addLinkMutation({
                 variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
@@ -197,6 +211,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                 }
                                 description={
                                     <>
+                                        {shouldTryLinkPreview(link.url) && <LinkPreview link={link} />}
                                         Added {formatDateString(link.created.time)} by{' '}
                                         <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
                                             {entityRegistry.getDisplayName(link.actor.type, link.actor)}

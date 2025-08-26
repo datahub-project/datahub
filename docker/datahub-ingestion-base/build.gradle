@@ -22,6 +22,7 @@ docker {
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
         include "docker/${docker_dir}/*"
+        include "docker/datahub-ingestion/oracle_instantclient.sh"
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }

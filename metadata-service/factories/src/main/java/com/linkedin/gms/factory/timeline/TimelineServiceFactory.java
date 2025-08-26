@@ -8,16 +8,15 @@ import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
 
 @Configuration
 public class TimelineServiceFactory {
 
   @Bean(name = "timelineService")
-  @DependsOn({"entityAspectDao", "entityService", "entityRegistry"})
   @Nonnull
   protected TimelineService timelineService(
-      @Qualifier("entityAspectDao") AspectDao aspectDao, EntityRegistry entityRegistry) {
+      @Qualifier("entityAspectDao") final AspectDao aspectDao,
+      final EntityRegistry entityRegistry) {
     return new TimelineServiceImpl(aspectDao, entityRegistry);
   }
 }

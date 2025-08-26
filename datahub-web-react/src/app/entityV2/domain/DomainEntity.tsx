@@ -15,6 +15,7 @@ import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntitiesSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
@@ -29,6 +30,7 @@ import { Domain, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
+    EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
@@ -163,6 +165,9 @@ export class DomainEntity implements Entity<Domain> {
         },
         {
             component: StatusSection,
+        },
+        {
+            component: SharingAssetSection,
         },
     ];
 

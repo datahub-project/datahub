@@ -6,18 +6,17 @@ import styled from 'styled-components';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import SampleValueTag from '@app/entity/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
+import { downgradeV2FieldPath } from '@src/app/entity/dataset/profile/schema/utils/utils';
 
-import { DatasetFieldProfile } from '@types';
+import { DatasetFieldProfile, Maybe, PartitionSpec, PartitionType } from '@types';
 
 type Props = {
     columnStats: Array<DatasetFieldProfile>;
+    partitionSpec?: Maybe<PartitionSpec>;
 };
 
 const StatSection = styled.div`
     padding: 20px 20px;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
 `;
 
 const NameText = styled(Typography.Text)`
@@ -35,11 +34,11 @@ const decimalToPercentStr = (decimal: number, precision: number): string => {
     return `${(decimal * 100).toFixed(precision)}%`;
 };
 
-export default function ColumnStats({ columnStats }: Props) {
+export default function ColumnStats({ columnStats, partitionSpec }: Props) {
     const columnStatsTableData = useMemo(
         () =>
             columnStats.map((doc) => ({
-                name: doc.fieldPath,
+                name: downgradeV2FieldPath(doc.fieldPath),
                 min: doc.min,
                 max: doc.max,
                 mean: doc.mean,
@@ -53,6 +52,9 @@ export default function ColumnStats({ columnStats }: Props) {
             })) || [],
         [columnStats],
     );
+
+    // we assume if no partition spec is provided, it's a full table
+    const isPartitioned = partitionSpec && partitionSpec.type !== PartitionType.FullTable;
 
     /**
      * Returns a placeholder value to show in the column data table when data is null.
@@ -165,7 +167,9 @@ export default function ColumnStats({ columnStats }: Props) {
 
     return (
         <StatSection>
-            <Typography.Title level={5}>Column Stats</Typography.Title>
+            <Typography.Title level={5}>
+                {isPartitioned ? `Column Stats for Partition ${partitionSpec.partition}` : 'Column Stats'}
+            </Typography.Title>
             <StyledTable pagination={false} columns={columnStatsColumns} dataSource={columnStatsTableData} sticky />
         </StatSection>
     );

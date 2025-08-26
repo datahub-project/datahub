@@ -1,4 +1,4 @@
-import { BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { Button, Tag } from 'antd';
 import React from 'react';
 import { useHistory } from 'react-router-dom';
@@ -27,7 +27,7 @@ const TermButton = styled(Button)`
     font-weight: 500;
 `;
 
-const StyledBook = styled(BookOutlined)`
+const StyledBook = styled(BookmarkSimple)`
     && {
         margin-right: 3px;
         padding-left: 2px;

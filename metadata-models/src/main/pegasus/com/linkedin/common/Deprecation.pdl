@@ -35,5 +35,5 @@ record Deprecation {
   actor: Urn
 
   replacement: optional Urn
-  
+
 }

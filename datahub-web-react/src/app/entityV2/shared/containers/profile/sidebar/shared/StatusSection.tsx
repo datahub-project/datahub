@@ -4,16 +4,17 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { Entity } from '@app/entityV2/Entity';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
 import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
-import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { ACRYL_PLATFORM, ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType } from '@types';
+import { DataPlatformInstance, EntityType, SyncMechanism } from '@types';
 
 const SyncedAssetContainer = styled.div`
     display: flex;
@@ -53,14 +54,13 @@ const EmptyText = styled(Typography.Text)`
 `;
 
 const StatusSection = () => {
-    const { entityData } = useEntityData();
+    const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
     const dataset = entityData as any;
-    const entityType = entityData?.type;
     const properties = dataset?.properties;
 
-    const created = properties?.created?.time;
+    const created = entityRegistry.getCreatedTime(entityType, entityData);
     const lastModified = properties?.lastModified?.time;
     const lastRefreshed = properties?.lastRefreshed;
     const lastOp = dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp;
@@ -74,6 +74,12 @@ const StatusSection = () => {
         : null;
 
     const source = dataset?.assetOrigin?.resolvedSourceDetails;
+    const sourceInstance =
+        source?.mechanism === SyncMechanism.Share ? (source.source as Entity<DataPlatformInstance>) : undefined;
+    const sharedTime = source?.lastModified?.time;
+    const instanceName = sourceInstance
+        ? entityRegistry.getDisplayName(EntityType.DataPlatformInstance, sourceInstance)
+        : undefined;
 
     const isDeprecated = entityData?.deprecation?.deprecated;
     const deprecatedByEntity = entityData?.deprecation?.actorEntity;
@@ -147,13 +153,22 @@ const StatusSection = () => {
                             </Collapse.Panel>
                         </StyledCollapse>
                     )}
-                    {!!lastIngested && (
+                    {!sourceInstance && !!lastIngested && (
                         <SyncedOrShared
                             labelText="Synced:"
                             time={lastIngested}
                             platformName={rootSiblingPlatformName}
                             platform={platform}
                             type={ActionType.SYNC}
+                        />
+                    )}
+                    {!!sourceInstance && (
+                        <SyncedOrShared
+                            labelText="Shared:"
+                            time={sharedTime}
+                            platformName={ACRYL_PLATFORM}
+                            instanceName={instanceName}
+                            type={ActionType.SHARE}
                         />
                     )}
                 </SyncedAssetContainer>

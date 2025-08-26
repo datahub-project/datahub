@@ -1,0 +1,82 @@
+fragment structuredPropertyFields on StructuredPropertyEntity {
+  urn
+  type
+  definition {
+    displayName
+    qualifiedName
+    description
+    cardinality
+    immutable
+    valueType {
+      urn
+      type
+      info {
+        type
+        displayName
+      }
+    }
+    entityTypes {
+      urn
+      type
+      info {
+        type
+      }
+    }
+    cardinality
+    filterStatus
+    typeQualifier {
+      allowedTypes {
+        urn
+        type
+        info {
+          type
+          displayName
+        }
+      }
+    }
+    allowedValues {
+      value {
+        ... on StringValue {
+          stringValue
+        }
+        ... on NumberValue {
+          numberValue
+        }
+      }
+      description
+    }
+    created {
+      time
+      actor {
+        urn
+        editableProperties {
+          displayName
+          pictureLink
+        }
+      }
+    }
+    lastModified {
+      time
+      actor {
+        urn
+        editableProperties {
+          displayName
+          pictureLink
+        }
+      }
+    }
+  }
+  settings {
+    isHidden
+    showInSearchFilters
+    showAsAssetBadge
+    showInAssetSummary
+    showInColumnsTable
+  }
+}
+
+query getStructuredProperty($urn: String!) {
+  structuredProperty(urn: $urn) {
+    ...structuredPropertyFields
+  }
+}

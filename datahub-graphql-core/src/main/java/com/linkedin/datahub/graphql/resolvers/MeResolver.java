@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import static com.datahub.authorization.AuthUtil.isAuthorized;
 import static com.datahub.authorization.AuthUtil.isAuthorizedEntityType;
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
@@ -22,6 +21,8 @@ import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -30,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * GraphQL resolver responsible for resolving information about the currently logged in User,
@@ -38,6 +40,7 @@ import javax.annotation.Nonnull;
  * <p>1. User profile information 2. User privilege information, i.e. which features to display in
  * the UI.
  */
+@Slf4j
 public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUser>> {
 
   private final EntityClient _entityClient;
@@ -70,16 +73,19 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             final PlatformPrivileges platformPrivileges = new PlatformPrivileges();
             platformPrivileges.setViewAnalytics(canViewAnalytics(context));
             platformPrivileges.setManagePolicies(canManagePolicies(context));
+            platformPrivileges.setViewMetadataProposals(canViewMetadataProposals(context));
             platformPrivileges.setManageIdentities(canManageUsersGroups(context));
             platformPrivileges.setGeneratePersonalAccessTokens(
                 canGeneratePersonalAccessToken(context));
             platformPrivileges.setManageDomains(canManageDomains(context));
-            platformPrivileges.setManageIngestion(canManageIngestion(context));
-            platformPrivileges.setManageSecrets(canManageSecrets(context));
+            platformPrivileges.setManageIngestion(AuthorizationUtils.canManageIngestion(context));
+            platformPrivileges.setManageSecrets(AuthorizationUtils.canManageSecrets(context));
             platformPrivileges.setManageTokens(canManageTokens(context));
             platformPrivileges.setViewTests(canViewTests(context));
             platformPrivileges.setManageTests(canManageTests(context));
             platformPrivileges.setManageGlossaries(canManageGlossaries(context));
+            platformPrivileges.setProposeCreateGlossaryTerm(canProposeCreateGlossaryTerm(context));
+            platformPrivileges.setProposeCreateGlossaryNode(canProposeCreateGlossaryNode(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
             platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
             platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
@@ -102,6 +108,20 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageApplications(
                 ApplicationAuthorizationUtils.canManageApplications(context));
             platformPrivileges.setManageFeatures(AuthorizationUtils.canManageFeatures(context));
+            platformPrivileges.setManageHomePageTemplates(
+                AuthorizationUtils.canManageHomePageTemplates(context));
+            platformPrivileges.setManageDocumentationForms(
+                AuthorizationUtils.canManageForms(context));
+            platformPrivileges.setViewDocumentationFormsPage(
+                AuthorizationUtils.canViewForms(context));
+            platformPrivileges.setManageOrganizationDisplayPreferences(
+                AuthorizationUtils.canManageOrganizationDisplayPreferences(context));
+            platformPrivileges.setCanViewIngestionPage(canViewIngestionPage(context));
+
+            // Settings not in OSS (yet)
+            platformPrivileges.setManageGlobalSettings(
+                canManageGlobalSettings(context)); // SaaS-Only.
+
             // Construct and return authenticated user object.
             final AuthenticatedUser authUser = new AuthenticatedUser();
             authUser.setCorpUser(corpUser);
@@ -124,6 +144,12 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   private boolean canManagePolicies(final QueryContext context) {
     return isAuthorizedEntityType(
         context.getOperationContext(), MANAGE, List.of(POLICY_ENTITY_NAME));
+  }
+
+  /** Returns true if the authenticated user has privileges to view metadata proposals. */
+  private boolean canViewMetadataProposals(final QueryContext context) {
+    return isAuthorized(
+        context.getOperationContext(), PoliciesConfig.VIEW_METADATA_PROPOSALS_PRIVILEGE);
   }
 
   /** Returns true if the authenticated user has privileges to manage users & groups. */
@@ -165,9 +191,48 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
     return isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
+  /** Returns true if the authenticated user has privileges to propose create glossary term */
+  private boolean canProposeCreateGlossaryTerm(final QueryContext context) {
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.PROPOSE_CREATE_GLOSSARY_TERM);
+  }
+
+  /** Returns true if the authenticated user has privileges to propose create glossary node */
+  private boolean canProposeCreateGlossaryNode(final QueryContext context) {
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.PROPOSE_CREATE_GLOSSARY_NODE);
+  }
+
+  /** Returns true if the authenticated user has privileges to manage global access tokens */
+  private boolean canManageGlobalSettings(final QueryContext context) {
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
+  }
+
   /** Returns true if the authenticated user has privileges to manage user credentials */
   private boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+  }
+
+  /** A user can view the ingestion page if they have access to view any ingestion source */
+  private boolean canViewIngestionPage(@Nonnull QueryContext context) {
+    boolean canManageIngestion = AuthorizationUtils.canManageIngestion(context);
+    if (canManageIngestion) {
+      return true;
+    }
+    try {
+      SearchFlags searchFlags = new SearchFlags();
+      searchFlags.setSkipCache(true);
+      SearchResult result =
+          _entityClient.search(
+              context.getOperationContext().withSearchFlags(flags -> searchFlags),
+              INGESTION_SOURCE_ENTITY_NAME,
+              "*",
+              null,
+              0,
+              1);
+      return result.getEntities().size() > 0;
+    } catch (Exception e) {
+      log.error("Error searching for ingestion sources to determine view ingestion privilege", e);
+      return false;
+    }
   }
 }

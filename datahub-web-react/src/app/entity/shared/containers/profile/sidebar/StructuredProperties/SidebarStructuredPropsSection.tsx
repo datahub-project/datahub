@@ -12,6 +12,7 @@ import { useGetEntityWithSchema } from '@src/app/entity/shared/tabs/Dataset/Sche
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import StructuredPropertyValue from '@src/app/entity/shared/tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '@src/app/entity/shared/tabs/Properties/types';
+import { EMPTY_MESSAGES } from '@src/app/entityV2/shared/constants';
 import {
     getDisplayName,
     getEntityTypesPropertyFilter,
@@ -133,7 +134,7 @@ const SidebarStructuredPropsSection = ({ properties }: Props) => {
                                     )}
                                 </>
                             ) : (
-                                <EmptySectionText message="No value set" />
+                                <EmptySectionText message={EMPTY_MESSAGES.structuredProps.title} />
                             )}
                         </div>
                         {schemaField && <StyledDivider />}

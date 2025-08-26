@@ -8,7 +8,8 @@ apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
-    docker_repo = 'datahub-mce-consumer'
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-mce-consumer' : 'datahub-mce-consumer'
 }
 
 dependencies {
@@ -32,6 +33,9 @@ dependencies {
     runtimeOnly externalDependency.opentelemetryExporter
     runtimeOnly externalDependency.openTelemetryExporterLogging
     runtimeOnly externalDependency.openTelemetryExporterCommon
+    implementation externalDependency.logbackJackson
+    implementation externalDependency.logbackJsonClassic
+    implementation externalDependency.janino
 
     runtimeOnly externalDependency.mariadbConnector
     runtimeOnly externalDependency.mysqlConnector
@@ -44,6 +48,9 @@ dependencies {
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.mockito
     testImplementation externalDependency.testng
+
+    implementation externalDependency.sentry
+    implementation externalDependency.sentryLogback
 }
 
 bootJar {
@@ -58,12 +65,12 @@ docker {
     dependsOn(bootJar)
     name "${docker_registry}/${docker_repo}:${versionTag}"
     //version "v${version}"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+    dockerfile file("${rootProject.projectDir}/docker/datahub-mce-consumer/Dockerfile")
     files bootJar.outputs.files
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
         include 'docker/monitoring/*'
-        include "docker/${docker_repo}/*"
+        include "docker/datahub-mce-consumer/*"
         include 'metadata-models/src/main/resources/*'
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())

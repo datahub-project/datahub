@@ -1,0 +1,47 @@
+namespace com.linkedin.inferred
+
+import com.linkedin.common.Urn
+
+/**
+ * Inferred Metadata for dataset schema fields
+ */
+record SchemaFieldInferredMetadata {
+  /**
+   * SchemaField Urn this metadata is associated with
+   */
+    fieldUrn: Urn
+
+
+  /**
+   * Inferred descriptions for schema field
+   */
+  @Searchable = {
+    "/*/description":{
+      "fieldName": "inferredFieldDescriptions",
+      "fieldType": "TEXT",
+      }
+  }
+  inferredDescriptions: optional array[InferredDescription]
+
+  /**
+   * Inferred tags for schema field
+   */
+  @Searchable = {
+    "/*/tags/*":{
+      "fieldName": "inferredFieldTags",
+      "fieldType": "URN",
+      }
+  }
+  inferredTags: optional array[InferredTags]
+
+  /**
+   * Inferred glossary terms for schema field
+   */
+  @Searchable = {
+    "/*/glossaryTerms/*":{
+      "fieldName": "inferredFieldGlossaryTerms",
+      "fieldType": "URN",
+      }
+  }
+  inferredGlossaryTerms: optional array[InferredGlossaryTerms]
+}

@@ -1,5 +1,6 @@
 import { DownloadOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
@@ -20,6 +21,9 @@ import {
 } from '@app/ingest/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Message } from '@app/shared/Message';
+import { colors } from '@src/alchemy-components';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { useGetRemoteExecutorQuery } from '@src/graphql/remote_executor.saas.generated';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -101,6 +105,23 @@ const DetailsContainer = styled.div<DetailsContainerProps>`
     `}
 `;
 
+const LinkButton = styled(Button)`
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: none;
+    color: ${colors.blue[500]};
+    display: inline-block;
+    &:disabled {
+        color: rgba(0, 0, 0, 0.25);
+        background: none !important;
+    }
+    &:hover {
+        background: none !important;
+    }
+`;
+
 const modalStyle = {
     top: 100,
 };
@@ -118,9 +139,12 @@ type Props = {
     urn: string;
     open: boolean;
     onClose: () => void;
+    saasProps?: {
+        onViewPool?: (poolId: string) => void;
+    };
 };
 
-export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
+export const ExecutionDetailsModal = ({ urn, open, onClose, saasProps }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -132,8 +156,17 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     };
 
     const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
-    const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
+    const result = data?.executionRequest?.result as Maybe<Partial<ExecutionRequestResult>>;
     const status = getIngestionSourceStatus(result);
+
+    // SaaS only //
+    const executorInstanceId = result?.executorInstanceId;
+    const { data: executorResult } = useGetRemoteExecutorQuery({
+        variables: { urn: `urn:li:dataHubRemoteExecutor:${executorInstanceId}` },
+    });
+    const poolId = executorResult?.getRemoteExecutor?.executorPoolId;
+    const { displayExecutorPools } = useAppConfig().config.featureFlags;
+    // End SaaS only //
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -191,6 +224,28 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                     <Typography.Title level={5}>Status</Typography.Title>
                     <ResultText>{resultText}</ResultText>
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    {/* SaaS only */}
+                    {displayExecutorPools && (
+                        <SubHeaderParagraph>
+                            Pool:{' '}
+                            <LinkButton
+                                disabled={!poolId}
+                                onClick={
+                                    poolId
+                                        ? () => {
+                                              onClose();
+                                              saasProps?.onViewPool?.(poolId);
+                                          }
+                                        : undefined
+                                }
+                            >
+                                {poolId || 'Unknown'}
+                            </LinkButton>
+                            <br />
+                            Executor instance: <strong>{executorInstanceId || 'Unknown'}</strong>
+                        </SubHeaderParagraph>
+                    )}
+                    {/* End SaaS only */}
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
                 {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (

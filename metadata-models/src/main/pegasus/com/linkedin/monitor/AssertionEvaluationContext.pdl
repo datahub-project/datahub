@@ -1,0 +1,26 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.assertion.AssertionInferenceDetails
+
+/**
+ * Additional context about assertion being evaluated.
+ */
+record AssertionEvaluationContext {
+    /**
+    * Currently used for Smart Assertions
+    * An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
+    * if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
+    */
+    embeddedAssertions: optional array[EmbeddedAssertion]
+
+    /**
+     * Details about the assertion inference.
+     */
+    inferenceDetails: optional AssertionInferenceDetails
+
+    /**
+     * The std deviation of the metric values used for training.
+     * This is used to determine the final adjusted threshold for the assertion.
+     */
+    stdDev: optional float
+}

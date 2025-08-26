@@ -29,6 +29,9 @@ fragment glossaryNodeFields on GlossaryNode {
     privileges {
         ...entityPrivileges
     }
+    share {
+        ...shareFields
+    }
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
         ...autoRenderAspectFields
     }
@@ -47,7 +50,16 @@ fragment glossaryNodeFields on GlossaryNode {
     displayProperties {
         ...displayPropertiesFields
     }
+    assetOrigin {
+        ...originFields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
     ...notes
+    proposals: proposals {
+        ...proposalsFragment
+    }
 }
 
 query getGlossaryNode($urn: String!) {

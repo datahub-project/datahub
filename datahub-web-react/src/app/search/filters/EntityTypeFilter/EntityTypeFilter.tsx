@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import {
     getDisplayedFilterOptions,
     getInitialSelectedOptions,
@@ -28,6 +29,10 @@ interface Props {
 
 export default function EntityTypeFilter({ filter, activeFilters, onChangeFilters }: Props) {
     const entityRegistry = useEntityRegistry();
+    const {
+        isInFormContext,
+        filter: { formFilter },
+    } = useEntityFormContext();
     const [selectedFilterOptions, setSelectedFilterOptions] = useState<FilterOptionType[]>([]);
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -50,6 +55,8 @@ export default function EntityTypeFilter({ filter, activeFilters, onChangeFilter
                         orFilters,
                         viewUrn,
                         facets: [ENTITY_SUB_TYPE_FILTER_NAME, ENTITY_FILTER_NAME],
+                        formFilter,
+                        searchFlags: isInFormContext ? { skipCache: true } : undefined,
                     },
                 },
             });

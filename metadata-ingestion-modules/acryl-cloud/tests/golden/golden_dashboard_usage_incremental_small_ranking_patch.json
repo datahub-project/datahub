@@ -1,0 +1,227 @@
+[
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboard.0)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 780
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 1.0
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-yde08j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboard.4)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 397
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 1.0
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-yde08j",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboard.5)",
+    "changeType": "PATCH",
+    "aspectName": "usageFeatures",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/queryCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountTotal",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/viewCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserCountLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/queryCountPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/uniqueUserPercentileLast30Days",
+                "value": 0
+            },
+            {
+                "op": "add",
+                "path": "/usageSearchScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/usageFreshnessScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/customDatahubScoreMultiplier",
+                "value": 1.0
+            },
+            {
+                "op": "add",
+                "path": "/combinedSearchRankingMultiplier",
+                "value": 1.0
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-yde08j",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

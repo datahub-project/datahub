@@ -58,5 +58,7 @@ dependencies {
     }
   }
   implementation externalDependency.logbackClassic
+  implementation externalDependency.logbackJackson
+  implementation externalDependency.logbackJsonClassic
 
 }

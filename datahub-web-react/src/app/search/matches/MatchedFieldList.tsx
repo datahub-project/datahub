@@ -1,4 +1,5 @@
-import { Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -15,6 +16,7 @@ const MatchesContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    padding: 4px 8px;
 `;
 
 const MatchText = styled(Typography.Text)`

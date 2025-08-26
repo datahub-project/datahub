@@ -1,0 +1,1 @@
+select max(snapshot_date) from {{table}}

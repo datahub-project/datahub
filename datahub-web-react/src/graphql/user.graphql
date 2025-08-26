@@ -1,4 +1,4 @@
-query getUser($urn: String!, $groupsCount: Int!) {
+query getUser($urn: String!, $groupsCount: Int) {
     corpUser(urn: $urn) {
         urn
         type
@@ -26,6 +26,18 @@ query getUser($urn: String!, $groupsCount: Int!) {
             displayName
             title
             email
+            persona {
+                urn
+            }
+            platforms {
+                urn
+            }
+        }
+        share {
+            ...shareFields
+        }
+        privileges {
+            ...entityPrivileges
         }
         privileges {
             ...entityPrivileges
@@ -96,6 +108,9 @@ query getUser($urn: String!, $groupsCount: Int!) {
                 }
             }
         }
+        assetOrigin {
+            ...originFields
+        }
     }
 }
 
@@ -122,6 +137,12 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
                             displayName
                             description
                             email
+                        }
+                        properties {
+                            displayName
+                            description
+                            email
+                            slack
                         }
                     }
                     relationships(input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING }) {

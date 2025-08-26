@@ -12,6 +12,7 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
@@ -77,6 +78,9 @@ export class MLModelEntity implements Entity<MlModel> {
             component: SidebarAboutSection,
         },
         {
+            component: SidebarMetadataSection,
+        },
+        {
             component: SidebarOwnerSection,
             properties: {
                 defaultOwnerType: OwnershipType.TechnicalOwner,
@@ -107,7 +111,7 @@ export class MLModelEntity implements Entity<MlModel> {
             entityType={EntityType.Mlmodel}
             useEntityQuery={useGetMlModelQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
             tabs={[
                 {
                     name: 'Summary',

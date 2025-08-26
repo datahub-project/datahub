@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an Link Preview
+ */
+@Aspect = {
+  "name": "linkPreviewKey"
+}
+record LinkPreviewKey {
+  /**
+  * A unique id for the Link Preview, derived by encoding the URL itself.
+  */
+  id: string
+}

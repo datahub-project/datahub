@@ -1,7 +1,7 @@
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 
-import { Entity, QueryEntity, SchemaFieldEntity } from '@types';
+import { CorpUser, Entity, QueryEntity, SchemaFieldEntity } from '@types';
 
 interface Props {
     queryEntity: QueryEntity;
@@ -16,8 +16,11 @@ export function mapQuery({ queryEntity, entityUrn, siblingUrn, poweredEntity }: 
         title: queryEntity.properties?.name || undefined,
         description: queryEntity.properties?.description || undefined,
         query: queryEntity.properties?.statement?.value || '',
+        lastRun: queryEntity?.usageFeatures?.lastExecutedAt,
         createdTime: queryEntity?.properties?.created?.time,
         createdBy: queryEntity?.properties?.createdOn?.actor,
+        usedBy: (queryEntity?.usageFeatures?.topUsersLast30Days || []) as CorpUser[],
+        runsPercentileLast30days: queryEntity?.usageFeatures?.runsPercentileLast30days,
         columns: queryEntity.subjects
             ?.filter((s) => !!s.schemaField)
             ?.filter((s) => {

@@ -22,8 +22,12 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -44,6 +48,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  private final FormService _formService;
 
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
@@ -69,8 +74,15 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                       UrnUtils.getUrn(input.getViewUrn()))
                   : null;
 
-          final Filter baseFilter =
+          final Filter inputFilter =
               ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+          final Filter formFilter =
+              SearchUtils.getFormFilter(
+                  context.getOperationContext(), input.getFormFilter(), _formService);
+          final Filter baseFilter =
+              formFilter != null
+                  ? FilterUtils.combineFilters(inputFilter, formFilter)
+                  : inputFilter;
 
           SearchFlags searchFlags = mapInputFlags(context, input.getSearchFlags());
           List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
@@ -93,13 +105,33 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
               return SearchUtils.createEmptySearchResults(start, count);
             }
 
+            Filter finalFilter =
+                maybeResolvedView != null
+                    ? FilterUtils.combineFilters(
+                        baseFilter, maybeResolvedView.getDefinition().getFilter())
+                    : baseFilter;
+            /* SAAS ONLY */
+            String predicateJson = null;
+            if (input.getPredicateFilter() != null) {
+              predicateJson = input.getPredicateFilter();
+            } else if (input.getConvertToPredicate() != null
+                && input.getConvertToPredicate()
+                && finalFilter != null) {
+              Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(finalFilter);
+              predicateJson =
+                  context.getOperationContext().getObjectMapper().writeValueAsString(predicate);
+            }
+            /* END SAAS ONLY */
+
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
                         && input.getSearchFlags().getIncludeStructuredPropertyFacets() != null
                     ? input.getSearchFlags().getIncludeStructuredPropertyFacets()
                     : false;
             List<String> structuredPropertyFacets =
-                shouldIncludeStructuredPropertyFacets ? getStructuredPropertyFacets(context) : null;
+                shouldIncludeStructuredPropertyFacets
+                    ? getStructuredPropertyFacets(context)
+                    : Collections.emptyList();
 
             return UrnSearchResultsMapper.map(
                 context,
@@ -107,14 +139,12 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
                     sanitizedQuery,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            baseFilter, maybeResolvedView.getDefinition().getFilter())
-                        : baseFilter,
+                    finalFilter,
                     start,
                     count,
                     sortCriteria,
-                    structuredPropertyFacets));
+                    structuredPropertyFacets,
+                    predicateJson));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, start: {}, count: {}",

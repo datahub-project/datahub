@@ -45,6 +45,12 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_GRANT_TYPE = "auth.oidc.grantType";
   public static final String OIDC_ACR_VALUES = "auth.oidc.acrValues";
 
+  /** Implicit flow specific configs */
+  public static final String OIDC_IMPLICIT_ENABLED = "auth.oidc.implicit.enabled";
+
+  public static final String OIDC_IMPLICIT_CLIENT_ISSUER = "auth.oidc.implicit.clientIssuer";
+  public static final String OIDC_IMPLICIT_JWKS_JSON = "auth.oidc.implicit.jwksJson";
+
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
 
@@ -60,6 +66,9 @@ public class OidcConfigs extends SsoConfigs {
   private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
   private static final String DEFAULT_OIDC_READ_TIMEOUT = "5000";
   private static final String DEFAULT_OIDC_CONNECT_TIMEOUT = "1000";
+  private static final String DEFAULT_OIDC_IMPLICIT_ENABLED = "false";
+  private static final String DEFAULT_RESPONSE_TYPE_IMPLICIT = "token id_token";
+  private static final String DEFAULT_IMPLICIT_CALLBACK_URL = "/login/oidc-implicit";
 
   private final String clientId;
   private final String clientSecret;
@@ -83,6 +92,12 @@ public class OidcConfigs extends SsoConfigs {
   private final Optional<String> preferredJwsAlgorithm;
   private final Optional<String> grantType;
   private final Optional<String> acrValues;
+
+  // Implicit flow specific fields
+  private final boolean implicitFlowEnabled;
+  private final String implicitCallbackUrl;
+  private final Optional<String> clientIssuer;
+  private final Optional<String> jwksJson;
 
   public OidcConfigs(Builder builder) {
     super(builder);
@@ -108,6 +123,55 @@ public class OidcConfigs extends SsoConfigs {
     this.preferredJwsAlgorithm = builder.preferredJwsAlgorithm;
     this.acrValues = builder.acrValues;
     this.grantType = builder.grantType;
+    this.implicitFlowEnabled = builder.implicitFlowEnabled;
+    this.implicitCallbackUrl = builder.implicitCallbackUrl;
+    this.clientIssuer = builder.clientIssuer;
+    this.jwksJson = builder.jwksJson;
+  }
+
+  /**
+   * Get the client issuer (expected issuer value in tokens). This is especially important for token
+   * validation when discovery endpoint isn't accessible.
+   *
+   * @return The configured issuer value for tokens
+   */
+  public String getClientIssuer() {
+    return clientIssuer.orElse(null);
+  }
+
+  /**
+   * Get the JWKS JSON string used for token validation. This is used when the JWKS endpoint cannot
+   * be accessed directly.
+   *
+   * @return The configured JWKS JSON string
+   */
+  public String getJwksJson() {
+    return jwksJson.orElse(null);
+  }
+
+  /**
+   * Check if the configured OIDC flow is implicit. This is true if implicitFlowEnabled is true OR
+   * if the responseType is configured for implicit flow.
+   */
+  public boolean isImplicitFlow() {
+    if (implicitFlowEnabled) {
+      return true;
+    }
+
+    // Also check if responseType indicates implicit flow
+    return responseType.isPresent()
+        && (responseType.get().contains("token") || responseType.get().contains("id_token"));
+  }
+
+  /**
+   * Get the appropriate response type based on the flow configuration. For implicit flow, use
+   * "token id_token" if not explicitly configured.
+   */
+  public String getEffectiveResponseType() {
+    if (isImplicitFlow() && responseType.isEmpty()) {
+      return DEFAULT_RESPONSE_TYPE_IMPLICIT;
+    }
+    return responseType.orElse("code");
   }
 
   public static class Builder extends SsoConfigs.Builder<Builder> {
@@ -136,12 +200,33 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> preferredJwsAlgorithm = Optional.empty();
     private Optional<String> grantType = Optional.empty();
     private Optional<String> acrValues = Optional.empty();
+    private boolean implicitFlowEnabled = Boolean.parseBoolean(DEFAULT_OIDC_IMPLICIT_ENABLED);
+    private String implicitCallbackUrl = DEFAULT_IMPLICIT_CALLBACK_URL;
+    private Optional<String> clientIssuer = Optional.empty();
+    private Optional<String> jwksJson = Optional.empty();
 
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
       clientId = getRequired(configs, OIDC_CLIENT_ID_CONFIG_PATH);
-      clientSecret = getRequired(configs, OIDC_CLIENT_SECRET_CONFIG_PATH);
-      discoveryUri = getRequired(configs, OIDC_DISCOVERY_URI_CONFIG_PATH);
+
+      // Implicit flow specific configs
+      implicitFlowEnabled =
+          Boolean.parseBoolean(
+              getOptional(configs, OIDC_IMPLICIT_ENABLED, DEFAULT_OIDC_IMPLICIT_ENABLED));
+
+      if (implicitFlowEnabled) {
+        // Nonce needs to be enabled for implicit flow as per OAuth security standards
+        useNonce = Optional.of(true);
+        // no secret/discovery url required for implicit
+        clientSecret = getOptional(configs, OIDC_CLIENT_SECRET_CONFIG_PATH).orElse("");
+        discoveryUri = getOptional(configs, OIDC_DISCOVERY_URI_CONFIG_PATH).orElse("");
+      } else {
+        clientSecret = getRequired(configs, OIDC_CLIENT_SECRET_CONFIG_PATH);
+        discoveryUri = getRequired(configs, OIDC_DISCOVERY_URI_CONFIG_PATH);
+      }
+      clientIssuer = getOptional(configs, OIDC_IMPLICIT_CLIENT_ISSUER);
+      jwksJson = getOptional(configs, OIDC_IMPLICIT_JWKS_JSON);
+
       userNameClaim =
           getOptional(configs, OIDC_USERNAME_CLAIM_CONFIG_PATH, DEFAULT_OIDC_USERNAME_CLAIM);
       userNameClaimRegex =
@@ -185,6 +270,7 @@ public class OidcConfigs extends SsoConfigs {
           Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
       grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
       acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
+
       return this;
     }
 
@@ -255,13 +341,44 @@ public class OidcConfigs extends SsoConfigs {
       grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
       acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
 
+      // Handle implicit flow configs from JSON
+      if (jsonNode.has("implicitFlowEnabled")) {
+        implicitFlowEnabled = jsonNode.get("implicitFlowEnabled").asBoolean();
+        // Nonce needs to be enabled for implicit flow as per OAuth security standards
+        if (implicitFlowEnabled) {
+          useNonce = Optional.of(true);
+        }
+      } else {
+        implicitFlowEnabled =
+            Boolean.parseBoolean(
+                getOptional(configs, OIDC_IMPLICIT_ENABLED, DEFAULT_OIDC_IMPLICIT_ENABLED));
+      }
+
+      if (jsonNode.has("clientIssuer")) {
+        clientIssuer = Optional.of(jsonNode.get("clientIssuer").asText());
+      } else {
+        clientIssuer = getOptional(configs, OIDC_IMPLICIT_CLIENT_ISSUER);
+      }
+
+      if (jsonNode.has("jwksJson")) {
+        clientIssuer = Optional.of(jsonNode.get("jwksJson").asText());
+      } else {
+        clientIssuer = getOptional(configs, OIDC_IMPLICIT_JWKS_JSON);
+      }
+
       return this;
     }
 
     public OidcConfigs build() {
       Objects.requireNonNull(oidcEnabled, "oidcEnabled is required");
       Objects.requireNonNull(clientId, "clientId is required");
-      Objects.requireNonNull(clientSecret, "clientSecret is required");
+
+      // Only require client secret for non-implicit flows
+      if (!implicitFlowEnabled
+          && (responseType.isEmpty() || !responseType.get().contains("token"))) {
+        Objects.requireNonNull(clientSecret, "clientSecret is required for non-implicit flows");
+      }
+
       Objects.requireNonNull(discoveryUri, "discoveryUri is required");
       Objects.requireNonNull(authBaseUrl, "authBaseUrl is required");
 

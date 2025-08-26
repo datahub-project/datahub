@@ -232,7 +232,8 @@ public class EntityController
             sortCriteria,
             scrollId,
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
-            count);
+            count,
+            null);
 
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
       throw new UnauthorizedException(

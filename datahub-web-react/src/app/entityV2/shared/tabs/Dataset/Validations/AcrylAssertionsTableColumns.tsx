@@ -1,11 +1,16 @@
 import { AuditOutlined } from '@ant-design/icons';
+import WarningIcon from '@ant-design/icons/WarningFilled';
 import { Tooltip } from '@components';
+import moment from 'moment';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { InferredAssertionBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionBadge';
+import { InferredAssertionPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionPopover';
+import { extractLatestGeneratedAt, isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionListItemActions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/AssertionListItemActions';
 import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionResultDot';
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
@@ -14,7 +19,7 @@ import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/
 import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Assertion, AssertionRunEvent, DataContract, EntityType } from '@types';
+import { Assertion, AssertionRunEvent, AssertionSourceType, DataContract, EntityType, Monitor } from '@types';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -44,22 +49,37 @@ const DataContractLogo = styled(AuditOutlined)`
     color: ${REDESIGN_COLORS.BLUE};
 `;
 
+const SMART_ASSERTION_STALE_IN_DAYS = 3;
+
 interface DetailsColumnProps {
     assertion: Assertion;
+    monitor?: Monitor;
     contract?: DataContract;
     lastEvaluation?: AssertionRunEvent;
     onViewAssertionDetails: () => void;
 }
 
-export function DetailsColumn({ assertion, contract, lastEvaluation, onViewAssertionDetails }: DetailsColumnProps) {
+export function DetailsColumn({
+    assertion,
+    monitor,
+    contract,
+    lastEvaluation,
+    onViewAssertionDetails,
+}: DetailsColumnProps) {
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
     if (!assertion.info) {
         return <>No details found</>;
     }
-    const disabled = false;
+    const disabled = (monitor && !isMonitorActive(monitor)) || false;
     const isPartOfContract = contract && isAssertionPartOfContract(assertion, contract);
+    const assertionInfo = assertion.info;
+    const isSmartAssertion = assertionInfo.source?.type === AssertionSourceType.Inferred;
+    const generatedAt = extractLatestGeneratedAt(monitor);
+    const smartAssertionAgeDays = generatedAt ? moment().diff(moment(generatedAt), 'days') : undefined;
+    const isSmartAssertionStale =
+        isSmartAssertion && smartAssertionAgeDays && smartAssertionAgeDays > SMART_ASSERTION_STALE_IN_DAYS;
     return (
         <DetailsContainer>
             <AssertionResultPopover
@@ -74,7 +94,30 @@ export function DetailsColumn({ assertion, contract, lastEvaluation, onViewAsser
                     <AssertionResultDot run={lastEvaluation} disabled={disabled} size={18} />
                 </Result>
             </AssertionResultPopover>
-            <AssertionDescription assertion={assertion} options={{ hideSecondaryLabel: true, showColumnTag: true }} />
+            <AssertionDescription
+                assertion={assertion}
+                monitor={monitor}
+                options={{ hideSecondaryLabel: true, showColumnTag: true }}
+            />
+            {isSmartAssertionStale ? (
+                <Tooltip
+                    title={
+                        <>
+                            <b>This Smart Assertion may be outdated.</b>
+                            <br />
+                            This is likely related to insufficient training data for this asset. Training data is
+                            obtained on the schedule of the assertion.
+                        </>
+                    }
+                >
+                    <WarningIcon style={{ marginLeft: 16, marginRight: 4, color: '#e9a641' }} />
+                </Tooltip>
+            ) : null}
+            {isSmartAssertion ? (
+                <InferredAssertionPopover>
+                    <InferredAssertionBadge />
+                </InferredAssertionPopover>
+            ) : null}
             {(isPartOfContract && entityData?.urn && (
                 <Tooltip
                     title={
@@ -105,7 +148,10 @@ export function DetailsColumn({ assertion, contract, lastEvaluation, onViewAsser
 
 interface ActionsColumnProps {
     assertion: Assertion;
+    monitor?: Monitor;
     contract?: DataContract;
+    canEditAssertion: boolean;
+    canEditMonitor: boolean;
     canEditContract: boolean;
     refetch?: () => void;
     shouldRightAlign?: boolean;
@@ -117,6 +163,9 @@ interface ActionsColumnProps {
 export function ActionsColumn({
     assertion,
     contract,
+    monitor,
+    canEditAssertion,
+    canEditMonitor,
     canEditContract,
     refetch,
     shouldRightAlign,
@@ -126,7 +175,10 @@ export function ActionsColumn({
         <ActionButtonContainer removeRightPadding={options?.removeRightPadding}>
             <AssertionListItemActions
                 assertion={assertion}
+                monitor={monitor}
                 contract={contract}
+                canEditAssertion={canEditAssertion}
+                canEditMonitor={canEditMonitor}
                 canEditContract={canEditContract}
                 refetch={refetch}
                 shouldRightAlign={shouldRightAlign}

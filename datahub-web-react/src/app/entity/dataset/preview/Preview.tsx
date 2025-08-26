@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '@app/entity/dataset/shared/DatasetStatsSummary';
 import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -54,6 +54,8 @@ export const Preview = ({
     health,
     degree,
     paths,
+    previewType,
+    onClick,
 }: {
     urn: string;
     name: string;
@@ -84,6 +86,8 @@ export const Preview = ({
     health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
+    previewType?: PreviewType;
+    onClick?: (any: any) => any;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -117,12 +121,18 @@ export const Preview = ({
                     rowCount={rowCount}
                     columnCount={columnCount}
                     sizeInBytes={sizeInBytes}
+                    queryCountLast30Days={statsSummary?.queryCountLast30Days}
+                    queryCountPercentileLast30Days={statsSummary?.queryCountPercentileLast30Days}
+                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                    uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
                     lastUpdatedMs={lastUpdatedMs}
                 />
             }
             health={health || undefined}
             degree={degree}
             paths={paths}
+            previewType={previewType}
+            onClick={onClick}
         />
     );
 };

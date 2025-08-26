@@ -1,5 +1,6 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
-import { Button, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Button } from 'antd';
 import React, { memo, useState } from 'react';
 import styled from 'styled-components';
 

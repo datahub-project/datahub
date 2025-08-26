@@ -20,6 +20,7 @@ on:
       - "metadata-ingestion-modules/**"
       - "metadata-models/**"
       - "python-build/**"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -52,9 +53,11 @@ jobs:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+      - name: Install Python dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build Python wheel site
         run: |
-          ./gradlew :python-build:buildSite
+          ./gradlew :python-build:buildSite --stacktrace
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Publish

@@ -13,21 +13,14 @@ query getDomain($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
         institutionalMemory {
-            elements {
-                url
-                actor {
-                    ...resolvedActorFields
-                }
-                description
-                created {
-                    actor
-                    time
-                }
-            }
+            ...institutionalMemoryFields
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
@@ -44,7 +37,13 @@ query getDomain($urn: String!) {
             ...displayPropertiesFields
         }
         ...domainEntitiesFields
+        assetOrigin {
+            ...originFields
+        }
         ...notes
+        proposals: proposals {
+            ...proposalsFragment
+        }
     }
 }
 
@@ -71,6 +70,9 @@ query listDomains($input: ListDomainsInput!) {
                 ...displayPropertiesFields
             }
             ...domainEntitiesFields
+            institutionalMemory {
+                ...institutionalMemoryFields
+            }
         }
     }
 }
@@ -119,4 +121,8 @@ query getDomainEntitySummary($urn: String!) {
             ...facetFields
         }
     }
+}
+
+mutation proposeDomain($input: ProposeDomainInput!) {
+    proposeDomain(input: $input)
 }

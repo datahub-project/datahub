@@ -1,4 +1,4 @@
-import { LAST_MODIFIED_FILTER } from '@app/searchV2/filters/field/fields';
+import { CREATED_AT_FILTER, LAST_MODIFIED_FILTER } from '@app/searchV2/filters/field/fields';
 import { FilterField } from '@app/searchV2/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -55,4 +55,4 @@ export const FILTERS_TO_REMOVE = [
 export const EXCLUDED_ACTIVE_FILTERS = [BROWSE_PATH_V2_FILTER_NAME];
 
 // Filters not based on facets
-export const NON_FACET_FILTER_FIELDS: FilterField[] = [LAST_MODIFIED_FILTER];
+export const NON_FACET_FILTER_FIELDS: FilterField[] = [LAST_MODIFIED_FILTER, CREATED_AT_FILTER];

@@ -34,7 +34,7 @@ const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setS
                                 title="Define the set of valid values for this property. If none are provided, any value will be allowed"
                                 showArrow={false}
                             >
-                                <Icon icon="Info" color="violet" size="lg" />
+                                <Icon icon="Info" color="primary" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                     </FieldLabel>

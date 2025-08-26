@@ -5,8 +5,8 @@ import {
     QuestionCircleOutlined,
     TableOutlined,
 } from '@ant-design/icons';
-import { Icon } from '@components';
-import { Button, Input, Popover, Select, Tooltip, Typography } from 'antd';
+import { Icon, Popover, Tooltip } from '@components';
+import { Button, Input, Select, Typography } from 'antd';
 import { debounce } from 'lodash';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';

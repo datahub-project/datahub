@@ -1,0 +1,29 @@
+namespace com.linkedin.incident
+
+
+/**
+ * Slack-specific message that contains the incident information.
+ * Note that we will NOT capture slack message details
+ * for DMs.
+ * This object will be created by the integrations service once a
+ * notification message about an incident is posted to a specific channel.
+ */
+record SlackMessageDetails {
+    /**
+    * The original Slack channel id or user id associated with the incident message.
+    */
+    channelId: string
+
+    /**
+    * The human-readable channel name associated with the incident message.
+    * This is attempted to be resolved by the integrations service.
+    *
+    * If it cannot be found, it will be left empty.
+    */
+    channelName: optional string
+
+    /**
+    * The Slack message id associated with the incident.
+    */
+    messageId: string
+}

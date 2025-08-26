@@ -1,6 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 
-import { Assertion, AssertionResultType, AssertionRunEvent } from '@types';
+import { Assertion, AssertionResultType, AssertionRunEvent, Monitor } from '@types';
 
 export type AssertionResult = {
     type: AssertionResultType;
@@ -19,6 +19,7 @@ export type AssertionResultChartData = {
     yAxisLabel?: string;
     context: {
         assertion: Assertion;
+        monitor?: Monitor;
     };
 };
 

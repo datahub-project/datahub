@@ -1,0 +1,14 @@
+namespace com.linkedin.inferred
+
+/**
+ * Aspect for representing Neighbors of dataset's schema fields as determined by algorithm
+ */
+@Aspect = {
+  "name": "schemaFieldsInferredNeighbors"
+}
+record SchemaFieldsInferredNeighbors {
+  /**
+   * Neighbors of dataset's schema fields as determined by algorithm
+   */
+  schemaFieldsInferredNeighbors: array[SchemaFieldInferredNeighbors]
+}

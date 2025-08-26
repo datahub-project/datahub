@@ -1,4 +1,4 @@
-import { BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import React from 'react';
 
 import { IconStyleType, PreviewType } from '@app/entity/Entity';
@@ -37,7 +37,7 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             owners={owners}
-            logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<BookmarkSimple style={{ fontSize: '20px' }} />}
             type="Glossary Term"
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}

@@ -3,6 +3,7 @@ package com.linkedin.gms;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.gms.factory.telemetry.DailyReport;
+import com.linkedin.gms.servlet.AcrylGraphQLServletConfig;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -25,7 +26,12 @@ import org.testng.annotations.Test;
       "telemetry.enabledServer=true",
       "spring.main.allow-bean-definition-overriding=true"
     })
-@ContextConfiguration(classes = {CommonApplicationConfig.class, SpringTest.TestBeans.class})
+@ContextConfiguration(
+    classes = {
+      CommonApplicationConfig.class,
+      SpringTest.TestBeans.class,
+      AcrylGraphQLServletConfig.class
+    })
 public class SpringTest extends AbstractTestNGSpringContextTests {
 
   // Mock Beans take precedence, we add these to avoid needing to configure data sources etc. while

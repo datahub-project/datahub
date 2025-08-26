@@ -1,8 +1,21 @@
+import { hasOperationName } from "../utils";
+
 const test_id = Math.floor(Math.random() * 100000);
 const platform_policy_name = `Platform test policy ${test_id}`;
 const number = Math.floor(Math.random() * 100000);
 const name = `Example Name ${number}`;
 const email = `example${number}@example.com`;
+
+const setRemoteExecutorsUIFlag = (isOn) => {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        // Modify the response body directly
+        res.body.data.appConfig.featureFlags.displayExecutorPools = isOn;
+      });
+    }
+  });
+};
 
 const tryToSignUp = () => {
   cy.enterTextInTestId("email", email);
@@ -113,6 +126,10 @@ const deactivateExistingAllUserPolicies = () => {
 };
 
 describe("Manage Ingestion and Secret Privileges", () => {
+  beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
+  });
+
   let registeredEmail = "";
   it("create Metadata Ingestion platform policy and assign privileges to all users", () => {
     cy.loginWithCredentials();
@@ -161,8 +178,10 @@ describe("Manage Ingestion and Secret Privileges", () => {
   });
 
   it("Verify new user can see ingestion and access Manage Ingestion tab", () => {
+    setRemoteExecutorsUIFlag(false);
     cy.clearCookies();
     cy.clearLocalStorage();
+    cy.setIsThemeV2Enabled(false);
     signIn();
     cy.waitTextVisible("Welcome back");
     cy.hideOnboardingTour();
@@ -173,12 +192,14 @@ describe("Manage Ingestion and Secret Privileges", () => {
     cy.waitTextVisible("Manage Data Sources");
     cy.waitTextVisible("Sources");
     cy.get(".ant-tabs-nav-list").contains("Source").should("be.visible");
+    // We check 1 because remote executors management is tied to ingestion management, but is feature flagged off
     cy.get(".ant-tabs-tab").should("have.length", 1);
   });
 
   it("Verify new user can see ingestion and access Manage Secret tab", () => {
     cy.clearCookies();
     cy.clearLocalStorage();
+    cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.visit("/settings/permissions/policies");
     cy.waitTextVisible("Manage Permissions");

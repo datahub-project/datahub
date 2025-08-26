@@ -1,3 +1,4 @@
+import { Tooltip } from '@components';
 import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
@@ -7,11 +8,13 @@ import QueryComponent from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import {
     ColumnsColumn,
     EditDeleteColumn,
+    PopularityColumn,
     QueryCreatedBy,
     QueryDescription,
 } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -30,6 +33,8 @@ interface Props {
     showDetails?: boolean;
     showEdit?: boolean;
     showDelete?: boolean;
+    isAllowedToEdit?: boolean;
+    isEditable?: boolean;
     onDeleted?: (query) => void;
     onEdited?: (query) => void;
     sorting?: Sorting;
@@ -42,6 +47,8 @@ export default function useQueryTableColumns({
     showDetails,
     showEdit,
     showDelete,
+    isAllowedToEdit,
+    isEditable,
     onDeleted,
     onEdited,
     sorting,
@@ -66,6 +73,7 @@ export default function useQueryTableColumns({
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
+        className: 'description',
         render: (description: string) => <QueryDescription description={description} />,
     };
 
@@ -87,6 +95,8 @@ export default function useQueryTableColumns({
                         showDelete={showDelete}
                         showEdit={showEdit}
                         showDetails={showDetails}
+                        isAllowedToEdit={isAllowedToEdit}
+                        isEditable={isEditable}
                         showHeader={false}
                         onDeleted={() => onDeleted?.(query)}
                         onEdited={(newQuery) => onEdited?.(newQuery)}
@@ -101,6 +111,7 @@ export default function useQueryTableColumns({
         title: 'Created By',
         dataIndex: 'createdBy',
         key: 'createdBy',
+        width: 85,
         sorter: shouldRelyOnBackendSorting
             ? false // we don't support sorting by createdBy on backend since it is a text field
             : (queryA, queryB) => {
@@ -151,7 +162,7 @@ export default function useQueryTableColumns({
         key: 'usedBy',
         className: 'usedBy',
         sorter: shouldRelyOnBackendSorting
-            ? false
+            ? false // we don't support sorting by topUsersLast30DaysFeature on backend since it is a text field
             : (queryA, queryB) => {
                   if (!queryA.usedBy || !queryA.usedBy[0] || !queryB.usedBy || !queryB.usedBy[0]) return 0;
                   const usedByA = entityRegistry.getDisplayName(queryA.usedBy[0].type, queryA.usedBy[0]);
@@ -167,11 +178,42 @@ export default function useQueryTableColumns({
         },
     };
 
+    const popularityColumn = {
+        title: 'Popularity',
+        key: 'popularity',
+        field: 'runsPercentileLast30days',
+        className: 'popularity',
+        width: 110,
+        sorter: shouldRelyOnBackendSorting
+            ? true
+            : (queryA, queryB) => queryA.runsPercentileLast30days - queryB.runsPercentileLast30days,
+        render: (query: Query) => <PopularityColumn query={query} />,
+    };
+
     const columnsColumn = {
         title: 'Columns',
         key: 'columns',
         width: 105,
         render: (query: Query) => <ColumnsColumn query={query} />,
+    };
+
+    const lastRunColumn = {
+        title: 'Last Run',
+        dataIndex: 'lastRun',
+        key: 'lastRun',
+        field: 'lastExecutedAtFeature',
+        className: 'lastRun',
+        sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.lastRun - queryB.lastRun,
+        render: (lastRun: string) => {
+            if (!lastRun) return null;
+            return (
+                <div>
+                    <Tooltip title={moment(lastRun).format('MM/DD/YYYY')}>
+                        {toRelativeTimeString(new Date(lastRun).getTime())}
+                    </Tooltip>
+                </div>
+            );
+        },
     };
 
     const editColumn = {
@@ -196,7 +238,9 @@ export default function useQueryTableColumns({
         createdDateColumn,
         powersColumn,
         usedByColumn,
+        popularityColumn,
         columnsColumn,
+        lastRunColumn,
         editColumn,
     };
 }

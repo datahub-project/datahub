@@ -1,5 +1,6 @@
 import { CopyOutlined, StopOutlined } from '@ant-design/icons';
-import { Button, Divider, Empty, Tag, Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Divider, Empty, Tag, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 

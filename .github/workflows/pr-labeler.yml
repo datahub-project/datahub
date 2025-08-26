@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - uses: actions/labeler@v5
         with:
@@ -51,6 +51,7 @@ jobs:
           "v-tarasevich-blitz-brain",
           "annadoesdesign",
           "jmacryl",
+          "anthonyburdi",
           "esteban",
           "anthonyburdi",
           "ligfx",

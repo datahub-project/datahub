@@ -11,6 +11,7 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
@@ -21,6 +22,7 @@ import { LineageTab } from '@app/entity/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getDataProduct } from '@app/entity/shared/utils';
+import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
@@ -126,6 +128,9 @@ export class DataJobEntity implements Entity<DataJob> {
     getSidebarSections = () => [
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
         },
         {
             component: SidebarOwnerSection,
@@ -237,6 +242,14 @@ export class DataJobEntity implements Entity<DataJob> {
             expandedName: this.getExpandedNameForDataJob(entity),
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined,
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            downstreamChildren: entity?.['downstream']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type }) as EntityAndType,
+            ),
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            upstreamChildren: entity?.['upstream']?.relationships?.map(
+                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type }) as EntityAndType,
+            ),
             platform: entity?.dataFlow?.platform,
             health: entity?.health || undefined,
         };
@@ -263,6 +276,7 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.TEST,
         ]);
     };
 }

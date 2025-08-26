@@ -30,7 +30,7 @@ public class SchemaMetadataMapper {
   public com.linkedin.datahub.graphql.generated.SchemaMetadata apply(
       @Nullable QueryContext context,
       @Nonnull final SchemaMetadata input,
-      final Urn entityUrn,
+      @Nonnull final Urn entityUrn,
       final long version) {
     final com.linkedin.datahub.graphql.generated.SchemaMetadata result =
         new com.linkedin.datahub.graphql.generated.SchemaMetadata();

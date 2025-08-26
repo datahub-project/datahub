@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import DropdownLabel from '@app/entity/shared/components/styled/StructuredProperty/DropdownLabel';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import ValueDescription from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
@@ -25,7 +26,13 @@ interface Props {
 }
 
 export default function SingleSelectInput({ selectSingleValue, allowedValues, selectedValues }: Props) {
-    return allowedValues.length > 5 ? (
+    const {
+        prompt: { displayBulkPromptStyles },
+    } = useEntityFormContext();
+
+    const shouldShowSelectDropdown = allowedValues.length > 5 || displayBulkPromptStyles;
+
+    return shouldShowSelectDropdown ? (
         <Select
             style={DROPDOWN_STYLE as any}
             placeholder="Select"

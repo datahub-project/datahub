@@ -1,11 +1,13 @@
 import { ClockCircleOutlined, EyeOutlined, QuestionCircleOutlined, TeamOutlined } from '@ant-design/icons';
-import { Popover, Tooltip } from 'antd';
+import { Popover, Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
 import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { PercentileLabel } from '@app/entity/shared/stats/PercentileLabel';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
@@ -22,7 +24,10 @@ const HelpIcon = styled(QuestionCircleOutlined)`
 type Props = {
     chartCount?: number | null;
     viewCount?: number | null;
+    viewCountLast30Days?: number | null;
+    viewCountPercentileLast30Days?: number | null;
     uniqueUserCountLast30Days?: number | null;
+    uniqueUserPercentileLast30Days?: number | null;
     lastUpdatedMs?: number | null;
     createdMs?: number | null;
 };
@@ -30,10 +35,17 @@ type Props = {
 export const ChartStatsSummary = ({
     chartCount,
     viewCount,
+    viewCountLast30Days,
+    viewCountPercentileLast30Days,
     uniqueUserCountLast30Days,
+    uniqueUserPercentileLast30Days,
     lastUpdatedMs,
     createdMs,
 }: Props) => {
+    // acryl-main only.
+    const effectiveViewCount = (!!viewCountLast30Days && viewCountLast30Days) || viewCount;
+    const effectiveViewCountText = (!!viewCountLast30Days && 'views last month') || 'views';
+
     const statsViews = [
         (!!chartCount && (
             <ExpandingStat
@@ -47,10 +59,19 @@ export const ChartStatsSummary = ({
             />
         )) ||
             undefined,
-        (!!viewCount && (
+        (!!effectiveViewCount && (
             <StatText>
                 <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                <b>{formatNumberWithoutAbbreviation(viewCount)}</b> views
+                <b>{formatNumberWithoutAbbreviation(effectiveViewCount)}</b> {effectiveViewCountText}
+                {!!viewCountPercentileLast30Days && (
+                    <Typography.Text type="secondary">
+                        -{' '}
+                        <PercentileLabel
+                            percentile={viewCountPercentileLast30Days}
+                            description={`This chart has been viewed more often than ${viewCountPercentileLast30Days}% of similar charts in the past 30 days.`}
+                        />
+                    </Typography.Text>
+                )}
             </StatText>
         )) ||
             undefined,
@@ -58,6 +79,15 @@ export const ChartStatsSummary = ({
             <StatText>
                 <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                 <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
+                {!!uniqueUserPercentileLast30Days && (
+                    <Typography.Text type="secondary">
+                        -{' '}
+                        <PercentileLabel
+                            percentile={uniqueUserPercentileLast30Days}
+                            description={`This chart has had more unique users than ${uniqueUserPercentileLast30Days}% of similar charts in the past 30 days.`}
+                        />
+                    </Typography.Text>
+                )}
             </StatText>
         )) ||
             undefined,

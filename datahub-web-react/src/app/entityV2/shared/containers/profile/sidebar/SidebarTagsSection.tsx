@@ -7,11 +7,13 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getProposedItemsByType } from '@app/entityV2/shared/utils';
 import { ENTITY_PROFILE_TAGS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { findTopLevelProposals } from '@app/shared/tags/utils/proposalUtils';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 
-import { EntityType } from '@types';
+import { ActionRequestType, EntityType } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -32,9 +34,14 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const areTagsEmpty = !entityData?.globalTags?.tags?.length;
+    const proposedTags = findTopLevelProposals(
+        getProposedItemsByType(entityData?.proposals || [], ActionRequestType.TagAssociation) || [],
+    );
+
+    const areTagsEmpty = !entityData?.globalTags?.tags?.length && !proposedTags?.length;
 
     const canEditTags = !!entityData?.privileges?.canEditTags;
+    const canProposeTags = !!entityData?.privileges?.canProposeTags;
 
     return (
         <div id={ENTITY_PROFILE_TAGS_ID}>
@@ -53,6 +60,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                                 refetch={refetch}
                                 readOnly={readOnly}
                                 fontSize={12}
+                                proposedTags={proposedTags}
                                 showAddButton={false}
                             />
                         ) : (
@@ -68,7 +76,7 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                             setAddModalType(EntityType.Tag);
                             event.stopPropagation();
                         }}
-                        actionPrivilege={canEditTags}
+                        actionPrivilege={canEditTags || canProposeTags}
                     />
                 }
             />
@@ -79,6 +87,8 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                canAddTag={canEditTags}
+                canProposeTag={canProposeTags}
             />
         </div>
     );

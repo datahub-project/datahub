@@ -8,6 +8,7 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -29,7 +30,9 @@ public class TestMCL implements MCLItem {
   @Nonnull
   @Override
   public String getAspectName() {
-    return getAspectSpec().getName();
+    return getAspectSpec() == null
+        ? GenericAspect.dataSchema().getName()
+        : getAspectSpec().getName();
   }
 
   @Override

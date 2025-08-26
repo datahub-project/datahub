@@ -1,5 +1,6 @@
 import { CaretDownOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 

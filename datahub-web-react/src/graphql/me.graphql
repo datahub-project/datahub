@@ -25,6 +25,21 @@ query getMe {
                     urn
                 }
             }
+            groups: relationships(
+                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 50 }
+            ) {
+                relationships {
+                    entity {
+                        ... on CorpGroup {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                }
+            }
             settings {
                 appearance {
                     showSimplifiedHomepage
@@ -46,6 +61,7 @@ query getMe {
         platformPrivileges {
             viewAnalytics
             managePolicies
+            viewMetadataProposals
             manageIdentities
             generatePersonalAccessTokens
             manageIngestion
@@ -60,6 +76,7 @@ query getMe {
             viewManageTags
             createDomains
             createTags
+            manageGlobalSettings
             manageGlobalViews
             manageOwnershipTypes
             manageGlobalAnnouncements
@@ -69,6 +86,13 @@ query getMe {
             viewStructuredPropertiesPage
             manageApplications
             manageFeatures
+            manageHomePageTemplates
+            manageDocumentationForms
+            viewDocumentationFormsPage
+            manageOrganizationDisplayPreferences
+            proposeCreateGlossaryTerm
+            proposeCreateGlossaryNode
+            canViewIngestionPage
         }
     }
 }

@@ -19,8 +19,6 @@ export const StyledFormItem = styled(Form.Item)<{
     $removeMargin?: boolean;
     $isSecretField?: boolean;
 }>`
-    margin-bottom: ${(props) => (props.$removeMargin ? '0' : '16px')};
-
     ${(props) =>
         props.$alignLeft &&
         `
@@ -49,6 +47,9 @@ export const StyledFormItem = styled(Form.Item)<{
             }
         }
     `}
+    &&& {
+        margin-bottom: ${(props) => (props.$removeMargin ? '0' : '16px')};
+    }
 `;
 
 interface SecretFieldProps {

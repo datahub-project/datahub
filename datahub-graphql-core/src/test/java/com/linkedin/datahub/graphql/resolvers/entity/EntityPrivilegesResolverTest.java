@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Chart;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.Dataset;
@@ -32,6 +33,8 @@ public class EntityPrivilegesResolverTest {
   final String dataJobUrn =
       "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
 
+  final String containerUrn = "urn:li:container:test";
+
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
@@ -53,6 +56,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanShareEntity());
   }
 
   @Test
@@ -68,6 +72,7 @@ public class EntityPrivilegesResolverTest {
 
     assertTrue(result.getCanManageEntity());
     assertTrue(result.getCanManageChildren());
+    assertTrue(result.getCanShareEntity());
   }
 
   private DataFetchingEnvironment setUpTestWithoutPermissions(Entity entity) {
@@ -91,6 +96,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanShareEntity());
   }
 
   @Test
@@ -106,6 +112,7 @@ public class EntityPrivilegesResolverTest {
 
     assertFalse(result.getCanManageEntity());
     assertFalse(result.getCanManageChildren());
+    assertFalse(result.getCanShareEntity());
   }
 
   @Test
@@ -135,9 +142,10 @@ public class EntityPrivilegesResolverTest {
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
-
-    assertTrue(result.getCanEditQueries());
-    assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanEditSchemaFieldDescription());
+    assertTrue(result.getCanEditSchemaFieldTags());
+    assertTrue(result.getCanEditSchemaFieldGlossaryTerms());
+    validateHasCommonEntityPrivileges(result);
   }
 
   @Test
@@ -150,9 +158,10 @@ public class EntityPrivilegesResolverTest {
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
-
-    assertFalse(result.getCanEditQueries());
-    assertFalse(result.getCanEditLineage());
+    assertFalse(result.getCanEditSchemaFieldDescription());
+    assertFalse(result.getCanEditSchemaFieldTags());
+    assertFalse(result.getCanEditSchemaFieldGlossaryTerms());
+    validateMissingCommonEntityPrivileges(result);
   }
 
   @Test
@@ -166,7 +175,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
 
-    assertTrue(result.getCanEditLineage());
+    validateHasCommonEntityPrivileges(result);
   }
 
   @Test
@@ -180,7 +189,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
 
-    assertFalse(result.getCanEditLineage());
+    validateMissingCommonEntityPrivileges(result);
   }
 
   @Test
@@ -193,8 +202,7 @@ public class EntityPrivilegesResolverTest {
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
-
-    assertTrue(result.getCanEditLineage());
+    validateHasCommonEntityPrivileges(result);
   }
 
   @Test
@@ -207,8 +215,7 @@ public class EntityPrivilegesResolverTest {
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
-
-    assertFalse(result.getCanEditLineage());
+    validateMissingCommonEntityPrivileges(result);
   }
 
   @Test
@@ -221,8 +228,7 @@ public class EntityPrivilegesResolverTest {
 
     EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
     EntityPrivileges result = resolver.get(mockEnv).get();
-
-    assertTrue(result.getCanEditLineage());
+    validateHasCommonEntityPrivileges(result);
   }
 
   @Test
@@ -237,5 +243,62 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanEditLineage());
+  }
+
+  @Test
+  public void testGetOtherEntitySuccessWithPermissions() throws Exception {
+    final Container container = new Container();
+    container.setUrn(containerUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithPermissions(container);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+    validateHasCommonEntityPrivileges(result);
+  }
+
+  @Test
+  public void testGetOtherEntitySuccessWithoutPermissions() throws Exception {
+    final Container container = new Container();
+    container.setUrn(containerUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithoutPermissions(container);
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertFalse(result.getCanEditLineage());
+  }
+
+  public void validateHasCommonEntityPrivileges(EntityPrivileges result) {
+    assertTrue(result.getCanEditLineage());
+    assertTrue(result.getCanEditDomains());
+    assertTrue(result.getCanEditDataProducts());
+    assertTrue(result.getCanEditTags());
+    assertTrue(result.getCanEditGlossaryTerms());
+    assertTrue(result.getCanEditOwners());
+    assertTrue(result.getCanEditDeprecation());
+    assertTrue(result.getCanEditDescription());
+    assertTrue(result.getCanEditLinks());
+    assertTrue(result.getCanEditAssertions());
+    assertTrue(result.getCanEditIncidents());
+    assertTrue(result.getCanShareEntity());
+  }
+
+  public void validateMissingCommonEntityPrivileges(EntityPrivileges result) {
+    assertFalse(result.getCanEditLineage());
+    assertFalse(result.getCanEditDomains());
+    assertFalse(result.getCanEditDataProducts());
+    assertFalse(result.getCanEditTags());
+    assertFalse(result.getCanEditGlossaryTerms());
+    assertFalse(result.getCanEditOwners());
+    assertFalse(result.getCanEditDeprecation());
+    assertFalse(result.getCanEditDescription());
+    assertFalse(result.getCanEditLinks());
+    assertFalse(result.getCanEditAssertions());
+    assertFalse(result.getCanEditIncidents());
+    assertFalse(result.getCanShareEntity());
   }
 }

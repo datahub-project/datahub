@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an DataHub Remote Executor
+ */
+@Aspect = {
+  "name": "dataHubRemoteExecutorKey"
+}
+record RemoteExecutorKey {
+  /**
+   * A unique id for the DataHub Remote Executor.
+   */
+  id: string
+}

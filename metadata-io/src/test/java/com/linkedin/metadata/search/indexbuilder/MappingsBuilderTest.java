@@ -33,7 +33,7 @@ public class MappingsBuilderTest {
         MappingsBuilder.getMappings(mock(EntityRegistry.class), TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 27);
+    assertEquals(properties.size(), 28);
     assertEquals(
         properties.get("urn"),
         ImmutableMap.of(

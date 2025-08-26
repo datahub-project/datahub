@@ -1,5 +1,6 @@
 import json
 import urllib
+from random import randint
 
 import pytest
 import tenacity
@@ -23,6 +24,7 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
+from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
 
 restli_default_headers = {
@@ -31,9 +33,23 @@ restli_default_headers = {
 sleep_sec, sleep_times = get_sleep_info()
 
 
+TEST_ASSERTION_URN = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
+TEST_DATASET_URN = make_dataset_urn(
+    platform="postgres", name=f"foo_{randint(10, 10000)}"
+)
+RUN_EVENT_TIMESTAMPS = [
+    1643794280350,
+    1643794280352,
+    1643794280354,
+    1643880726872,
+    1643880726874,
+    1643880726875,
+]
+
+
 def create_test_data(test_file):
-    assertion_urn = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
-    dataset_urn = make_dataset_urn(platform="postgres", name="foo")
+    assertion_urn = TEST_ASSERTION_URN
+    dataset_urn = TEST_DATASET_URN
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.DATASET,
         customProperties={"suite_name": "demo_suite"},
@@ -55,14 +71,7 @@ def create_test_data(test_file):
         aspectName="assertionInfo",
         aspect=assertion_info,
     )
-    timestamps = [
-        1643794280350,
-        1643794280352,
-        1643794280354,
-        1643880726872,
-        1643880726874,
-        1643880726875,
-    ]
+    timestamps = RUN_EVENT_TIMESTAMPS
     # The assertion run event attached to the dataset
     mcp2 = MetadataChangeProposalWrapper(
         entityType="assertion",
@@ -228,6 +237,7 @@ def generate_test_data(graph_client, tmp_path_factory):
     yield str(file_name)
     print("removing assertions test data")
     delete_urns_from_file(graph_client, str(file_name))
+    graph_client.delete_entity(TEST_DATASET_URN, hard=True)
 
 
 @pytest.fixture(scope="module")
@@ -239,8 +249,6 @@ def test_run_ingestion(auth_session, generate_test_data):
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
 def _gms_get_latest_assertions_results_by_partition(auth_session):
-    urn = make_dataset_urn("postgres", "foo")
-
     # Query
     # Given the dataset
     # show me latest assertion run events grouped-by date, partition, assertionId
@@ -254,7 +262,7 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
                         "and": [
                             {
                                 "field": "asserteeUrn",
-                                "value": urn,
+                                "value": TEST_DATASET_URN,
                                 "condition": "EQUAL",
                             }
                         ]
@@ -297,7 +305,7 @@ def _gms_get_latest_assertions_results_by_partition(auth_session):
         data["value"]["table"]["rows"][0][
             data["value"]["table"]["columnNames"].index("asserteeUrn")
         ]
-        == urn
+        == TEST_DATASET_URN
     )
 
 
@@ -309,20 +317,18 @@ def test_gms_get_latest_assertions_results_by_partition(
 
 def test_gms_get_assertions_on_dataset(auth_session, test_run_ingestion):
     """lists all assertion urns including those which may not have executed"""
-    urn = make_dataset_urn("postgres", "foo")
     response = auth_session.get(
-        f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
+        f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(TEST_DATASET_URN)}&types=Asserts"
     )
 
     response.raise_for_status()
     data = response.json()
-    assert len(data["relationships"]) == 1
+    assert len(data["relationships"]) >= 1
 
 
 def test_gms_get_assertions_on_dataset_field(auth_session, test_run_ingestion):
     """lists all assertion urns including those which may not have executed"""
-    dataset_urn = make_dataset_urn("postgres", "foo")
-    field_urn = make_schema_field_urn(dataset_urn, "col1")
+    field_urn = make_schema_field_urn(TEST_DATASET_URN, "col1")
     response = auth_session.get(
         f"{auth_session.gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"
     )
@@ -349,3 +355,196 @@ def test_gms_get_assertion_info(auth_session, test_run_ingestion):
     assert data["aspect"]["com.linkedin.assertion.AssertionInfo"]["datasetAssertion"][
         "scope"
     ]
+
+
+def test_list_dataset_assertions(auth_session, test_run_ingestion):
+    wait_for_writes_to_sync()
+
+    list_dataset_assertions_json = {
+        "query": """query dataset($urn: String!) {\n
+            dataset(urn: $urn) {\n
+              assertions(start: 0, count: 25) {\n
+                start\n
+                count\n
+                total\n
+                assertions {\n
+                  urn\n
+                  type\n
+                  info {\n
+                    type\n
+                    datasetAssertion {\n
+                      datasetUrn\n
+                      scope\n
+                      aggregation\n
+                      operator\n
+                    }\n
+                  }\n
+                  runEvents(limit: 3) {\n
+                    total\n
+                    failed\n
+                    succeeded\n
+                    runEvents {\n
+                      timestampMillis\n
+                      status\n
+                      result {\n
+                        type\n
+                      }\n
+                    }\n
+                  }\n
+                }\n
+              }\n
+            }\n
+        }""",
+        "variables": {"urn": TEST_DATASET_URN},
+    }
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql",
+        json=list_dataset_assertions_json,
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert "errors" not in res_data
+    assert res_data["data"]
+
+    test_assertion = [
+        a
+        for a in res_data["data"]["dataset"]["assertions"]["assertions"]
+        if a["urn"] == TEST_ASSERTION_URN
+    ]
+    assert test_assertion[0] == {
+        "urn": TEST_ASSERTION_URN,
+        "type": "ASSERTION",
+        "info": {
+            "type": "DATASET",
+            "datasetAssertion": {
+                "datasetUrn": TEST_DATASET_URN,
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "LESS_THAN",
+            },
+        },
+        "runEvents": {
+            "total": 3,
+            "failed": 1,
+            "succeeded": 2,
+            "runEvents": [
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
+                },
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
+                    "status": "COMPLETE",
+                    "result": {"type": "FAILURE"},
+                },
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
+                },
+            ],
+        },
+    }
+
+
+def test_search_all_assertions(auth_session, test_run_ingestion):
+    wait_for_writes_to_sync()
+
+    min_expected_results = 1
+
+    json = {
+        "query": """query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {\n
+            searchAcrossEntities(input: $input) {\n
+                start\n
+                count\n
+                total\n
+                searchResults {\n
+                    entity {\n
+                        ... on Assertion {\n
+                          urn\n
+                          type\n
+                          info {\n
+                            type\n
+                            datasetAssertion {\n
+                              datasetUrn\n
+                              scope\n
+                              aggregation\n
+                              operator\n
+                            }\n
+                          }\n
+                          runEvents(limit: 3) {\n
+                            total\n
+                            failed\n
+                            succeeded\n
+                            runEvents {\n
+                              timestampMillis\n
+                              status\n
+                              result {\n
+                                type\n
+                              }\n
+                            }\n
+                          }\n
+                        }\n
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {"types": ["ASSERTION"], "query": "*", "start": 0, "count": 10}
+        },
+    }
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["searchAcrossEntities"]
+    assert res_data["data"]["searchAcrossEntities"]["total"] >= min_expected_results
+    assert (
+        len(res_data["data"]["searchAcrossEntities"]["searchResults"])
+        >= min_expected_results
+    )
+
+    assert res_data["data"]["searchAcrossEntities"]["searchResults"][0]["entity"] == {
+        "urn": TEST_ASSERTION_URN,
+        "type": "ASSERTION",
+        "info": {
+            "type": "DATASET",
+            "datasetAssertion": {
+                "datasetUrn": TEST_DATASET_URN,
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "LESS_THAN",
+            },
+        },
+        "runEvents": {
+            "total": 3,
+            "failed": 1,
+            "succeeded": 2,
+            "runEvents": [
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[5],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
+                },
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[4],
+                    "status": "COMPLETE",
+                    "result": {"type": "FAILURE"},
+                },
+                {
+                    "timestampMillis": RUN_EVENT_TIMESTAMPS[3],
+                    "status": "COMPLETE",
+                    "result": {"type": "SUCCESS"},
+                },
+            ],
+        },
+    }

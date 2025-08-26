@@ -12,3 +12,5 @@ export const ASSERTION_TYPE_TO_ICON_MAP: Record<AssertionType, JSX.Element> = {
     [AssertionType.Sql]: <Database size={20} />,
     [AssertionType.Dataset]: <Database size={20} />,
 };
+
+export const NUMBER_DISPLAY_PRECISION = 1;

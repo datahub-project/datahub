@@ -6,5 +6,5 @@ public enum EntityType {
   DASHBOARD,
   DATA_JOB,
   DATA_FLOW,
-  CORP_USER
+  CORP_USER,
 }

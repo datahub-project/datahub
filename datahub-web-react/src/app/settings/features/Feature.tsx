@@ -1,5 +1,6 @@
 import { ArrowRightOutlined } from '@ant-design/icons';
-import { Button, Card, Divider, Switch, Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Card, Divider, Switch, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 

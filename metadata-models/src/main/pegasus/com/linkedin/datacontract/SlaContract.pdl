@@ -1,0 +1,17 @@
+namespace com.linkedin.datacontract
+
+import com.linkedin.common.Urn
+
+/**
+ * A contract pertaining to the operational SLAs of a physical data asset
+ */
+record SlaContract {
+  /**
+   * The assertion representing the SLA contract.
+   */
+  @Relationship = {
+    "name": "IncludesSchemaAssertion",
+    "entityTypes": [ "assertion" ]
+  }
+  assertion: Urn
+}

@@ -8,12 +8,26 @@ import styled from 'styled-components';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { toProperTitleCase } from '@app/entityV2/shared/utils';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
-import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 
-import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
+import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
+import { GetDatasetAssertionsWithMonitorsQuery, MonitorDetailsFragment } from '@graphql/monitor.generated';
+import {
+    AnomalyReviewState,
+    Assertion,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionSourceType,
+    AssertionType,
+    CronSchedule,
+    DatasetFreshnessSourceType,
+    DatasetVolumeSourceType,
+    EntityType,
+    Monitor,
+    MonitorMode,
+} from '@types';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -137,18 +151,26 @@ ASSERTION_INFO.forEach((info) => {
 });
 
 export const getAssertionGroupName = (type: string): string => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : toProperTitleCase(type);
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
 };
 
 export const getAssertionGroupTypeIcon = (type: string) => {
     return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).icon : <StyledApiOutlined />;
 };
 
+export type AssertionWithMonitorDetails = Assertion & {
+    monitors?: MonitorDetailsFragment[]; // should almost always have 0-1 items
+};
+
 export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
-    queryData?: GetDatasetAssertionsWithRunEventsQuery,
-): Assertion[] | undefined => {
+    queryData?: GetDatasetAssertionsWithMonitorsQuery,
+): AssertionWithMonitorDetails[] | undefined => {
     return queryData?.dataset?.assertions?.assertions?.map((assertion) => ({
         ...(assertion as Assertion),
+        monitors:
+            assertion.monitor?.relationships
+                ?.filter((r) => r.entity?.__typename === 'Monitor')
+                .map((r) => r.entity as MonitorDetailsFragment) ?? [],
     }));
 };
 
@@ -157,7 +179,7 @@ export const tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery = (
  *
  * @param assertions The assertions to extract the summary for
  */
-export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSummary => {
+export const getAssertionsSummary = (assertions: AssertionWithMonitorDetails[]): AssertionStatusSummary => {
     const summary = {
         passing: 0,
         failing: 0,
@@ -166,6 +188,15 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {
+        // Skip inactive monitors
+        // NOTE: we don't assert that the status is Active, because in cases of external assertions they won't have monitors
+        const maybeInactiveMonitor = assertion.monitors?.find(
+            (item) => item.info?.status?.mode === MonitorMode.Inactive,
+        );
+        if (maybeInactiveMonitor) {
+            return;
+        }
+
         if ((assertion.runEvents?.runEvents?.length || 0) > 0) {
             const mostRecentRun = assertion.runEvents?.runEvents?.[0];
             const resultType = mostRecentRun?.result?.type;
@@ -202,7 +233,7 @@ export const getLegacyAssertionsSummary = (assertions: Assertion[]) => {
 };
 
 export const getAssertionType = (assertion: Assertion): string | undefined => {
-    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+    return assertion?.info?.customAssertion?.type || assertion?.info?.type;
 };
 
 /**
@@ -212,7 +243,7 @@ export const getAssertionType = (assertion: Assertion): string | undefined => {
  *
  * @param assertions The assertions to group
  */
-export const createAssertionGroups = (assertions: Array<Assertion>): AssertionGroup[] => {
+export const createAssertionGroups = (assertions: Array<AssertionWithMonitorDetails>): AssertionGroup[] => {
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);
 
@@ -320,6 +351,18 @@ export const getAssertionTypesForEntityType = (entityType: EntityType, monitorsC
     }));
 };
 
+export const extractLatestGeneratedAt = (monitor?: Monitor): number | undefined => {
+    const generatedAtArr: number[] | undefined = monitor?.info?.assertionMonitor?.assertions
+        .map((assertion) => assertion.context?.inferenceDetails?.generatedAt?.valueOf())
+        .filter((exists) => typeof exists === 'number')
+        .map((ts) => ts as number);
+    return generatedAtArr?.length ? Math.max(...generatedAtArr) : undefined;
+};
+
+export const isMonitorActive = (monitor: Monitor) => {
+    return monitor.info?.status?.mode === MonitorMode.Active;
+};
+
 export const getCronAsText = (interval: string, options: { verbose: boolean } = { verbose: false }) => {
     const { verbose } = options;
     if (interval) {
@@ -339,6 +382,16 @@ export const getCronAsText = (interval: string, options: { verbose: boolean } = 
         text: undefined,
         error: false,
     };
+};
+
+export const canManageAssertionMonitor = (monitor: any, connectionForEntityExists: boolean) => {
+    if (connectionForEntityExists) return true;
+
+    const assertionParameters = monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters;
+    return (
+        assertionParameters?.datasetFreshnessParameters?.sourceType === DatasetFreshnessSourceType.DatahubOperation ||
+        assertionParameters?.datasetVolumeParameters?.sourceType === DatasetVolumeSourceType.DatahubDatasetProfile
+    );
 };
 
 export const getEntityUrnForAssertion = (assertion: Assertion) => {
@@ -367,6 +420,35 @@ export const getEntityUrnForAssertion = (assertion: Assertion) => {
     return undefined;
 };
 
+export const useConnectionForEntityExists = (entityUrn: string) => {
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
+        variables: { urn: entityUrn as string },
+        fetchPolicy: 'cache-first',
+    });
+
+    return !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+};
+
+/**
+ * Checks if a connection exists for an entity that is able to run test assertion queries
+ * @param entityUrn
+ * @returns {boolean} optimistically returns true
+ */
+export const useConnectionWithRunAssertionCapabilitiesForEntityExists = (entityUrn: string): boolean => {
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
+        variables: { urn: entityUrn as string },
+        fetchPolicy: 'cache-first',
+    });
+
+    // Only embedded executors can run tests right now
+    // If executorId is null, we'll assume it is an embedded executor.
+    // If the executorId starts with {EMBEDDED_EXECUTOR_POOL_NAME}, we assume it's an embedded executor
+    // See setup docs: https://www.notion.so/acryldata/How-to-configure-Remote-Executor-e9ed044b438d4789afcd530952d73944?pvs=4#14237a6d6dd04fcfb2abd45f16c6d63c
+    // and design docs:  https://www.notion.so/acryldata/Remote-Executor-V2-Design-593d41280c4a4e34805def00b3f47a65?pvs=4#fe2a4481fbe74f379eb35cd10546b3b8
+    const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
+    return !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith(EMBEDDED_EXECUTOR_POOL_NAME);
+};
+
 /**
  * Attempts to extract the sibling entity associated with a given urn.
  */
@@ -385,4 +467,73 @@ export const getSiblingWithUrn = (entityData: GenericEntityProperties, urn: stri
 export const getSiblings = (entityData: GenericEntityProperties | null): GenericEntityProperties[] => {
     if (!entityData) return [];
     return entityData?.siblingsSearch?.searchResults?.map((result) => result.entity) || [];
+};
+
+/**
+ * Returns the anomaly feedback options for a given assertion and run
+ */
+export const getAnomalyFeedbackContext = (
+    assertion: Assertion,
+    run: AssertionRunEvent | undefined,
+    onlineSmartAssertionsEnabled: boolean,
+) => {
+    // Should never happen
+    if (!run) {
+        return {
+            isMissedAlarm: false,
+            isFalseAlarm: false,
+            isAnomaly: false,
+            isFeedbackEnabled: false,
+            anomalyFeedbackCta: {
+                message: '',
+            },
+        };
+    }
+
+    const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
+    const isAnomaly = !!run?.anomalyEvent && run.anomalyEvent.state !== AnomalyReviewState.Rejected;
+    const isFailing = run.result?.type === AssertionResultType.Failure;
+    const isPassing = run.result?.type === AssertionResultType.Success;
+
+    const isFeedbackEnabled =
+        onlineSmartAssertionsEnabled &&
+        isSmartAssertion &&
+        run.result?.type !== AssertionResultType.Error &&
+        run.result?.type !== AssertionResultType.Init;
+    const isMissedAlarm = isSmartAssertion && isPassing && isAnomaly;
+    const isFalseAlarm = isSmartAssertion && isFailing && !isAnomaly;
+
+    const result = run?.result ? run.result! : undefined;
+    let anomalyFeedbackCta: {
+        message: string;
+        details?: string;
+        isInfo?: boolean;
+    };
+    if (assertion.info?.type === AssertionType.Freshness) {
+        // If the freshness assertion is passing, there's no way to mark it as an anomaly
+        // The user's best bet is to tune or retrain the assertion
+        // TODO: @Jay implement some tips here to handle this scenario
+        anomalyFeedbackCta =
+            result?.type === AssertionResultType.Success
+                ? {
+                      message: 'Incorrect prediction?',
+                      details: 'Try tuning the assertion in the Settings tab to improve predictions.',
+                      isInfo: true,
+                  }
+                : {
+                      message: 'Not an Anomaly',
+                  };
+    } else {
+        anomalyFeedbackCta = {
+            message: result?.type === AssertionResultType.Success ? 'Mark as Anomaly' : 'Not an Anomaly',
+        };
+    }
+
+    return {
+        isMissedAlarm,
+        isFalseAlarm,
+        isAnomaly,
+        isFeedbackEnabled,
+        anomalyFeedbackCta,
+    };
 };

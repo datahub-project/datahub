@@ -1,0 +1,49 @@
+x-executor-worker-env: &executor-worker-env
+  DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-${DATAHUB_SMOKETEST_EXECUTOR_ID:-remote-ci}}
+  DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID:-}
+
+#################################
+# Executor Service
+#################################
+x-datahub-executor-setup: &datahub-executor-worker-setup
+  hostname: datahub-executor-worker
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  env_file: datahub-executor/env/docker-worker.env
+  environment: &datahub-executor-worker-setup-env
+    <<: *executor-worker-env
+  volumes:
+    - ../../datahub-executor/scripts/smoke-test-helper.py:/datahub-executor/smoke-test-helper.py
+  command:
+    - python
+    - /datahub-executor/smoke-test-helper.py
+
+x-datahub-executor-worker: &datahub-executor-worker
+  hostname: datahub-executor-worker
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  env_file: datahub-executor/env/docker-worker.env
+  environment: &datahub-executor-worker-env
+    <<: *executor-worker-env
+  healthcheck:
+    test: ["CMD-SHELL", "/health_status /tmp/worker_readiness_heartbeat"]
+    interval: 30s
+    retries: 5
+    start_period: 30s
+    timeout: 10s
+
+services:
+  datahub-executor-worker-quickstart-setup:
+    <<: *datahub-executor-worker-setup
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-executor-worker-quickstart-consumers:
+    <<: *datahub-executor-worker
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+      datahub-executor-worker-quickstart-setup:
+        condition: service_completed_successfully

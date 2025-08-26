@@ -1,21 +1,18 @@
 package com.linkedin.metadata.search.fixtures;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
+import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
@@ -36,12 +33,15 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.test.definition.TestDefinitionParser;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -76,6 +76,10 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Nonnull
   protected abstract SearchService getSearchService();
+
+  // Saas only scroll()
+  @Nonnull
+  protected abstract EntitySearchService getEntitySearchService();
 
   @Nonnull
   protected abstract EntityClient getEntityClient();
@@ -1412,6 +1416,26 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
+  public void testEntityServiceScroll() throws IOException {
+    // Find expected number of entities by doing a * search
+    SearchResult totalResult = search(getOperationContext(), getSearchService(), "*");
+    int expectedTotal = totalResult.getNumEntities();
+    final int batchSize = 1;
+    int totalResults = 0;
+    String scrollId = null;
+    do {
+      ScrollResult result =
+          scroll(getOperationContext(), getEntitySearchService(), batchSize, scrollId);
+      int numResults = result.hasEntities() ? result.getEntities().size() : 0;
+      assertTrue(numResults <= batchSize);
+      totalResults += numResults;
+      scrollId = result.getScrollId();
+    } while (scrollId != null);
+    // expect total number of results scrolling through to be the number that we saw
+    assertEquals(totalResults, expectedTotal);
+  }
+
+  @Test
   public void testSearchAcrossMultipleEntities() {
     String query = "logging events";
     SearchResult result = search(getOperationContext(), getSearchService(), query);
@@ -2084,6 +2108,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 Collections.singletonList(criterion),
                 0,
                 100,
+                null,
                 null);
     assertTrue(
         result.getEntities().size() > 2,
@@ -2106,7 +2131,8 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 Collections.singletonList(criterion),
                 null,
                 null,
-                100);
+                100,
+                null);
     assertTrue(
         result.getEntities().size() > 2,
         String.format("%s - Expected search results to have at least two results", query));
@@ -2192,4 +2218,94 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         .getTokens()
         .stream();
   }
+
+  /* SAAS ONLY */
+  @Test
+  public void testFilterOnNumValuesFieldPredicate() throws JsonProcessingException {
+    assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("numInputDatasets")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("1"))))))));
+    String testDefinitionJson =
+        "{\"and\": [{\"property\": \"numInputDatasets\",\"operator\": \"equals\",\"values\": [\"1\"]}]}";
+    Predicate predicate =
+        TestDefinitionParser.deserializeRule(
+            getOperationContext().getObjectMapper().readTree(testDefinitionJson));
+    String predicateJson = getOperationContext().getObjectMapper().writeValueAsString(predicate);
+    // Test just predicate
+    SearchResult searchResult =
+        searchAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            null,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+
+    // Test combined with filter
+    searchResult =
+        searchAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            filter,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+  }
+
+  @Test
+  public void testFilterOnNumValuesFieldPredicateScroll() throws JsonProcessingException {
+    assertNotNull(getSearchService());
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("numInputDatasets")
+                                        .setValue("")
+                                        .setValues(new StringArray(ImmutableList.of("1"))))))));
+    String testDefinitionJson =
+        "{\"and\": [{\"property\": \"numInputDatasets\",\"operator\": \"equals\",\"values\": [\"1\"]}]}";
+    Predicate predicate =
+        TestDefinitionParser.deserializeRule(
+            getOperationContext().getObjectMapper().readTree(testDefinitionJson));
+    String predicateJson = getOperationContext().getObjectMapper().writeValueAsString(predicate);
+    // Test just predicate
+    ScrollResult searchResult =
+        scrollAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            null,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+
+    // Test combined with filter
+    searchResult =
+        scrollAcrossEntitiesPredicate(
+            getOperationContext(),
+            getSearchService(),
+            Collections.singletonList(DATA_JOB_ENTITY_NAME),
+            "*",
+            filter,
+            predicateJson);
+    assertEquals(searchResult.getEntities().size(), 4);
+  }
+  /* END SAAS ONLY */
 }

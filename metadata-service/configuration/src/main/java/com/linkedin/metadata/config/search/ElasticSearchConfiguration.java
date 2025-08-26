@@ -17,4 +17,5 @@ public class ElasticSearchConfiguration {
   private SearchConfiguration search;
   private String idHashAlgo;
   private IndexConfiguration index;
+  private ScrollConfiguration scroll;
 }

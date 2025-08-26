@@ -52,6 +52,19 @@ type DataContract implements Entity {
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  # SaaS Only
+  """
+  The result of the Data Contract
+  """
+  result(
+    """
+    Experimental --
+    If true, any native data contract assertions will be re-evaluated before returning the result.
+    Returns null if there is NO contract. Contract is PASSING if there are no assertions inside of it.
+    """
+    refresh: Boolean
+  ): DataContractResult
 }
 
 type DataContractProperties {
@@ -98,6 +111,32 @@ type DataContractStatus {
   The state of the data contract
   """
   state: DataContractState!
+}
+
+type DataContractResult {
+  """
+  The result type (passing or failing)
+  """
+  type: DataContractResultType!
+
+  """
+  The results of the individual assertions that make up the data contract
+
+  Returns empty list if there are no assertions.
+  """
+  assertionResults: RunAssertionsResult!
+}
+
+enum DataContractResultType {
+  """
+  The data contract is passing
+  """
+  PASSING
+
+  """
+  The data contract is failing
+  """
+  FAILING
 }
 
 type DataQualityContract {

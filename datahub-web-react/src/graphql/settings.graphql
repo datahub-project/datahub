@@ -1,0 +1,196 @@
+query getUserNotificationSettings {
+    getUserNotificationSettings {
+        sinkTypes
+        slackSettings {
+            userHandle
+        }
+        emailSettings {
+            email
+        }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
+        }
+    }
+}
+
+query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
+    getGroupNotificationSettings(input: $input) {
+        sinkTypes
+        slackSettings {
+            channels
+        }
+        emailSettings {
+            email
+        }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
+        }
+    }
+}
+
+mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsInput!) {
+    updateUserNotificationSettings(input: $input) {
+        sinkTypes
+        slackSettings {
+            userHandle
+        }
+        emailSettings {
+            email
+        }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
+        }
+    }
+}
+
+mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettingsInput!) {
+    updateGroupNotificationSettings(input: $input) {
+        sinkTypes
+        slackSettings {
+            channels
+        }
+        emailSettings {
+            email
+        }
+        settings {
+            type
+            value
+            params {
+                key
+                value
+            }
+        }
+    }
+}
+
+query getGlobalSettings {
+    globalSettings {
+        integrationSettings {
+            slackSettings {
+                defaultChannelName
+                botToken
+                datahubAtMentionEnabled
+            }
+            emailSettings {
+                defaultEmail
+            }
+        }
+        notificationSettings {
+            settings {
+                type
+                value
+                params {
+                    key
+                    value
+                }
+            }
+        }
+        visualSettings {
+            helpLink {
+                isEnabled
+                label
+                link
+            }
+            customLogoUrl
+            customOrgName
+        }
+        documentationAi {
+            enabled
+        }
+    }
+}
+
+query getIntegrationSettings {
+    globalSettings {
+        integrationSettings {
+            slackSettings {
+                defaultChannelName
+                botToken
+            }
+            emailSettings {
+                defaultEmail
+            }
+        }
+    }
+}
+
+query getNotificationSettings {
+    globalSettings {
+        notificationSettings {
+            settings {
+                type
+                value
+                params {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}
+
+query getSsoSettings {
+    globalSettings {
+        ssoSettings {
+            oidcSettings {
+                enabled
+                clientId
+                clientSecret
+                discoveryUri
+                userNameClaim
+                userNameClaimRegex
+                preferredJwsAlgorithm
+                scope
+                clientAuthenticationMethod
+                jitProvisioningEnabled
+                preProvisioningRequired
+                extractGroupsEnabled
+                groupsClaim
+                responseType
+                responseMode
+                useNonce
+                readTimeout
+                extractJwtAccessTokenClaims
+            }
+        }
+    }
+}
+
+mutation updateGlobalIntegrationSettings($input: UpdateGlobalIntegrationSettingsInput!) {
+    updateGlobalSettings(input: { integrationSettings: $input })
+}
+
+mutation updateGlobalNotificationSettings($input: UpdateGlobalNotificationSettingsInput!) {
+    updateGlobalSettings(input: { notificationSettings: $input })
+}
+
+mutation updateSsoSettings($input: UpdateSsoSettingsInput!) {
+    updateGlobalSettings(input: { ssoSettings: $input })
+}
+
+mutation updateGlobalDocsAiSettings($input: UpdateDocumentationAiSettingsInput!) {
+    updateGlobalSettings(input: { documentationAi: $input })
+}
+
+mutation updateHelpLink($input: UpdateHelpLinkInput!) {
+    updateHelpLink(input: $input)
+}
+
+mutation updateOrganizationDisplayPreferences($input: UpdateOrganizationDisplayPreferencesInput!) {
+    updateOrganizationDisplayPreferences(input: $input)
+}

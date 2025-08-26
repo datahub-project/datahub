@@ -104,6 +104,50 @@ def test_user_upsert(auth_session: Any) -> None:
                         "corpUserKey": {"username": f"user_{_i}"},
                         "groupMembership": {"groups": [f"urn:li:corpGroup:group_{_i}"]},
                         "status": {"removed": False},
+                        # Saas only
+                        "corpUserSettings": {
+                            "appearance": {
+                                "showSimplifiedHomepage": False,
+                            },
+                            "notificationSettings": {
+                                "emailSettings": {
+                                    "email": f"user_{_i}@datahubproject.io",
+                                },
+                                "settings": {
+                                    "NEW_PROPOSAL": {
+                                        "params": {
+                                            "email.enabled": "true",
+                                        },
+                                        "value": "ENABLED",
+                                    },
+                                    "PROPOSAL_STATUS_CHANGE": {
+                                        "params": {
+                                            "email.enabled": "true",
+                                        },
+                                        "value": "ENABLED",
+                                    },
+                                    "PROPOSER_PROPOSAL_STATUS_CHANGE": {
+                                        "params": {
+                                            "email.enabled": "true",
+                                        },
+                                        "value": "ENABLED",
+                                    },
+                                    "DATA_HUB_COMMUNITY_UPDATES": {
+                                        "params": {
+                                            "email.enabled": "true",
+                                        },
+                                        "value": "ENABLED",
+                                    },
+                                },
+                                "sinkTypes": [
+                                    "SLACK",
+                                    "EMAIL",
+                                ],
+                                "slackSettings": {
+                                    "userHandle": f"@user{_i}",
+                                },
+                            },
+                        },
                     }
                 )
 

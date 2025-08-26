@@ -2,9 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.*;
+import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;

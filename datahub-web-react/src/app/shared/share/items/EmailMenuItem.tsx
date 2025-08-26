@@ -1,5 +1,5 @@
 import { CheckOutlined, MailOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import qs from 'query-string';
 import React, { useState } from 'react';
 import styled from 'styled-components';

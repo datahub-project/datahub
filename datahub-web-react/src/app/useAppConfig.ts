@@ -43,3 +43,18 @@ export function useShowIntroducePage() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showIntroducePage;
 }
+
+export function useIsShowCreatedAtFilter() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showCreatedAtFilter;
+}
+
+export function useIsDocumentationFormsEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.documentationFormsEnabled;
+}
+
+export function useIsDatasetFeaturesSearchSortEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showDatasetFeaturesSearchSortOptions;
+}

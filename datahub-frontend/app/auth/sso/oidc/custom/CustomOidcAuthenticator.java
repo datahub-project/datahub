@@ -185,7 +185,6 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
           throw new TechnicalException(
               "Bad token response, error=" + ((TokenErrorResponse) response).getErrorObject());
         }
-        logger.debug("Token response successful");
         final OIDCTokenResponse tokenSuccessResponse = (OIDCTokenResponse) response;
 
         // save tokens in credentials

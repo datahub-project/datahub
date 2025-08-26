@@ -29,11 +29,6 @@ fragment relationshipFields on EntityWithRelationships {
     ... on Dataset {
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ...lineageNodeProperties
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) {
             count

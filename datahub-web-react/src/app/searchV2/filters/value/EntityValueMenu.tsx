@@ -34,7 +34,6 @@ export default function EntityValueMenu({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const isSearchable = !!field.entityTypes?.length;
-    const { displayName } = field;
 
     // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
@@ -82,7 +81,7 @@ export default function EntityValueMenu({
             searchQuery={searchQuery || ''}
             updateSearchQuery={setSearchQuery}
             isLoading={searchLoading}
-            searchPlaceholder={`Search for ${displayName}`}
+            searchPlaceholder="Search"
             type={type}
             className={className}
         />

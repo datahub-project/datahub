@@ -11,6 +11,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -20,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -44,14 +46,17 @@ public class EntityLineageResultResolver
   private final SiblingGraphService _siblingGraphService;
   private final RestrictedService _restrictedService;
   private final AuthorizationConfiguration _authorizationConfiguration;
+  private final FeatureFlags _featureFlags;
 
   public EntityLineageResultResolver(
       final SiblingGraphService siblingGraphService,
       final RestrictedService restrictedService,
-      final AuthorizationConfiguration authorizationConfiguration) {
+      final AuthorizationConfiguration authorizationConfiguration,
+      final FeatureFlags featureFlags) {
     _siblingGraphService = siblingGraphService;
     _restrictedService = restrictedService;
     _authorizationConfiguration = authorizationConfiguration;
+    _featureFlags = featureFlags;
   }
 
   @Override
@@ -59,6 +64,11 @@ public class EntityLineageResultResolver
     final QueryContext context = environment.getContext();
     Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final LineageInput input = bindArgument(environment.getArgument("input"), LineageInput.class);
+
+    // Saas Only
+    if (urn.getEntityType().equals(Constants.RESTRICTED_ENTITY_NAME)) {
+      urn = _restrictedService.decryptRestrictedUrn(urn);
+    }
 
     final LineageDirection lineageDirection = input.getDirection();
     // All inputs are optional
@@ -95,8 +105,10 @@ public class EntityLineageResultResolver
                     start != null ? start : 0,
                     count != null ? count : 100,
                     1,
-                    separateSiblings != null ? input.getSeparateSiblings() : false,
-                    input.getIncludeGhostEntities(),
+                    separateSiblings != null
+                        ? input.getSeparateSiblings()
+                        : _featureFlags.isSeparateSiblingsLineageByDefault(),
+                    Boolean.TRUE.equals(input.getIncludeGhostEntities()),
                     new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();
@@ -106,7 +118,19 @@ public class EntityLineageResultResolver
                     rel -> {
                       if (_authorizationConfiguration.getView().isEnabled()
                           && !AuthorizationUtils.canViewRelationship(
-                              context.getOperationContext(), rel.getEntity(), urn)) {
+                              context.getOperationContext(), rel.getEntity(), finalUrn)) {
+                        restrictedUrns.add(rel.getEntity());
+                      }
+                    });
+
+            // Saas Only
+            entityLineageResult.getRelationships().stream()
+                .filter(rel -> !restrictedUrns.contains(rel.getEntity()))
+                .forEach(
+                    rel -> {
+                      if (_authorizationConfiguration.getView().isEnabled()
+                          && !AuthorizationUtils.canView(
+                              context.getOperationContext(), rel.getEntity())) {
                         restrictedUrns.add(rel.getEntity());
                       }
                     });

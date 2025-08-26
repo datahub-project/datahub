@@ -21,7 +21,6 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -33,6 +32,8 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DataJobKey;
+import com.linkedin.metadata.search.features.LineageFeatures;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -57,7 +58,7 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
     result.setType(EntityType.DATA_JOB);
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspectMap);
     result.setLastIngested(lastIngested);
 
     entityResponse
@@ -136,6 +137,15 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               } else if (DATA_TRANSFORM_LOGIC_ASPECT_NAME.equals(name)) {
                 result.setDataTransformLogic(
                     DataTransformLogicMapper.map(context, new DataTransformLogic(data)));
+              } else if (SHARE_ASPECT_NAME.equals(name)) {
+                result.setShare(ShareMapper.map(context, new Share(data)));
+              } else if (ORIGIN_ASPECT_NAME.equals(name)) {
+                result.setAssetOrigin(OriginMapper.map(context, new Origin(data)));
+              } else if (LINEAGE_FEATURES_ASPECT_NAME.equals(name)) {
+                result.setLineageFeatures(
+                    LineageFeaturesMapper.map(context, new LineageFeatures(data)));
+              } else if (DOCUMENTATION_ASPECT_NAME.equals(name)) {
+                result.setDocumentation(DocumentationMapper.map(context, new Documentation(data)));
               }
             });
 

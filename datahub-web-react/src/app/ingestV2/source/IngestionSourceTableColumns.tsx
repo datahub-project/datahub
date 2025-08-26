@@ -1,4 +1,4 @@
-import { Avatar, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
@@ -169,21 +169,19 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
     return (
         <>
             {singleOwner && (
-                <HoverEntityTooltip entity={singleOwner} showArrow={false}>
-                    <Link
-                        to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                        }}
-                    >
-                        <Avatar
-                            name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
-                            imageUrl={singleOwner.editableProperties?.pictureLink}
-                            showInPill
-                            type={mapEntityTypeToAvatarType(singleOwner.type)}
-                        />
-                    </Link>
-                </HoverEntityTooltip>
+                <Link
+                    to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                    }}
+                >
+                    <Avatar
+                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                        imageUrl={singleOwner.editableProperties?.pictureLink}
+                        showInPill
+                        type={mapEntityTypeToAvatarType(singleOwner.type)}
+                    />
+                </Link>
             )}
             {owners.length > 1 && (
                 <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
@@ -191,8 +189,22 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
         </>
     );
 }
+
+export function wrapOwnerColumnWithHover(content: React.ReactNode, record: any): React.ReactNode {
+    const singleOwner = record.owners?.length === 1 ? record.owners[0].owner : undefined;
+
+    if (singleOwner) {
+        return (
+            <HoverEntityTooltip entity={singleOwner} showArrow={false}>
+                <CellHoverWrapper>{content}</CellHoverWrapper>
+            </HoverEntityTooltip>
+        );
+    }
+
+    return content;
+}
 interface ActionsColumnProps {
-    record: any;
+    record: IngestionSourceTableData;
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
     onCancel: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
@@ -218,6 +230,10 @@ export function ActionsColumn({
     navigateToRunHistory,
 }: ActionsColumnProps) {
     const items: MenuOption[] = [];
+    const canEdit = record.privileges?.canEdit;
+    const canExecute = record.privileges?.canExecute;
+    const canCancel = record.privileges?.canExecute;
+    const canDelete = record.privileges?.canDelete;
 
     if (!record.cliIngestion)
         items.push({
@@ -228,7 +244,7 @@ export function ActionsColumn({
                         onEdit(record.urn);
                     }}
                 >
-                    Edit
+                    {canEdit ? 'Edit' : 'View'}
                 </MenuItem>
             ),
         });
@@ -245,9 +261,23 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
-    if (record.execCount)
+    if (record.lastExecUrn) {
         items.push({
             key: '2',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        setFocusExecutionUrn(record.lastExecUrn || '');
+                    }}
+                >
+                    View Last Run Result
+                </MenuItem>
+            ),
+        });
+    }
+    if (record.execCount)
+        items.push({
+            key: '3',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -260,7 +290,7 @@ export function ActionsColumn({
         });
     if (navigator.clipboard)
         items.push({
-            key: '3',
+            key: '4',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -273,11 +303,11 @@ export function ActionsColumn({
         });
     if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
         items.push({
-            key: '4',
+            key: '5',
             label: (
                 <MenuItem
                     onClick={() => {
-                        setFocusExecutionUrn(record.lastExecUrn);
+                        setFocusExecutionUrn(record.lastExecUrn || '');
                     }}
                 >
                     Details
@@ -285,14 +315,17 @@ export function ActionsColumn({
             ),
         });
     items.push({
-        key: '5',
+        key: '6',
         label: (
             <MenuItem
                 onClick={() => {
-                    onDelete(record.urn);
+                    if (canDelete) {
+                        onDelete(record.urn);
+                    }
                 }}
+                $disabled={!canDelete}
             >
-                <Text color="red">Delete </Text>
+                <Text color={canDelete ? 'red' : 'gray'}>Delete </Text>
             </MenuItem>
         ),
     });
@@ -305,11 +338,14 @@ export function ActionsColumn({
                 <Icon
                     icon="Stop"
                     source="phosphor"
-                    // weight="fill"
+                    weight="fill"
                     color="primary"
+                    style={!canCancel ? { cursor: 'not-allowed' } : undefined}
                     onClick={(e) => {
-                        e.stopPropagation();
-                        onCancel(record.lastExecUrn, record.urn);
+                        if (canCancel) {
+                            e.stopPropagation();
+                            onCancel(record.lastExecUrn, record.urn);
+                        }
                     }}
                 />
             );
@@ -318,11 +354,14 @@ export function ActionsColumn({
             <Icon
                 icon="Play"
                 source="phosphor"
-                // weight="fill"
-                color="violet"
+                weight="fill"
+                color={canExecute ? 'violet' : undefined}
+                style={canExecute ? {} : { cursor: 'not-allowed' }}
                 onClick={(e) => {
-                    e.stopPropagation();
-                    onExecute(record.urn);
+                    if (canExecute) {
+                        e.stopPropagation();
+                        onExecute(record.urn);
+                    }
                 }}
             />
         );

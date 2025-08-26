@@ -39,6 +39,7 @@ type Props = {
     sort?: SortCriterion;
     entityTypes?: EntityType[];
     searchFlags?: SearchFlags;
+    convertToPredicate?: boolean;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -59,6 +60,7 @@ export const EmbeddedListSearchModal = ({
     sort,
     entityTypes,
     searchFlags,
+    convertToPredicate,
 }: Props) => {
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -117,6 +119,7 @@ export const EmbeddedListSearchModal = ({
                     sort={sort}
                     entityTypes={entityTypes}
                     searchFlags={searchFlags}
+                    convertToPredicate={convertToPredicate}
                 />
             </SearchContainer>
         </Modal>

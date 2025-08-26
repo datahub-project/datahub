@@ -6,6 +6,7 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
@@ -28,7 +29,7 @@ concurrency:
 
 jobs:
   spark-smoke-test:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     steps:
       - uses: acryldata/sane-checkout-action@v3
       - name: Set up JDK 17

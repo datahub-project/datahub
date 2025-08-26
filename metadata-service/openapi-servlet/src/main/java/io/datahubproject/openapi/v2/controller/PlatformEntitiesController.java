@@ -128,4 +128,14 @@ public class PlatformEntitiesController {
       return ResponseEntity.ok(Collections.emptyList());
     }
   }
+
+  @PostMapping(value = "/clearCache", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<String> clearCache() {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
+    _cachingEntitySearchService.clearCache();
+
+    return ResponseEntity.ok("Cache successfully cleared by " + actorUrnStr);
+  }
 }

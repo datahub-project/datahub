@@ -7,6 +7,15 @@ namespace com.linkedin.settings.global
   "name": "globalSettingsInfo"
 }
 record GlobalSettingsInfo {
+  /**
+   * Integrations between DataHub & other platforms.
+   */
+  integrations: optional GlobalIntegrationSettings
+
+  /**
+   * Global notifications settings
+   */
+  notifications: optional GlobalNotificationSettings
 
   /**
    * SSO integrations between DataHub and identity providers
@@ -35,4 +44,14 @@ record GlobalSettingsInfo {
    * Settings related to applications. If not enabled, applications won't show up in navigation
    */
    applications: optional ApplicationsSettings
+
+  /**
+   * Settings related to AI-powered documentation.
+   */
+  documentationAi: optional DocumentationAiSettings
+
+  /**
+   * Global settings related to the UI and what's displayed in the app
+   */
+  visual: optional GlobalVisualSettings
 }

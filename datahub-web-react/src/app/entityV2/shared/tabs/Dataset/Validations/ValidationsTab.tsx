@@ -30,8 +30,6 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
 /**
  * Component used for rendering the Entity Validations Tab.
  */
-
-// CAN DELETE
 export const ValidationsTab = () => {
     const { entityData } = useEntityData();
     const history = useHistory();

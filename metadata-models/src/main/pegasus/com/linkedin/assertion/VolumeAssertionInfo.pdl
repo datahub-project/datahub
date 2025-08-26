@@ -10,7 +10,10 @@ record VolumeAssertionInfo {
     /**
      * The type of the volume assertion being monitored.
      */
-    @Searchable = {}
+    @Searchable = {
+      "fieldName": "volumeAssertionType",
+      "fieldType": "KEYWORD"
+    }
     type: enum VolumeAssertionType {
       /**
        * A volume assertion that is evaluated against the total row count of a dataset.

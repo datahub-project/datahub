@@ -1,15 +1,16 @@
+import { Tooltip } from '@components';
+import { Button, Dropdown, Menu, message } from 'antd';
 import {
-    CopyOutlined,
-    DeleteOutlined,
-    ExclamationCircleOutlined,
-    FolderAddOutlined,
-    FolderOpenOutlined,
-    LinkOutlined,
-    MoreOutlined,
-    PlusOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
-import { Dropdown, Menu, Tooltip, message } from 'antd';
+    Copy,
+    CopySimple,
+    DotsThreeVertical,
+    FolderOpen,
+    FolderPlus,
+    Link,
+    PlusCircle,
+    Trash,
+    Warning,
+} from 'phosphor-react';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -36,8 +37,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { EntityType } from '@types';
 
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
+
 export enum EntityMenuItems {
     COPY_URL,
+    COPY_URN,
     UPDATE_DEPRECATION,
     ADD_TERM,
     ADD_TERM_GROUP,
@@ -47,7 +51,7 @@ export enum EntityMenuItems {
     RAISE_INCIDENT,
 }
 
-export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+export const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
@@ -62,7 +66,7 @@ const MenuItem = styled.div`
     color: #262626;
 `;
 
-const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
+const StyledMenuItem = styled(Menu.Item)<{ disabled?: boolean }>`
     &&&& {
         background-color: transparent;
     }
@@ -74,6 +78,16 @@ const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
             }
     `
             : ''}
+`;
+
+const StyledDeprecatedIcon = styled(DeprecatedIcon)`
+    color: inherit;
+    path {
+        fill: currentColor;
+    }
+    && {
+        fill: currentColor;
+    }
 `;
 
 interface Options {
@@ -171,43 +185,63 @@ function EntityDropdown(props: Props) {
             ? {
                   key: 0,
                   label: (
-                      <MenuItem
+                      <StyledMenuItem
                           onClick={() => {
                               navigator.clipboard.writeText(pageUrl);
                               message.info('Copied URL!', 1.2);
                           }}
                       >
-                          <LinkOutlined /> &nbsp; Copy Url
-                      </MenuItem>
+                          <MenuItem>
+                              {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
+                              <Link /> &nbsp; Copy Url
+                          </MenuItem>
+                      </StyledMenuItem>
+                  ),
+              }
+            : null,
+        menuItems.has(EntityMenuItems.COPY_URN) && navigator.clipboard
+            ? {
+                  key: 1,
+                  label: (
+                      <StyledMenuItem
+                          onClick={() => {
+                              navigator.clipboard.writeText(urn);
+                              message.info('Copied URN!', 1.2);
+                          }}
+                      >
+                          <MenuItem>
+                              <Copy /> &nbsp; Copy URN
+                          </MenuItem>
+                      </StyledMenuItem>
                   ),
               }
             : null,
         menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)
             ? {
-                  key: 1,
+                  key: 2,
                   label: !entityData?.deprecation?.deprecated ? (
                       <MenuItem onClick={() => setIsDeprecationModalVisible(true)}>
-                          <ExclamationCircleOutlined /> &nbsp; Mark as deprecated
+                          <StyledDeprecatedIcon /> &nbsp; Mark as deprecated
                       </MenuItem>
                   ) : (
                       <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                          <ExclamationCircleOutlined /> &nbsp; Mark as un-deprecated
+                          <StyledDeprecatedIcon /> &nbsp; Mark as un-deprecated
                       </MenuItem>
                   ),
               }
             : null,
         menuItems.has(EntityMenuItems.ADD_TERM)
             ? {
-                  key: 2,
+                  key: 3,
                   label: (
                       <StyledMenuItem
                           data-testid="entity-menu-add-term-button"
                           key="2"
-                          disabled={!canCreateGlossaryEntity}
+                          // can not be disabled on acryl-main due to ability to propose
                           onClick={() => setIsCreateTermModalVisible(true)}
                       >
                           <MenuItem>
-                              <PlusOutlined /> &nbsp;Add Term
+                              <PlusCircle /> &nbsp;Add Term
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -215,15 +249,15 @@ function EntityDropdown(props: Props) {
             : null,
         menuItems.has(EntityMenuItems.ADD_TERM_GROUP)
             ? {
-                  key: 3,
+                  key: 4,
                   label: (
                       <StyledMenuItem
                           key="3"
-                          disabled={!canCreateGlossaryEntity}
+                          // can not be disabled on acryl-main due to ability to propose
                           onClick={() => setIsCreateNodeModalVisible(true)}
                       >
                           <MenuItem>
-                              <FolderAddOutlined /> &nbsp;Add Term Group
+                              <FolderPlus /> &nbsp;Add Term Group
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -231,7 +265,7 @@ function EntityDropdown(props: Props) {
             : null,
         !isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE)
             ? {
-                  key: 4,
+                  key: 5,
                   label: (
                       <StyledMenuItem
                           data-testid="entity-menu-move-button"
@@ -240,7 +274,7 @@ function EntityDropdown(props: Props) {
                           onClick={() => setIsMoveModalVisible(true)}
                       >
                           <MenuItem>
-                              <FolderOpenOutlined /> &nbsp;Move
+                              <FolderOpen /> &nbsp;Move
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -248,7 +282,7 @@ function EntityDropdown(props: Props) {
             : null,
         menuItems.has(EntityMenuItems.DELETE)
             ? {
-                  key: 5,
+                  key: 6,
                   label: (
                       <StyledMenuItem
                           key="5"
@@ -265,7 +299,7 @@ function EntityDropdown(props: Props) {
                               }
                           >
                               <MenuItem data-testid="entity-menu-delete-button">
-                                  <DeleteOutlined /> &nbsp;Delete
+                                  <Trash /> &nbsp;Delete
                               </MenuItem>
                           </Tooltip>
                       </StyledMenuItem>
@@ -274,7 +308,7 @@ function EntityDropdown(props: Props) {
             : null,
         menuItems.has(EntityMenuItems.CLONE)
             ? {
-                  key: 6,
+                  key: 7,
                   label: (
                       <StyledMenuItem
                           key="6"
@@ -282,7 +316,7 @@ function EntityDropdown(props: Props) {
                           onClick={() => setIsCloneEntityModalVisible(true)}
                       >
                           <MenuItem>
-                              <CopyOutlined /> &nbsp;Clone
+                              <CopySimple /> &nbsp;Clone
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -290,11 +324,11 @@ function EntityDropdown(props: Props) {
             : null,
         menuItems.has(EntityMenuItems.RAISE_INCIDENT)
             ? {
-                  key: 6,
+                  key: 8,
                   label: (
                       <StyledMenuItem key="6" disabled={false}>
                           <MenuItem onClick={() => setIsRaiseIncidentModalVisible(true)}>
-                              <WarningOutlined /> &nbsp;Raise Incident
+                              <Warning /> &nbsp;Raise Incident
                           </MenuItem>
                       </StyledMenuItem>
                   ),
@@ -305,11 +339,19 @@ function EntityDropdown(props: Props) {
     return (
         <>
             <Dropdown menu={{ items }} trigger={['click']}>
-                <MenuIcon data-testid="entity-header-dropdown" fontSize={size} />
+                <Button
+                    type="text"
+                    style={{ padding: 0 }}
+                    onClick={(e) => e.preventDefault()}
+                    data-testid="entity-header-dropdown"
+                >
+                    <MenuIcon fontSize={size} />
+                </Button>
             </Dropdown>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetchForTerms}
                 />
@@ -317,6 +359,7 @@ function EntityDropdown(props: Props) {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
                 />
@@ -324,6 +367,7 @@ function EntityDropdown(props: Props) {
             {isCloneEntityModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={entityType}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCloneEntityModalVisible(false)}
                     refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
                     isCloning

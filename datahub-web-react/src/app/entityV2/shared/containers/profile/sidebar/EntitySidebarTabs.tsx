@@ -338,7 +338,10 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                         <Tab
                             disabled={isDisabled}
                             tab={
-                                <TabIconContainer $isSelected={isSelected}>
+                                <TabIconContainer
+                                    $isSelected={isSelected}
+                                    data-testid={`entity-sidebar-tab-${tab.name}`}
+                                >
                                     <IconWrapper $isSelected={isSelected}>
                                         {isSelected ? (
                                             <SelectedTabIcon size={20} weight="fill" />

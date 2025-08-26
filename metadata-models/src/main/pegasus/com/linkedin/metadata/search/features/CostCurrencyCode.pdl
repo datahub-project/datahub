@@ -1,0 +1,6 @@
+namespace com.linkedin.metadata.search.features
+
+/** Currency code for the cost */
+enum CostCurrencyCode {
+    USD
+}

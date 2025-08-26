@@ -40,7 +40,6 @@ public class DataPlatformInstanceFieldResolverProvider implements EntityFieldRes
 
   private FieldResolver.FieldValue getDataPlatformInstance(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-
     EnvelopedAspect dataPlatformInstanceAspect;
     try {
       if (entitySpec.getEntity().isEmpty()) {

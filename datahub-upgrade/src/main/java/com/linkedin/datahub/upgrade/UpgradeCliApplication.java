@@ -8,7 +8,9 @@ import com.linkedin.gms.factory.graphql.GraphQLEngineFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
+import com.linkedin.gms.factory.notifications.NotificationSinkManagerFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
+import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.gms.factory.trace.TraceServiceFactory;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -38,7 +40,9 @@ import org.springframework.context.annotation.FilterType;
             KafkaTraceReaderFactory.class,
             TraceServiceFactory.class,
             KafkaConsumerPoolFactory.class,
-            ExternalEventsServiceFactory.class
+            ExternalEventsServiceFactory.class,
+            NotificationSinkManagerFactory.class,
+            TestEngineFactory.class
           })
     })
 public class UpgradeCliApplication {

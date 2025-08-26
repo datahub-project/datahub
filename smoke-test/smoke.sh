@@ -17,7 +17,8 @@ if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
 else
   mkdir -p ~/.datahub/plugins/frontend/auth/
   echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
-  echo "datahub:datahub" > ~/.datahub/plugins/frontend/auth/user.props
+  echo "admin:mypass" > ~/.datahub/plugins/frontend/auth/user.props
+
 
 
   python3 -m venv venv
@@ -39,20 +40,23 @@ echo "TEST_STRATEGY: $TEST_STRATEGY, BATCH_COUNT: $BATCH_COUNT, BATCH_NUMBER: $B
 
 # TEST_STRATEGY:
 #   if set to pytests, runs all pytests, skips cypress tests(though cypress test launch is via  a pytest).
-#   if set tp cypress, runs all cypress tests
+#   if set to cypress, runs all cypress tests
+#   if set to remote_executor, runs release validation for remote_executor
 #   if blank, runs all.
 # When invoked via the github action, BATCH_COUNT and BATCH_NUMBER env vars are set to run a slice of those tests per
 # worker for parallelism. docker-unified.yml generates a test matrix of pytests/cypress in batches. As number of tests
 # increase, the batch_count config (in docker-unified.yml) may need adjustment.
 if [[ "${TEST_STRATEGY}" == "pytests" ]]; then
   #pytests only - github test matrix runs pytests in one of the runners when applicable.
-  pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke-pytests.xml -k 'not test_run_cypress'
+  pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke-pytests.xml -k 'not test_run_cypress' --splits ${BATCH_COUNT} --group $((BATCH_NUMBER + 1)) --durations-path=./pytest-durations.json
 elif [[ "${TEST_STRATEGY}" == "cypress" ]]; then
   # run only cypress tests. The test inspects BATCH_COUNT and BATCH_NUMBER and runs only a subset of tests in that batch.
   # github workflow test matrix will invoke this in multiple runners for each batch.
   # Skipping the junit at the pytest level since cypress itself generates junits on a per-test basis. The pytest is a single test for all cypress
   # tests and isnt very helpful.
   pytest -rP --durations=20 -vvs --continue-on-collection-errors tests/cypress/integration_test.py
+elif [[ "${TEST_STRATEGY}" == "remote_executor" ]]; then
+  pytest -rP -m "remote_executor" --durations=20 -vvs --continue-on-collection-errors tests/
 else
   pytest -rP --durations=20 -vvs --continue-on-collection-errors --junit-xml=junit.smoke-all.xml
 fi

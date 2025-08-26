@@ -1,5 +1,3 @@
-import time
-
 import pytest
 
 from tests.utils import delete_urns_from_file, ingest_file_via_rest
@@ -22,9 +20,6 @@ TEST_INCIDENT_URN = "urn:li:incident:test"
 
 @pytest.mark.dependency()
 def test_list_dataset_incidents(auth_session):
-    # Sleep for eventual consistency (not ideal)
-    time.sleep(2)
-
     list_dataset_incidents_json = {
         "query": """query dataset($urn: String!) {\n
             dataset(urn: $urn) {\n
@@ -98,8 +93,11 @@ def test_list_dataset_incidents(auth_session):
                     "lastUpdated": {"time": 0, "actor": "urn:li:corpuser:admin"},
                 },
                 "source": {
-                    "type": "MANUAL",
-                    "source": None,
+                    "type": "ASSERTION_FAILURE",
+                    "source": {
+                        "urn": "urn:li:assertion:assertion-test",
+                        "info": {"type": "DATASET"},
+                    },
                 },
                 "entity": {"urn": TEST_DATASET_URN},
                 "created": {"time": 0, "actor": "urn:li:corpuser:admin"},
@@ -109,7 +107,7 @@ def test_list_dataset_incidents(auth_session):
 
 
 @pytest.mark.dependency(depends=["test_list_dataset_incidents"])
-def test_raise_resolve_incident(auth_session):
+def test_raise_resolve_incident(auth_session, graph_client):
     # Raise new incident
     raise_incident_json = {
         "query": """mutation raiseIncident($input: RaiseIncidentInput!) {\n
@@ -163,9 +161,6 @@ def test_raise_resolve_incident(auth_session):
     assert "errors" not in res_data
     assert res_data["data"]
     assert res_data["data"]["updateIncidentStatus"] is True
-
-    # Sleep for eventual consistency (not ideal)
-    time.sleep(2)
 
     # Fetch the dataset's incidents to confirm there's a resolved incident.new_incident_urn
     list_dataset_incidents_json = {

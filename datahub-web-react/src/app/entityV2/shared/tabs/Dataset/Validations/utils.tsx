@@ -1,7 +1,12 @@
+import {
+    VolumeAssertionBuilderType,
+    VolumeAssertionBuilderTypeOptions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
 
 import {
+    ActionRequestStatus,
     AssertionStdOperator,
     AssertionStdParameters,
     AssertionValueChangeType,
@@ -72,8 +77,10 @@ type VolumeTypeField =
     | 'incrementingSegmentRowCountTotal'
     | 'incrementingSegmentRowCountChange';
 
-export const getPropertyFromVolumeType = (type: VolumeAssertionType) => {
+export const getPropertyFromVolumeType = (type: VolumeAssertionType | VolumeAssertionBuilderType) => {
     switch (type) {
+        case VolumeAssertionBuilderTypeOptions.AiInferredRowCountTotal:
+            return 'rowCountTotal' as VolumeTypeField; // all inferred volume row count assertions are row count total
         case VolumeAssertionType.RowCountTotal:
             return 'rowCountTotal' as VolumeTypeField;
         case VolumeAssertionType.RowCountChange:
@@ -93,4 +100,18 @@ export const getVolumeTypeInfo = (volumeAssertion: VolumeAssertionInfo) => {
         return undefined;
     }
     return result;
+};
+
+export const useIsActiveProposal = (dataContractProposalData: any) => {
+    const hasContractProposal =
+        ((dataContractProposalData?.listActionRequests?.total || 0) > 0 &&
+            dataContractProposalData?.listActionRequests?.actionRequests?.length) ||
+        undefined;
+    const contractActionRequest =
+        hasContractProposal && dataContractProposalData?.listActionRequests?.actionRequests[0];
+    const actionRequestStatus = contractActionRequest && contractActionRequest.status;
+    const actionRequestParams = contractActionRequest && contractActionRequest.params;
+    const contractProposal = actionRequestParams && actionRequestParams?.dataContractProposal;
+    const isActiveProposal = contractProposal && actionRequestStatus === ActionRequestStatus.Pending;
+    return isActiveProposal;
 };

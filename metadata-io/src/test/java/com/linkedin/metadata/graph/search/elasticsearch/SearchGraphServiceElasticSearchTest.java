@@ -42,4 +42,10 @@ public class SearchGraphServiceElasticSearchTest extends SearchGraphServiceTestB
   public void initTest() {
     assertNotNull(_searchClient);
   }
+
+  @Override
+  @Test
+  public void testPopulatedGraphService() throws Exception {
+    super.testPopulatedGraphService();
+  }
 }

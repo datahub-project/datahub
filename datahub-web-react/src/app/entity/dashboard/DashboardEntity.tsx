@@ -10,6 +10,7 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
@@ -78,42 +79,14 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     useEntityQuery = useGetDashboardQuery;
 
-    getSidebarSections = () => [
-        {
-            component: SidebarAboutSection,
-        },
-        {
-            component: SidebarOwnerSection,
-            properties: {
-                defaultOwnerType: OwnershipType.TechnicalOwner,
-            },
-        },
-        {
-            component: SidebarTagsSection,
-            properties: {
-                hasTags: true,
-                hasTerms: true,
-            },
-        },
-        {
-            component: SidebarDomainSection,
-        },
-        {
-            component: DataProductSection,
-        },
-        {
-            component: SidebarStructuredPropsSection,
-        },
-    ];
-
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Dashboard}
-            useEntityQuery={this.useEntityQuery}
+            useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             subHeader={{
                 component: DashboardStatsSummarySubHeader,
             }}
@@ -172,7 +145,36 @@ export class DashboardEntity implements Entity<Dashboard> {
                     },
                 },
             ]}
-            sidebarSections={this.getSidebarSections()}
+            sidebarSections={[
+                {
+                    component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarMetadataSection,
+                },
+                {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
+                    component: SidebarTagsSection,
+                    properties: {
+                        hasTags: true,
+                        hasTerms: true,
+                    },
+                },
+                {
+                    component: SidebarDomainSection,
+                },
+                {
+                    component: DataProductSection,
+                },
+                {
+                    component: SidebarStructuredPropsSection,
+                },
+            ]}
         />
     );
 
@@ -289,6 +291,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.TEST,
         ]);
     };
 
@@ -298,7 +301,7 @@ export class DashboardEntity implements Entity<Dashboard> {
         <EmbeddedProfile
             urn={urn}
             entityType={EntityType.Dashboard}
-            useEntityQuery={this.useEntityQuery}
+            useEntityQuery={useGetDashboardQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );

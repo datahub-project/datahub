@@ -98,6 +98,16 @@ public class PoliciesConfig {
           "Generate Personal Access Tokens",
           "Generate personal access tokens for use with DataHub APIs.");
 
+  public static final Privilege VIEW_METADATA_PROPOSALS_PRIVILEGE =
+      Privilege.of(
+          "VIEW_METADATA_PROPOSALS",
+          "View Metadata Proposals",
+          "View the requests tab for viewing metadata proposals.");
+
+  public static final Privilege CREATE_CONSTRAINTS_PRIVILEGE =
+      Privilege.of(
+          "CREATE_CONSTRAINTS", "Create metadata constraints", "Create metadata constraints.");
+
   public static final Privilege MANAGE_ACCESS_TOKENS =
       Privilege.of(
           "MANAGE_ACCESS_TOKENS",
@@ -148,6 +158,11 @@ public class PoliciesConfig {
           "Create Global Announcements",
           "Create new Global Announcements.");
 
+  public static final Privilege MANAGE_GLOBAL_SETTINGS =
+      Privilege.of(
+          "MANAGE_GLOBAL_SETTINGS",
+          "Manage Platform Settings",
+          "View and change platform-level settings, like integrations & notifications.");
   public static final Privilege MANAGE_GLOBAL_VIEWS =
       Privilege.of(
           "MANAGE_GLOBAL_VIEWS",
@@ -193,8 +208,14 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
       Privilege.of(
           "MANAGE_DOCUMENTATION_FORMS",
-          "Manage Documentation Forms",
+          "Manage Compliance Forms",
           "Manage forms assigned to assets to assist in documentation efforts.");
+
+  public static final Privilege VIEW_DOCUMENTATION_FORMS_PAGE_PRIVILEGE =
+      Privilege.of(
+          "VIEW_DOCUMENTATION_FORMS_PAGE",
+          "View Compliance Forms",
+          "View forms assigned to assets to assist in documentation efforts.");
 
   public static final Privilege MANAGE_FEATURES_PRIVILEGE =
       Privilege.of(
@@ -218,6 +239,31 @@ public class PoliciesConfig {
           "Manage Home Page Templates",
           "Privilege allowing users to manage the default home page template and the global modules in it.");
 
+  // Acryl-Main only.
+  public static final Privilege MANAGE_MONITORS =
+      Privilege.of(
+          "MANAGE_MONITORS",
+          "Manage Monitors",
+          "Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.");
+
+  public static final Privilege MANAGE_ORGANIZATION_DISPLAY_PREFERENCES =
+      Privilege.of(
+          "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+          "Manage Organization Display Preferences",
+          "Create, update, and delete organization display preferences.");
+
+  public static final Privilege PROPOSE_CREATE_GLOSSARY_TERM =
+      Privilege.of(
+          "PROPOSE_CREATE_GLOSSARY_TERM",
+          "Propose Create Glossary Term",
+          "Propose the creation of new Glossary Term.");
+
+  public static final Privilege PROPOSE_CREATE_GLOSSARY_NODE =
+      Privilege.of(
+          "PROPOSE_CREATE_GLOSSARY_NODE",
+          "Propose Create Glossary Node",
+          "Propose the creation of new Glossary Node.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -230,6 +276,8 @@ public class PoliciesConfig {
           UPDATE_GROUPS_PRIVILEGE,
           VIEW_ANALYTICS_PRIVILEGE,
           GET_ANALYTICS_PRIVILEGE,
+          VIEW_METADATA_PROPOSALS_PRIVILEGE,
+          CREATE_CONSTRAINTS_PRIVILEGE,
           MANAGE_DOMAINS_PRIVILEGE,
           MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_INGESTION_PRIVILEGE,
@@ -253,15 +301,27 @@ public class PoliciesConfig {
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
           VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
+          VIEW_DOCUMENTATION_FORMS_PAGE_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
-          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
+          GET_PLATFORM_EVENTS_PRIVILEGE,
+          MANAGE_GLOBAL_SETTINGS,
+          MANAGE_MONITORS,
+          MANAGE_ORGANIZATION_DISPLAY_PREFERENCES,
+          PROPOSE_CREATE_GLOSSARY_TERM,
+          PROPOSE_CREATE_GLOSSARY_NODE);
 
   // Resource Privileges //
 
   static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE =
       Privilege.of("VIEW_ENTITY_PAGE", "View Entity Page", "The ability to view the entity page.");
+
+  // SaaS Only
+  static final Privilege VIEW_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "VIEW_ENTITY", "View Entity", "The ability to view the entity in search results.");
 
   static final Privilege EXISTS_ENTITY_PRIVILEGE =
       Privilege.of(
@@ -277,17 +337,95 @@ public class PoliciesConfig {
       Privilege.of(
           "EDIT_ENTITY_TAGS", "Edit Tags", "The ability to add and remove tags to an asset.");
 
+  public static final Privilege PROPOSE_ENTITY_TAGS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_TAGS",
+          "Propose Tags",
+          "The ability to propose adding a tag to an asset.");
+
+  public static final Privilege PROPOSE_ENTITY_DOMAINS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_DOMAINS",
+          "Propose Domains",
+          "The ability to propose adding a domain to an asset.");
+
+  public static final Privilege PROPOSE_ENTITY_OWNERS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_OWNERS",
+          "Propose Owners",
+          "The ability to propose adding a owner to an asset.");
+
+  public static final Privilege PROPOSE_ENTITY_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_PROPERTIES",
+          "Propose Structured Properties",
+          "The ability to propose adding a structured properties to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_PROPERTIES",
+          "Manage Structured Property Proposals",
+          "The ability to manage a proposal to add a structured property to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_TAGS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_TAGS",
+          "Manage Tag Proposals",
+          "The ability to manage a proposal to add a tag to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_DOMAINS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_DOMAINS",
+          "Manage Domain Proposals",
+          "The ability to manage a proposal to add a domain to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_OWNERS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_OWNERS",
+          "Manage Owner Proposals",
+          "The ability to manage a proposal to add owners for an asset.");
+
   public static final Privilege EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_GLOSSARY_TERMS",
           "Edit Glossary Terms",
           "The ability to add and remove glossary terms to an asset.");
 
+  public static final Privilege PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_GLOSSARY_TERMS",
+          "Propose Glossary Terms",
+          "The ability to propose adding a glossary term to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_GLOSSARY_TERMS",
+          "Manage Glossary Term Proposals",
+          "The ability to manage a proposal to add a glossary term to an asset.");
+
   public static final Privilege EDIT_ENTITY_OWNERS_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_OWNERS",
           "Edit Owners",
           "The ability to add and remove owners of an entity.");
+
+  public static final Privilege PROPOSE_ENTITY_DOCS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_DOCS",
+          "Propose Description",
+          "The ability to propose updates to an asset's documentation.");
+
+  public static final Privilege MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
+          "Manage Description Proposals",
+          "The ability to manage a proposal update an asset's documentation");
+
+  public static final Privilege SHARE_ENTITY_PRIVILEGE =
+      Privilege.of(
+          "SHARE_ENTITY",
+          "Share Entity",
+          "The ability to share an entity with another Acryl instance.");
 
   public static final Privilege EDIT_ENTITY_DOCS_PRIVILEGE =
       Privilege.of(
@@ -385,6 +523,16 @@ public class PoliciesConfig {
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_ENTITY_TAGS_PRIVILEGE,
+          PROPOSE_ENTITY_TAGS_PRIVILEGE,
+          PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+          PROPOSE_ENTITY_DOMAINS_PRIVILEGE,
+          PROPOSE_ENTITY_OWNERS_PRIVILEGE,
+          PROPOSE_ENTITY_PROPERTIES_PRIVILEGE,
+          MANAGE_ENTITY_TAGS_PRIVILEGE,
+          MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+          MANAGE_ENTITY_PROPERTIES_PRIVILEGE,
+          MANAGE_ENTITY_DOMAINS_PRIVILEGE,
+          MANAGE_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_DOCS_PRIVILEGE,
@@ -394,12 +542,17 @@ public class PoliciesConfig {
           EDIT_ENTITY_APPLICATIONS_PRIVILEGE,
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+          EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
           DELETE_ENTITY_PRIVILEGE,
           EDIT_ENTITY_PROPERTIES_PRIVILEGE,
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           CREATE_ENTITY_PRIVILEGE,
-          EXISTS_ENTITY_PRIVILEGE);
+          EXISTS_ENTITY_PRIVILEGE,
+          VIEW_ENTITY_PRIVILEGE,
+          PROPOSE_ENTITY_DOCS_PRIVILEGE,
+          MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE,
+          SHARE_ENTITY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -408,17 +561,65 @@ public class PoliciesConfig {
           "Edit Dataset Column Tags",
           "The ability to edit the column (field) tags associated with a dataset schema.");
 
+  public static final Privilege PROPOSE_DATASET_COL_TAGS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_DATASET_COL_TAGS",
+          "Propose Dataset Column Tags",
+          "The ability to propose new column (field) tags associated with a dataset schema.");
+
+  public static final Privilege MANAGE_DATASET_COL_TAGS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DATASET_COL_TAGS",
+          "Manage Dataset Column Tag Proposals",
+          "The ability to manage column (field) tag proposals associated with a dataset schema.");
+
   public static final Privilege EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE =
       Privilege.of(
           "EDIT_DATASET_COL_GLOSSARY_TERMS",
           "Edit Dataset Column Glossary Terms",
           "The ability to edit the column (field) glossary terms associated with a dataset schema.");
 
+  public static final Privilege PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+          "Propose Dataset Column Glossary Terms",
+          "The ability to propose column (field) glossary terms associated with a dataset schema.");
+
+  public static final Privilege MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DATASET_COL_GLOSSARY_TERMS",
+          "Manage Dataset Column Glossary Term Proposals",
+          "The ability to manage column (field) glossary term proposals associated with a dataset schema.");
+
   public static final Privilege EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE =
       Privilege.of(
           "EDIT_DATASET_COL_DESCRIPTION",
           "Edit Dataset Column Descriptions",
           "The ability to edit the column (field) descriptions associated with a dataset schema.");
+
+  public static final Privilege PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
+          "Propose Dataset Column Descriptions",
+          "The ability to propose new descriptions associated with a dataset schema.");
+
+  public static final Privilege EDIT_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DATASET_COL_PROPERTIES",
+          "Edit Dataset Column Properties",
+          "The ability to edit the column (field) structured properties associated with a dataset schema.");
+
+  public static final Privilege PROPOSE_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_DATASET_COL_PROPERTIES",
+          "Propose Dataset Column Structured Properties",
+          "The ability to propose new column (field) structured properties associated with a dataset schema.");
+
+  public static final Privilege MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DATASET_COL_PROPERTIES",
+          "Manage Dataset Column Property Proposals",
+          "The ability to manage column (field) structured property proposals associated with a dataset schema.");
 
   public static final Privilege VIEW_DATASET_USAGE_PRIVILEGE =
       Privilege.of(
@@ -444,11 +645,37 @@ public class PoliciesConfig {
           "Edit Dataset Queries",
           "The ability to edit the Queries for a Dataset.");
 
+  // Acryl-main Only
+  public static final Privilege EDIT_ENTITY_MONITORS =
+      Privilege.of(
+          "EDIT_ENTITY_MONITORS", "Edit Monitors", "The ability to edit monitors for the entity.");
+
+  public static final Privilege EDIT_ENTITY_SQL_ASSERTION_MONITORS =
+      Privilege.of(
+          "EDIT_ENTITY_SQL_ASSERTION_MONITORS",
+          "Edit SQL Assertion Monitors",
+          "The ability to edit custom SQL assertion monitors for the entity. "
+              + "Note that this gives read query access to users with through the Custom SQL assertion builder. Grant with care.");
+
   public static final Privilege EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_DATA_CONTRACT",
           "Edit Data Contract",
           "The ability to edit the Data Contract for an entity.");
+
+  public static final Privilege MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+          "Manage Data Contract Proposals",
+          "The ability to manage a proposal for a Data Contract");
+
+  public static final Privilege PROPOSE_DATA_CONTRACT_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_DATA_CONTRACT",
+          "Propose Data Contract",
+          "The ability to propose Data Contract for an entity.");
+
+  // End acryl-main
 
   public static final Privilege DATA_READ_ONLY_PRIVILEGE =
       Privilege.of(
@@ -496,6 +723,24 @@ public class PoliciesConfig {
           "EDIT_GROUP_MEMBERS",
           "Edit Group Members",
           "The ability to add and remove members to a group.");
+
+  public static final Privilege MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_GROUP_NOTIFICATION_SETTINGS",
+          "Manage Group Notification Settings",
+          "The ability to manage notification settings for a group.");
+
+  public static final Privilege MANAGE_USER_SUBSCRIPTIONS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_USER_SUBSCRIPTIONS",
+          "Manage User Subscriptions",
+          "The ability to manage subscriptions for a user");
+
+  public static final Privilege MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_GROUP_SUBSCRIPTIONS",
+          "Manage Group Subscriptions",
+          "The ability to manage subscriptions for a group.");
 
   // User Privileges
   public static final Privilege EDIT_USER_PROFILE_PRIVILEGE =
@@ -630,7 +875,23 @@ public class PoliciesConfig {
                       // safe.
                       DATA_READ_ONLY_PRIVILEGE,
                       DATA_READ_WRITE_PRIVILEGE,
-                      EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
+                      EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE,
+                      // SaaS Only (Intended?)
+                      VIEW_ENTITY_PRIVILEGE,
+                      EDIT_DATASET_COL_PROPERTIES_PRIVILEGE,
+                      PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
+                      PROPOSE_DATASET_COL_TAGS_PRIVILEGE,
+                      MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
+                      PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE,
+                      PROPOSE_DATASET_COL_PROPERTIES_PRIVILEGE,
+                      MANAGE_DATASET_COL_TAGS_PRIVILEGE,
+                      MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE,
+                      EDIT_ENTITY_MONITORS, // Acryl main only
+                      EDIT_ENTITY_SQL_ASSERTION_MONITORS, // Acryl main only
+                      EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE, // Acryl main only
+                      MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE, // Acryl main only
+                      PROPOSE_DATA_CONTRACT_PRIVILEGE) // Acryl main only
+                  )
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));
 
@@ -694,7 +955,10 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              // SaaS Only
+              VIEW_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Container Privileges
   public static final ResourcePrivileges CONTAINER_PRIVILEGES =
@@ -735,7 +999,10 @@ public class PoliciesConfig {
               MANAGE_DATA_PRODUCTS_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              // SaaS Only
+              VIEW_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Data Product Privileges
   public static final ResourcePrivileges DATA_PRODUCT_PRIVILEGES =
@@ -755,7 +1022,10 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOMAINS_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              // SaaS Only
+              VIEW_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Application Privileges
   public static final ResourcePrivileges APPLICATION_PRIVILEGES =
@@ -791,7 +1061,10 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              // SaaS Only
+              VIEW_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Glossary Node Privileges
   public static final ResourcePrivileges GLOSSARY_NODE_PRIVILEGES =
@@ -810,7 +1083,10 @@ public class PoliciesConfig {
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              // SaaS Only
+              VIEW_ENTITY_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // Group Privileges
   public static final ResourcePrivileges CORP_GROUP_PRIVILEGES =
@@ -827,7 +1103,11 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              // SaaS Only
+              MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE,
+              MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE,
+              SHARE_ENTITY_PRIVILEGE));
 
   // User Privileges
   public static final ResourcePrivileges CORP_USER_PRIVILEGES =
@@ -842,7 +1122,9 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              // SaaS Only
+              SHARE_ENTITY_PRIVILEGE));
 
   // Properties Privileges
   public static final ResourcePrivileges STRUCTURED_PROPERTIES_PRIVILEGES =
@@ -857,13 +1139,30 @@ public class PoliciesConfig {
               EDIT_ENTITY_PRIVILEGE,
               DELETE_ENTITY_PRIVILEGE));
 
+  // Properties Privileges
+  public static final ResourcePrivileges FORMS_PRIVILEGES =
+      ResourcePrivileges.of(
+          "form",
+          "Forms",
+          "Forms",
+          ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EXISTS_ENTITY_PRIVILEGE));
+
   // ERModelRelationship Privileges
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
           "erModelRelationship",
-          "ERModelRelationship",
-          "update privileges for ermodelrelations",
+          "ER Model Relationships",
+          "Privileges for ER Model Relationships",
           COMMON_ENTITY_PRIVILEGES);
+
+  public static final ResourcePrivileges ML_FEATURE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "mlFeature", "ML Feature", "ML Features ingested to DataHub.", COMMON_ENTITY_PRIVILEGES);
+
+  public static final ResourcePrivileges ML_MODEL_PRIVILEGES =
+      ResourcePrivileges.of(
+          "mlModel", "ML Model", "ML Models ingested to DataHub.", COMMON_ENTITY_PRIVILEGES);
+
   public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
       ResourcePrivileges.of(
           "businessAttribute",
@@ -882,7 +1181,17 @@ public class PoliciesConfig {
           "Ingestion Source",
           "Privileges for Ingestion sources",
           ImmutableList.of(
-              DELETE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, EXECUTE_ENTITY_PRIVILEGE));
+              VIEW_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              EXECUTE_ENTITY_PRIVILEGE));
+
+  public static final ResourcePrivileges EXECUTION_REQUEST_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.EXECUTION_REQUEST_ENTITY_NAME,
+          "Execution Request",
+          "Privileges for Ingestion Execution Requests",
+          ImmutableList.of(VIEW_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE));
 
   // Version Set privileges
   public static final ResourcePrivileges VERSION_SET_PRIVILEGES =
@@ -925,9 +1234,14 @@ public class PoliciesConfig {
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
           INGESTION_SOURCE_PRIVILEGES,
+          EXECUTION_REQUEST_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
-          APPLICATION_PRIVILEGES);
+          APPLICATION_PRIVILEGES,
+          // SaaS Only
+          FORMS_PRIVILEGES,
+          ML_FEATURE_PRIVILEGES,
+          ML_MODEL_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
@@ -968,7 +1282,8 @@ public class PoliciesConfig {
                               VIEW_ENTITY_PAGE_PRIVILEGE,
                               GET_ENTITY_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
-                              DELETE_ENTITY_PRIVILEGE))
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
                       .put(ApiOperation.EXECUTE, Disjunctive.disjoint(EXECUTE_ENTITY_PRIVILEGE))
@@ -979,7 +1294,8 @@ public class PoliciesConfig {
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE,
                               VIEW_ENTITY_PAGE_PRIVILEGE,
-                              SEARCH_PRIVILEGE))
+                              SEARCH_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .build())
               .put(
                   ApiGroup.LINEAGE,
@@ -994,7 +1310,8 @@ public class PoliciesConfig {
                               GET_ENTITY_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               EDIT_LINEAGE_PRIVILEGE,
-                              DELETE_ENTITY_PRIVILEGE))
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, EDIT_LINEAGE_PRIVILEGE))
@@ -1013,7 +1330,8 @@ public class PoliciesConfig {
                               EDIT_ENTITY_PRIVILEGE,
                               EDIT_LINEAGE_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE,
-                              GET_ENTITY_PRIVILEGE))
+                              GET_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .build())
               .put(
                   ApiGroup.RELATIONSHIP,
@@ -1024,7 +1342,8 @@ public class PoliciesConfig {
                           Disjunctive.disjoint(
                               VIEW_ENTITY_PAGE_PRIVILEGE,
                               GET_ENTITY_PRIVILEGE,
-                              EDIT_ENTITY_PRIVILEGE))
+                              EDIT_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(
                           ApiOperation.DELETE,
@@ -1037,7 +1356,8 @@ public class PoliciesConfig {
                               SEARCH_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               DELETE_ENTITY_PRIVILEGE,
-                              GET_ENTITY_PRIVILEGE))
+                              GET_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .build())
               .put(
                   ApiGroup.ANALYTICS,
@@ -1068,7 +1388,8 @@ public class PoliciesConfig {
                           Disjunctive.disjoint(
                               GET_TIMESERIES_ASPECT_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
-                              DELETE_ENTITY_PRIVILEGE))
+                              DELETE_ENTITY_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
                       .put(
@@ -1079,7 +1400,8 @@ public class PoliciesConfig {
                               SEARCH_PRIVILEGE,
                               EDIT_ENTITY_PRIVILEGE,
                               GET_TIMESERIES_ASPECT_PRIVILEGE,
-                              VIEW_ENTITY_PAGE_PRIVILEGE))
+                              VIEW_ENTITY_PAGE_PRIVILEGE,
+                              VIEW_ENTITY_PRIVILEGE))
                       .build())
               .put(
                   ApiGroup.COUNTS,
@@ -1169,7 +1491,7 @@ public class PoliciesConfig {
                       .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
                       .put(
                           ApiOperation.READ,
-                          API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
+                          Disjunctive.disjoint(VIEW_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))

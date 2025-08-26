@@ -28,6 +28,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.Topics;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -67,6 +68,8 @@ public class DatahubUpgradeNonBlockingTest extends AbstractTestNGSpringContextTe
   @Autowired
   @Named("systemUpdateNonBlocking")
   private SystemUpdateNonBlocking systemUpdateNonBlocking;
+
+  @Autowired private EntityRegistry entityRegistry;
 
   @Autowired
   @Named("schemaRegistryConfig")

@@ -1,8 +1,9 @@
 import { Pagination, Typography } from 'antd';
-import React from 'react';
+import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { PreviewType } from '@app/entity/Entity';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import SearchExtendedMenu from '@app/entity/shared/components/styled/search/SearchExtendedMenu';
 import { SearchSelectBar } from '@app/entity/shared/components/styled/search/SearchSelectBar';
@@ -15,6 +16,7 @@ import { SearchResultList } from '@app/search/SearchResultList';
 import SearchResultsLoadingSection from '@app/search/SearchResultsLoadingSection';
 import { SearchResultsRecommendations } from '@app/search/SearchResultsRecommendations';
 import ToggleSidebarButton from '@app/search/ToggleSidebarButton';
+import { useSearchContext } from '@app/search/context/SearchContext';
 import BrowseSidebar from '@app/search/sidebar';
 import { BrowseProvider } from '@app/search/sidebar/BrowseContext';
 import { SidebarProvider } from '@app/search/sidebar/SidebarContext';
@@ -139,9 +141,18 @@ interface Props {
     selectedEntities: EntityAndType[];
     suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
+    areAllEntitiesSelected?: boolean;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch: () => void;
+    shouldHideSuggestions?: boolean;
+    customSection?: ReactNode;
+    showCustomSection?: boolean;
+    previewType?: PreviewType;
+    onCardClick?: (any: any) => any;
+    onClickExploreAll?: () => any;
+    onClickClearFilters?: () => any;
 }
 
 export const SearchResults = ({
@@ -162,11 +173,20 @@ export const SearchResults = ({
     setNumResultsPerPage,
     isSelectMode,
     selectedEntities,
+    areAllEntitiesSelected,
+    setAreAllEntitiesSelected,
     suggestions,
     setIsSelectMode,
     setSelectedEntities,
     onChangeSelectAll,
     refetch,
+    shouldHideSuggestions,
+    customSection,
+    showCustomSection = false,
+    previewType,
+    onCardClick,
+    onClickExploreAll,
+    onClickClearFilters,
 }: Props) => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -181,9 +201,15 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
+    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+
+    function handlePageChange(p: number) {
+        onChangePage(p);
+        setAreAllEntitiesSelected?.(false);
+    }
 
     return (
         <>
@@ -227,7 +253,10 @@ export const SearchResults = ({
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>
-                                <SearchSortSelect />
+                                <SearchSortSelect
+                                    selectedSortOption={selectedSortOption}
+                                    setSelectedSortOption={setSelectedSortOption}
+                                />
                                 <SearchExtendedMenu
                                     downloadSearchResults={downloadSearchResults}
                                     filters={generateOrFilters(unionType, selectedFilters)}
@@ -245,14 +274,19 @@ export const SearchResults = ({
                                         selectedEntities.length > 0 &&
                                         isListSubset(searchResultUrns, selectedEntityUrns)
                                     }
+                                    totalResults={totalResults}
                                     selectedEntities={selectedEntities}
+                                    setSelectedEntities={setSelectedEntities}
                                     onChangeSelectAll={onChangeSelectAll}
                                     onCancel={() => setIsSelectMode(false)}
                                     refetch={refetch}
+                                    areAllEntitiesSelected={areAllEntitiesSelected}
+                                    setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                 />
                             </StyledTabToolbar>
                         )}
                         {(error && <ErrorSection />) ||
+                            (showCustomSection && customSection) ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
                                 <SearchResultListContainer v2Styles={showSearchFiltersV2}>
@@ -267,6 +301,11 @@ export const SearchResults = ({
                                         setSelectedEntities={setSelectedEntities}
                                         suggestions={suggestions}
                                         pageNumber={page}
+                                        previewType={previewType}
+                                        onCardClick={onCardClick}
+                                        onClickExploreAll={onClickExploreAll}
+                                        onClickClearFilters={onClickClearFilters}
+                                        setAreAllEntitiesSelected={setAreAllEntitiesSelected}
                                     />
                                     {totalResults > 0 && (
                                         <PaginationControlContainer id="search-pagination">
@@ -275,14 +314,14 @@ export const SearchResults = ({
                                                 pageSize={numResultsPerPage}
                                                 total={totalResults}
                                                 showLessItems
-                                                onChange={onChangePage}
+                                                onChange={handlePageChange}
                                                 showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                                                 onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                                                pageSizeOptions={['10', '20', '50', '100']}
+                                                pageSizeOptions={['10', '20', '30']}
                                             />
                                         </PaginationControlContainer>
                                     )}
-                                    {authenticatedUserUrn && (
+                                    {authenticatedUserUrn && !shouldHideSuggestions && (
                                         <SearchResultsRecommendationsContainer>
                                             <SearchResultsRecommendations
                                                 userUrn={authenticatedUserUrn}

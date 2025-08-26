@@ -1,4 +1,5 @@
 const domainName = "CypressNestedDomain";
+const TEST_GROUP_NAME = "test-notifications-group";
 const chartUrn = "urn:li:chart:(looker,cypress_baz1)";
 
 const handledResizeLoopErrors = () => {
@@ -128,9 +129,9 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test added");
     cy.clickFirstOptionWithTestId("add-link-button");
     cy.waitTextVisible("Add Link");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
     cy.goToDomainList();
     cy.waitTextVisible("Test added");
@@ -150,27 +151,25 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test documentation");
     cy.clickFirstOptionWithSpecificTestId("add-link-button", 1);
     cy.waitTextVisible("URL");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
 
     // add owners
     cy.clickOptionWithTestId("add-owners-button");
     cy.waitTextVisible("Find a user or group");
-    cy.get('[data-testid="users-group-search"]').type(
-      Cypress.env("ADMIN_DISPLAYNAME"),
-    );
+    cy.get('[data-testid="users-group-search"]').type(TEST_GROUP_NAME);
     cy.clickTextOptionWithClass(
       ".rc-virtual-list-holder-inner",
-      Cypress.env("ADMIN_DISPLAYNAME"),
+      TEST_GROUP_NAME,
     );
     cy.clickOptionWithText("Find a user or group");
     cy.clickOptionWithId("#addOwnerButton");
-    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.waitTextVisible(TEST_GROUP_NAME);
     cy.goToDomainList();
     cy.waitTextVisible("Test documentation");
-    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.waitTextVisible(TEST_GROUP_NAME);
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
@@ -203,9 +202,9 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test added");
     cy.clickFirstOptionWithTestId("add-link-button");
     cy.waitTextVisible("Add Link");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
     cy.goToDomainList();
     cy.waitTextVisible("Test added");

@@ -1,0 +1,17 @@
+{
+  "messages": [
+    {
+      "type": "human",
+      "text": "Start"
+    },
+    {
+      "type": "assistant",
+      "text": "Reply"
+    }
+  ],
+  "extra_properties": {
+    "channel_id": "C456",
+    "thread_ts": "2000.1",
+    "is_limited_history": false
+  }
+}

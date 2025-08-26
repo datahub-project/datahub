@@ -1,0 +1,12 @@
+namespace com.linkedin.event.notification
+
+/**
+ * Additional context about the notification.
+ */
+record NotificationContext {
+    /**
+     * The run-id that triggered the notification. If it was triggered by a manual action,
+     * this may be set to the default "no-run-id-provided" value.
+     */
+    runId: optional string
+}

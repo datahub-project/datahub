@@ -51,6 +51,7 @@ function ChildrenTab() {
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const entityUrn = entityData?.urn;
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
     const { scrollRef, data, loading, searchQuery, setSearchQuery, refetch } = useGlossaryChildren({ entityUrn });
 
@@ -124,6 +125,7 @@ function ChildrenTab() {
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetch}
                 />
@@ -131,6 +133,7 @@ function ChildrenTab() {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetch}
                 />

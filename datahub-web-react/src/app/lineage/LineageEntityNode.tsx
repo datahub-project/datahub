@@ -6,11 +6,11 @@ import styled from 'styled-components';
 import { IconStyleType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
-import StructuredPropertyBadge, {
-    MAX_PROP_BADGE_WIDTH,
-} from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
 import { filterForAssetBadge } from '@app/entity/shared/containers/profile/header/utils';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import StructuredPropertyBadge, {
+    MAX_PROP_BADGE_WIDTH,
+} from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import LineageEntityColumns from '@app/lineage/LineageEntityColumns';
 import {
     centerX,
@@ -392,6 +392,32 @@ export default function LineageEntityNode({
                         </PropertyBadgeWrapper>
                     </foreignObject>
                 )}
+                {hasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={entityStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
+                    </foreignObject>
+                )}
+                {!hasAssetBadge && siblingHasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={siblingStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
+                    </foreignObject>
+                )}
                 <Group>
                     <UnselectableText
                         dy="-1em"
@@ -434,6 +460,7 @@ export default function LineageEntityNode({
                     <foreignObject x={healthX} y={healthY} width="20" height="20">
                         {hasHealth && (
                             <EntityHealth
+                                urn={node.data.urn || ''}
                                 health={health as any}
                                 baseUrl={baseUrl as any}
                                 fontSize={20}

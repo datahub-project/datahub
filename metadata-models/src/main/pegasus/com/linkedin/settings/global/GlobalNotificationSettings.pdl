@@ -1,0 +1,33 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.settings.NotificationSetting
+
+/**
+ * DataHub global notification settings
+ */
+record GlobalNotificationSettings {
+   /**
+    * Global / platform notification settings.
+    * A map of notification scenario type to the settings associated with it.
+    * For a list of all scenario types to notify on, check out NotificationScenarioType enum.
+    */
+   settings: optional map[string, NotificationSetting]
+
+   /**
+    * Settings related to asset incidents.
+    * Deprecated! Use 'settings' for configuring incidents settings instead.
+    */
+   incidents: optional record GlobalIncidentsSettings {
+     /**
+      * Send a 'broadcast' notification when a new incident has been created. A broadcast is a notification that
+      * is sent to a general purpose channel, as opposed to a specific user or group member directly.
+      */
+     broadcastNewIncidentNotification: NotificationSetting
+
+     /**
+      * Send a 'broadcast' notification when an incident status has changed. A broadcast is a notification that
+      * is sent to a general purpose channel, as opposed to a specific user or group member directly.
+      */
+     broadcastIncidentStatusChangeNotification: NotificationSetting
+   }
+}

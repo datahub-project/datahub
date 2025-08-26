@@ -2,7 +2,10 @@ package com.linkedin.gms.factory.plugins;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
@@ -13,6 +16,7 @@ import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.config.structuredProperties.extensions.ExtendedModelValidationConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -384,4 +388,21 @@ public class SpringStandardPluginConfiguration {
                             .build()))
                 .build());
   }
+
+  /* SaaS Only */
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.extensions.enabled",
+      havingValue = "true")
+  public MutationHook extendedModelStructuredPropertyMutator(
+      ConfigurationProvider configurationProvider) throws Exception {
+    ExtendedModelValidationConfiguration config =
+        configurationProvider
+            .getMetadataChangeProposal()
+            .getValidation()
+            .getExtensions()
+            .resolve(new YAMLMapper());
+    return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
+  }
+  /* End SaaS Only */
 }

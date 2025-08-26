@@ -1,9 +1,10 @@
-import { FolderOutlined, RightOutlined } from '@ant-design/icons';
+import { RightOutlined } from '@ant-design/icons';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { IconStyleType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -32,6 +33,15 @@ const GlossaryItem = styled.div`
     .anticon-folder {
         margin-right: 8px;
     }
+
+    svg {
+        margin-right: 8px;
+    }
+`;
+
+const IconWrapper = styled.span`
+    display: inline-flex;
+    vertical-align: -0.125em;
 `;
 
 const StyledRightOutline = styled(RightOutlined)`
@@ -64,7 +74,9 @@ function GlossaryEntityItem(props: Props) {
             <ItemWrapper>
                 <GlossaryItem>
                     <span>
-                        {type === EntityType.GlossaryNode && <FolderOutlined />}
+                        {type === EntityType.GlossaryNode && (
+                            <IconWrapper>{entityRegistry.getIcon(type, 14, IconStyleType.TAB_VIEW)}</IconWrapper>
+                        )}
                         {name}
                         <CountWrapper>{count}</CountWrapper>
                     </span>

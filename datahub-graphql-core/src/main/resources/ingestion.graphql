@@ -37,6 +37,11 @@ extend type Query {
   urn: The primary key associated with the execution request.
   """
   executionRequest(urn: String!): ExecutionRequest
+
+  """
+  Get whether or not not a data connection for an entity exists
+  """
+  ingestionSourceForEntity(urn: String!): IngestionSource
 }
 
 extend type Mutation {
@@ -61,7 +66,7 @@ extend type Mutation {
   createIngestionSource(input: UpdateIngestionSourceInput!): String
 
   """
-  Update an existing ingestion source
+  Create or update an ingestion source
   """
   updateIngestionSource(
     urn: String!
@@ -150,7 +155,7 @@ type ExecutionRequestInput {
   actor: CorpUser
 
   """
-  The specific executor to route the request to. If none is provided, a "default" executor is used.
+  The specific executor pool to route the request to. If none is provided, an embedded executor is used.
   """
   executorId: String
 }
@@ -183,6 +188,11 @@ type ExecutionRequestResult {
   A structured report for this Execution Request
   """
   structuredReport: StructuredReport
+
+  """
+  The id of the executor instance that handled the request
+  """
+  executorInstanceId: String
 }
 
 """
@@ -373,7 +383,7 @@ type IngestionConfig {
   recipe: String!
 
   """
-  Advanced: The specific executor that should handle the execution request. Defaults to 'default'.
+  Advanced: The specific executor pool that should handle the execution request. Defaults to 'default'.
   """
   executorId: String!
 
@@ -508,6 +518,11 @@ type IngestionSource {
   The latest successful execution request for this source
   """
   latestSuccessfulExecution: ExecutionRequest
+
+  """
+  Privileges given to a user relevant to this ingestion source
+  """
+  privileges: IngestionSourcePrivileges
 }
 
 """
@@ -580,7 +595,7 @@ input UpdateIngestionSourceConfigInput {
   version: String
 
   """
-  The id of the executor to use for executing the recipe
+  The id of the executor pool to use for executing the recipe
   """
   executorId: String!
 
@@ -638,6 +653,32 @@ input UpdateIngestionSourceInput {
   A set of type-specific ingestion source configurations
   """
   config: UpdateIngestionSourceConfigInput!
+
+  """
+  Optional information about the origin of the ingestion
+  """
+  source: UpdateIngestionSourceSourceInput
+}
+
+"""
+Information about the origin of an ingestion source. Currently only used for provisioning system ingestion sources.
+"""
+input UpdateIngestionSourceSourceInput {
+  """
+  The type of the source
+  """
+  type: IngestionSourceSourceType
+}
+
+enum IngestionSourceSourceType {
+  """
+  The source is a "system" ingestion source, hidden from the normal UI experience
+  """
+  SYSTEM
+  """
+  A DataHub User defined the source
+  """
+  MANUAL
 }
 
 """

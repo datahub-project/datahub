@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { EntitySidebarSections } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebar';
 import SidebarFormInfoWrapper from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/SidebarFormInfoWrapper';
 import { EntitySidebarSection, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import { useIsDocumentationFormsEnabled } from '@app/useAppConfig';
 
 const DEFAULT_SIDEBAR_SECTION = {
     visible: (_, _1) => true,
@@ -37,11 +38,15 @@ export default function EntitySidebarSectionsTab({ properties, contextType, rend
         display: { ...DEFAULT_SIDEBAR_SECTION, ...sidebarSection.display },
     }));
 
+    const documentationFormsEnabled = useIsDocumentationFormsEnabled();
+
     return (
         <>
-            <SidebarFormContentWrapper>
-                <SidebarFormInfoWrapper />
-            </SidebarFormContentWrapper>
+            {documentationFormsEnabled && (
+                <SidebarFormContentWrapper>
+                    <SidebarFormInfoWrapper />
+                </SidebarFormContentWrapper>
+            )}
             <EntitySidebarSections
                 renderType={renderType}
                 contextType={contextType}

@@ -1,0 +1,5 @@
+on:
+  types: ["dataset"]
+  conditions:
+    - query: editableDatasetProperties.description
+      operation: exists

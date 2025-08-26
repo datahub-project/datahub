@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
@@ -46,11 +48,13 @@ public class IncidentServiceTest {
   private static final Urn TEST_NON_EXISTENT_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,non-existant,PROD)");
   private static final Urn TEST_USER_URN = UrnUtils.getUrn(SYSTEM_ACTOR);
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   @Test
   private void testGetIncidentInfo() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
-    final IncidentService service = new IncidentService(mockClient);
+    final IncidentService service =
+        new IncidentService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Case 1: Info exists
     IncidentInfo info = service.getIncidentInfo(mockOperationContext(), TEST_INCIDENT_URN);
@@ -76,7 +80,8 @@ public class IncidentServiceTest {
   @Test
   private void testGetIncidentsSummary() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
-    final IncidentService service = new IncidentService(mockClient);
+    final IncidentService service =
+        new IncidentService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Case 1: Summary exists
     IncidentsSummary summary =
@@ -103,8 +108,10 @@ public class IncidentServiceTest {
   @Test
   private void testUpdateIncidentsSummary() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
-    final IncidentService service = new IncidentService(mockClient);
-    service.updateIncidentsSummary(mockOperationContext(), TEST_DATASET_URN, mockIncidentSummary());
+    final IncidentService service =
+        new IncidentService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
+    service.updateIncidentsSummary(
+        mock(OperationContext.class), TEST_DATASET_URN, mockIncidentSummary());
     Mockito.verify(mockClient, Mockito.times(1))
         .ingestProposal(
             any(OperationContext.class), Mockito.eq(mockIncidentSummaryMcp()), Mockito.eq(false));
@@ -112,11 +119,12 @@ public class IncidentServiceTest {
 
   @Test
   private void testRaiseIncidentRequiredFields() throws Exception {
-    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    final IncidentService service = new IncidentService(mockClient);
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final IncidentService service =
+        new IncidentService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
     service.raiseIncident(
         mockOperationContext(),
-        IncidentType.OPERATIONAL,
+        IncidentType.FRESHNESS,
         null,
         null,
         null,
@@ -128,7 +136,7 @@ public class IncidentServiceTest {
 
     final IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.OPERATIONAL)
+            .setType(IncidentType.FRESHNESS)
             .setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)))
             .setStatus(
                 new IncidentStatus()
@@ -148,23 +156,24 @@ public class IncidentServiceTest {
 
   @Test
   private void testRaiseIncidentAllFields() throws Exception {
-    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    final IncidentService service = new IncidentService(mockClient);
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final IncidentService service =
+        new IncidentService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
     service.raiseIncident(
         mockOperationContext(),
-        IncidentType.OPERATIONAL,
+        IncidentType.FRESHNESS,
         "custom type",
         2,
         "title",
         "description",
         ImmutableList.of(TEST_DATASET_URN),
-        new IncidentSource().setType(IncidentSourceType.MANUAL),
+        new IncidentSource().setType(IncidentSourceType.ASSERTION_FAILURE),
         UrnUtils.getUrn(SYSTEM_ACTOR),
         "message");
 
     final IncidentInfo expectedInfo =
         new IncidentInfo()
-            .setType(IncidentType.OPERATIONAL)
+            .setType(IncidentType.FRESHNESS)
             .setCustomType("custom type")
             .setPriority(2)
             .setTitle("title")
@@ -175,7 +184,7 @@ public class IncidentServiceTest {
                     .setState(IncidentState.ACTIVE)
                     .setLastUpdated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN))
                     .setMessage("message"))
-            .setSource(new IncidentSource().setType(IncidentSourceType.MANUAL))
+            .setSource(new IncidentSource().setType(IncidentSourceType.ASSERTION_FAILURE))
             .setCreated(new AuditStamp().setTime(0L).setActor(TEST_USER_URN));
 
     Mockito.verify(mockClient, Mockito.times(1))
@@ -191,7 +200,8 @@ public class IncidentServiceTest {
   @Test
   private void testUpdateIncidentStatus() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
-    final IncidentService service = new IncidentService(mockClient);
+    final IncidentService service =
+        new IncidentService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
     service.updateIncidentStatus(
         mockOperationContext(),
         TEST_INCIDENT_URN,
@@ -218,8 +228,9 @@ public class IncidentServiceTest {
 
   @Test
   private void testDeleteIncident() throws Exception {
-    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    final IncidentService service = new IncidentService(mockClient);
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final IncidentService service =
+        new IncidentService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
     service.deleteIncident(mockOperationContext(), TEST_INCIDENT_URN);
     Mockito.verify(mockClient, Mockito.times(1))
         .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
@@ -294,7 +305,7 @@ public class IncidentServiceTest {
 
   private static IncidentInfo mockIncidentInfo() throws Exception {
     return new IncidentInfo()
-        .setType(IncidentType.OPERATIONAL)
+        .setType(IncidentType.FRESHNESS)
         .setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)))
         .setStatus(
             new IncidentStatus()

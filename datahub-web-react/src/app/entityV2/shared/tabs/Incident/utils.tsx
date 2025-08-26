@@ -558,3 +558,9 @@ export const useSiblingOptionsForIncidentBuilder = (
     });
     return optionsToAuthorOn;
 };
+
+export const buildIncidentUrlSearch = ({ urn, baseUrl }: { urn: string; baseUrl?: string }): string => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('incident_urn', urn);
+    return `${baseUrl}?${queryParams.toString()}`;
+};

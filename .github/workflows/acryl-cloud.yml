@@ -1,0 +1,90 @@
+name: Acryl Cloud
+on:
+  push:
+    branches:
+      - master
+      - releases/**
+    paths:
+      - ".github/workflows/acryl-cloud.yml"
+      - "metadata-ingestion-modules/acryl-cloud/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - ".github/workflows/acryl-cloud.yml"
+      - "metadata-ingestion-modules/acryl-cloud/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  acryl-cloud:
+    runs-on: depot-ubuntu-22.04
+    env:
+      DATAHUB_TELEMETRY_ENABLED: false
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+      fail-fast: false
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Install acryl-cloud package and test
+        run: ./gradlew :metadata-ingestion-modules:acryl-cloud:build
+      - name: pip freeze show list installed
+        if: always()
+        run: source metadata-ingestion-modules/acryl-cloud/venv/bin/activate && uv pip freeze
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && matrix.python-version == '3.11' }}
+        with:
+          name: Test Results (Acryl Cloud ${{ matrix.python-version}})
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+            !**/binary/**
+      - name: Upload coverage to Codecov with acryl-cloud flag
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-ingestion-modules/acryl-cloud/
+          fail_ci_if_error: false
+          flags: ingestion-acryl-cloud
+          name: pytest-acryl-cloud-${{ matrix.python-version }}
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+  event-file:
+    runs-on: depot-ubuntu-22.04-small
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

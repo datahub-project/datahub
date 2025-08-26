@@ -66,6 +66,8 @@ export class UserEntity implements Entity<CorpUser> {
     };
 
     displayName = (data: CorpUser) => {
+        if (data?.username === '__datahub_system') return 'Datahub System';
+
         return (
             data.editableProperties?.displayName ||
             data.properties?.displayName ||

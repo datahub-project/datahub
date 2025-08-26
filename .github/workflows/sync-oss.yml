@@ -1,0 +1,28 @@
+name: Sync acryl-main with OSS
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily at 4:35am PT.
+    - cron: "35 11 * * *"
+
+# permissions:
+#   contents: write
+#   pull-requests: write
+
+jobs:
+  create-pr:
+    runs-on: depot-ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # We need to fetch the full history so that merges work correctly.
+          fetch-depth: 0
+
+      - name: Set test version
+        shell: bash
+        run: ./.github/scripts/sync-oss.sh
+        env:
+          # PRs created by GitHub Actions don't trigger CI, so we need to use
+          # a PAT here instead.
+          GH_TOKEN: ${{ secrets.PAT_FOR_NIGHTLY_OSS_SYNC }}
+          SHOULD_MIRROR_MASTER: "false"

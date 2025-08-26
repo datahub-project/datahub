@@ -24,11 +24,14 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -238,6 +241,20 @@ public class EntitySearchServiceTest {
       return null;
     }
 
+    @Nonnull
+    @Override
+    public ScrollResult scroll(
+        @Nonnull OperationContext opContext,
+        @Nonnull List<String> entities,
+        @Nullable Filter filters,
+        List<SortCriterion> sortCriteria,
+        @Nullable Integer size,
+        @Nullable String scrollId,
+        @Nonnull String keepAliveDuration,
+        @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+      return null;
+    }
+
     @Override
     public AutoCompleteResult autoComplete(
         OperationContext opContext,
@@ -353,6 +370,34 @@ public class EntitySearchServiceTest {
     public @Nonnull Map<Urn, Map<String, Object>> raw(
         @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
       return Map.of();
+    }
+
+    @Nonnull
+    @Override
+    public SearchResult predicateSearch(
+        @Nonnull OperationContext opContext,
+        @Nonnull List<String> entityNames,
+        @Nonnull String input,
+        @Nullable Predicate predicateFilter,
+        @Nullable List<SortCriterion> sortCriteria,
+        int from,
+        @Nullable Integer size,
+        @Nonnull List<String> facets) {
+      return null;
+    }
+
+    @Nonnull
+    @Override
+    public ScrollResult predicateScroll(
+        @Nonnull OperationContext opContext,
+        @Nonnull Collection<String> entities,
+        @Nonnull String input,
+        @Nullable Predicate predicate,
+        List<SortCriterion> sortCriteria,
+        @Nullable String scrollId,
+        @Nullable String keepAlive,
+        @Nullable Integer size) {
+      return null;
     }
   }
 }

@@ -1,8 +1,8 @@
 import { ClockCircleOutlined, EyeOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { curveBasis } from '@visx/curve';
 import { Group } from '@visx/group';
 import { LinePath } from '@visx/shape';
-import { Tooltip } from 'antd';
 import dayjs from 'dayjs';
 import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 import React from 'react';

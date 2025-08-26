@@ -34,7 +34,7 @@ describe('Form', () => {
                             baseEntity: {},
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
-                            loading: true,
+                            loading: false,
                             lineage: undefined,
                             dataNotCombinedWithSiblings: null,
                         }}
@@ -61,7 +61,7 @@ describe('Form', () => {
                             baseEntity: {},
                             routeToTab: vi.fn(),
                             refetch: vi.fn(),
-                            loading: true,
+                            loading: false,
                             lineage: undefined,
                             dataNotCombinedWithSiblings: null,
                         }}

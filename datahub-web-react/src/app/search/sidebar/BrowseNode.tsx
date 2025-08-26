@@ -86,7 +86,7 @@ const BrowseNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
-                    isSelected={isBrowsePathSelected}
+                    $isSelected={isBrowsePathSelected}
                     onClick={onClickBrowseHeader}
                     data-testid={`browse-node-${displayName}`}
                 >

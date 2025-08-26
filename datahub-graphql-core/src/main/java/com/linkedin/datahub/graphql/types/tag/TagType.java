@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.tag;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -36,7 +37,6 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,7 +86,12 @@ public class TagType
     try {
       final Map<Urn, EntityResponse> tagMap =
           _entityClient.batchGetV2(
-              context.getOperationContext(), TAG_ENTITY_NAME, new HashSet<>(tagUrns), null);
+              context.getOperationContext(),
+              TAG_ENTITY_NAME,
+              tagUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
+              null);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : tagUrns) {

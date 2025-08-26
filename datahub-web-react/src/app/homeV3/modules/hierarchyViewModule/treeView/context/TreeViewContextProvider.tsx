@@ -17,6 +17,7 @@ export default function TreeViewContextProvider({
     selectedValues,
     expandedValues,
     updateExpandedValues,
+    onExpand,
     selectable,
     updateSelectedValues,
     loadChildren: loadAsyncChildren,
@@ -95,8 +96,9 @@ export default function TreeViewContextProvider({
             const newExpandedValues = [...internalExpandedValues, ...parentValues, node.value];
             setInternalExpandedValues(newExpandedValues);
             updateExpandedValues?.(newExpandedValues);
+            onExpand?.(node);
         },
-        [initialChildrenLoad, updateExpandedValues, valueToTreeNodeMap, internalExpandedValues],
+        [initialChildrenLoad, updateExpandedValues, onExpand, valueToTreeNodeMap, internalExpandedValues],
     );
 
     const collapse = useCallback(

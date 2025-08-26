@@ -14,6 +14,7 @@ import {
     AssertionType,
     FieldAssertionInfo,
     FieldAssertionType,
+    Monitor,
 } from '@types';
 
 /**
@@ -21,8 +22,11 @@ import {
  * @param runEvent
  * @returns {number | undefined}
  */
-export const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined => {
-    return tryGetPrimaryMetricValueFromAssertionRunEvent();
+export const tryGetYValueForChartFromAssertionRunEvent = (
+    runEvent: AssertionRunEvent,
+    maybeFallbackAssertionType?: AssertionType,
+): number | undefined => {
+    return tryGetPrimaryMetricValueFromAssertionRunEvent(runEvent, maybeFallbackAssertionType);
 };
 
 /**
@@ -30,7 +34,10 @@ export const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined 
  * @param runEvents
  * @returns {AssertionDataPoint[]}
  */
-export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
+export const getAssertionDataPointsFromRunEvents = (
+    runEvents: AssertionRunEvent[],
+    maybeFallbackAssertionType?: AssertionType,
+): AssertionDataPoint[] => {
     return (
         runEvents
             .filter((runEvent) => !!runEvent.result)
@@ -48,7 +55,7 @@ export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent
                     result: {
                         type: result.type,
                         resultUrl,
-                        yValue: tryGetYValueForChartFromAssertionRunEvent(),
+                        yValue: tryGetYValueForChartFromAssertionRunEvent(runEvent, maybeFallbackAssertionType),
                     },
                     relatedRunEvent: runEvent,
                 };
@@ -114,20 +121,26 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
 /**
  * Gets all the data necessary to plot assertion and its run events on viz charts
  * @param assertion
+ * @param monitor
  * @param completedRuns
  * @returns {AssertionResultChartData}
  */
 export const getAssertionResultChartData = (
     assertion: Assertion,
     completedRuns: AssertionRunEvent[],
+    monitor?: Monitor,
 ): AssertionResultChartData => {
-    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(completedRuns);
+    const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(
+        completedRuns,
+        assertion.info?.type,
+    );
     const maybeYAxisLabel: string | undefined = tryGetYAxisLabelForChartFromAssertionInfo(assertion.info);
     return {
         dataPoints: timelineDataPoints,
         yAxisLabel: maybeYAxisLabel,
         context: {
             assertion,
+            monitor,
         },
     };
 };

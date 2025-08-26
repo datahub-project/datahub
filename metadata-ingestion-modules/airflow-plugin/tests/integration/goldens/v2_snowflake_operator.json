@@ -301,18 +301,18 @@
                 "max_tries": "0",
                 "external_executor_id": "None",
                 "state": "running",
-                "operator": "SnowflakeOperator",
+                "operator": "SQLExecuteQueryOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
+                "log_url": "http://airflow.example.com/dags/snowflake_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&base_date=2023-09-27T21%3A34%3A38.000000%2B0000&tab=logs",
                 "orchestrator": "airflow",
                 "dag_id": "snowflake_operator",
                 "task_id": "transform_cost_table"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=transform_cost_table&dag_id=snowflake_operator&map_index=-1",
+            "externalUrl": "http://airflow.example.com/dags/snowflake_operator/grid?dag_run_id=manual_run_test&task_id=transform_cost_table&base_date=2023-09-27T21%3A34%3A38.000000%2B0000&tab=logs",
             "name": "snowflake_operator_transform_cost_table_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1743622231790,
+                "time": 1749681756921,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -389,7 +389,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1743622231790,
+            "timestampMillis": 1749681756921,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -406,14 +406,14 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1743622232275,
+            "timestampMillis": 1749681757248,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
             "actor": "urn:li:corpuser:airflow",
             "operationType": "CREATE",
-            "lastUpdatedTimestamp": 1743622232275
+            "lastUpdatedTimestamp": 1749681757248
         }
     }
 },
@@ -602,7 +602,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1743622232362,
+            "timestampMillis": 1749681757264,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"

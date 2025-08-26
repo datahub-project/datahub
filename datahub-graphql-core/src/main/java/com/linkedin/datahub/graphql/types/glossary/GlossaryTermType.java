@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -32,7 +33,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,7 +60,9 @@ public class GlossaryTermType
           DEPRECATION_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          SHARE_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -94,7 +96,9 @@ public class GlossaryTermType
           _entityClient.batchGetV2(
               context.getOperationContext(),
               GLOSSARY_TERM_ENTITY_NAME,
-              new HashSet<>(glossaryTermUrns),
+              glossaryTermUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());

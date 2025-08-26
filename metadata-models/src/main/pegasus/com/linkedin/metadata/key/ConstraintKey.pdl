@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Constraint
+ */
+@Aspect = {
+  "name": "constraintKey"
+}
+record ConstraintKey {
+  id: string
+}

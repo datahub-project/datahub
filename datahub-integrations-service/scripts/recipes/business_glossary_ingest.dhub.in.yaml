@@ -1,0 +1,4 @@
+source:
+  type: datahub-business-glossary
+  config:
+    file: ./classification_glossary.yaml

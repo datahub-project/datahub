@@ -1,4 +1,5 @@
-import { Col, Pagination, Row, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Col, Pagination, Row } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';

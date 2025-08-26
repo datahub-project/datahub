@@ -20,6 +20,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -131,6 +132,38 @@ public class AuthorizationUtils {
     return isAuthorized(context, CORP_GROUP_ENTITY_NAME, groupUrnStr, orPrivilegeGroups);
   }
 
+  public static boolean canManageGroupNotificationSettings(
+      @Nonnull String groupUrnStr, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        PoliciesConfig.MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, CORP_GROUP_ENTITY_NAME, groupUrnStr, orPrivilegeGroups);
+  }
+
+  public static boolean canManageUserSubscriptions(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_USER_SUBSCRIPTIONS_PRIVILEGE);
+  }
+
+  public static boolean canManageGroupSubscriptions(
+      @Nonnull String groupUrnStr, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        PoliciesConfig.MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE.getType()))));
+
+    return isAuthorized(context, CORP_GROUP_ENTITY_NAME, groupUrnStr, orPrivilegeGroups);
+  }
+
   public static boolean canCreateGlobalAnnouncements(@Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
         new DisjunctivePrivilegeGroup(
@@ -159,7 +192,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
   }
 
-  public static boolean canEditProperties(@Nonnull Urn targetUrn, @Nonnull QueryContext context) {
+  public static boolean canEditProperties(
+      @Nonnull Urn targetUrn, @Nonnull QueryContext context, String subResource) {
+
+    Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -167,7 +204,10 @@ public class AuthorizationUtils {
             ImmutableList.of(
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.EDIT_DATASET_COL_PROPERTIES_PRIVILEGE.getType()
+                            : PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
@@ -346,6 +386,20 @@ public class AuthorizationUtils {
     }
   }
 
+  public static boolean canShareEntity(Urn urn, QueryContext context) {
+    final ConjunctivePrivilegeGroup allPrivilegesGroup =
+        new ConjunctivePrivilegeGroup(
+            ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+    DisjunctivePrivilegeGroup orPrivilegesGroup =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                allPrivilegesGroup,
+                new ConjunctivePrivilegeGroup(
+                    Collections.singletonList(PoliciesConfig.SHARE_ENTITY_PRIVILEGE.getType()))));
+
+    return isAuthorized(context, urn.getEntityType(), urn.toString(), orPrivilegesGroup);
+  }
+
   public static boolean canManageStructuredProperties(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
@@ -361,6 +415,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
   }
 
+  public static boolean canViewForms(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.VIEW_DOCUMENTATION_FORMS_PAGE_PRIVILEGE);
+  }
+
   public static boolean canManageFeatures(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
@@ -369,6 +428,11 @@ public class AuthorizationUtils {
   public static boolean canManageHomePageTemplates(@Nonnull QueryContext context) {
     return AuthUtil.isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
+  }
+
+  public static boolean canManageOrganizationDisplayPreferences(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_ORGANIZATION_DISPLAY_PREFERENCES);
   }
 
   public static boolean isAuthorized(
@@ -417,6 +481,21 @@ public class AuthorizationUtils {
         context.getOperationContext(),
         PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
         new EntitySpec(resourceUrn.getEntityType(), resourceUrn.toString()));
+  }
+
+  public static boolean canManageIngestion(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(INGESTION_SOURCE_ENTITY_NAME));
+  }
+
+  public static boolean canManageActionPipelines(@Nonnull QueryContext context) {
+    // TODO: add a dedicated permission for this
+    return canManageIngestion(context);
+  }
+
+  public static boolean canManageSecrets(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(SECRETS_ENTITY_NAME));
   }
 
   private AuthorizationUtils() {}

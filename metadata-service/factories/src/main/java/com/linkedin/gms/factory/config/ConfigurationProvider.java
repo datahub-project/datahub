@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.config;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -32,4 +33,7 @@ public class ConfigurationProvider extends DataHubAppConfiguration {
 
   /** Enable/disable DataHub analytics */
   private PlatformAnalyticsConfiguration platformAnalytics;
+
+  /** Remote Executor Configuration */
+  private ExecutorConfiguration executorConfiguration;
 }

@@ -25,7 +25,9 @@ export const DatasetStatsSummarySubHeader = () => {
     const sizeInBytes = maybeLastProfile?.sizeInBytes;
     const totalSqlQueries = dataset?.usageStats?.aggregations?.totalSqlQueries;
     const queryCountLast30Days = maybeStatsSummary?.queryCountLast30Days;
+    const queryCountPercentileLast30Days = maybeStatsSummary?.queryCountPercentileLast30Days;
     const uniqueUserCountLast30Days = maybeStatsSummary?.uniqueUserCountLast30Days;
+    const uniqueUserPercentileLast30Days = maybeStatsSummary?.uniqueUserPercentileLast30Days;
 
     const lastUpdatedMs = maybeLastOperation?.lastUpdatedTimestamp;
 
@@ -40,7 +42,9 @@ export const DatasetStatsSummarySubHeader = () => {
             sizeInBytes={sizeInBytes}
             totalSqlQueries={totalSqlQueries}
             queryCountLast30Days={queryCountLast30Days}
+            queryCountPercentileLast30Days={queryCountPercentileLast30Days}
             uniqueUserCountLast30Days={uniqueUserCountLast30Days}
+            uniqueUserPercentileLast30Days={uniqueUserPercentileLast30Days}
             lastUpdatedMs={lastUpdatedMs}
             platformName={platformName}
             platformLogoUrl={platformLogoUrl}

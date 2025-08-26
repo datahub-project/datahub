@@ -52,6 +52,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
 import com.linkedin.metadata.dao.throttle.ThrottleControl;
@@ -177,6 +178,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
 
+  private final Map<String, Boolean> applySyncMclForSources;
+
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
 
@@ -192,7 +195,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         alwaysEmitChangeLog,
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
-        enableBrowsePathV2);
+        enableBrowsePathV2,
+        EntityServiceConfiguration.EMPTY);
   }
 
   public EntityServiceImpl(
@@ -201,7 +205,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       final boolean alwaysEmitChangeLog,
       final PreProcessHooks preProcessHooks,
       @Nullable final Integer retry,
-      final boolean enableBrowseV2) {
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        preProcessHooks,
+        retry,
+        enableBrowsePathV2,
+        EntityServiceConfiguration.EMPTY);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
+      final boolean enableBrowseV2,
+      @Nonnull final EntityServiceConfiguration entityServiceConfiguration) {
 
     this.aspectDao = aspectDao;
     this.producer = producer;
@@ -209,6 +231,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     this.preProcessHooks = preProcessHooks;
     ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
     this.enableBrowseV2 = enableBrowseV2;
+
+    if ((entityServiceConfiguration != null)
+        && (entityServiceConfiguration.getApplyMclSyncForSources() != null)) {
+      this.applySyncMclForSources = entityServiceConfiguration.getApplyMclSyncForSources();
+    } else {
+      this.applySyncMclForSources = Collections.emptyMap();
+    }
   }
 
   /**
@@ -436,7 +465,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final Optional<EntityAspect> maybeAspect = Optional.ofNullable(aspectDao.getAspect(primaryKey));
 
     return Pair.of(
-        EntityUtils.toSystemAspect(opContext.getRetrieverContext(), maybeAspect.orElse(null), false)
+        EntityUtils.toSystemAspect(opContext.getRetrieverContext(), maybeAspect.orElse(null))
             .map(SystemAspect::getRecordTemplate)
             .orElse(null),
         version);
@@ -1441,6 +1470,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), true);
 
           // Create default non-timeseries aspects for timeseries aspects
+          // TODO: Assuming custom unvalidated aspects are non-timeseries.
+          //  Might need better handling with mutator occurring before this
           List<MCPItem> timeseriesKeyAspects =
               aspectsBatch.getMCPItems().stream()
                   .filter(
@@ -1478,6 +1509,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           }
 
           // Emit timeseries MCLs
+          // TODO: Assuming custom unvalidated aspects are non-timeseries.
+          //  Might need better handling with mutator occurring before this
           List<Pair<MCPItem, Optional<Pair<Future<?>, Boolean>>>> timeseriesResults =
               aspectsBatch.getItems().stream()
                   .filter(
@@ -1547,6 +1580,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return opContext.withSpan(
         "ingestProposalAsync",
         () -> {
+          // TODO: Assuming custom unvalidated aspects are non-timeseries. Might need better
+          // handling with
+          // mutator occurring before this
           List<? extends MCPItem> nonTimeseries =
               aspectsBatch.getMCPItems().stream()
                   .filter(
@@ -1599,7 +1635,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .retrieverContext(aspectsBatch.getRetrieverContext())
                   .items(
                       aspectsBatch.getItems().stream()
-                          .filter(item -> !item.getAspectSpec().isTimeseries())
+                          .filter(
+                              item ->
+                                  item.getAspectSpec() != null
+                                      && !item.getAspectSpec().isTimeseries())
                           .collect(Collectors.toList()))
                   .build(opContext);
 
@@ -2038,7 +2077,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
-      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     return opContext.withSpan(
         "alwaysProduceMCLAsync",
@@ -2715,8 +2754,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         (EntityAspect.EntitySystemAspect)
                             EntityUtils.toSystemAspect(
                                     opContext.getRetrieverContext(),
-                                    aspectDao.getAspect(urn, aspectName, maxVersion),
-                                    true)
+                                    aspectDao.getAspect(urn, aspectName, maxVersion))
                                 .orElse(null);
                     SystemMetadata previousSysMetadata =
                         candidateAspect != null ? candidateAspect.getSystemMetadata() : null;

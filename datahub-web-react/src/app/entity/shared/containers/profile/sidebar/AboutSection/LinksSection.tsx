@@ -4,6 +4,8 @@ import styled from 'styled-components';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entity/shared/components/styled/AddLinkModal';
 import LinkButton from '@app/entity/shared/containers/profile/sidebar/LinkButton';
+import LinkPreview from '@app/integration/LinkPreview';
+import { shouldTryLinkPreview } from '@app/integration/linkPreviews';
 
 const AddLinksWrapper = styled.div`
     margin-left: -15px;
@@ -23,7 +25,10 @@ export default function LinksSection({ hideLinksButton, readOnly }: Props) {
     return (
         <>
             {links.map((link) => (
-                <LinkButton link={link} />
+                <>
+                    <LinkButton link={link} />
+                    {shouldTryLinkPreview(link.url) && <LinkPreview link={link} />}
+                </>
             ))}
             {!readOnly && !hideLinksButton && (
                 <AddLinksWrapper>

@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
@@ -25,6 +26,7 @@ import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.ml.metadata.MLTrainingRunProperties;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -69,6 +71,11 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     Urn entityUrn = entityResponse.getUrn();
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataProcessInstance> mappingHelper = new MappingHelper<>(aspectMap, result);
+    mappingHelper.mapToResult(
+        LINEAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLineageFeatures(
+                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
     mappingHelper.mapToResult(
         DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
         (dataProcessInstance, dataMap) ->

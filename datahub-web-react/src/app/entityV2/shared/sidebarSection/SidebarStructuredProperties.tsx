@@ -6,25 +6,20 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getSidebarStructuredPropertiesOrFilters } from '@app/entityV2/shared/sidebarSection/utils';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { useGetProposedProperties } from '@app/entityV2/shared/tabs/Properties/useGetProposedProperties';
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
+import ProposalModal from '@app/shared/tags/ProposalModal';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import {
-    getDisplayName,
-    getEntityTypesPropertyFilter,
-    getNotHiddenPropertyFilter,
-    getPropertyRowFromSearchResult,
-} from '@src/app/govern/structuredProperties/utils';
-import {
-    SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
-    SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
-} from '@src/app/searchV2/utils/constants';
+import { getDisplayName, getPropertyRowFromSearchResult } from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
+    ActionRequest,
     EntityType,
     Maybe,
     SchemaFieldEntity,
@@ -46,31 +41,30 @@ interface Props {
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
-    const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+    const canEditProps =
+        !!entityData?.parent?.privileges?.canEditProperties || !!entityData?.privileges?.canEditProperties;
+    const canProposeProps =
+        !!entityData?.parent?.privileges?.canProposeStructuredProperties ||
+        !!entityData?.privileges?.canProposeStructuredProperties;
+    const canEditSchemaFieldProps =
+        !!entityData?.parent?.privileges?.canEditSchemaFieldStructuredProperties ||
+        !!entityData?.privileges?.canEditSchemaFieldStructuredProperties;
+    const canProposeSchemaFieldProps =
+        !!entityData?.parent?.privileges?.canProposeSchemaFieldStructuredProperties ||
+        !!entityData?.privileges?.canProposeSchemaFieldStructuredProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
 
+    const orFilters = getSidebarStructuredPropertiesOrFilters(isSchemaSidebar, entityRegistry, entityType);
     const inputs = {
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
         count: 50,
         searchFlags: { skipCache: true },
-        orFilters: [
-            {
-                and: [
-                    getEntityTypesPropertyFilter(entityRegistry, isSchemaSidebar, entityType),
-                    getNotHiddenPropertyFilter(),
-                    {
-                        field: isSchemaSidebar
-                            ? SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME
-                            : SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
-                        values: ['true'],
-                    },
-                ],
-            },
-        ],
+        orFilters,
     };
 
     // Execute search
@@ -87,25 +81,53 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         ? properties?.fieldEntity?.structuredProperties
         : entityData?.structuredProperties;
 
+    const { proposedRows } = useGetProposedProperties({
+        fieldPath: properties?.fieldEntity?.fieldPath,
+    });
+
     const selectedPropertyValues = selectedProperty
         ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
         : undefined;
 
-    const uniqueEntityUrnsToHydrate = entityTypeProperties?.flatMap((property) => {
-        const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
-        const values = propertyRow?.values;
-        return values?.map((value) => value?.entity?.urn);
-    });
+    const uniqueEntityUrnsToHydrate =
+        entityTypeProperties
+            ?.flatMap((property) => {
+                const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
+                const values = propertyRow?.values;
+                if (!values) return [];
+                return values?.map((value) => value?.entity?.urn);
+            })
+            .filter(Boolean) ?? [];
 
-    const hydratedEntityMap = useHydratedEntityMap(uniqueEntityUrnsToHydrate);
+    const proposedEntityUrns = proposedRows
+        .flatMap((row) => {
+            const { values } = row;
+            return values?.map((value) => value.entity?.urn);
+        })
+        .filter(Boolean);
+
+    const hydratedEntityMap = useHydratedEntityMap(uniqueEntityUrnsToHydrate?.concat(proposedEntityUrns));
 
     return (
         <>
             {entityTypeProperties?.map((property) => {
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
-                const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
                 const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
+                const proposedPropRows = proposedRows.filter(
+                    (row) => row.structuredProperty?.urn === property.entity.urn,
+                );
+
+                const isRichText =
+                    propertyRow?.dataType?.info?.type === StdDataType.RichText ||
+                    proposedPropRows[0]?.dataType?.info?.type === StdDataType.RichText;
+
+                const proposedValues = proposedPropRows.flatMap((row) =>
+                    (row.values || []).map((value) => ({
+                        value,
+                        request: row.request,
+                    })),
+                );
 
                 return (
                     <>
@@ -114,7 +136,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                             key={property.entity.urn}
                             content={
                                 <>
-                                    {values ? (
+                                    {values && (
                                         <>
                                             {values.map((val) => (
                                                 <StructuredPropertyValue
@@ -124,7 +146,35 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                                 />
                                             ))}
                                         </>
-                                    ) : (
+                                    )}
+                                    {proposedValues.length > 0 && (
+                                        <>
+                                            {proposedValues.map((val) => (
+                                                <span
+                                                    // eslint needs keyboard listener for non-interactive elements
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => {
+                                                        setSelectedActionRequest(val.request);
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            setSelectedActionRequest(val.request);
+                                                        }
+                                                    }}
+                                                >
+                                                    <StructuredPropertyValue
+                                                        value={val.value}
+                                                        isRichText={isRichText}
+                                                        hydratedEntityMap={hydratedEntityMap}
+                                                        isProposed
+                                                    />
+                                                </span>
+                                            ))}
+                                        </>
+                                    )}
+                                    {!values && proposedValues.length === 0 && (
                                         <EmptySectionText message={EMPTY_MESSAGES.structuredProps.title} />
                                     )}
                                 </>
@@ -138,7 +188,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                             setIsPropModalVisible(true);
                                             event.stopPropagation();
                                         }}
-                                        actionPrivilege={!!canEditProps}
+                                        actionPrivilege={canEditProps || canProposeProps}
                                         dataTestId={`${propertyName}-add-or-edit-button`}
                                     />
                                 </>
@@ -161,6 +211,17 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                     values={selectedPropertyValues?.map((val) => val.value)}
                     refetch={isSchemaSidebar ? properties?.refetch : undefined}
                     associatedUrn={isSchemaSidebar ? properties?.fieldEntity?.urn : undefined}
+                    fieldEntity={isSchemaSidebar ? properties?.fieldEntity : undefined}
+                    canEdit={isSchemaSidebar ? canEditSchemaFieldProps : canEditProps}
+                    canPropose={isSchemaSidebar ? canProposeSchemaFieldProps : canProposeProps}
+                />
+            )}
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                    refetch={isSchemaSidebar ? properties?.refetch : undefined}
                 />
             )}
         </>

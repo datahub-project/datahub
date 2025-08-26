@@ -1,12 +1,13 @@
 import React from 'react';
 
 import EntityRegistryProvider from '@app/EntityRegistryProvider';
+import GlobalSettingsContextProvider from '@app/context/GlobalSettings/GlobalSettingsContextProvider';
 import GlobalSettingsProvider from '@app/context/GlobalSettingsProvider';
 import UserContextProvider from '@app/context/UserContextProvider';
 import { NavBarProvider } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import HomePageProvider from '@app/homeV3/context/HomePageProvider';
+import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import SearchContextProvider from '@app/search/context/SearchContextProvider';
-import { BrowserTitleProvider } from '@app/shared/BrowserTabTitleContext';
 import { EducationStepsProvider } from '@providers/EducationStepsProvider';
 import QuickFiltersProvider from '@providers/QuickFiltersProvider';
 import AppConfigProvider from '@src/AppConfigProvider';
@@ -17,24 +18,26 @@ interface Props {
 
 export default function AppProviders({ children }: Props) {
     return (
-        <AppConfigProvider>
-            <GlobalSettingsProvider>
-                <UserContextProvider>
-                    <EntityRegistryProvider>
-                        <BrowserTitleProvider>
+        <GlobalSettingsContextProvider>
+            <AppConfigProvider>
+                <GlobalSettingsProvider>
+                    <UserContextProvider>
+                        <EntityRegistryProvider>
                             <EducationStepsProvider>
-                                <QuickFiltersProvider>
-                                    <SearchContextProvider>
-                                        <HomePageProvider>
-                                            <NavBarProvider>{children}</NavBarProvider>
-                                        </HomePageProvider>
-                                    </SearchContextProvider>
-                                </QuickFiltersProvider>
+                                <OnboardingTourProvider>
+                                    <QuickFiltersProvider>
+                                        <SearchContextProvider>
+                                            <HomePageProvider>
+                                                <NavBarProvider>{children}</NavBarProvider>
+                                            </HomePageProvider>
+                                        </SearchContextProvider>
+                                    </QuickFiltersProvider>
+                                </OnboardingTourProvider>
                             </EducationStepsProvider>
-                        </BrowserTitleProvider>
-                    </EntityRegistryProvider>
-                </UserContextProvider>
-            </GlobalSettingsProvider>
-        </AppConfigProvider>
+                        </EntityRegistryProvider>
+                    </UserContextProvider>
+                </GlobalSettingsProvider>
+            </AppConfigProvider>
+        </GlobalSettingsContextProvider>
     );
 }

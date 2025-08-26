@@ -13,10 +13,10 @@ import {
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
 import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
-import StatsSidebarView from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import StatsSidebarView from '@src/app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
 import { TabRenderType } from '@src/app/entityV2/shared/types';
 
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
@@ -223,6 +223,7 @@ export default function SchemaFieldDrawer({
                 fieldPath: expandedField?.fieldPath,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
                 fieldProperties: expandedField?.schemaFieldEntity?.structuredProperties,
+                fieldEntity: expandedField?.schemaFieldEntity,
                 refetch,
             },
         },
@@ -247,7 +248,7 @@ export default function SchemaFieldDrawer({
                     closable={false}
                 >
                     {expandedField && (
-                        <DrawerContent>
+                        <DrawerContent data-testid="schema-field-drawer-content">
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}

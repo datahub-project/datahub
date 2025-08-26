@@ -60,6 +60,16 @@ public class SendMAEStep implements UpgradeStep {
     }
   }
 
+  @Override
+  public boolean skip(UpgradeContext context) {
+    if (Boolean.parseBoolean(System.getenv(RestoreIndices.RESTORE_FROM_PARQUET))) {
+      // If we're restoring from Parquet, we don't also want to restore from SQL
+      return true;
+    }
+
+    return false;
+  }
+
   public SendMAEStep(final Database server, final EntityService<?> entityService) {
     _server = server;
     _entityService = entityService;

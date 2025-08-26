@@ -9,6 +9,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -20,10 +21,13 @@ public class TopTermsCandidateSourceFactory {
   @Qualifier("entitySearchService")
   private EntitySearchService entitySearchService;
 
+  @Value("${recommendationService.topTerms.offline}")
+  private Boolean fetchOffline;
+
   @Bean(name = "topTermsCandidateSource")
   @Nonnull
   protected TopTermsSource getInstance(
       final EntityService<?> entityService, final EntityRegistry entityRegistry) {
-    return new TopTermsSource(entitySearchService, entityService, entityRegistry);
+    return new TopTermsSource(entitySearchService, entityService, entityRegistry, fetchOffline);
   }
 }

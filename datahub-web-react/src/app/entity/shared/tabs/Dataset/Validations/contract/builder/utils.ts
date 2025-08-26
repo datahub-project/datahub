@@ -3,7 +3,7 @@ import {
     DataContractCategoryType,
 } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
 
-import { DataContract } from '@types';
+import { DataContract, DataContractProposalOperationType } from '@types';
 
 /**
  * Creates a builder state instance from a Data Contract object.
@@ -34,6 +34,25 @@ export const createBuilderState = (contract?: DataContract | null): DataContract
 export const buildUpsertDataContractMutationVariables = (entityUrn: string, state: DataContractBuilderState) => {
     return {
         input: {
+            entityUrn,
+            freshness: (state.freshness && [state.freshness]) || [],
+            schema: (state.schema && [state.schema]) || [],
+            dataQuality: state.dataQuality || [],
+        },
+    };
+};
+
+/**
+ * Constructs the input variables required for proposing a data contract using graphql
+ */
+export const buildProposeDataContractMutationVariables = (
+    operationType: DataContractProposalOperationType,
+    entityUrn: string,
+    state: DataContractBuilderState,
+) => {
+    return {
+        input: {
+            operationType,
             entityUrn,
             freshness: (state.freshness && [state.freshness]) || [],
             schema: (state.schema && [state.schema]) || [],

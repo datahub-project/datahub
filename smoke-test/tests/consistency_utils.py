@@ -40,6 +40,7 @@ def wait_for_writes_to_sync(
     start_time = time.time()
     # get offsets
     lag_zero = False
+    lag_values = []
     while not lag_zero and (time.time() - start_time) < max_timeout_in_sec:
         time.sleep(1)  # micro-sleep
 

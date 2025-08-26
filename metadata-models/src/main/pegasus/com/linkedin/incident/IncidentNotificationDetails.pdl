@@ -1,0 +1,15 @@
+namespace com.linkedin.incident
+
+
+/**
+ * Information about the notification context for an incident (where we notified)
+ */
+@Aspect = {
+  "name": "incidentNotificationDetails"
+}
+record IncidentNotificationDetails {
+    /**
+    * Details related to Slack.
+    */
+    slack: optional SlackIncidentDetails
+}

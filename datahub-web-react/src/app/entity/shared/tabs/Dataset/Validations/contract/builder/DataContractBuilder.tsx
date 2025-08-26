@@ -1,22 +1,31 @@
+import { Tooltip } from '@components';
 import { Button, message } from 'antd';
 import lodash from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import {
+    AssertionWithMonitorDetails,
+    createAssertionGroups,
+    tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
+} from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import { DataContractAssertionGroupSelect } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
 import {
     DEFAULT_BUILDER_STATE,
     DataContractBuilderState,
     DataContractCategoryType,
 } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
-import { buildUpsertDataContractMutationVariables } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/utils';
+import {
+    buildProposeDataContractMutationVariables,
+    buildUpsertDataContractMutationVariables,
+} from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/utils';
 import { DATA_QUALITY_ASSERTION_TYPES } from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
-import { createAssertionGroups } from '@app/entity/shared/tabs/Dataset/Validations/utils';
 
-import { useUpsertDataContractMutation } from '@graphql/contract.generated';
-import { useGetDatasetAssertionsQuery } from '@graphql/dataset.generated';
-import { Assertion, AssertionType, DataContract } from '@types';
+import { useProposeDataContractMutation, useUpsertDataContractMutation } from '@graphql/contract.generated';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
+import { ActionRequestType, AssertionType, DataContract, DataContractProposalOperationType, EntityType } from '@types';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};
@@ -38,6 +47,10 @@ const CancelButton = styled(Button)`
     margin-left: 12px;
 `;
 
+const ProposeButton = styled(Button)`
+    margin-right: 12px;
+`;
+
 const SaveButton = styled(Button)`
     margin-right: 20px;
 `;
@@ -46,7 +59,9 @@ type Props = {
     entityUrn: string;
     initialState?: DataContractBuilderState;
     onSubmit?: (contract: DataContract) => void;
+    onPropose?: () => void;
     onCancel?: () => void;
+    entityType?: EntityType;
 };
 
 /**
@@ -54,19 +69,20 @@ type Props = {
  *
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
-export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
+export const DataContractBuilder = ({ entityUrn, entityType, initialState, onSubmit, onPropose, onCancel }: Props) => {
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
+    const [proposeDataContractMutation] = useProposeDataContractMutation();
 
     // note that for contracts, we do not allow the use of sibling node assertions, for clarity.
-    const { data } = useGetDatasetAssertionsQuery({
+    const { data: assertionData } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
     });
-    const assertionData = data?.dataset?.assertions?.assertions ?? [];
-
-    const assertionGroups = createAssertionGroups(assertionData as Array<Assertion>);
+    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
+        tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(assertionData) ?? [];
+    const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
     const freshnessAssertions =
         assertionGroups.find((group) => group.type === AssertionType.Freshness)?.assertions || [];
     const schemaAssertions = assertionGroups.find((group) => group.type === AssertionType.DataSchema)?.assertions || [];
@@ -93,6 +109,39 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
             .catch(() => {
                 message.destroy();
                 message.error({ content: 'Failed to create Data Contract! An unexpected error occurred' });
+            });
+    };
+
+    /**
+     * Proposes the upsert to the Data Contract for an entity
+     */
+    const proposeUpsertDataContract = () => {
+        return proposeDataContractMutation({
+            variables: buildProposeDataContractMutationVariables(
+                DataContractProposalOperationType.Overwrite,
+                entityUrn,
+                builderState,
+            ),
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.EntityActionEvent,
+                        actionType: EntityActionType.ProposalCreated,
+                        actionQualifier: ActionRequestType.DataContract,
+                        entityType,
+                        entityUrn,
+                    });
+                    message.success({
+                        content: `Proposed Data Contract!`,
+                        duration: 3,
+                    });
+                    onPropose?.();
+                }
+            })
+            .catch(() => {
+                message.destroy();
+                message.error({ content: 'Failed to propose Data Contract! An unexpected error occurred' });
             });
     };
 
@@ -172,6 +221,11 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
             <ActionContainer>
                 <CancelButton onClick={onCancel}>Cancel</CancelButton>
                 <div>
+                    <Tooltip title="Propose changes to this asset's contract">
+                        <ProposeButton disabled={editDisabled} onClick={proposeUpsertDataContract}>
+                            Propose
+                        </ProposeButton>
+                    </Tooltip>
                     <SaveButton disabled={editDisabled} type="primary" onClick={upsertDataContract}>
                         Save
                     </SaveButton>

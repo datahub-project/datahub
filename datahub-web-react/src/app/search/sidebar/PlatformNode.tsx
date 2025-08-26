@@ -89,7 +89,7 @@ const PlatformNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
-                    isSelected={isPlatformOnlySelected}
+                    $isSelected={isPlatformOnlySelected}
                     showBorder
                     onClick={onClickHeader}
                 >

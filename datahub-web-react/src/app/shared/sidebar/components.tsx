@@ -10,6 +10,8 @@ export const SidebarWrapper = styled.div<{ width: number }>`
     width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
     display: ${(props) => (props.width ? 'block' : 'none')};
+    background-color: #fff;
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
 `;

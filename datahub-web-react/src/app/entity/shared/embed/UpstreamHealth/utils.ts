@@ -1,54 +1,4 @@
-import { Dataset, Entity, EntityType } from '@types';
-
-function getAssertionsSummary(dataset: Dataset) {
-    let numAssertionsFailing = 0;
-    let numAssertionsPassing = 0;
-
-    dataset.assertions?.assertions?.forEach((assertion) => {
-        const totalRunEvents = assertion.runEvents?.total;
-        if (totalRunEvents) {
-            const failingForDataset = assertion.runEvents?.failed;
-            if (failingForDataset) {
-                numAssertionsFailing += 1;
-            } else {
-                numAssertionsPassing += 1;
-            }
-        }
-    });
-
-    return { numAssertionsPassing, numAssertionsFailing };
-}
-
-export interface UpstreamSummary {
-    passingUpstreams: number;
-    failingUpstreams: number;
-    datasetsWithFailingAssertions: Dataset[];
-}
-
-export function extractUpstreamSummary(upstreams: Entity[]) {
-    let passingUpstreams = 0;
-    let failingUpstreams = 0;
-    const datasetsWithFailingAssertions = new Set<Dataset>();
-
-    upstreams.forEach((entity) => {
-        if (entity.type === EntityType.Dataset) {
-            const { numAssertionsPassing, numAssertionsFailing } = getAssertionsSummary(entity as Dataset);
-
-            if (numAssertionsFailing) {
-                failingUpstreams += 1;
-                datasetsWithFailingAssertions.add(entity as Dataset);
-            } else if (numAssertionsPassing) {
-                passingUpstreams += 1;
-            }
-        }
-    });
-
-    return {
-        failingUpstreams,
-        passingUpstreams,
-        datasetsWithFailingAssertions: Array.from(datasetsWithFailingAssertions),
-    };
-}
+import { Dataset, EntityType, FilterOperator, LineageDirection } from '@types';
 
 export function getNumAssertionsFailing(dataset: Dataset) {
     let numFailing = 0;
@@ -60,4 +10,53 @@ export function getNumAssertionsFailing(dataset: Dataset) {
     });
 
     return numFailing;
+}
+
+export const DATASET_COUNT = 5;
+
+interface Arguments {
+    urn: string;
+    startTimeMillis: number | null;
+    filterField: string;
+    start: number;
+    includeAssertions: boolean;
+    includeIncidents: boolean;
+    skip?: boolean;
+    count?: number;
+}
+
+export function generateQueryVariables({
+    urn,
+    startTimeMillis,
+    filterField,
+    start,
+    includeAssertions,
+    includeIncidents,
+    skip,
+    count,
+}: Arguments) {
+    return {
+        skip,
+        variables: {
+            input: {
+                urn,
+                startTimeMillis,
+                query: '*',
+                types: [EntityType.Dataset],
+                start,
+                count: count !== undefined ? count : DATASET_COUNT,
+                direction: LineageDirection.Upstream,
+                orFilters: [
+                    {
+                        and: [
+                            { field: 'degree', condition: FilterOperator.Equal, values: ['1', '2', '3+'] },
+                            { field: filterField, condition: FilterOperator.Equal, values: ['true'] },
+                        ],
+                    },
+                ],
+            },
+            includeAssertions,
+            includeIncidents,
+        },
+    };
 }

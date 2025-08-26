@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useLocation, useParams } from 'react-router';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import useSortInput from '@app/search/sorting/useSortInput';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
@@ -26,7 +27,8 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
     const viewUrn = userContext.localState?.selectedViewUrn;
-    const sortInput = useSortInput();
+    const selectedSortOption = useSelectedSortOption();
+    const sortInput = useSortInput(selectedSortOption);
 
     const filters: Array<FacetFilterInput> = useFilters(params);
     const entityFilters: Array<EntityType> = useMemo(

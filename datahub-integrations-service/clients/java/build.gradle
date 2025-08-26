@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.10.0'
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
+    implementation "com.google.code.findbugs:jsr305:3.0.2"
+    // As per https://stackoverflow.com/questions/45187624/java-lang-nosuchmethoderror-javax-ws-rs-core-application-getpropertiesljava-u
+    // we can just not include jsr311-api and things will work fine.
+    // Leaving it in would cause version conflicts with javax.ws.rs-api.
+    // implementation 'javax.ws.rs:jsr311-api:1.1.1'
+    implementation 'javax.ws.rs:javax.ws.rs-api:2.1.1'
+    implementation externalDependency.swaggerAnnotations
+    implementation externalDependency.gson
+    implementation externalDependency.gsonFire
+    implementation externalDependency.commonsLang3
+    implementation externalDependency.jakartaAnnotations
+    implementation externalDependency.jakartaWsRsApi
+}
+
+javadoc {
+    options.tags = [ "http.response.details:a:Http Response Details" ]
+}
+
+test {
+    // Show test results.
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+task generateAndBuildDataHubIntegrationsServiceAPI {
+  doLast {
+    // Copy generated files from Project B to Project A
+        copy {
+            from "$rootDir/datahub-integrations-service/build/generated/openapi/java/" // Adjust this to the correct output directory
+            into "$rootDir/datahub-integrations-service/clients/java"      // Adjust this to where you want to copy in Project A
+            include 'src/**/*.java'
+            include 'api/**/*.java'                   // Adjust this based on the generated file type
+        }
+  }
+}
+
+tasks.generateAndBuildDataHubIntegrationsServiceAPI.dependsOn ':datahub-integrations-service:openApiGenerate'
+
+compileJava.dependsOn generateAndBuildDataHubIntegrationsServiceAPI
+

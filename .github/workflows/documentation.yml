@@ -10,15 +10,17 @@ on:
       - "metadata-models/**"
       - "docs/**"
       - "docs-website/**"
+      - "**/*.md"
   push:
     branches:
-      - master
+      - acryl-main
     paths:
       - ".github/workflows/documentation.yml"
       - "metadata-ingestion/**"
       - "metadata-models/**"
       - "docs/**"
       - "docs-website/**"
+      - "**/*.md"
   # release:
   #   types: [published, edited]
 
@@ -28,7 +30,7 @@ concurrency:
 
 jobs:
   gh-pages:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     permissions:
       contents: write
     steps:
@@ -61,13 +63,9 @@ jobs:
           ./gradlew --info docs-website:build
 
       - name: Deploy
-        if: github.event_name == 'push' && github.repository == 'datahub-project/datahub'
+        if: github.event_name == 'push' && github.repository == 'acryldata/datahub-fork' && github.ref_name == 'acryl-main'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs-website/build
-          cname: datahubproject.io
-          # The gh-pages branch stores the built docs site. We don't need to preserve
-          # the full history of the .html files, since they're generated from our
-          # source files. Doing so significantly reduces the size of the repo's .git dir.
           force_orphan: true

@@ -18,6 +18,7 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
@@ -33,7 +34,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
 import { Container, EntityType, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.ANNOUNCE]);
+const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE, EntityMenuItems.ANNOUNCE]);
 
 /**
  * Definition of the DataHub Container entity.
@@ -175,6 +176,9 @@ export class ContainerEntity implements Entity<Container> {
         {
             component: StatusSection,
         },
+        {
+            component: SharingAssetSection,
+        },
         // TODO: Add back once entity-level recommendations are complete.
         // {
         //    component: SidebarRecommendationsSection,
@@ -275,6 +279,10 @@ export class ContainerEntity implements Entity<Container> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    getPlatformProperties = (data: Container) => {
+        return data?.platform;
     };
 
     supportedCapabilities = () => {

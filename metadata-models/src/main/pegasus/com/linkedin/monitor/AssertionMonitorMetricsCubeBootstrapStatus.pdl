@@ -1,0 +1,29 @@
+namespace com.linkedin.monitor
+
+record AssertionMonitorMetricsCubeBootstrapStatus {
+    /**
+     * Whether the metrics cube for this monitor has been bootstrapped.
+     */
+    state: enum AssertionMonitorMetricsCubeBootstrapState {
+        /**
+         * The metrics cube for this monitor has not been bootstrapped.
+         */
+        PENDING
+
+        /**
+         * The metrics cube for this monitor has failed to bootstrap.
+         */
+        FAILED
+
+        /**
+         * The metrics cube for this monitor has been bootstrapped.
+         */
+        COMPLETED
+    }
+
+    /**
+     * The message associated with the bootstrap status.
+     * I.e., an error message if the bootstrap failed.
+     */
+    message: optional string
+}

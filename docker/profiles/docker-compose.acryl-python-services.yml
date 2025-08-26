@@ -1,0 +1,189 @@
+x-search-datastore-elasticsearch-env: &search-datastore-env
+  ELASTICSEARCH_HOST: search
+  ELASTICSEARCH_PORT: 9200
+  ELASTICSEARCH_PROTOCOL: http
+  ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+
+x-executor-setup-env: &executor-setup-env
+  DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-${DATAHUB_SMOKETEST_EXECUTOR_ID:-remote-ci}}
+  DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID:-}
+
+x-datahub-executor-coordinator-env: &datahub-executor-coordinator-env
+  AWS_REGION: ${AWS_REGION:-us-west-2}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+
+#################################
+# Integrations Service
+#################################
+x-datahub-integrations-service: &datahub-integrations-service
+  hostname: datahub-integrations-service
+  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
+  ports:
+    - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
+  env_file:
+    - datahub-integrations-service/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_INTEGRATIONS_ENV:-empty2.env}
+
+x-datahub-integrations-service-dev: &datahub-integrations-service-dev
+  <<: *datahub-integrations-service
+  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-debug}
+  ports:
+    - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
+    - ${DATAHUB_MAPPED_INTEGRATIONS_DEBUG_PORT:-5004}:5004
+  environment:
+    PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
+    EXTRA_UVICORN_ARGS: "--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src --reload-dir /datahub-actions/src"
+  volumes:
+    - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
+    - ../../metadata-ingestion/src:/metadata-ingestion/src
+    - ../../datahub-actions/src:/datahub-actions/src
+    - ../../datahub-integrations-service:/datahub-integrations-service
+
+x-datahub-integrations-service-dev-head: &datahub-integrations-service-dev-head
+  <<: *datahub-integrations-service-dev
+  image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
+
+#################################
+# Executor Service
+#################################
+x-datahub-executor-setup: &datahub-executor-setup
+  hostname: datahub-executor-setup
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  env_file: datahub-executor/env/docker-worker.env
+  environment: &datahub-executor-setup-env
+    <<: *executor-setup-env
+  volumes:
+    - ../../datahub-executor/scripts/smoke-test-helper.py:/datahub-executor/smoke-test-helper.py
+  command:
+    - python
+    - /datahub-executor/smoke-test-helper.py
+
+x-datahub-executor: &datahub-executor
+  hostname: datahub-executor
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  ports:
+    - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004
+  env_file: datahub-executor/env/docker.env
+  environment: &datahub-executor-env
+    <<: *datahub-executor-coordinator-env
+
+x-datahub-executor-dev: &datahub-executor-dev
+  <<: *datahub-executor
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-debug}
+  ports:
+    - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004
+    - ${DATAHUB_MAPPED_EXECUTOR_DEBUG_PORT:-5005}:5005
+  environment:
+    <<: *datahub-executor-env
+    PYTHONPATH: "/metadata-ingestion/src:/datahub-executor/src/datahub_executor:$${PYTHONPATH}"
+  volumes:
+    - ./datahub-executor/start.sh:/start_datahub_executor.sh
+    - ./datahub-executor/ingestion-pipeline-config.yaml:/etc/datahub-executor/ingestion-pipeline-config.yaml
+    - ../../metadata-ingestion/src:/metadata-ingestion/src
+    - ../../datahub-executor:/datahub-executor
+
+x-datahub-executor-dev-head: &datahub-executor-dev-head
+  <<: *datahub-executor-dev
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+
+services:
+  #################################
+  # Integrations Service
+  #################################
+  datahub-integrations-quickstart-consumers:
+    <<: *datahub-integrations-service
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-integrations-quickstart-dev:
+    <<: *datahub-integrations-service-dev
+    profiles:
+      - debug
+    depends_on:
+      datahub-gms-debug:
+        condition: service_healthy
+  datahub-integrations-quickstart-debug-postgres-dev:
+    <<: *datahub-integrations-service-dev
+    profiles:
+      - debug-postgres
+    depends_on:
+      datahub-gms-debug-postgres:
+        condition: service_healthy
+  datahub-integrations-quickstart-debug-consumers:
+    <<: *datahub-integrations-service-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-integrations-quickstart-dev-head:
+    <<: *datahub-integrations-service-dev-head
+    profiles:
+      - debug-pyservices
+  datahub-integrations-quickstart-head:
+    <<: *datahub-integrations-service
+    profiles:
+      - head-pyservices
+      - quickstart
+  datahub-integrations-quickstart-postgres-head:
+    <<: *datahub-integrations-service
+    profiles:
+      - quickstart-postgres
+    depends_on:
+      datahub-gms-quickstart-postgres:
+        condition: service_healthy
+  #################################
+  # Executor Service
+  #################################
+  datahub-executor-quickstart-setup:
+    <<: *datahub-executor-setup
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-executor-quickstart-consumers:
+    <<: *datahub-executor
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+      datahub-executor-quickstart-setup:
+        condition: service_completed_successfully
+  datahub-executor-quickstart-dev:
+    <<: *datahub-executor-dev
+    profiles:
+      - debug
+    depends_on:
+      datahub-gms-debug:
+        condition: service_healthy
+  datahub-executor-quickstart-debug-postgres-dev:
+    <<: *datahub-executor-dev
+    profiles:
+      - debug-postgres
+    depends_on:
+      datahub-gms-debug-postgres:
+        condition: service_healthy
+  datahub-executor-quickstart-debug-consumers:
+    <<: *datahub-executor-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-executor-quickstart-dev-head:
+    <<: *datahub-executor-dev-head
+    profiles:
+      - debug-pyservices
+  datahub-executor-quickstart-postgres-head:
+    <<: *datahub-executor-dev-head
+    profiles:
+      - quickstart-postgres
+    depends_on:
+      datahub-gms-quickstart-postgres:
+        condition: service_healthy

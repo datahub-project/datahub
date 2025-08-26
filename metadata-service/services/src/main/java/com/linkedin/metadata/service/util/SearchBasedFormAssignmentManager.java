@@ -1,13 +1,16 @@
 package com.linkedin.metadata.service.util;
 
+import static com.linkedin.metadata.Constants.FORM_ASSIGNMENT_STATUS_ASPECT_NAME;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.form.DynamicFormAssignment;
+import com.linkedin.form.AssignmentStatus;
+import com.linkedin.form.FormAssignmentStatus;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.service.FormService;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -24,8 +27,6 @@ public class SearchBasedFormAssignmentManager {
           Constants.DATA_FLOW_ENTITY_NAME,
           Constants.CHART_ENTITY_NAME,
           Constants.DASHBOARD_ENTITY_NAME,
-          Constants.CORP_USER_ENTITY_NAME,
-          Constants.CORP_GROUP_ENTITY_NAME,
           Constants.DOMAIN_ENTITY_NAME,
           Constants.CONTAINER_ENTITY_NAME,
           Constants.GLOSSARY_TERM_ENTITY_NAME,
@@ -39,30 +40,49 @@ public class SearchBasedFormAssignmentManager {
 
   public static void apply(
       OperationContext opContext,
-      DynamicFormAssignment formFilters,
+      String predicateJson,
       Urn formUrn,
       int batchFormEntityCount,
-      SystemEntityClient entityClient)
+      SystemEntityClient entityClient,
+      FormToEntitiesConsumer<OperationContext, List<Urn>, Urn> consumer,
+      boolean isAssigning)
       throws Exception {
 
     try {
       int totalResults = 0;
       int numResults = 0;
       String scrollId = null;
-      FormService formService = new FormService(entityClient);
-
+      boolean hasUpdatedInProgress = false;
       do {
 
         ScrollResult results =
             entityClient.scrollAcrossEntities(
-                opContext,
+                opContext.withSearchFlags(
+                    searchFlags ->
+                        searchFlags
+                            .setSkipCache(true)
+                            .setRewriteQuery(
+                                false)), // skip rewriting query until metadata tests can handle it
                 ENTITY_TYPES,
                 "*",
-                formFilters.getFilter(),
+                null,
                 scrollId,
                 "5m",
                 List.of(),
-                batchFormEntityCount);
+                batchFormEntityCount,
+                List.of(),
+                predicateJson);
+
+        if (isAssigning && !hasUpdatedInProgress && results.getNumEntities() > 0) {
+          entityClient.ingestProposal(
+              opContext,
+              AspectUtils.buildMetadataChangeProposal(
+                  formUrn,
+                  FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
+                  createFormAssignmentStatus(AssignmentStatus.IN_PROGRESS)),
+              false);
+          hasUpdatedInProgress = true;
+        }
 
         if (!results.hasEntities()
             || results.getNumEntities() == 0
@@ -78,10 +98,10 @@ public class SearchBasedFormAssignmentManager {
                   .map(SearchEntity::getEntity)
                   .collect(Collectors.toList());
 
-          formService.batchAssignFormToEntities(opContext, entityUrns, formUrn);
+          consumer.accept(opContext, entityUrns, formUrn);
 
           if (!entityUrns.isEmpty()) {
-            log.info("Batch assign {} entities to form {}.", entityUrns.size(), formUrn);
+            log.info("Batch assign/unassign {} entities to form {}.", entityUrns.size(), formUrn);
           }
 
           numResults = results.getEntities().size();
@@ -89,7 +109,7 @@ public class SearchBasedFormAssignmentManager {
           scrollId = results.getScrollId();
 
           log.info(
-              "Starting batch assign forms, count: {} running total: {}, size: {}",
+              "Starting batch assign/unassign forms, count: {} running total: {}, size: {}",
               batchFormEntityCount,
               totalResults,
               results.getEntities().size());
@@ -99,12 +119,30 @@ public class SearchBasedFormAssignmentManager {
         }
       } while (scrollId != null);
 
-      log.info("Successfully assigned {} entities to form {}.", totalResults, formUrn);
+      if (totalResults > 0 && isAssigning) {
+        entityClient.ingestProposal(
+            opContext,
+            AspectUtils.buildMetadataChangeProposal(
+                formUrn,
+                FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
+                createFormAssignmentStatus(AssignmentStatus.COMPLETE)),
+            true);
+      }
+
+      log.info("Successfully assigned/unassigned {} entities to form {}.", totalResults, formUrn);
 
     } catch (RemoteInvocationException e) {
-      log.error("Error while assigning form to entities.", e);
+      log.error("Error while assigning/unassigning form to entities.", e);
       throw new RuntimeException(e);
     }
+  }
+
+  private static FormAssignmentStatus createFormAssignmentStatus(AssignmentStatus status) {
+    FormAssignmentStatus formAssignmentStatus = new FormAssignmentStatus();
+    formAssignmentStatus.setStatus(status);
+    formAssignmentStatus.setTimestamp(System.currentTimeMillis());
+
+    return formAssignmentStatus;
   }
 
   private SearchBasedFormAssignmentManager() {}

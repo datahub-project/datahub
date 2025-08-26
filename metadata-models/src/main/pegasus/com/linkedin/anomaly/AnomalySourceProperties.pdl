@@ -1,0 +1,15 @@
+namespace com.linkedin.anomaly
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+import com.linkedin.assertion.AssertionMetric
+
+/**
+ * Ad-hoc properties about an anomaly source.
+ */
+record AnomalySourceProperties {
+  /**
+   * The monitor metric associated with the anomaly, if generated from an assertion monitor (the norm).
+   */
+  assertionMetric: optional AssertionMetric
+}

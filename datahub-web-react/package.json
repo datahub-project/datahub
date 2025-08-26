@@ -8,7 +8,7 @@
         "@analytics/mixpanel": "^0.3.1",
         "@ant-design/colors": "^5.0.0",
         "@ant-design/icons": "^4.3.0",
-        "@apollo/client": "^3.3.19",
+        "@apollo/client": "3.13.8",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/modifiers": "^9.0.0",
         "@dnd-kit/sortable": "^10.0.0",
@@ -25,6 +25,8 @@
         "@remirror/pm": "^2.0.3",
         "@remirror/react": "^2.0.24",
         "@remirror/styles": "^2.0.3",
+        "@sentry/react": "^9.34.0",
+        "@sentry/tracing": "^7.120.3",
         "@testing-library/jest-dom": "^6.1.4",
         "@testing-library/react": "^12.0.0",
         "@testing-library/react-hooks": "^8.0.1",
@@ -41,6 +43,7 @@
         "@visx/axis": "^3.1.0",
         "@visx/curve": "^3.0.0",
         "@visx/gradient": "^3.3.0",
+        "@visx/grid": "^3.5.0",
         "@visx/group": "^3.0.0",
         "@visx/hierarchy": "^3.0.0",
         "@visx/legend": "^3.2.0",
@@ -72,6 +75,7 @@
         "history": "^5.0.0",
         "html-to-image": "^1.11.11",
         "js-cookie": "^2.2.1",
+        "json-2-csv": "^5.4.0",
         "moment": "^2.29.4",
         "moment-timezone": "^0.5.35",
         "monaco-editor": "^0.28.1",
@@ -81,7 +85,9 @@
         "rc-table": "^7.13.1",
         "react": "^17.0.0",
         "react-color": "^2.19.3",
+        "react-diff-viewer": "^3.1.1",
         "react-dom": "^17.0.0",
+        "react-error-boundary": "^6.0.0",
         "react-helmet-async": "^1.3.0",
         "react-highlighter": "^0.4.3",
         "react-icons": "4.3.1",
@@ -89,6 +95,7 @@
         "react-js-cron": "^2.1.0",
         "react-router": "^5.3",
         "react-router-dom": "^5.3",
+        "react-scripts": "^5.0.1",
         "react-syntax-highlighter": "^15.4.4",
         "react-vertical-timeline-component": "^3.6.0",
         "react-visibility-sensor": "^5.1.1",
@@ -99,6 +106,7 @@
         "styled-components": "^5.2.1",
         "turndown-plugin-gfm": "^1.0.2",
         "typescript": "^4.8.4",
+        "uniqid": "^5.4.0",
         "uuid": "^8.3.2",
         "virtualizedtableforantd4": "^1.2.1",
         "web-vitals": "^0.2.4",
@@ -125,7 +133,13 @@
         "type-check": "tsc --noEmit",
         "type-watch": "tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' storybook build"
+        "build-storybook": "NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' storybook build"
+    },
+    "lint-staged": {
+        "*/**/*.{js,jsx,ts,tsx,json}": [
+            "prettier --write",
+            "eslint --quiet --fix"
+        ]
     },
     "browserslist": {
         "production": [
@@ -180,6 +194,7 @@
         "prettier": "^3.5.3",
         "source-map-explorer": "^2.5.2",
         "storybook": "^8.1.11",
+        "tsc-files": "^1.1.4",
         "vite": "^6",
         "vite-plugin-babel-macros": "^1.0.6",
         "vite-plugin-static-copy": "^3.0.0",
@@ -197,6 +212,7 @@
         "prosemirror-model": "1.8.2",
         "prosemirror-state": "1.3.2",
         "prosemirror-transform": "1.2.2",
-        "prosemirror-view": "1.13.4"
+        "prosemirror-view": "1.13.4",
+        "webpack": "5.91.0"
     }
 }

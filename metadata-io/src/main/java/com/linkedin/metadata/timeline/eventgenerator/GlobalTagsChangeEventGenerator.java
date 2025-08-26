@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
@@ -19,6 +20,7 @@ import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 
 public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<GlobalTags> {
@@ -53,6 +55,12 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
         ++targetTagIdx;
       } else if (comparison < 0) {
         // Tag got removed.
+        Map<String, Object> parameters =
+            ImmutableMap.of(
+                "tagUrn",
+                baseTagAssociation.getTag().toString(),
+                "context",
+                baseTagAssociation.getContext() != null ? baseTagAssociation.getContext() : "{}");
         changeEvents.add(
             TagChangeEvent.entityTagChangeEventBuilder()
                 .modifier(baseTagAssociation.getTag().toString())
@@ -63,12 +71,20 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
                 .description(
                     String.format(
                         TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
-                .tagUrn(baseTagAssociation.getTag())
+                .parameters(parameters)
                 .auditStamp(auditStamp)
                 .build());
         ++baseTagIdx;
       } else {
         // Tag got added.
+        Map<String, Object> parameters =
+            ImmutableMap.of(
+                "tagUrn",
+                targetTagAssociation.getTag().toString(),
+                "context",
+                targetTagAssociation.getContext() != null
+                    ? targetTagAssociation.getContext()
+                    : "{}");
         changeEvents.add(
             TagChangeEvent.entityTagChangeEventBuilder()
                 .modifier(targetTagAssociation.getTag().toString())
@@ -79,7 +95,7 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
                 .description(
                     String.format(
                         TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
-                .tagUrn(targetTagAssociation.getTag())
+                .parameters(parameters)
                 .auditStamp(auditStamp)
                 .build());
         ++targetTagIdx;
@@ -98,7 +114,14 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
-              .tagUrn(baseTagAssociation.getTag())
+              .parameters(
+                  ImmutableMap.of(
+                      "tagUrn",
+                      baseTagAssociation.getTag().toString(),
+                      "context",
+                      baseTagAssociation.getContext() != null
+                          ? baseTagAssociation.getContext()
+                          : "{}"))
               .auditStamp(auditStamp)
               .build());
       ++baseTagIdx;
@@ -115,7 +138,14 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
-              .tagUrn(targetTagAssociation.getTag())
+              .parameters(
+                  ImmutableMap.of(
+                      "tagUrn",
+                      targetTagAssociation.getTag().toString(),
+                      "context",
+                      targetTagAssociation.getContext() != null
+                          ? targetTagAssociation.getContext()
+                          : "{}"))
               .auditStamp(auditStamp)
               .build());
       ++targetTagIdx;

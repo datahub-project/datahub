@@ -1,3 +1,4 @@
+import { ASSERTION_OPERATOR_TO_DESCRIPTION } from '@app/entity/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/constants';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
 
@@ -9,30 +10,6 @@ import {
     FieldMetricType,
     FieldTransformType,
 } from '@types';
-
-const ASSERTION_OPERATOR_TO_DESCRIPTION: Record<AssertionStdOperator, string | undefined> = {
-    [AssertionStdOperator.EqualTo]: 'Is equal to',
-    [AssertionStdOperator.NotEqualTo]: 'Is not equal to',
-    [AssertionStdOperator.Contain]: 'Contains',
-    [AssertionStdOperator.RegexMatch]: 'Matches',
-    [AssertionStdOperator.StartWith]: 'Starts with',
-    [AssertionStdOperator.EndWith]: 'Ends with',
-    [AssertionStdOperator.In]: 'Is in',
-    [AssertionStdOperator.NotIn]: 'Is not in',
-
-    [AssertionStdOperator.IsFalse]: 'Is False',
-    [AssertionStdOperator.IsTrue]: 'Is True',
-    [AssertionStdOperator.Null]: 'Is NULL',
-    [AssertionStdOperator.NotNull]: 'Is not NULL',
-
-    [AssertionStdOperator.GreaterThan]: 'Is greater than',
-    [AssertionStdOperator.GreaterThanOrEqualTo]: 'Is greater than or equal to',
-    [AssertionStdOperator.LessThan]: 'Is less than',
-    [AssertionStdOperator.LessThanOrEqualTo]: 'Is less than or equal to',
-    [AssertionStdOperator.Between]: 'Is within a range',
-
-    [AssertionStdOperator.Native]: undefined,
-};
 
 const SUPPORTED_OPERATORS_FOR_FIELD_DESCRIPTION = [
     AssertionStdOperator.EqualTo,

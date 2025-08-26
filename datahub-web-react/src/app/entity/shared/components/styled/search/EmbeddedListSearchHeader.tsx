@@ -10,6 +10,8 @@ import { EntityAndType } from '@app/entity/shared/types';
 import { SearchBar } from '@app/search/SearchBar';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useSearchContext } from '@src/app/search/context/SearchContext';
+import SearchSortSelect from '@src/app/search/sorting/SearchSortSelect';
 
 import { AndFilterInput } from '@types';
 
@@ -26,10 +28,6 @@ const SearchAndDownloadContainer = styled.div`
     align-items: center;
 `;
 
-const SearchMenuContainer = styled.div`
-    margin-left: 10px;
-`;
-
 type Props = {
     onSearch: (q: string) => void;
     onToggleFilters: () => void;
@@ -40,6 +38,7 @@ type Props = {
     isSelectMode: boolean;
     isSelectAll: boolean;
     selectedEntities: EntityAndType[];
+    setSelectedEntities: (entities: EntityAndType[]) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch?: () => void;
@@ -57,6 +56,7 @@ export default function EmbeddedListSearchHeader({
     isSelectMode,
     isSelectAll,
     selectedEntities,
+    setSelectedEntities,
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
@@ -64,6 +64,7 @@ export default function EmbeddedListSearchHeader({
     searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 
     return (
         <>
@@ -75,7 +76,7 @@ export default function EmbeddedListSearchHeader({
                     </Button>
                     <SearchAndDownloadContainer>
                         <SearchBar
-                            data-testid="embedded-search-bar"
+                            dataTestId="embedded-search-bar"
                             initialQuery=""
                             placeholderText={placeholderText || 'Search entities...'}
                             suggestions={[]}
@@ -96,14 +97,16 @@ export default function EmbeddedListSearchHeader({
                             entityRegistry={entityRegistry}
                             hideRecommendations
                         />
-                        <SearchMenuContainer>
-                            <SearchExtendedMenu
-                                downloadSearchResults={downloadSearchResults}
-                                filters={filters}
-                                query={query}
-                                setShowSelectMode={setIsSelectMode}
-                            />
-                        </SearchMenuContainer>
+                        <SearchSortSelect
+                            selectedSortOption={selectedSortOption}
+                            setSelectedSortOption={setSelectedSortOption}
+                        />
+                        <SearchExtendedMenu
+                            downloadSearchResults={downloadSearchResults}
+                            filters={filters}
+                            query={query}
+                            setShowSelectMode={setIsSelectMode}
+                        />
                     </SearchAndDownloadContainer>
                 </HeaderContainer>
             </TabToolbar>
@@ -113,6 +116,7 @@ export default function EmbeddedListSearchHeader({
                         isSelectAll={isSelectAll}
                         onChangeSelectAll={onChangeSelectAll}
                         selectedEntities={selectedEntities}
+                        setSelectedEntities={setSelectedEntities}
                         onCancel={() => {
                             setIsSelectMode(false);
                         }}

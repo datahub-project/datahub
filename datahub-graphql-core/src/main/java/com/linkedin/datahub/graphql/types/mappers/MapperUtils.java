@@ -133,6 +133,15 @@ public class MapperUtils {
         suggestion.getText(), suggestion.getScore(), Math.toIntExact(suggestion.getFrequency()));
   }
 
+  public static ResolvedAuditStamp mapResolvedAuditStamp(AuditStamp auditStamp) {
+    final ResolvedAuditStamp resolvedAuditStamp = new ResolvedAuditStamp();
+    final CorpUser emptyCreatedUser = new CorpUser();
+    emptyCreatedUser.setUrn(auditStamp.getActor().toString());
+    resolvedAuditStamp.setActor(emptyCreatedUser);
+    resolvedAuditStamp.setTime(auditStamp.getTime());
+    return resolvedAuditStamp;
+  }
+
   public static EntityPath mapPath(@Nullable final QueryContext context, UrnArray path) {
     EntityPath entityPath = new EntityPath();
     entityPath.setPath(

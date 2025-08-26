@@ -1,4 +1,5 @@
-import { Badge, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Badge } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 

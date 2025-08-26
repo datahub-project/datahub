@@ -15,7 +15,9 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.eventgenerator.ContainerPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EditableContainerPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
@@ -149,6 +151,18 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 SCHEMA_METADATA_ASPECT_NAME,
                 new SchemaMetadataChangeEventGenerator());
+            aspects.add(CONTAINER_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                CONTAINER_PROPERTIES_ASPECT_NAME,
+                new ContainerPropertiesChangeEventGenerator());
+            aspects.add(CONTAINER_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+                new EditableContainerPropertiesChangeEventGenerator());
           }
           break;
         case GLOSSARY_TERM:
@@ -214,9 +228,49 @@ public class TimelineServiceImpl implements TimelineService {
       }
       glossaryTermElementAspectRegistry.put(elementName, aspects);
     }
+
+    // Container registry
+    HashMap<ChangeCategory, Set<String>> containerElementAspectRegistry = new HashMap<>();
+    String entityTypeContainer = CONTAINER_ENTITY_NAME;
+    for (ChangeCategory elementName : ChangeCategory.values()) {
+      Set<String> aspects = new HashSet<>();
+      switch (elementName) {
+        case OWNER:
+          {
+            aspects.add(OWNERSHIP_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeContainer,
+                elementName,
+                OWNERSHIP_ASPECT_NAME,
+                new OwnershipChangeEventGenerator());
+          }
+          break;
+        case DOCUMENTATION:
+          {
+            aspects.add(CONTAINER_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeContainer,
+                elementName,
+                CONTAINER_PROPERTIES_ASPECT_NAME,
+                new ContainerPropertiesChangeEventGenerator());
+            aspects.add(CONTAINER_PROPERTIES_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeContainer,
+                elementName,
+                CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+                new EditableContainerPropertiesChangeEventGenerator());
+          }
+          break;
+        default:
+          break;
+      }
+      containerElementAspectRegistry.put(elementName, aspects);
+    }
+
     entityTypeElementAspectRegistry.put(DATASET_ENTITY_NAME, datasetElementAspectRegistry);
     entityTypeElementAspectRegistry.put(
         GLOSSARY_TERM_ENTITY_NAME, glossaryTermElementAspectRegistry);
+    entityTypeElementAspectRegistry.put(CONTAINER_ENTITY_NAME, containerElementAspectRegistry);
   }
 
   Set<String> getAspectsFromElements(String entityType, Set<ChangeCategory> elementNames) {

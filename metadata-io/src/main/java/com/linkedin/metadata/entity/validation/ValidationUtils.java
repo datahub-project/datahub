@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.validation;
 
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
+
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.AbstractArrayTemplate;
@@ -242,6 +244,7 @@ public class ValidationUtils {
                 entityService,
                 !includeGhostEntities,
                 includeGhostEntities)
+            .filter((rel) -> !rel.getEntity().getEntityType().equals(QUERY_ENTITY_NAME))
             .collect(Collectors.toCollection(LineageRelationshipArray::new));
 
     validatedEntityLineageResult.setFiltered(

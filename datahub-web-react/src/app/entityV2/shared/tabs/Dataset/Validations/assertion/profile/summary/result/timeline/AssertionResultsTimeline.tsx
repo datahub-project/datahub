@@ -10,7 +10,7 @@ import { Message } from '@app/shared/Message';
 import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
 
 import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
-import { Assertion, AssertionType } from '@types';
+import { Assertion, AssertionType, Monitor } from '@types';
 
 const RESULT_CHART_WIDTH_PX = 560;
 const VIZ_CONTAINER_HEIGHT = 240;
@@ -22,20 +22,27 @@ const Container = styled.div`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
+    openAssertionNote?: () => void;
 };
 
 // TODO: Add the run summary table here as well.
 // TODO: here's where we will switch on the assertion itself.
-export const AssertionResultsTimeline = ({ assertion }: Props) => {
+export const AssertionResultsTimeline = ({ assertion, monitor, openAssertionNote }: Props) => {
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
-    const [getAssertionRuns, { data, loading, error }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
+    const [getAssertionRuns, { data, loading, error, refetch }] = useGetAssertionRunsLazyQuery({
+        fetchPolicy: 'cache-first',
+    });
 
     /**
      * Set default window for fetching assertion history.
      */
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.MONTH);
+    const [selectedTimeWindow, setSelectedTimeWindow] = useState({
+        window: getFixedLookbackWindow(LOOKBACK_WINDOWS.MONTH.windowSize),
+        windowName: LOOKBACK_WINDOWS.MONTH.text,
+    });
 
     /**
      * Track whether we've triggered a data fetch yet
@@ -50,15 +57,18 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
     useEffect(() => {
         if (hasInitializedLookbackWindow) return;
 
-        const maybeWindow = allRunEvents && calculateInitialLookbackWindowFromRunEvents(allRunEvents);
+        const maybeWindow = allRunEvents && calculateInitialLookbackWindowFromRunEvents(allRunEvents, monitor);
         if (maybeWindow) {
-            setLookbackWindow(maybeWindow);
+            setSelectedTimeWindow({
+                window: getFixedLookbackWindow(maybeWindow.windowSize),
+                windowName: maybeWindow.text,
+            });
         }
         if (!loading && hasInitialDataFetchTriggered) {
             // Update initialization state on the next tick so the UI has a tick to react to the new lookback window
             setTimeout(() => setHasInitializedLookbackWindow(true), 0);
         }
-    }, [allRunEvents, loading, hasInitialDataFetchTriggered, hasInitializedLookbackWindow]);
+    }, [allRunEvents, monitor, loading, hasInitialDataFetchTriggered, hasInitializedLookbackWindow]);
 
     /**
      * Whenever the selected lookback window changes (via user selection), then
@@ -66,17 +76,16 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
      */
     useEffect(() => {
         getAssertionRuns({
-            variables: { assertionUrn: assertion.urn, ...getFixedLookbackWindow(lookbackWindow.windowSize) },
+            variables: { assertionUrn: assertion.urn, ...selectedTimeWindow.window },
         });
 
         // Next tick so the UI has a moment to respond to the graphql query starting
         setTimeout(() => setHasInitialDataFetchTriggered(true), 0);
-    }, [assertion.urn, lookbackWindow, getAssertionRuns]);
+    }, [assertion.urn, selectedTimeWindow, getAssertionRuns]);
 
-    const selectedWindow = getFixedLookbackWindow(lookbackWindow.windowSize);
     const selectedWindowTimeRange = {
-        startMs: selectedWindow.startTime,
-        endMs: selectedWindow.endTime,
+        startMs: selectedTimeWindow.window.startTime,
+        endMs: selectedTimeWindow.window.endTime,
     };
     const results = data?.assertion?.runEvents;
     const isInitializing = !hasInitializedLookbackWindow;
@@ -100,12 +109,15 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
                         height: vizHeight,
                     }}
                     assertion={assertion}
+                    monitor={monitor}
                     timeRange={selectedWindowTimeRange}
                     isInitializing={isInitializing}
                     results={results as any}
+                    refreshData={refetch}
+                    openAssertionNote={openAssertionNote}
                 />
             )}
-            <TimeSelect lookbackWindow={lookbackWindow} setLookbackWindow={setLookbackWindow} />
+            <TimeSelect timeWindow={selectedTimeWindow} setTimeWindow={setSelectedTimeWindow} />
         </Container>
     );
 };

@@ -1,0 +1,1104 @@
+extend type Query {
+  """
+  Fetches the settings for "system" monitors for an entity with a given URN.
+  """
+  systemMonitors(urn: String!): SystemMonitorsResult!
+}
+
+extend type EntityPrivileges {
+  """
+  Whether or not a user can edit general monitors for a specific entity.
+  """
+  canEditMonitors: Boolean
+
+  """
+  Whether or not a user can edit custom SQL assertion monitors for a specific entity (most sensitive).
+  """
+  canEditSqlAssertionMonitors: Boolean
+}
+
+extend type Mutation {
+  """
+  Create a monitor that evaluates assertions
+  """
+  createAssertionMonitor(input: CreateAssertionMonitorInput!): Monitor!
+
+  """
+  Update the settings of a monitor that evaluates assertions
+  """
+  updateAssertionMonitorSettings(
+    input: UpdateAssertionMonitorSettingsInput!
+  ): Monitor!
+
+  """
+  Removes a monitor
+  """
+  deleteMonitor(urn: String!): Boolean
+
+  """
+  Updates the state of a "system" (e.g. anomaly) monitor.
+  """
+  updateSystemMonitors(input: UpdateSystemMonitorsInput!): Boolean!
+
+  """
+  Updates the state of a monitor, returns the updated monitor
+  """
+  updateMonitorStatus(input: UpdateMonitorStatusInput!): Monitor!
+
+  """
+  Gives feedback on an anomaly raised by a monitor.
+  """
+  reportAnomalyFeedback(
+    input: ReportAnomalyFeedbackInput!
+  ): MonitorAnomalyEvent!
+}
+
+"""
+Information describing the system monitors enabled for a particular entity.
+"""
+type SystemMonitorsResult {
+  """
+  The monitors that have settings.
+  """
+  monitors: [SystemMonitor!]!
+}
+
+"""
+A type of built-in system monitor, e.g. those that generate anomalies.
+"""
+enum SystemMonitorType {
+  """
+  An Freshness or Freshness monitor.
+  """
+  FRESHNESS
+}
+
+"""
+Information about a specific system monitor.
+"""
+type SystemMonitor {
+  """
+  The type or category of system monitor
+  """
+  type: SystemMonitorType!
+
+  """
+  The actual underlying Monitor object used to evaluate the monitor
+  """
+  monitor: Monitor!
+}
+
+"""
+Input required to update the settings for a set of system monitors
+"""
+input UpdateSystemMonitorsInput {
+  """
+  The urn of the entity for which to update system monitors.
+  Note that Datasets are the only entity currently supported.
+
+  The entity MUST exist, and the user must have the "Manage Monitors" privilege
+  for the entity in order to change these settings.
+  """
+  entityUrn: String!
+
+  """
+  Settings for each system monitor type for the entity.
+
+  It is expected that this is a unique set, where each entry
+  in the set has a different SystemMonitorType.
+  """
+  monitors: [UpdateSystemMonitorInput!]!
+}
+
+"""
+Input required to update the settings for a monitor that evaluates assertions
+"""
+input UpdateAssertionMonitorSettingsInput {
+  """
+  The urn of the monitor to update.
+  """
+  urn: String!
+
+  """
+  The assertion adjustment settings to update for the monitor.
+  """
+  adjustmentSettings: AssertionAdjustmentSettingsInput!
+}
+
+"""
+Input required to update a Monitor's statu
+"""
+input UpdateMonitorStatusInput {
+  """
+  The urn of the monitor to update.
+  """
+  urn: String!
+
+  """
+  The new mode / status of the monitor.
+  """
+  mode: MonitorMode!
+}
+
+"""
+Input required to update the settings for a single system monitor
+In the future, this object may be extended to have type-specific parameters or configuration.
+"""
+input UpdateSystemMonitorInput {
+  """
+  The type of the system monitor
+  """
+  type: SystemMonitorType!
+
+  """
+  The mode of operation for the system monitor.
+  This determines whether the monitor is ACTIVE and running
+  for the entity.
+  """
+  mode: MonitorMode!
+}
+
+"""
+A monitor represents a process that monitors a Data Asset
+"""
+type Monitor implements Entity {
+  """
+  The primary key of the Monitor
+  """
+  urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The entity being monitored
+  """
+  entity: Entity!
+
+  """
+  Key information about the monitor
+  """
+  info: MonitorInfo
+
+  """
+  Edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Experimental API.
+  For fetching extra aspects that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect!]
+}
+
+"""
+Information about the monitor.
+"""
+type MonitorInfo {
+  """
+  The type of Monitor
+  """
+  type: MonitorType!
+
+  """
+  Information about an assertion evaluator monitor. Present if type is ASSERTION.
+  """
+  assertionMonitor: AssertionMonitor
+
+  """
+  Information about the current status of a Monitor.
+  """
+  status: MonitorStatus!
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+A type of monitor
+"""
+enum MonitorType {
+  """
+  A monitor that evaluates assertions
+  """
+  ASSERTION
+}
+
+enum AssertionMonitorMetricsCubeBootstrapState {
+  """
+  The metrics cube for this monitor has not been bootstrapped.
+  """
+  PENDING
+
+  """
+  The metrics cube for this monitor has failed to bootstrap.
+  """
+  FAILED
+
+  """
+  The metrics cube for this monitor has been bootstrapped.
+  """
+  COMPLETED
+}
+
+"""
+The status of the metrics cubebootstrap process for the assertion monitor.
+"""
+type AssertionMonitorMetricsCubeBootstrapStatus {
+  """
+  The state of the metrics cube bootstrap process for the assertion monitor.
+  """
+  state: AssertionMonitorMetricsCubeBootstrapState!
+
+  """
+  The message associated with the bootstrap status.
+  I.e., an error message if the bootstrap failed.
+  """
+  message: String
+}
+
+"""
+The status of the bootstrap process for the assertion monitor.
+"""
+type AssertionMonitorBootstrapStatus {
+  """
+  The status of the bootstrap process for the assertion monitor.
+  """
+  metricsCubeBootstrapStatus: AssertionMonitorMetricsCubeBootstrapStatus
+}
+
+"""
+Information about an assertion evaluator monitor.
+"""
+type AssertionMonitor {
+  """
+  The set of assertions to be evaluated by the monitor
+  """
+  assertions: [AssertionEvaluationSpec!]!
+
+  """
+  The settings for the assertion monitor.
+  """
+  settings: AssertionMonitorSettings
+
+  """
+  The status of the bootstrap process for the assertion monitor.
+  """
+  bootstrapStatus: AssertionMonitorBootstrapStatus
+}
+
+"""
+Settings for the assertion monitor.
+"""
+type AssertionMonitorSettings {
+  """
+  Adjustment settings for the assertion monitor
+  """
+  inferenceSettings: AssertionAdjustmentSettings
+}
+
+"""
+Information required to evaluate an assertion
+"""
+type AssertionEvaluationSpec {
+  """
+  The assertion being evaluated
+  """
+  assertion: Assertion!
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  schedule: CronSchedule!
+
+  """
+  Parameters required to evaluate the assertion
+  """
+  parameters: AssertionEvaluationParameters
+
+  """
+  Additional context about assertion being evaluated.
+  """
+  context: AssertionEvaluationContext
+
+  """
+  JSON string containing payload of AssertionEvaluationParameters which can be readily used with Python Client.
+  Currently used to populate parameters in AssertionRunEvent aspect in monitors service.
+  """
+  rawParameters: String
+}
+
+"""
+The type of assertion evaluation parameters
+"""
+enum AssertionEvaluationParametersType {
+  """
+  Parameters required to evaluate a Dataset Freshness Assertions
+  """
+  DATASET_FRESHNESS
+
+  """
+  Parameters required to evaluate a Dataset Volume Assertion
+  """
+  DATASET_VOLUME
+
+  """
+  Parameters required to evaluate a Dataset SQL Assertion
+  """
+  DATASET_SQL
+
+  """
+  Parameters required to evaluate a Dataset Field (Column) Assertion
+  """
+  DATASET_FIELD
+
+  """
+  Parameters required to evaluate a Dataset Schema Assertion
+  """
+  DATASET_SCHEMA
+}
+
+"""
+Additional context about assertion being evaluated.
+"""
+type AssertionEvaluationContext {
+  """
+  Currently used for Smart Assertions
+  An embedded copy of the assertion used to evaluate which will overwrite the referenced assertion
+  if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
+  """
+  embeddedAssertions: [EmbeddedAssertion!]
+
+  """
+  The standard deviation that was used to calculate the threshold for the assertion
+  """
+  stdDev: Float
+
+  """
+  The interference details for the assertions
+  """
+  inferenceDetails: AssertionInferenceDetails
+}
+
+"""
+The details of an Inferred Assertion
+"""
+type AssertionInferenceDetails {
+  """
+  The id of the assertion prediction model.
+  """
+  modelId: String
+
+  """
+  The version of the model used to make the assertion.
+  """
+  modelVersion: String
+
+  """
+  The confidence of the inference, if available.
+  """
+  confidence: Float
+
+  """
+  The parameters used to make the inference.
+  """
+  parameters: [StringMapEntry!]
+
+  """
+  The settings used to adjust the assertion.
+  """
+  adjustmentSettings: AssertionAdjustmentSettings
+
+  """
+  The time the inferred assertion was generated at in milliseconds.
+  """
+  generatedAt: Long
+}
+
+"""
+Embedded assertion to be evaluated
+"""
+type EmbeddedAssertion {
+  """
+  Specs for each assertion to evaluate
+  """
+  assertion: AssertionInfo!
+
+  """
+  Validity period of the assertion, ie the window of time where it should be used in evaluation
+  """
+  evaluationTimeWindow: EvaluationTimeWindow
+
+  """
+  JSON string containing AssertionInfo aspect's payload which can be readily used with Python Client.
+  Currently used to update AssertionInfo aspect for Smart Assertions in monitors service.
+  """
+  rawAssertion: String!
+}
+
+"""
+Represents the time window in which an assertion is valid.
+"""
+type EvaluationTimeWindow {
+  """
+  The starting time of the assertion validity window.
+  """
+  startTimeMillis: Long!
+
+  """
+  The ending time of the assertion validity window.
+  """
+  endTimeMillis: Long!
+}
+
+"""
+The parameters required to evaluate an assertion
+"""
+type AssertionEvaluationParameters {
+  """
+  The type of assertion evaluation parameters
+  """
+  type: AssertionEvaluationParametersType!
+
+  """
+  The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
+  """
+  datasetFreshnessParameters: DatasetFreshnessAssertionParameters
+
+  """
+  The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
+  """
+  datasetVolumeParameters: DatasetVolumeAssertionParameters
+
+  """
+  The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
+  """
+  datasetFieldParameters: DatasetFieldAssertionParameters
+
+  """
+  The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
+  """
+  datasetSchemaParameters: DatasetSchemaAssertionParameters
+}
+
+"""
+The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
+"""
+type DatasetFreshnessAssertionParameters {
+  """
+  The source of the change operation.
+  """
+  sourceType: DatasetFreshnessSourceType!
+
+  """
+  Information about the field to use. Present when sourceType is FIELD_VALUE
+  """
+  field: FreshnessFieldSpec
+
+  """
+  Determine that a change has occurred by inspecting an audit log API
+  """
+  auditLog: AuditLogSpec
+
+  """
+  Determine that a change has occurred using Operations reported to DataHub
+  """
+  dataHubOperation: DataHubOperationSpec
+}
+
+"""
+The source of the change operation.
+"""
+enum DatasetFreshnessSourceType {
+  """
+  Determine that a change has occurred by inspecting a particular field, e.g. a timestamp column.
+  """
+  FIELD_VALUE
+
+  """
+  Determine that a change has occurred by inspecting an information schema table, or other system metadata table.
+  """
+  INFORMATION_SCHEMA
+
+  """
+  Determine that a change has occurred by inspecting an audit log API
+  """
+  AUDIT_LOG
+
+  """
+  Determine that a change has occurred by inspecting underlying file system.
+  """
+  FILE_METADATA
+
+  """
+  Determine whether the table has changed using an Operation aspect
+  """
+  DATAHUB_OPERATION
+}
+
+"""
+Information about the field to use in a Freshness assertion
+"""
+type FreshnessFieldSpec {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
+
+  """
+  The type of the field being used to verify the Freshness Assertion
+  """
+  kind: FreshnessFieldKind!
+}
+
+enum FreshnessFieldKind {
+  """
+  Determine that a change has occurred by inspecting a last modified field
+  """
+  LAST_MODIFIED
+
+  """
+  Determine that a change has occurred by inspecting an ascending number or date field
+  """
+  HIGH_WATERMARK
+}
+
+"""
+Information about the audit log operations to use in an assertion
+"""
+type AuditLogSpec {
+  """
+  The list of operation types that should be monitored. If not provided, a default set will be used.
+  """
+  operationTypes: [String!]
+
+  """
+  Optional: The user name associated with the operation.
+  """
+  userName: String
+}
+
+"""
+The operational mode of a monitor
+"""
+enum MonitorMode {
+  """
+  The monitor is actively operating
+  """
+  ACTIVE
+
+  """
+  The monitor is disabled, or not actively operating
+  """
+  INACTIVE
+
+  """
+  The monitor is in passive mode
+  For assertion monitors, this means that assertions will be run in dry mode.
+  """
+  PASSIVE
+}
+
+"""
+The lifecycle state of a monitor
+"""
+enum MonitorState {
+  """
+  The monitor is not yet evaluating anything, it's simply training or collecting necessary information.
+  """
+  TRAINING
+
+  """
+  The monitor is in a normal evaluation state.
+  """
+  EVALUATION
+
+  """
+  The monitor encountered an unrecoverable error during training or evaluation.
+  """
+  ERROR
+}
+
+enum MonitorErrorType {
+  """
+  The monitor encountered an error during training or evaluation.
+  """
+  UNKNOWN
+}
+
+type MonitorError {
+  """
+  The error type
+  """
+  type: MonitorErrorType!
+
+  """
+  An optional message
+  """
+  message: String
+}
+
+"""
+Details about the status of a monitor.
+"""
+type MonitorStatus {
+  """
+  The operational mode of the monitor
+  """
+  mode: MonitorMode!
+
+  """
+  The state of the monitor.
+  """
+  state: MonitorState
+
+  """
+  The error for a monitor. Present if state is ERROR.
+  """
+  error: MonitorError
+}
+
+"""
+Input for a cron schedule
+"""
+input CronScheduleInput {
+  """
+  A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+  """
+  cron: String!
+
+  """
+  Timezone in which the cron interval applies, e.g. America/Los_Angeles
+  """
+  timezone: String!
+}
+
+"""
+The parameters required to evaluate an assertion
+"""
+input AssertionEvaluationParametersInput {
+  """
+  The type of assertion evaluation parameters
+  """
+  type: AssertionEvaluationParametersType!
+
+  """
+  The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
+  """
+  datasetFreshnessParameters: DatasetFreshnessAssertionParametersInput
+
+  """
+  The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
+  """
+  datasetVolumeParameters: DatasetVolumeAssertionParametersInput
+
+  """
+  The parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
+  """
+  datasetFieldParameters: DatasetFieldAssertionParametersInput
+
+  """
+  The parameters required to evaluate a dataset schema assertion. Present if type is DATASET_SCHEMA.
+  """
+  datasetSchemaParameters: DatasetSchemaAssertionParametersInput
+}
+
+"""
+Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
+"""
+input DatasetFreshnessAssertionParametersInput {
+  """
+  The source of the change operation.
+  """
+  sourceType: DatasetFreshnessSourceType!
+
+  """
+  Information about the field to use. Present when sourceType is FIELD_VALUE
+  """
+  field: FreshnessFieldSpecInput
+
+  """
+  Determine that a change has occurred by inspecting an audit log API
+  """
+  auditLog: AuditLogSpecInput
+
+  """
+  Determine that a change has occurred by inspecting Operations reported to DataHub
+  """
+  dataHubOperation: DataHubOperationSpecInput
+}
+
+"""
+Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_VOLUME.
+"""
+input DatasetVolumeAssertionParametersInput {
+  """
+  The source of the volume source type
+  """
+  sourceType: DatasetVolumeSourceType!
+}
+
+"""
+Define the source type for the actual schema used to evaluate the assertion
+"""
+enum DatasetSchemaSourceType {
+  """
+  Use the DataHub latest schema metadata to determine the schema
+  """
+  DATAHUB_SCHEMA
+}
+
+"""
+Information about the information used to evaluate a schema assertion - where the schema comes from.
+"""
+type DatasetSchemaAssertionParameters {
+  """
+  The source of the information used to evaluate schema assertion - where the schema comes from.
+  """
+  sourceType: DatasetSchemaSourceType!
+}
+
+"""
+Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_VOLUME.
+"""
+input DatasetSchemaAssertionParametersInput {
+  """
+  The source of the schema source type
+  """
+  sourceType: DatasetSchemaSourceType!
+}
+
+"""
+Input for information about the field to use in an assertion
+"""
+input SchemaFieldSpecInput {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
+}
+
+"""
+Input for information about the field to use in a Freshness assertion
+"""
+input FreshnessFieldSpecInput {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
+
+  """
+  The type of the field being used to verify the Freshness Assertion
+  """
+  kind: FreshnessFieldKind!
+}
+
+"""
+Input for information about the audit log operations to use in an assertion
+"""
+input AuditLogSpecInput {
+  """
+  The list of operation types that should be monitored. If not provided, a default set will be used.
+  """
+  operationTypes: [String!]
+
+  """
+  Optional: The user name associated with the operation.
+  """
+  userName: String
+}
+
+"""
+Input for information about the DataHub Operation to use
+"""
+input DataHubOperationSpecInput {
+  """
+  The list of operation types that should be monitored. If not provided, a default set will be used.
+  """
+  operationTypes: [String!]
+
+  """
+  The list of custom operation types that should be monitored. If not provided, no custom operation types will be used.
+  """
+  customOperationTypes: [String!]
+}
+
+"""
+Input for creating an Assertion Monitor. Assumes that the assertion under monitor has already been created.
+"""
+input CreateAssertionMonitorInput {
+  """
+  The urn of the entity being monitored.
+  This should exactly match the urn of the entity against which the assertion was defined.
+  """
+  entityUrn: String!
+
+  """
+  The assertion to be evaluated
+  """
+  assertionUrn: String!
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  schedule: CronScheduleInput!
+
+  """
+  Parameters required to evaluate the assertion
+  """
+  parameters: AssertionEvaluationParametersInput
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+Information about the parameters required to evaluate a volume assertion
+"""
+type DatasetVolumeAssertionParameters {
+  """
+  The source of the volume metric (row count).
+  """
+  sourceType: DatasetVolumeSourceType!
+}
+
+"""
+Define the source type for evaluating a volume assertion
+"""
+enum DatasetVolumeSourceType {
+  """
+  Determine the row count using the information schema - only supported for some sources
+  """
+  INFORMATION_SCHEMA
+
+  """
+  Determine the row count using a COUNT(*) query
+  """
+  QUERY
+
+  """
+  Determine the row count using the DataHub Dataset Profile aspect
+  """
+  DATAHUB_DATASET_PROFILE
+}
+
+"""
+Information about the datahub operation to use in evaluating an assertion.
+"""
+type DataHubOperationSpec {
+  """
+  The list of operation types that should be monitored. If not provided, a default set will be used.
+  """
+  operationTypes: [String!]
+
+  """
+  The list of custom operation types that should be monitored. If not provided, no custom operation types will be used.
+  """
+  customOperationTypes: [String!]
+}
+
+"""
+The source of the information used to evaluate a column values or metric assertion
+"""
+enum DatasetFieldAssertionSourceType {
+  """
+  Issue a query to the table to obtain the metric or values across all rows.
+  """
+  ALL_ROWS_QUERY
+
+  """
+  Issue a query to the table to obtain the metric values across only the rows which have changed since the previous evaluation.
+  """
+  CHANGED_ROWS_QUERY
+
+  """
+  Determine the metric value using the DataHub dataset profile.
+  Only applicable for Column Metric assertions, not Column Value assertions.
+  """
+  DATAHUB_DATASET_PROFILE
+}
+
+"""
+Information about the parameters required to evaluate a field / column assertion
+"""
+type DatasetFieldAssertionParameters {
+  """
+  The source of the information used to evaluate a column values or metric assertion
+  """
+  sourceType: DatasetFieldAssertionSourceType!
+
+  """
+  A field that can be used to filter for the fresh rows since the previous assertion evaluation.
+  This should be present when sourceType is CHANGED_ROWS_QUERY.
+  """
+  changedRowsField: FreshnessFieldSpec
+}
+
+"""
+Input for the parameters required to evaluate a dataset field assertion. Present if type is DATASET_FIELD.
+"""
+input DatasetFieldAssertionParametersInput {
+  """
+  The source of the information used to evaluate a column values or metric assertion
+  """
+  sourceType: DatasetFieldAssertionSourceType!
+
+  """
+  A field that can be used to filter for the fresh rows since the previous assertion evaluation.
+  This should be present when sourceType is CHANGED_ROWS_QUERY.
+  """
+  changedRowsField: FreshnessFieldSpecInput
+}
+
+extend type Assertion {
+  """
+  Fetches the monitor responsible for evaluating this assertion, if available. Null if there is not one.
+  """
+  monitor: Monitor
+
+  """
+  The dataset that this assertion is associated with.
+  """
+  dataset: Dataset
+}
+
+extend type AssertionRunEvent {
+  """
+  The anomaly event that was raised for this run event, if any.
+  """
+  anomalyEvent: MonitorAnomalyEvent
+}
+
+input ReportAnomalyFeedbackInput {
+  """
+  The urn of the monitor that we're reporting an anomaly for.
+  """
+  monitorUrn: String!
+
+  """
+  The urn of the assertion that we're reporting an anomaly for.
+  """
+  assertionUrn: String!
+
+  """
+  The timestamp of the run event that we're reporting an anomaly for.
+  """
+  runEventTimestampMillis: Long!
+
+  """
+  The state of the anomaly.
+  """
+  state: AnomalyReviewState!
+}
+
+enum AnomalyReviewState {
+  """
+  The anomaly has been confirmed by a human reviewer. This means the anomaly was validated.
+  """
+  CONFIRMED
+
+  """
+  The anomaly has been dismissed, or ignored, by a human reviewer. This means the anomaly should have been ignored.
+  """
+  REJECTED
+}
+
+"""
+An anomaly feedback event raised against a monitor's run event.
+"""
+type MonitorAnomalyEvent {
+  """
+  The state of the anomaly.
+  """
+  state: AnomalyReviewState
+
+  """
+  The source of the anomaly.
+  """
+  source: AnomalySource!
+
+  """
+  The timestamp that the latest state of the anomaly was set.
+  """
+  timestampMillis: Long!
+}
+
+type AnomalySource {
+  """
+  The type of the anomaly feedback source.
+  """
+  type: AnomalySourceType!
+
+  """
+  The source of the anomaly.
+  For assertion monitors, this will contain the urn of the source Assertion.
+  """
+  sourceUrn: String
+
+  """
+  The timestamp of the event that triggered the anomaly.
+  For assertion monitors, this will be the timestamp of the assertion run event.
+  """
+  sourceEventTimestampMillis: Long!
+
+  """
+  The properties of the anomaly source.
+  """
+  properties: AnomalySourceProperties
+}
+
+type AnomalySourceProperties {
+  """
+  The metric that triggered the anomaly.
+  """
+  assertionMetric: AssertionMetric
+}
+
+enum AnomalySourceType {
+  """
+  An assertion has failed, triggering the anomaly.
+  """
+  INFERRED_ASSERTION_FAILURE
+
+  """
+  The anomaly was raised by a user.
+  """
+  USER_FEEDBACK
+}

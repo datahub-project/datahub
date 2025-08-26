@@ -1,3 +1,4 @@
+import { message } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
@@ -13,6 +14,7 @@ import useSchemaTypeRenderer from '@app/entityV2/dataset/profile/schema/utils/sc
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useInferDocumentation } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
@@ -100,7 +102,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .expanded-child > td {
         .depth-container {
-            background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+            background: ${(p) => p.theme.styles['primary-color']};
         }
 
         .depth-text {
@@ -188,7 +190,24 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false);
+    const inferDocumentation = useInferDocumentation({
+        entityUrn,
+        saveResult: true,
+        excludeAsset: true,
+    });
+
+    const onInferSchemaDescriptions = async () => {
+        try {
+            await inferDocumentation();
+            refetch?.();
+        } catch (e: any) {
+            message.error(`Failed to infer schema documentation. ${e.message}`);
+        }
+    };
+
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, {
+        onInferSchemaDescriptions,
+    });
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -501,6 +520,7 @@ export default function SchemaTable({
                                 );
                             },
                             id: `column-${record.fieldPath}`,
+                            'data-testid': `column-${record.fieldPath}`,
                         })}
                         showSorterTooltip={false}
                     />

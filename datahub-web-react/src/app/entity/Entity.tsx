@@ -26,6 +26,10 @@ export enum PreviewType {
      * Previews rendered when hovering over the entity in a compact list
      */
     HOVER_CARD,
+    /**
+     * Previews rendered during the bulk verify form flow
+     */
+    BULK_VERIFY,
 }
 
 export enum IconStyleType {

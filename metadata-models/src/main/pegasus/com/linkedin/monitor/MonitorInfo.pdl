@@ -1,0 +1,44 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Information about an asset monitor.
+ */
+@Aspect = {
+  "name": "monitorInfo"
+}
+record MonitorInfo includes CustomProperties, ExternalReference {
+    /**
+    * Type of monitor.
+    */
+    @Searchable = { }
+    type: enum MonitorType {
+      /**
+       * A monitor responsible for evaluating Assertions.
+       */
+      ASSERTION
+
+      /**
+       * A monitor responsible for evaluating system freshness monitors - This is not used
+       */
+      FRESHNESS
+    }
+
+    /**
+    * Information about the status of a monitor.
+    */
+    status: MonitorStatus
+
+    /**
+    * Information about the assertions being monitored. Required if type is ASSERTION.
+    */
+    assertionMonitor: optional AssertionMonitor
+
+    /**
+    * Advanced: The executor pool id of the remote monitor service, if any.
+    */
+    @Searchable = {}
+    executorId: optional string
+}

@@ -14,12 +14,13 @@ import { IncrementingSegmentRowCountChange, RowCountChange, VolumeAssertionInfo 
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
+    ellipsis?: boolean;
 };
 
 /**
  * A human-readable description of a Volume Assertion.
  */
-export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
+export const VolumeAssertionDescription = ({ assertionInfo, ellipsis }: Props) => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
     const volumeTypeDescription = getVolumeTypeDescription(volumeType);
@@ -31,7 +32,7 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
 
     return (
         <div>
-            <Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>
                 Table {volumeTypeDescription} {operatorDescription} {parameterDescription} {valueChangeTypeDescription}
             </Typography.Text>
         </div>

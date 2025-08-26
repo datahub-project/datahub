@@ -26,6 +26,7 @@ import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.ScrollResult;
@@ -143,7 +144,8 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        facets);
+        facets,
+        null);
   }
 
   public static SearchResult searchAcrossEntities(
@@ -174,7 +176,8 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        List.of());
+        List.of(),
+        null);
   }
 
   public static SearchResult search(
@@ -211,7 +214,17 @@ public class SearchTestUtils {
         null,
         scrollId,
         "3m",
-        batchSize);
+        batchSize,
+        null);
+  }
+
+  public static ScrollResult scroll(
+      OperationContext opContext,
+      EntitySearchService entitySearchService,
+      int batchSize,
+      @Nullable String scrollId) {
+    return entitySearchService.scroll(
+        opContext, SEARCHABLE_ENTITIES, null, null, batchSize, scrollId, "3m", null);
   }
 
   public static ScrollResult scrollAcrossEntities(
@@ -233,8 +246,9 @@ public class SearchTestUtils {
         filter,
         null,
         null,
-        null,
-        100);
+        "3m",
+        100,
+        null);
   }
 
   public static SearchResult searchStructured(
@@ -246,7 +260,8 @@ public class SearchTestUtils {
         null,
         null,
         0,
-        100);
+        100,
+        null);
   }
 
   public static LineageSearchResult lineage(
@@ -345,4 +360,46 @@ public class SearchTestUtils {
               }
             });
   }
+
+  /* SAAS ONLY */
+  public static SearchResult searchAcrossEntitiesPredicate(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter,
+      String predicateJson) {
+    return searchService.searchAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        0,
+        100,
+        List.of(),
+        predicateJson);
+  }
+
+  public static ScrollResult scrollAcrossEntitiesPredicate(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter,
+      String predicateJson) {
+    return searchService.scrollAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        null,
+        "5m",
+        10,
+        predicateJson);
+  }
+  /* END SAAS ONLY */
 }

@@ -92,7 +92,14 @@ export const ExecutionsTab = ({
                 systemSources: !hideSystemSources,
             },
         },
+        fetchPolicy: 'cache-and-network',
     });
+
+    useEffect(() => {
+        if (selectedTab === TabType.RunHistory) {
+            refetch();
+        }
+    }, [selectedTab, refetch]);
 
     const handleRollbackExecution = useRollbackExecution(refetch);
     const handleCancelExecution = useCancelExecution(refetch);

@@ -133,6 +133,7 @@ type Props = {
     showFilterBar?: boolean;
     sort?: SortCriterion;
     searchFlags?: SearchFlags;
+    convertToPredicate?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -166,6 +167,7 @@ export const EmbeddedListSearch = ({
     showFilterBar = true,
     sort,
     searchFlags,
+    convertToPredicate,
 }: Props) => {
     const userContext = useUserContext();
 
@@ -211,6 +213,7 @@ export const EmbeddedListSearch = ({
                 orFilters: generateOrFilters(unionType, filters),
                 scrollId: null,
                 searchFlags,
+                convertToPredicate,
             },
         },
         skip: true,
@@ -225,6 +228,7 @@ export const EmbeddedListSearch = ({
         viewUrn: applyView ? selectedViewUrn : undefined,
         sortInput: sort ? { sortCriterion: sort } : undefined,
         searchFlags,
+        convertToPredicate,
         ...(skipCache && { searchFlags: { ...searchFlags, skipCache: true } }),
     };
 
@@ -378,7 +382,7 @@ export const EmbeddedListSearch = ({
                     onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                     placeholderText={placeholderText}
                     onToggleFilters={onToggleFilters}
-                    downloadSearchResults={(input) => refetchForDownload({ searchFlags, ...input })}
+                    downloadSearchResults={(input) => refetchForDownload({ searchFlags, convertToPredicate, ...input })}
                     filters={finalFilters}
                     query={finalQuery}
                     isSelectMode={isSelectMode}

@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DatasetAssertionsList } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionsList';
+import { AcrylDatasetAssertionsList } from '@app/entity/shared/tabs/Dataset/Validations/AcrylAssertionsList';
 import { DataContractCategoryType } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
 
 import { Assertion } from '@types';
@@ -44,12 +44,15 @@ export const DataContractAssertionGroupSelect = ({
             <Category>
                 {category} <Hint> {!multiple ? `(Choose 1)` : ''}</Hint>
             </Category>
-            <DatasetAssertionsList
+            <AcrylDatasetAssertionsList
                 assertions={assertions}
                 showMenu={false}
                 showSelect
                 selectedUrns={selectedUrns}
                 onSelect={onSelect}
+                canEditAssertions={false}
+                canEditMonitors={false}
+                canEditSqlAssertions={false}
             />
         </>
     );

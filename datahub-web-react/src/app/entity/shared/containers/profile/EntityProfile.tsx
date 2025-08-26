@@ -34,17 +34,20 @@ import {
     GenericEntityProperties,
     GenericEntityUpdate,
 } from '@app/entity/shared/types';
+import useEntityState from '@app/entity/shared/useEntityState';
 import LineageExplorer from '@app/lineage/LineageExplorer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '@app/onboarding/config/LineageGraphOnboardingConfig';
+import { useSubscriptionsEnabled } from '@app/settings/personal/notifications/utils';
 import CompactContext from '@app/shared/CompactContext';
 import { EntityHead } from '@app/shared/EntityHead';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsDocumentationFormsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, Exact } from '@types';
@@ -164,6 +167,9 @@ export const EntityProfile = <T, U>({
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
+    const subscriptionsEnabled = useSubscriptionsEnabled();
+    const documentationFormsEnabled = useIsDocumentationFormsEnabled();
+    const entityState = useEntityState();
     const history = useHistory();
     const appConfig = useAppConfig();
     const isCompact = React.useContext(CompactContext);
@@ -191,6 +197,9 @@ export const EntityProfile = <T, U>({
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
     const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
     const stepIds = isLineageMode ? lineageGraphStepIds : entityStepIds;
+    const filteredStepIds = subscriptionsEnabled
+        ? stepIds
+        : stepIds.filter((id) => id !== ENTITY_PROFILE_SUBSCRIPTION_ID);
 
     const routeToTab = useCallback(
         ({
@@ -278,6 +287,7 @@ export const EntityProfile = <T, U>({
                     lineage,
                     shouldRefetchEmbeddedListSearch,
                     setShouldRefetchEmbeddedListSearch,
+                    entityState,
                 }}
             >
                 <>
@@ -302,6 +312,10 @@ export const EntityProfile = <T, U>({
     const isLineageEnabled = entityRegistry.getLineageEntityTypes().includes(entityType);
     const showBrowseBar = (isBrowsable || isLineageEnabled) && !hideBrowseBar;
 
+    if (error) {
+        console.log(`Received an error! ${error}`);
+    }
+
     return (
         <EntityContext.Provider
             value={{
@@ -317,10 +331,11 @@ export const EntityProfile = <T, U>({
                 lineage,
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,
+                entityState,
             }}
         >
             <>
-                <OnboardingTour stepIds={stepIds} />
+                <OnboardingTour stepIds={filteredStepIds} />
                 <EntityHead />
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
@@ -359,7 +374,9 @@ export const EntityProfile = <T, U>({
                                 </HeaderAndTabs>
                                 <ProfileSidebar
                                     sidebarSections={sidebarSections}
-                                    topSection={{ component: SidebarFormInfoWrapper }}
+                                    topSection={
+                                        documentationFormsEnabled ? { component: SidebarFormInfoWrapper } : undefined
+                                    }
                                 />
                             </>
                         )}

@@ -65,6 +65,7 @@ public class OpenApiEntities {
 
     private final static ImmutableSet<String> ENTITY_EXCLUSIONS = ImmutableSet.<String>builder()
             .add("structuredProperty")
+            .add("monitor")
             .build();
 
     public OpenApiEntities(JsonNodeFactory NODE_FACTORY) {

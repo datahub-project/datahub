@@ -54,7 +54,11 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi.v2.generated.controller"})
+@ComponentScan(
+    basePackages = {
+      "io.datahubproject.openapi.v2.generated.controller",
+      "com.linkedin.gms.factory.scim"
+    })
 @Import({OpenAPIEntityTestConfiguration.class})
 @EnableWebMvc
 @AutoConfigureMockMvc

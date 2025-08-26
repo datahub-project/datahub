@@ -11,6 +11,7 @@ import {
     SearchResultsInterface,
 } from '@app/entity/shared/components/styled/search/types';
 import { useEntityQueryParams } from '@app/entity/shared/containers/profile/utils';
+import { decodeComma } from '@app/entity/shared/utils';
 import {
     EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES,
     UnionType,
@@ -88,7 +89,7 @@ export const EmbeddedListSearchSection = ({
     const location = useLocation();
     const entityQueryParams = useEntityQueryParams();
 
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const params = QueryString.parse(decodeComma(location.search), { arrayFormat: 'comma' });
     const paramsWithoutFilters = getParamsWithoutFilters(params);
     const baseParams = { ...entityQueryParams, ...paramsWithoutFilters };
     const query: string = params?.query as string;

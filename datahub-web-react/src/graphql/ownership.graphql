@@ -44,3 +44,7 @@ fragment ownershipTypeFields on OwnershipTypeEntity {
         removed
     }
 }
+
+mutation proposeOwners($input: ProposeOwnersInput!) {
+    proposeOwners(input: $input)
+}

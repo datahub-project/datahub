@@ -1,0 +1,54 @@
+namespace com.linkedin.inferred
+
+/**
+ * Inferred Metadata for entities
+ */
+@Aspect = {
+  "name": "inferredMetadata"
+}
+record InferredMetadata {
+  /**
+   * Inferred descriptions for entity
+   */
+  @Searchable = {
+    "/*/description":{
+      "fieldName": "inferredDescriptions",
+      "fieldType": "TEXT",
+      }
+  }
+  inferredDescriptions: optional array[InferredDescription]
+
+  /**
+   * Inferred tags for entity
+   */
+  @Searchable = {
+    "/*/tags/*":{
+      "fieldName": "inferredTags",
+      "fieldType": "URN",
+      }
+  }
+  inferredTags: optional array[InferredTags]
+
+  /**
+   * Inferred glossary terms for entity
+   */
+  @Searchable = {
+    "/*/glossaryTerms/*":{
+      "fieldName": "inferredGlossaryTerms",
+      "fieldType": "URN",
+      }
+  }
+  inferredGlossaryTerms: optional array[InferredGlossaryTerms]
+
+  /**
+   * Inferred owners for entity
+   */
+  @Searchable = {
+    "/*/owners/*/owner":{
+      "fieldName": "inferredOwners",
+      "fieldType": "URN",
+      "queryByDefault": false,
+      }
+  }
+  inferredOwners: optional array[InferredOwners]
+}

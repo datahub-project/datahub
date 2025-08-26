@@ -68,7 +68,7 @@ if (project.hasProperty("releaseVersion")) {
     }
   }
 
-    if (snapshotVersion) {
+  if (snapshotVersion) {
       if (versionParts[versionParts.size()-1].isInteger()) {
         def base_version = versionParts[0..versionParts.size()-2].join('.')
         version = base_version + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"

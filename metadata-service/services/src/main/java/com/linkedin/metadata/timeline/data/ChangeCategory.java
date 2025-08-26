@@ -25,7 +25,13 @@ public enum ChangeCategory {
   // Run event
   RUN,
 
-  BUSINESS_ATTRIBUTE;
+  BUSINESS_ATTRIBUTE,
+
+  // Incident event
+  INCIDENT,
+
+  // Structured Properties event
+  STRUCTURED_PROPERTY;
 
   public static final Map<List<String>, ChangeCategory> COMPOUND_CATEGORIES;
 

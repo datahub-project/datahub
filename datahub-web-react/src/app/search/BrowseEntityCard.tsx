@@ -16,7 +16,15 @@ import { EntityType } from '@types';
 
 const BrowseEntityCardWrapper = styled.div``;
 
-export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType; count: number }) => {
+export const BrowseEntityCard = ({
+    entityType,
+    count,
+    showGlossary,
+}: {
+    entityType: EntityType;
+    count: number;
+    showGlossary?: boolean;
+}) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const showBrowseV2 = useIsBrowseV2();
@@ -40,6 +48,12 @@ export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType
         } else {
             history.push(url);
         }
+    }
+
+    const isGlossaryEntityCard = entityType === EntityType.GlossaryTerm;
+
+    if (isGlossaryEntityCard && !showGlossary) {
+        return null;
     }
 
     return (

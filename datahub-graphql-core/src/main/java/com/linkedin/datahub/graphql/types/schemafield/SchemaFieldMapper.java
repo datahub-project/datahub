@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.Deprecation;
@@ -13,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -20,6 +23,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -64,6 +68,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         ((schemaField, dataMap) ->
             schemaField.setDeprecation(
                 DeprecationMapper.map(context, new Deprecation((dataMap))))));
+    mappingHelper.mapToResult(
+        LINEAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLineageFeatures(
+                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
 
     return result;
   }

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch;
 
-import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
+import static com.linkedin.metadata.search.utils.SearchUtils.*;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
@@ -16,11 +16,13 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -262,6 +264,28 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
+  public ScrollResult scroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      @Nullable Integer size,
+      @Nullable String scrollId,
+      @Nullable String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig fetchConfig) {
+    log.debug(
+        "Filtering Search documents entityName: {}, filters: {}, sortCriteria: {}, size: {}, scrollId: {}",
+        entities,
+        filters,
+        sortCriteria,
+        size,
+        scrollId);
+    return esSearchDAO.scroll(
+        opContext, entities, filters, sortCriteria, size, scrollId, keepAliveDuration, fetchConfig);
+  }
+
+  @Nonnull
+  @Override
   public AutoCompleteResult autoComplete(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
@@ -404,7 +428,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> facets) {
     log.debug(
         String.format(
-            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
+            "Scrolling Full Text Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
             entities, input, postFilters, sortCriteria, scrollId, size));
 
     return esSearchDAO.scroll(
@@ -435,7 +459,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull List<String> facets) {
     log.debug(
         String.format(
-            "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
+            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
             entities, input, postFilters, sortCriteria, scrollId, size));
 
     return esSearchDAO.scroll(
@@ -473,6 +497,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
+  public IndexConvention getIndexConvention() {
+    return indexConvention;
+  }
+
+  @Override
   public ExplainResponse explain(
       @Nonnull OperationContext opContext,
       @Nonnull String query,
@@ -500,12 +529,54 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public IndexConvention getIndexConvention() {
-    return indexConvention;
-  }
-
-  @Override
   public ESIndexBuilder getIndexBuilder() {
     return indexBuilder;
+  }
+
+  // SAAS ONLY - Support predicate based filtering
+  @Nonnull
+  public SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
+    log.debug(
+        String.format(
+            "Searching FullText Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, from: %s, size: %s",
+            entityNames, input, predicate, sortCriteria, from, size));
+
+    return esSearchDAO.predicateSearch(
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        entityNames,
+        input,
+        predicate,
+        sortCriteria,
+        from,
+        size,
+        facets);
+  }
+
+  @Nonnull
+  public ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entities,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    log.debug(
+        String.format(
+            "Scrolling Predicate Search documents entityName: %s, input: %s, predicate: %s, sortCriterion: %s, scrollId: %s, size: %s",
+            entities, input, predicate, sortCriteria, scrollId, size));
+
+    return esSearchDAO.predicateScroll(
+        opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, size);
   }
 }

@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { PreviewType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
 import { EntityAndType } from '@app/entity/shared/types';
@@ -55,6 +56,14 @@ const ListItem = styled.div<{ isSelectMode: boolean }>`
     padding: 0px;
 `;
 
+const MoreSiblings = styled.span`
+    font-size: 12px;
+    color: ${ANTD_GRAY[7]};
+    margin-left: 4px;
+`;
+
+const MAX_SIBLINGS_TO_DISPLAY = 3;
+
 type Props = {
     loading: boolean;
     query: string;
@@ -65,6 +74,11 @@ type Props = {
     setSelectedEntities: (entities: EntityAndType[]) => any;
     suggestions: SearchSuggestion[];
     pageNumber: number;
+    previewType?: PreviewType;
+    onCardClick?: (any: any) => any;
+    onClickExploreAll?: () => any;
+    onClickClearFilters?: () => any;
+    setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
 };
 
 export const SearchResultList = ({
@@ -77,6 +91,11 @@ export const SearchResultList = ({
     setSelectedEntities,
     suggestions,
     pageNumber,
+    previewType,
+    onCardClick,
+    onClickExploreAll,
+    onClickClearFilters,
+    setAreAllEntitiesSelected,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -102,6 +121,7 @@ export const SearchResultList = ({
             setSelectedEntities?.([...selectedEntities, selectedEntity]);
         } else {
             setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
+            setAreAllEntitiesSelected?.(false);
         }
     };
 
@@ -111,7 +131,15 @@ export const SearchResultList = ({
                 id="search-result-list"
                 dataSource={searchResults}
                 split={false}
-                locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
+                locale={{
+                    emptyText: (!loading && (
+                        <EmptySearchResults
+                            suggestions={suggestions}
+                            onClickExploreAll={onClickExploreAll}
+                            onClickClearFilters={onClickClearFilters}
+                        />
+                    )) || <></>,
+                }}
                 renderItem={(item, index) => (
                     <ResultWrapper showUpdatedStyles={showSearchFiltersV2} className={`entityUrn-${item.entity.urn}`}>
                         <ListItem
@@ -131,7 +159,7 @@ export const SearchResultList = ({
                                     }
                                 />
                             )}
-                            {entityRegistry.renderSearchResult(item.entity.type, item)}
+                            {entityRegistry.renderSearchResult(item.entity.type, item, previewType, onCardClick)}
                         </ListItem>
                         {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not 
                         render. */}
@@ -139,8 +167,13 @@ export const SearchResultList = ({
                             <SiblingResultContainer className="test-search-result-sibling-section">
                                 <CompactEntityNameList
                                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
-                                    entities={item.matchedEntities}
+                                    entities={item.matchedEntities?.slice(0, MAX_SIBLINGS_TO_DISPLAY)}
                                 />
+                                {(item?.matchedEntities?.length || 0) > MAX_SIBLINGS_TO_DISPLAY ? (
+                                    <MoreSiblings>
+                                        + {item?.matchedEntities?.length - MAX_SIBLINGS_TO_DISPLAY} more
+                                    </MoreSiblings>
+                                ) : null}
                             </SiblingResultContainer>
                         )}
                         {!showSearchFiltersV2 && <ThinDivider />}

@@ -262,6 +262,12 @@ public class PluginsTest {
     MergedEntityRegistry mergedEntityRegistry = new MergedEntityRegistry(configEntityRegistry1);
     mergedEntityRegistry.apply(configEntityRegistry2);
 
+    // TODO: Check that this isn't breaking assumptions, this seems to be incorrectly constructed as
+    // it relies on
+    //      the getter for EntityRegistry that just returns null on the plugin provider not being
+    // overridden by
+    //      ConfigEntityRegistry in MergedEntityRegistry.apply -> PluginFactory.
+
     assertEquals(
         mergedEntityRegistry
             .getPluginFactory()
@@ -301,5 +307,26 @@ public class PluginsTest {
             .filter(p -> p.getSupportedOperations().contains("DELETE"))
             .count(),
         1);
+
+    //    assertEquals(
+    //        mergedEntityRegistry.getAllAspectPayloadValidators().stream()
+    //            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+    //            .count(),
+    //        1);
+    //    assertEquals(
+    //        mergedEntityRegistry.getAllMutationHooks().stream()
+    //            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+    //            .count(),
+    //        1);
+    //    assertEquals(
+    //        mergedEntityRegistry.getAllMCLSideEffects().stream()
+    //            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+    //            .count(),
+    //        1);
+    //    assertEquals(
+    //        mergedEntityRegistry.getAllMCPSideEffects().stream()
+    //            .filter(p -> p.getConfig().getSupportedOperations().contains("DELETE"))
+    //            .count(),
+    //        1);
   }
 }

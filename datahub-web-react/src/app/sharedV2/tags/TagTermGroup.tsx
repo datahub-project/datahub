@@ -4,15 +4,21 @@ import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ProposalModal from '@app/shared/tags/ProposalModal';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';
+import ProposedTermPill from '@app/sharedV2/tags/term/ProposedTermPill';
 import Term from '@app/sharedV2/tags/term/Term';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Tooltip, colors } from '@src/alchemy-components';
+import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 
-import { Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
+import { ActionRequest, Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -34,6 +40,8 @@ type Props = {
     fontSize?: number;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
+    proposedGlossaryTerms?: ActionRequest[];
+    proposedTags?: ActionRequest[];
     showOneAndCount?: boolean;
     showAddButton?: boolean;
 };
@@ -65,6 +73,18 @@ const TagText = styled.span`
     font-size: 10px;
     font-weight: 400;
     line-height: 8px;
+`;
+
+export const ProposedTag = styled(StyledTag)`
+    border: 1px dashed ${colors.gray[200]};
+
+    :hover {
+        cursor: pointer;
+    }
+`;
+
+export const ProposedTagContent = styled.span`
+    display: flex;
 `;
 
 const StyledPlusOutlined = styled(PlusOutlined)`
@@ -113,6 +133,8 @@ export default function TagTermGroup({
     maxShow,
     uneditableGlossaryTerms,
     editableGlossaryTerms,
+    proposedGlossaryTerms,
+    proposedTags,
     domain,
     entityUrn,
     entityType,
@@ -128,15 +150,40 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | null | undefined>(null);
+    const { entityData } = useEntityData();
 
-    const termsEmpty = !editableGlossaryTerms?.terms?.length && !uneditableGlossaryTerms?.terms?.length;
+    const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length && !proposedTags?.length;
 
-    const tagsLength = (editableTags?.tags?.length ?? 0) + (uneditableTags?.tags?.length ?? 0);
-    const termsLength = (editableGlossaryTerms?.terms?.length ?? 0) + (uneditableGlossaryTerms?.terms?.length ?? 0);
+    const termsEmpty =
+        !editableGlossaryTerms?.terms?.length &&
+        !uneditableGlossaryTerms?.terms?.length &&
+        !proposedGlossaryTerms?.length;
+
+    const proposedTagItems = proposedTags?.flatMap((request) =>
+        request.params?.tagProposal?.tag ? [request.params?.tagProposal?.tag] : request.params?.tagProposal?.tags || [],
+    );
+
+    const tagsLength =
+        (editableTags?.tags?.length ?? 0) + (uneditableTags?.tags?.length ?? 0) + (proposedTagItems?.length ?? 0);
+
+    const proposedTermItems = proposedGlossaryTerms?.flatMap((request) =>
+        request.params?.glossaryTermProposal?.glossaryTerm
+            ? [request.params?.glossaryTermProposal?.glossaryTerm]
+            : request.params?.glossaryTermProposal?.glossaryTerms || [],
+    );
+    const termsLength =
+        (editableGlossaryTerms?.terms?.length ?? 0) +
+        (uneditableGlossaryTerms?.terms?.length ?? 0) +
+        (proposedTermItems?.length ?? 0);
 
     let renderedTags = 0;
     let renderedTerms = 0;
+
+    const canEditSchemaFieldTags = !!entityData?.privileges?.canEditSchemaFieldTags;
+    const canProposeSchemaFieldTags = !!entityData?.privileges?.canProposeSchemaFieldTags;
+    const canEditSchemaFieldTerms = !!entityData?.privileges?.canEditSchemaFieldGlossaryTerms;
+    const canProposeSchemaFieldTerms = !!entityData?.privileges?.canProposeSchemaFieldGlossaryTerms;
 
     return (
         <TagTermWrapper $showOneAndCount={showOneAndCount}>
@@ -194,11 +241,43 @@ export default function TagTermGroup({
                         refetch={refetch}
                         fontSize={fontSize}
                         showOneAndCount={showOneAndCount}
+                        context={term.context}
                     />
                 );
             })}
+            {proposedGlossaryTerms?.map((actionRequest) => {
+                const proposedTerms = actionRequest.params?.glossaryTermProposal?.glossaryTerm
+                    ? [actionRequest.params?.glossaryTermProposal?.glossaryTerm]
+                    : actionRequest.params?.glossaryTermProposal?.glossaryTerms;
 
-            {/* uneditable tags are provided by ingestion pipelines exclusively  */}
+                return (
+                    <>
+                        {proposedTerms?.map((proposedTerm) => {
+                            renderedTerms += 1;
+                            if (showOneAndCount && renderedTerms === 2) {
+                                return <Count>{`+${termsLength - 1}`}</Count>;
+                            }
+                            if (showOneAndCount && renderedTerms > 2) return null;
+
+                            return (
+                                <>
+                                    {proposedTerm && (
+                                        <ProposedTermPill
+                                            term={proposedTerm}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedActionRequest(actionRequest);
+                                            }}
+                                        />
+                                    )}
+                                </>
+                            );
+                        })}
+                    </>
+                );
+            })}
+
+            {/* uneditable tags are provided by ingestion pipelines or merged in from v2 fields  */}
 
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
@@ -213,18 +292,20 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
-                    <Tag
-                        tag={tag}
-                        entityUrn={entityUrn}
-                        entitySubresource={entitySubresource}
-                        canRemove={false}
-                        readOnly={readOnly}
-                        highlightText={highlightText}
-                        onOpenModal={onOpenModal}
-                        refetch={refetch}
-                        fontSize={fontSize}
-                        showOneAndCount={showOneAndCount}
-                    />
+                    <Tooltip title="This tag is managed within another platform">
+                        <Tag
+                            tag={tag}
+                            entityUrn={entityUrn}
+                            entitySubresource={entitySubresource}
+                            canRemove={false}
+                            readOnly={readOnly}
+                            highlightText={highlightText}
+                            onOpenModal={onOpenModal}
+                            refetch={refetch}
+                            fontSize={fontSize}
+                            showOneAndCount={showOneAndCount}
+                        />
+                    </Tooltip>
                 );
             })}
             {/* editable tags may be provided by ingestion pipelines or the UI */}
@@ -248,7 +329,46 @@ export default function TagTermGroup({
                         refetch={refetch}
                         fontSize={fontSize}
                         showOneAndCount={showOneAndCount}
+                        context={tag.context}
                     />
+                );
+            })}
+            {proposedTags?.map((actionRequest) => {
+                const tags = actionRequest?.params?.tagProposal?.tag
+                    ? [actionRequest?.params?.tagProposal?.tag]
+                    : actionRequest?.params?.tagProposal?.tags;
+                return (
+                    <>
+                        {tags?.map((proposedTag) => {
+                            renderedTags += 1;
+                            if (showOneAndCount && renderedTags === 2) {
+                                return <Count>{`+${tagsLength - 1}`}</Count>;
+                            }
+                            if (showOneAndCount && renderedTags > 2) return null;
+
+                            return (
+                                <>
+                                    {proposedTag && (
+                                        <ProposedTag
+                                            data-testid={`proposed-tag-${proposedTag?.properties?.name}`}
+                                            $colorHash={proposedTag?.urn}
+                                            $color={proposedTag?.properties?.colorHex}
+                                            $showOneAndCount={showOneAndCount}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedActionRequest(actionRequest);
+                                            }}
+                                        >
+                                            <ProposedTagContent>
+                                                {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
+                                                <ProposedIcon propertyName="Tag" />
+                                            </ProposedTagContent>
+                                        </ProposedTag>
+                                    )}
+                                </>
+                            );
+                        })}
+                    </>
                 );
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
@@ -290,7 +410,19 @@ export default function TagTermGroup({
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                canAddTag={canEditSchemaFieldTags}
+                canProposeTag={canProposeSchemaFieldTags}
+                canAddTerm={canEditSchemaFieldTerms}
+                canProposeTerm={canProposeSchemaFieldTerms}
             />
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                    refetch={refetch}
+                />
+            )}
         </TagTermWrapper>
     );
 }

@@ -1,9 +1,8 @@
-import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import datahubPlatforms from '@images/datahub-platforms.svg';
-import dataHubIcon from '@images/datahublogo.png';
+import AcrylIcon from '@images/acryl-light-mark.svg?react';
+import introduceBg from '@images/introduceBg.svg';
 
 const Container = styled.div`
     display: flex;
@@ -11,7 +10,13 @@ const Container = styled.div`
     justify-content: space-between;
     max-width: 470px;
     padding: 52px 65px 65px 52px;
-    background: #191d2e url(${datahubPlatforms}) no-repeat bottom left;
+    background: #191d2e url(${introduceBg}) no-repeat bottom left;
+    border-radius: 18px;
+`;
+
+const StyledAcrylIcon = styled(AcrylIcon)`
+    width: 32px;
+    height: 32px;
 `;
 
 const Title = styled.div`
@@ -40,7 +45,7 @@ export const IntroduceYourselfLeftSidebar = () => {
     return (
         <Container>
             <AcrylTitle>
-                <Image src={dataHubIcon} preview={false} style={{ width: 36 }} />
+                <StyledAcrylIcon />
             </AcrylTitle>
             <div>
                 <Title>Start your data journey</Title>

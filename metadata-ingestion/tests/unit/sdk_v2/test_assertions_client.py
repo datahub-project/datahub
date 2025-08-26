@@ -19,6 +19,7 @@ def client(mock_graph: Mock) -> DataHubClient:
     return DataHubClient(graph=mock_graph)
 
 
+@pytest.mark.skip(reason="Skipping on SaaS since the assertions client is available")
 def test_use_assertions_client_fails_if_not_installed(
     client: DataHubClient, mock_graph: Mock
 ) -> None:
@@ -28,4 +29,4 @@ def test_use_assertions_client_fails_if_not_installed(
         SdkUsageError,
         match="AssertionsClient is not installed, please install it with `pip install acryl-datahub-cloud`",
     ):
-        client.assertions.get_assertions(urn="urn:li:assertion:123")
+        client.assertions.get(urn="urn:li:assertion:123")

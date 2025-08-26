@@ -95,7 +95,11 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     };
 
     return (
-        <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
+        <OwnerTag
+            onClose={onClose}
+            closable={!!entityUrn && !readOnly}
+            data-testid={`owner-tag-for-${owner.owner.urn}`}
+        >
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
                 <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`} {...linkProps}>

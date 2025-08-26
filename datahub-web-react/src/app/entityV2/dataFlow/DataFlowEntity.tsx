@@ -16,6 +16,7 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
@@ -32,8 +33,8 @@ import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlo
 import { DataFlow, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -165,6 +166,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
         {
             component: StatusSection,
         },
+        {
+            component: SharingAssetSection,
+        },
     ];
 
     getSidebarTabs = () => [
@@ -261,6 +265,10 @@ export class DataFlowEntity implements Entity<DataFlow> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    getPlatformProperties = (data: DataFlow) => {
+        return data?.platform;
     };
 
     supportedCapabilities = () => {

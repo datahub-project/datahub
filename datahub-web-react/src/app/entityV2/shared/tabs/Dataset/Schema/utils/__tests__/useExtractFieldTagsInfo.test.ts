@@ -1,7 +1,15 @@
 import { renderHook } from '@testing-library/react-hooks';
 
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
-import { EditableSchemaMetadata, EntityType, SchemaField, SchemaFieldDataType, Tag } from '@src/types.generated';
+import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import {
+    ActionRequestType,
+    EditableSchemaMetadata,
+    EntityType,
+    SchemaField,
+    SchemaFieldDataType,
+    Tag,
+} from '@src/types.generated';
 
 describe('useExtractFieldTagsInfo', () => {
     const testTag: Tag = {
@@ -12,6 +20,16 @@ describe('useExtractFieldTagsInfo', () => {
             name: 'testTagName',
         },
     };
+
+    const extraTag: Tag = {
+        urn: 'urn:extraField',
+        type: EntityType.Tag,
+        name: 'extraTagName',
+        properties: {
+            name: 'extraTagName',
+        },
+    };
+
     const emptyEditableSchemaMetadata: EditableSchemaMetadata = { editableSchemaFieldInfo: [] };
 
     const filledEditableSchemaMetadata: EditableSchemaMetadata = {
@@ -23,6 +41,33 @@ describe('useExtractFieldTagsInfo', () => {
                         {
                             associatedUrn: 'urn:li:globalTags:test.testTagName',
                             tag: testTag,
+                        },
+                    ],
+                },
+            },
+        ],
+    };
+
+    const editableSchemaMetadataWithExtraTags: EditableSchemaMetadata = {
+        editableSchemaFieldInfo: [
+            {
+                fieldPath: 'testField',
+                globalTags: {
+                    tags: [
+                        {
+                            associatedUrn: 'urn:li:globalTags:test.testTagName',
+                            tag: testTag,
+                        },
+                    ],
+                },
+            },
+            {
+                fieldPath: '[version=2.0].[type=record].testField',
+                globalTags: {
+                    tags: [
+                        {
+                            associatedUrn: 'urn:li:globalTags:test.extraTagName',
+                            tag: extraTag,
                         },
                     ],
                 },
@@ -54,6 +99,22 @@ describe('useExtractFieldTagsInfo', () => {
 
     const emptyBaseEntity = {};
 
+    const filledBaseEntity = {
+        dataset: {
+            proposals: [
+                {
+                    type: ActionRequestType.TagAssociation,
+                    subResource: 'testField',
+                    params: {
+                        tagProposal: {
+                            tag: testTag,
+                        },
+                    },
+                },
+            ],
+        },
+    };
+
     const { mockedUseBaseEntity } = vi.hoisted(() => {
         return { mockedUseBaseEntity: vi.fn() };
     });
@@ -66,18 +127,28 @@ describe('useExtractFieldTagsInfo', () => {
         };
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
+    beforeAll(() => {
+        expect(pathMatchesExact('testField', 'testField')).toBe(true);
+        expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
+        expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
+        expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
     });
 
-    it('should extract uneditableTags when they were provided in SchemaFild only', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.resetAllMocks();
+    });
+
+    it('should extract uneditableTags when they were provided in SchemaField only', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
+        const { editableTags, uneditableTags, proposedTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
 
-        expect(editableTags).toBeUndefined();
-        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name === 'testTagName').toBeTruthy();
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(proposedTags).toStrictEqual([]);
+        expect(uneditableTags?.tags).toHaveLength(1);
+        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
         expect(numberOfTags).toBe(1);
     });
 
@@ -85,22 +156,39 @@ describe('useExtractFieldTagsInfo', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+        const { editableTags, uneditableTags, proposedTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
 
-        expect(editableTags?.tags?.[0]?.tag?.properties?.name === 'testTagName').toBeTruthy();
-        expect(uneditableTags).toBeUndefined();
+        expect(editableTags?.tags).toHaveLength(1);
+        expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
+        expect(proposedTags).toStrictEqual([]);
+        expect(uneditableTags?.tags).toHaveLength(0);
         expect(numberOfTags).toBe(1);
     });
 
-    it('should extract all tags when they were provided', () => {
-        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
+    it('should extract proposedTags when they were provided in baseEntity', () => {
+        mockedUseBaseEntity.mockReturnValue(filledBaseEntity);
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
+            .current;
+
+        const { editableTags, uneditableTags, proposedTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(proposedTags).toHaveLength(1);
+        expect(uneditableTags?.tags).toHaveLength(0);
+        expect(numberOfTags).toBe(1);
+    });
+
+    it('should extract all tags when they were provided in both schema and editable metadata, but exclude duplicates', () => {
+        mockedUseBaseEntity.mockReturnValue(filledBaseEntity);
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
+        const { editableTags, uneditableTags, proposedTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
 
-        expect(editableTags?.tags?.[0]?.tag?.properties?.name === 'testTagName').toBeTruthy();
-        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name === 'testTagName').toBeTruthy();
+        expect(editableTags?.tags).toHaveLength(1);
+        expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
+        expect(uneditableTags?.tags).toHaveLength(0);
+        expect(proposedTags).toHaveLength(1);
         expect(numberOfTags).toBe(2);
     });
 
@@ -109,10 +197,29 @@ describe('useExtractFieldTagsInfo', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+        const { editableTags, uneditableTags, proposedTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
 
-        expect(editableTags).toBeUndefined();
-        expect(uneditableTags).toBeUndefined();
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(proposedTags).toStrictEqual([]);
+        expect(uneditableTags?.tags).toHaveLength(0);
         expect(numberOfTags).toBe(0);
+    });
+
+    it('should extract extra uneditable tags from fields that match the field path insensitive to V2', () => {
+        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
+
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(editableSchemaMetadataWithExtraTags))
+            .result.current;
+
+        const { editableTags, uneditableTags, proposedTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+
+        expect(editableTags?.tags).toHaveLength(1);
+        expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
+
+        expect(uneditableTags?.tags).toHaveLength(1);
+        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('extraTagName');
+
+        expect(proposedTags).toStrictEqual([]);
+        expect(numberOfTags).toBe(2);
     });
 });

@@ -1,0 +1,34 @@
+namespace com.linkedin.link
+
+/**
+ * Information about a Link Preview
+ */
+@Aspect = {
+  "name": "linkPreviewInfo"
+}
+record LinkPreviewInfo {
+  /**
+   * The type of the Link Preview
+   */
+  type: enum LinkPreviewType {
+    /**
+     * Preview of a Slack Message
+     */
+    SLACK_MESSAGE
+
+    /**
+     * Preview of a Microsoft Teams Message
+     */
+    TEAMS_MESSAGE
+  }
+
+  /**
+   * The JSON-encoded preview. Understood and rendered by DataHub UI.
+   */
+  json: string
+
+  /**
+   * The time at which the preview was last refreshed.
+   */
+  lastRefreshedMs: long
+}

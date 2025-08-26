@@ -1,0 +1,52 @@
+on:
+  types:
+    - dataset
+    - chart
+    - dashboard
+  conditions:
+    not:
+      - property: datasetProperties.name
+        operator: "starts_with"
+        values: ["special_prefix"]
+      - property: datasetProperties.name
+        operator: "regex_match"
+        values: [".*exclude.*"]
+      - or:
+        - property: editableDatasetProperties.description
+          operator: exists
+        - and:
+            - not:
+                property: datasetProperties.description
+                operator: "starts_with"
+                values: ["special_prefix"]
+rules:
+  - not:
+      property: editableDatasetProperties.description
+      operator: exists
+  - or:
+      - property: editableDatasetProperties.description
+        operator: contains_any
+        values: ["required field option 1"]
+      - property: datasetProperties.description
+        operator: contains_any
+        values: ["required field option 2"]
+  # Ultra nested
+  - and:
+    - or:
+      - and:
+          - not:
+              - property: datasetProperties.description
+                operator: contains_any
+                values: [ "required field option 2" ]
+          - or:
+            - property: datasetProperties.description
+              operator: is_false
+            - property: datasetProperties.description
+              operator: is_true
+      - property: datasetProperties.description
+        operator: contains_any
+        values: ["required field option 2"]
+    - not:
+      - property: datasetProperties.description
+        operator: contains_any
+        values: [ "required field option 2" ]

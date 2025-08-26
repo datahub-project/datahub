@@ -165,7 +165,7 @@ public class CorpUserType
           buildMetadataChangeProposalWithUrn(
               UrnUtils.getUrn(urn),
               CORP_USER_EDITABLE_INFO_NAME,
-              mapCorpUserEditableInfo(input, existingCorpUserEditableInfo));
+              mapCorpUserEditableInfo(input, existingCorpUserEditableInfo, context));
       _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
       return load(urn, context).getData();
@@ -217,7 +217,8 @@ public class CorpUserType
   }
 
   private RecordTemplate mapCorpUserEditableInfo(
-      CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing) {
+      CorpUserUpdateInput input, Optional<CorpUserEditableInfo> existing, QueryContext context)
+      throws Exception {
     CorpUserEditableInfo result = existing.orElseGet(() -> new CorpUserEditableInfo());
     if (input.getDisplayName() != null) {
       result.setDisplayName(input.getDisplayName());
@@ -255,7 +256,11 @@ public class CorpUserType
               input.getPlatformUrns().stream().map(UrnUtils::getUrn).collect(Collectors.toList())));
     }
     if (input.getPersonaUrn() != null) {
-      if (DEFAULT_PERSONA_URNS.contains(input.getPersonaUrn())) {
+      // TODO: Change this to use the entity client to check if the persona exists
+      // once personas are all ingested.
+      if (DEFAULT_PERSONA_URNS.contains(input.getPersonaUrn())
+          || _entityClient.exists(
+              context.getOperationContext(), UrnUtils.getUrn(input.getPersonaUrn()))) {
         result.setPersona(UrnUtils.getUrn(input.getPersonaUrn()));
       } else {
         throw new DataHubGraphQLException(

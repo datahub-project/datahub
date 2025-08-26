@@ -10,7 +10,10 @@ record FieldAssertionInfo {
     /**
      * The type of the field assertion being monitored.
      */
-    @Searchable = {}
+    @Searchable = {
+      "fieldName": "fieldAssertionType",
+      "fieldType": "KEYWORD"
+    }
     type: enum FieldAssertionType {
       /**
        * An assertion used to validate the values contained with a field / column given a set of rows.

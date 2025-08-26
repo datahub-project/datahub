@@ -1,7 +1,7 @@
 import { combineEntityDataWithSiblings, shouldEntityBeTreatedAsPrimary } from '@app/entity/shared/siblingUtils';
 import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '@src/Mocks';
 
-import { EntityType, SchemaFieldDataType } from '@types';
+import { EntityType, HealthStatus, HealthStatusType, SchemaFieldDataType } from '@types';
 
 const usageStats = {
     buckets: [
@@ -75,6 +75,41 @@ const datasetPrimary = {
     siblings: {
         isPrimary: true,
     },
+    health: [
+        {
+            type: HealthStatusType.Assertions,
+            status: HealthStatus.Fail,
+            message: 'assertion base message',
+        },
+        {
+            type: HealthStatusType.Incidents,
+            status: HealthStatus.Fail,
+            message: 'incident base message',
+        },
+        {
+            type: HealthStatusType.Tests,
+            status: HealthStatus.Fail,
+            message: 'test base message',
+        },
+    ],
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://primary.com',
+                label: 'Primary',
+                settings: {
+                    showInAssetPreview: true,
+                },
+            },
+            {
+                url: 'https://primary2.com',
+                label: 'Primary2',
+                settings: {
+                    showInAssetPreview: true,
+                },
+            },
+        ],
+    },
 };
 
 const datasetUnprimary = {
@@ -138,8 +173,43 @@ const datasetUnprimary = {
             },
         ],
     },
+    health: [
+        {
+            type: HealthStatusType.Assertions,
+            status: HealthStatus.Pass,
+            message: 'assertion secondary message',
+        },
+        {
+            type: HealthStatusType.Incidents,
+            status: HealthStatus.Pass,
+            message: 'incident secondary message',
+        },
+        {
+            type: HealthStatusType.Tests,
+            status: HealthStatus.Pass,
+            message: 'test secondary message',
+        },
+    ],
     siblings: {
         isPrimary: false,
+    },
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://unprimary.com',
+                label: 'Unprimary',
+                settings: {
+                    showInAssetPreview: true,
+                },
+            },
+            {
+                url: 'https://primary2.com',
+                label: 'Primary2',
+                settings: {
+                    showInAssetPreview: false,
+                },
+            },
+        ],
     },
 };
 
@@ -164,11 +234,24 @@ const datasetPrimaryWithSiblings = {
                 label: 'hi',
             },
         ],
+        health: [
+            {
+                type: HealthStatusType.Assertions,
+                status: HealthStatus.Fail,
+            },
+            {
+                type: HealthStatusType.Incidents,
+                status: HealthStatus.Fail,
+            },
+            {
+                type: HealthStatusType.Tests,
+                status: HealthStatus.Fail,
+            },
+        ],
     },
-
     siblings: {
         isPrimary: true,
-        siblings: [datasetUnprimary],
+        siblings: [{ urn: datasetUnprimary.urn, type: datasetUnprimary.type }],
     },
     siblingsSearch: {
         count: 1,
@@ -181,7 +264,7 @@ const datasetUnprimaryWithPrimarySiblings = {
     ...datasetUnprimary,
     siblings: {
         isPrimary: false,
-        siblings: [datasetPrimary],
+        siblings: [{ urn: datasetPrimary.urn, type: datasetPrimary.type }],
     },
     siblingsSearch: {
         count: 1,
@@ -194,7 +277,7 @@ const datasetUnprimaryWithNoPrimarySiblings = {
     ...datasetUnprimary,
     siblings: {
         isPrimary: false,
-        siblings: [datasetUnprimary],
+        siblings: [{ urn: datasetUnprimary.urn, type: datasetUnprimary.type }],
     },
     siblingsSearch: {
         count: 1,
@@ -217,6 +300,13 @@ describe('siblingUtils', () => {
             expect(combinedData.dataset.globalTags.tags[0].tag.urn).toEqual('urn:li:tag:unprimary-tag');
             expect(combinedData.dataset.globalTags.tags[1].tag.urn).toEqual('urn:li:tag:primary-tag');
 
+            // will merge links excluding duplicates by url and label
+            expect(combinedData.dataset.institutionalMemory.elements).toHaveLength(3);
+            expect(combinedData.dataset.institutionalMemory.elements[0].url).toEqual('https://primary.com');
+            expect(combinedData.dataset.institutionalMemory.elements[1].url).toEqual('https://primary2.com');
+            expect(combinedData.dataset.institutionalMemory.elements[1].settings.showInAssetPreview).toEqual(true);
+            expect(combinedData.dataset.institutionalMemory.elements[2].url).toEqual('https://unprimary.com');
+
             // merges schema metadata properly  by fieldPath
             expect(combinedData.dataset.schemaMetadata?.fields).toHaveLength(4);
             expect(combinedData.dataset.schemaMetadata?.fields[0]?.fieldPath).toEqual('new_one');
@@ -229,6 +319,33 @@ describe('siblingUtils', () => {
 
             // will take secondary string properties in the case of empty string
             expect(combinedData.dataset.properties.description).toEqual('primary description');
+
+            // health status
+            expect(combinedData.dataset.health).toHaveLength(3);
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.status ===
+                    HealthStatus.Fail,
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.message ===
+                    'See failing assertions →',
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.status ===
+                    HealthStatus.Fail,
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.message ===
+                    'See active incidents →',
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.status ===
+                    HealthStatus.Fail,
+            ).toBeTruthy();
+            expect(
+                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.message ===
+                    'See failing governance tests →',
+            ).toBeTruthy();
 
             // will stay primary
             expect(combinedData.dataset.siblings.isPrimary).toBeTruthy();

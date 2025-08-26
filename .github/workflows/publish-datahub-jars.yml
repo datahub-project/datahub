@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   check-secret:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       publish-enabled: ${{ steps.publish-enabled.outputs.publish }}
     steps:
@@ -36,7 +36,7 @@ jobs:
           fi
   setup:
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -52,7 +52,7 @@ jobs:
           TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g')
           echo "tag=$TAG" >> $GITHUB_OUTPUT
   publish:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     permissions:
       id-token: write
       contents: read
@@ -70,6 +70,14 @@ jobs:
         with:
           python-version: "3.10"
           cache: "pip"
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-west-2
+      - name: Get CodeArtifact Auth Token
+        run: |
+          echo "CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token --domain acryl --domain-owner 795586375822 --query authorizationToken --output text)" >> $GITHUB_ENV
       - name: checkout upstream repo
         run: |
           git remote add upstream https://github.com/datahub-project/datahub.git
@@ -77,12 +85,9 @@ jobs:
       - name: publish datahub-client jar snapshot
         if: ${{ github.event_name != 'release' }}
         env:
-          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
-          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+          CODEARTIFACT_AUTH_TOKEN: ${{ env.CODEARTIFACT_AUTH_TOKEN }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion

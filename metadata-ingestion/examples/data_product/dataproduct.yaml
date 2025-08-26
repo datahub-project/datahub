@@ -10,6 +10,9 @@ assets:
   - urn:li:dashboard:(looker,dashboards.19)
   - urn:li:dataFlow:(airflow,snowflake_load,prod)
 
+output_ports:
+  - urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)
+
 owners:
   - id: urn:li:corpuser:jdoe
     type: BUSINESS_OWNER

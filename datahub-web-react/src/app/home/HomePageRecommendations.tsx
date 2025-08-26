@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HomePagePosts } from '@app/home/HomePagePosts';
+import { shouldShowGlossary } from '@app/identity/user/UserUtils';
 import {
     HOME_PAGE_DOMAINS_ID,
     HOME_PAGE_MOST_POPULAR_ID,
@@ -13,8 +14,9 @@ import {
 import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
 import { RecommendationModule } from '@app/recommendations/RecommendationModule';
 import { BrowseEntityCard } from '@app/search/BrowseEntityCard';
-import { useBusinessAttributesFlag } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 
 import { useGetEntityCountsQuery } from '@graphql/app.generated';
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
@@ -106,6 +108,11 @@ export const HomePageRecommendations = ({ user }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
+    const appConfig = useAppConfig();
+    const authenticatedUser = useGetAuthenticatedUser();
+    const canManageGlossary = !!authenticatedUser?.platformPrivileges?.manageGlossaries;
+    const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
+    const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
     const userUrn = user?.urn;
 
     const userContext = useUserContext();
@@ -167,7 +174,6 @@ export const HomePageRecommendations = ({ user }: Props) => {
     // Render most popular onboarding step if the most popular module exists
     const hasMostPopular = !!recommendationModules?.some((module) => module?.moduleId === MOST_POPULAR_MODULE_ID);
     useToggleEducationStepIdsAllowList(hasMostPopular, HOME_PAGE_MOST_POPULAR_ID);
-
     return (
         <RecommendationsContainer>
             <HomePagePosts />
@@ -212,12 +218,20 @@ export const HomePageRecommendations = ({ user }: Props) => {
                                             key={entityCount.entityType}
                                             entityType={entityCount.entityType}
                                             count={entityCount.count}
+                                            showGlossary={showGlossary}
                                         />
                                     ),
                             )}
-                            {!orderedEntityCounts.some(
-                                (entityCount) => entityCount.entityType === EntityType.GlossaryTerm,
-                            ) && <BrowseEntityCard entityType={EntityType.GlossaryTerm} count={0} />}
+                            {orderedEntityCounts.map(
+                                (entityCount) =>
+                                    entityCount.entityType === EntityType.GlossaryTerm && (
+                                        <BrowseEntityCard
+                                            entityType={EntityType.GlossaryTerm}
+                                            showGlossary={showGlossary}
+                                            count={entityCount.count}
+                                        />
+                                    ),
+                            )}
                         </BrowseCardContainer>
                     ) : (
                         <NoMetadataContainer>

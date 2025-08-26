@@ -25,6 +25,7 @@ interface Props {
     displayName: string;
     searchQuery: string;
     loading: boolean;
+    hideSearchBar?: boolean;
     updateIsMenuOpen: (isOpen: boolean) => void;
     setSearchQuery: (query: string) => void;
     updateFilters: () => void;
@@ -40,6 +41,7 @@ export default function SearchFilterView({
     displayName,
     searchQuery,
     loading,
+    hideSearchBar,
     updateIsMenuOpen,
     setSearchQuery,
     updateFilters,
@@ -60,6 +62,7 @@ export default function SearchFilterView({
                     updateSearchQuery={setSearchQuery}
                     isLoading={loading}
                     searchPlaceholder={displayName}
+                    hideSearchBar={hideSearchBar}
                     filter={filter}
                     manuallyUpdateFilters={manuallyUpdateFilters}
                 />
@@ -67,7 +70,7 @@ export default function SearchFilterView({
         >
             <SearchFilterLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
-                isActive={!!numActiveFilters}
+                $isActive={!!numActiveFilters}
                 data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}

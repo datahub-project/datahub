@@ -21,6 +21,8 @@ public class OpenTelemetryKeyConstants {
   public static final String EVENT_SOURCE = "event.source";
   public static final String SOURCE_IP = "source.ip";
 
+  public static final String SSO_SCIM_SOURCE = "ssoScim";
+
   // OTEL Span Event types
   public static final String LOGIN_EVENT = "event.login";
   public static final String UPDATE_ASPECT_EVENT = "event.update.aspect";

@@ -75,7 +75,9 @@ describe("ingestion source creation flow", () => {
       `[data-testid="delete-ingestion-source-${ingestion_source_name} EDITED"]`,
     ).click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
-    cy.get("button").contains("Yes").click();
+    cy.get(`[data-testid="confirm-delete-ingestion-source"]`).click({
+      waitForAnimations: true,
+    });
     cy.waitTextVisible("Removed ingestion source.");
     cy.ensureTextNotPresent(`${ingestion_source_name} EDITED`);
   });

@@ -17,10 +17,25 @@ dependencies {
   implementation project(':ingestion-scheduler')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:events-service')
+  implementation project(':metadata-service:openapi-servlet:models')
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
   }
+
+  implementation (externalDependency.scimServer) {
+    exclude group: 'commons-logging', module: 'commons-logging'
+    exclude group: 'org.slf4j', module: 'slf4j-api'
+    exclude group: 'org.jboss.logging', module: 'jboss-logging'
+    exclude group: 'org.antlr', module: 'antlr4-runtime'
+  }
+
+  implementation externalDependency.jakartaWsRsApi
+
+  // acryl-main only
+  implementation project(':notifications')
+  implementation externalDependency.awsGlueSchemaRegistrySerde
+
   implementation externalDependency.elasticSearchRest
   implementation externalDependency.httpClient
   implementation externalDependency.gson
@@ -69,6 +84,8 @@ dependencies {
   testImplementation externalDependency.javatuples
 
 
+  implementation externalDependency.sentry
+  implementation externalDependency.sentryLogback
   constraints {
     implementation(externalDependency.snappy) {
       because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")

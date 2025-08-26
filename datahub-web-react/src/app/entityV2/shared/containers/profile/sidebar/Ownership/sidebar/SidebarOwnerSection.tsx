@@ -3,17 +3,21 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
-// import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import {
+    ExtendedOwner,
+    combineOwners,
+    getOwnershipTypeName,
+} from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { OwnershipTypeSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/OwnershipTypeSection';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ENTITY_PROFILE_OWNERS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 
-import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
+import { ActionRequestType, OwnershipType, OwnershipTypeEntity } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -42,10 +46,23 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
 
-    const ownersEmpty = !entityData?.ownership?.owners?.length;
     const ownershipTypesMap: Map<string, OwnershipTypeEntity> = new Map();
-    const ownersByTypeMap: Map<string, Owner[]> = new Map();
-    entityData?.ownership?.owners?.forEach((owner) => {
+    const ownersByTypeMap: Map<string, ExtendedOwner[]> = new Map();
+    const proposedOwnerRequests = getProposedItemsByType(
+        entityData?.proposals || [],
+        ActionRequestType.OwnerAssociation,
+    );
+    const proposedOwners = proposedOwnerRequests.flatMap(
+        (request) =>
+            request.params?.ownerProposal?.owners?.map((owner) => ({
+                ...owner,
+                request,
+            })) || [],
+    );
+    const combinedOwners = combineOwners(entityData?.ownership?.owners || [], proposedOwners);
+    const ownersEmpty = !combinedOwners?.length;
+
+    combinedOwners?.forEach((owner) => {
         const ownershipType = owner?.ownershipType;
         const ownershipTypeName = getOwnershipTypeName(ownershipType);
         // If ownership type is not in the map, add it
@@ -76,6 +93,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     }
 
     const canEditOwners = !!entityData?.privileges?.canEditOwners;
+    const canProposeOwners = !!entityData?.privileges?.canProposeOwners;
 
     return (
         <div id={ENTITY_PROFILE_OWNERS_ID}>
@@ -86,7 +104,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                         <OwnershipSections>
                             {ownershipTypeNames.map((ownershipTypeName) => {
                                 const ownershipType = ownershipTypesMap.get(ownershipTypeName) as OwnershipTypeEntity;
-                                const owners = ownersByTypeMap.get(ownershipTypeName) as Owner[];
+                                const owners = ownersByTypeMap.get(ownershipTypeName) as ExtendedOwner[];
                                 return (
                                     <OwnershipTypeSection
                                         key={ownershipTypeName}
@@ -108,7 +126,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();
                             }}
-                            actionPrivilege={canEditOwners}
+                            actionPrivilege={canEditOwners || canProposeOwners}
                             dataTestId="addOwner"
                         />
                     )
@@ -121,6 +139,8 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                     hideOwnerType={properties?.hideOwnerType || false}
                     entityType={entityType}
                     refetch={refetch}
+                    canPropose={canProposeOwners}
+                    canEdit={canEditOwners}
                     onCloseModal={() => {
                         setShowAddModal(false);
                     }}

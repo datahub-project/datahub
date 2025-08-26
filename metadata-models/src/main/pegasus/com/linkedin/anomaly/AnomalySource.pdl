@@ -1,0 +1,43 @@
+namespace com.linkedin.anomaly
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Information about the source of feedback for an anomaly raised on an asset.
+ */
+record AnomalySource {
+  /**
+  * How this feedback was provided.
+  */
+  type: enum AnomalySourceType {
+    /**
+     * An assertion has failed, triggering the anomaly report.
+     */
+     INFERRED_ASSERTION_FAILURE,
+     /**
+     * An anomaly was reported by a user.
+     */
+     USER_FEEDBACK,
+  }
+
+  /**
+  * Reference to an URN related to the source of an anomaly.
+  * For assertion monitors, this will contain the urn of the source Assertion.
+  */
+  @TimeseriesField = {}
+  sourceUrn: optional Urn
+
+  /**
+   * The timestamp of the event that triggered the anomaly.
+   * For assertion monitors, this will be the timestamp of the assertion run event.
+   */
+  @TimeseriesField = {}
+  sourceEventTimestampMillis: optional long
+
+  /**
+  * Additional properties about the source, for example which metric
+  * of an assertion generated the anomaly.
+  */
+  properties: optional AnomalySourceProperties
+}

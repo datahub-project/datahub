@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an asset Anomaly
+ */
+@Aspect = {
+  "name": "anomalyKey"
+}
+record AnomalyKey {
+  /**
+   * A unique id for the anomaly. Generated on the server side at anomaly creation time.
+   */
+  id: string
+}

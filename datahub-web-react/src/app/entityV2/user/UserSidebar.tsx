@@ -7,6 +7,7 @@ import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSi
 import { UserGroupSideBarSection } from '@app/entityV2/shared/sidebarSection/UserGroupSidebarSection';
 import { UserOwnershipSidebarSection } from '@app/entityV2/shared/sidebarSection/UserOwnershipSideBarSection';
 import { SidebarData, UserProfileInfoCard } from '@app/entityV2/user/UserProfileInfoCard';
+import { UserSubscriptions } from '@app/entityV2/user/UserSubscriptions';
 
 import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
 import { DataHubRole } from '@types';
@@ -69,6 +70,7 @@ export default function UserSidebar({ sidebarData, refetch }: Props) {
                     onSaveAboutMe={onSaveAboutMe}
                 />
                 <UserOwnershipSidebarSection ownershipResults={ownershipResults} />
+                <UserSubscriptions isCompact urn={urn} />
                 <UserGroupSideBarSection groupsDetails={groupsDetails} />
             </Content>
         </SideBar>

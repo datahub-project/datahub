@@ -1,0 +1,199 @@
+import React from 'react';
+
+import AcrylInstances from '@app/settingsV2/platform/acryl/AcrylInstances';
+import { BigQueryIntegration } from '@app/settingsV2/platform/integrations/BigQueryIntegration';
+import { DatabricksIntegration } from '@app/settingsV2/platform/integrations/DatabricksIntegration';
+import { SnowflakeIntegration } from '@app/settingsV2/platform/integrations/SnowflakeIntegration';
+import { SlackIntegration } from '@app/settingsV2/platform/slack/SlackIntegration';
+import { OidcIntegration } from '@app/settingsV2/platform/sso/OidcIntegration';
+
+import { NotificationScenarioType } from '@types';
+
+import acrylLogo from '@images/acryl-dark-mark.svg';
+import bigqueryLogo from '@images/bigquerylogo.png';
+import databricksLogo from '@images/databrickslogo.png';
+import oidcLogo from '@images/oidclogo.png';
+import slackLogo from '@images/slacklogo.png';
+// import teamsLogo from '../../../images/teamslogo.png';
+import snowflakeLogo from '@images/snowflakelogo.png';
+
+// import { TeamsIntegration } from './teams/TeamsIntegration';
+
+/**
+ * SSO
+ */
+const OIDC_INTEGRATION = {
+    id: 'oidc',
+    name: 'OIDC',
+    img: oidcLogo,
+    description: 'Integrate DataHub with your OIDC SSO provider ',
+    content: <OidcIntegration />,
+};
+
+export const SUPPORTED_SSO_INTEGRATIONS = [OIDC_INTEGRATION];
+
+/**
+ * Notification Integrations
+ */
+export const SLACK_INTEGRATION = {
+    id: 'slack',
+    name: 'Slack',
+    img: slackLogo,
+    description: 'Notify Slack channels when important things happen',
+    content: <SlackIntegration />,
+};
+
+/**
+ * Teams Integrations
+ */
+// const TEAMS_INTEGRATION = {
+//     id: 'microsoft-teams',
+//     name: 'Microsoft Teams',
+//     img: teamsLogo,
+//     description: 'Notify Teams channels when important things happen',
+//     content: <TeamsIntegration />,
+// };
+
+/**
+ * Acryl Instance Integrations
+ */
+
+const ACRYL_INSTANCE_INTEGRATION = {
+    id: 'datahub',
+    name: 'DataHub',
+    img: acrylLogo,
+    description: 'Integrate with another DataHub Cloud instance to enable data sharing',
+    content: <AcrylInstances />,
+};
+
+/**
+ * Ingestion Integrations
+ */
+const SNOWFLAKE_INTEGRATION = {
+    id: 'snowflake',
+    name: 'Snowflake',
+    img: snowflakeLogo,
+    description: 'Manage Snowflake connections for automations',
+    content: <SnowflakeIntegration />,
+};
+
+const BIGQUERY_INTEGRATION = {
+    id: 'bigquery',
+    name: 'BigQuery',
+    img: bigqueryLogo,
+    description: 'Manage BigQuery connections for automations',
+    content: <BigQueryIntegration />,
+};
+
+const DATABRICKS_INTEGRATION = {
+    id: 'databricks',
+    name: 'Databricks',
+    img: databricksLogo,
+    description: 'Manage reusable Databricks connections for automations',
+    content: <DatabricksIntegration />,
+};
+
+export const SUPPORTED_INTEGRATIONS = [
+    SLACK_INTEGRATION,
+    // TEAMS_INTEGRATION, -- Uncheck when backend is complete.
+    ACRYL_INSTANCE_INTEGRATION,
+    SNOWFLAKE_INTEGRATION,
+    BIGQUERY_INTEGRATION,
+    DATABRICKS_INTEGRATION,
+];
+
+/**
+ * Notifications
+ */
+const CHANGE_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.EntityOwnerChange,
+        description: 'An owner is added or removed from a data asset',
+    },
+    {
+        type: NotificationScenarioType.EntityTagChange,
+        description: 'A tag is added or removed from a data asset',
+    },
+    {
+        type: NotificationScenarioType.EntityGlossaryTermChange,
+        description: 'A glossary term is added or removed from a data asset',
+    },
+    {
+        type: NotificationScenarioType.EntityDomainChange,
+        description: 'An asset is added or removed from a domain',
+    },
+    {
+        type: NotificationScenarioType.EntityDeprecationChange,
+        description: 'Deprecation status for a data asset changes',
+    },
+    {
+        type: NotificationScenarioType.DatasetSchemaChange,
+        description: 'Table fields (columns) are added, removed, or changed',
+    },
+];
+
+const INGESTION_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.IngestionRunChange,
+        description: 'An ingestion source (integration) starts or finishes syncing',
+    },
+    {
+        type: NotificationScenarioType.IngestionFailure,
+        description: 'An ingestion source (integration) fails to complete syncing',
+    },
+];
+
+const INCIDENT_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.NewIncident,
+        description: 'An incident is raised on an asset',
+    },
+    {
+        type: NotificationScenarioType.IncidentStatusChange,
+        description: 'An active incident is resolved for an asset',
+    },
+];
+
+const ASSERTION_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.AssertionStatusChange,
+        description: 'An assertion passes or fails',
+    },
+];
+
+const PROPOSAL_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.NewProposal,
+        description: 'A change proposal is raised',
+    },
+    {
+        type: NotificationScenarioType.ProposalStatusChange,
+        description: 'A change proposal is approved or denied',
+    },
+];
+
+export const RECOMMENDED_PLATFORM_NOTIFICATIONS = [
+    {
+        title: 'Ingestion',
+        notifications: INGESTION_NOTIFICATIONS,
+    },
+    {
+        title: 'Proposals',
+        notifications: PROPOSAL_NOTIFICATIONS,
+    },
+];
+
+export const NON_RECOMMENDED_PLATFORM_NOTIFICATIONS = [
+    {
+        title: 'Changes',
+        notifications: CHANGE_NOTIFICATIONS,
+    },
+    {
+        title: 'Assertions',
+        notifications: ASSERTION_NOTIFICATIONS,
+    },
+    {
+        title: 'Incidents',
+        notifications: INCIDENT_NOTIFICATIONS,
+    },
+];

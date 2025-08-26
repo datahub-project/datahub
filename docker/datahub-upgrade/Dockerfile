@@ -33,7 +33,7 @@ ARG MAVEN_CENTRAL_REPO_URL
 # Optionally set corporate mirror for apk
 RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
 
-ENV JMX_VERSION=0.20.0
+ENV JMX_VERSION=0.20.1
 
 # Upgrade Alpine and base packages
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
@@ -44,10 +44,23 @@ RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add snappy=~1.2 --repository=${ALPINE_REPO_URL}/edge/main \
     && mkdir -p /datahub/datahub-upgrade/lib \
     && wget --no-verbose -P /datahub/datahub-upgrade/lib ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.15.0/opentelemetry-javaagent.jar \
-    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
+    && wget --no-verbose -P /datahub/datahub-upgrade/lib ${MAVEN_CENTRAL_REPO_URL}/io/acryl/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && chmod -R a+r /datahub/datahub-upgrade/lib \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=binary /go/bin/dockerize /usr/local/bin
+
+ENV KUBECTL_VERSION=v1.26.15
+RUN set -x \
+  && APK_ARCH="$(cat /etc/apk/arch)" \
+  && case "$APK_ARCH" in \
+     x86_64) \
+       KUBECTL_ARCH=amd64 \
+       ;; \
+     aarch64) \
+       KUBECTL_ARCH=arm64 \
+       ;; \
+     esac \
+    && curl -L "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${KUBECTL_ARCH}/kubectl" | install -o root -g root -m 0755 /dev/stdin /usr/local/bin/kubectl
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 

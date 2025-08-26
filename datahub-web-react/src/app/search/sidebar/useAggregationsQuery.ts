@@ -1,4 +1,7 @@
+import { useEffect } from 'react';
+
 import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { MAX_AGGREGATION_VALUES } from '@app/search/sidebar/constants';
 import { useSidebarFilters } from '@app/search/sidebar/useSidebarFilters';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/search/utils/constants';
@@ -16,6 +19,12 @@ type Props = {
 const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
+    const {
+        filter: { formFilter },
+        isInFormContext,
+        shouldRefetch,
+        setShouldRefetch,
+    } = useEntityFormContext();
 
     const {
         data: newData,
@@ -25,7 +34,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         refetch,
     } = useAggregateAcrossEntitiesQuery({
         skip,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: isInFormContext ? 'no-cache' : 'cache-first',
         variables: {
             input: {
                 ...(excludeFilters ? {} : { types: sidebarFilters.entityFilters }),
@@ -35,7 +44,9 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
                 query: excludeFilters ? '*' : sidebarFilters.query,
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_VALUES,
+                    skipCache: isInFormContext,
                 },
+                formFilter,
             },
         },
     });
@@ -43,6 +54,13 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
     const retry = () => {
         if (refetch) refetch();
     };
+
+    useEffect(() => {
+        if (shouldRefetch) {
+            refetch?.();
+            setShouldRefetch(false);
+        }
+    }, [shouldRefetch, refetch, setShouldRefetch]);
 
     // This approach of falling back to previousData is needed to avoid a full re-mount of the sidebar entities
     const data = error ? null : (newData ?? previousData);

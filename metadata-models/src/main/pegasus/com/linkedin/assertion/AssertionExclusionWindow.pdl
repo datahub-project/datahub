@@ -1,0 +1,56 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.timeseries.AbsoluteTimeWindow
+import com.linkedin.timeseries.HolidayWindow
+import com.linkedin.timeseries.WeeklyWindow
+
+/**
+ * Information about an assertion exclusion window.
+ * This is used to exclude specific time periods from assertion evaluation or training.
+ * For example, excluding holidays, weekends, or known anomalous periods.
+ * Supports various recurrence patterns: one-off exclusions, or recurring exclusions
+ * (yearly, monthly, weekly, daily, or specific holidays).
+ */
+record AssertionExclusionWindow {
+    /**
+     * The type of exclusion window.
+     */
+    type: enum AssertionExclusionWindowType {
+        /**
+         * One-off time range to exclude
+         */
+        FIXED_RANGE
+
+        /**
+         * Recurring time range to exclude each week
+         */
+        WEEKLY
+
+        /**
+         * Specific holiday to exclude
+         */
+        HOLIDAY
+    }
+
+    /**
+     * Display name for this exclusion window
+     */
+    displayName: optional string
+
+    /**
+     * Date window for one-off exclusion range
+     * Only used when type is FIXED_RANGE
+     */
+    fixedRange: optional AbsoluteTimeWindow
+
+    /**
+     * Window of time each week to exclude.
+     */
+    weekly: optional WeeklyWindow
+
+    /**
+     * The holiday to exclude
+     * Only used when type is HOLIDAY
+     */
+    holiday: optional HolidayWindow
+}

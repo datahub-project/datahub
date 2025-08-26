@@ -13,6 +13,7 @@ import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
+import com.linkedin.structured.StructuredPropertyFilterStatus;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -34,6 +35,7 @@ public class StructuredPropertyDefinitionPatchBuilder
   private static final String CREATED_KEY = "created";
   private static final String TIME_KEY = "time";
   private static final String ACTOR_KEY = "actor";
+  public static final String FILTER_STATUS_FIELD = "filterStatus";
 
   // can only be used when creating a new structured property
   public StructuredPropertyDefinitionPatchBuilder setQualifiedName(@Nonnull String name) {
@@ -160,6 +162,16 @@ public class StructuredPropertyDefinitionPatchBuilder
     pathValues.add(
         ImmutableTriple.of(PatchOperationType.ADD.getValue(), "/" + CREATED_KEY, createdValue));
 
+    return this;
+  }
+
+  public StructuredPropertyDefinitionPatchBuilder setFilterStatus(
+      @Nonnull StructuredPropertyFilterStatus filterStatus) {
+    this.pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(),
+            PATH_DELIM + FILTER_STATUS_FIELD,
+            instance.textNode(filterStatus.toString())));
     return this;
   }
 

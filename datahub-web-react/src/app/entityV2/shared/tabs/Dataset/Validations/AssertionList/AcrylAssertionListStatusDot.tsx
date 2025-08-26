@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { colors } from '@src/alchemy-components';
 import { AssertionResultType, AssertionRunEvent } from '@src/types.generated';
 
 const StyledAssertionResultDotContainer = styled.div`
@@ -15,6 +16,14 @@ const statusColors = {
     failure: {
         backgroundColor: '#E54D1F',
         outerColor: '#FBF3EF',
+    },
+    error: {
+        backgroundColor: colors.yellow[500],
+        outerColor: colors.yellow[50],
+    },
+    init: {
+        backgroundColor: colors.blue[500],
+        outerColor: colors.blue[50],
     },
     gray: {
         backgroundColor: '#d9d9d9',

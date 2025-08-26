@@ -1,0 +1,104 @@
+package com.linkedin.datahub.graphql.types.subscription;
+
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.AcrylConstants;
+import com.linkedin.subscription.SubscriptionInfo;
+import graphql.execution.DataFetcherResult;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+
+public class SubscriptionType
+    implements com.linkedin.datahub.graphql.types.EntityType<DataHubSubscription, String> {
+
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(AcrylConstants.SUBSCRIPTION_INFO_ASPECT_NAME);
+
+  private final EntityClient _entityClient;
+
+  public SubscriptionType(final EntityClient entityClient) {
+    _entityClient = entityClient;
+  }
+
+  @Override
+  public EntityType type() {
+    return EntityType.SUBSCRIPTION;
+  }
+
+  @Override
+  public Function<Entity, String> getKeyProvider() {
+    return Entity::getUrn;
+  }
+
+  @Override
+  public Class<DataHubSubscription> objectClass() {
+    return DataHubSubscription.class;
+  }
+
+  @Override
+  public List<DataFetcherResult<DataHubSubscription>> batchLoad(
+      @Nonnull List<String> urns, @Nonnull QueryContext context) throws Exception {
+    final List<Urn> subscriptionUrns = urns.stream().map(this::getUrn).collect(Collectors.toList());
+
+    try {
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(
+              context.getOperationContext(),
+              AcrylConstants.SUBSCRIPTION_ENTITY_NAME,
+              new HashSet<>(subscriptionUrns),
+              ASPECTS_TO_FETCH);
+
+      final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
+      for (Urn urn : subscriptionUrns) {
+        gmsResults.add(entities.getOrDefault(urn, null));
+      }
+      return gmsResults.stream()
+          .map(
+              gmsResult ->
+                  gmsResult == null
+                      ? null
+                      : DataFetcherResult.<DataHubSubscription>newResult()
+                          .data(mapSubscription(context, gmsResult))
+                          .build())
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to batch load Subscriptions", e);
+    }
+  }
+
+  private DataHubSubscription mapSubscription(
+      final QueryContext context, final EntityResponse entityResponse) {
+    final EnvelopedAspect envelopedSubscriptionInfo =
+        entityResponse.getAspects().get(AcrylConstants.SUBSCRIPTION_INFO_ASPECT_NAME);
+    if (envelopedSubscriptionInfo == null) {
+      return null;
+    }
+    final SubscriptionInfo subscriptionInfo =
+        new SubscriptionInfo(envelopedSubscriptionInfo.getValue().data());
+    return DataHubSubscriptionMapper.map(
+        context, Map.entry(entityResponse.getUrn(), subscriptionInfo));
+  }
+
+  private Urn getUrn(final String urnStr) {
+    try {
+      return Urn.createFromString(urnStr);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(String.format("Failed to convert urn string %s into Urn", urnStr));
+    }
+  }
+}

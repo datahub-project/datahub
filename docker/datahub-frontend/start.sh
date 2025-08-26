@@ -1,5 +1,15 @@
 #!/bin/sh
-set -u
+
+echo "Generating user.props file..."
+mkdir -p /datahub-frontend/conf/
+touch /datahub-frontend/conf/user.props
+touch /datahub-frontend/conf/tmp.props
+
+echo "admin:${ADMIN_PASSWORD}" >> /datahub-frontend/conf/tmp.props
+
+if [ -n "${CUSTOM_USER_PROPS_FILE}" ]; then
+  cat "${CUSTOM_USER_PROPS_FILE}" >> /datahub-frontend/conf/tmp.props
+fi
 
 PROMETHEUS_AGENT=""
 if [[ ${ENABLE_PROMETHEUS:-false} == true ]]; then
@@ -10,6 +20,10 @@ OTEL_AGENT=""
 if [[ ${ENABLE_OTEL:-false} == true ]]; then
   OTEL_AGENT="-javaagent:/opentelemetry-javaagent.jar"
 fi
+
+# Remove empty newlines, if there are any.
+sed '/^[[:space:]]*$/d' /datahub-frontend/conf/tmp.props > /datahub-frontend/conf/user.props
+rm /datahub-frontend/conf/tmp.props
 
 TRUSTSTORE_FILE=""
 if [[ ! -z ${SSL_TRUSTSTORE_FILE:-} ]]; then
@@ -56,5 +70,20 @@ export JAVA_OPTS="${JAVA_MEMORY_OPTS:-"-Xms512m -Xmx1024m"} \
    ${HTTP_PROXY:-} ${HTTPS_PROXY:-} ${NO_PROXY:-} \
    -Dpidfile.path=/dev/null"
 
-exec ./datahub-frontend/bin/datahub-frontend
+JAR_PATH="/datahub-frontend/lib/datahub-web-react-datahub-web-react-assets.jar"
+if [ "${METICULOUS_ENABLED:-false}" = "true" ]; then
+  echo "Meticulous: Swapping index.html with index.dev.html in JAR..."
+  if [ -f "$JAR_PATH" ]; then
+    mkdir -p /tmp
+    cd /tmp
+    unzip "$JAR_PATH" public/index.dev.html
+    cp public/index.dev.html public/index.html
+    zip -u "$JAR_PATH" public/index.html
+    cd ..
+    echo "Meticulous: File swap complete"
+  else
+    echo "Meticulous: JAR not found at $JAR_PATH"
+  fi
+fi
 
+exec ./datahub-frontend/bin/datahub-frontend

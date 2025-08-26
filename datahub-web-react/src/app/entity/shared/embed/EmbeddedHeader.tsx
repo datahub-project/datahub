@@ -9,7 +9,7 @@ import analytics from '@app/analytics/analytics';
 import { IconStyleType } from '@app/entity/Entity';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
+import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';

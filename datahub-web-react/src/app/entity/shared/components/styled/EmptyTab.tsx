@@ -31,7 +31,7 @@ export const EmptyTab = ({ tab, children }: Props) => {
     return (
         <StyledEmpty
             description={
-                <EmptyDescription>
+                <EmptyDescription data-testid="empty-tab-description">
                     <Typography.Title level={4}>{EMPTY_MESSAGES[tab]?.title}</Typography.Title>
                     <Typography.Text type="secondary">{EMPTY_MESSAGES[tab]?.description}</Typography.Text>
                 </EmptyDescription>

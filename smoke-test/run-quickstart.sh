@@ -12,23 +12,33 @@ set -x
 
 mkdir -p ~/.datahub/plugins/frontend/auth/
 echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
+echo "admin:mypass" > ~/.datahub/plugins/frontend/auth/user.props
 
-echo "DATAHUB_VERSION = $DATAHUB_VERSION"
+echo "DATAHUB_VERSION = ${DATAHUB_VERSION:=acryl-datahub 0.0.0.dev0}"
 DATAHUB_SEARCH_IMAGE="${DATAHUB_SEARCH_IMAGE:=opensearchproject/opensearch}"
 DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.9.0}"
 XPACK_SECURITY_ENABLED="${XPACK_SECURITY_ENABLED:=plugins.security.disabled=true}"
 ELASTICSEARCH_USE_SSL="${ELASTICSEARCH_USE_SSL:=false}"
 USE_AWS_ELASTICSEARCH="${USE_AWS_ELASTICSEARCH:=true}"
 
+# Acryl Only
+export COMPOSE_FILE="../docker/profiles/docker-compose.acryl-smoke.yml"
+
+# Set the path to the smoke.gms.env file
+export DATAHUB_LOCAL_GMS_ENV="$(pwd)/smoke.gms.env"
+
 THEME_V2_DEFAULT=false \
-DATAHUB_TELEMETRY_ENABLED=false \
 DOCKER_COMPOSE_BASE="file://$( dirname "$DIR" )" \
 DATAHUB_SEARCH_IMAGE="$DATAHUB_SEARCH_IMAGE" DATAHUB_SEARCH_TAG="$DATAHUB_SEARCH_TAG" \
 XPACK_SECURITY_ENABLED="$XPACK_SECURITY_ENABLED" ELASTICSEARCH_USE_SSL="$ELASTICSEARCH_USE_SSL" \
 USE_AWS_ELASTICSEARCH="$USE_AWS_ELASTICSEARCH" \
 DATAHUB_VERSION=${DATAHUB_VERSION} \
 ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=1 \
-DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
-DATAHUB_LOCAL_ACTIONS_ENV=`pwd`/test_resources/actions/actions.env  \
+DATAHUB_INTEGRATIONS_VERSION=${DATAHUB_VERSION} \
+DATAHUB_ACTIONS_IMAGE=${DATAHUB_REPO:-acryldata}/datahub-actions \
+DATAHUB_LOCAL_ACTIONS_ENV=$(pwd)/test_resources/actions/actions.env  \
+DATAHUB_EXECUTOR_CUSTOMER_ID=ci-smoke-test \
+DATAHUB_EXECUTOR_ROLE_ARN="arn:aws:iam::795586375822:role/ci-smoke-test" \
+DATAHUB_EXECUTOR_VERSION=${DATAHUB_EXECUTOR_VERSION:=${DATAHUB_VERSION}} \
+DATAHUB_SMOKETEST_EXECUTOR_ID=${DATAHUB_SMOKETEST_EXECUTOR_ID:=remote-ci} \
 docker compose --project-directory ../docker/profiles --profile quickstart-consumers up -d --quiet-pull --wait --wait-timeout 900
-

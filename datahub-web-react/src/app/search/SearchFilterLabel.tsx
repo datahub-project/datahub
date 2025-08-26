@@ -1,5 +1,6 @@
-import { BookOutlined } from '@ant-design/icons';
-import { Tag, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { BookmarkSimple } from '@phosphor-icons/react';
+import { Tag } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
 
@@ -118,7 +119,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         return (
             <Tooltip title={displayName}>
                 <Tag closable={false}>
-                    <BookOutlined style={{ marginRight: '4px' }} />
+                    <BookmarkSimple style={{ marginRight: '4px' }} />
                     {truncatedDisplayName}
                 </Tag>
                 {countText}

@@ -1,4 +1,6 @@
-import { Divider, Tooltip, Typography } from 'antd';
+import { ArrowRightOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Divider, Typography } from 'antd';
 import React, { ReactNode, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -14,14 +16,16 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
 import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
 import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import StructuredPropertyBadge from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '@app/entity/shared/utils';
+import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { FORM_CHECK_RESPONSES_ID } from '@app/onboarding/config/FormOnboardingConfig';
 import EntityPaths from '@app/preview/EntityPaths/EntityPaths';
 import { getUniqueOwners } from '@app/preview/utils';
 import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';
 import { DataProductLink } from '@app/shared/tags/DataProductLink';
 import TagTermGroup from '@app/shared/tags/TagTermGroup';
 import useContentTruncation from '@app/shared/useContentTruncation';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
 import {
@@ -162,6 +166,31 @@ const UserListTitle = styled(Typography.Text)`
     padding-right: 12px;
 `;
 
+const PlatformContentContainer = styled.div`
+    display: flex;
+    align-items: 'center;
+`;
+
+const BulkVerifyViewLink = styled.a`
+    display: inline-block;
+    font-weight: 600;
+    margin-left: 0.5rem;
+
+    > span {
+        margin-left: 0.15rem;
+
+        > svg {
+            height: 10px;
+        }
+    }
+
+    &:hover {
+        > span {
+            margin-left: 0.25rem;
+        }
+    }
+`;
+
 interface Props {
     name: string;
     urn: string;
@@ -193,7 +222,7 @@ interface Props {
     displayAssetCount?: boolean;
     dataTestID?: string;
     titleSizePx?: number;
-    onClick?: () => void;
+    onClick?: (any: any) => any;
     // this is provided by the impact analysis view. it is used to display
     // how the listed node is connected to the source node
     degree?: number;
@@ -253,6 +282,7 @@ export default function DefaultPreviewCard({
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const { entityData } = useEntityData();
     const previewData = usePreviewData();
+    const linkProps = useEmbeddedProfileLinkProps();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
             <>
@@ -283,27 +313,36 @@ export default function DefaultPreviewCard({
         lastRunEvent?.result?.resultType;
     const uniqueOwners = getUniqueOwners(owners);
 
+    const previewEnum = previewType && PreviewType[previewType];
+
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
             <LeftColumn key="left-column" expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
-                    <PlatformContentView
-                        platformName={platform}
-                        platformLogoUrl={logoUrl}
-                        platformNames={platforms}
-                        platformLogoUrls={logoUrls}
-                        entityLogoComponent={logoComponent}
-                        instanceId={platformInstanceId}
-                        typeIcon={typeIcon}
-                        entityType={type}
-                        parentContainers={parentContainers?.containers}
-                        parentEntities={parentEntities}
-                        parentContainersRef={contentRef}
-                        areContainersTruncated={isContentTruncated}
-                        parentDataset={parentDataset}
-                    />
+                    <PlatformContentContainer>
+                        <PlatformContentView
+                            platformName={platform}
+                            platformLogoUrl={logoUrl}
+                            platformNames={platforms}
+                            platformLogoUrls={logoUrls}
+                            entityLogoComponent={logoComponent}
+                            instanceId={platformInstanceId}
+                            typeIcon={typeIcon}
+                            entityType={type}
+                            parentContainers={parentContainers?.containers}
+                            parentEntities={parentEntities}
+                            parentContainersRef={contentRef}
+                            areContainersTruncated={isContentTruncated}
+                            parentDataset={parentDataset}
+                        />
+                        {previewEnum === 'BULK_VERIFY' && onClick && (
+                            <BulkVerifyViewLink id={FORM_CHECK_RESPONSES_ID} onClick={() => onClick({ urn, type })}>
+                                View Responses <ArrowRightOutlined />
+                            </BulkVerifyViewLink>
+                        )}
+                    </PlatformContentContainer>
                     <EntityTitleContainer>
-                        <Link to={url}>
+                        <Link to={url} {...linkProps}>
                             {previewType === PreviewType.HOVER_CARD ? (
                                 <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
                                     {name || ' '}
@@ -317,7 +356,7 @@ export default function DefaultPreviewCard({
                         {deprecation?.deprecated && (
                             <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
-                        {health && health.length > 0 ? <EntityHealth baseUrl={url} health={health} /> : null}
+                        {health && health.length > 0 ? <EntityHealth urn={urn} baseUrl={url} health={health} /> : null}
                         <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
                         {externalUrl && (
                             <ExternalUrlButton

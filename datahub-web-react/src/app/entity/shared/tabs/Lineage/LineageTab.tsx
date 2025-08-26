@@ -3,11 +3,13 @@ import {
     ArrowUpOutlined,
     CaretDownFilled,
     CaretDownOutlined,
+    LoadingOutlined,
     PartitionOutlined,
     ReloadOutlined,
     SubnodeOutlined,
 } from '@ant-design/icons';
-import { Button, Select, Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Select, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
@@ -82,6 +84,7 @@ export const LineageTab = ({
     const [isColumnLevelLineage, setIsColumnLevelLineage] = useState(!!params?.column);
     const [shouldRefetch, setShouldRefetch] = useState(false);
     const [skipCache, setSkipCache] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     function resetShouldRefetch() {
@@ -169,9 +172,9 @@ export const LineageTab = ({
                         setIsColumnLevelLineage={setIsColumnLevelLineage}
                     />
                     <LineageTabTimeSelector />
-                    <Tooltip title="Click to refresh data">
-                        <RefreshCacheButton type="text" onClick={() => setSkipCache(true)}>
-                            <ReloadOutlined />
+                    <Tooltip title={isLoading ? 'Refreshing data' : 'Click to refresh data'}>
+                        <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
+                            {isLoading ? <LoadingOutlined /> : <ReloadOutlined />}
                             <Typography.Text>
                                 <b>Refresh</b>
                             </Typography.Text>
@@ -191,6 +194,7 @@ export const LineageTab = ({
                     setSkipCache={setSkipCache}
                     shouldRefetch={shouldRefetch}
                     resetShouldRefetch={resetShouldRefetch}
+                    setIsLoading={setIsLoading}
                 />
             </LineageTabContext.Provider>
         </>

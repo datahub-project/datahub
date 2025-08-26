@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+}
+
+group = 'io.datahubproject.test'
+
+archivesBaseName = 'datahub-test-util'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':entity-registry')
+    implementation externalDependency.ebean
+    implementation externalDependency.jakartaAnnotations
+    implementation externalDependency.h2
+
+    implementation externalDependency.testContainersNeo4j
+    implementation externalDependency.neo4jJavaDriver
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.logbackClassic
+
+}
+
+test {
+    useTestNG()
+}

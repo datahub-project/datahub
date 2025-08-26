@@ -1,0 +1,24 @@
+apply plugin: 'java'
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+dependencies {
+  implementation project(':metadata-service:factories')
+  implementation externalDependency.httpClient
+  implementation externalDependency.servletApi
+  compileOnly externalDependency.lombok
+  implementation externalDependency.gson
+  implementation externalDependency.guava
+  implementation externalDependency.springBoot
+  implementation externalDependency.springCore
+  implementation externalDependency.springWeb
+  implementation externalDependency.springWebMVC
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.springBootAutoconfigure
+  implementation externalDependency.logbackClassic
+  implementation externalDependency.logbackJackson
+  implementation externalDependency.logbackJsonClassic
+
+  annotationProcessor externalDependency.lombok
+}

@@ -1,0 +1,182 @@
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from '@components';
+import { Dropdown, message } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { EntityStagedForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { useSiblingOptionsForAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { isEntityEligibleForAssertionMonitoring } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
+import { extractPlatformNameFromPlatformUrn } from '@app/entityV2/shared/utils';
+import { getColor } from '@src/alchemy-components/theme/utils';
+import analytics, { EventType } from '@src/app/analytics';
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import TabToolbar from '@src/app/entity/shared/components/styled/TabToolbar';
+import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { DataPlatform, EntityPrivileges } from '@src/types.generated';
+
+const SiblingSelectionDropdownLink = styled.div`
+    margin-bottom: 4px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    color: black;
+    border-radius: 8px;
+    height: fit-content;
+    // &:hover {
+    //     color: black;
+    //     background-color: ${getColor('gray', 1000)};
+    // }
+
+    &:disabled {
+        opacity: 0.6;
+        background-color: transparent;
+    }
+`;
+
+const DefaultButton = styled(Button)`
+    height: fit-content;
+`;
+
+type RenderButtonProps = {
+    id: string;
+    className: string;
+    disabled: boolean;
+    onClick: () => void;
+};
+
+type CreateAssertionButtonProps = {
+    privileges: EntityPrivileges;
+    onCreateAssertion: (params: EntityStagedForAssertion) => void;
+    renderCustomButton?: (props: RenderButtonProps) => React.ReactNode;
+    className?: string;
+    chartName?: string; // used for analytics when clicking to create an assertion from there
+};
+
+export const CreateAssertionButton = ({
+    privileges,
+    onCreateAssertion,
+    renderCustomButton,
+    className,
+    chartName,
+}: CreateAssertionButtonProps) => {
+    const primaryEntityData = useEntityData();
+    const { entityData } = primaryEntityData;
+    const { config } = useAppConfig();
+    const assertionMonitorsEnabled = !!config?.featureFlags?.assertionMonitorsEnabled;
+
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
+
+    const isSiblingMode = !!entityData?.siblingsSearch?.total && !isHideSiblingMode;
+    const siblingOptionsToAuthorOn =
+        useSiblingOptionsForAssertionBuilder(entityData, primaryEntityData.urn, primaryEntityData.entityType) ?? [];
+
+    // Check !isSiblingMode because in isSiblingMode we render a drop down listing each siblings instead
+    const isUnsupportedPlatform = !isSiblingMode && !isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn);
+
+    const noPermissionsMessage = 'You do not have permission to create an assertion for this asset';
+
+    if (!assertionMonitorsEnabled) {
+        return null;
+    }
+
+    /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
+    const canEditAssertions = privileges?.canEditAssertions || false;
+    const canEditMonitors = privileges?.canEditMonitors || false;
+    const isAllowedToCreateAssertion = canEditAssertions && canEditMonitors && !isUnsupportedPlatform;
+
+    const disableCreateAssertion = !isAllowedToCreateAssertion;
+    const disableCreateAssertionMessage = noPermissionsMessage;
+
+    const onCreateAssertionForEntity = (params: Partial<EntityStagedForAssertion>) => {
+        if (!params.urn || !params.platform || !params.entityType) {
+            message.open({
+                content: `Failed to load data for the selected platform. Please contact support if this issue persists.`,
+                type: 'error',
+            });
+            console.error(`Params missing necessary data to author assertions: ${JSON.stringify(params)}`);
+            return;
+        }
+        const platformName = extractPlatformNameFromPlatformUrn(params.platform.urn);
+        analytics.event({ type: EventType.ClickCreateAssertion, platform: platformName, chartName });
+        onCreateAssertion({
+            urn: params.urn,
+            platform: params.platform,
+            entityType: params.entityType,
+        });
+    };
+    const onCreateAssertionForSiblings = () => {
+        // Do nothing as dropdown will show sibling options on hover
+        // We don't want to automatically open if only 1 supported platform among siblings
+        // Because we want the user to understand they're explicitly authoring for that platform
+    };
+    const onClickCreateButton = () => {
+        if (disableCreateAssertion) {
+            return;
+        }
+        if (isSiblingMode) {
+            onCreateAssertionForSiblings();
+            return;
+        }
+        onCreateAssertionForEntity({
+            ...primaryEntityData,
+            platform: primaryEntityData.entityData?.platform as DataPlatform | undefined,
+        });
+    };
+
+    const siblingSelectionOptions = siblingOptionsToAuthorOn.map((option) => ({
+        key: option.title,
+        label: (
+            <Tooltip
+                showArrow={false}
+                placement="left"
+                title={
+                    option.disabled
+                        ? `Native assertions are not supported for ${option.platform?.name ?? 'this platform'}.`
+                        : undefined
+                }
+            >
+                <SiblingSelectionDropdownLink
+                    style={{ opacity: option.disabled ? 0.5 : 1 }}
+                    onClick={() => !option.disabled && onCreateAssertionForEntity(option)}
+                >
+                    <PlatformIcon platform={option.platform} size={16} styles={{ marginRight: 4 }} />
+                    {option.title}
+                </SiblingSelectionDropdownLink>
+            </Tooltip>
+        ),
+    }));
+
+    const renderDefaultButton = (props: RenderButtonProps) => (
+        <DefaultButton {...props}>
+            <PlusOutlined /> Create
+        </DefaultButton>
+    );
+
+    const renderButton = renderCustomButton || renderDefaultButton;
+
+    const createButton = renderButton({
+        id: 'create-assertion-btn-main',
+        className: 'create-assertion-button',
+        disabled: disableCreateAssertion,
+        onClick: onClickCreateButton,
+    });
+
+    return (
+        <TabToolbar style={{ boxShadow: 'none', justifyContent: 'end', padding: 0 }} className={className}>
+            {isSiblingMode && !disableCreateAssertion ? (
+                <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
+                    {createButton}
+                </Dropdown>
+            ) : (
+                <Tooltip showArrow={false} title={disableCreateAssertion ? disableCreateAssertionMessage : null}>
+                    {createButton}
+                </Tooltip>
+            )}
+        </TabToolbar>
+    );
+};

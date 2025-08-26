@@ -8,7 +8,8 @@ apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
-  docker_repo = 'datahub-gms'
+  // Saas only
+  docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-gms' : 'datahub-gms'
 }
 
 ext.apiProject = project(':metadata-service:restli-api')
@@ -23,11 +24,20 @@ dependencies {
   implementation project(':metadata-service:openapi-entity-servlet')
   implementation project(':metadata-service:openapi-analytics-servlet')
   implementation project(':metadata-service:schema-registry-servlet')
+  implementation project(':metadata-service:openapi-metadatatests-servlet')
   implementation project(':metadata-service:iceberg-catalog')
   implementation 'org.apache.iceberg:iceberg-core:1.6.1'
   runtimeOnly project(':metadata-jobs:mce-consumer')
   runtimeOnly project(':metadata-jobs:mae-consumer')
   runtimeOnly project(':metadata-jobs:pe-consumer')
+
+  // Saas Only
+  implementation project(':metadata-service:admin-servlet-impl')
+  implementation (externalDependency.scimServer) {
+    exclude group: 'commons-logging', module: 'commons-logging'
+    exclude group: 'org.slf4j', module: 'slf4j-api'
+    exclude group: 'org.jboss.logging', module: 'jboss-logging'
+  }
 
   runtimeOnly externalDependency.awsSecretsManagerJdbc
   runtimeOnly externalDependency.h2
@@ -55,10 +65,15 @@ dependencies {
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
   runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackJackson
+  runtimeOnly externalDependency.logbackJsonClassic
+  runtimeOnly externalDependency.janino
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
   testRuntimeOnly externalDependency.logbackClassic
+  testRuntimeOnly externalDependency.logbackJackson
+  testRuntimeOnly externalDependency.logbackJsonClassic
   implementation externalDependency.charle
 
   // Required for springdocs/swagger
@@ -93,12 +108,12 @@ bootRun {
 docker {
   dependsOn bootJar
   name "${docker_registry}/${docker_repo}:${versionTag}"
-  dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+  dockerfile file("${rootProject.projectDir}/docker/datahub-gms/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
-    include "docker/${docker_repo}/*"
+    include "docker/datahub-gms/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())

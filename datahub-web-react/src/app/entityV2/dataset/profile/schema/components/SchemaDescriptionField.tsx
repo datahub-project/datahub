@@ -1,6 +1,7 @@
 import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
-import { Button, Typography, message } from 'antd';
+import { Button, Skeleton, Typography, message } from 'antd';
+import { Sparkle } from 'phosphor-react';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -12,7 +13,10 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
+import { colors } from '@src/alchemy-components';
+import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
 import { StringMapEntry } from '@types';
@@ -29,6 +33,25 @@ const AddNewDescription = styled(Button)`
     border-radius: 4px;
     align-items: center;
     justify-content: center;
+`;
+
+const InferDescriptionButton = styled(Button)`
+    display: flex;
+    padding-left: 4px;
+    padding-right: 4px;
+    background-color: transparent !important;
+    border-radius: 4px;
+    align-items: center;
+    justify-content: flex-start;
+
+    span,
+    path {
+        color: ${(props) => props.theme.styles['primary-color']} !important;
+    }
+
+    &:hover {
+        background-color: ${colors.gray[100]} !important;
+    }
 `;
 
 const ExpandedActions = styled.div`
@@ -48,20 +71,28 @@ const DescriptionContainer = styled.div`
     line-height: 24px;
     color: ${REDESIGN_COLORS.DARK_GREY};
     vertical-align: middle;
+
     &:hover ${EditIcon} {
         display: inline-block;
+    }
+
+    &:hover ${InferDescriptionButton} {
+        background-color: #f1f2f9;
     }
 
     & ins.diff {
         background-color: #b7eb8f99;
         text-decoration: none;
+
         &:hover {
             background-color: #b7eb8faa;
         }
     }
+
     & del.diff {
         background-color: #ffa39e99;
         text-decoration: line-through;
+
         &: hover {
             background-color: #ffa39eaa;
         }
@@ -99,19 +130,30 @@ const DescriptionWrapper = styled.span`
     align-items: center;
 `;
 
+const AiSparkle = styled(Sparkle)`
+    height: 14px;
+    width: 14px;
+    margin-right: 4px;
+`;
+
 const AddModalWrapper = styled.div``;
 
 type Props = {
     onExpanded: (expanded: boolean) => void;
     expanded: boolean;
     description: string;
+    fieldPath?: string;
     original?: string | null;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
+    onPropose?: (description: string) => void;
+    onInferDescription?: () => Promise<void>;
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
+    isInferred?: boolean;
+    enableInferenceButton?: boolean;
     sourceDetail?: StringMapEntry[] | null;
 };
 
@@ -119,19 +161,27 @@ export default function DescriptionField({
     expanded,
     onExpanded: handleExpanded,
     description,
+    fieldPath,
     onUpdate,
+    onPropose,
+    onInferDescription,
     isEdited = false,
     original,
     isReadOnly,
     isPropagated,
+    isInferred,
+    enableInferenceButton,
     sourceDetail,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
+    const [inferWhenAddModalMounts, setInferWhenAddModalMounts] = useState(false);
+    const [isInlineInferring, setIsInlineInferring] = useState(false);
 
     const overLimit = removeMarkdown(description).length > 40;
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const onCloseModal = () => {
         setShowAddModal(false);
+        setInferWhenAddModalMounts(false);
     };
     const { urn, entityType } = useEntityData();
 
@@ -158,12 +208,28 @@ export default function DescriptionField({
         onCloseModal();
     };
 
+    const onProposeModal = async (desc: string | null) => {
+        try {
+            await onPropose?.(desc || '');
+            message.destroy();
+            message.success({ content: 'Proposed!', duration: 2 });
+            sendAnalytics();
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });
+        }
+        onCloseModal();
+    };
+
     const enableEdits = isSchemaEditable && !isReadOnly;
     const EditButton =
         (enableEdits && description && <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />) ||
         undefined;
 
     const showAddButton = enableEdits && !description;
+
+    const shouldShowInferenceButton = useShouldShowInferDocumentationButton(entityType);
+    const showInferenceButton = isSchemaEditable && enableInferenceButton && shouldShowInferenceButton && !description;
 
     return (
         <DescriptionContainer>
@@ -209,6 +275,7 @@ export default function DescriptionField({
                     > */}
                         <DescriptionWrapper>
                             {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
+                            {isInferred && <InferenceDetailsIndicator />}
                             &nbsp;
                             <CompactMarkdownViewer
                                 content={description}
@@ -228,10 +295,13 @@ export default function DescriptionField({
                     <UpdateDescriptionModal
                         title={description ? 'Update description' : 'Add description'}
                         description={description}
+                        fieldPath={fieldPath}
                         original={original || ''}
                         onClose={onCloseModal}
                         onSubmit={onUpdateModal}
+                        onPropose={onProposeModal}
                         isAddDesc={!description}
+                        inferOnMount={inferWhenAddModalMounts}
                     />
                 </AddModalWrapper>
             )}
@@ -245,6 +315,38 @@ export default function DescriptionField({
                 >
                     Add Description
                 </AddNewDescription>
+            )}
+            {showInferenceButton && !showAddButton && (
+                <>
+                    {isInlineInferring ? (
+                        <Skeleton
+                            active
+                            title={false}
+                            paragraph={{ rows: 1, style: { margin: 0, padding: 0 } }}
+                            style={{ width: 240 }}
+                        />
+                    ) : (
+                        <InferDescriptionButton
+                            type="text"
+                            onClick={(e) => {
+                                analytics.event({
+                                    type: EventType.InferDocsClickEvent,
+                                    surface: 'schema-table',
+                                });
+                                if (onInferDescription) {
+                                    setIsInlineInferring(true);
+                                    onInferDescription().finally(() => setIsInlineInferring(false));
+                                } else {
+                                    setInferWhenAddModalMounts(true);
+                                    setShowAddModal(true);
+                                }
+                                e.stopPropagation();
+                            }}
+                        >
+                            <AiSparkle /> Generate with AI
+                        </InferDescriptionButton>
+                    )}
+                </>
             )}
         </DescriptionContainer>
     );

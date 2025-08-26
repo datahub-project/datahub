@@ -10,16 +10,27 @@ import { Table } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useGetExpandedTableGroupsFromEntityUrnInUrl } from '@src/app/entityV2/shared/hooks';
-import { DataContract } from '@src/types.generated';
+import { AssertionType, DataContract, Entity } from '@src/types.generated';
 
 type Props = {
     assertionData: AssertionTable;
     filter: AssertionListFilter;
     refetch: () => void;
     contract: DataContract;
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    canEditSqlAssertions: boolean;
 };
 
-export const AcrylAssertionListTable = ({ assertionData, filter, refetch, contract }: Props) => {
+export const AcrylAssertionListTable = ({
+    assertionData,
+    filter,
+    refetch,
+    contract,
+    canEditAssertions,
+    canEditMonitors,
+    canEditSqlAssertions,
+}: Props) => {
     const { entityData } = useEntityData();
     const { groupBy } = filter;
 
@@ -39,6 +50,9 @@ export const AcrylAssertionListTable = ({ assertionData, filter, refetch, contra
     const assertionsTableCols = useAssertionsTableColumns({
         groupBy,
         contract,
+        canEditSqlAssertions,
+        canEditAssertions,
+        canEditMonitors,
         refetch,
     });
 
@@ -48,6 +62,11 @@ export const AcrylAssertionListTable = ({ assertionData, filter, refetch, contra
 
     const focusedAssertionEntity =
         focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
+
+    const canEditFocusAssertion = focusedAssertion
+        ? (focusedAssertion?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
+        : false;
+    const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
 
     useEffect(() => {
         if (focusAssertionUrn && !focusedAssertion) {
@@ -103,7 +122,7 @@ export const AcrylAssertionListTable = ({ assertionData, filter, refetch, contra
 
     return (
         <>
-            <StyledTableContainer style={{ height: '100vh', overflow: 'hidden' }}>
+            <StyledTableContainer style={{ overflow: 'hidden', marginBottom: 20 }}>
                 <Table
                     columns={assertionsTableCols}
                     data={groupBy ? getGroupData() : assertionData.assertions || []}
@@ -145,7 +164,10 @@ export const AcrylAssertionListTable = ({ assertionData, filter, refetch, contra
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
+                    entity={focusedAssertionEntity as Entity}
                     contract={contract}
+                    canEditAssertion={canEditFocusAssertion}
+                    canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
                     refetch={refetch}
                 />

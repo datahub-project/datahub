@@ -1,0 +1,26 @@
+namespace com.linkedin.common
+
+/**
+ * Summary statistics about anomalies on an entity.
+ */
+record AnomalySummaryDetails {
+    /**
+     * The urn of the anomaly
+     */
+    urn: Urn
+
+    /**
+    * The top-level type of an anomaly
+    */
+    type: string
+
+    /**
+     * The time at which the last result was produced.
+     */
+    lastResultAt: long
+
+    /**
+     * The source of the anomaly
+     */
+    source: optional string
+}

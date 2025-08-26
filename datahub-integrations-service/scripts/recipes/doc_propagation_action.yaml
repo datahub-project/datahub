@@ -1,0 +1,13 @@
+name: doc_propagation_action
+# source:
+#   type: kafka
+#   config:
+#     connection:
+#       bootstrap: localhost:9092
+#       schema_registry_url: http://localhost:8080/schema-registry/api/
+# datahub:
+#   server: "http://localhost:8080"
+action:
+  type: datahub_integrations.propagation.doc.doc_propagation_action.DocPropagationAction
+  config:
+    bootstrap: False

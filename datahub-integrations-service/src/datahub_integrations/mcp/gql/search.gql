@@ -1,0 +1,87 @@
+fragment SearchEntityInfo on Entity {
+  urn
+
+  # For some entity types, the urns are not human-readable. For those,
+  # we pull the name as well.
+  ... on Dataset {
+    properties {
+      name
+    }
+  }
+  ... on Chart {
+    properties {
+      name
+    }
+  }
+  ... on Dashboard {
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    properties {
+      name
+    }
+  }
+}
+
+fragment FacetEntityInfo on Entity {
+  ... on Dataset {
+    name
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    subTypes {
+      typeNames
+    }
+    properties {
+      name
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+}
+
+query search(
+  $types: [EntityType!]
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $scrollId: String
+) {
+  scrollAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      scrollId: $scrollId
+      types: $types
+      orFilters: $orFilters
+      searchFlags: { skipHighlighting: true, maxAggValues: 5 }
+    }
+  ) {
+    count
+    total
+    searchResults {
+      entity {
+        ...SearchEntityInfo
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+  }
+}

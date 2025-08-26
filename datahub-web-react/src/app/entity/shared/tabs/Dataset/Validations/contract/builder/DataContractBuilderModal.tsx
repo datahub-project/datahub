@@ -5,7 +5,7 @@ import { DataContractBuilder } from '@app/entity/shared/tabs/Dataset/Validations
 import { DataContractBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
 import ClickOutside from '@app/shared/ClickOutside';
 
-import { DataContract } from '@types';
+import { DataContract, EntityType } from '@types';
 
 const modalStyle = {};
 const modalBodyStyle = {
@@ -21,13 +21,22 @@ type Props = {
     entityUrn: string;
     initialState?: DataContractBuilderState;
     onSubmit?: (contract: DataContract) => void;
+    onPropose?: () => void;
     onCancel?: () => void;
+    entityType?: EntityType;
 };
 
 /**
  * This component is a modal used for constructing new Data Contracts
  */
-export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
+export const DataContractBuilderModal = ({
+    entityUrn,
+    initialState,
+    onSubmit,
+    onPropose,
+    onCancel,
+    entityType,
+}: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Contract' : 'New Data Contract';
 
@@ -59,8 +68,10 @@ export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, on
             >
                 <DataContractBuilder
                     entityUrn={entityUrn}
+                    entityType={entityType}
                     initialState={initialState}
                     onSubmit={onSubmit}
+                    onPropose={onPropose}
                     onCancel={onCancel}
                 />
             </Modal>

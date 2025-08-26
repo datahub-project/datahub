@@ -56,7 +56,6 @@ export const getCacheIncident = ({
                 },
             })),
         },
-
         priority: values.priority,
         created: {
             __typename: 'AuditStamp',

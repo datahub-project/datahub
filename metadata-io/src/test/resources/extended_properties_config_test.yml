@@ -1,0 +1,59 @@
+entities:
+  - entity: dataset # entity name, included underneath are all customized aspect mappings that apply to this entity, for customizations that apply to all entities use "common"
+    aspects:
+      - aspect: editableSchemaMetadata
+        fields:
+        - fieldName: editableSchemaFieldInfo.label
+          operation: "ADD_STRUCTURED_PROPERTY"
+          config:
+            structuredProperty: io.acryl.schemaField.label
+      - aspect: globalTags
+        fields:
+          - fieldName: tags.additionalInfo.applier
+            operation: "ADD_STRUCTURED_PROPERTY"
+            config:
+              structuredProperty: io.acryl.corpuser.internalId
+  - entity: corpuser # entity name, included underneath are all customized aspect mappings that apply to this entity, for customizations that apply to all entities use "common"
+    aspects:
+      - aspect: corpUserInfo
+        fields:
+          - fieldName: internalId
+            operation: "ADD_STRUCTURED_PROPERTY"
+            config:
+              structuredProperty: io.acryl.corpuser.internalId
+          - fieldName: employeeNumber
+            operation: "ADD_STRUCTURED_PROPERTY"
+            config:
+              structuredProperty: io.acryl.corpuser.employeeNumber
+          - fieldName: directReport
+            operation: "ADD_STRUCTURED_PROPERTY"
+            config:
+              structuredProperty: io.acryl.corpuser.directReport
+structuredProperties:
+  - qualifiedName: io.acryl.schemaField.label
+    type: string
+    displayName: Schema Field Label
+  - qualifiedName: io.acryl.corpuser.internalId
+    type: string
+    displayName: Internal ID
+  - qualifiedName: io.acryl.corpuser.employeeNumber
+    type: number
+    displayName: Employee Number
+  - qualifiedName: io.acryl.corpuser.directReport
+    type: urn
+    displayName: Direct Report
+    cardinality: MULTIPLE
+  #        For complex use cases we can define the entire structuredPropertyDefinition, for simple cases that don't have detailed requirements on values etc. we don't need to
+  #              - id: io.acryl.privacy.retentionTime
+  #                qualifiedName: io.acryl.privacy.retentionTime # required if urn is provided
+  #                type: number
+  #                cardinality: MULTIPLE
+  #                displayName: Retention Time
+  #                description: "Retention Time is used to figure out how long to retain records in a dataset"
+  #                allowedValues:
+  #                  - value: 30
+  #                    description: 30 days, usually reserved for datasets that are ephemeral and contain pii
+  #                  - value: 90
+  #                    description: Use this for datasets that drive monthly reporting but contain pii
+  #                  - value: 365
+  #                    description: Use this for non-sensitive data that can be retained for longer

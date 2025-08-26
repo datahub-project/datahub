@@ -17,8 +17,8 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
     const summary = {
         failedRuns: 0,
         succeededRuns: 0,
-        totalRuns: 0,
         erroredRuns: 0,
+        totalRuns: 0,
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {

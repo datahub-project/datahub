@@ -2,3 +2,9 @@ startDelaySeconds: 0
 ssl: false
 lowercaseOutputName: false
 lowercaseOutputLabelNames: false
+httpServer:
+  sampleNameFilter:
+    name-must-not-be-equal-to:
+      - jvm_threads_state
+      - jvm_threads_deadlocked
+      - jvm_threads_deadlocked_monitor

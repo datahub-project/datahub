@@ -5,6 +5,9 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Edge;
 import com.linkedin.common.FabricType;
+import com.linkedin.common.FormAssociation;
+import com.linkedin.common.FormPromptAssociation;
+import com.linkedin.common.FormVerificationAssociation;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
@@ -32,6 +35,7 @@ import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder
 import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.EditableSchemaMetadataPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.FormInfoPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.FormsPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertyDefinitionPatchBuilder;
@@ -790,6 +794,81 @@ public class PatchTest {
 
       System.out.println(response.get().getResponseContent());
 
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalFormsCompletePrompt() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      Urn formUrn = UrnUtils.getUrn("urn:li:form:ownership_form_with_structured_props");
+      FormPromptAssociation promptAssociation = new FormPromptAssociation();
+      promptAssociation.setId("45403e7d-68f4-4f82-b08f-c872146ada22");
+      AuditStamp lastModified = new AuditStamp();
+      lastModified.setActor(UrnUtils.getUrn("urn:li:corpuser:admin"));
+      lastModified.setTime(System.currentTimeMillis());
+      promptAssociation.setLastModified(lastModified);
+      MetadataChangeProposal formInfoPatch =
+          new FormsPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:oracle,Table_0,PROD)"))
+              .completePrompt(formUrn, promptAssociation)
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalFormsCompleteForm() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      Urn formUrn = UrnUtils.getUrn("urn:li:form:ownership_form_with_structured_props");
+      FormAssociation formAssociation = new FormAssociation();
+      formAssociation.setUrn(formUrn);
+      AuditStamp lastModified = new AuditStamp();
+      lastModified.setActor(UrnUtils.getUrn("urn:li:corpuser:admin"));
+      lastModified.setTime(System.currentTimeMillis());
+      formAssociation.setLastModified(lastModified);
+      MetadataChangeProposal formInfoPatch =
+          new FormsPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:oracle,Table_0,PROD)"))
+              .completeForm(formAssociation)
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
+    } catch (IOException | ExecutionException | InterruptedException e) {
+      System.out.println(Arrays.asList(e.getStackTrace()));
+    }
+  }
+
+  @Test
+  @Ignore
+  public void testLocalFormsVerifyForm() {
+    RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().build());
+    try {
+      Urn formUrn = UrnUtils.getUrn("urn:li:form:ownership_form_with_structured_props");
+      FormVerificationAssociation verificationAssociation = new FormVerificationAssociation();
+      verificationAssociation.setForm(formUrn);
+      AuditStamp lastModified = new AuditStamp();
+      lastModified.setActor(UrnUtils.getUrn("urn:li:corpuser:admin"));
+      lastModified.setTime(System.currentTimeMillis());
+      verificationAssociation.setLastModified(lastModified);
+      MetadataChangeProposal formInfoPatch =
+          new FormsPatchBuilder()
+              .urn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:oracle,Table_0,PROD)"))
+              .verifyForm(verificationAssociation)
+              .build();
+      Future<MetadataWriteResponse> response = restEmitter.emit(formInfoPatch);
+
+      System.out.println(response.get().getResponseContent());
     } catch (IOException | ExecutionException | InterruptedException e) {
       System.out.println(Arrays.asList(e.getStackTrace()));
     }

@@ -200,6 +200,10 @@ export function getTimeRangeDescription(startDate: moment.Moment | null, endDate
     }
 
     if (startDate && !endDate) {
+        const dayDiff = moment().diff(startDate, 'days');
+        if (dayDiff <= 30) {
+            return `Last ${dayDiff} days`;
+        }
         return `From ${startDate.format('ll')}`;
     }
 

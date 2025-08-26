@@ -1,13 +1,19 @@
+import { Popover } from '@components';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, Typography, message } from 'antd';
+import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
 import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import {
+    getBarsStatusFromPopularityTier,
+    getQueryPopularityTier,
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import MarkdownViewer from '@src/app/entity/shared/components/legacy/MarkdownViewer';
 
@@ -17,46 +23,27 @@ import { ActorWithDisplayNameFragment, useDeleteQueryMutation } from '@graphql/q
  * Description Column
  */
 
-const StyledLink = styled(Typography.Link)`
-    display: block;
-`;
-
 const TruncatedTextWrapper = styled.div`
     display: inline;
 `;
 
-const MAX_DESCRIPTION_LENGTH = 50;
+const QueryDescriptionWrapper = styled.div`
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+`;
 
 interface DescriptionProps {
     description?: string;
 }
 
 export const QueryDescription = ({ description }: DescriptionProps) => {
-    const [isTruncated, setIsTruncated] = useState(description && description.length > MAX_DESCRIPTION_LENGTH);
-
-    if (!description) return null;
-
-    const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
-
     return (
-        <div>
-            {isTruncated && (
-                <>
-                    <TruncatedTextWrapper>
-                        <MarkdownViewer source={`${truncatedDescription}...`} />
-                    </TruncatedTextWrapper>
-                    <StyledLink onClick={() => setIsTruncated(false)}>Read more</StyledLink>
-                </>
-            )}
-            {!isTruncated && (
-                <>
-                    <MarkdownViewer source={description} ignoreLimit />
-                    {description.length > MAX_DESCRIPTION_LENGTH && (
-                        <StyledLink onClick={() => setIsTruncated(true)}>Read less</StyledLink>
-                    )}
-                </>
-            )}
-        </div>
+        <QueryDescriptionWrapper>
+            <TruncatedTextWrapper>
+                <MarkdownViewer source={description || ''} limit={60} ignoreLimit={false} maxWidth={170} />
+            </TruncatedTextWrapper>
+        </QueryDescriptionWrapper>
     );
 };
 
@@ -176,9 +163,36 @@ export const EditDeleteColumn = ({ query, hoveredQueryUrn, onEdited, onDeleted }
     );
 };
 
-interface ColumnProps {
+/*
+ * Popularity Column
+ */
+
+const PopularityWrapper = styled.div`
+    display: flex;
+    justify-content: center;
+`;
+
+interface PopularityColumnProps {
     query: Query;
 }
+
+export const PopularityColumn = ({ query }: PopularityColumnProps) => {
+    const { runsPercentileLast30days } = query;
+    if (!runsPercentileLast30days) return null;
+    const tier = getQueryPopularityTier(runsPercentileLast30days);
+    const status = getBarsStatusFromPopularityTier(tier);
+    return (
+        <Popover
+            content={
+                <>This query has been run more than {runsPercentileLast30days}% of other queries in the last 30 days.</>
+            }
+        >
+            <PopularityWrapper data-testid="query-popularity">
+                <PopularityBars status={status} />
+            </PopularityWrapper>
+        </Popover>
+    );
+};
 
 const ColumnsWrapper = styled.div`
     text-align: right;
@@ -187,6 +201,6 @@ const ColumnsWrapper = styled.div`
 /*
  * Columns Column
  */
-export const ColumnsColumn = ({ query }: ColumnProps) => {
+export const ColumnsColumn = ({ query }: PopularityColumnProps) => {
     return <ColumnsWrapper>{query.columns?.length ?? 0}</ColumnsWrapper>;
 };

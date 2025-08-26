@@ -1,0 +1,2 @@
+-e ../metadata-ingestion
+-e .

@@ -1,5 +1,6 @@
 import { ScanOutlined } from '@ant-design/icons';
-import { Button, Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';

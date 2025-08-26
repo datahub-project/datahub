@@ -17,6 +17,27 @@ pip3 install locust
 Note that it supports python versions 3.6 and up. Refer to
 this [guide](https://docs.locust.io/en/stable/installation.html) for more details.
 
+If you will be running tests against a customer instance (not your local deployment), you will also need AWS credentials to access Acryl servers. To get these, make sure you have awscli v2 installed.
+
+```shell
+brew install awscli@2
+```
+
+Then, use the SSO login to be able to access instances.
+
+```shell
+aws configure sso
+```
+
+Finally, install kubectl if it is not already installed, and set the environment to the namespace you will be running the perf tests against.
+
+```shell
+kubectl config get-contexts  # To see available contexts
+kubectl config use-context arn:aws:eks:<region>:<account number>:cluster/<cluster>  # Name from above list
+```
+
+Once the access is set up, the scripts will read the credentials for you, so you will not need to authenticate in the instance you are running the perf tests against.
+
 You will also need to import requirements in order to run the Locustfile scripts:
 
 ```shell
@@ -34,6 +55,7 @@ Here, we have defined 4 common requests
 - Search: searches datasets with query "test"
 - Browse: browses datasets with path "/perf/test"
 - Graph: gets datasets owned by user "common"
+- Search GraphQL: Searches datasets using breadth{randInt} assuming the graph ingest has been used with 100 children
 
 We will continue adding more as more use cases arise, but feel free to play around with the default behavior to create a
 load test that matches your request pattern.
@@ -63,8 +85,10 @@ you should see the following
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/locust-example.png"/>
 </p>
 
-Input the number of users you would like to spawn and the spawn rate. Point the host to the deployed DataHub GMS (
-locally, it should be http://localhost:8080). Click on the "Start swarming" button to start the load test.
+Input the number of users you would like to spawn and the spawn rate. Point the host to the deployed DataHub GMS.
+Locally, it should be http://localhost:8080. For a customer instance, it should be the base URL of the customer instance, e.g. https://acryl.acryl.io/.
+![Customer Locust Example](../docs/imgs/locust-example-customer.png)
+Click on the "Start swarming" button to start the load test.
 
 The web interface should give you statistics on number of requests, latency, response rate, etc.
 

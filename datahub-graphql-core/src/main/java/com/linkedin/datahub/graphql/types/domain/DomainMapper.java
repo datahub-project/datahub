@@ -1,13 +1,14 @@
 package com.linkedin.datahub.graphql.types.domain;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -15,7 +16,9 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.domain.DomainProperties;
@@ -90,6 +93,17 @@ public class DomainMapper {
       result.setDisplayProperties(
           DisplayPropertiesMapper.map(
               context, new DisplayProperties(envelopedDisplayProperties.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
+    if (envelopedShare != null) {
+      result.setShare(ShareMapper.map(context, new Share(envelopedShare.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedOrigin = aspects.get(ORIGIN_ASPECT_NAME);
+    if (envelopedOrigin != null) {
+      result.setAssetOrigin(
+          OriginMapper.map(context, new Origin(envelopedOrigin.getValue().data())));
     }
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {

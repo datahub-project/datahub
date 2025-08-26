@@ -24,10 +24,12 @@ dependencies {
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
   api project(':metadata-operation-context')
+  implementation project(':metadata-service:openapi-servlet:models')
 
   implementation spec.product.pegasus.restliServer
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator
+  implementation 'com.linkedin.avroutil1:helper-all:0.2.138'
 
   implementation externalDependency.guava
   implementation externalDependency.reflections
@@ -36,6 +38,8 @@ dependencies {
   implementation externalDependency.graphqlJava
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackJackson
+  runtimeOnly externalDependency.logbackJsonClassic
   compileOnly externalDependency.lombok
   compileOnly externalDependency.hazelcast
   implementation externalDependency.commonsCollections
@@ -62,6 +66,13 @@ dependencies {
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
+
+  // acryl-main only
+  implementation('software.amazon.awssdk:eventbridge:2.17.170')
+  implementation('software.amazon.awssdk:sts:2.17.170')
+  implementation('software.amazon.awssdk:apache-client:2.17.170')
+  api project(":datahub-integrations-service:clients:java")
+  implementation 'com.squareup.okhttp3:okhttp:4.10.0'
 
   annotationProcessor externalDependency.lombok
 
@@ -94,6 +105,7 @@ dependencies {
   testImplementation 'ch.qos.logback:logback-classic:1.4.7'
   testImplementation 'net.datafaker:datafaker:1.9.0'
 
+  testImplementation project(':metadata-test-util:java')
   testImplementation(testFixtures(project(":entity-registry")))
 
   testAnnotationProcessor externalDependency.lombok
@@ -150,7 +162,6 @@ tasks.withType(Test) {
 }
 
 clean {
-  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean
+  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doesn't need explicit clean
   delete "$projectDir/generated"
 }
-

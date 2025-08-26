@@ -1,0 +1,51 @@
+namespace com.linkedin.inferred
+
+/**
+ * Factors related to an entity
+ */
+enum SimilarityFactor {  
+    /**
+     * Name of entity
+     */
+    ENTITY_NAME
+
+    /**
+     * Description of entity
+     */
+    ENTITY_DESCRIPTION
+
+    /**
+     * Lineage of entity
+     */
+    LINEAGE
+
+    /**
+     * Schema of dataset
+     */
+    DATASET_SCHEMA
+
+    /**
+     * Platform of dataset
+     */
+    DATASET_PLATFORM
+
+    /**
+     * Name of dataset field
+     */
+    FIELD_NAME
+
+    /**
+     * Description of dataset field
+     */
+    FIELD_DESCRIPTION
+
+    /**
+     * Datatype of dataset field
+     */
+    FIELD_DATA_TYPE
+
+    /**
+     * Dataset containing the field
+     */
+    FIELD_PARENT_DATASET
+}

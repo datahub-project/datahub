@@ -7,6 +7,8 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { TimeWindowSize } from '@app/shared/time/timeUtils';
 
 import {
+    ActionRequest,
+    ActionRequestType,
     ChartProperties,
     ChartStatsSummary,
     DashboardStatsSummary,
@@ -173,6 +175,7 @@ export function getFineGrainedLineageWithSiblings(
     });
     return fineGrainedLineages;
 }
+
 export function getDataProduct(dataProductResult: Maybe<EntityRelationshipsResult> | undefined) {
     if (dataProductResult?.relationships && dataProductResult.relationships.length > 0) {
         return dataProductResult.relationships[0].entity as DataProduct;
@@ -264,6 +267,7 @@ export type DatasetLastUpdatedMs = {
     property: 'lastModified' | 'lastUpdated' | undefined;
     lastUpdatedMs: number | undefined;
 };
+
 export function getDatasetLastUpdatedMs(
     properties: Pick<DatasetProperties, 'lastModified'> | null | undefined,
     operations: Pick<Operation, 'lastUpdatedTimestamp'>[] | null | undefined,
@@ -311,6 +315,17 @@ export const toProperTitleCase = (str: string) => {
 };
 
 /**
+ * Type guard for entity type
+ */
+export function isEntityType(entityType?: string): entityType is EntityType {
+    if (entityType === undefined) return false;
+    if (entityType === null) return false;
+
+    const possibleValues: Array<string> = Array.from(Object.values(EntityType));
+    return possibleValues.includes(entityType);
+}
+
+/**
  * Attempts to extract a description for a sub-resource of an entity, if it exists.
  * @param entity ie dataset
  * @param subResource ie field name
@@ -329,15 +344,35 @@ export const tryExtractSubResourceDescription = (entity: Entity, subResource: st
 };
 
 /**
- * Type guard for entity type
+ * Recursively replaces null values with undefined values in an object.
+ * This is useful for converting null values to undefined values in an object while preserving the types.
  */
-export function isEntityType(entityType?: string | null): entityType is EntityType {
-    if (entityType === undefined) return false;
-    if (entityType === null) return false;
+type RecursivelyReplaceNullWithUndefined<T> = T extends null
+    ? undefined
+    : T extends (infer U)[]
+      ? RecursivelyReplaceNullWithUndefined<U>[]
+      : T extends Record<string, unknown>
+        ? { [K in keyof T]: RecursivelyReplaceNullWithUndefined<T[K]> }
+        : T;
 
-    const possibleValues: Array<string> = Array.from(Object.values(EntityType));
-    return possibleValues.includes(entityType);
+export function nullsToUndefined<T>(obj: T): RecursivelyReplaceNullWithUndefined<T> {
+    if (obj === null || obj === undefined) {
+        return undefined as any;
+    }
+
+    if ((obj as any).constructor.name === 'Object' || Array.isArray(obj)) {
+        // eslint-disable-next-line no-restricted-syntax
+        for (const key of Object.keys(obj)) {
+            // eslint-disable-next-line no-param-reassign
+            obj[key] = nullsToUndefined(obj[key]) as any;
+        }
+    }
+    return obj as any;
 }
+
+export const getProposedItemsByType = (proposedItems: ActionRequest[], type: ActionRequestType) => {
+    return proposedItems.filter((item) => item.type === type);
+};
 
 const PLATFORM_URN_TYPES = ['dataset', 'mlModel', 'mlModelGroup', 'mlFeatureTable'];
 const TRUNCATED_PLATFORM_TYPES = ['dataFlow', 'dataJob', 'chart', 'dashboard'];
@@ -392,3 +427,32 @@ function splitEntityId(entity_id: string): string[] {
 
     return parts;
 }
+
+export function extractPlatformNameFromPlatformUrn(platformUrn: string): string | null {
+    const match = platformUrn.match(/^urn:li:dataPlatform:([^,\s)]+)$/);
+    return match ? match[1] : null;
+}
+
+export function extractPlatformNameFromAssetUrn(urn: string) {
+    // First extract the platform URN
+    const platformUrn = getPlatformUrnFromEntityUrn(urn);
+    if (!platformUrn) return null;
+
+    // Then extract the platform name from the platform URN
+    const platformName = extractPlatformNameFromPlatformUrn(platformUrn);
+    return platformName;
+}
+
+/**
+ * Extracts the fully qualified dataset name from a dataset URN.
+ * URNs typically look like: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+ * @param datasetUrn - The URN of the dataset.
+ * @returns The dataset name.
+ */
+export const extractDatasetNameFromUrn = (datasetUrn: string): string => {
+    const parts = datasetUrn.split(',');
+    if (parts.length >= 2) {
+        return parts[1] || datasetUrn;
+    }
+    return datasetUrn;
+};

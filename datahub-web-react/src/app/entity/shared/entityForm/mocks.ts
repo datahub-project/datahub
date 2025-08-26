@@ -1,13 +1,17 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 
-import { EntityType, FormPromptType, FormType } from '@types';
+import { EntityType, FormPromptType, FormState, FormType } from '@types';
 
 const form1 = {
     urn: 'urn:li:form:1',
     type: EntityType.Form,
+    exists: true,
     info: {
         name: '',
         type: FormType.Verification,
+        status: {
+            state: FormState.Published,
+        },
         prompts: [
             {
                 id: '1',
@@ -36,6 +40,7 @@ const form1 = {
 const form2 = {
     urn: 'urn:li:form:2',
     type: EntityType.Form,
+    exists: true,
     info: {
         name: '',
         prompts: [
@@ -61,6 +66,9 @@ const form2 = {
                 required: false,
             },
         ],
+        status: {
+            state: FormState.Published,
+        },
         type: FormType.Verification,
         actors: {
             owners: false,
@@ -141,6 +149,7 @@ export const mockEntityData = {
                 form: {
                     urn: 'urn:li:form:3',
                     type: EntityType.Form,
+                    exists: true,
                     info: {
                         name: '',
                         prompts: [
@@ -152,6 +161,9 @@ export const mockEntityData = {
                                 required: true,
                             },
                         ],
+                        status: {
+                            state: FormState.Published,
+                        },
                         type: FormType.Completion,
                         actors: {
                             owners: true,
@@ -205,6 +217,9 @@ export const mockEntityDataWithFieldPrompts = {
                     type: EntityType.Form,
                     info: {
                         name: '',
+                        status: {
+                            state: FormState.Published,
+                        },
                         prompts: [
                             {
                                 id: '1',

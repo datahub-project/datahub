@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,7 @@ import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.mockito.Mockito;
@@ -47,6 +49,8 @@ public class QueryServiceTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my-test-2,PROD)");
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
   private OperationContext opContext =
       TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
 
@@ -54,7 +58,8 @@ public class QueryServiceTest {
   private void testCreateQuerySuccess() throws Exception {
 
     final SystemEntityClient mockClient = createQueryMockEntityClient();
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Case 1: All fields provided
     Urn urn =
@@ -94,7 +99,8 @@ public class QueryServiceTest {
   @Test
   private void testCreateQueryErrorMissingInputs() throws Exception {
     final SystemEntityClient mockClient = createQueryMockEntityClient();
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Case 1: missing Query Source
     Assert.assertThrows(
@@ -145,7 +151,8 @@ public class QueryServiceTest {
         .ingestProposal(
             any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -181,7 +188,8 @@ public class QueryServiceTest {
         0L,
         0L);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     final String newName = "new name";
     final String newDescription = "new description";
@@ -329,7 +337,8 @@ public class QueryServiceTest {
                 Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME))))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -357,7 +366,8 @@ public class QueryServiceTest {
             Mockito.eq(TEST_QUERY_URN),
             Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME)));
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -377,7 +387,8 @@ public class QueryServiceTest {
   private void testDeleteQuerySuccess() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     service.deleteQuery(opContext, TEST_QUERY_URN);
 
@@ -389,7 +400,8 @@ public class QueryServiceTest {
   private void testDeleteQueryError() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
@@ -421,7 +433,8 @@ public class QueryServiceTest {
         0L,
         1L);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     final QueryProperties properties = service.getQueryProperties(opContext, TEST_QUERY_URN);
 
@@ -449,7 +462,8 @@ public class QueryServiceTest {
                         QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     Assert.assertNull(service.getQueryProperties(opContext, TEST_QUERY_URN));
   }
@@ -468,7 +482,8 @@ public class QueryServiceTest {
                 ImmutableSet.of(
                     QUERY_PROPERTIES_ASPECT_NAME, Constants.QUERY_SUBJECTS_ASPECT_NAME)));
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -488,7 +503,8 @@ public class QueryServiceTest {
 
     resetQuerySubjectsClient(mockClient, TEST_QUERY_URN, existingSubjects);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     final QuerySubjects querySubjects = service.getQuerySubjects(opContext, TEST_QUERY_URN);
 
@@ -508,7 +524,8 @@ public class QueryServiceTest {
                     ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME))))
         .thenReturn(null);
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     Assert.assertNull(service.getQueryProperties(opContext, TEST_QUERY_URN));
   }
@@ -525,7 +542,8 @@ public class QueryServiceTest {
             Mockito.eq(TEST_QUERY_URN),
             Mockito.eq(ImmutableSet.of(QUERY_PROPERTIES_ASPECT_NAME, QUERY_SUBJECTS_ASPECT_NAME)));
 
-    final QueryService service = new QueryService(mockClient);
+    final QueryService service =
+        new QueryService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(

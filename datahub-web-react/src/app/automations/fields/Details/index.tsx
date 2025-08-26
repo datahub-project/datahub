@@ -1,0 +1,123 @@
+import { Tooltip } from '@components';
+import { Collapse, Input } from 'antd';
+import { Info } from 'phosphor-react';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import { CategorySelector } from '@app/automations/fields/CategorySelector';
+import type { ComponentBaseProps } from '@app/automations/types';
+import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
+import RemoteExecutorPoolSelector from '@src/app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
+
+const { Panel } = Collapse;
+
+const Container = styled.div`
+    display: grid;
+    gap: 12px;
+
+    & span {
+        padding-left: 4px;
+    }
+`;
+
+const StyledLabel = styled.label`
+    display: flex !important;
+    align-items: center;
+    gap: 4px;
+`;
+
+// State Type (ensures the state is correctly applied across templates)
+export type DetailsStateType = {
+    name?: string;
+    description?: string;
+    category?: string;
+    executorId?: string;
+};
+
+// Component
+export const Details = ({ state, props, passStateToParent }: ComponentBaseProps) => {
+    // Defined in @app/automations/fields/index
+    const { name: nameProps, description: descriptionProps, category: categoryProps, executor } = props;
+
+    // Defined in @app/automations/fields/index
+    const { name, description, category, executorId } = state as DetailsStateType;
+
+    // Handle passing state to parent
+    const handleChange = (key: string, value: string) => {
+        passStateToParent({ ...state, [key]: value });
+    };
+
+    const [searchPoolQuery, setSearchPoolQuery] = useState('');
+    const { pools, loading, total } = useExecutorPoolSelection({
+        searchQuery: searchPoolQuery,
+        currentExecutorId: state?.config?.executorId || '',
+        isEditing: true,
+        onSetExecutorId: (value) => handleChange('executorId', value),
+    });
+
+    return (
+        <Container>
+            <div>
+                <label aria-required={nameProps.isRequired} htmlFor="name">
+                    {nameProps.label}
+                    {nameProps.isRequired && <span style={{ color: 'red' }}>*</span>}
+                </label>
+                <Input
+                    type="text"
+                    name="name"
+                    value={name}
+                    placeholder={nameProps.placeholder}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    required={nameProps.isRequired}
+                />
+            </div>
+            <div>
+                <label aria-required={descriptionProps.isRequired} htmlFor="description">
+                    {descriptionProps.label}
+                    {descriptionProps.isRequired && <span style={{ color: 'red' }}>*</span>}
+                </label>
+                <Input.TextArea
+                    name="description"
+                    value={description}
+                    placeholder={descriptionProps.placeholder}
+                    onChange={(e) => handleChange('description', e.target.value)}
+                    required={descriptionProps.isRequired}
+                />
+            </div>
+            {!categoryProps.isHidden && (
+                <div>
+                    <label aria-required={categoryProps.isRequired} htmlFor="category">
+                        {categoryProps.label}
+                        {categoryProps.isRequired && <span style={{ color: 'red' }}>*</span>}
+                    </label>
+                    <CategorySelector
+                        categorySelected={category}
+                        setCategorySelected={(value) => handleChange('category', value)}
+                    />
+                </div>
+            )}
+            <Collapse>
+                <Panel header="Advanced" key="details-advanced">
+                    <div>
+                        <StyledLabel htmlFor="executorId">
+                            {executor.label}
+                            <Tooltip title={executor.tooltip}>
+                                <Info />
+                            </Tooltip>
+                        </StyledLabel>
+                        <RemoteExecutorPoolSelector
+                            value={executorId}
+                            onChange={(value) => handleChange('executorId', value)}
+                            onBlur={(value) => handleChange('executorId', value)}
+                            placeholder={executor.placeholder}
+                            pools={pools || []}
+                            total={total}
+                            loading={loading}
+                            handleSearch={setSearchPoolQuery}
+                        />
+                    </div>
+                </Panel>
+            </Collapse>
+        </Container>
+    );
+};

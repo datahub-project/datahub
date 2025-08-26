@@ -1,4 +1,4 @@
-import { Tag, Typography } from 'antd';
+import { Typography } from 'antd';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -19,9 +19,7 @@ const StyledAnalyticsLink = styled(Typography.Text)`
 export default function AnalyticsLink() {
     return (
         <Link to="/analytics">
-            <StyledAnalyticsLink strong>
-                Analytics <Tag>Beta</Tag>
-            </StyledAnalyticsLink>
+            <StyledAnalyticsLink strong>Analytics</StyledAnalyticsLink>
         </Link>
     );
 }

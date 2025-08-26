@@ -6,6 +6,18 @@ fragment testFields on Test {
     definition {
         json
     }
+    status {
+        mode
+    }
+}
+
+fragment testResultsSummaryFields on Test {
+    results {
+        passingCount
+        failingCount
+        testDefinitionMd5
+        lastRunTimestampMillis
+    }
 }
 
 query getTest($urn: String!) {
@@ -29,6 +41,85 @@ mutation createTest($input: CreateTestInput!) {
     createTest(input: $input)
 }
 
+mutation updateTest($urn: String!, $input: UpdateTestInput!) {
+    updateTest(urn: $urn, input: $input)
+}
+
 mutation deleteTest($urn: String!) {
     deleteTest(urn: $urn)
+}
+
+mutation runTestDefinition($urn: String!, $test: TestDefinitionInput!) {
+    runTestDefinition(urn: $urn, test: $test) {
+        status
+    }
+}
+
+query getTestResultsSummary($urn: String!) {
+    test(urn: $urn) {
+        urn
+        type
+        name
+        ...testResultsSummaryFields
+    }
+}
+
+query getOnDemandTestResults($urn: String!) {
+    test(urn: $urn) {
+        urn
+        type
+        name
+        batchRunEvents(limit: 10) {
+            batchRunEvents {
+                result {
+                    passingCount
+                }
+                timestampMillis
+            }
+        }
+    }
+}
+
+query getResultsForOnDemandTests($input: ListTestsInput!) {
+    listTests(input: $input) {
+        start
+        count
+        total
+        tests {
+            urn
+            type
+            name
+            batchRunEvents(limit: 10) {
+                batchRunEvents {
+                    result {
+                        passingCount
+                    }
+                    timestampMillis
+                }
+            }
+        }
+    }
+}
+
+mutation runTests($urn: String!) {
+    runTests(urn: $urn)
+}
+
+query getDatasetTestResults($urn: String!) {
+    dataset(urn: $urn) {
+        testResults(includeSoftDeleted: false) {
+            passing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+            failing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+        }
+    }
 }

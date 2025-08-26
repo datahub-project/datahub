@@ -1,0 +1,35 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.common.Urn
+import com.linkedin.common.CronSchedule
+
+/**
+ * Information required for a monitor to evaluate an assertion
+ */
+record AssertionEvaluationSpec {
+    /**
+    * The urn of the assertion itself
+    */
+    @Relationship = {
+      "name": "Evaluates",
+      "entityTypes": [ "assertion" ]
+    }
+    assertion: Urn
+
+    /**
+    * The evaluation schedule for the assertion
+    */
+    schedule: CronSchedule
+
+    /**
+    * Parameters required to evaluate the assertion
+    */
+    parameters: optional AssertionEvaluationParameters
+
+    /**
+    * Additional context about assertion being evaluated.
+    */
+    context: optional AssertionEvaluationContext
+
+
+}

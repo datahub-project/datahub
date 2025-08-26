@@ -1,0 +1,19 @@
+fragment IngestionSourceResults on ListIngestionSourcesResult {
+  start
+  count
+  total
+  ingestionSources {
+    urn
+    type
+    config {
+      recipe
+      executorId
+    }
+  }
+}
+
+query listIngestionSources($input: ListIngestionSourcesInput!) {
+    listIngestionSources(input: $input) {
+        ...IngestionSourceResults
+    }
+}

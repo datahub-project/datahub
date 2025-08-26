@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.chart;
 
 import static com.linkedin.datahub.graphql.Constants.BROWSE_PATH_V2_DELIMITER;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.BROWSE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
@@ -23,6 +25,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -75,6 +78,13 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                         + String.join(BROWSE_PATH_V2_DELIMITER, input.getPath())
                     : "";
             final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+            final Filter formFilter =
+                SearchUtils.getFormFilter(
+                    context.getOperationContext(), input.getFormFilter(), _formService);
+            final Filter baseFilter =
+                formFilter != null
+                    ? FilterUtils.combineFilters(inputFilter, formFilter)
+                    : inputFilter;
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
@@ -82,9 +92,9 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
                     entityNames,
                     pathStr,
                     maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                        ? FilterUtils.combineFilters(
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     sanitizedQuery,
                     start,
                     count);

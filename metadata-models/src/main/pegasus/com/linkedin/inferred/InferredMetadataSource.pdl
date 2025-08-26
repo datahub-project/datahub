@@ -1,0 +1,29 @@
+namespace com.linkedin.inferred
+
+/**
+ * Provenace details corresponding to an inference
+ */
+record InferredMetadataSource {
+    /**
+     * Algorithm used for inference
+     */
+    algorithm: string
+
+    /**
+     * Inference score - can be used to decide rank of inference
+     * For same algorithm, higher score represents higher confidence in inference.
+     * This score is not intended to be compared across multiple algorithms.
+     */
+    score: optional float
+
+    /**
+     * Additional details about this inference
+     */
+    context: optional map[string, string]
+
+    /**
+     * Primary factors contributing to this inference
+     * Ordering of the array indicates rank.
+     */
+    similarityFactors: optional array[SimilarityFactor]
+}

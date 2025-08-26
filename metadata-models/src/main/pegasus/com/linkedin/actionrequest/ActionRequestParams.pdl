@@ -1,0 +1,120 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.Urn
+import com.linkedin.datacontract.SchemaContract
+import com.linkedin.datacontract.FreshnessContract
+import com.linkedin.datacontract.DataQualityContract
+
+
+/**
+ * Parameters provided with a particular action request. Only one of the fields will be populated,
+ * depending on the action request type.
+ */
+record ActionRequestParams {
+  /**
+   * An optional set of information specific to term proposals.
+   * TODO: Add validation that ensures that glossaryTerm or glossaryTerms field is provided, but not both.
+   */
+  glossaryTermProposal: optional GlossaryTermProposal
+
+  /**
+   * An optional set of information specific to tag proposals.
+   * TODO: Add validation that ensures that tag or tagUrns field is provided, but not both.
+   */
+  tagProposal: optional TagProposal
+
+  /**
+   * An optional set of information specific to domain proposals.
+   */
+  domainProposal: optional DomainProposal
+
+  /**
+   * An optional set of information specific to ownership proposals.
+   */
+  ownerProposal: optional OwnerProposal
+
+  /**
+   * An optional set of information specific to structured property proposals.
+   */
+  structuredPropertyProposal: optional StructuredPropertyProposal
+
+  /**
+   * An optional set of information specific to proposals for creating new Glossary Terms.
+   */
+  createGlossaryTermProposal: optional record CreateGlossaryTermProposal {
+    /**
+     * Name of the proposed Glossary Term
+     */
+    name: string
+    /**
+     * The urn of the parent node of the Proposed Term
+     */
+    parentNode: optional Urn
+    /**
+     * The description of the Proposed Term
+     */
+    description: optional string
+  }
+
+  /**
+   * An optional set of information specific to proposals for creating new Glossary Nodes.
+   */
+  createGlossaryNodeProposal: optional record CreateGlossaryNodeProposal {
+    /**
+     * Name of the proposed Glossary Node
+     */
+    name: string
+    /**
+     * The urn of the parent node of the Proposed Node
+     */
+    parentNode: optional Urn
+    /**
+     * The description of the Proposed Node
+     */
+    description: optional string
+  }
+
+  /**
+   * An optional set of information specific to proposals for updating Descriptions.
+   */
+  updateDescriptionProposal: optional record DescriptionProposal {
+    /**
+     * The text of the description.
+     */
+    description: string
+  }
+
+  /**
+   * A proposal to create or modify a Data Contract
+   */
+  dataContractProposal: optional record DataContractProposal {
+    /**
+     * How to apply the Data Contract
+     */
+    type: optional enum DataContractProposalOperationType {
+      /**
+       * Add contracts to existing contract
+       */
+      ADD,
+      /**
+       * Overwrite the contract in its entirety
+       */
+      OVERWRITE
+    } = "OVERWRITE"
+
+    /**
+     * An optional set of schema contracts. If this is a dataset contract, there will only be one.
+     */
+    schema: optional array[SchemaContract]
+
+    /**
+     * An optional set of Freshness contracts. If this is a dataset contract, there will only be one.
+     */
+    freshness: optional array[FreshnessContract]
+
+    /**
+     * An optional set of Data Quality contracts, e.g. table and column level contract constraints.
+     */
+    dataQuality: optional array[DataQualityContract]
+  }
+}

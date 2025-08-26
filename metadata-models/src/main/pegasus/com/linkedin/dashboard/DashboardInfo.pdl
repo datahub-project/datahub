@@ -123,6 +123,12 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * Captures information about who created/last modified/deleted this dashboard and when
    */
+  @Searchable = {
+    "/lastModified/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
   lastModified: ChangeAuditStamps
 
   /**
@@ -146,5 +152,16 @@ record DashboardInfo includes CustomProperties, ExternalReference {
   /**
    * The time when this dashboard last refreshed
    */
+  @Searchable = {
+    "queryByDefault": false,
+  }
   lastRefreshed: optional Time
+
+  /**
+   * The actor who last refreshed this dashboard
+   */
+  @Searchable = {
+    "queryByDefault": false,
+  }
+  lastRefreshedBy: optional Urn
 }

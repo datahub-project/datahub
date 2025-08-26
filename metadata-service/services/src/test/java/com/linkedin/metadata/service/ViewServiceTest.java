@@ -5,6 +5,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,6 +32,7 @@ import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import com.linkedin.view.DataHubViewType;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import org.mockito.Mockito;
@@ -43,12 +45,14 @@ public class ViewServiceTest {
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
   private static final OperationContext opContext =
       TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   @Test
   private void testCreateViewSuccess() throws Exception {
 
     final SystemEntityClient mockClient = createViewMockEntityClient();
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Case 1: With description
     Urn urn =
@@ -110,7 +114,8 @@ public class ViewServiceTest {
   @Test
   private void testCreateViewErrorMissingInputs() throws Exception {
     final SystemEntityClient mockClient = createViewMockEntityClient();
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Case 1: missing View Type
     Assert.assertThrows(
@@ -190,7 +195,8 @@ public class ViewServiceTest {
         .ingestProposal(
             any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -244,7 +250,8 @@ public class ViewServiceTest {
         0L,
         0L);
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
     final String newName = "new name";
     final String newDescription = "new description";
     final DataHubViewDefinition newDefinition =
@@ -353,7 +360,8 @@ public class ViewServiceTest {
                 Mockito.eq(ImmutableSet.of(DATAHUB_VIEW_INFO_ASPECT_NAME))))
         .thenReturn(null);
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     final String newName = "new name";
 
@@ -377,7 +385,8 @@ public class ViewServiceTest {
             Mockito.eq(TEST_VIEW_URN),
             Mockito.eq(ImmutableSet.of(DATAHUB_VIEW_INFO_ASPECT_NAME)));
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -391,7 +400,8 @@ public class ViewServiceTest {
   private void testDeleteViewSuccess() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     service.deleteView(mock(OperationContext.class), TEST_VIEW_URN);
 
@@ -403,7 +413,8 @@ public class ViewServiceTest {
   private void testDeleteViewError() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
@@ -441,7 +452,8 @@ public class ViewServiceTest {
     resetGetViewInfoMockEntityClient(
         mockClient, TEST_VIEW_URN, type, name, description, definition, TEST_USER_URN, 0L, 1L);
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     final DataHubViewInfo info = service.getViewInfo(opContext, TEST_VIEW_URN);
 
@@ -467,7 +479,8 @@ public class ViewServiceTest {
                 Mockito.eq(ImmutableSet.of(DATAHUB_VIEW_INFO_ASPECT_NAME))))
         .thenReturn(null);
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     Assert.assertNull(service.getViewInfo(opContext, TEST_VIEW_URN));
   }
@@ -484,7 +497,8 @@ public class ViewServiceTest {
             Mockito.eq(TEST_VIEW_URN),
             Mockito.eq(ImmutableSet.of(DATAHUB_VIEW_INFO_ASPECT_NAME)));
 
-    final ViewService service = new ViewService(mockClient);
+    final ViewService service =
+        new ViewService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(

@@ -20,6 +20,22 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
     }
 }
 
+query getIngestionSourceName($urn: String!) {
+    ingestionSource(urn: $urn) {
+        urn
+        name
+    }
+}
+
+query getIngestionSourceNames($urns: [String!]!) {
+    listIngestionSources(input: { filters: [{ field: "urn", values: $urns }] }) {
+        ingestionSources {
+            urn
+            name
+        }
+    }
+}
+
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
         ...ingestionSourceFields
@@ -111,4 +127,13 @@ mutation createTestConnectionRequest($input: CreateTestConnectionRequestInput!) 
 
 mutation rollbackIngestion($input: RollbackIngestionInput!) {
     rollbackIngestion(input: $input)
+}
+
+query ingestionSourceForEntity($urn: String!) {
+    ingestionSourceForEntity(urn: $urn) {
+        urn
+        config {
+            executorId
+        }
+    }
 }

@@ -13,6 +13,12 @@ extend type Query {
   appConfig: AppConfig
 
   """
+  Global (platform-level) settings for DataHub.
+  Requires the 'Manage Platform Settings' Platform Privilege.
+  """
+  globalSettings: GlobalSettings
+
+  """
   Fetch the Global Settings related to the Views feature.
   Requires the 'Manage Global Views' Platform Privilege.
   """
@@ -31,6 +37,12 @@ extend type Query {
 
 extend type Mutation {
   """
+  Update the Global Settings for the Platform.
+  Requires the 'Manage Platform Settings' Platform Privilege.
+  """
+  updateGlobalSettings(input: UpdateGlobalSettingsInput!): Boolean!
+
+  """
   Update the global settings related to the Views feature.
   Requires the 'Manage Global Views' Platform Privilege.
   """
@@ -47,6 +59,20 @@ extend type Mutation {
   Update the applications settings.
   """
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
+
+  """
+  Update the help link displayed in the help dropdown in the header of the UI.
+  Requires the 'Manage Global Settings' Platform Privilege.
+  """
+  updateHelpLink(input: UpdateHelpLinkInput!): Boolean!
+
+  """
+  Update the Organization Display Preferences in the UI.
+  Requires the 'Manage Organization Display Preferences' Platform Privilege.
+  """
+  updateOrganizationDisplayPreferences(
+    input: UpdateOrganizationDisplayPreferencesInput!
+  ): Boolean!
 }
 
 """
@@ -77,6 +103,11 @@ type PlatformPrivileges {
   Whether the user should be able to manage policies
   """
   managePolicies: Boolean!
+
+  """
+  Whether the user should be able to view metadata proposals.
+  """
+  viewMetadataProposals: Boolean!
 
   """
   Whether the user should be able to manage users & groups
@@ -132,6 +163,11 @@ type PlatformPrivileges {
   Whether the user is able to manage user credentials
   """
   manageUserCredentials: Boolean!
+
+  """
+  SaaS-only: Whether the user is able to manage global platform settings
+  """
+  manageGlobalSettings: Boolean!
 
   """
   Whether the user should be able to create new Tags
@@ -192,6 +228,41 @@ type PlatformPrivileges {
   Whether the user can manage platform features.
   """
   manageFeatures: Boolean!
+
+  """
+  Whether the user can manage default home page template.
+  """
+  manageHomePageTemplates: Boolean!
+
+  """
+  Whether the user can create, edit, and assign documentation forms.
+  """
+  manageDocumentationForms: Boolean!
+
+  """
+  Whether the user can view the manage documentation forms page.
+  """
+  viewDocumentationFormsPage: Boolean!
+
+  """
+  Whether the user can manage Organization Display Preferences
+  """
+  manageOrganizationDisplayPreferences: Boolean!
+
+  """
+  Whether the user should be able to propose creation of glossary term
+  """
+  proposeCreateGlossaryTerm: Boolean!
+
+  """
+  Whether the user should be able to propose creation of glossary node
+  """
+  proposeCreateGlossaryNode: Boolean!
+
+  """
+  Whether the user should be able to view the ingestion page
+  """
+  canViewIngestionPage: Boolean!
 }
 
 """
@@ -236,6 +307,10 @@ enum PersonalSidebarSection {
   The section containing tags you own
   """
   YOUR_TAGS
+  """
+  The section containing assets you subscribe to
+  """
+  ASSETS_YOU_SUBSCRIBE_TO
 }
 
 """
@@ -246,6 +321,14 @@ type HomePageConfig {
   The section that comes first on the personal sidebar on the homepage
   """
   firstInPersonalSidebar: PersonalSidebarSection!
+}
+
+"""
+Configurations related to the Datahub server
+"""
+type DataHubConfig {
+  serverType: String
+  serverEnv: String!
 }
 
 """
@@ -272,6 +355,13 @@ type AppConfig {
   Configurations related to the Policies Feature
   """
   policiesConfig: PoliciesConfig!
+
+  actionRequestsConfig: ActionRequestsConfig!
+
+  """
+  Configurations related to the Datahub server
+  """
+  dataHubConfig: DataHubConfig!
 
   """
   Configurations related to the User & Group management
@@ -327,6 +417,11 @@ type AppConfig {
   Configuration related to the home page
   """
   homePageConfig: HomePageConfig!
+
+  """
+  Configurations for Classification
+  """
+  classificationConfig: ClassificationConfig!
 }
 
 """
@@ -448,6 +543,45 @@ type TelemetryConfig {
   Env variable for whether or not third party logging should be enabled for this instance
   """
   enableThirdPartyLogging: Boolean
+
+  """
+  Env variable for whether or not user tracking is enabled in the product (using external tool like hotjar)
+  """
+  userTrackingEnabled: Boolean
+
+  """
+  Mixpanel-specific configurations
+  """
+  mixpanel: MixpanelConfig
+
+  """
+  Google Analytics-specific Configurations
+  """
+  googleAnalytics: GoogleAnalyticsConfig
+}
+
+type MixpanelConfig {
+  """
+  Whether Mixpanel tracking is enabled
+  """
+  enabled: Boolean
+
+  """
+  The Mixpanel project token
+  """
+  token: String
+}
+
+type GoogleAnalyticsConfig {
+  """
+  Whether Google Analytics tracking is enabled
+  """
+  enabled: Boolean
+
+  """
+  The Google Analytics measurement ID
+  """
+  measurementId: String
 }
 
 """
@@ -458,6 +592,13 @@ type LineageConfig {
   Whether the backend support impact analysis feature
   """
   supportsImpactAnalysis: Boolean!
+
+  """
+  A default time filter when viewing lineage. This will be a number representing the
+  number of days from present that we filter lineage on by default. ie. "7" here would mean
+  we default filter for lineage to be "Last 7 Days." Empty defaults to "All Time."
+  """
+  defaultLastDaysFilter: Int
 }
 
 """
@@ -574,6 +715,584 @@ type TestsConfig {
   Whether Tests feature is enabled
   """
   enabled: Boolean!
+
+  """
+  Configurations related to the asset count limit we can run on tests either manually or in hooks
+  """
+  executionLimitConfig: TestsExecutionLimitConfig!
+}
+
+"""
+Configurations related to the asset count limit we can run on tests either manually or in hooks
+"""
+type TestsExecutionLimitConfig {
+  """
+  The execution limit on the elastic search executor
+  """
+  elasticSearchExecutor: Int!
+
+  """
+  The execution limit on the default executor
+  """
+  defaultExecutor: Int!
+}
+
+"""
+Global (platform-level) settings.
+"""
+type GlobalSettings {
+  """
+  Global Integration Settings
+  """
+  integrationSettings: GlobalIntegrationSettings!
+
+  """
+  Global Notification Settings
+  """
+  notificationSettings: GlobalNotificationSettings!
+
+  """
+  Global SSO Settings
+  """
+  ssoSettings: SsoSettings
+
+  """
+  Global visual Settings
+  """
+  visualSettings: GlobalVisualSettings
+
+  """
+  Settings related to AI-powered documentation.
+  """
+  documentationAi: DocumentationAiSettings
+}
+
+"""
+Global (platform-level) integrations settings.
+"""
+type GlobalIntegrationSettings {
+  """
+  Slack-related settings.
+  """
+  slackSettings: SlackIntegrationSettings
+
+  """
+  Email-related settings.
+  """
+  emailSettings: EmailIntegrationSettings
+}
+
+"""
+Slack integration settings.
+"""
+type SlackIntegrationSettings {
+  """
+  A default slack channel to route to.
+  """
+  defaultChannelName: String
+
+  """
+  A bot token used for sending notifications
+  Deprecated! Use connection entity instead.
+  """
+  botToken: String
+
+  """
+  Whether the Slack @DataHub bot mention functionality is enabled.
+  """
+  datahubAtMentionEnabled: Boolean!
+}
+
+"""
+Email integration settings.
+"""
+type EmailIntegrationSettings {
+  """
+  A default email to send global notifications to.
+  """
+  defaultEmail: String
+}
+
+"""
+Global (platform-level) notification settings.
+"""
+type GlobalNotificationSettings {
+  """
+  The notification settings themselves.
+  """
+  settings: [NotificationSetting!]!
+}
+
+"""
+Global (platform-level) SSO settings.
+"""
+type SsoSettings {
+  """
+  OIDC settings. May or may not be filled in
+  """
+  oidcSettings: OidcSettings
+}
+
+type OidcSettings {
+  """
+  Whether OIDC SSO is enabled.
+  """
+  enabled: Boolean!
+
+  """
+  Unique client id issued by the identity provider.
+  """
+  clientId: String!
+
+  """
+  Unique client secret issued by the identity provider.
+  """
+  clientSecret: String!
+
+  """
+  The IdP OIDC discovery url.
+  """
+  discoveryUri: String!
+
+  """
+  ADVANCED. The attribute / claim used to derive the DataHub username. Defaults to "preferred_username".
+  """
+  userNameClaim: String
+
+  """
+  ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all).
+  """
+  userNameClaimRegex: String
+
+  """
+  ADVANCED. String representing the requested scope from the IdP. Defaults to "oidc email profile"
+  """
+  scope: String
+
+  """
+  ADVANCED. Which authentication method to use to pass credentials (clientId and clientSecret) to the token endpoint: Defaults to "client_secret_basic".
+  """
+  clientAuthenticationMethod: String
+
+  """
+  ADVANCED. Whether DataHub users should be provisioned on login if they do not exist. Defaults to true.
+  """
+  jitProvisioningEnabled: Boolean
+
+  """
+  ADVANCED. Whether the user should already exist in DataHub on login, failing login if they are not. Defaults to false.
+  """
+  preProvisioningRequired: Boolean
+
+  """
+  ADVANCED. Whether groups should be extracted from a claim in the OIDC profile. Only applies if JIT provisioning is enabled. Groups will be created if they do not exist. Defaults to true.
+  """
+  extractGroupsEnabled: Boolean
+
+  """
+  ADVANCED. The OIDC claim to extract groups information from. Defaults to 'groups'
+  """
+  groupsClaim: String
+
+  """
+  ADVANCED. Response type.
+  """
+  responseType: String
+
+  """
+  ADVANCED. Response mode.
+  """
+  responseMode: String
+
+  """
+  ADVANCED. Use Nonce
+  """
+  useNonce: Boolean
+
+  """
+  ADVANCED. Read timeout.
+  """
+  readTimeout: Long
+
+  """
+  ADVANCED. Whether to extract claims from JWT access token. Defaults to false.
+  """
+  extractJwtAccessTokenClaims: Boolean
+
+  """
+  ADVANCED. Which jws algorithm to use.
+  """
+  preferredJwsAlgorithm: String
+}
+
+"""
+A setting for a single notification type.
+"""
+type NotificationSetting {
+  """
+  The type of notification that the setting is for.
+  """
+  type: NotificationScenarioType!
+
+  """
+  The setting value: enabled or disabled.
+  """
+  value: NotificationSettingValue!
+
+  """
+  A set of option params, e.g. slack.channel, slack.enabled.
+  """
+  params: [StringMapEntry!]
+}
+
+"""
+A single scenario type for a notification
+"""
+enum NotificationScenarioType {
+  """
+  Notification when an entity tag changes.
+  """
+  ENTITY_TAG_CHANGE
+
+  """
+  Notification when an entity glossary term changes.
+  """
+  ENTITY_GLOSSARY_TERM_CHANGE
+
+  """
+  Notification when an entity owner changes.
+  """
+  ENTITY_OWNER_CHANGE
+
+  """
+  Notification when an entity domain changes.
+  """
+  ENTITY_DOMAIN_CHANGE
+
+  """
+  Notification when an entity deprecation changes.
+  """
+  ENTITY_DEPRECATION_CHANGE
+
+  """
+  Notification when an dataset schema changes.
+  """
+  DATASET_SCHEMA_CHANGE
+
+  """
+  Notification when a new incident is raised.
+  """
+  NEW_INCIDENT
+
+  """
+  Notification when an incident's status changes.
+  """
+  INCIDENT_STATUS_CHANGE
+
+  """
+  Notification when a new proposal is raised.
+  """
+  NEW_PROPOSAL
+
+  """
+  Notification when a proposal's status changes.
+  """
+  PROPOSAL_STATUS_CHANGE
+
+  """
+  Notification to the original proposer when a proposal's status changes.
+  """
+  PROPOSER_PROPOSAL_STATUS_CHANGE
+
+  """
+  Notification when an ingestion run changes.
+  """
+  INGESTION_RUN_CHANGE
+  """
+  Notification when an ingestion fails.
+  """
+  INGESTION_FAILURE
+
+  """
+  Notification when an assertion's status changes.
+  """
+  ASSERTION_STATUS_CHANGE
+
+  """
+  Notification when a compliance form is published.
+  """
+  COMPLIANCE_FORM_PUBLISH
+
+  """
+  Community updates and announcements from DataHub.
+  """
+  DATA_HUB_COMMUNITY_UPDATES
+}
+
+"""
+A single scenario type for a notification
+"""
+enum NotificationSettingValue {
+  """
+  Setting is enabled.
+  """
+  ENABLED
+
+  """
+  Setting is disabled.
+  """
+  DISABLED
+}
+
+"""
+Global settings related to the UI and what's displayed in the app
+"""
+type GlobalVisualSettings {
+  """
+  The configurable help button shown in the UI
+  """
+  helpLink: HelpLink
+
+  """
+  The Url for a custom logo to display in the UI
+  """
+  customLogoUrl: String
+
+  """
+  A customized name for organization display preferences
+  """
+  customOrgName: String
+}
+
+"""
+Info about the configurable help link shown in the UI
+"""
+type HelpLink {
+  """
+  Whether or not this link should be shown in the UI
+  """
+  isEnabled: Boolean!
+
+  """
+  The label of this help link
+  """
+  label: String!
+
+  """
+  The url or mailto link that this button links to
+  """
+  link: String!
+}
+
+"""
+Input required to update Global Settings.
+"""
+input UpdateGlobalSettingsInput {
+  """
+  Input required to update integration settings
+  """
+  integrationSettings: UpdateGlobalIntegrationSettingsInput
+
+  """
+  Input required to update notifications settings
+  """
+  notificationSettings: UpdateGlobalNotificationSettingsInput
+
+  """
+  Input required to update SSO settings
+  """
+  ssoSettings: UpdateSsoSettingsInput
+
+  """
+  Input required to update documentation AI settings
+  """
+  documentationAi: UpdateDocumentationAiSettingsInput
+}
+
+"""
+Input required to update Integration Settings.
+"""
+input UpdateGlobalIntegrationSettingsInput {
+  """
+  Input required to update Slack Integration Settings. If not provided, existing settings will remain.
+  """
+  slackSettings: UpdateSlackIntegrationSettingsInput
+
+  """
+  Input required to update Email Integration Settings. If not provided, existing settings will remain.
+  """
+  emailSettings: UpdateEmailIntegrationSettingsInput
+}
+
+"""
+Input required to update Slack settings.
+"""
+input UpdateSlackIntegrationSettingsInput {
+  """
+  A default slack channel to route to.
+  """
+  defaultChannelName: String
+
+  """
+  Optional - a bot token to use. This will be encrypted on DataHub backend.
+  Deprecated! Use upsertConnection to create slack connections instead.
+  """
+  botToken: String
+
+  """
+  Whether the Slack @DataHub bot mention functionality is enabled.
+  """
+  datahubAtMentionEnabled: Boolean
+}
+
+"""
+Input required to update Email settings.
+"""
+input UpdateEmailIntegrationSettingsInput {
+  """
+  A default email to send global notifications to
+  """
+  defaultEmail: String
+}
+
+"""
+Input required to update Notification Settings.
+"""
+input UpdateGlobalNotificationSettingsInput {
+  """
+  Update all integration settings
+  """
+  settings: [NotificationSettingInput!]!
+}
+
+"""
+Input required to update a single notification setting.
+"""
+input NotificationSettingInput {
+  """
+  The type of notification that the setting is for.
+  """
+  type: NotificationScenarioType!
+
+  """
+  The setting value: enabled or disabled.
+  """
+  value: NotificationSettingValue!
+
+  """
+  A set of option params, e.g. slack.channel, slack.enabled.
+  """
+  params: [StringMapEntryInput!]
+}
+
+"""
+Input required to update SSO Settings.
+"""
+input UpdateSsoSettingsInput {
+  """
+  Auth base URL.
+  """
+  baseUrl: String!
+
+  """
+  Input required to update OIDC SSO Settings
+  """
+  oidcSettings: UpdateOidcSettingsInput
+}
+
+"""
+Input required to OIDC SSO settings.
+"""
+input UpdateOidcSettingsInput {
+  """
+  Whether OIDC SSO is enabled.
+  """
+  enabled: Boolean!
+
+  """
+  Unique client id issued by the identity provider.
+  """
+  clientId: String!
+
+  """
+  Unique client secret issued by the identity provider.
+  """
+  clientSecret: String!
+
+  """
+  The IdP OIDC discovery url.
+  """
+  discoveryUri: String!
+
+  """
+  ADVANCED. The attribute / claim used to derive the DataHub username. Defaults to "preferred_username".
+  """
+  userNameClaim: String
+
+  """
+  ADVANCED. TThe regex used to parse the DataHub username from the user name claim. Defaults to (.*) (all).
+  """
+  userNameClaimRegex: String
+
+  """
+  ADVANCED. String representing the requested scope from the IdP. Defaults to "oidc email profile"
+  """
+  scope: String
+
+  """
+  ADVANCED. Which authentication method to use to pass credentials (clientId and clientSecret) to the token endpoint: Defaults to "client_secret_basic".
+  """
+  clientAuthenticationMethod: String
+
+  """
+  ADVANCED. Whether DataHub users should be provisioned on login if they do not exist. Defaults to true.
+  """
+  jitProvisioningEnabled: Boolean
+
+  """
+  ADVANCED. Whether the user should already exist in DataHub on login, failing login if they are not. Defaults to false.
+  """
+  preProvisioningRequired: Boolean
+
+  """
+  ADVANCED. Whether groups should be extracted from a claim in the OIDC profile. Only applies if JIT provisioning is enabled. Groups will be created if they do not exist. Defaults to true.
+  """
+  extractGroupsEnabled: Boolean
+
+  """
+  ADVANCED. The OIDC claim to extract groups information from. Defaults to 'groups'
+  """
+  groupsClaim: String
+
+  """
+  ADVANCED. Response type.
+  """
+  responseType: String
+
+  """
+  ADVANCED. Response mode.
+  """
+  responseMode: String
+
+  """
+  ADVANCED. Use Nonce
+  """
+  useNonce: Boolean
+
+  """
+  ADVANCED. Read timeout.
+  """
+  readTimeout: Long
+
+  """
+  ADVANCED. Whether to extract claims from JWT access token. Defaults to false.
+  """
+  extractJwtAccessTokenClaims: Boolean
+
+  """
+  ADVANCED. Which jws algorithm to use.
+  """
+  preferredJwsAlgorithm: String
 }
 
 """
@@ -595,6 +1314,26 @@ type FeatureFlagsConfig {
   Right now this only affects ability to edit user profile image URL but can be extended.
   """
   readOnlyModeEnabled: Boolean!
+
+  """
+  SaaS only -- Whether Assertion Monitors are enabled.
+  """
+  assertionMonitorsEnabled: Boolean!
+
+  """
+  SaaS only -- Whether to allow on-demand run of native assertions in the UI.
+  """
+  runAssertionsEnabled: Boolean!
+
+  """
+  SaaS only -- Whether Schema Assertion Monitors are enabled.
+  """
+  schemaAssertionMonitorsEnabled: Boolean!
+
+  """
+  SaaS only -- Whether the Dataset health dashboard is enabled.
+  """
+  datasetHealthDashboardEnabled: Boolean!
 
   """
   Whether search filters V2 should be shown or the default filter side-panel
@@ -631,6 +1370,11 @@ type FeatureFlagsConfig {
   showAccessManagement: Boolean!
 
   """
+  Whether subscriptions should be enabled
+  """
+  subscriptionsEnabled: Boolean!
+
+  """
   Enables the nested Domains feature that allows users to have sub-Domains.
   If this is off, Domains appear "flat" again.
   """
@@ -652,6 +1396,11 @@ type FeatureFlagsConfig {
   editableDatasetNameEnabled: Boolean!
 
   """
+  Whether AI-powered features are enabled.
+  """
+  aiFeaturesEnabled: Boolean!
+
+  """
   Allows the V2 theme to be turned on.
   Includes new UX for home page, search, entity profiles, and lineage.
   If false, then the V2 experience will be unavailable even if themeV2Default or themeV2Toggleable are true.
@@ -671,6 +1420,36 @@ type FeatureFlagsConfig {
   themeV2Toggleable: Boolean!
 
   """
+  Whether the metadata sharing feature between instances is enabled
+  """
+  metadataShareEnabled: Boolean!
+
+  """
+  Enables the documentation forms feature for filling out metadata and tracking analytics
+  """
+  documentationFormsEnabled: Boolean!
+
+  """
+  Enables email notifications
+  """
+  emailNotificationsEnabled: Boolean!
+
+  """
+  Enables the ability to configure slack bot tokens via the integrations settings UI
+  """
+  slackBotTokensConfigEnabled: Boolean!
+
+  """
+  Enables the ability to configure slack bot tokens via the integrations settings UI
+  """
+  slackBotTokensObfuscationEnabled: Boolean!
+
+  """
+  Enables the form creation workflow feature on the documentation page
+  """
+  formCreationEnabled: Boolean!
+
+  """
   Enables links to schema field-level lineage on lineage explorer.
   """
   schemaFieldCLLEnabled: Boolean!
@@ -686,6 +1465,11 @@ type FeatureFlagsConfig {
   showManageStructuredProperties: Boolean!
 
   """
+  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  """
+  entityVersioningEnabled: Boolean!
+
+  """
   If turned on, hides DBT Sources from lineage by:
   i) Hiding the source in the lineage graph, if it has no downstreams
   ii) Swapping to the source's sibling urn on V2 lineage graph
@@ -694,9 +1478,19 @@ type FeatureFlagsConfig {
   hideDbtSourceInLineage: Boolean!
 
   """
+  If turned on, the bulk form by question view will be shown by default from the task center
+  """
+  showBulkFormByDefault: Boolean!
+
+  """
   If turned on, schema field lineage will always fetch ghost entities and present them as real
   """
   schemaFieldLineageIgnoreStatus: Boolean!
+
+  """
+  Enables showing sort by row count, query count, update count, size in bytes.
+  """
+  showDatasetFeaturesSearchSortOptions: Boolean!
 
   """
   If turned on, show the newly designed nav bar in the V2 experience
@@ -709,9 +1503,34 @@ type FeatureFlagsConfig {
   showAutoCompleteResults: Boolean!
 
   """
-  If turned on, exposes the versioning feature by allowing users to link entities in the UI.
+  If turned on, show the tab in the Compliance Form center to get to forms analytics
   """
-  entityVersioningEnabled: Boolean!
+  showFormAnalytics: Boolean!
+
+  """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
+  If turned on, request minimal required slack permissions
+  """
+  requestMinimalSlackPermissions: Boolean!
+
+  """
+  If turned on, show the re-designed Proposals page in Task Center
+  """
+  showTaskCenterRedesign: Boolean!
+
+  """
+  If enabled, use general propagations framework over specialized propagations actions.
+  """
+  usePropagationsFramework: Boolean!
+
+  """
+  If enabled, show remote executor pools across the UI
+  """
+  displayExecutorPools: Boolean!
 
   """
   If turned on, show the "has siblings" filter in search
@@ -739,7 +1558,7 @@ type FeatureFlagsConfig {
   showIngestionPageRedesign: Boolean!
 
   """
-  If enabled, show the expand more button (>>) in the lineage graph
+  # If enabled, show the expand more button (>>) in the lineage graph
   """
   showLineageExpandMore: Boolean!
 
@@ -767,6 +1586,36 @@ type FeatureFlagsConfig {
   Enables displaying the homepage user role underneath the name. Only available for custom home page.
   """
   showHomepageUserRole: Boolean!
+
+  """
+  If enabled, allow on-demand creation of smart assertions.
+  """
+  onlineSmartAssertionsEnabled: Boolean!
+
+  """
+  If enabled, show the default external links on the entity page
+  """
+  showDefaultExternalLinks: Boolean!
+
+  """
+  If turned on, show the "Created At" filter in search
+  """
+  showCreatedAtFilter: Boolean!
+
+  """
+  SaaS only -- Whether to show notification settings for compliance forms
+  """
+  formsNotificationsEnabled: Boolean!
+
+  """
+  Enables getting to the ingestion source page if you have permission to view any ingestion sources
+  """
+  viewIngestionSourcePrivilegesEnabled: Boolean!
+
+  """
+  If enabled, the new V2 tag propagation automation will be available instead of the original V1 version
+  """
+  tagPropagationV2Enabled: Boolean!
 }
 
 """
@@ -853,4 +1702,85 @@ type GlobalHomePageSettings {
   The default page template for the home page for this instance
   """
   defaultTemplate: DataHubPageTemplate
+}
+
+"""
+Configurations related to Classification Automation
+"""
+type ClassificationAutomations {
+  """
+  Show or hide the snowflake tag propagation automation
+  """
+  snowflake: Boolean!
+  """
+  Show or hide the snowflake ai glossary term automation
+  """
+  aiTermClassification: Boolean!
+}
+
+"""
+Configurations related to Classification
+"""
+type ClassificationConfig {
+  """
+  Whether the Classification Center is senabled
+  """
+  enabled: Boolean!
+
+  """
+  Individual automation settings
+  """
+  automations: ClassificationAutomations!
+}
+
+"""
+Input required to update the help link displayed in the UI
+"""
+input UpdateHelpLinkInput {
+  """
+  Whether or not this link should be shown in the UI
+  """
+  isEnabled: Boolean!
+
+  """
+  The label of this help link
+  """
+  label: String
+
+  """
+  The url or mailto link that this button links to
+  """
+  link: String
+}
+
+"""
+Input required to update the help link displayed in the UI
+"""
+input UpdateOrganizationDisplayPreferencesInput {
+  """
+  The customized organization name
+  """
+  customOrgName: String
+
+  """
+  The url of the customized logo url
+  """
+  customLogoUrl: String
+}
+
+"""
+Settings related to AI-powered documentation.
+"""
+type DocumentationAiSettings {
+  """
+  Whether or not AI-generated documentation is enabled.
+  """
+  enabled: Boolean!
+}
+
+input UpdateDocumentationAiSettingsInput {
+  """
+  Whether or not AI-generated documentation is enabled.
+  """
+  enabled: Boolean!
 }

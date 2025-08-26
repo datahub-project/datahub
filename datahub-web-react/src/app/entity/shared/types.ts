@@ -4,10 +4,13 @@ import React from 'react';
 import { FetchedEntity } from '@app/lineage/types';
 
 import {
+    ActionRequest,
     ApplicationAssociation,
     BrowsePathV2,
+    ChartStatsSummary,
     Container,
     CustomPropertiesEntry,
+    DashboardStatsSummary,
     DataJobInputOutput,
     DataPlatform,
     DataPlatformInstance,
@@ -15,6 +18,7 @@ import {
     DataProcessRunEvent,
     DatasetEditableProperties,
     DatasetEditablePropertiesUpdate,
+    DatasetStatsSummary,
     Deprecation,
     DisplayProperties,
     Documentation,
@@ -45,6 +49,7 @@ import {
     RawAspect,
     SchemaMetadata,
     ScrollResults,
+    Share,
     SiblingProperties,
     Status,
     StructuredProperties,
@@ -144,6 +149,13 @@ export type GenericEntityProperties = {
     // Data job / data process instance
     lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
+
+    // Saas only below
+    tagProposals?: Maybe<ActionRequest[]>;
+    termProposals?: Maybe<ActionRequest[]>;
+    proposals?: Maybe<ActionRequest[]>;
+    statsSummary?: Maybe<ChartStatsSummary | DashboardStatsSummary | DatasetStatsSummary>;
+    share?: Maybe<Share>;
 };
 
 export type GenericEntityUpdate = {

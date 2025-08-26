@@ -7,6 +7,10 @@ import { Tab } from '@components/components/Tabs/Tabs';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
+import {
+    REMOTE_EXECUTORS_CREATE_SOURCE_ID,
+    RemoteExecutorPoolsList,
+} from '@app/ingestV2/executor_saas/RemoteExecutorPoolsList';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
@@ -72,9 +76,16 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    const canViewIngestionPage =
+        platformPrivileges?.canViewIngestionPage && config.featureFlags.viewIngestionSourcePrivilegesEnabled;
+
     const canManageIngestion = platformPrivileges?.manageIngestion;
-    const showIngestionTab = isIngestionEnabled && canManageIngestion;
+    const showIngestionTab = isIngestionEnabled && (canManageIngestion || canViewIngestionPage);
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
+    const canManagePools = canManageIngestion;
+    const canViewPools = canManagePools || canViewIngestionPage;
+    // TODO: For now remote executors privilege is tied to manage ingestion
+    const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
@@ -83,6 +94,7 @@ export const ManageIngestionPage = () => {
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const [hideSystemSources, setHideSystemSources] = useState(true);
+    const [showCreatePoolModal, setShowCreatePoolModal] = useState(false); // SaaS-only
 
     const {
         isLoading: isCapabilitySummaryLoading,
@@ -102,15 +114,42 @@ export const ManageIngestionPage = () => {
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
-            if (showIngestionTab) {
+            const currentPath = window.location.pathname;
+
+            // Check if current URL matches any tab URL
+            const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
+
+            if (currentTab) {
+                // We're on a valid tab URL, set that tab
+                setSelectedTab(currentTab);
+            } else if (showIngestionTab) {
+                // We're not on a tab URL, default to Sources tab
                 setSelectedTab(TabType.Sources);
             } else if (showSecretsTab) {
+                // We're not on a tab URL, default to Secrets tab
                 setSelectedTab(TabType.Secrets);
+            } else if (showRemoteExecutorsTab) {
+                setSelectedTab(TabType.RemoteExecutors);
             } else {
                 setSelectedTab(null);
+                return;
+            }
+
+            // If we're on the base /ingestion path, redirect to the appropriate default tab
+            if (currentPath === '/ingestion') {
+                const defaultTabType = showIngestionTab ? TabType.Sources : TabType.Secrets;
+                history.replace(tabUrlMap[defaultTabType]);
             }
         }
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
+    }, [
+        loadedAppConfig,
+        loadedPlatformPrivileges,
+        showIngestionTab,
+        showSecretsTab,
+        showRemoteExecutorsTab,
+        selectedTab,
+        history,
+    ]);
 
     const tabs: Tab[] = [
         showIngestionTab && {
@@ -148,6 +187,20 @@ export const ManageIngestionPage = () => {
             key: TabType.Secrets as string,
             name: TabType.Secrets as string,
         },
+        // SaaS only
+        showRemoteExecutorsTab &&
+            canViewPools && {
+                component: (
+                    <RemoteExecutorPoolsList
+                        selectedTab={selectedTab}
+                        showCreatePoolModal={showCreatePoolModal}
+                        setShowCreatePoolModal={setShowCreatePoolModal}
+                        shouldPreserveParams={shouldPreserveParams}
+                    />
+                ),
+                key: TabType.RemoteExecutors as string,
+                name: TabType.RemoteExecutors as string,
+            },
     ].filter((tab): tab is Tab => Boolean(tab));
 
     const onUrlChange = useCallback(
@@ -165,6 +218,10 @@ export const ManageIngestionPage = () => {
 
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);
+    };
+
+    const handleCreatePool = () => {
+        setShowCreatePoolModal(true);
     };
 
     if (selectedTab === undefined) {
@@ -215,6 +272,18 @@ export const ManageIngestionPage = () => {
                             icon={{ icon: 'Plus', source: 'phosphor' }}
                         >
                             Create secret
+                        </Button>
+                    )}
+                    {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canViewPools && (
+                        <Button
+                            variant="filled"
+                            onClick={handleCreatePool}
+                            data-testid="create-pool-button"
+                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                            id={REMOTE_EXECUTORS_CREATE_SOURCE_ID}
+                            disabled={!canManagePools}
+                        >
+                            Create pool
                         </Button>
                     )}
                 </HeaderActionsContainer>

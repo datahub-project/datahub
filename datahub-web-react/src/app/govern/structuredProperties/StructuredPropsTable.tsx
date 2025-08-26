@@ -28,7 +28,7 @@ import { CustomAvatar } from '@src/app/shared/avatar';
 import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
@@ -64,7 +64,7 @@ const StructuredPropsTable = ({
     inputs,
     searchAcrossEntities,
 }: Props) => {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const client = useApolloClient();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
@@ -73,7 +73,12 @@ const StructuredPropsTable = ({
 
     // Filter the table data based on the search query
     const filteredProperties = structuredProperties
-        .filter((prop: any) => prop.entity.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter((prop: any) =>
+            entityRegistry
+                .getDisplayName(prop.entity.type, prop.entity)
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()),
+        )
         .sort(
             (propA, propB) =>
                 ((propB.entity as StructuredPropertyEntity).definition.created?.time || 0) -
@@ -101,7 +106,7 @@ const StructuredPropsTable = ({
                     propertyType: deleteEntity.definition.valueType.urn,
                     appliesTo: deleteEntity.definition.entityTypes.map((type) => type.urn),
                     qualifiedName: deleteEntity.definition.qualifiedName,
-                    showInFilters: deleteEntity.settings?.showInSearchFilters,
+                    showInFilters: deleteEntity.definition.filterStatus,
                     allowedAssetTypes: deleteEntity.definition.typeQualifier?.allowedTypes?.map(
                         (allowedType) => allowedType.urn,
                     ),
@@ -236,7 +241,7 @@ const StructuredPropsTable = ({
                 return (
                     <>
                         {createdByUser && (
-                            <HoverEntityTooltip entity={createdByUser as Entity}>
+                            <HoverEntityTooltip entity={createdByUser as Entity} showArrow={false}>
                                 <Link
                                     to={`${entityRegistry.getEntityUrl(
                                         EntityType.CorpUser,

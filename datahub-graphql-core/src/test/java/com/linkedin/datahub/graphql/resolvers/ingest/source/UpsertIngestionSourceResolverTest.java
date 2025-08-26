@@ -35,7 +35,8 @@ public class UpsertIngestionSourceResolverTest {
         "Test source description",
         new UpdateIngestionSourceScheduleInput("* * * * *", "UTC"),
         new UpdateIngestionSourceConfigInput(
-            "my test recipe", "0.8.18", "executor id", false, null));
+            "my test recipe", "0.8.18", "executor id", false, null),
+        null);
   }
 
   @Test

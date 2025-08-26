@@ -1,13 +1,26 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
-import static org.testng.AssertJUnit.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
+import com.linkedin.metadata.kafka.hook.assertion.AssertionActionsHook;
+import com.linkedin.metadata.kafka.hook.assertion.AssertionAnalyticsRunEventHook;
+import com.linkedin.metadata.kafka.hook.assertion.AssertionRunSummaryHook;
+import com.linkedin.metadata.kafka.hook.assertion.AssertionsSummaryHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
+import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
+import com.linkedin.metadata.kafka.hook.form.FormCompletionHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
+import com.linkedin.metadata.kafka.hook.notification.NotificationGeneratorHook;
+import com.linkedin.metadata.kafka.hook.notification.settings.DefaultNotificationSettingsHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
+import com.linkedin.metadata.kafka.hook.test.MetadataTestHook;
 import com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +40,8 @@ import org.testng.annotations.Test;
     properties = {
       "ingestionScheduler.enabled=false",
       "configEntityRegistry.path=../../metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml",
-      "kafka.schemaRegistry.type=INTERNAL"
+      "kafka.schemaRegistry.type=INTERNAL",
+      "kafka.consumer.mcl.aspectsToDrop={\"*\":[\"status\"],\"dataset\":[\"datasetProperties\"]}"
     })
 @TestPropertySource(
     locations = "classpath:/application.yaml",
@@ -36,6 +50,12 @@ import org.testng.annotations.Test;
 public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private UpdateIndicesService updateIndicesService;
+
+  static {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
 
   @Test
   public void testHooks() {
@@ -55,7 +75,52 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         1,
         registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof NotificationGeneratorHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof IncidentsSummaryHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof MetadataTestHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof AssertionsSummaryHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof AssertionRunSummaryHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof AssertionAnalyticsRunEventHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof AssertionActionsHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof FormAssignmentHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof DefaultNotificationSettingsHook)
+            .count());
+    assertEquals(
+        1,
+        registrar.getEnabledHooks().stream()
+            .filter(hook -> hook instanceof FormCompletionHook)
             .count());
   }
 

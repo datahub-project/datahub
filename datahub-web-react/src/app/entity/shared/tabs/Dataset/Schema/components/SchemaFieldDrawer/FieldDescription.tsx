@@ -18,7 +18,8 @@ import { getFieldDescriptionDetails } from '@app/entity/shared/tabs/Dataset/Sche
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
-import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '@types';
+import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
+import { EditableSchemaFieldInfo, EntityType, SchemaField, SubResourceType } from '@types';
 
 const EditIcon = styled(Button)`
     border: none;
@@ -38,12 +39,18 @@ interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
 }
+const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
+
+export function getShouldShowProposeButton(entityType: EntityType) {
+    return PROPOSAL_ENTITY_TYPES.includes(entityType);
+}
 
 export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
+    const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const { entityType } = useEntityData();
@@ -96,6 +103,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
         expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
             ?.description;
     const baUrn = expandedField?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.urn;
+    const shouldShowProposeButton = getShouldShowProposeButton(entityType);
 
     return (
         <>
@@ -127,9 +135,17 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                         description={displayedDescription || ''}
                         original={expandedField.description || ''}
                         onClose={() => setIsModalVisible(false)}
+                        showPropose={shouldShowProposeButton}
                         onSubmit={(updatedDescription: string) => {
                             message.loading({ content: 'Updating...' });
                             updateDescription(generateMutationVariables(updatedDescription))
+                                .then(onSuccessfulMutation)
+                                .catch(onFailMutation);
+                            setIsModalVisible(false);
+                        }}
+                        onPropose={(updatedDescription) => {
+                            message.loading({ content: 'Updating...' });
+                            proposeUpdateDescription(generateMutationVariables(updatedDescription))
                                 .then(onSuccessfulMutation)
                                 .catch(onFailMutation);
                             setIsModalVisible(false);

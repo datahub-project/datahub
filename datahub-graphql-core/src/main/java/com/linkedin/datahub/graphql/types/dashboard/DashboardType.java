@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dashboard;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -48,7 +49,6 @@ import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -83,7 +83,11 @@ public class DashboardType
           BROWSE_PATHS_V2_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          SHARE_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME,
+          DOCUMENTATION_ASPECT_NAME,
+          LINEAGE_FEATURES_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 
   private final EntityClient _entityClient;
@@ -121,7 +125,9 @@ public class DashboardType
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DASHBOARD_ENTITY_NAME,
-              new HashSet<>(urns),
+              urns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_RESOLVE);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urnStrs.size());

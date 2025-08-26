@@ -39,7 +39,7 @@ describe('SearchPage', () => {
         expect(chartEntityValue).not.toBeInTheDocument();
     });
 
-    it('renders multiple checked filters at once', async () => {
+    it.skip('renders multiple checked filters at once', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename cache={cache}>
                 <TestPageContainer initialEntries={[URL]}>

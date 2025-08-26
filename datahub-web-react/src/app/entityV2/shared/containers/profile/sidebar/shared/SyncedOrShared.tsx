@@ -8,14 +8,22 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
 import {
     ContentText,
+    InstanceIcon,
     LabelText,
     RelativeTime,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
-import { ActionType, getRelativeTimeColor } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import {
+    ACRYL_PLATFORM,
+    ActionType,
+    getRelativeTimeColor,
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 
 import { DataPlatform, Maybe } from '@types';
+
+import AcrylIcon from '@images/acryl-logo.svg?react';
+import ShareIcon from '@images/share-icon-custom.svg?react';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -40,6 +48,11 @@ const DetailRow = styled.div`
     flex-wrap: wrap;
 `;
 
+const StyledShareIcon = styled(ShareIcon)`
+    height: 22px;
+    width: 22px;
+`;
+
 const SyncedSharedText = styled(Typography.Text)`
     color: ${REDESIGN_COLORS.TEXT_HEADING_SUB_LINK};
     font-weight: 700;
@@ -56,10 +69,11 @@ interface Props {
     time: number;
     platformName?: string;
     platform?: Maybe<DataPlatform> | undefined;
+    instanceName?: string;
     type: ActionType;
 }
 
-const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props) => {
+const SyncedOrShared = ({ labelText, time, platformName, platform, instanceName, type }: Props) => {
     return (
         <DetailsContainer>
             <DetailRow>
@@ -71,7 +85,7 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
                     placement="bottomLeft"
                 >
                     <SyncIcon>
-                        <SwapHorizOutlinedIcon />
+                        {platformName === ACRYL_PLATFORM ? <StyledShareIcon /> : <SwapHorizOutlinedIcon />}
                     </SyncIcon>
                 </StyledTooltip>
 
@@ -86,6 +100,17 @@ const SyncedOrShared = ({ labelText, time, platformName, platform, type }: Props
                         <LabelText>from</LabelText>
                         <PlatformIcon platform={platform} size={16} />
                         <ContentText color={REDESIGN_COLORS.BODY_TEXT}>{platformName}</ContentText>
+                    </>
+                )}
+                {platformName === ACRYL_PLATFORM && !!instanceName && (
+                    <>
+                        <LabelText>from</LabelText>
+                        <InstanceIcon>
+                            <AcrylIcon />
+                        </InstanceIcon>
+                        <ContentText color={REDESIGN_COLORS.BODY_TEXT}>
+                            {instanceName.replace('https://', '')}
+                        </ContentText>
                     </>
                 )}
             </DetailRow>

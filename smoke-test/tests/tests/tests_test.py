@@ -29,7 +29,11 @@ def ingest_cleanup_data(auth_session, graph_client, request):
 test_name = "test name"
 test_category = "test category"
 test_description = "test description"
-test_description = "test description"
+test_definition_json = (
+    '{"on":{"types":["dataset"]},"rules":{"or":[{'
+    '"query":"editableDatasetProperties.description","operation":"exists"},'
+    '{"query":"datasetProperties.description","operation":"exists"}]}} '
+)
 
 
 def create_test(auth_session, test_id="test id"):
@@ -47,7 +51,7 @@ def create_test(auth_session, test_id="test id"):
                 "name": test_name,
                 "category": test_category,
                 "description": test_description,
-                "definition": {"json": "{}"},
+                "definition": {"json": test_definition_json},
             }
         },
     }
@@ -111,7 +115,7 @@ def test_get_test_results(auth_session):
 
 @pytest.mark.dependency(depends=["test_get_test_results"])
 def test_create_test(auth_session):
-    test_urn = create_test(auth_session)
+    test_urn = create_test(auth_session, "test-create-id")
 
     # Get the test
     get_test_json = {
@@ -123,6 +127,10 @@ def test_create_test(auth_session):
               description\n
               definition {\n
                 json\n
+              }\n
+              results {\n
+                passingCount\n
+                failingCount\n
               }\n
             }
         }""",
@@ -141,8 +149,10 @@ def test_create_test(auth_session):
         "name": test_name,
         "category": test_category,
         "description": test_description,
-        "definition": {
-            "json": "{}",
+        "definition": {"json": test_definition_json},
+        "results": {
+            "passingCount": res_data["data"]["test"]["results"]["passingCount"],
+            "failingCount": res_data["data"]["test"]["results"]["failingCount"],
         },
     }
     assert "errors" not in res_data
@@ -160,7 +170,7 @@ def test_create_test(auth_session):
 
 @pytest.mark.dependency(depends=["test_create_test"])
 def test_update_test(auth_session):
-    test_urn = create_test(auth_session)
+    test_urn = create_test(auth_session, "test-update-id")
     test_name = "new name"
     test_category = "new category"
     test_description = "new description"
@@ -176,7 +186,7 @@ def test_update_test(auth_session):
                 "name": test_name,
                 "category": test_category,
                 "description": test_description,
-                "definition": {"json": "{}"},
+                "definition": {"json": test_definition_json},
             },
         },
     }
@@ -203,6 +213,10 @@ def test_update_test(auth_session):
               definition {\n
                 json\n
               }\n
+              results {\n
+                passingCount\n
+                failingCount\n
+              }\n
             }
         }""",
         "variables": {"urn": test_urn},
@@ -221,7 +235,11 @@ def test_update_test(auth_session):
         "category": test_category,
         "description": test_description,
         "definition": {
-            "json": "{}",
+            "json": test_definition_json,
+        },
+        "results": {
+            "passingCount": res_data["data"]["test"]["results"]["passingCount"],
+            "failingCount": res_data["data"]["test"]["results"]["failingCount"],
         },
     }
     assert "errors" not in res_data

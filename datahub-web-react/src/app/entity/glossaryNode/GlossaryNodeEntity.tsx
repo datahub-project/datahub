@@ -1,4 +1,4 @@
-import { FolderFilled, FolderOutlined } from '@ant-design/icons';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
@@ -8,28 +8,32 @@ import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdow
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { FetchedEntity } from '@app/lineage/types';
 
 import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '@types';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
+    getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
+
     type: EntityType = EntityType.GlossaryNode;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined style={{ fontSize, color }} />;
+            return <BookmarksSimple style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <BookmarksSimple style={{ fontSize, color: color || '#B37FEB' }} weight="fill" />;
         }
 
         return (
-            <FolderOutlined
+            <BookmarksSimple
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',
@@ -99,6 +103,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             properties: {
                 hideLinksButton: true,
             },
+        },
+        {
+            component: SidebarMetadataSection,
         },
         {
             component: SidebarOwnerSection,

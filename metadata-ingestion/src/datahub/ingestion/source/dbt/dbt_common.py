@@ -145,6 +145,9 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     nodes_filtered: LossyList[str] = field(default_factory=LossyList)
 
+    duplicate_sources_dropped: Optional[int] = None
+    duplicate_sources_references_updated: Optional[int] = None
+
 
 class EmitDirective(ConfigEnum):
     """A holder for directives for emission for specific types of entities"""
@@ -370,6 +373,12 @@ class DBTCommonConfig(
         "Set to False to skip it for engines like AWS Athena where it's not required.",
     )
 
+    drop_duplicate_sources: bool = Field(
+        default=True,
+        description="When enabled, drops sources that have the same name in the target platform as a model. "
+        "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
+    )
+
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -509,7 +518,7 @@ class DBTNode:
     raw_code: Optional[str]
 
     dbt_adapter: str
-    dbt_name: str
+    dbt_name: str  # dbt unique identifier
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
 
@@ -975,6 +984,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._infer_schemas_and_update_cll(all_nodes_map)
 
         nodes = self._filter_nodes(all_nodes)
+        nodes = self._drop_duplicate_sources(nodes)
+
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
         ]
@@ -1000,7 +1011,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return self.config.node_name_pattern.allowed(key)
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
-        nodes = []
+        nodes: List[DBTNode] = []
         for node in all_nodes:
             key = node.dbt_name
 
@@ -1009,6 +1020,62 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
 
             nodes.append(node)
+
+        return nodes
+
+    def _drop_duplicate_sources(self, original_nodes: List[DBTNode]) -> List[DBTNode]:
+        """Detect and correct cases where a model and source have the same name.
+
+        In these cases, we don't want to generate both because they'll have the same
+        urn and hence overwrite each other. Instead, we drop the source and update
+        references to it to point at the model.
+
+        The risk here is that the source might have documentation that'd be lost,
+        which is why we maintain optionality with a config flag.
+        """
+        if not self.config.drop_duplicate_sources:
+            return original_nodes
+
+        self.report.duplicate_sources_dropped = 0
+        self.report.duplicate_sources_references_updated = 0
+
+        # Pass 1 - find all model names in the warehouse.
+        warehouse_model_names: Dict[str, str] = {}  # warehouse name -> model unique id
+        for node in original_nodes:
+            if node.node_type == "model" and node.exists_in_target_platform:
+                warehouse_model_names[node.get_db_fqn()] = node.dbt_name
+
+        # Pass 2 - identify + drop duplicate sources.
+        source_references_to_update: Dict[
+            str, str
+        ] = {}  # source unique id -> model unique id
+        nodes: List[DBTNode] = []
+        for node in original_nodes:
+            if (
+                node.node_type == "source"
+                and node.exists_in_target_platform
+                and (model_name := warehouse_model_names.get(node.get_db_fqn()))
+            ):
+                self.report.warning(
+                    title="Duplicate model and source names detected",
+                    message="We found a dbt model and dbt source with the same name. To ensure reliable lineage generation, the source node was ignored. "
+                    "If you associated documentation/tags/other metadata with the source, it will be lost. "
+                    "To avoid this, you should remove the source node from your dbt project and replace any `source(<source_name>)` calls with `ref(<model_name>)`.",
+                    context=f"{node.dbt_name} (called {node.get_db_fqn()} in {self.config.target_platform}) duplicates {model_name}",
+                )
+                self.report.duplicate_sources_dropped += 1
+                source_references_to_update[node.dbt_name] = model_name
+            else:
+                nodes.append(node)
+
+        # Pass 3 - update references to the dropped sources.
+        for node in nodes:
+            for i, current_upstream in enumerate(node.upstream_nodes):
+                if current_upstream in source_references_to_update:
+                    node.upstream_nodes[i] = source_references_to_update[
+                        current_upstream
+                    ]
+                    self.report.duplicate_sources_references_updated += 1
 
         return nodes
 

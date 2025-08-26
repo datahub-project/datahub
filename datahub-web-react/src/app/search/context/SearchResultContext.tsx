@@ -57,8 +57,7 @@ export function getMatchedFieldsForList(primaryField: string, entityType: Entity
 export const useMatchedFieldsForList = (primaryField: MatchedFieldName) => {
     const entityType = useEntityType();
     const matchedFields = useMatchedFields();
-    const showableFields = matchedFields.filter((field) => shouldShowInMatchedFieldList(entityType, field));
-    return entityType ? getMatchesPrioritized(entityType, showableFields, primaryField) : [];
+    return entityType ? getMatchedFieldsForList(primaryField, entityType, matchedFields) : [];
 };
 
 export const useMatchedFieldsByGroup = (fieldName: MatchedFieldName) => {

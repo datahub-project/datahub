@@ -104,6 +104,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
     );
 
     if (isLoggedIn) {
+        // NOTE: QueryString.parse() decodes the URL, so we do not need to decode it again.
         const maybeRedirectUri = params.redirect_uri;
         // NOTE we do not decode the redirect_uri because it is already decoded by QueryString.parse
         return <Redirect to={maybeRedirectUri || '/'} />;

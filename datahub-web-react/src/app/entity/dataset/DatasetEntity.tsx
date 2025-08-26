@@ -5,7 +5,6 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entity/dataset/preview/Preview';
 import { OperationsTab } from '@app/entity/dataset/profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from '@app/entity/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
-import { getLastUpdatedMs } from '@app/entity/dataset/shared/utils';
 import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -13,6 +12,7 @@ import DataProductSection from '@app/entity/shared/containers/profile/sidebar/Da
 import { SidebarViewDefinitionSection } from '@app/entity/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import { SidebarSiblingsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
@@ -24,7 +24,7 @@ import QueriesTab from '@app/entity/shared/tabs/Dataset/Queries/QueriesTab';
 import { RelationshipsTab } from '@app/entity/shared/tabs/Dataset/Relationship/RelationshipsTab';
 import { SchemaTab } from '@app/entity/shared/tabs/Dataset/Schema/SchemaTab';
 import StatsTab from '@app/entity/shared/tabs/Dataset/Stats/StatsTab';
-import { ValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/ValidationsTab';
+import { AcrylValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import ViewDefinitionTab from '@app/entity/shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '@app/entity/shared/tabs/Embed/EmbedTab';
@@ -33,6 +33,7 @@ import { LineageTab } from '@app/entity/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getDataProduct } from '@app/entity/shared/utils';
+import { getDatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import { MatchedFieldList } from '@app/search/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/search/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -41,7 +42,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '@types';
 
-const SUBTYPES = {
+export const DATASET_SUBTYPES = {
     VIEW: 'view',
 };
 
@@ -86,9 +87,9 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getAutoCompleteFieldName = () => 'name';
 
-    getPathName = () => 'dataset';
-
     getGraphName = () => 'dataset';
+
+    getPathName = () => this.getGraphName();
 
     getEntityName = () => 'Dataset';
 
@@ -128,7 +129,7 @@ export class DatasetEntity implements Entity<Dataset> {
                             !!dataset?.dataset?.viewProperties?.logic ||
                             !!dataset?.dataset?.subTypes?.typeNames
                                 ?.map((t) => t.toLocaleLowerCase())
-                                .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
+                                .includes(DATASET_SUBTYPES.VIEW.toLocaleLowerCase()),
                         enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
                     },
                 },
@@ -178,20 +179,15 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
+                            (dataset?.dataset?.latestFullTableProfile?.length || 0) > 0 ||
+                            (dataset?.dataset?.latestPartitionProfile?.length || 0) > 0 ||
                             (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0 ||
                             (dataset?.dataset?.operations?.length || 0) > 0,
                     },
                 },
                 {
                     name: 'Quality',
-                    component: ValidationsTab,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.assertions?.total || 0) > 0;
-                        },
-                    },
+                    component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                 },
                 {
                     name: 'Governance',
@@ -232,6 +228,9 @@ export class DatasetEntity implements Entity<Dataset> {
     getSidebarSections = () => [
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarMetadataSection,
         },
         {
             component: SidebarOwnerSection,
@@ -300,7 +299,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={
                     data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
                 }
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data?.platform?.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
@@ -314,7 +313,7 @@ export class DatasetEntity implements Entity<Dataset> {
         );
     };
 
-    renderSearch = (result: SearchResult) => {
+    renderSearch = (result: SearchResult, previewType?: PreviewType, onCardClick?: React.MouseEventHandler) => {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
 
@@ -349,10 +348,12 @@ export class DatasetEntity implements Entity<Dataset> {
                 rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
                 columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
                 sizeInBytes={(data as any).lastProfile?.length && (data as any).lastProfile[0].sizeInBytes}
-                lastUpdatedMs={getLastUpdatedMs(data.properties, (data as any)?.lastOperation)}
+                lastUpdatedMs={getDatasetLastUpdatedMs(data.properties, (data as any)?.lastOperation)?.lastUpdatedMs}
                 health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                previewType={previewType}
+                onClick={onCardClick}
             />
         );
     };
@@ -395,6 +396,7 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.TEST,
         ]);
     };
 

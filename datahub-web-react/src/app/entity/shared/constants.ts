@@ -4,6 +4,10 @@ import { EntityType } from '@types';
 export const REDESIGN_COLORS = {
     GREY: '#e5e5e5',
     BLUE: '#1890FF',
+    YELLOW_500: '#f6cf6a',
+    YELLOW_200: '#fcf1d3',
+    YELLOW_600: '#f4c449',
+    YELLOW_700: '#cfa73e',
 };
 
 export const ANTD_GRAY = {

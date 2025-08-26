@@ -17,6 +17,7 @@ import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFieldPatchBuilder<T>> {
 
+  public static final String JSON_CONTENT_TYPE = "application/json";
   public static final String OP_KEY = "op";
   public static final String VALUE_KEY = "value";
   public static final String PATH_KEY = "path";
@@ -103,7 +104,7 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
 
   /**
    * Constructs a list of Op, Path, Value triples to create as patches. Not idempotent and should
-   * not be called more than once
+   * not be called more than once (JsonNode is mutable)
    *
    * @return list of patch precursor triples
    */

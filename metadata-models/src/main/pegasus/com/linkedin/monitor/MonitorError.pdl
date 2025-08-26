@@ -1,0 +1,25 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * Error details for the monitor
+ */
+record MonitorError {
+    /**
+    * The error for the monitor
+    */
+    @Searchable = { }
+    type: enum MonitorErrorType {
+      /**
+       * An unknown error occurred
+       */
+      UNKNOWN
+    }
+
+    /**
+     * Optional custom message for the error
+     */
+     message: optional string
+}

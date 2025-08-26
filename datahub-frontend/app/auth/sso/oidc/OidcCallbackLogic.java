@@ -1,8 +1,7 @@
 package auth.sso.oidc;
 
 import static auth.AuthUtils.*;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
 import static utils.FrontendConstants.SSO_LOGIN;
@@ -22,6 +21,8 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
@@ -246,7 +247,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           String.format(
               "Found authenticated user with profile %s", profile.getAttributes().toString()));
 
-      // Extract the User name required to log into DataHub.
+      // Extract the Username required to log into DataHub.
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
       final CorpuserUrn corpUserUrn = new CorpuserUrn(userName);
 
@@ -270,17 +271,21 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
           verifyPreProvisionedUser(opContext, corpUserUrn);
         }
+        log.info(String.format("Checking if user %s status is already active.", corpUserUrn));
         // Update user status to active on login.
         // If we want to prevent certain users from logging in, here's where we'll want to do it.
-        setUserStatus(
-            opContext,
-            corpUserUrn,
-            new CorpUserStatus()
-                .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
-                .setLastModified(
-                    new AuditStamp()
-                        .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-                        .setTime(System.currentTimeMillis())));
+        if (!checkIsUserStatusActive(opContext, corpUserUrn)) {
+          log.info(String.format("User %s is not active, updating status.", corpUserUrn));
+          setUserStatus(
+              opContext,
+              corpUserUrn,
+              new CorpUserStatus()
+                  .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
+                  .setLastModified(
+                      new AuditStamp()
+                          .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                          .setTime(System.currentTimeMillis())));
+        }
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
         return internalServerError(
@@ -632,6 +637,18 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     }
   }
 
+  private boolean checkIsUserStatusActive(
+      @Nonnull OperationContext opContext, @Nonnull final Urn userUrn) throws Exception {
+    final EntityResponse response =
+        systemEntityClient.getV2(opContext, userUrn, Set.of(CORP_USER_STATUS_ASPECT_NAME));
+    if (response != null && response.hasAspects()) {
+      final EnvelopedAspect aspect = response.getAspects().get(CORP_USER_STATUS_ASPECT_NAME);
+      final CorpUserStatus status = new CorpUserStatus(aspect.getValue().data());
+      return status.hasStatus() && status.getStatus().equals(Constants.CORP_USER_STATUS_ACTIVE);
+    }
+    return false;
+  }
+
   private void setUserStatus(
       @Nonnull OperationContext opContext, final Urn urn, final CorpUserStatus newStatus)
       throws Exception {
@@ -642,7 +659,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal.setChangeType(ChangeType.UPSERT);
-    systemEntityClient.ingestProposal(opContext, proposal);
+    systemEntityClient.ingestProposal(opContext, proposal, true);
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

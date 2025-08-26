@@ -1,0 +1,27 @@
+mutation proposeTag($input: TagAssociationInput!) {
+    proposeTag(input: $input)
+}
+
+mutation proposeTerm($input: ProposeTermAssociationInput!) {
+    proposeTerm(input: $input)
+}
+
+mutation proposeCreateGlossaryTerm($input: CreateGlossaryEntityInput!) {
+    proposeCreateGlossaryTerm(input: $input)
+}
+
+mutation proposeCreateGlossaryNode($input: CreateGlossaryEntityInput!) {
+    proposeCreateGlossaryNode(input: $input)
+}
+
+mutation proposeUpdateDescription($input: DescriptionUpdateInput!) {
+    proposeUpdateDescription(input: $input)
+}
+
+mutation proposeTags($input: ProposeTagsInput!) {
+    proposeTags(input: $input)
+}
+
+mutation proposeTerms($input: ProposeTermsInput!) {
+    proposeTerms(input: $input)
+}

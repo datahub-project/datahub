@@ -3,6 +3,7 @@ mutation upsertConnection($input: UpsertDataHubConnectionInput!) {
         urn
         details {
             type
+            name
             json {
                 blob
             }
@@ -13,17 +14,53 @@ mutation upsertConnection($input: UpsertDataHubConnectionInput!) {
     }
 }
 
-query connection($urn: String!) {
-    connection(urn: $urn) {
+mutation updateConnection($input: UpdateDataHubConnectionInput!) {
+    updateConnection(input: $input) {
         urn
         details {
             type
+            name
             json {
                 blob
             }
         }
         platform {
             ...platformFields
+        }
+    }
+}
+
+mutation createNotificationConnectionTest($input: NotificationConnectionTestRequestInput!) {
+    createNotificationConnectionTest(input: $input)
+}
+
+mutation deleteConnection($input: DeleteDataHubConnectionInput!) {
+    deleteConnection(input: $input)
+}
+
+query connection($urn: String!) {
+    connection(urn: $urn) {
+        urn
+        details {
+            type
+            name
+            json {
+                blob
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+}
+
+query getNotificationConnectionTestResult($urn: String!) {
+    getNotificationConnectionTestResult(urn: $urn) {
+        status
+        structuredReport {
+            type
+            serializedValue
+            contentType
         }
     }
 }

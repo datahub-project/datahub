@@ -40,6 +40,7 @@ export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     const irregularPlurals: Record<string, string> = {
         query: 'queries',
         match: 'matches',
+        property: 'properties',
     };
 
     if (irregularPlurals.hasOwnProperty(noun?.toLowerCase())) {

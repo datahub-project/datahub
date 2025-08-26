@@ -3,7 +3,12 @@ import { Checkbox } from 'antd';
 import styled from 'styled-components';
 
 import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from '@components/components/Select/types';
-import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from '@components/components/Select/utils';
+import {
+    getDropdownStyle,
+    getOptionLabelStyle,
+    getSelectFontStyles,
+    getSelectStyle,
+} from '@components/components/Select/utils';
 import {
     formLabelTextStyles,
     inputPlaceholderTextStyles,
@@ -89,6 +94,7 @@ export const Container = styled.div<ContainerProps>(({ size, width, $selectLabel
 });
 
 export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ignoreMaxHeight }) => ({
+    ...getDropdownStyle(),
     borderRadius: radius.md,
     background: colors.white,
     zIndex: zIndices.dropdown,
@@ -220,8 +226,8 @@ export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
 
 export const StyledCheckbox = styled(Checkbox)({
     '.ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner': {
-        backgroundColor: colors.violet[500],
-        borderColor: `${colors.violet[500]} !important`,
+        backgroundColor: `${(props) => props.theme.styles['primary-color']}`,
+        borderColor: `${(props) => props.theme.styles['primary-color']} !important`,
     },
 });
 

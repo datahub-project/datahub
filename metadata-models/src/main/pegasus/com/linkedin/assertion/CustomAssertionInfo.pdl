@@ -11,7 +11,8 @@ record CustomAssertionInfo {
     * This is how your assertion will appear categorized in DataHub UI. 
     */
     @Searchable = {
-      "fieldName": "customType"
+      "fieldName": "customType",
+      "fieldType": "KEYWORD"
     }
     type: string
 

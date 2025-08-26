@@ -86,6 +86,15 @@ const FailedEvaluationsCount = styled.span`
     margin-right: 12px;
 `;
 
+const ErrorEvaluationsContainer = styled.span`
+    margin-right: 12px;
+`;
+
+const ErrorEvaluationsCount = styled(Typography.Text)`
+    font-weight: 600;
+    color: ${getResultColor(AssertionResultType.Error)};
+`;
+
 type Props = {
     urn: string;
     lastEvaluatedAtMillis?: number | undefined;
@@ -153,6 +162,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
      */
     const succeededCount = data?.assertion?.runEvents?.succeeded;
     const failedCount = data?.assertion?.runEvents?.failed;
+    const errorCount = data?.assertion?.runEvents?.errored;
 
     /**
      * Data for the chart of assertion results.
@@ -245,6 +255,12 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                                     </Typography.Text>{' '}
                                     failed
                                 </FailedEvaluationsCount>
+                                {errorCount ? (
+                                    <ErrorEvaluationsContainer>
+                                        <ErrorEvaluationsCount>{formatNumber(errorCount)}</ErrorEvaluationsCount> error
+                                        {errorCount > 1 ? 's' : ''}
+                                    </ErrorEvaluationsContainer>
+                                ) : null}
                             </div>
                         </EvaluationsSummary>
                         <PrefixedSelect

@@ -1,0 +1,17 @@
+[
+{
+    "entityType": "monitor",
+    "entityUrn": "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD),my_monitor_id)",
+    "changeType": "UPSERT",
+    "aspectName": "monitorInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "type": "ASSERTION",
+            "status": {
+                "mode": "ACTIVE"
+            }
+        }
+    }
+}
+]

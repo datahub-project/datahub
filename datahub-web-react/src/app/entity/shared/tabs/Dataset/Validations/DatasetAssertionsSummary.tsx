@@ -1,5 +1,6 @@
-import { CheckCircleFilled, CloseCircleFilled, StopOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { CheckCircleFilled, CloseCircleFilled, ExclamationCircleFilled, StopOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -34,6 +35,7 @@ export type AssertionsSummary = {
     totalRuns: number;
     failedRuns: number;
     succeededRuns: number;
+    erroredRuns: number;
 };
 
 type Props = {
@@ -42,6 +44,7 @@ type Props = {
 
 const SUCCESS_COLOR_HEX = '#52C41A';
 const FAILURE_COLOR_HEX = '#F5222D';
+const ERROR_COLOR_HEX = '#FAAD14';
 
 const getSummaryIcon = (summary: AssertionsSummary) => {
     if (summary.totalRuns === 0) {
@@ -49,6 +52,9 @@ const getSummaryIcon = (summary: AssertionsSummary) => {
     }
     if (summary.succeededRuns === summary.totalRuns) {
         return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+    }
+    if (summary.erroredRuns > 0) {
+        return <ExclamationCircleFilled style={{ color: ERROR_COLOR_HEX, fontSize: 28 }} />;
     }
     return <CloseCircleFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
 };
@@ -58,27 +64,39 @@ const getSummaryMessage = (summary: AssertionsSummary) => {
         return 'No assertions have run';
     }
     if (summary.succeededRuns === summary.totalRuns) {
-        return 'All assertions have passed';
+        return 'All assertions are passing';
+    }
+    if (summary.erroredRuns > 0) {
+        return 'An error is preventing some assertions from running';
     }
     if (summary.failedRuns === summary.totalRuns) {
-        return 'All assertions have failed';
+        return 'All assertions are failing';
     }
-    return 'Some assertions have failed';
+    return 'Some assertions are failing';
 };
 
 export const DatasetAssertionsSummary = ({ summary }: Props) => {
     const summaryIcon = getSummaryIcon(summary);
     const summaryMessage = getSummaryMessage(summary);
+    const errorMessage = summary.erroredRuns
+        ? `, ${summary.erroredRuns} error${summary.erroredRuns > 1 ? 's' : ''}`
+        : '';
+    const inactiveAssertionsCount = summary.totalAssertions - summary.totalRuns;
+    const inactiveAssertionsMessage = inactiveAssertionsCount ? `, ${inactiveAssertionsCount} inactive.` : '.';
     const subtitleMessage = `${summary.succeededRuns} successful assertions, ${summary.failedRuns} failed assertions`;
     return (
         <SummaryHeader>
             <SummaryContainer>
-                <Tooltip title="This status is based on the most recent run of each assertion.">
+                <Tooltip title="This status is based on the most recent result of each assertion.">
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         {summaryIcon}
                         <SummaryMessage>
                             <SummaryTitle level={5}>{summaryMessage}</SummaryTitle>
-                            <Typography.Text type="secondary">{subtitleMessage}</Typography.Text>
+                            <Typography.Text type="secondary">
+                                {subtitleMessage}
+                                {errorMessage}
+                                {inactiveAssertionsMessage}
+                            </Typography.Text>
                         </SummaryMessage>
                     </div>
                 </Tooltip>

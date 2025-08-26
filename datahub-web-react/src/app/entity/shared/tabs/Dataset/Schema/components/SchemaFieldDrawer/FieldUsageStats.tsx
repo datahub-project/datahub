@@ -9,6 +9,7 @@ import {
     StyledDivider,
 } from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import { UsageBar } from '@app/entity/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { SchemaField } from '@types';
@@ -61,7 +62,9 @@ export default function FieldUsageStats({ expandedField }: Props) {
                         )}
                     />
                 </UsageBarBackground>
-                <UsageTextWrapper>{relevantUsageStats.count || 0} queries / month</UsageTextWrapper>
+                <UsageTextWrapper>
+                    {formatNumberWithoutAbbreviation(relevantUsageStats.count || 0)} queries / month
+                </UsageTextWrapper>
             </UsageBarWrapper>
             <StyledDivider />
         </>

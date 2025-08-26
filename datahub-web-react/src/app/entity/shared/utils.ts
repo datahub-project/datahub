@@ -207,6 +207,16 @@ export function formatEntityType(type: string): string {
             return EntityType.StructuredProperty;
         case 'assertion': // Constants.ASSERTION_ENTITY_NAME
             return EntityType.Assertion;
+        case 'datahubingestionsource': // Constants.INGESTION_SOURCE_ENTITY_NAME
+            return EntityType.IngestionSource;
+
+        // saas only
+        case 'monitor': // Constants.MONITOR_ENTITY_NAME
+            return EntityType.Monitor;
+        case 'incident': // Constants.INCIDENT_ENTITY_NAME
+            return EntityType.Incident;
+        case 'datacontract': // Constants.DATA_CONTRACT_ENTITY_NAME
+            return EntityType.DataContract;
 
         default:
             return '';
@@ -221,4 +231,19 @@ export function extractTypeFromUrn(urn: string): EntityType {
     if (match && match[1]) return formatEntityType(match[1]) as EntityType;
 
     return '' as EntityType;
+}
+
+/**
+ * Simple method to extract the dataset urn from a monitor urn.
+ * ie. monitorUrn="urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:snowflake,brock_testing.public.sample_userdata,PROD),bf4c794a-c294-4c2e-8a5e-0c9f28eeee39)"
+ * returns "urn:li:dataset:(urn:li:dataPlatform:snowflake,brock_testing.public.sample_userdata,PROD)"
+ */
+export function getDatasetUrnFromMonitorUrn(monitorUrn?: string): string | undefined {
+    if (!monitorUrn) return undefined;
+
+    // Extract content between first set of parentheses up to the second comma
+    const firstIndex = 'urn:li:monitor:'.length;
+    const parenthesizedContent = monitorUrn.slice(firstIndex + 1, monitorUrn.length - 1);
+    const splitContent = parenthesizedContent.split(',');
+    return splitContent.slice(0, splitContent.length - 1).join(',') || undefined;
 }

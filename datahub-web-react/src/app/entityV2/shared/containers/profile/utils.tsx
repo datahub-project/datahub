@@ -32,6 +32,7 @@ import {
     ENTITY_PROFILE_V2_DOCUMENTATION_ID,
     ENTITY_PROFILE_V2_INCIDENTS_ID,
     ENTITY_PROFILE_V2_QUERIES_ID,
+    ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
     ENTITY_PROFILE_V2_VALIDATION_ID,
     ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
     ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
@@ -222,6 +223,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_V2_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
                 ENTITY_PROFILE_OWNERS_ID,
@@ -232,6 +234,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_V2_CONTENTS_ID,
                 ENTITY_PROFILE_V2_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -254,6 +257,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_V2_QUERIES_ID,
                 ENTITY_PROFILE_V2_VALIDATION_ID,
                 ENTITY_PROFILE_V2_INCIDENTS_ID,
+                ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
             ];
         default:
             return [];

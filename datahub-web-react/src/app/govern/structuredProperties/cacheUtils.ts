@@ -5,6 +5,7 @@ const addToCache = (existingProperties, newProperty) => {
         entity: {
             urn: newProperty.urn,
             type: newProperty.type,
+            exists: newProperty.exists,
             definition: {
                 displayName: newProperty.definition.displayName,
                 qualifiedName: newProperty.definition.qualifiedName,
@@ -17,6 +18,7 @@ const addToCache = (existingProperties, newProperty) => {
                 allowedValues: newProperty.definition.allowedValues,
                 created: newProperty.definition.created,
                 lastModified: newProperty.definition.lastModified,
+                filterStatus: newProperty.definition.filterStatus,
             },
             settings: {
                 isHidden: newProperty.settings.isHidden,

@@ -1,6 +1,6 @@
 services:
   datahub-mae-consumer:
-    image: acryldata/datahub-mae-consumer:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mae-consumer:debug
     build:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
@@ -12,7 +12,7 @@ services:
     - ../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
   datahub-mce-consumer:
-    image: acryldata/datahub-mce-consumer:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer:debug
     build:
       context: ../
       dockerfile: docker/datahub-mce-consumer/Dockerfile

@@ -1,0 +1,11 @@
+namespace com.linkedin.metric
+
+/**
+ * The definition of a metric cube dimension.
+ */
+record DataHubMetricCubeDimension {
+  /**
+  *  The name of the dimension
+  */
+  name: string
+}

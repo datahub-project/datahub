@@ -12,7 +12,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { CorpUser, EntityRelationshipsResult } from '@types';
 
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
 };
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 

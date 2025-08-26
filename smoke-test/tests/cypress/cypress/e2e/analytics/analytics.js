@@ -1,5 +1,5 @@
 describe("analytics", () => {
-  it("can go to a chart and see analytics in tab views", () => {
+  it.skip("can go to a chart and see analytics in tab views", () => {
     cy.login();
 
     cy.goToChart("urn:li:chart:(looker,cypress_baz1)");

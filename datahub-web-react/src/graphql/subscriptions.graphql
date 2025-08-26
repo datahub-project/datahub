@@ -1,0 +1,90 @@
+query getSubscription($input: GetSubscriptionInput!) {
+    getSubscription(input: $input) {
+        privileges {
+            canManageEntity
+        }
+        subscription {
+            ...subscriptionFields
+        }
+    }
+}
+
+query listSubscriptions($input: ListSubscriptionsInput!) {
+    listSubscriptions(input: $input) {
+        total
+        subscriptions {
+            ...subscriptionFields
+        }
+    }
+}
+
+query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
+    getEntitySubscriptionSummary(input: $input) {
+        isUserSubscribed
+        userSubscriptionCount
+        groupSubscriptionCount
+        subscribedGroups {
+            urn
+            ...entityDisplayNameFields
+            properties {
+                displayName
+            }
+        }
+        subscribedUsers {
+            urn
+            ...entityDisplayNameFields
+            editableProperties {
+                pictureLink
+            }
+        }
+    }
+}
+
+mutation createSubscription($input: CreateSubscriptionInput!) {
+    createSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
+mutation updateSubscription($input: UpdateSubscriptionInput!) {
+    updateSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
+mutation deleteSubscription($input: DeleteSubscriptionInput!) {
+    deleteSubscription(input: $input)
+}
+
+fragment subscriptionFields on DataHubSubscription {
+    actorUrn
+    subscriptionUrn
+    entity {
+        ...entityPreview
+    }
+    subscriptionTypes
+    entityChangeTypes {
+        entityChangeType
+        filter {
+            includeAssertions
+        }
+    }
+    createdOn {
+        time
+    }
+    updatedOn {
+        time
+    }
+    notificationConfig {
+        notificationSettings {
+            sinkTypes
+            slackSettings {
+                userHandle
+                channels
+            }
+            emailSettings {
+                email
+            }
+        }
+    }
+}

@@ -46,7 +46,7 @@ asset's health status.
 ## Finding Assets with Active Incidents
 
 To view all assets with active incidents, simply apply the `Has Active Incidents` filter on the search results page of DataHub.
-To view all assets first, click **Explore all** on the DataHub homepage.
+To view all assets first, click **View all** on the DataHub homepage.
 
 ## Creating an Incident via API
 

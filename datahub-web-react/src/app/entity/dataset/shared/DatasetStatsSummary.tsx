@@ -1,5 +1,6 @@
 import { ClockCircleOutlined, ConsoleSqlOutlined, HddOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
-import { Popover } from 'antd';
+import { Popover } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -7,6 +8,7 @@ import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
 import { FormattedBytesStat } from '@app/entity/dataset/shared/FormattedBytesStat';
 import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { PercentileLabel } from '@app/entity/shared/stats/PercentileLabel';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
@@ -27,7 +29,9 @@ type Props = {
     sizeInBytes?: number | null;
     totalSqlQueries?: number | null;
     queryCountLast30Days?: number | null;
+    queryCountPercentileLast30Days?: number | null;
     uniqueUserCountLast30Days?: number | null;
+    uniqueUserPercentileLast30Days?: number | null;
     lastUpdatedMs?: number | null;
     color?: string;
     mode?: 'normal' | 'tooltip-content';
@@ -40,7 +44,9 @@ export const DatasetStatsSummary = ({
     sizeInBytes,
     totalSqlQueries,
     queryCountLast30Days,
+    queryCountPercentileLast30Days,
     uniqueUserCountLast30Days,
+    uniqueUserPercentileLast30Days,
     lastUpdatedMs,
     color,
     mode = 'normal',
@@ -83,12 +89,32 @@ export const DatasetStatsSummary = ({
                 <ConsoleSqlOutlined style={{ marginRight: 8, color: displayedColor }} />
                 <b>{formatNumberWithoutAbbreviation(queryCountLast30Days || totalSqlQueries)}</b>{' '}
                 {queryCountLast30Days ? <>queries last month</> : <>monthly queries</>}
+                {!!queryCountPercentileLast30Days && (
+                    <Typography.Text type="secondary">
+                        {' '}
+                        -{' '}
+                        <PercentileLabel
+                            percentile={queryCountPercentileLast30Days}
+                            description={`This dataset has been queried more often than ${queryCountPercentileLast30Days}% of similar datasets in the past 30 days.`}
+                        />
+                    </Typography.Text>
+                )}
             </StatText>
         ),
         !!uniqueUserCountLast30Days && (
             <StatText color={displayedColor}>
                 <TeamOutlined style={{ marginRight: 8, color: displayedColor }} />
                 <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
+                {!!uniqueUserPercentileLast30Days && (
+                    <Typography.Text type="secondary">
+                        {' '}
+                        -{' '}
+                        <PercentileLabel
+                            percentile={uniqueUserPercentileLast30Days}
+                            description={`This dataset has had more unique users than ${uniqueUserPercentileLast30Days}% of similar datasets in the past 30 days.`}
+                        />
+                    </Typography.Text>
+                )}
             </StatText>
         ),
         !!lastUpdatedMs && (

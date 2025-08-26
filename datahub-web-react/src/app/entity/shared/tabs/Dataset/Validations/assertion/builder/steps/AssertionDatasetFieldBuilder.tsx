@@ -1,0 +1,56 @@
+import { Divider, Form, Select } from 'antd';
+import Typography from 'antd/lib/typography';
+import React from 'react';
+import styled from 'styled-components';
+
+const StyledFormItem = styled(Form.Item)<{ width: string }>`
+    width: ${(props) => props.width};
+    margin: 0;
+`;
+
+type Props = {
+    selectedPath?: string;
+    name: string;
+    fields: { path: string; nativeType: string }[];
+    onChange: (fieldValue: string) => void;
+    width?: string;
+    placeholder?: string;
+    required?: boolean;
+    disabled?: boolean;
+};
+
+export const AssertionDatasetFieldBuilder = ({
+    selectedPath,
+    name,
+    fields,
+    onChange,
+    width = '100%',
+    placeholder = 'Select a column...',
+    required = true,
+    disabled = false,
+}: Props) => {
+    return (
+        <StyledFormItem
+            initialValue={selectedPath}
+            name={name}
+            rules={[{ required, message: 'Required' }]}
+            width={width}
+        >
+            <Select
+                value={selectedPath}
+                placeholder={placeholder}
+                onChange={(newFieldPath) => onChange(newFieldPath as string)}
+                optionLabelProp="label"
+                disabled={disabled}
+            >
+                {fields.map((field) => (
+                    <Select.Option key={field.path} value={field.path}>
+                        <Typography.Text>{field.path}</Typography.Text>
+                        <Divider type="vertical" />
+                        <Typography.Text type="secondary">{field.nativeType}</Typography.Text>
+                    </Select.Option>
+                ))}
+            </Select>
+        </StyledFormItem>
+    );
+};

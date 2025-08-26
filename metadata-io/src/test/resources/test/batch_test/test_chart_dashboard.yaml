@@ -1,0 +1,22 @@
+on:
+  types:
+    - chart
+    - dashboard
+rules:
+  and:
+    -
+      property: urn
+      operator: contains_str
+      values:
+        - pet
+actions:
+  passing:
+    -
+      type: add_tags
+      values:
+        - 'urn:li:tag:__default_gold'
+  failing:
+    -
+      type: remove_tags
+      values:
+        - 'urn:li:tag:__default_gold'

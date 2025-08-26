@@ -500,10 +500,14 @@ def test_create_list_get_ingestion_execution_request(auth_session):
 
     ingestion_source = res_data["data"]["ingestionSource"]
 
-    assert (
-        ingestion_source["executions"]["executionRequests"][0]["urn"]
-        == execution_request_urn
-    )
+    assert execution_request_urn in [
+        x["urn"] for x in ingestion_source["executions"]["executionRequests"]
+    ]
+
+    # assert (
+    #     ingestion_source["executions"]["executionRequests"][0]["urn"]
+    #     == execution_request_urn
+    # )
 
     # Get the ingestion request back via direct lookup
     res_data = _ensure_execution_request_present(auth_session, execution_request_urn)

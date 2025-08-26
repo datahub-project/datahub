@@ -9,9 +9,12 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -151,6 +154,34 @@ public interface EntitySearchService {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size);
+
+  /**
+   * Scroll through documents that matches the input filters. By using the returned scroll ID, we
+   * can scroll through unlimited number of documents that match the input filters. HOWEVER, this is
+   * very resource intensive and is not meant for real-time queries
+   *
+   * @param entities name of the entities
+   * @param filters the request map with fields and values to be applied as filters to the search
+   *     query
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
+   * @param size number of search hits to return
+   * @param scrollId Unique ID corresponding to the search context. Set as null for the initial
+   *     request and then set as the returned scroll ID to continue retrieving documents for the
+   *     initial search context
+   * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
+   * @return a {@link ScrollResult} that contains a list of filtered documents and related search
+   *     result metadata
+   */
+  @Nonnull
+  ScrollResult scroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      @Nullable Integer size,
+      @Nullable String scrollId,
+      @Nullable String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig);
 
   /**
    * Returns a list of suggestions given type ahead query.
@@ -447,4 +478,48 @@ public interface EntitySearchService {
         .forEach(
             entry -> appendRunId(opContext, entry.getKey().getKey(), entry.getKey().getValue()));
   }
+
+  // SAAS Only - Support searching based on predicates
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and
+   * filters are applied to the search hits and not the aggregation results.
+   *
+   * <p>Safe for non-structured, user input, queries with an attempt to provide some advanced
+   * features <a
+   * href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
+   *
+   * <p>Uses Predicate for filters instead of Filter
+   *
+   * @param entityNames names of the entities
+   * @param input the search input text
+   * @param predicateFilter the request map with fields and values as filters to be applied to
+   *     search hits
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a {@link SearchResult} that contains a list of matched documents and related search
+   *     result metadata
+   */
+  @Nonnull
+  SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Predicate predicateFilter,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets);
+
+  @Nonnull
+  ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entities,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size);
 }

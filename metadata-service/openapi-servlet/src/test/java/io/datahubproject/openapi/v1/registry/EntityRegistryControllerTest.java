@@ -393,7 +393,7 @@ public class EntityRegistryControllerTest {
         .andExpect(status().isForbidden());
   }
 
-  @Test
+  @Test /* SAAS Only Changes **/
   public void testGetEventSpecsWithAuthorizationNoPagination() throws Exception {
     // TODO: Revisit when there are events
 
@@ -412,12 +412,12 @@ public class EntityRegistryControllerTest {
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.start", is(0)))
-        .andExpect(jsonPath("$.count", is(0)))
-        .andExpect(jsonPath("$.total", greaterThanOrEqualTo(0)))
-        .andExpect(jsonPath("$.elements.length()", greaterThanOrEqualTo(0)));
+        .andExpect(jsonPath("$.count", is(1)))
+        .andExpect(jsonPath("$.total", greaterThanOrEqualTo(1)))
+        .andExpect(jsonPath("$.elements.length()", greaterThanOrEqualTo(1)));
   }
 
-  @Test
+  @Test /* SAAS Only Changes **/
   public void testGetEventSpecsWithPagination() throws Exception {
     // TODO: Revisit when we have these specs
 
@@ -433,14 +433,14 @@ public class EntityRegistryControllerTest {
     mockMvc
         .perform(
             get("/openapi/v1/registry/models/event/specifications")
-                .param("start", "2")
-                .param("count", "3")
+                .param("start", "0")
+                .param("count", "1")
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.start", is(0)))
-        .andExpect(jsonPath("$.count", is(0)))
-        .andExpect(jsonPath("$.total", greaterThanOrEqualTo(0)))
-        .andExpect(jsonPath("$.elements.length()", greaterThanOrEqualTo(0)));
+        .andExpect(jsonPath("$.count", is(1)))
+        .andExpect(jsonPath("$.total", greaterThanOrEqualTo(1)))
+        .andExpect(jsonPath("$.elements.length()", greaterThanOrEqualTo(1)));
   }
 
   @Test

@@ -13,6 +13,7 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
@@ -137,6 +138,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         {
             component: StatusSection,
         },
+        {
+            component: SharingAssetSection,
+        },
     ];
 
     getSidebarTabs = () => [
@@ -209,6 +213,10 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    getPlatformProperties = (data: MlPrimaryKey) => {
+        return data?.properties?.sources?.[0]?.platform;
     };
 
     getLineageVizConfig = (entity: MlPrimaryKey) => {

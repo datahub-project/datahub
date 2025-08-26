@@ -1,4 +1,5 @@
-import { Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,7 +9,7 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { countFormatter } from '@utils/formatter/index';
 
-import { CorpUser, Maybe, UserUsageCounts } from '@types';
+import { CorpUser, Maybe, PartitionSpec, PartitionType, UserUsageCounts } from '@types';
 
 type Props = {
     rowCount?: number;
@@ -17,6 +18,7 @@ type Props = {
     users?: Array<Maybe<UserUsageCounts>>;
     lastUpdatedTime?: string;
     lastReportedTime?: string;
+    partitionSpec?: Maybe<PartitionSpec>;
 };
 
 const StatSection = styled.div`
@@ -39,6 +41,7 @@ export default function TableStats({
     users,
     lastUpdatedTime,
     lastReportedTime,
+    partitionSpec,
 }: Props) {
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
@@ -54,9 +57,15 @@ export default function TableStats({
         return null;
     }
     const sortedUsers = users?.slice().sort((a, b) => (b?.count || 0) - (a?.count || 0));
+
+    // we assume if no partition spec is provided, it's a full table
+    const isPartitioned = partitionSpec && partitionSpec.type !== PartitionType.FullTable;
+
     return (
         <StatSection>
-            <Typography.Title level={5}>Table Stats</Typography.Title>
+            <Typography.Title level={5}>
+                {isPartitioned ? `Partition Stats for Partition ${partitionSpec.partition}` : 'Table Stats'}
+            </Typography.Title>
             <StatContainer justifyContent={justifyContent}>
                 {rowCount && (
                     <InfoItem title="Rows">

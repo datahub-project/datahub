@@ -1,0 +1,6 @@
+on:
+  types:
+    - dataset
+rules:
+  - query: editableDatasetProperties.description
+    operation: equals

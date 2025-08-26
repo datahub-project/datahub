@@ -6,10 +6,14 @@ import { parseJsonArrayOrDefault, parseMaybeStringAsFloatOrDefault } from '@app/
 import {
     AssertionResult,
     AssertionResultType,
+    AssertionRunEvent,
     AssertionStdOperator,
     AssertionStdParameter,
     AssertionStdParameterType,
+    AssertionType,
     AssertionValueChangeType,
+    FieldAssertionInfo,
+    FieldAssertionType,
     FieldMetricAssertion,
     FieldValuesAssertion,
     FieldValuesFailThresholdType,
@@ -19,6 +23,8 @@ import {
     RowCountTotal,
     SqlAssertionInfo,
     StringMapEntry,
+    VolumeAssertionInfo,
+    VolumeAssertionType,
 } from '@types';
 
 /**
@@ -161,13 +167,52 @@ export const tryGetMismatchedTypeFields = (result?: AssertionResult | null) => {
  * @param runEvent
  * @returns {number | undefined}
  */
-export const tryGetPrimaryMetricValueFromAssertionRunEvent = (): number | undefined => {
-    return undefined;
+export const tryGetPrimaryMetricValueFromAssertionRunEvent = (
+    runEvent: AssertionRunEvent,
+    maybeFallbackAssertionType?: AssertionType,
+): number | undefined => {
+    const isInitializing = runEvent.result?.type === AssertionResultType.Init;
+    if (isInitializing) {
+        return undefined;
+    }
+    switch (runEvent.result?.assertion?.type ?? maybeFallbackAssertionType) {
+        case AssertionType.Sql:
+            return tryGetSqlAssertionNumericalResult(runEvent.result);
+        case AssertionType.Volume:
+            return runEvent.result?.rowCount?.valueOf();
+        case AssertionType.Field:
+            return tryGetPrimaryMetricValueFromFieldAssertionRunEvent(runEvent.result);
+        case AssertionType.Dataset:
+            return undefined;
+        case AssertionType.DataSchema:
+            return undefined;
+        case AssertionType.Freshness:
+            return undefined;
+        default:
+            return undefined;
+    }
 };
+
+function tryGetPrimaryMetricValueFromFieldAssertionRunEvent(
+    runEventResult?: Maybe<AssertionResult>,
+): number | undefined {
+    switch (runEventResult?.assertion?.fieldAssertion?.type) {
+        case FieldAssertionType.FieldValues: {
+            return tryGetFieldValueAssertionNumericalResult(runEventResult);
+        }
+        case FieldAssertionType.FieldMetric: {
+            return tryGetFieldMetricAssertionNumericalResult(runEventResult);
+        }
+        default:
+            return undefined;
+    }
+}
 
 // This captures context around the expected range of values
 export type AssertionRangeEndType = 'inclusive' | 'exclusive';
 export type AssertionExpectedRange = {
+    equal?: number;
+    notEqual?: number;
     // These are the actual values we expect (ie. actual row count)
     high?: number;
     low?: number;
@@ -183,6 +228,110 @@ export type AssertionExpectedRange = {
         };
     };
 };
+
+/**
+ * Tries to get the 'high' and 'low' end of the range for an assertion
+ * If both are defined we have a BETWEEN range
+ * If either or are defined we only have a lt/lte/gt/gte range
+ * If neither are defined, we cannot extract an expected range for this assertion run event
+ * @param runEvent
+ * @returns {AssertionExpectedRange}
+ */
+export const tryGetExpectedRangeFromAssertionRunEvent = (runEvent: AssertionRunEvent): AssertionExpectedRange => {
+    if (runEvent.result?.type === AssertionResultType.Init) {
+        return {};
+    }
+    let result: AssertionExpectedRange = {};
+
+    const info = runEvent.result?.assertion;
+    switch (info?.type) {
+        case AssertionType.Volume:
+            result = info.volumeAssertion
+                ? tryGetExpectedRangeFromVolumeAssertion(
+                      info.volumeAssertion,
+                      tryGetPreviousVolumeAssertionNumericalResult(runEvent.result),
+                  )
+                : result;
+            break;
+        case AssertionType.Field:
+            result = info.fieldAssertion ? tryGetExpectedRangeFromFieldAssertion(info.fieldAssertion) : result;
+            break;
+        case AssertionType.Sql:
+            result = info.sqlAssertion
+                ? tryGetExpectedRangeFromSQLAssertion(
+                      info.sqlAssertion,
+                      tryGetPreviousSqlAssertionNumericalResult(runEvent.result),
+                  )
+                : result;
+            break;
+        default:
+            break;
+    }
+    return result;
+};
+
+function tryGetExpectedRangeFromFieldAssertion(fieldAssertionInfo: FieldAssertionInfo): AssertionExpectedRange {
+    let result: AssertionExpectedRange = {};
+    switch (fieldAssertionInfo.type) {
+        case FieldAssertionType.FieldValues:
+            result = tryGetExpectedRangeFromFailThreshold(fieldAssertionInfo.fieldValuesAssertion);
+            break;
+        case FieldAssertionType.FieldMetric:
+            result = tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(fieldAssertionInfo.fieldMetricAssertion);
+            break;
+        default:
+            break;
+    }
+    return result;
+}
+
+function tryGetExpectedRangeFromSQLAssertion(
+    sqlAssertionInfo: SqlAssertionInfo,
+    maybePreviousResult?: number,
+): AssertionExpectedRange {
+    return sqlAssertionInfo.changeType
+        ? tryGetExpectedRangeFromAssertionAgainstRelativeValues(
+              sqlAssertionInfo,
+              sqlAssertionInfo.changeType,
+              maybePreviousResult,
+          )
+        : tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(sqlAssertionInfo);
+}
+
+function tryGetExpectedRangeFromVolumeAssertion(
+    volumeAssertionInfo: VolumeAssertionInfo,
+    maybePreviousRowCount?: number,
+): AssertionExpectedRange {
+    let result: AssertionExpectedRange = {};
+
+    switch (volumeAssertionInfo?.type) {
+        case VolumeAssertionType.RowCountTotal: {
+            result = tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(volumeAssertionInfo.rowCountTotal);
+            break;
+        }
+        case VolumeAssertionType.RowCountChange:
+            result = tryGetExpectedRangeFromAssertionAgainstRelativeValues(
+                volumeAssertionInfo.rowCountChange,
+                volumeAssertionInfo.rowCountChange?.type,
+                maybePreviousRowCount,
+            );
+            break;
+
+        /*
+        NOTE: the incrementing cases are no longer officially supported
+        case VolumeAssertionType.IncrementingSegmentRowCountTotal: {
+            result = tryGetExpectedRangeFromAssertionAgainstTotals(volumeAssertionInfo.incrementingSegmentRowCountTotal)
+            break;
+        }
+        case VolumeAssertionType.IncrementingSegmentRowCountChange:
+            result = tryGetExpectedRangeFromAssertionAgainstChanges(volumeAssertionInfo.incrementingSegmentRowCountChange, volumeAssertionInfo.incrementingSegmentRowCountChange?.type, maybePreviousRowCount)
+            break;
+        */
+        default:
+            break;
+    }
+    return result;
+}
 
 /**
  * Tries to calculate expected result ranges for assertions that have fixed numerical expectations
@@ -201,6 +350,8 @@ export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
     if (!totals?.parameters) {
         return {};
     }
+    let equal: undefined | number;
+    let notEqual: undefined | number;
     let high: undefined | number;
     let low: undefined | number;
     let highType: undefined | AssertionRangeEndType;
@@ -228,10 +379,18 @@ export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
             high = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value);
             highType = 'inclusive';
             break;
+        case AssertionStdOperator.EqualTo:
+            equal = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value);
+            break;
+        case AssertionStdOperator.NotEqualTo:
+            notEqual = tryExtractNumericalValueFromAssertionStdParameter(totals.parameters.value);
+            break;
         default:
             break;
     }
     return {
+        equal,
+        notEqual,
         high,
         low,
         context: {
@@ -240,6 +399,7 @@ export function tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(
         },
     };
 }
+
 /**
  * Tries to calculate expected result ranges for assertions that have expectations defined relative to previous runs
  * ie. handles 'RowCount should not grow by more than 50%'

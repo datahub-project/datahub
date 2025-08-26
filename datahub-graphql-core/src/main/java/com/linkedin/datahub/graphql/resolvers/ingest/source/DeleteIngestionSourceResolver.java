@@ -25,9 +25,9 @@ public class DeleteIngestionSourceResolver implements DataFetcher<CompletableFut
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (IngestionAuthUtils.canManageIngestion(context)) {
-      final String ingestionSourceUrn = environment.getArgument("urn");
-      final Urn urn = Urn.createFromString(ingestionSourceUrn);
+    final String ingestionSourceUrn = environment.getArgument("urn");
+    final Urn urn = Urn.createFromString(ingestionSourceUrn);
+    if (IngestionAuthUtils.canDeleteIngestion(context, urn)) {
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {

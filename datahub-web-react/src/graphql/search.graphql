@@ -26,30 +26,6 @@ fragment autoCompleteFields on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                    platform {
-                        ...platformFields
-                    }
-                    parentContainers {
-                        ...parentContainersFields
-                    }
-                    name
-                    properties {
-                        name
-                        description
-                        qualifiedName
-                        externalUrl
-                        lastModified {
-                            time
-                            actor
-                        }
-                    }
-                }
-            }
         }
         siblingsSearch(input: { query: "*", count: 1 }) {
             count
@@ -402,7 +378,11 @@ fragment datasetStatsFields on Dataset {
     }
     statsSummary {
         queryCountLast30Days
+        queryCountPercentileLast30Days
+        queryCountRankLast30Days
         uniqueUserCountLast30Days
+        uniqueUserPercentileLast30Days
+        uniqueUserRankLast30Days
         topUsersLast30Days {
             urn
             type
@@ -479,6 +459,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     health {
         ...entityHealth
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
     ...datasetStatsFields
 }
 
@@ -489,18 +472,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...nonSiblingsDatasetSearchFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
-                    structuredProperties {
-                        properties {
-                            ...structuredPropertiesFields
-                        }
-                    }
-                }
-            }
         }
         siblingsSearch(input: { query: "*", count: 1 }) {
             count
@@ -534,6 +505,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataPlatformInstance {
         ...dataPlatformInstanceFields
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Role {
         id
@@ -595,6 +569,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
         }
         ownership {
             ...ownershipFields
@@ -626,7 +601,11 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         statsSummary {
             viewCount
+            viewCountLast30Days
+            viewCountPercentileLast30Days
             uniqueUserCountLast30Days
+            uniqueUserPercentileLast30Days
+            uniqueUserRankLast30Days
             topUsersLast30Days {
                 urn
                 type
@@ -657,6 +636,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Chart {
         chartId
@@ -669,6 +651,7 @@ fragment searchResultsWithoutSchemaField on Entity {
             lastModified {
                 time
             }
+            lastRefreshed
             created {
                 time
             }
@@ -691,6 +674,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         domain {
             ...entityDomain
         }
@@ -706,7 +692,10 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         statsSummary {
             viewCount
+            viewCountLast30Days
+            viewCountPercentileLast30Days
             uniqueUserCountLast30Days
+            uniqueUserPercentileLast30Days
             topUsersLast30Days {
                 urn
                 type
@@ -733,6 +722,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on DataFlow {
@@ -786,6 +778,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         subTypes {
             typeNames
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on DataJob {
@@ -847,6 +842,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on GlossaryTerm {
         name
@@ -876,6 +874,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on GlossaryNode {
@@ -908,6 +909,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on Container {
@@ -951,6 +955,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on MLFeatureTable {
         name
@@ -980,6 +987,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on MLFeature {
@@ -1022,6 +1032,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         properties {
             propertiesName: name
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on MLModelGroup {
         name
@@ -1047,6 +1060,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         properties {
             propertiesName: name
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Tag {
         name
@@ -1061,6 +1077,14 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataProduct {
         ...dataProductSearchFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Application {
         ...applicationSearchFields
@@ -1099,8 +1123,128 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on DataProcessInstance {
         ...dataProcessInstanceFields
     }
-    ... on DataPlatformInstance {
-        ...dataPlatformInstanceFields
+
+    ... on DataHubConnection {
+        details {
+            name
+            json {
+                blob
+            }
+        }
+    }
+    ... on Form {
+        formInfo: info {
+            name
+            description
+            type
+            status {
+                state
+                lastModified {
+                    time
+                    actor
+                }
+            }
+            created {
+                time
+                actor {
+                    urn
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+            }
+            lastModified {
+                time
+                actor {
+                    urn
+                    ...entityDisplayNameFields
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+            }
+            prompts {
+                id
+                formUrn
+                title
+                description
+                type
+                required
+                structuredPropertyParams {
+                    structuredProperty {
+                        ...structuredPropertyFields
+                    }
+                }
+                ownershipParams {
+                    cardinality
+                    allowedOwners {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                    allowedOwnershipTypes {
+                        urn
+                        type
+                        info {
+                            name
+                            description
+                        }
+                    }
+                }
+                glossaryTermsParams {
+                    cardinality
+                    resolvedAllowedTerms {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                }
+                domainParams {
+                    allowedDomains {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                }
+            }
+            actors {
+                owners
+                isAssignedToMe
+                users {
+                    urn
+                    properties {
+                        displayName
+                        email
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
+                }
+                groups {
+                    urn
+                    properties {
+                        displayName
+                        description
+                    }
+                    editableProperties {
+                        pictureLink
+                    }
+                }
+            }
+        }
+        formAssignmentStatus {
+            status
+            timestamp
+        }
+        formSettings {
+            notificationSettings {
+                notifyAssigneesOnPublish
+            }
+        }
     }
 }
 
@@ -1151,6 +1295,7 @@ fragment facetFields on FacetMetadata {
             urn
             type
             ...entityDisplayNameFields
+            ...entityPlatformFields
             ... on Tag {
                 name
                 properties {
@@ -1167,12 +1312,6 @@ fragment facetFields on FacetMetadata {
                     ...parentNodesFields
                 }
             }
-            ... on DataPlatform {
-                ...platformFields
-            }
-            ... on DataPlatformInstance {
-                ...dataPlatformInstanceFields
-            }
             ... on Domain {
                 properties {
                     name
@@ -1181,15 +1320,7 @@ fragment facetFields on FacetMetadata {
                     ...parentDomainsFields
                 }
             }
-            ... on Dataset {
-                platform {
-                    ...platformFields
-                }
-            }
             ... on Container {
-                platform {
-                    ...platformFields
-                }
                 properties {
                     name
                 }
@@ -1248,6 +1379,10 @@ fragment searchResults on SearchResults {
         insights {
             text
             icon
+        }
+        extraProperties {
+            name
+            value
         }
     }
     facets {
@@ -1328,7 +1463,8 @@ fragment schemaFieldEntitySearchFields on SchemaFieldEntity {
     type
     fieldPath
     parent {
-        ...searchResultsWithoutSchemaField
+        urn
+        type
     }
 }
 
@@ -1348,6 +1484,9 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
                             succeeded
                         }
                     }
+                }
+                activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) @include(if: $includeIncidents) {
+                    total
                 }
             }
         }
@@ -1415,7 +1554,11 @@ query getSearchCount($input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query searchAcrossLineage($input: SearchAcrossLineageInput!, $includeAssertions: Boolean = false) {
+query searchAcrossLineage(
+    $input: SearchAcrossLineageInput!
+    $includeAssertions: Boolean = false
+    $includeIncidents: Boolean = false
+) {
     searchAcrossLineage(input: $input) {
         ...searchAcrossRelationshipResults
     }

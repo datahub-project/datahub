@@ -1,0 +1,12 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Settings related to AI-powered documentation.
+ */
+record DocumentationAiSettings {
+
+  /**
+   * Whether or not AI-generated documentation is enabled.
+   */
+  enabled: boolean = true
+}

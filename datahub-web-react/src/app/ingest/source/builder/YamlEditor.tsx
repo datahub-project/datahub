@@ -10,20 +10,23 @@ loader.config({
 
 type Props = {
     initialText: string;
+    height?: string;
     onChange: (change: any) => void;
+    isDisabled?: boolean;
 };
 
-export const YamlEditor = ({ initialText, onChange }: Props) => {
+export const YamlEditor = ({ initialText, height, onChange, isDisabled = false }: Props) => {
     return (
         <Editor
             options={{
+                readOnly: isDisabled,
                 minimap: { enabled: false },
                 scrollbar: {
                     vertical: 'hidden',
                     horizontal: 'hidden',
                 },
             }}
-            height="55vh"
+            height={height || '55vh'}
             defaultLanguage="yaml"
             value={initialText}
             onChange={onChange}

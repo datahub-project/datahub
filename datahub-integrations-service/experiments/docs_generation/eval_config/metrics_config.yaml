@@ -1,0 +1,54 @@
+metrics:
+  - name: has_source_details
+    definition: Whether description contains correct details about upstream source of table and/or transformations applied on source data to create this table, if available in provided information. Fail the metric if preceding criteria is not fulfilled or if description contains source details that are entirely absent in provided information, particularly upstream lineage.
+    type: binary
+    scoring_criteria:
+      possible_values:
+        - pass
+        - fail
+      guidelines: []
+
+  - name: has_downstream_usecases
+    definition: Whether description contains correct details about downstream usecases of this table, if available in provided information. Ideally, description should supplement each individual usecase mention with actual downstream from provided information. Fail the metric if preceding criteria is not fulfilled or if downstream usecases in description are entirely absent in provided information, particularly downstream lineage. Description may mention of downstream usecases that are not exemplified by downstream lineage in provided information . However, the wordings should not claim that this is exactly how the table is used or how table is likely used. Description may include the word "potential usecase" or "the table can be used for " but not the words like "table is used for.."
+    type: binary
+    scoring_criteria:
+      possible_values:
+        - pass
+        - fail
+      guidelines: []
+
+  - name: has_compliance_insights
+    definition: Whether description contains correct details about presence or absence of PII(personally identifiable information) in table contents. Presence of person names, emails, addresses, phone numbers, etc must be hilighted as PII and not just mentioned as sensitive columns. Fail the metric if one of above columns is present yet description suggests table contains no PII columns or only hilights them as sensitive columns. Description should not include columns indirectly related to PII such as "phone_number_hash" or "email_hash".
+    type: binary
+    scoring_criteria:
+      possible_values:
+        - pass
+        - fail
+      guidelines: []
+
+  - name: has_usage_tips
+    definition: Whether description contains correct details about table content and/or way of its usage ? e.g. does it include grain of table, details about what data does table contain or which table is typically used with this table or which column is usually used for filtering, if available in provided information. Fail the metric if neither content nor usage tips are present in description or if they are not grounded in provided information.
+    alias: has_content_usage_insights
+    type: binary
+    scoring_criteria:
+      possible_values:
+        - pass
+        - fail
+      guidelines: []
+
+  - name: is_confident
+    definition: Whether the tone of description is confident and it avoids weak / speculative phrases ? Fail this metric if description includes phrases like 'suggests', 'could be', 'likely', or 'is considered'.
+    type: binary
+    scoring_criteria:
+      possible_values:
+        - pass
+        - fail
+      guidelines: []
+  - name: has_metadata_independence
+    definition: Does description avoid referencing provided metadata or information as source or proof ? Fail this metric if description includes phrases like 'as per provided metadata'or 'The lineage shows that' or 'table does not have any documented lineage information'
+    type: binary
+    scoring_criteria:
+      possible_values:
+        - pass
+        - fail
+      guidelines: []

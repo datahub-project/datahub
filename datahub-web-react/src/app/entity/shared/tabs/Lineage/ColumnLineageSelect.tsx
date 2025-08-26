@@ -1,6 +1,7 @@
 import { blue } from '@ant-design/colors';
 import { CaretDownOutlined } from '@ant-design/icons';
-import { Button, Select, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Select } from 'antd';
 import * as React from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
@@ -17,13 +18,13 @@ const StyledSelect = styled(Select)`
     max-width: 200px;
 `;
 
-const StyledButton = styled(Button)<{ isSelected: boolean }>`
+const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     transition: color 0s;
     display: flex;
     align-items: center;
 
     ${(props) =>
-        props.isSelected &&
+        props.$isSelected &&
         `
         color: ${blue[5]};
         &:focus, &:hover {
@@ -95,7 +96,7 @@ export default function ColumnsLineageSelect({
                     type="text"
                     onClick={() => setIsColumnLevelLineage(!isColumnLevelLineage)}
                     data-testid="column-lineage-toggle"
-                    isSelected={isColumnLevelLineage}
+                    $isSelected={isColumnLevelLineage}
                 >
                     <ImpactAnalysisIcon />
                     <TextWrapper>

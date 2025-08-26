@@ -665,8 +665,19 @@ def generate_stitched_record(
                         )
                     if "Relationship" in json_dict:
                         relationship_info = json_dict["Relationship"]
-                        # detect if we have relationship specified at leaf level or thru path specs
+                        # detect if we have relationship specified at leaf level
+                        # or thru path specs
+                        # ignore any relationship annotations that are null
+                        relationship_info = {
+                            k: v for k, v in relationship_info.items() if v is not None
+                        }
+                        if not relationship_info:
+                            continue
                         if "entityTypes" not in relationship_info:
+                            if len(relationship_info.keys()) > 1:
+                                print(
+                                    f"Found more than one relationship info: {relationship_info}"
+                                )
                             # path spec
                             assert (
                                 len(relationship_info.keys()) == 1
@@ -757,6 +768,7 @@ class AspectPluginConfig(PermissiveConfigModel):
     supportedEntityAspectNames: List[EntityAspectName] = []
     packageScan: Optional[List[str]] = None
     supportedOperations: Optional[List[str]] = None
+    packageScan: Optional[List[str]] = None
 
 
 class PluginConfiguration(PermissiveConfigModel):

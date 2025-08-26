@@ -38,6 +38,7 @@ import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
@@ -102,7 +103,13 @@ public class EntityServiceImplTest {
     // Initialize common test objects
     entityService =
         new EntityServiceImpl(
-            mock(AspectDao.class), mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mock(AspectDao.class),
+            mockEventProducer,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            EntityServiceConfiguration.EMPTY);
 
     // Create test aspects
     oldAspect = new Status().setRemoved(false);
@@ -475,7 +482,8 @@ public class EntityServiceImplTest {
             true, // alwaysEmitChangeLog set to true
             mock(PreProcessHooks.class),
             0,
-            true);
+            true,
+            EntityServiceConfiguration.EMPTY);
 
     RecordTemplate sameAspect = newAspect;
 
@@ -681,7 +689,13 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                false,
+                mock(PreProcessHooks.class),
+                0,
+                true,
+                EntityServiceConfiguration.EMPTY));
 
     // Mock ingestProposalSync to capture default aspects
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
@@ -762,7 +776,13 @@ public class EntityServiceImplTest {
     EntityServiceImpl entityServiceSpy =
         spy(
             new EntityServiceImpl(
-                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+                mockAspectDao,
+                mockEventProducer,
+                false,
+                mock(PreProcessHooks.class),
+                0,
+                true,
+                EntityServiceConfiguration.EMPTY));
 
     // Simply stub the method without capturing
     doReturn(Stream.empty())
@@ -851,7 +871,8 @@ public class EntityServiceImplTest {
     batch.add(anotherSuccessAspect);
 
     // Setup mock stream to create two separate batches
-    // This is the key change - we need to separate the failing aspect into its own batch
+    // This is the key change - we need to separate the failing aspect into its own
+    // batch
     when(mockStream.partition(anyInt()))
         .thenReturn(
             Stream.of(
@@ -879,7 +900,13 @@ public class EntityServiceImplTest {
     // Create EntityServiceImpl with mocks
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            EntityServiceConfiguration.EMPTY);
 
     // Create RestoreIndicesArgs
     RestoreIndicesArgs args =
@@ -906,7 +933,8 @@ public class EntityServiceImplTest {
     // The failing aspect should not generate a result at all, as the implementation
     // filters out null results (batches that throw exceptions)
 
-    // Verify total calls to produceMetadataChangeLog (one for each successful aspect)
+    // Verify total calls to produceMetadataChangeLog (one for each successful
+    // aspect)
     verify(mockEventProducer, times(2))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
   }
@@ -920,7 +948,13 @@ public class EntityServiceImplTest {
     // Create entity service with mocked components
     EntityServiceImpl entityService =
         new EntityServiceImpl(
-            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+            mockAspectDao,
+            mockEventProducer,
+            false,
+            mock(PreProcessHooks.class),
+            0,
+            true,
+            EntityServiceConfiguration.EMPTY);
 
     // Create test inputs
     Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");

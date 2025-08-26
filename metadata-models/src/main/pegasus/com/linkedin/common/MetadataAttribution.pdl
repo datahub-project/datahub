@@ -24,6 +24,7 @@ record MetadataAttribution {
   /**
    * The details associated with why this metadata was applied. For example, this could include
    * the actual regex rule, sql statement, ingestion pipeline ID, etc.
+   * Also can include flags like 'propagated'=true or 'inferred'=true.
    */
   sourceDetail: map[string, string] = { }
 }

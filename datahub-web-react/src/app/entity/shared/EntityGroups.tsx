@@ -1,4 +1,3 @@
-import { Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -29,7 +28,7 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
                     return (
                         <Link to={entityUrn} key={entityUrn}>
                             <Tags>
-                                <Tag>{entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}</Tag>
+                                <div>{entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}</div>
                             </Tags>
                         </Link>
                     );
@@ -42,7 +41,7 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
                     return (
                         <Link to={entityUrn} key={entityUrn}>
                             <Tags>
-                                <Tag>{entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}</Tag>
+                                <div>{entityRegistry.getDisplayName(EntityType.CorpGroup, item.entity)}</div>
                             </Tags>
                         </Link>
                     );

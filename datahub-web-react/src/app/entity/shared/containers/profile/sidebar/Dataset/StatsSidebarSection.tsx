@@ -3,14 +3,14 @@ import React from 'react';
 import styled from 'styled-components';
 
 import UsageFacepile from '@app/entity/dataset/profile/UsageFacepile';
-import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { useBaseEntity, useRouteToTab } from '@src/app/entity/shared/EntityContext';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
-import { DatasetProfile, Operation, UsageQueryResult } from '@types';
+import { Operation, UsageQueryResult } from '@types';
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;
@@ -49,14 +49,15 @@ export const SidebarStatsSection = () => {
         });
     };
 
+    const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = baseEntity?.dataset?.latestPartitionProfile?.[0];
+
     const hasUsageStats = baseEntity?.dataset?.usageStats !== undefined;
-    const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
     const hasOperations = (baseEntity?.dataset?.operations?.length || 0) > 0;
 
     const usageStats = (hasUsageStats && (baseEntity?.dataset?.usageStats as UsageQueryResult)) || undefined;
-    const datasetProfiles =
-        (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
-    const latestProfile = datasetProfiles && datasetProfiles[0];
+    const latestProfile = latestFullTableProfile || latestPartitionProfile;
+
     const operations = (hasOperations && (baseEntity?.dataset?.operations as Array<Operation>)) || undefined;
     const latestOperation = operations && operations[0];
 
@@ -104,7 +105,11 @@ export const SidebarStatsSection = () => {
                             onClick={() => routeToTab({ tabName: 'Queries' })}
                             width={INFO_ITEM_WIDTH_PX}
                         >
-                            <HeaderInfoBody>{usageStats?.aggregations?.totalSqlQueries}</HeaderInfoBody>
+                            <HeaderInfoBody>
+                                {usageStats?.aggregations?.totalSqlQueries
+                                    ? formatNumberWithoutAbbreviation(usageStats?.aggregations?.totalSqlQueries)
+                                    : null}
+                            </HeaderInfoBody>
                         </InfoItem>
                     ) : null}
                     {(usageStats?.aggregations?.users?.length || 0) > 0 ? (

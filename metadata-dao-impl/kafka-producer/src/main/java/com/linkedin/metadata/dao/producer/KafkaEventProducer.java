@@ -68,7 +68,7 @@ public class KafkaEventProducer extends EventProducer {
   @WithSpan
   public Future<?> produceMetadataChangeLog(
       @Nonnull final Urn urn,
-      @Nonnull AspectSpec aspectSpec,
+      @Nullable AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
     try {
@@ -91,7 +91,7 @@ public class KafkaEventProducer extends EventProducer {
   @Override
   public String getMetadataChangeLogTopicName(@Nonnull AspectSpec aspectSpec) {
     String topic = _topicConvention.getMetadataChangeLogVersionedTopicName();
-    if (aspectSpec.isTimeseries()) {
+    if (aspectSpec != null && aspectSpec.isTimeseries()) {
       topic = _topicConvention.getMetadataChangeLogTimeseriesTopicName();
     }
     return topic;

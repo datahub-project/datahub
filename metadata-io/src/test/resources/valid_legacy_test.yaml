@@ -1,0 +1,12 @@
+on:
+  types:
+    - dataset
+  match:
+    - query: editableDatasetProperties.description
+      operation: equals
+      params:
+        values: ["value1"]
+rules:
+  - query: editableDatasetProperties.description
+    operation: exists
+    negate: true

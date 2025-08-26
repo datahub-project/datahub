@@ -52,6 +52,11 @@ public class FreshnessAssertionMapper extends AssertionMapper {
       freshnessAssertionSchedule.setFixedInterval(
           mapFixedIntervalSchedule(gmsFreshnessAssertionSchedule.getFixedInterval()));
     }
+    if (gmsFreshnessAssertionSchedule.hasExclusions()) {
+      freshnessAssertionSchedule.setExclusions(
+          AssertionMapper.mapAssertionExclusionWindows(
+              gmsFreshnessAssertionSchedule.getExclusions()));
+    }
     return freshnessAssertionSchedule;
   }
 

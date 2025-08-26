@@ -1,10 +1,12 @@
 import { Tooltip } from '@components';
 import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
+import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
     EMPTY_POLICY,
@@ -26,8 +28,21 @@ import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { useGetIngestionSourceNamesLazyQuery, useListIngestionSourcesLazyQuery } from '@graphql/ingestion.generated';
 import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { Container, Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
+import {
+    Container,
+    Domain,
+    Entity,
+    EntityType,
+    IngestionSource,
+    PolicyType,
+    ResourceFilter,
+    SearchResult,
+} from '@types';
+
+const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
+const INGESTION_SOURCE_TYPE_NAME = 'IngestionSource';
 
 type Props = {
     policyType: PolicyType;
@@ -93,6 +108,9 @@ export default function PolicyPrivilegeForm({
     const [inputValue, setInputValue] = useState('');
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
     const { recommendedData } = useGetRecommendations([EntityType.Tag]);
+    const [getIngestionSourceNames, { data: sourceNamesData }] = useGetIngestionSourceNamesLazyQuery();
+    const [ingestionSourceDisplayNames, setIngestionSourceDisplayNames] = useState<Record<string, string>>({});
+
     const tagSearchResults: Array<Entity> =
         tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
@@ -105,23 +123,68 @@ export default function PolicyPrivilegeForm({
 
     const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
     // RESOURCE_TYPE and RESOURCE_URN are deprecated, but need to get them for backwards compatibility
-    const resourceTypes = getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [];
-    const resourceEntities = getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
+    const resourceTypes = useMemo(
+        () => getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [],
+        [resources.filter],
+    );
+
+    const resourceEntities = useMemo(() => {
+        return getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
+    }, [resources.filter]);
 
     const getDisplayName = (entity) => {
         if (!entity) {
             return null;
         }
-        return entityRegistry.getDisplayName(entity.type, entity);
+        return entity.__typename === INGESTION_SOURCE_TYPE_NAME
+            ? entity.name
+            : entityRegistry.getDisplayName(entity.type, entity);
     };
 
-    const resourceUrnToDisplayName = new Map();
-    resourceEntities.forEach((resourceEntity) => {
-        resourceUrnToDisplayName[resourceEntity.value] = getDisplayName(resourceEntity.entity);
-    });
+    const getDisplayNameForUrn = (urn: string) => {
+        const entity = resourceEntities.find((r) => r.value === urn)?.entity;
+        if (entity) return getDisplayName(entity);
+        return ingestionSourceDisplayNames[urn] ?? urn;
+    };
+
+    useEffect(() => {
+        const urns = resourceEntities
+            .filter((entity) => extractTypeFromUrn(entity.value) === EntityType.IngestionSource)
+            .map((entity) => entity.value);
+        if (urns.length > 0) {
+            getIngestionSourceNames({ variables: { urns } });
+        }
+    }, [getIngestionSourceNames, resourceEntities]);
+
+    useEffect(() => {
+        if (sourceNamesData?.listIngestionSources?.ingestionSources) {
+            const displayMap = Object.fromEntries(
+                sourceNamesData.listIngestionSources.ingestionSources.map((source) => [source.urn, source.name]),
+            );
+            setIngestionSourceDisplayNames(displayMap);
+        }
+    }, [sourceNamesData]);
+
     // Search for resources
     const [searchResources, { data: resourcesSearchData }] = useGetSearchResultsForMultipleLazyQuery();
-    const resourceSearchResults = resourcesSearchData?.searchAcrossEntities?.searchResults;
+    const [listIngestionSources, { data: ingestionSourcesData }] = useListIngestionSourcesLazyQuery();
+
+    const [resourceSearchResults, setResourceSearchResults] = useState<SearchResult[]>();
+    const [ingestionSourcesResults, setIngestionSourcesResults] = useState<IngestionSource[]>();
+
+    useEffect(() => {
+        if (resourcesSearchData?.searchAcrossEntities?.searchResults) {
+            setResourceSearchResults(resourcesSearchData.searchAcrossEntities.searchResults);
+        }
+    }, [resourcesSearchData]);
+
+    useEffect(() => {
+        if (ingestionSourcesData?.listIngestionSources?.ingestionSources) {
+            setIngestionSourcesResults(ingestionSourcesData.listIngestionSources.ingestionSources as IngestionSource[]);
+        }
+    }, [ingestionSourcesData]);
+
+    const combinedSearchResults = [...(resourceSearchResults || []), ...(ingestionSourcesResults || [])];
 
     // Same for domains
     const domains = getFieldValues(resources.filter, 'DOMAIN') || [];
@@ -146,7 +209,10 @@ export default function PolicyPrivilegeForm({
     const showResourceFilterInput = policyType !== PolicyType.Platform;
 
     // Current Select dropdown values
-    const resourceTypeSelectValue = resourceTypes.map((criterionValue) => criterionValue.value);
+    const resourceTypeSelectValue = useMemo(
+        () => resourceTypes.map((criterionValue) => criterionValue.value),
+        [resourceTypes],
+    );
     const resourceSelectValue = resourceEntities.map((criterionValue) => criterionValue.value);
     const domainSelectValue = getFieldValues(resources.filter, 'DOMAIN').map((criterionValue) => criterionValue.value);
     const containerSelectValue = getFieldValues(resources.filter, 'CONTAINER').map(
@@ -167,6 +233,9 @@ export default function PolicyPrivilegeForm({
 
     const getEntityFromSearchResults = (searchResults, urn) =>
         searchResults?.map((result) => result.entity).find((entity) => entity.urn === urn);
+
+    const getEntityFromCombinedResults = (results, urn) =>
+        results?.find((res) => res?.entity?.urn === urn)?.entity || results?.find((res) => res?.urn === urn) || null;
 
     // When a privilege is selected, add its type to the privileges list
     const onSelectPrivilege = (privilege: string) => {
@@ -232,10 +301,7 @@ export default function PolicyPrivilegeForm({
             ...resources,
             filter: setFieldValues(filterWithoutDeprecatedField, URN, [
                 ...resourceEntities,
-                createCriterionValueWithEntity(
-                    resource,
-                    getEntityFromSearchResults(resourceSearchResults, resource) || null,
-                ),
+                createCriterionValueWithEntity(resource, getEntityFromCombinedResults(combinedSearchResults, resource)),
             ]),
         });
     };
@@ -323,22 +389,47 @@ export default function PolicyPrivilegeForm({
         });
     };
 
+    useEffect(() => {
+        setResourceSearchResults([]);
+        setIngestionSourcesResults([]);
+    }, [resourceTypeSelectValue]);
+
     // Handle resource search, if the resource type has an associated EntityType mapping.
     const handleResourceSearch = (text: string) => {
         const trimmedText: string = text.trim();
+        const inputs = {
+            query: trimmedText.length > 2 ? trimmedText : '*',
+            start: 0,
+            count: 10,
+        };
+
         const entityTypes = resourceTypeSelectValue
             .map((resourceType) => mapResourceTypeToEntityType(resourceType, resourcePrivileges))
             .filter((entityType): entityType is EntityType => !!entityType);
-        searchResources({
-            variables: {
-                input: {
-                    types: entityTypes,
-                    query: trimmedText.length > 2 ? trimmedText : '*',
-                    start: 0,
-                    count: 10,
+
+        const shouldSearch = !(entityTypes.length === 1 && entityTypes[0] === EntityType.IngestionSource);
+
+        if (entityTypes.includes(EntityType.IngestionSource)) {
+            const filters = [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }];
+            listIngestionSources({
+                variables: {
+                    input: {
+                        ...inputs,
+                        filters,
+                    },
                 },
-            },
-        });
+            });
+        }
+        if (shouldSearch) {
+            searchResources({
+                variables: {
+                    input: {
+                        types: entityTypes.filter((type) => type !== EntityType.IngestionSource),
+                        ...inputs,
+                    },
+                },
+            });
+        }
     };
 
     // Handle domain search, if the domain type has an associated EntityType mapping.
@@ -380,6 +471,24 @@ export default function PolicyPrivilegeForm({
                     target="_blank"
                     rel="noopener noreferrer"
                     to={() => `${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
+                >
+                    View
+                </Link>
+            </SearchResultContainer>
+        );
+    };
+
+    const renderIngestionResult = (result) => {
+        return (
+            <SearchResultContainer>
+                {result.name}
+                <Link
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    to={{
+                        pathname: '/ingestion/sources',
+                        search: QueryString.stringify({ query: result.name }, { arrayFormat: 'comma' }),
+                    }}
                 >
                     View
                 </Link>
@@ -582,19 +691,29 @@ export default function PolicyPrivilegeForm({
                             <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                                 <Tooltip title={tagProps.value.toString()}>
                                     {displayStringWithMaxLength(
-                                        resourceUrnToDisplayName[tagProps.value.toString()] ||
-                                            tagProps.value.toString(),
+                                        getDisplayNameForUrn(tagProps.value.toString()) || tagProps.value.toString(),
                                         75,
                                     )}
                                 </Tooltip>
                             </Tag>
                         )}
                     >
-                        {resourceSearchResults?.map((result) => (
-                            <Select.Option key={result.entity.urn} value={result.entity.urn}>
-                                {renderSearchResult(result)}
-                            </Select.Option>
-                        ))}
+                        {combinedSearchResults?.map((result) => {
+                            const isIngestionSource = result.__typename === INGESTION_SOURCE_TYPE_NAME;
+
+                            return isIngestionSource ? (
+                                <Select.Option key={result.urn} value={result.urn}>
+                                    {renderIngestionResult(result)}
+                                </Select.Option>
+                            ) : (
+                                <Select.Option
+                                    key={(result as SearchResult).entity.urn}
+                                    value={(result as SearchResult).entity.urn}
+                                >
+                                    {renderSearchResult(result)}
+                                </Select.Option>
+                            );
+                        })}
                     </Select>
                 </Form.Item>
             )}

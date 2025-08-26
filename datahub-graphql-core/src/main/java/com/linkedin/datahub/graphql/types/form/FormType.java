@@ -1,8 +1,6 @@
 package com.linkedin.datahub.graphql.types.form;
 
-import static com.linkedin.metadata.Constants.FORM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -27,7 +25,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class FormType implements com.linkedin.datahub.graphql.types.EntityType<Form, String> {
   public static final Set<String> ASPECTS_TO_FETCH =
-      ImmutableSet.of(FORM_INFO_ASPECT_NAME, OWNERSHIP_ASPECT_NAME);
+      ImmutableSet.of(
+          FORM_INFO_ASPECT_NAME,
+          DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          FORM_SETTINGS_ASPECT_NAME,
+          FORM_ASSIGNMENT_STATUS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

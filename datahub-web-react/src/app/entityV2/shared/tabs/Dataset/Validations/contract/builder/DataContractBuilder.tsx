@@ -1,10 +1,13 @@
+import { Tooltip } from '@components';
 import { Button, message } from 'antd';
 import lodash from 'lodash';
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
+    AssertionWithMonitorDetails,
     createAssertionGroups,
     tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
@@ -16,10 +19,10 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
 import { buildUpsertDataContractMutationVariables } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
 import { DATA_QUALITY_ASSERTION_TYPES } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
-import { useGetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
-import { Assertion, AssertionType, DataContract } from '@types';
+import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
+import { AssertionType, DataContract } from '@types';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};
@@ -41,6 +44,10 @@ const CancelButton = styled(Button)`
     margin-left: 12px;
 `;
 
+const ProposeButton = styled(Button)`
+    margin-right: 12px;
+`;
+
 const SaveButton = styled(Button)`
     margin-right: 20px;
 `;
@@ -50,6 +57,10 @@ type Props = {
     initialState?: DataContractBuilderState;
     onSubmit?: (contract: DataContract) => void;
     onCancel?: () => void;
+    builderState: DataContractBuilderState;
+    setBuilderState: React.Dispatch<React.SetStateAction<DataContractBuilderState>>;
+    handlePropose?: () => void;
+    entityData?: GenericEntityProperties | null;
 };
 
 /**
@@ -57,17 +68,25 @@ type Props = {
  *
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
-export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
+export const DataContractBuilder = ({
+    entityUrn,
+    initialState,
+    onSubmit,
+    onCancel,
+    builderState,
+    setBuilderState,
+    handlePropose,
+    entityData,
+}: Props) => {
     const isEdit = !!initialState;
-    const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
 
     // note that for contracts, we do not allow the use of sibling node assertions, for clarity.
-    const { data: assertionData } = useGetDatasetAssertionsWithRunEventsQuery({
+    const { data: assertionData } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
     });
-    const assertionsWithMonitorsDetails: Assertion[] =
+    const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
         tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(assertionData) ?? [];
     const assertionGroups = createAssertionGroups(assertionsWithMonitorsDetails);
     const freshnessAssertions =
@@ -76,6 +95,9 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
     const dataQualityAssertions = assertionGroups
         .filter((group) => DATA_QUALITY_ASSERTION_TYPES.has(group.type))
         .flatMap((group) => group.assertions || []);
+
+    const canEditDataContract = entityData?.privileges?.canEditDataContract;
+    const canProposeDataContract = entityData?.privileges?.canProposeDataContract;
 
     /**
      * Upserts the Data Contract for an entity
@@ -190,7 +212,16 @@ export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCance
             <ActionContainer>
                 <CancelButton onClick={onCancel}>Cancel</CancelButton>
                 <div>
-                    <SaveButton disabled={editDisabled} type="primary" onClick={upsertDataContract}>
+                    <Tooltip title="Propose changes to this asset's contract">
+                        <ProposeButton disabled={editDisabled || !canProposeDataContract} onClick={handlePropose}>
+                            Propose
+                        </ProposeButton>
+                    </Tooltip>
+                    <SaveButton
+                        disabled={editDisabled || !canEditDataContract}
+                        type="primary"
+                        onClick={upsertDataContract}
+                    >
                         Save
                     </SaveButton>
                 </div>

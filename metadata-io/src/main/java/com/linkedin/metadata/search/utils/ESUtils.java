@@ -10,7 +10,6 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -29,9 +28,9 @@ import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -63,7 +62,7 @@ public class ESUtils {
   public static final String KEYWORD_SUFFIX = ".keyword";
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
-  private static final String REMOVED = "removed";
+  public static final String REMOVED = "removed";
 
   // Field types
   public static final String KEYWORD_FIELD_TYPE = "keyword";
@@ -94,35 +93,10 @@ public class ESUtils {
           Condition.GREATER_THAN,
           Condition.GREATER_THAN_OR_EQUAL_TO,
           Condition.LESS_THAN,
-          Condition.LESS_THAN_OR_EQUAL_TO);
+          Condition.LESS_THAN_OR_EQUAL_TO,
+          Condition.BETWEEN);
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
-
-  // we use this to make sure we filter for editable & non-editable fields. Also expands out
-  // top-level properties
-  // to field level properties
-  public static final Map<String, List<String>> FIELDS_TO_EXPANDED_FIELDS_LIST =
-      new HashMap<>() {
-        {
-          put("tags", ImmutableList.of("tags", "fieldTags", "editedFieldTags"));
-          put(
-              "glossaryTerms",
-              ImmutableList.of("glossaryTerms", "fieldGlossaryTerms", "editedFieldGlossaryTerms"));
-          put("fieldTags", ImmutableList.of("fieldTags", "editedFieldTags"));
-          put(
-              "fieldGlossaryTerms",
-              ImmutableList.of("fieldGlossaryTerms", "editedFieldGlossaryTerms"));
-          put(
-              "fieldDescriptions",
-              ImmutableList.of("fieldDescriptions", "editedFieldDescriptions"));
-          put("description", ImmutableList.of("description", "editedDescription"));
-          put(
-              "businessAttribute",
-              ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
-          put("origin", ImmutableList.of("origin", "env"));
-          put("env", ImmutableList.of("env", "origin"));
-        }
-      };
 
   /*
    * Refer to https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html for list of reserved
@@ -358,12 +332,13 @@ public class ESUtils {
    */
   public static void buildSortOrder(
       @Nonnull SearchSourceBuilder searchSourceBuilder,
-      @Nonnull List<SortCriterion> sortCriteria,
+      @Nullable List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs,
       boolean enableDefaultSort) {
     if (sortCriteria.isEmpty() && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
+      sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
         Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
         for (EntitySpec entitySpec : entitySpecs) {
@@ -647,6 +622,28 @@ public class ESUtils {
                     aspectRetriever,
                     enableCaseInsensitiveSearch))
             .queryName(queryName != null ? queryName : fieldName);
+      } else if (condition == Condition.IN) {
+        return QueryBuilders.termsQuery(
+                toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
+                criterion.getValues())
+            .queryName(queryName != null ? queryName : fieldName);
+      } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
+
+        return QueryFilterRewriterContext.builder()
+            .queryFilterRewriteChain(queryFilterRewriteChain)
+            .condition(condition)
+            .searchFlags(opContext.getSearchContext().getSearchFlags())
+            .build(isTimeseries)
+            .rewrite(
+                opContext,
+                buildEqualsConditionFromCriterion(
+                    fieldName,
+                    criterion,
+                    isTimeseries,
+                    searchableFieldTypes,
+                    aspectRetriever,
+                    false))
+            .queryName(queryName != null ? queryName : fieldName);
       }
     }
     throw new UnsupportedOperationException("Unsupported condition: " + condition);
@@ -764,6 +761,9 @@ public class ESUtils {
                               toKeywordField(criterion.getField(), isTimeseries, aspectRetriever),
                               value.trim())
                           .caseInsensitive(true)));
+      if (!boolQuery.should().isEmpty()) {
+        boolQuery.minimumShouldMatch(1);
+      }
       return boolQuery;
     }
 
@@ -815,25 +815,42 @@ public class ESUtils {
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple
     String criterionValueString = criterion.getValues().get(0).trim();
+    String maybeSecondCriterionValueString =
+        criterion.getValues().size() > 1 ? criterion.getValues().get(1).trim() : null;
 
     Object criterionValue;
+    Object maybeSecondCriterionValue = null;
     String documentFieldName;
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {
       criterionValue = Boolean.parseBoolean(criterionValueString);
       documentFieldName = fieldName;
     } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
       criterionValue = Long.parseLong(criterionValueString);
+      if (Objects.nonNull(maybeSecondCriterionValueString)) {
+        maybeSecondCriterionValue = Long.parseLong(maybeSecondCriterionValueString);
+      }
+
       documentFieldName = fieldName;
     } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
       criterionValue = Double.parseDouble(criterionValueString);
+      if (Objects.nonNull(maybeSecondCriterionValueString)) {
+        maybeSecondCriterionValue = Double.parseDouble(maybeSecondCriterionValueString);
+      }
       documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
+      maybeSecondCriterionValue = maybeSecondCriterionValueString;
       documentFieldName = toKeywordField(fieldName, isTimeseries, aspectRetriever);
     }
 
     // Set up QueryBuilder based on condition
-    if (condition == Condition.GREATER_THAN) {
+    if (condition == Condition.BETWEEN) {
+      RangeQueryBuilder qb = QueryBuilders.rangeQuery(documentFieldName).gte(criterionValue);
+      if (Objects.nonNull(maybeSecondCriterionValue)) {
+        qb = qb.lte(maybeSecondCriterionValue);
+      }
+      return qb.queryName(fieldName);
+    } else if (condition == Condition.GREATER_THAN) {
       return QueryBuilders.rangeQuery(documentFieldName).gt(criterionValue).queryName(fieldName);
     } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
       return QueryBuilders.rangeQuery(documentFieldName).gte(criterionValue).queryName(fieldName);
@@ -847,10 +864,15 @@ public class ESUtils {
   @Nonnull
   public static BoolQueryBuilder applyDefaultSearchFilters(
       @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery) {
     // filter soft deleted entities by default
     filterSoftDeletedByDefault(filter, filterQuery, opContext.getSearchContext().getSearchFlags());
+    // Saas Only!
+    // filter based on access controls
+    ESAccessControlUtil.buildAccessControlFilters(opContext, entityNames)
+        .ifPresent(filterQuery::filter);
     return filterQuery;
   }
 

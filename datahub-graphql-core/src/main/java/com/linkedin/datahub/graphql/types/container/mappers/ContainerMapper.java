@@ -10,7 +10,9 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Share;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
@@ -26,10 +28,11 @@ import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.ShareMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -41,6 +44,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nullable;
 
@@ -52,7 +56,7 @@ public class ContainerMapper {
     final Container result = new Container();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
+    Long lastIngested = SystemMetadataUtils.lastIngestedTime(aspects);
     result.setLastIngested(lastIngested);
 
     result.setUrn(entityUrn.toString());
@@ -179,6 +183,17 @@ public class ContainerMapper {
       result.setBrowsePathV2(
           BrowsePathsV2Mapper.map(
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedShare = aspects.get(SHARE_ASPECT_NAME);
+    if (envelopedShare != null) {
+      result.setShare(ShareMapper.map(context, new Share(envelopedShare.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedOrigin = aspects.get(ORIGIN_ASPECT_NAME);
+    if (envelopedOrigin != null) {
+      result.setAssetOrigin(
+          OriginMapper.map(context, new Origin(envelopedOrigin.getValue().data())));
     }
 
     return result;

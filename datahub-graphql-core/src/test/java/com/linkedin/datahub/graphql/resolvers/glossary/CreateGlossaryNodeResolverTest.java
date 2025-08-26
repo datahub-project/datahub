@@ -26,13 +26,18 @@ public class CreateGlossaryNodeResolverTest {
           "test-id",
           "test-name",
           "test-description",
-          "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b");
+          "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b",
+          null);
   private static final CreateGlossaryEntityInput TEST_INPUT_NO_DESCRIPTION =
       new CreateGlossaryEntityInput(
-          "test-id", "test-name", null, "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b");
+          "test-id",
+          "test-name",
+          null,
+          "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b",
+          null);
 
   private static final CreateGlossaryEntityInput TEST_INPUT_NO_PARENT_NODE =
-      new CreateGlossaryEntityInput("test-id", "test-name", "test-description", null);
+      new CreateGlossaryEntityInput("test-id", "test-name", "test-description", null, null);
 
   private final String parentNodeUrn = "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b";
 

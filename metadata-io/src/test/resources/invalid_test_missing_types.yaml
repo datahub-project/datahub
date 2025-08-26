@@ -1,0 +1,9 @@
+on:
+  conditions:
+    - query: editableDatasetProperties.description
+      operation: exists
+rules:
+  - query: editableDatasetProperties.description
+    operation: exists
+  - query: datasetProperties.description
+    operation: exists

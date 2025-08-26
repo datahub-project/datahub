@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -19,6 +20,7 @@ import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -37,8 +39,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class QueryService extends BaseService {
 
-  public QueryService(@Nonnull SystemEntityClient entityClient) {
-    super(entityClient);
+  public QueryService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull final OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   /**

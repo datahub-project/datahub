@@ -2,6 +2,7 @@ import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 import { BusinessGlossaryOnboardingConfig } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
 import { DomainsOnboardingConfig } from '@app/onboarding/config/DomainsOnboardingConfig';
 import { EntityProfileOnboardingConfig } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { FormOnboardingConfig } from '@app/onboarding/config/FormOnboardingConfig';
 import { GroupsOnboardingConfig } from '@app/onboarding/config/GroupsOnboardingConfig';
 import { HomePageOnboardingConfig } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { IngestionOnboardingConfig } from '@app/onboarding/config/IngestionOnboardingConfig';
@@ -24,11 +25,9 @@ const ALL_ONBOARDING_CONFIGS: OnboardingStep[][] = [
     RolesOnboardingConfig,
     PoliciesOnboardingConfig,
     LineageGraphOnboardingConfig,
+    FormOnboardingConfig,
     ...ALL_V2_ONBOARDING_CONFIGS,
 ];
-export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.reduce(
-    (acc, config) => [...acc, ...config],
-    [],
-);
+export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.flat();
 
 export const CURRENT_ONBOARDING_IDS: string[] = OnboardingConfig.map((step) => step.id as string);

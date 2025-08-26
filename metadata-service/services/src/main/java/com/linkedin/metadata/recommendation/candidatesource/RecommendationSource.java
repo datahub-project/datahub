@@ -40,6 +40,7 @@ public interface RecommendationSource {
    *
    * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
+   * @param filter Filter to apply when searching for recommendations
    * @return list of recommendation candidates
    */
   @WithSpan
@@ -59,6 +60,7 @@ public interface RecommendationSource {
    *
    * @param opContext User's context requesting recommendations
    * @param requestContext Context of where the recommendations are being requested
+   * @param filter Filter to apply when searching for recommendations
    * @return list of recommendation candidates
    */
   default Optional<RecommendationModule> getRecommendationModule(

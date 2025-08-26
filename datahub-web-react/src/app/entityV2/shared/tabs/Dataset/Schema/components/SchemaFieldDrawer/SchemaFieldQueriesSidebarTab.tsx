@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
-import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
+import { PopularityColumn, QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import Loading from '@app/shared/Loading';
@@ -58,6 +58,15 @@ const QuerySubtitleContainer = styled.div`
 const SubtitleSection = styled.div`
     display: flex;
     flex-direction: row;
+`;
+
+const PopularityLabel = styled.span`
+    line-height: 26px;
+    margin-right: 8px;
+`;
+
+const PopularityColumnContainer = styled.div`
+    margin-bottom: 5px;
 `;
 
 const QUERIES_TO_SHOW = 6;
@@ -156,7 +165,14 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                 firstQueries.map((query, idx) => (
                     <StyledQueryContainer>
                         <StyledQueryCard>
-                            <Query query={query.query} index={idx} isCompact showDetails={false} showHeader={false} />
+                            <Query
+                                query={query.query}
+                                index={idx}
+                                isCompact
+                                showDetails={false}
+                                isEditable={false}
+                                showHeader={false}
+                            />
                             <QuerySubtitleContainer>
                                 <SubtitleSection>
                                     Last run by{' '}
@@ -166,6 +182,12 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                                         </StyledCreatedBy>
                                     )}
                                     on {moment(query.lastRun).format('MM/DD/YYYY')}
+                                </SubtitleSection>
+                                <SubtitleSection>
+                                    <PopularityLabel>Popularity</PopularityLabel>
+                                    <PopularityColumnContainer>
+                                        <PopularityColumn query={query} />
+                                    </PopularityColumnContainer>
                                 </SubtitleSection>
                             </QuerySubtitleContainer>
                         </StyledQueryCard>

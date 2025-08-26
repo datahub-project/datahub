@@ -83,6 +83,8 @@ created by running the gradle command.
 ./gradlew dockerTagDebug
 ```
 
+For developing outside of the open-source branch, you will need to make sure to set `DATAHUB_REPO`. See README_ACRYL.md for details.
+
 For a complete list of profiles see the table at the end of this section.
 
 ### `quickstart-backend`
@@ -132,3 +134,12 @@ scenario we expect the consumers to block their startup waiting for the successf
 ```
 
 [1] Image versions were `v0.15.1-SNAPSHOT` built locally prior to running the command.
+
+## Acryl Quickstart Profiles
+
+The following additions were added for Acryl Saas in `docker-compose.acryl.yml`
+
+| Profile Name         | Integrations Service | Monitors Service |
+| -------------------- | -------------------- | ---------------- |
+| debug                | X                    | X                |
+| quickstart-consumers | X                    | X                |

@@ -1,0 +1,59 @@
+{
+  "name" : "test",
+  "namespace" : "com.linkedin.test",
+  "path" : "/test",
+  "schema" : "com.linkedin.test.TestInfo",
+  "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.test.MetadataTestResource",
+  "resourceClass" : "com.linkedin.metadata.resources.test.MetadataTestResource",
+  "simple" : {
+    "supports" : [ ],
+    "actions" : [ {
+      "name" : "batchEvaluate",
+      "javaMethodName" : "batchEvaluate",
+      "parameters" : [ {
+        "name" : "urns",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
+        "name" : "tests",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "push",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.test.BatchedTestResults"
+    }, {
+      "name" : "evaluate",
+      "javaMethodName" : "evaluate",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "tests",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "push",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.test.TestResults"
+    }, {
+      "name" : "testEvaluate",
+      "javaMethodName" : "evaluateSingleTest",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "push",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.test.BatchedTestResults"
+    } ],
+    "entity" : {
+      "path" : "/test"
+    }
+  }
+}

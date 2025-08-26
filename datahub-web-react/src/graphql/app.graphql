@@ -25,11 +25,15 @@ query appConfig {
         authConfig {
             tokenAuthEnabled
         }
+        actionRequestsConfig {
+            enabled
+        }
         identityManagementConfig {
             enabled
         }
         lineageConfig {
             supportsImpactAnalysis
+            defaultLastDaysFilter
         }
         managedIngestionConfig {
             enabled
@@ -37,6 +41,8 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            appTitle
+            hideGlossary
             showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
@@ -59,9 +65,14 @@ query appConfig {
         }
         telemetryConfig {
             enableThirdPartyLogging
+            userTrackingEnabled
         }
         testsConfig {
             enabled
+            executionLimitConfig {
+                elasticSearchExecutor
+                defaultExecutor
+            }
         }
         viewsConfig {
             enabled
@@ -72,10 +83,26 @@ query appConfig {
         homePageConfig {
             firstInPersonalSidebar
         }
+        dataHubConfig {
+            serverEnv
+        }
+        classificationConfig {
+            enabled
+            automations {
+                snowflake
+                aiTermClassification
+            }
+        }
         featureFlags {
             readOnlyModeEnabled
             showSearchFiltersV2
             showBrowseV2
+            platformBrowseV2
+            assertionMonitorsEnabled
+            schemaAssertionMonitorsEnabled
+            runAssertionsEnabled
+            subscriptionsEnabled
+            datasetHealthDashboardEnabled
             showAcrylInfo
             erModelRelationshipFeatureEnabled
             showAccessManagement
@@ -84,18 +111,28 @@ query appConfig {
             businessAttributeEntityEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
+            aiFeaturesEnabled
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
             lineageGraphV2
+            metadataShareEnabled
+            documentationFormsEnabled
+            emailNotificationsEnabled
+            slackBotTokensConfigEnabled
+            slackBotTokensObfuscationEnabled
             showSeparateSiblings
             showManageStructuredProperties
+            entityVersioningEnabled
+            formCreationEnabled
             schemaFieldCLLEnabled
+            showSeparateSiblings
             hideDbtSourceInLineage
+            showBulkFormByDefault
             schemaFieldLineageIgnoreStatus
+            showDatasetFeaturesSearchSortOptions
             showNavBarRedesign
             showAutoCompleteResults
-            entityVersioningEnabled
             showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
             showManageTags
@@ -103,10 +140,22 @@ query appConfig {
             showIngestionPageRedesign
             showLineageExpandMore
             showHomePageRedesign
+            showFormAnalytics
+            showStatsTabRedesign
+            requestMinimalSlackPermissions
+            showTaskCenterRedesign
+            usePropagationsFramework
+            displayExecutorPools
+            onlineSmartAssertionsEnabled
+            showDefaultExternalLinks
+            tagPropagationV2Enabled
+            showCreatedAtFilter
             showProductUpdates
+            formsNotificationsEnabled
             lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
+            viewIngestionSourcePrivilegesEnabled
         }
         chromeExtensionConfig {
             enabled

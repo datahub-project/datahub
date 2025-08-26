@@ -75,6 +75,7 @@ public class ApplicationTest extends WithBrowser {
             "http://localhost:"
                 + oauthServerPort()
                 + "/testIssuer/.well-known/openid-configuration")
+        .configure("integrationsService.port", String.valueOf(integrationsServerPort()))
         .in(new Environment(Mode.TEST))
         .build();
   }
@@ -94,9 +95,16 @@ public class ApplicationTest extends WithBrowser {
     return providePort() + 2;
   }
 
+  public int integrationsServerPort() {
+    return providePort() + 3;
+  }
+
   private MockOAuth2Server oauthServer;
   private Thread oauthServerThread;
   private CompletableFuture<Void> oauthServerStarted;
+  // Start SaaS only
+  private MockWebServer integrationsServer;
+  // End SaaS only
 
   private MockWebServer gmsServer;
 
@@ -107,11 +115,17 @@ public class ApplicationTest extends WithBrowser {
 
   @BeforeAll
   public void init() throws IOException {
-    // Start Mock GMS
+    /* Start Saas Only */
+    integrationsServer = new MockWebServer();
+    integrationsServer.enqueue(
+        new MockResponse().setBody(String.format("{\"proxyResponse\":\"%s\"}", "test")));
+    integrationsServer.start(integrationsServerPort());
+    /* End Saas Only */
     gmsServer = new MockWebServer();
     gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
     gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     gmsServer.enqueue(
         new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
@@ -129,6 +143,12 @@ public class ApplicationTest extends WithBrowser {
 
   @AfterAll
   public void shutdown() throws IOException {
+    // Start SaaS only
+    if (integrationsServer != null) {
+      logger.info("Shutdown Mock Integrations Server");
+      integrationsServer.shutdown();
+    }
+    // End SaaS only
     if (gmsServer != null) {
       logger.info("Shutdown Mock GMS");
       gmsServer.shutdown();
@@ -150,7 +170,7 @@ public class ApplicationTest extends WithBrowser {
     }
   }
 
-  private void startMockOauthServer() {
+  private void startMockOauthServer() throws IOException {
     // Configure HEAD responses
     Route[] routes =
         new Route[] {
@@ -327,6 +347,18 @@ public class ApplicationTest extends WithBrowser {
     browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
     assertEquals("container/urn:li:container:DATABASE", browser.url());
   }
+
+  // Start saas only
+  @Test
+  public void testProxy() {
+    Http.RequestBuilder request =
+        fakeRequest(
+            routes.IntegrationsController.proxyToIntegrationsService("/integrations/oauth"));
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+  }
+
+  // End saas only
 
   /**
    * The Redirect Uri parameter is used to store a previous relative location within the app to be

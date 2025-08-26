@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import re
 import tempfile
 from random import randint
@@ -811,3 +812,18 @@ def test_structured_properties_list(ingest_cleanup_data, graph_client, caplog):
 
     assert property1.dict() == retrieved_property1.dict()
     assert property2.dict() == retrieved_property2.dict()
+
+
+def test_get_non_existent_property(graph_client, pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/structured_properties/"
+    properties_gql = (pathlib.Path(test_resources_dir) / "properties.gql").read_text()
+    variables = {"urn": "urn:li:structuredProperty:nonExistent"}
+    data = graph_client.execute_graphql(
+        query=properties_gql,
+        operation_name="getStructuredProperty",
+        variables=variables,
+    )
+
+    assert "errors" not in data
+    prop_urn = data["structuredProperty"]["urn"]
+    assert prop_urn == "urn:li:structuredProperty:nonExistent"

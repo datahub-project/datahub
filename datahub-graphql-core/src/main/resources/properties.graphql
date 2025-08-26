@@ -66,6 +66,11 @@ type StructuredPropertyEntity implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -128,6 +133,15 @@ type StructuredPropertyDefinition {
   Audit stamp for when this structured property was last modified
   """
   lastModified: ResolvedAuditStamp
+
+  """
+  The filter status of this structured property - whether it will show up in search filters or not
+  Deprecated! Use structuredPropertySettings.showInSearchFilters instead
+  """
+  filterStatus: StructuredPropertyFilterStatus!
+    @deprecated(
+      reason: "Use structuredPropertySettings.showInSearchFilters instead"
+    )
 }
 
 """
@@ -226,6 +240,21 @@ type NumberValue {
 The value of a property
 """
 union PropertyValue = StringValue | NumberValue
+
+"""
+The filter status of this structured property - whether it will show up in search filters or not
+"""
+enum StructuredPropertyFilterStatus {
+  """
+  This structured property will show up in search filters
+  """
+  ENABLED
+
+  """
+  This structured property will not show up in search filters
+  """
+  DISABLED
+}
 
 """
 An entry in an structured properties list represented as a tuple
@@ -429,6 +458,11 @@ input CreateStructuredPropertyInput {
   Settings for this structured property
   """
   settings: StructuredPropertySettingsInput
+
+  """
+  The filter status of this structured property - whether it will show up in search filters or not
+  """
+  filterStatus: StructuredPropertyFilterStatus
 }
 
 """
@@ -514,6 +548,11 @@ input UpdateStructuredPropertyInput {
   Settings for this structured property
   """
   settings: StructuredPropertySettingsInput
+
+  """
+  The filter status of this structured property - whether it will show up in search filters or not
+  """
+  filterStatus: StructuredPropertyFilterStatus
 }
 
 """

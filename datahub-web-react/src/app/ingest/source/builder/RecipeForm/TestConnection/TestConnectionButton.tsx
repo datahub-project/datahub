@@ -86,6 +86,7 @@ function TestConnectionButton(props: Props) {
 
     function testConnection() {
         const recipeJson = getRecipeJson(recipe);
+        console.log(`test connection with recipe `, recipe);
         if (recipeJson) {
             createTestConnectionRequest({ variables: { input: { recipe: recipeJson, version } } })
                 .then((res) =>

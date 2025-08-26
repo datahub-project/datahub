@@ -44,7 +44,7 @@ const elementVisibility = () => {
 };
 
 const enterKeyInSearchBox = (text) => {
-  cy.get('[data-testid="search-input"]')
+  cy.get('[data-testid="embedded-search-bar"]')
     .last()
     .should("be.visible")
     .click()
@@ -106,9 +106,9 @@ describe("glossaryTerm", () => {
     elementVisibility();
     applyAdvancedSearchFilter("Tag", "Cypress");
     elementVisibility();
-    enterKeyInSearchBox("Baz Dashboard");
+    enterKeyInSearchBox("Baz");
     elementVisibility();
-    cy.contains("Baz Dashboard").should("exist");
+    cy.contains("Baz").should("exist");
     deleteGlossary("Deleted Glossary Term!");
   });
 });

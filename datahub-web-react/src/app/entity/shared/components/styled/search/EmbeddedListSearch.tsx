@@ -1,4 +1,5 @@
 import { ApolloError } from '@apollo/client';
+import { debounce } from 'lodash';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -25,6 +26,9 @@ import {
 } from '@app/search/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { Message } from '@app/shared/Message';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { useSearchContext } from '@src/app/search/context/SearchContext';
+import useSortInput from '@src/app/search/sorting/useSortInput';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -156,6 +160,9 @@ export const EmbeddedListSearch = ({
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
+    const { selectedSortOption } = useSearchContext();
+    const sortInput = useSortInput(selectedSortOption);
+
     // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
     // download the correct results given the current context.
     // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
@@ -183,6 +190,7 @@ export const EmbeddedListSearch = ({
         count: numResultsPerPage,
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
+        sortInput,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
@@ -301,11 +309,15 @@ export const EmbeddedListSearch = ({
 
     const ErrorMessage = () => <Message type="error" content="Failed to load results! An unexpected error occurred." />;
 
+    const onSearch = debounce((q: string) => {
+        onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string));
+    }, DEBOUNCE_SEARCH_MS);
+
     return (
         <Container>
             {!isLineageTab ? error && <ErrorMessage /> : serverError && !isServerOverloadError && <ErrorMessage />}
             <EmbeddedListSearchHeader
-                onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
+                onSearch={onSearch}
                 placeholderText={placeholderText}
                 onToggleFilters={onToggleFilters}
                 downloadSearchResults={(input) => refetchForDownload(input)}
@@ -315,6 +327,7 @@ export const EmbeddedListSearch = ({
                 isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
                 setIsSelectMode={setIsSelectMode}
                 selectedEntities={selectedEntities}
+                setSelectedEntities={setSelectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
                 refetch={() => refetch({ input: searchInput })}
                 searchBarStyle={searchBarStyle}

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -72,7 +73,8 @@ public class GlossaryNodeChildrenCountResolverTest {
                 eq(0),
                 eq(0),
                 eq(Collections.emptyList()),
-                eq(ImmutableList.of("_entityType"))))
+                eq(ImmutableList.of("_entityType")),
+                nullable(String.class)))
         .thenReturn(mockResult);
 
     // Execute resolver
@@ -110,7 +112,8 @@ public class GlossaryNodeChildrenCountResolverTest {
                 eq(0),
                 eq(0),
                 eq(Collections.emptyList()),
-                eq(ImmutableList.of("_entityType"))))
+                eq(ImmutableList.of("_entityType")),
+                nullable(String.class)))
         .thenReturn(mockResult);
 
     // Execute resolver
@@ -147,7 +150,8 @@ public class GlossaryNodeChildrenCountResolverTest {
                 eq(0),
                 eq(0),
                 eq(Collections.emptyList()),
-                eq(ImmutableList.of("_entityType"))))
+                eq(ImmutableList.of("_entityType")),
+                nullable(String.class)))
         .thenThrow(new RemoteInvocationException("Failed to search"));
 
     // Execute resolver

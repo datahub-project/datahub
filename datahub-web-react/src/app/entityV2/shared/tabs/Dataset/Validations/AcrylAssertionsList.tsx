@@ -10,6 +10,9 @@ type Props = {
     showMenu?: boolean;
     showSelect?: boolean;
     selectedUrns?: string[];
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    canEditSqlAssertions: boolean;
     onSelect?: (assertionUrn: string) => void;
     refetch?: () => void;
 };
@@ -26,6 +29,9 @@ export const AcrylDatasetAssertionsList = ({
     showMenu,
     showSelect,
     selectedUrns,
+    canEditAssertions,
+    canEditMonitors,
+    canEditSqlAssertions,
     onSelect,
     refetch,
 }: Props) => {
@@ -37,6 +43,9 @@ export const AcrylDatasetAssertionsList = ({
             showMenu={showMenu}
             showSelect={showSelect}
             selectedUrns={selectedUrns}
+            canEditAssertions={canEditAssertions}
+            canEditMonitors={canEditMonitors}
+            canEditSqlAssertions={canEditSqlAssertions}
             refetch={refetch}
         />
     );

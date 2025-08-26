@@ -481,6 +481,7 @@ public class SearchDocumentTransformer {
                   definition
                       .map(StructuredPropertyUtils::getLogicalValueType)
                       .orElse(LogicalValueType.UNKNOWN);
+
               String fieldName =
                   String.join(
                       ".",

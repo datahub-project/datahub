@@ -1,0 +1,41 @@
+source:
+  type: datahub-stream
+  # acryl_action_fwk.datahub_streaming.DataHubStreamSource
+  config:
+    auto_offset_reset: ${KAFKA_AUTO_OFFSET_POLICY:-latest} # earliest / latest are supported values
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+      consumer_config:
+        security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+        # Uncomment the following if your Kafka deployment requires SSL.
+        #ssl.keystore.location: ${KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION:-/mnt/certs/keystore}
+        #ssl.truststore.location: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION:-/mnt/certs/truststore}
+        #ssl.keystore.password: ${KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD:-keystore_password}
+        #ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-keystore_password}
+        #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
+    actions:
+      - type: "executor"
+        config:
+          local_executor_enabled: True
+          remote_executor_enabled: ${REMOTE_EXECUTOR_ENABLED:-False}
+          remote_executor_type: ${REMOTE_EXECUTOR_TYPE:-acryl.executor.sqs.producer.sqs_producer.SqsRemoteExecutor}
+          remote_executor_config:
+            id: ${REMOTE_EXECUTOR_ID:-remote}
+            aws_access_key_id: ${AWS_ACCESS_KEY_ID:-""}
+            aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY:-""}
+            aws_session_token: ${AWS_SESSION_TOKEN:-""}
+            aws_command_queue_url: ${AWS_COMMAND_QUEUE_URL:-""}
+            aws_region: ${AWS_REGION:-""}
+
+    topic_routes:
+      mae: ${METADATA_AUDIT_EVENT_NAME:-MetadataAuditEvent_v4}
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
+
+sink:
+  type: console
+
+datahub_api:
+  server: "http://${GMS_HOST:-localhost}:${GMS_PORT:-8080}"
+  extra_headers:
+    Authorization: "Basic ${DATAHUB_SYSTEM_CLIENT_ID:-__datahub_system}:${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}"

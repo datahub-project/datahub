@@ -69,18 +69,10 @@ type Props = {
     open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel?: () => void;
-    sourceRefetch?: () => Promise<any>;
     selectedSource?: IngestionSource;
 };
 
-export const IngestionSourceBuilderModal = ({
-    initialState,
-    open,
-    onSubmit,
-    onCancel,
-    sourceRefetch,
-    selectedSource,
-}: Props) => {
+export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel, selectedSource }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -172,7 +164,6 @@ export const IngestionSourceBuilderModal = ({
                 submit={submit}
                 cancel={cancel}
                 ingestionSources={ingestionSources}
-                sourceRefetch={sourceRefetch}
                 selectedSource={selectedSource}
             />
         </StyledModal>

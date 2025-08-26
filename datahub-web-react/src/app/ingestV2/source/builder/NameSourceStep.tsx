@@ -3,6 +3,8 @@ import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
+import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import OwnersSection from '@app/sharedV2/owners/OwnersSection';
@@ -33,8 +35,11 @@ export const NameSourceStep = ({
     isEditing,
     selectedSource,
 }: StepProps) => {
+    const [searchPoolQuery, setSearchPoolQuery] = useState('');
     const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const canEditSource = !selectedSource || selectedSource.privileges?.canEdit;
+    const canExecuteSource = !selectedSource || selectedSource.privileges?.canExecute;
 
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
@@ -185,6 +190,13 @@ export const NameSourceStep = ({
         setterFunction(trimmedValue);
     };
 
+    const { pools, loading, total } = useExecutorPoolSelection({
+        searchQuery: searchPoolQuery,
+        currentExecutorId: state?.config?.executorId || '',
+        isEditing,
+        onSetExecutorId: setExecutorId,
+    });
+
     return (
         <>
             <RequiredFieldForm layout="vertical">
@@ -214,24 +226,25 @@ export const NameSourceStep = ({
                     onChange={setOwners}
                     sourceRefetch={sourceRefetch}
                     isEditForm={isEditing}
+                    canEdit={!!canEditSource}
                     shouldSetOwnerEntities
                 />
 
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         {/* NOTE: Executor ID is OSS-only, used by actions pod */}
-                        <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Executor Pool</Typography.Text>}>
                             <Typography.Paragraph>
-                                Provide the ID of the executor that should execute this ingestion recipe. This ID is
-                                used to route execution requests of the recipe to the executor of the same ID. The
-                                built-in DataHub executor ID is &apos;default&apos;. Do not change this unless you have
-                                configured a custom executor via actions framework.
+                                Choose an Executor Pool to execute this ingestion recipe.
                             </Typography.Paragraph>
-                            <Input
-                                placeholder="default"
-                                value={state.config?.executorId || ''}
-                                onChange={(event) => setExecutorId(event.target.value)}
-                                onBlur={(event) => handleBlur(event, setExecutorId)}
+                            <RemoteExecutorPoolSelector
+                                value={state.config?.executorId || (isEditing ? '' : undefined)}
+                                onChange={(newPoolId) => setExecutorId(newPoolId)}
+                                onBlur={(newPoolId) => setExecutorId(newPoolId)}
+                                pools={pools || []}
+                                total={total}
+                                loading={loading}
+                                handleSearch={setSearchPoolQuery}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>
@@ -303,14 +316,18 @@ export const NameSourceStep = ({
                     <Button
                         variant="outline"
                         data-testid="ingestion-source-save-button"
-                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        disabled={!canEditSource || !(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
                         Save
                     </Button>
-                    <Tooltip showArrow={false} title="Save and starting syncing data source">
+                    <Tooltip showArrow={false} title="Save and start syncing data source">
                         <Button
-                            disabled={!(state.name !== undefined && state.name.length > 0)}
+                            disabled={
+                                !canEditSource ||
+                                !canExecuteSource ||
+                                !(state.name !== undefined && state.name.length > 0)
+                            }
                             onClick={() => onClickCreate(true)}
                         >
                             Save & Run

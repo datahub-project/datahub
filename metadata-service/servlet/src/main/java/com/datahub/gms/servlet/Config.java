@@ -2,6 +2,7 @@ package com.datahub.gms.servlet;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
@@ -78,11 +79,19 @@ public class Config extends HttpServlet {
       versionConfig.put("acryldata/datahub", version.toConfig());
       newConfig.put("versions", versionConfig);
 
+      // baseUrl (acryl-main addition)
+      newConfig.put("baseUrl", configProvider.getBaseUrl());
+
       // Telemetry Configuration
       Map<String, Object> telemetryConfig = new HashMap<>();
       telemetryConfig.put("enabledCli", configProvider.getTelemetry().enabledCli);
       telemetryConfig.put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
-
+      // acryl-main additions:
+      telemetryConfig.put(
+          "enabledMixpanel",
+          configProvider.getTelemetry().mixpanel != null
+              && configProvider.getTelemetry().mixpanel.isEnabled());
+      telemetryConfig.put("enabledServer", configProvider.getTelemetry().isEnabledServer());
       newConfig.put("telemetry", telemetryConfig);
 
       // Ingestion Configuration
@@ -97,6 +106,12 @@ public class Config extends HttpServlet {
       datahubConfig.put("serverType", configProvider.getDatahub().serverType);
       datahubConfig.put("serverEnv", configProvider.getDatahub().serverEnv);
       newConfig.put("datahub", datahubConfig);
+
+      // remoteExecutorBackend (acryl-main addition)
+      ExecutorConfiguration executorConfig = configProvider.getExecutors();
+      Map<String, Object> remoteExecutorBackendConfig = new HashMap<>();
+      remoteExecutorBackendConfig.put("revision", executorConfig.getBackendRevision());
+      newConfig.put("remoteExecutorBackend", remoteExecutorBackendConfig);
 
       // Dataset URN Name Casing
       Boolean datasetUrnNameCasing = getDatasetUrnNameCasing(ctx);

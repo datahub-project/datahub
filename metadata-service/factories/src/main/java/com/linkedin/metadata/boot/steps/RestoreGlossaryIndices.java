@@ -11,7 +11,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -36,9 +35,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   private final EntitySearchService entitySearchService;
 
   public RestoreGlossaryIndices(
-      EntityService<?> entityService,
-      EntitySearchService entitySearchService,
-      EntityRegistry entityRegistry) {
+      EntityService<?> entityService, EntitySearchService entitySearchService) {
     super(entityService, VERSION, UPGRADE_ID);
     this.entitySearchService = entitySearchService;
   }

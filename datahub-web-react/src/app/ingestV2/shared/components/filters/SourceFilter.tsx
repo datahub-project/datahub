@@ -1,7 +1,7 @@
 import { Select } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
 
-import { CLI_EXECUTOR_ID } from '@app/ingest/source/utils';
+import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import useIngestionSourcesFromData from '@app/ingestV2/shared/components/filters/hooks/useIngestionSourcesFromData';
 import useOptions from '@app/ingestV2/shared/components/filters/hooks/useOptions';
 import { NameColumn } from '@app/ingestV2/source/IngestionSourceTableColumns';

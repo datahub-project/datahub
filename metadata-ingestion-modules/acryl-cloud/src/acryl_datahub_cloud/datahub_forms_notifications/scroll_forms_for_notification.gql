@@ -1,0 +1,29 @@
+query scrollFormsToNotifyFor($scrollId: String, $count: Int!) {
+  scrollAcrossEntities(
+    input: {
+      types: [FORM]
+      query: "*"
+      scrollId: $scrollId
+      count: $count
+      searchFlags: { skipCache: true }
+      orFilters: [
+        {
+          and: [
+            { field: "formStatus", values: ["PUBLISHED"] }
+            { field: "notifyAssigneesOnPublish", values: ["true"] }
+          ]
+        }
+      ]
+    }
+  ) {
+    nextScrollId
+    count
+    total
+    searchResults {
+      entity {
+        urn
+        type
+      }
+    }
+  }
+}

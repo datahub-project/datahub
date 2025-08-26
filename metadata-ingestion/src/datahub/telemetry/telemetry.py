@@ -97,6 +97,9 @@ if any(var in os.environ for var in CI_ENV_VARS):
 if _custom_package_path:
     ENV_ENABLED = False
 
+# SaaS-only disable all telemetry
+ENV_ENABLED = False
+
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
@@ -206,7 +209,6 @@ class Telemetry:
         """
         Enable telemetry.
         """
-
         self.enabled = True
         self.update_config()
 
@@ -358,10 +360,11 @@ class Telemetry:
             }
         else:
             return {
-                "server_type": server.server_config.raw_config.get("datahub", {}).get(
-                    "serverType", "missing"
-                ),
-                "server_version": server.server_config.raw_config.get("versions", {})
+                "server_type": server.get_config()
+                .get("datahub", {})
+                .get("serverType", "missing"),
+                "server_version": server.get_config()
+                .get("versions", {})
                 .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",

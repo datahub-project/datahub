@@ -12,7 +12,8 @@ import {
     UnorderedListOutlined,
     VideoCameraOutlined,
 } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React, { FC } from 'react';
 import { VscFileBinary } from 'react-icons/vsc';
 import styled from 'styled-components';

@@ -1,0 +1,32 @@
+namespace com.linkedin.executorpool
+
+record RemoteExecutorPoolState {
+
+  /**
+   * The status of the remote executor pool
+   */
+  status: enum RemoteExecutorPoolStatus {
+    /**
+     * The pool is pending provisioning. Default state on creation.
+     */
+    PROVISIONING_PENDING
+    /**
+     * The pool has been picked up by DataHub and is in the process of being provisioned.
+     */
+    PROVISIONING_IN_PROGRESS
+    /**
+     * The pool has failed to be provisioned.
+     */
+    PROVISIONING_FAILED
+    /**
+     * The pool has been successfully provisioned and is ready to accept tasks.
+     */
+    READY
+  }
+
+  /**
+   * The message associated with the status. I.e., an error message explaining failure.
+   */
+  message: optional string
+
+}

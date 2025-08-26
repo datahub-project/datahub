@@ -1,0 +1,19 @@
+auto_offset_reset: latest # earliest / latest are supported values
+topic_routes:
+  mae: MetadataAuditEvent_v4
+  mcl: MetadataChangeLog_Versioned_v1
+connection:
+  bootstrap: broker:29092
+  schema_registry_url: http://datahub-gms:8080/schema-registry/api/
+  consumer_config:
+    group.id: datahub-executor-consumer-job-client
+    auto.offset.reset: latest
+    #security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-PLAINTEXT}
+    #sasl.mechanism: ${KAFKA_PROPERTIES_SASL_MECHANISM:-PLAIN}
+    #sasl.username: ${KAFKA_PROPERTIES_SASL_USERNAME:-""}
+    #sasl.password: ${KAFKA_PROPERTIES_SASL_PASSWORD:-""}
+    #ssl.keystore.location: ${KAFKA_PROPERTIES_SSL_KEYSTORE_LOCATION:-/mnt/certs/keystore}
+    #ssl.truststore.location: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_LOCATION:-/mnt/certs/truststore}
+    #ssl.keystore.password: ${KAFKA_PROPERTIES_SSL_KEYSTORE_PASSWORD:-keystore_password}
+    #ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-keystore_password}
+    #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}

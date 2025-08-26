@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -26,19 +27,23 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,6 +61,7 @@ import org.opensearch.action.explain.ExplainRequest;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
@@ -122,6 +128,7 @@ public class ESSearchDAO {
             .query(
                 SearchRequestHandler.getFilterQuery(
                     opContext,
+                    List.of(entityName),
                     filter,
                     entitySpec.getSearchableFieldTypes(),
                     queryFilterRewriteChain));
@@ -225,6 +232,20 @@ public class ESSearchDAO {
     return aggMeta;
   }
 
+  private ScrollResult buildScrollResult(
+      @Nonnull SearchResult searchResult, @Nullable String scrollId) {
+    ScrollResult result =
+        new ScrollResult()
+            .setEntities(searchResult.getEntities())
+            .setMetadata(searchResult.getMetadata())
+            .setNumEntities(searchResult.getNumEntities())
+            .setPageSize(searchResult.getPageSize());
+    if (scrollId != null) {
+      result.setScrollId(scrollId);
+    }
+    return result;
+  }
+
   @VisibleForTesting
   public SearchResult transformIndexIntoEntityName(
       IndexConvention indexConvention, SearchResult result) {
@@ -255,6 +276,61 @@ public class ESSearchDAO {
       newAggs.add(transformAggregationMetadata(indexConvention, aggMeta, entityTypeIdx));
     }
     return new AggregationMetadataArray(newAggs);
+  }
+
+  @Nonnull
+  @WithSpan
+  private ScrollResult executeSearchScrollRequestAndExtract(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nullable Filter filters,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    try {
+      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      // extract results, validated against document model as well
+      return SearchRequestHandler.getBuilder(
+              opContext,
+              entitySpecs,
+              searchConfiguration,
+              customSearchConfiguration,
+              queryFilterRewriteChain,
+              searchServiceConfig)
+          .extractScrollResult(
+              opContext, searchResponse, filters, keepAlive, size, supportsPointInTime());
+    } catch (Exception e) {
+      log.error("Search Scroll query failed", e);
+      throw new ESQueryException("Search Scroll query failed:", e);
+    }
+  }
+
+  @Nonnull
+  @WithSpan
+  private ScrollResult executeScrollRequestAndExtract(
+      @Nonnull OperationContext opContext,
+      @Nonnull EntitySpec entitySpec,
+      @Nullable Filter filters,
+      @Nonnull SearchScrollRequest searchScrollRequest,
+      @Nullable Integer size,
+      @Nonnull String keepAlive) {
+    try {
+      final SearchResponse searchResponse =
+          client.scroll(searchScrollRequest, RequestOptions.DEFAULT);
+      // extract results, validated against document model as well
+      return SearchRequestHandler.getBuilder(
+              opContext,
+              entitySpec,
+              searchConfiguration,
+              customSearchConfiguration,
+              queryFilterRewriteChain,
+              searchServiceConfig)
+          .extractScrollResult(
+              opContext, searchResponse, filters, keepAlive, size, supportsPointInTime());
+    } catch (Exception e) {
+      log.error("Scroll query failed", e);
+      throw new ESQueryException("Scroll query failed:", e);
+    }
   }
 
   @Nonnull
@@ -423,6 +499,96 @@ public class ESSearchDAO {
   }
 
   /**
+   * Scroll through documents that matches the input filters. By using the returned scroll ID, we
+   * can scroll through unlimited number of documents that match the input filters. HOWEVER, this is
+   * very resource intensive and is not meant for real-time queries
+   *
+   * @param entities name of the entity
+   * @param filters the request map with fields and values to be applied as filters to the search
+   *     query
+   * @param sortCriteria {@link SortCriterion} to be applied to search results
+   * @param size number of search hits to return
+   * @param scrollId Unique ID corresponding to the search context. Set as null for the initial
+   *     request and then set as the returned scroll ID to continue retrieving documents for the
+   *     initial search context
+   * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
+   * @return a {@link ScrollResult} that contains a list of filtered documents and related search
+   *     result metadata
+   */
+  @Nonnull
+  @WithSpan
+  public ScrollResult scroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nullable Filter filters,
+      @Nullable List<SortCriterion> sortCriteria,
+      @Nullable Integer size,
+      @Nullable String scrollId,
+      @Nullable String keepAliveDuration,
+      @Nullable SearchDocFieldFetchConfig searchDocFieldFetchConfig) {
+
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
+
+    List<EntitySpec> entitySpecs =
+        entities.stream()
+            .map(specName -> opContext.getEntityRegistry().getEntitySpec(specName))
+            .collect(Collectors.toList());
+    String[] indexArray =
+        entities.stream()
+            .map(
+                entityName ->
+                    opContext
+                        .getSearchContext()
+                        .getIndexConvention()
+                        .getEntityIndexName(entityName))
+            .toArray(String[]::new);
+
+    // If scrollID is null, it is the initial scroll request -> execute search request with the
+    // scroll setting
+    String pitId = null;
+    Object[] sort = null;
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      sort = searchAfterWrapper.getSort();
+      if (supportsPointInTime() && keepAliveDuration != null) {
+        if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
+          pitId = searchAfterWrapper.getPitId();
+        } else {
+          pitId = createPointInTime(indexArray, keepAliveDuration);
+        }
+      }
+    } else if (supportsPointInTime() && keepAliveDuration != null) {
+      pitId = createPointInTime(indexArray, keepAliveDuration);
+    }
+    final SearchRequest searchRequest =
+        SearchRequestHandler.getBuilder(
+                opContext,
+                entitySpecs,
+                searchConfiguration,
+                customSearchConfiguration,
+                queryFilterRewriteChain,
+                searchServiceConfig)
+            .getSearchAfterRequest(
+                opContext,
+                filters,
+                sortCriteria,
+                size,
+                keepAliveDuration,
+                pitId,
+                sort,
+                searchDocFieldFetchConfig);
+
+    // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
+    // we only specify if not using PIT
+    if (!supportsPointInTime()) {
+      searchRequest.indices(indexArray);
+    }
+
+    return executeSearchScrollRequestAndExtract(
+        opContext, entitySpecs, filters, searchRequest, keepAliveDuration, size);
+  }
+
+  /**
    * Returns a list of suggestions given type ahead query.
    *
    * <p>The advanced auto complete can take filters and provides suggestions based on filtered
@@ -475,6 +641,7 @@ public class ESSearchDAO {
     SearchRequest req =
         builder.getSearchRequest(
             opContext,
+            entityName,
             query,
             field,
             transformFilterForEntities(requestParams, indexConvention),
@@ -664,7 +831,14 @@ public class ESSearchDAO {
     } else if (supportsPointInTime() && keepAlive != null) {
       pitId = createPointInTime(indexArray, keepAlive);
     }
-
+    SearchDocFieldFetchConfig searchDocFieldFetchConfig = null;
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    if (searchFlags != null && searchFlags.getFetchExtraFields() != null) {
+      Set<String> allFieldsToFetch =
+          new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL);
+      allFieldsToFetch.addAll(searchFlags.getFetchExtraFields());
+      searchDocFieldFetchConfig = new SearchDocFieldFetchConfig().fieldsToFetch(allFieldsToFetch);
+    }
     SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
                 opContext,
@@ -682,7 +856,8 @@ public class ESSearchDAO {
                 pitId,
                 keepAlive,
                 size,
-                facets);
+                facets,
+                searchDocFieldFetchConfig);
 
     // PIT specifies indices in creation so it doesn't support specifying indices on the
     // request, so
@@ -816,18 +991,242 @@ public class ESSearchDAO {
 
   private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {
     try {
-      log.warn("SearchRequest(custom): {}", mapper.writeValueAsString(customSearchConfiguration));
+      log.debug("SearchRequest(custom): {}", mapper.writeValueAsString(customSearchConfiguration));
       final String[] indices = searchRequest.indices();
-      log.warn(
+      log.debug(
           String.format(
               "SearchRequest(indices): %s",
               mapper.writerWithDefaultPrettyPrinter().writeValueAsString(indices)));
-      log.warn(
+      log.debug(
           String.format(
               "SearchRequest(query): %s",
               mapper.writeValueAsString(mapper.readTree(searchRequest.source().toString()))));
     } catch (JsonProcessingException e) {
-      log.warn("Error writing test log");
+      log.error("Error writing test log");
+    }
+  }
+
+  // SAAS ONLY - Support predicate based filters
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and
+   * filters are applied to the search hits and not the aggregation results.
+   *
+   * @param input the search input text
+   * @param predicateFilter the request map with fields and values as filters to be applied to
+   *     search hits
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a {@link SearchResult} that contains a list of matched documents and related search
+   *     result metadata
+   */
+  @Nonnull
+  @WithSpan
+  public SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Predicate predicateFilter,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
+    final String finalInput = input.isEmpty() ? "*" : input;
+
+    List<EntitySpec> entitySpecs =
+        entityNames.stream()
+            .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .collect(Collectors.toList());
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    // Step 1: construct the query
+    final SearchRequest searchRequest =
+        SearchRequestHandler.getBuilder(
+                opContext,
+                entitySpecs,
+                searchConfiguration,
+                customSearchConfiguration,
+                queryFilterRewriteChain,
+                searchServiceConfig)
+            .getPredicateSearchRequest(
+                opContext, finalInput, predicateFilter, sortCriteria, from, size, facets);
+    searchRequest.indices(
+        entityNames.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new));
+
+    // Step 2: execute the query and extract results, validated against document model as well
+    return executeAndExtractPredicateSearch(
+        opContext, entitySpecs, searchRequest, predicateFilter, from, size);
+  }
+
+  @Nonnull
+  @WithSpan
+  private SearchResult executeAndExtractPredicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpec,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable Predicate predicate,
+      int from,
+      @Nullable Integer size) {
+    long id = System.currentTimeMillis();
+    try {
+      log.debug("Executing request {}: {}", id, searchRequest);
+      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      // extract results, validated against document model as well
+      return transformIndexIntoEntityName(
+          opContext.getSearchContext().getIndexConvention(),
+          SearchRequestHandler.getBuilder(
+                  opContext,
+                  entitySpec,
+                  searchConfiguration,
+                  customSearchConfiguration,
+                  queryFilterRewriteChain,
+                  searchServiceConfig)
+              .extractPredicateResult(opContext, searchResponse, predicate, from, size));
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
+    } finally {
+      log.debug("Returning from request {}.", id);
+    }
+  }
+
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and
+   * filters are applied to the search hits and not the aggregation results.
+   *
+   * @param input the search input text
+   * @param predicate the predicate to filter on
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
+   * @param scrollId opaque scroll Id to convert to a PIT ID and Sort array to pass to ElasticSearch
+   * @param keepAlive string representation of the time to keep a point in time alive
+   * @param size the number of search hits to return
+   * @return a {@link ScrollResult} that contains a list of matched documents and related search
+   *     result metadata
+   */
+  @WithSpan
+  @Nonnull
+  public ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entities,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    final String finalInput = input.isEmpty() ? "*" : input;
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    String[] indexArray =
+        entities.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new);
+
+    List<EntitySpec> entitySpecs =
+        entities.stream()
+            .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
+            .collect(Collectors.toList());
+    // TODO: Align scroll and search using facets
+    final SearchRequest searchRequest =
+        getPredicateScrollRequest(
+            opContext,
+            scrollId,
+            keepAlive,
+            indexArray,
+            size,
+            predicate,
+            entitySpecs,
+            finalInput,
+            sortCriteria,
+            Collections.emptyList());
+
+    // PIT specifies indices in creation so it doesn't support specifying indices on the request, so
+    // we only specify if not using PIT
+    if (!supportsPointInTime()) {
+      searchRequest.indices(indexArray);
+    }
+
+    return executeAndExtractPredicateScroll(
+        opContext, entitySpecs, searchRequest, predicate, keepAlive, size);
+  }
+
+  private SearchRequest getPredicateScrollRequest(
+      @Nonnull OperationContext opContext,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      String[] indexArray,
+      @Nullable Integer size,
+      @Nullable Predicate predicate,
+      List<EntitySpec> entitySpecs,
+      String finalInput,
+      List<SortCriterion> sortCriteria,
+      @Nonnull List<String> facets) {
+    String pitId = null;
+    Object[] sort = null;
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      sort = searchAfterWrapper.getSort();
+      if (supportsPointInTime()) {
+        if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
+          pitId = searchAfterWrapper.getPitId();
+        } else if (keepAlive != null) {
+          pitId = createPointInTime(indexArray, keepAlive);
+        }
+      }
+    } else if (supportsPointInTime() && keepAlive != null) {
+      pitId = createPointInTime(indexArray, keepAlive);
+    }
+    SearchDocFieldFetchConfig searchDocFieldFetchConfig = null;
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    if (searchFlags != null && searchFlags.getFetchExtraFields() != null) {
+      Set<String> allFieldsToFetch =
+          new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL);
+      allFieldsToFetch.addAll(searchFlags.getFetchExtraFields());
+      searchDocFieldFetchConfig = new SearchDocFieldFetchConfig().fieldsToFetch(allFieldsToFetch);
+    }
+    return SearchRequestHandler.getBuilder(
+            opContext,
+            entitySpecs,
+            searchConfiguration,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfig)
+        .getPredicateSearchRequest(
+            opContext,
+            finalInput,
+            predicate,
+            sortCriteria,
+            sort,
+            pitId,
+            keepAlive,
+            size,
+            facets,
+            searchDocFieldFetchConfig);
+  }
+
+  @Nonnull
+  @WithSpan
+  private ScrollResult executeAndExtractPredicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull SearchRequest searchRequest,
+      @Nullable Predicate predicate,
+      @Nullable String keepAlive,
+      @Nullable Integer size) {
+    try {
+      final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      // extract results, validated against document model as well
+      return transformIndexIntoEntityName(
+          opContext.getSearchContext().getIndexConvention(),
+          SearchRequestHandler.getBuilder(
+                  opContext,
+                  entitySpecs,
+                  searchConfiguration,
+                  customSearchConfiguration,
+                  queryFilterRewriteChain,
+                  searchServiceConfig)
+              .extractPredicateScrollResult(
+                  opContext, searchResponse, predicate, keepAlive, size, supportsPointInTime()));
+    } catch (Exception e) {
+      log.error("Search query failed: {}", searchRequest, e);
+      throw new ESQueryException("Search query failed:", e);
     }
   }
 }

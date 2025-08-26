@@ -51,7 +51,7 @@ public abstract class EventProducer {
 
   public abstract Future<?> produceMetadataChangeLog(
       @Nonnull final Urn urn,
-      @Nonnull AspectSpec aspectSpec,
+      @Nullable AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
   public abstract String getMetadataChangeLogTopicName(@Nonnull AspectSpec aspectSpec);

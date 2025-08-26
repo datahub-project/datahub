@@ -1,0 +1,66 @@
+[
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-properties,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "structuredProperties",
+        "aspect": {
+            "json": {
+                "properties": [
+                  {
+                    "propertyUrn": "urn:li:structuredProperty:test-property-already-applied",
+                    "values": [
+                        {
+                            "string": "test1"
+                        },
+                        {
+                            "string": "test2"
+                        }
+                    ]
+                  }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1642233600000,
+            "runId": "test-properties",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "schemaField",
+        "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-properties,PROD),field_bar)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "structuredProperties",
+        "aspect": {
+            "json": {
+                "properties": [
+                  {
+                    "propertyUrn": "urn:li:structuredProperty:test-property-already-applied",
+                    "values": [
+                        {
+                            "string": "test1"
+                        },
+                        {
+                            "string": "test2"
+                        }
+                    ]
+                  }
+                ]
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1642233600000,
+            "runId": "test-properties",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    }
+]

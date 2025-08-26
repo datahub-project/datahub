@@ -7,7 +7,7 @@
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react
-    image: ${DATAHUB_FRONTEND_IMAGE:-acryldata/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
       - 9002:9002
     build:
@@ -34,12 +34,12 @@ services:
         condition: service_healthy
   datahub-gms:
     hostname: datahub-gms
-    image: ${DATAHUB_GMS_IMAGE:-acryldata/datahub-gms}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
       - 8080:8080
     build:
-        context: ../
-        dockerfile: docker/datahub-gms/Dockerfile
+      context: ../
+      dockerfile: docker/datahub-gms/Dockerfile
     env_file: ./datahub-gms/env/docker.cassandra.env
     environment:
       - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
@@ -53,13 +53,13 @@ services:
       datahub-upgrade:
         condition: service_completed_successfully
     volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
     hostname: datahub-upgrade
-    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_UPGRADE_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade}:${DATAHUB_VERSION:-head}
     command:
-    - -u
-    - SystemUpdate
+      - -u
+      - SystemUpdate
     build:
       context: ../
       dockerfile: docker/datahub-upgrade/Dockerfile
@@ -89,7 +89,7 @@ services:
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
     hostname: elasticsearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-acryldata/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile

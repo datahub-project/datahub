@@ -53,55 +53,60 @@ public class VersionsSearchResolverTest {
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
   private static final SearchAcrossEntitiesInput BASIC_INPUT =
-      new SearchAcrossEntitiesInput(
-          List.of(EntityType.DATASET), "", 0, 10, null, null, null, null, null);
+      SearchAcrossEntitiesInput.builder()
+          .setTypes(List.of(EntityType.DATASET))
+          .setStart(0)
+          .setCount(10)
+          .build();
 
   private static final SearchAcrossEntitiesInput COMPLEX_INPUT =
-      new SearchAcrossEntitiesInput(
-          List.of(EntityType.CHART, EntityType.DATASET),
-          "query",
-          2,
-          5,
-          null,
-          List.of(
-              AndFilterInput.builder()
-                  .setAnd(
+      SearchAcrossEntitiesInput.builder()
+          .setTypes(List.of(EntityType.CHART, EntityType.DATASET))
+          .setQuery("query")
+          .setStart(2)
+          .setCount(5)
+          .setOrFilters(
+              List.of(
+                  AndFilterInput.builder()
+                      .setAnd(
+                          List.of(
+                              FacetFilterInput.builder()
+                                  .setField("field1")
+                                  .setValues(List.of("1", "2"))
+                                  .build(),
+                              FacetFilterInput.builder()
+                                  .setField("field2")
+                                  .setValues(List.of("a"))
+                                  .build()))
+                      .build(),
+                  AndFilterInput.builder()
+                      .setAnd(
+                          List.of(
+                              FacetFilterInput.builder()
+                                  .setField("field3")
+                                  .setValues(List.of("3", "4"))
+                                  .build(),
+                              FacetFilterInput.builder()
+                                  .setField("field4")
+                                  .setValues(List.of("b"))
+                                  .build()))
+                      .build()))
+          .setViewUrn(TEST_VIEW_URN.toString())
+          .setSearchFlags(SearchFlags.builder().setSkipCache(true).build())
+          .setSortInput(
+              SearchSortInput.builder()
+                  .setSortCriteria(
                       List.of(
-                          FacetFilterInput.builder()
-                              .setField("field1")
-                              .setValues(List.of("1", "2"))
+                          SortCriterion.builder()
+                              .setField("sortField1")
+                              .setSortOrder(SortOrder.DESCENDING)
                               .build(),
-                          FacetFilterInput.builder()
-                              .setField("field2")
-                              .setValues(List.of("a"))
+                          SortCriterion.builder()
+                              .setField("sortField2")
+                              .setSortOrder(SortOrder.ASCENDING)
                               .build()))
-                  .build(),
-              AndFilterInput.builder()
-                  .setAnd(
-                      List.of(
-                          FacetFilterInput.builder()
-                              .setField("field3")
-                              .setValues(List.of("3", "4"))
-                              .build(),
-                          FacetFilterInput.builder()
-                              .setField("field4")
-                              .setValues(List.of("b"))
-                              .build()))
-                  .build()),
-          TEST_VIEW_URN.toString(),
-          SearchFlags.builder().setSkipCache(true).build(),
-          SearchSortInput.builder()
-              .setSortCriteria(
-                  List.of(
-                      SortCriterion.builder()
-                          .setField("sortField1")
-                          .setSortOrder(SortOrder.DESCENDING)
-                          .build(),
-                      SortCriterion.builder()
-                          .setField("sortField2")
-                          .setSortOrder(SortOrder.ASCENDING)
-                          .build()))
-              .build());
+                  .build())
+          .build();
 
   @Test
   public void testGetSuccessBasic() throws Exception {
@@ -146,7 +151,8 @@ public class VersionsSearchResolverTest {
                 List.of(
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
-                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))));
+                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
+            nullable(String.class));
   }
 
   @Test
@@ -241,7 +247,8 @@ public class VersionsSearchResolverTest {
                         .setOrder(com.linkedin.metadata.query.filter.SortOrder.ASCENDING),
                     new com.linkedin.metadata.query.filter.SortCriterion()
                         .setField(VERSION_SORT_ID_FIELD_NAME)
-                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))));
+                        .setOrder(com.linkedin.metadata.query.filter.SortOrder.DESCENDING))),
+            nullable(String.class));
   }
 
   @Test
@@ -251,7 +258,14 @@ public class VersionsSearchResolverTest {
 
     Mockito.when(
             mockEntityClient.searchAcrossEntities(
-                any(), any(), any(), any(), Mockito.anyInt(), Mockito.anyInt(), any()))
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                anyInt(),
+                anyInt(),
+                anyList(),
+                nullable(String.class)))
         .thenThrow(new RemoteInvocationException());
 
     VersionsSearchResolver resolver = new VersionsSearchResolver(mockEntityClient, mockViewService);
@@ -284,11 +298,12 @@ public class VersionsSearchResolverTest {
                 any(OperationContext.class),
                 any(),
                 Mockito.anyString(),
-                any(Filter.class),
+                nullable(Filter.class),
                 Mockito.anyInt(),
                 Mockito.anyInt(),
                 anyList(),
-                anyList()))
+                anyList(),
+                nullable(String.class)))
         .thenReturn(result);
 
     Mockito.when(
@@ -296,10 +311,22 @@ public class VersionsSearchResolverTest {
                 any(OperationContext.class),
                 any(),
                 anyString(),
-                any(Filter.class),
+                nullable(Filter.class),
                 anyInt(),
                 anyInt(),
                 anyList()))
+        .thenReturn(result);
+
+    Mockito.when(
+            client.searchAcrossEntities(
+                any(OperationContext.class),
+                anyList(),
+                anyString(),
+                nullable(Filter.class),
+                anyInt(),
+                anyInt(),
+                nullable(List.class),
+                nullable(String.class)))
         .thenReturn(result);
 
     return client;

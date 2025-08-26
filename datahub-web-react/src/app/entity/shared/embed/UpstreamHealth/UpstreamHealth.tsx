@@ -1,95 +1,143 @@
-import { green } from '@ant-design/colors';
-import { CheckCircleFilled, LoadingOutlined } from '@ant-design/icons';
-import Icon from '@ant-design/icons/lib/components/Icon';
-import React from 'react';
+import { Divider } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import FailingInputs from '@app/entity/shared/embed/UpstreamHealth/FailingInputs';
-import { extractUpstreamSummary } from '@app/entity/shared/embed/UpstreamHealth/utils';
+import { DATASET_COUNT, generateQueryVariables } from '@app/entity/shared/embed/UpstreamHealth/utils';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, HAS_FAILING_ASSERTIONS_FILTER_NAME } from '@app/search/utils/constants';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
-import { Entity, EntityType, FilterOperator, LineageDirection } from '@types';
+import { Dataset } from '@types';
 
-import SubtractIcon from '@images/subtractIcon.svg?react';
-
-const LoadingWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-`;
-
-const TextWrapper = styled.span`
-    font-size: 16px;
-    line-height: 24px;
-    margin-left: 8px;
-`;
-
-const UnknownText = styled.span`
-    font-size: 14px;
-    line-height: 20px;
-    margin-left: 8px;
-`;
-
-const StyledIcon = styled(Icon)`
-    color: ${ANTD_GRAY[7]};
-`;
-
-const StyledCheck = styled(CheckCircleFilled)`
-    color: ${green[6]};
-    font-size: 14px;
+export const StyledDivider = styled(Divider)`
+    margin: 16px 0;
 `;
 
 export default function UpstreamHealth() {
     const { entityData } = useEntityData();
-    const { data, loading } = useSearchAcrossLineageQuery({
-        variables: {
-            input: {
-                urn: entityData?.urn || '',
-                query: '*',
-                types: [EntityType.Dataset],
-                start: 0,
-                count: 1000,
-                direction: LineageDirection.Upstream,
-                orFilters: [{ and: [{ field: 'degree', condition: FilterOperator.Equal, values: ['1', '2', '3+'] }] }],
-            },
+    const [datasetsWithActiveIncidents, setDatasetsWithActiveIncidents] = useState<Dataset[]>([]);
+    const [datasetsWithFailingAssertions, setDatasetsWithFailingAssertions] = useState<Dataset[]>([]);
+    const [incidentsDataStart, setIncidentsDataStart] = useState(0);
+    const [assertionsDataStart, setAssertionsDataStart] = useState(0);
+
+    const appConfig = useAppConfig();
+    const lineageEnabled: boolean = appConfig?.config?.chromeExtensionConfig?.lineageEnabled || false;
+    const startTimeMillis = useGetDefaultLineageStartTimeMillis();
+
+    const urn = entityData?.urn || '';
+
+    const {
+        data: incidentsData,
+        loading: isLoadingIncidents,
+        fetchMore: fetchMoreIncidents,
+    } = useSearchAcrossLineageQuery(
+        generateQueryVariables({
+            urn,
+            startTimeMillis,
+            filterField: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+            start: incidentsDataStart,
+            includeAssertions: false,
+            includeIncidents: true,
+            skip: !lineageEnabled || !urn,
+        }),
+    );
+
+    const {
+        data: assertionsData,
+        loading: isLoadingAssertions,
+        fetchMore: fetchMoreAssertions,
+    } = useSearchAcrossLineageQuery(
+        generateQueryVariables({
+            urn,
+            startTimeMillis,
+            filterField: HAS_FAILING_ASSERTIONS_FILTER_NAME,
+            start: assertionsDataStart,
             includeAssertions: true,
-        },
-    });
+            includeIncidents: false,
+            skip: !lineageEnabled || !urn,
+        }),
+    );
 
-    const upstreams: Entity[] | undefined = data?.searchAcrossLineage?.searchResults?.map((result) => result.entity);
-    const upstreamSummary = extractUpstreamSummary(upstreams || []);
-    const { passingUpstreams, failingUpstreams } = upstreamSummary;
+    useEffect(() => {
+        if (incidentsData?.searchAcrossLineage?.searchResults?.length && !datasetsWithActiveIncidents.length) {
+            setDatasetsWithActiveIncidents(
+                incidentsData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
+            );
+        }
+    }, [incidentsData?.searchAcrossLineage?.searchResults, datasetsWithActiveIncidents.length]);
 
-    if (loading) {
-        return (
-            <LoadingWrapper>
-                <LoadingOutlined />
-            </LoadingWrapper>
-        );
+    useEffect(() => {
+        if (assertionsData?.searchAcrossLineage?.searchResults?.length && !datasetsWithFailingAssertions.length) {
+            setDatasetsWithFailingAssertions(
+                assertionsData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
+            );
+        }
+    }, [assertionsData?.searchAcrossLineage?.searchResults, datasetsWithFailingAssertions.length]);
+
+    function fetchMoreIncidentsData() {
+        const newIncidentsStart = incidentsDataStart + DATASET_COUNT;
+        fetchMoreIncidents(
+            generateQueryVariables({
+                urn,
+                startTimeMillis,
+                filterField: HAS_ACTIVE_INCIDENTS_FILTER_NAME,
+                start: newIncidentsStart,
+                includeAssertions: false,
+                includeIncidents: true,
+            }),
+        ).then((result) => {
+            if (result.data.searchAcrossLineage?.searchResults) {
+                setDatasetsWithActiveIncidents([
+                    ...datasetsWithActiveIncidents,
+                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                ]);
+            }
+        });
+        setIncidentsDataStart(newIncidentsStart);
     }
 
-    if (!data) return null;
-
-    if (failingUpstreams > 0) {
-        return <FailingInputs upstreamSummary={upstreamSummary} />;
+    function fetchMoreAssertionsData() {
+        const newAssertionsStart = assertionsDataStart + DATASET_COUNT;
+        fetchMoreAssertions(
+            generateQueryVariables({
+                urn,
+                startTimeMillis,
+                filterField: HAS_FAILING_ASSERTIONS_FILTER_NAME,
+                start: newAssertionsStart,
+                includeAssertions: true,
+                includeIncidents: false,
+            }),
+        ).then((result) => {
+            if (result.data.searchAcrossLineage?.searchResults) {
+                setDatasetsWithFailingAssertions([
+                    ...datasetsWithFailingAssertions,
+                    ...result.data.searchAcrossLineage.searchResults.map((r) => r.entity as Dataset),
+                ]);
+            }
+        });
+        setAssertionsDataStart(newAssertionsStart);
     }
 
-    if (passingUpstreams > 0) {
-        return (
-            <div>
-                <StyledCheck />
-                <TextWrapper>All data inputs are healthy</TextWrapper>
-            </div>
-        );
-    }
+    const hasUnhealthyUpstreams = datasetsWithActiveIncidents.length || datasetsWithFailingAssertions.length;
+
+    if (!hasUnhealthyUpstreams) return null;
 
     return (
-        <div>
-            <StyledIcon component={SubtractIcon} />
-            <UnknownText>Unknown data input health</UnknownText>
-        </div>
+        <>
+            <FailingInputs
+                datasetsWithActiveIncidents={datasetsWithActiveIncidents as Dataset[]}
+                totalDatasetsWithActiveIncidents={incidentsData?.searchAcrossLineage?.total || 0}
+                fetchMoreIncidentsData={fetchMoreIncidentsData}
+                isLoadingIncidents={isLoadingIncidents}
+                datasetsWithFailingAssertions={datasetsWithFailingAssertions as Dataset[]}
+                totalDatasetsWithFailingAssertions={assertionsData?.searchAcrossLineage?.total || 0}
+                fetchMoreAssertionsData={fetchMoreAssertionsData}
+                isLoadingAssertions={isLoadingAssertions}
+            />
+            <StyledDivider />
+        </>
     );
 }

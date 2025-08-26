@@ -559,7 +559,8 @@ public class LineageSearchService {
                   finalFilter,
                   sortCriteria,
                   queryFrom,
-                  querySize),
+                  querySize,
+                  null),
               urnToRelationship);
       queryFrom = Math.max(0, from - resultForBatch.getNumEntities());
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
@@ -844,7 +845,8 @@ public class LineageSearchService {
                   scrollId,
                   keepAlive,
                   querySize,
-                  List.of()),
+                  List.of(),
+                  null),
               urnToRelationship);
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = mergeScrollResult(finalResult, resultForBatch);

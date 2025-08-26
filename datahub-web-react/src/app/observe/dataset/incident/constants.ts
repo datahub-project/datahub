@@ -1,0 +1,50 @@
+import { IncidentType } from '@types';
+
+export const ACTIVE_INCIDENT_TYPES_FILTER_FIELD = 'activeIncidentTypes';
+export const HAS_ACTIVE_INCIDENTS_FILTER_FIELD = 'hasActiveIncidents';
+
+export const INCIDENT_TYPE_OPTIONS = [
+    {
+        name: 'Operational',
+        value: IncidentType.Operational,
+    },
+    {
+        name: 'Freshness',
+        value: IncidentType.Freshness,
+    },
+    {
+        name: 'Volume',
+        value: IncidentType.Volume,
+    },
+    {
+        name: 'Column',
+        value: IncidentType.Field,
+    },
+    {
+        name: 'Custom SQL',
+        value: IncidentType.Sql,
+    },
+    {
+        name: 'Schema',
+        value: IncidentType.DataSchema,
+    },
+    {
+        name: 'Other',
+        value: IncidentType.Custom,
+    },
+    // Legacy! These are deprecated types.
+    {
+        name: 'External Volume Assertion',
+        value: IncidentType.DatasetRows,
+    },
+    {
+        name: 'External Field Assertion',
+        value: IncidentType.DatasetColumn,
+    },
+];
+
+export const NAME_TO_VALUE = new Map();
+INCIDENT_TYPE_OPTIONS.forEach((option) => NAME_TO_VALUE.set(option.name, option.value));
+
+export const TYPE_TO_DISPLAY_NAME = new Map();
+INCIDENT_TYPE_OPTIONS.forEach((option) => TYPE_TO_DISPLAY_NAME.set(option.value, option.name));

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.analytics.resolver;
 
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.ADMIN_USER_URN;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -54,15 +56,15 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
             _analyticsService.getUsageIndexName(),
             Optional.of(dateRangeThis),
             ImmutableMap.of(),
-            ImmutableMap.of(),
-            Optional.of("browserId"));
+            ImmutableMap.of("actorUrn.keyword", ImmutableList.of(ADMIN_USER_URN)),
+            Optional.of("actorUrn.keyword"));
     int activeUsersLastRange =
         _analyticsService.getHighlights(
             _analyticsService.getUsageIndexName(),
             Optional.of(dateRangeLast),
             ImmutableMap.of(),
-            ImmutableMap.of(),
-            Optional.of("browserId"));
+            ImmutableMap.of("actorUrn.keyword", ImmutableList.of(ADMIN_USER_URN)),
+            Optional.of("actorUrn.keyword"));
 
     String bodyText = "";
     if (activeUsersLastRange > 0) {

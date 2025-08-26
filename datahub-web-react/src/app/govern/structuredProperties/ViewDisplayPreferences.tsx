@@ -8,7 +8,7 @@ import {
     TogglesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
 import { Icon, Switch, Text, colors } from '@src/alchemy-components';
-import { StructuredPropertyEntity } from '@src/types.generated';
+import { StructuredPropertyEntity, StructuredPropertyFilterStatus } from '@src/types.generated';
 
 interface Props {
     propEntity: StructuredPropertyEntity;
@@ -50,7 +50,10 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
                             <Switch
                                 label="Show in Search Filters"
                                 size="sm"
-                                checked={propEntity?.settings?.showInSearchFilters}
+                                checked={
+                                    propEntity?.settings?.showInSearchFilters ||
+                                    propEntity?.definition?.filterStatus === StructuredPropertyFilterStatus.Enabled
+                                }
                                 labelStyle={{ fontSize: 12, color: colors.gray[1700], fontWeight: 700 }}
                                 isDisabled
                             />

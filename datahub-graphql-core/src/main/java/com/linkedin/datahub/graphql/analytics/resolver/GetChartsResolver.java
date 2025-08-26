@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.analytics.resolver;
 
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
@@ -93,11 +93,11 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             _analyticsService.getUsageIndexName(),
             dateRange,
             interval,
+            // Changed from browserId in OSS to actorUrn in SaaS
             Optional.empty(),
             ImmutableMap.of(),
-            Collections.emptyMap(),
-            Optional.of("browserId"));
-
+            ImmutableMap.of("actorUrn.keyword", ImmutableList.of(ADMIN_USER_URN)),
+            Optional.of("actorUrn.keyword"));
     return TimeSeriesChart.builder()
         .setTitle(title)
         .setDateRange(dateRange)

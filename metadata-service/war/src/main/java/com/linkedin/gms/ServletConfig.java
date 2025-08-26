@@ -2,6 +2,7 @@ package com.linkedin.gms;
 
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
+import static io.acryl.admin.grafana.GrafanaConfiguration.GRAFANA_SERVLET_NAME;
 
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.gms.servlet.Config;
@@ -15,13 +16,19 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.linkedin.gms.factory.scim.ScimpleSpringConfiguration;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
+import io.acryl.admin.grafana.GrafanaServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
+import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
+import org.apache.directory.scim.core.json.ObjectMapperFactory;
+import org.apache.directory.scim.core.schema.SchemaRegistry;
+import org.apache.directory.scim.protocol.Constants;
 import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,14 +40,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.format.FormatterRegistry;
+import org.springframework.http.MediaType;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -54,6 +64,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
     basePackages = {"io.datahubproject.openapi.schema.registry.config", "com.linkedin.gms.servlet"})
 public class ServletConfig implements WebMvcConfigurer {
   @Autowired private TracingInterceptor tracingInterceptor;
+
+  @Autowired private SchemaRegistry schemaRegistry;
 
   @Value("${datahub.gms.async.request-timeout-ms}")
   private long asyncTimeoutMilliseconds;
@@ -103,6 +115,18 @@ public class ServletConfig implements WebMvcConfigurer {
     return registration;
   }
 
+  @Bean
+  public ServletRegistrationBean<GrafanaServlet> grafanaDashboardServlet(
+      final GrafanaServlet grafanaServlet) {
+    ServletRegistrationBean<GrafanaServlet> registration =
+        new ServletRegistrationBean<>(grafanaServlet);
+    registration.setName(GRAFANA_SERVLET_NAME);
+    registration.addUrlMappings("/admin/dashboard/*");
+    registration.setLoadOnStartup(15);
+    registration.setAsyncSupported(true);
+    return registration;
+  }
+
   /**
    * SpringBoot is now the default, explicitly map these to legacy rest.li servlet. Additions are
    * more likely to be built on the Spring side so we're preventing unexpected behavior for the most
@@ -126,10 +150,18 @@ public class ServletConfig implements WebMvcConfigurer {
         "/relationships/*",
         "/analytics/*",
         "/operations/*",
-        "/runs/*");
+        "/runs/*",
+        "/test/*");
     registration.setLoadOnStartup(2);
     registration.setOrder(Integer.MAX_VALUE); // lowest priority
     return registration;
+  }
+
+  @Override
+  public void configurePathMatch(PathMatchConfigurer configurer) {
+    configurer.addPathPrefix(
+        "/openapi",
+        c -> c.getPackage().getName().startsWith(ScimpleSpringConfiguration.SCIM_IMPL_PACKAGE));
   }
 
   @Override
@@ -153,6 +185,9 @@ public class ServletConfig implements WebMvcConfigurer {
     MappingJackson2HttpMessageConverter jsonConverter =
         new MappingJackson2HttpMessageConverter(objectMapper);
     messageConverters.add(jsonConverter);
+
+    // Saas Only
+    configureMessageConvertersSaas(messageConverters);
   }
 
   private HttpMessageConverter<?> createIcebergMessageConverter() {
@@ -179,5 +214,56 @@ public class ServletConfig implements WebMvcConfigurer {
   @Override
   public void addInterceptors(InterceptorRegistry registry) {
     registry.addInterceptor(tracingInterceptor).addPathPatterns("/**");
+  }
+
+  private void configureMessageConvertersSaas(List<HttpMessageConverter<?>> messageConverters) {
+    // remove OSS
+    messageConverters.remove(messageConverters.size() - 1);
+    // Add Saas
+    messageConverters.add(jsonMessageConverter(schemaRegistry));
+    messageConverters.add(xmlMessageConverter(schemaRegistry));
+  }
+
+  private MappingJackson2HttpMessageConverter jsonMessageConverter(SchemaRegistry schemaRegistry) {
+    ObjectMapper objectMapper = ObjectMapperFactory.createObjectMapper(schemaRegistry);
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    objectMapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    MappingJackson2HttpMessageConverter converter =
+        new MappingJackson2HttpMessageConverter(objectMapper);
+    converter.setSupportedMediaTypes(
+        Arrays.asList(
+            MediaType.APPLICATION_JSON,
+            MediaType.APPLICATION_XML,
+            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE),
+            MediaType.valueOf("application/json-patch+json"),
+            MediaType.valueOf("application/vnd.schemaregistry.v1+json")));
+    return converter;
+  }
+
+  private MappingJackson2XmlHttpMessageConverter xmlMessageConverter(
+      SchemaRegistry schemaRegistry) {
+    ObjectMapper objectMapper = ObjectMapperFactory.createXmlObjectMapper(schemaRegistry);
+    MappingJackson2XmlHttpMessageConverter converter =
+        new MappingJackson2XmlHttpMessageConverter(objectMapper);
+    converter.setSupportedMediaTypes(
+        Arrays.asList(
+            MediaType.APPLICATION_JSON,
+            MediaType.APPLICATION_XML,
+            MediaType.valueOf(Constants.SCIM_CONTENT_TYPE)));
+    return converter;
+  }
+
+  @Override
+  public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
+    converters.add(jsonMessageConverter(schemaRegistry));
+    converters.add(xmlMessageConverter(schemaRegistry));
   }
 }

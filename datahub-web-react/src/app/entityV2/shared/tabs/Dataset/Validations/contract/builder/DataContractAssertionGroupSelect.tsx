@@ -50,6 +50,9 @@ export const DataContractAssertionGroupSelect = ({
                 showSelect
                 selectedUrns={selectedUrns}
                 onSelect={onSelect}
+                canEditAssertions={false}
+                canEditMonitors={false}
+                canEditSqlAssertions={false}
             />
         </>
     );

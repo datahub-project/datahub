@@ -37,7 +37,14 @@ const LastRun = styled(Typography.Text)`
 
 const TABLE_HEADER_HEIGHT = 50;
 
-export const useAssertionsTableColumns = ({ groupBy, contract, refetch }) => {
+export const useAssertionsTableColumns = ({
+    groupBy,
+    contract,
+    canEditSqlAssertions,
+    canEditAssertions,
+    canEditMonitors,
+    refetch,
+}) => {
     return useMemo(() => {
         const columns = [
             {
@@ -83,11 +90,15 @@ export const useAssertionsTableColumns = ({ groupBy, contract, refetch }) => {
                 key: 'actions',
                 width: '15%',
                 render: (record) => {
+                    const isSqlAssertion = record.type === AssertionType.Sql;
                     return (
                         !record.groupName && (
                             <ActionsColumn
                                 assertion={record.assertion}
+                                monitor={record.monitor}
                                 contract={contract}
+                                canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
+                                canEditMonitor={canEditMonitors}
                                 canEditContract
                                 refetch={refetch}
                                 shouldRightAlign
@@ -100,7 +111,7 @@ export const useAssertionsTableColumns = ({ groupBy, contract, refetch }) => {
         ];
 
         return columns;
-    }, [groupBy, contract, refetch]);
+    }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch]);
 };
 
 export const usePinnedAssertionTableHeaderProps = () => {

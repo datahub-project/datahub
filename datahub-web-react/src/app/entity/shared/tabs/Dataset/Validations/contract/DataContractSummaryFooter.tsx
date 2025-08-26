@@ -4,12 +4,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { getAssertionsSummary } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import {
     StyledCheckOutlined,
     StyledCloseOutlined,
     StyledExclamationOutlined,
 } from '@app/entity/shared/tabs/Dataset/Validations/shared/styledComponents';
-import { getAssertionsSummary } from '@app/entity/shared/tabs/Dataset/Validations/utils';
 
 import { Assertion } from '@types';
 

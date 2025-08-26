@@ -461,6 +461,30 @@ public class JavaEntityClient implements EntityClient {
         entityService);
   }
 
+  @Override
+  @Nonnull
+  public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      int start,
+      @Nullable Integer count,
+      List<SortCriterion> sortCriteria,
+      @Nullable String predicateJson)
+      throws RemoteInvocationException {
+    return searchAcrossEntities(
+        opContext,
+        entities,
+        input,
+        filter,
+        start,
+        count,
+        sortCriteria,
+        Collections.emptyList(),
+        predicateJson);
+  }
+
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
    *
@@ -483,7 +507,8 @@ public class JavaEntityClient implements EntityClient {
       int start,
       @Nullable Integer count,
       List<SortCriterion> sortCriteria,
-      @Nonnull List<String> facets)
+      @Nonnull List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateSearchResult(
@@ -496,7 +521,8 @@ public class JavaEntityClient implements EntityClient {
             sortCriteria,
             start,
             count,
-            facets),
+            facets,
+            predicateJson),
         entityService);
   }
 
@@ -511,7 +537,8 @@ public class JavaEntityClient implements EntityClient {
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
       @Nullable Integer count,
-      @Nullable List<String> facets)
+      @Nullable List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
 
     return ValidationUtils.validateScrollResult(
@@ -525,7 +552,8 @@ public class JavaEntityClient implements EntityClient {
             scrollId,
             keepAlive,
             count,
-            facets),
+            facets,
+            predicateJson),
         entityService);
   }
 

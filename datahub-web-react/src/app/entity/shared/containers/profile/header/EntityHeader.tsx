@@ -11,14 +11,16 @@ import EntityHeaderLoadingSection from '@app/entity/shared/containers/profile/he
 import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
 import EntityName from '@app/entity/shared/containers/profile/header/EntityName';
 import PlatformContent from '@app/entity/shared/containers/profile/header/PlatformContent';
-import StructuredPropertyBadge from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
 import EntityActions, { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
 import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
 import { getPlatformName } from '@app/entity/shared/utils';
+import { useSubscriptionsEnabled } from '@app/settings/personal/notifications/utils';
 import ShareButton from '@app/shared/share/ShareButton';
+import SubscribeButtons from '@app/shared/subscribe/SubscribeButtons';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useIsEditableDatasetNameEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 
 import { EntityType, PlatformPrivileges } from '@types';
 
@@ -58,6 +60,7 @@ const SideHeaderContent = styled.div`
 const TopButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
     margin-bottom: 8px;
 `;
 
@@ -92,6 +95,7 @@ type Props = {
 };
 
 export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEditable, subHeader }: Props) => {
+    const subscriptionsEnabled = useSubscriptionsEnabled();
     const { urn, entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
     const me = useUserContext();
@@ -132,6 +136,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                                 )}
                                 {entityData?.health && (
                                     <EntityHealth
+                                        urn={urn}
                                         health={entityData.health}
                                         baseUrl={entityRegistry.getEntityUrl(entityType, urn)}
                                     />
@@ -158,6 +163,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
+                        {subscriptionsEnabled && <SubscribeButtons />}
                         <ShareButton entityType={entityType} subType={subType} urn={urn} name={entityName} />
                         {headerDropdownItems && (
                             <EntityDropdown

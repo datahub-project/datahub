@@ -1,9 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
-import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,6 +16,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -65,6 +64,13 @@ public class AggregateAcrossEntitiesResolver
                   : null;
 
           final Filter inputFilter = ResolverUtils.buildFilter(null, input.getOrFilters());
+          final Filter formFilter =
+              SearchUtils.getFormFilter(
+                  context.getOperationContext(), input.getFormFilter(), _formService);
+          final Filter baseFilter =
+              formFilter != null
+                  ? FilterUtils.combineFilters(inputFilter, formFilter)
+                  : inputFilter;
 
           final SearchFlags searchFlags =
               input.getSearchFlags() != null
@@ -73,6 +79,8 @@ public class AggregateAcrossEntitiesResolver
 
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
+          // do not include default facets if we're requesting any facets specifically
+          searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
 
           // do not include default facets if we're requesting any facets specifically
           searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
@@ -94,13 +102,14 @@ public class AggregateAcrossEntitiesResolver
                     finalEntities,
                     sanitizedQuery,
                     maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            inputFilter, maybeResolvedView.getDefinition().getFilter())
-                        : inputFilter,
+                        ? FilterUtils.combineFilters(
+                            baseFilter, maybeResolvedView.getDefinition().getFilter())
+                        : baseFilter,
                     0,
                     0, // 0 entity count because we don't want resolved entities
                     Collections.emptyList(),
-                    facets));
+                    facets,
+                    null));
           } catch (Exception e) {
             log.error(
                 "Failed to execute aggregate across entities: entity types {}, query {}, filters: {}",

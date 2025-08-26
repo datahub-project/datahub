@@ -2,14 +2,11 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.AssertionResult;
-import com.linkedin.datahub.graphql.generated.AssertionResultType;
-import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
-import com.linkedin.datahub.graphql.generated.BatchSpec;
-import com.linkedin.datahub.graphql.generated.PartitionSpec;
-import com.linkedin.datahub.graphql.generated.PartitionType;
+import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.types.assertion.AssertionMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
+import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import javax.annotation.Nonnull;
@@ -25,6 +22,12 @@ public class AssertionRunEventMapper
     return INSTANCE.apply(context, envelopedAspect);
   }
 
+  public static AssertionResult mapResult(
+      @Nullable final QueryContext context,
+      @Nonnull final com.linkedin.assertion.AssertionResult gmsResult) {
+    return INSTANCE.mapAssertionResult(context, gmsResult);
+  }
+
   @Override
   public com.linkedin.datahub.graphql.generated.AssertionRunEvent apply(
       @Nullable QueryContext context, @Nonnull final EnvelopedAspect envelopedAspect) {
@@ -38,7 +41,11 @@ public class AssertionRunEventMapper
     final com.linkedin.datahub.graphql.generated.AssertionRunEvent assertionRunEvent =
         new com.linkedin.datahub.graphql.generated.AssertionRunEvent();
 
-    assertionRunEvent.setLastObservedMillis(envelopedAspect.getSystemMetadata().getLastObserved());
+    if (envelopedAspect.hasSystemMetadata()
+        && envelopedAspect.getSystemMetadata().hasLastObserved()) {
+      assertionRunEvent.setLastObservedMillis(
+          envelopedAspect.getSystemMetadata().getLastObserved());
+    }
     assertionRunEvent.setTimestampMillis(gmsAssertionRunEvent.getTimestampMillis());
     assertionRunEvent.setAssertionUrn(gmsAssertionRunEvent.getAssertionUrn().toString());
     assertionRunEvent.setAsserteeUrn(gmsAssertionRunEvent.getAsserteeUrn().toString());
@@ -77,6 +84,24 @@ public class AssertionRunEventMapper
     datasetAssertionResult.setMissingCount(gmsResult.getMissingCount());
     datasetAssertionResult.setUnexpectedCount(gmsResult.getUnexpectedCount());
     datasetAssertionResult.setExternalUrl(gmsResult.getExternalUrl());
+
+    if (gmsResult.hasAssertion()) {
+      AssertionInfo datasetAssertionInfo =
+          AssertionMapper.mapAssertionInfo(context, gmsResult.getAssertion());
+      datasetAssertionResult.setAssertion(datasetAssertionInfo);
+    }
+
+    if (gmsResult.hasParameters()) {
+      AssertionEvaluationParameters datasetAssertionEvaluationParameters =
+          MonitorMapper.mapAssertionEvaluationParameters(gmsResult.getParameters());
+      datasetAssertionResult.setParameters(datasetAssertionEvaluationParameters);
+    }
+
+    if (gmsResult.hasAssertionInferenceDetails()) {
+      datasetAssertionResult.setAssertionInferenceDetails(
+          AssertionMapper.mapInferenceDetails(context, gmsResult.getAssertionInferenceDetails()));
+    }
+
     if (gmsResult.hasType()) {
       AssertionResultType assertionType = AssertionResultType.valueOf(gmsResult.getType().name());
       datasetAssertionResult.setType(assertionType);
@@ -87,7 +112,35 @@ public class AssertionRunEventMapper
           StringMapMapper.map(context, gmsResult.getNativeResults()));
     }
 
+    if (gmsResult.hasError()) {
+      datasetAssertionResult.setError(mapAssertionResultError(context, gmsResult.getError()));
+    }
+
+    if (gmsResult.hasMetric()) {
+      datasetAssertionResult.setMetric(mapAssertionMetric(gmsResult.getMetric()));
+    }
+
     return datasetAssertionResult;
+  }
+
+  private AssertionMetric mapAssertionMetric(com.linkedin.assertion.AssertionMetric gmsMetric) {
+    AssertionMetric datasetAssertionMetric = new AssertionMetric();
+    datasetAssertionMetric.setTimestampMillis(gmsMetric.getTimestampMs());
+    datasetAssertionMetric.setValue(gmsMetric.getValue());
+    return datasetAssertionMetric;
+  }
+
+  private AssertionResultError mapAssertionResultError(
+      @Nullable final QueryContext context, com.linkedin.assertion.AssertionResultError gmsResult) {
+    AssertionResultError datasetAssertionResultError = new AssertionResultError();
+    datasetAssertionResultError.setType(
+        AssertionResultErrorType.valueOf(gmsResult.getType().name()));
+
+    if (gmsResult.hasProperties()) {
+      datasetAssertionResultError.setProperties(
+          StringMapMapper.map(context, gmsResult.getProperties()));
+    }
+    return datasetAssertionResultError;
   }
 
   private BatchSpec mapBatchSpec(

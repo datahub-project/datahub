@@ -1,6 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
-import { Button } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -12,6 +10,7 @@ import { updateListDomainsCache } from '@app/domain/utils';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '@app/onboarding/config/DomainsOnboardingConfig';
+import { Button } from '@src/alchemy-components';
 
 const PageWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -44,12 +43,12 @@ export default function ManageDomainsPageV2() {
             <Header>
                 <DomainsTitle />
                 <Button
-                    type="primary"
                     id={DOMAINS_CREATE_DOMAIN_ID}
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="domains-new-domain-button"
+                    icon={{ icon: 'Add' }}
                 >
-                    <PlusOutlined /> New Domain
+                    Create
                 </Button>
             </Header>
             <RootDomains setIsCreatingDomain={setIsCreatingDomain} />

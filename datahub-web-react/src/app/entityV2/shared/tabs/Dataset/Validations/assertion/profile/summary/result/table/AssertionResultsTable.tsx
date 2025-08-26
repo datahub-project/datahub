@@ -7,10 +7,11 @@ import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validation
 import { NoResultsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/NoResultsSummary';
 import { AssertionResultsLoadingItems } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsLoadingItems';
 import { AssertionResultsTableItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsTableItem';
+import { useAssertionPredictionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/utils.saas';
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 import { useGetAssertionRunsQuery } from '@graphql/assertion.generated';
-import { Assertion, AssertionResultType, AssertionRunEvent } from '@types';
+import { Assertion, AssertionResultType, AssertionRunEvent, Monitor } from '@types';
 
 const Container = styled.div`
     margin-top: 20px;
@@ -30,24 +31,27 @@ const ShowMoreButton = styled.div`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
+    openAssertionNote: () => void;
 };
 
 const DEFAULT_FETCH_COUNT = 25;
-const DEFAULT_VISIBLE_COUNT = 3;
+const INITIAL_VISIBLE_COUNT = 3;
 
-export const AssertionResultsTable = ({ assertion }: Props) => {
-    const [count, setCount] = useState(DEFAULT_FETCH_COUNT);
-    const [visible, setVisible] = useState(DEFAULT_VISIBLE_COUNT);
-    const { data, loading } = useGetAssertionRunsQuery({
+export const AssertionResultsTable = ({ assertion, monitor, openAssertionNote }: Props) => {
+    const [count, setCount] = useState(INITIAL_VISIBLE_COUNT);
+    const { data, loading, refetch } = useGetAssertionRunsQuery({
         variables: {
             assertionUrn: assertion.urn,
             limit: count,
         },
         fetchPolicy: 'cache-first',
     });
-    const visibleRuns = data?.assertion?.runEvents?.runEvents?.slice(0, visible) || [];
+    const visibleRuns = data?.assertion?.runEvents?.runEvents || [];
     const total = data?.assertion?.runEvents?.total || 0;
-    const showMore = visible < total;
+    const showMore = count <= total;
+
+    const maybeAssertionPredictionItem = useAssertionPredictionItem(assertion, monitor);
 
     const timelineItems = visibleRuns.map((run) => {
         return {
@@ -57,7 +61,15 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
                 </div>
             ),
             color: getResultColor(run.result?.type as AssertionResultType),
-            children: <AssertionResultsTableItem assertion={assertion} run={run as AssertionRunEvent} />,
+            children: (
+                <AssertionResultsTableItem
+                    assertion={assertion}
+                    monitor={monitor}
+                    run={run as AssertionRunEvent}
+                    refetchResults={refetch}
+                    openAssertionNote={openAssertionNote}
+                />
+            ),
             key: run.timestampMillis,
         };
     });
@@ -69,20 +81,33 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
     return (
         <Container>
             <StyledTimeline>
-                {(loading && <AssertionResultsLoadingItems />) ||
-                    timelineItems.map((item) => (
-                        <Timeline.Item key={item.key} dot={item.dot} color={item.color}>
-                            {item.children}
-                        </Timeline.Item>
-                    ))}
+                {loading && !timelineItems.length ? (
+                    <AssertionResultsLoadingItems />
+                ) : (
+                    [
+                        // SaaS only //
+                        maybeAssertionPredictionItem ? (
+                            <Timeline.Item
+                                key={maybeAssertionPredictionItem.key}
+                                dot={maybeAssertionPredictionItem.dot}
+                                color={maybeAssertionPredictionItem.color}
+                            >
+                                {maybeAssertionPredictionItem.children}
+                            </Timeline.Item>
+                        ) : null,
+                        // end SaaS only //
+                        timelineItems.map((item) => (
+                            <Timeline.Item key={item.key} dot={item.dot} color={item.color}>
+                                {item.children}
+                            </Timeline.Item>
+                        )),
+                    ]
+                )}
             </StyledTimeline>
             {showMore && (
                 <ShowMoreButton
                     onClick={() => {
-                        if (visible + DEFAULT_VISIBLE_COUNT > count) {
-                            setCount(count + DEFAULT_FETCH_COUNT);
-                        }
-                        setVisible(visible + DEFAULT_VISIBLE_COUNT);
+                        setCount((currentCount) => currentCount + DEFAULT_FETCH_COUNT);
                     }}
                 >
                     Show more

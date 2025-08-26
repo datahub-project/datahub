@@ -350,6 +350,66 @@ type EntityPrivileges {
   canEditSchemaFieldDescription: Boolean
 
   """
+  Whether or not a user can update a schema field structured property for an asset
+  """
+  canEditSchemaFieldStructuredProperties: Boolean
+
+  """
+  Whether or not a user can propose a description for an asset
+  """
+  canProposeDescription: Boolean
+
+  """
+  Whether or not a user can propose tags
+  """
+  canProposeTags: Boolean
+
+  """
+  Whether or not a user can propose glossary terms
+  """
+  canProposeGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can propose structured properties
+  """
+  canProposeStructuredProperties: Boolean
+
+  """
+  Whether or not a user can propose domains
+  """
+  canProposeDomains: Boolean
+
+  """
+  Whether or not a user can propose owners
+  """
+  canProposeOwners: Boolean
+
+  """
+  Whether or not a user can propose a schema field description for an asset
+  """
+  canProposeSchemaFieldDescription: Boolean
+
+  """
+  Whether or not a user can propose a schema field tags for an asset
+  """
+  canProposeSchemaFieldTags: Boolean
+
+  """
+  Whether or not a user can propose a schema field glossary terms for an asset
+  """
+  canProposeSchemaFieldGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can propose a schema field structured property for an asset
+  """
+  canProposeSchemaFieldStructuredProperties: Boolean
+
+  """
+  Whether or not a user can share this entity with another instance
+  """
+  canShareEntity: Boolean
+
+  """
   Whether the user can view dataset usage stats
   """
   canViewDatasetUsage: Boolean
@@ -363,6 +423,41 @@ type EntityPrivileges {
   Whether the user can view dataset operations
   """
   canViewDatasetOperations: Boolean
+
+  """
+  Whether the user can edit data contacts
+  """
+  canEditDataContract: Boolean
+
+  """
+  Whether the user can propose data contacts
+  """
+  canProposeDataContract: Boolean
+}
+
+"""
+Privileges object for Ingestion sources
+"""
+type IngestionSourcePrivileges {
+  """
+  Whether the user can view Ingestion source
+  """
+  canView: Boolean
+
+  """
+  Whether the user can edit Ingestion source
+  """
+  canEdit: Boolean
+
+  """
+  Whether the user can delete the Ingestion source
+  """
+  canDelete: Boolean
+
+  """
+  Whether the user can execute the Ingestion source
+  """
+  canExecute: Boolean
 }
 
 """

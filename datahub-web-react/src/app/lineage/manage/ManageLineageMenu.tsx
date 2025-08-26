@@ -1,5 +1,6 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Popover, Tooltip } from 'antd';
+import { Popover, Tooltip } from '@components';
+import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -12,8 +13,8 @@ import { EntityType } from '@types';
 
 import FocusIcon from '@images/focus.svg';
 
-const DROPDOWN_Z_INDEX = 1;
-const POPOVER_Z_INDEX = 2;
+const DROPDOWN_Z_INDEX = 100;
+const POPOVER_Z_INDEX = 101;
 const UNAUTHORIZED_TEXT = "You aren't authorized to edit lineage for this entity.";
 
 const StyledImage = styled.img`

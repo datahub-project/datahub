@@ -1,21 +1,24 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import static com.linkedin.metadata.search.api.SearchDocFieldFetchConfig.*;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.ALIAS_FIELD_TYPE;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder.PATH;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
-import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -39,15 +42,21 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterSearchType;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
+import com.linkedin.metadata.search.utils.ESPredicateUtils;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -67,6 +76,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.unit.TimeValue;
@@ -86,7 +96,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
+  private static final String URN_FILTER = "urn";
+  private static final String[] URN_FIELD = new String[] {"urn"};
   private final List<EntitySpec> entitySpecs;
+  private final List<String> entityNames;
   @Getter private final Set<String> defaultQueryFieldNames;
   @Nonnull private final HighlightBuilder highlights;
 
@@ -95,6 +108,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
   private final CustomizedQueryHandler customizedQueryHandler;
+  private final Map<PathSpec, String> searchableFieldPaths;
+
   private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   private SearchRequestHandler(
@@ -121,6 +136,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfig) {
     this.entitySpecs = entitySpecs;
+    this.entityNames = entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList());
     Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations =
         getSearchableAnnotations();
     List<SearchableAnnotation> annotations =
@@ -135,6 +151,19 @@ public class SearchRequestHandler extends BaseRequestHandler {
     this.searchServiceConfig = searchServiceConfig;
     this.searchableFieldTypes =
         buildSearchableFieldTypes(opContext.getEntityRegistry(), entitySpecs);
+    searchableFieldPaths =
+        this.entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getSearchableFieldPathMap().entrySet().stream())
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    Map.Entry::getValue,
+                    (s1, s2) -> {
+                      if (!StringUtils.equals(s1, s2)) {
+                        log.error("Merging values {} and {}, field paths should be unique", s1, s2);
+                      }
+                      return s1;
+                    }));
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
@@ -208,18 +237,20 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
-    return getFilterQuery(opContext, filter, searchableFieldTypes, queryFilterRewriteChain);
+    return getFilterQuery(
+        opContext, this.entityNames, filter, searchableFieldTypes, queryFilterRewriteChain);
   }
 
   public static BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityNames,
       @Nullable Filter filter,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
             filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
-    return applyDefaultSearchFilters(opContext, filter, filterQuery);
+    return applyDefaultSearchFilters(opContext, entityNames, filter, filterQuery);
   }
 
   /**
@@ -247,14 +278,39 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull List<String> facets) {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    SearchRequest searchRequest = new SearchRequest();
-    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
 
+    SearchRequest searchRequest = new SearchRequest();
+    return buildSearchRequestPageAgnostic(
+        opContext,
+        searchRequest,
+        searchSourceBuilder,
+        input,
+        searchFlags,
+        filterQuery,
+        facets,
+        sortCriteria);
+  }
+
+  private SearchSourceBuilder constructSearchSourceBuilder(int from, @Nullable Integer size) {
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
+    searchSourceBuilder.fetchSource(DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(new String[0]), null);
+    return searchSourceBuilder;
+  }
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+  /** Used for both searchAfter and from -> size requests */
+  private SearchRequest buildSearchRequestPageAgnostic(
+      OperationContext opContext,
+      final SearchRequest searchRequest,
+      final SearchSourceBuilder searchSourceBuilder,
+      final String input,
+      final SearchFlags searchFlags,
+      final BoolQueryBuilder filterQuery,
+      @Nonnull final List<String> facets,
+      final List<SortCriterion> sortCriteria) {
     searchSourceBuilder.query(
         QueryBuilders.boolQuery()
             .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
@@ -278,7 +334,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
-
     return searchRequest;
   }
 
@@ -305,8 +360,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String pitId,
       @Nullable String keepAlive,
       @Nullable Integer size,
-      @Nonnull List<String> facets) {
+      @Nonnull List<String> facets,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     SearchRequest searchRequest = new PITAwareSearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -314,17 +371,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    searchSourceBuilder.fetchSource("urn", null);
 
-    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
-    searchSourceBuilder.query(
-        QueryBuilders.boolQuery()
-            .must(getQuery(opContext, input, Boolean.TRUE.equals(searchFlags.isFulltext())))
-            .filter(filterQuery));
-    if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
-      aggregationQueryBuilder
-          .getAggregations(opContext, facets)
-          .forEach(searchSourceBuilder::aggregation);
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
     }
     if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       // Apply custom highlight configuration
@@ -336,7 +385,18 @@ public class SearchRequestHandler extends BaseRequestHandler {
     log.debug("Search request is: " + searchRequest);
     searchRequest.indicesOptions(null);
 
-    return searchRequest;
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
+
+    return buildSearchRequestPageAgnostic(
+            opContext,
+            searchRequest,
+            searchSourceBuilder,
+            input,
+            searchFlags,
+            filterQuery,
+            facets,
+            sortCriteria)
+        .indicesOptions(null);
   }
 
   /**
@@ -364,6 +424,44 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchSourceBuilder.from(from).size(ConfigUtils.applyLimit(searchServiceConfig, size));
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
+
+    return searchRequest;
+  }
+
+  /**
+   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion
+   * to be applied to search results with scrolling capabilities, uses new SearchAfter instead of
+   * legacy scroll
+   *
+   * @param filters {@link Filter} list of conditions with fields and values
+   * @param sortCriteria list of {@link SortCriterion} to be applied to the search results
+   * @param size the number of search hits to return
+   * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
+   * @return {@link SearchRequest} that contains the filtered query
+   */
+  @Nonnull
+  public SearchRequest getSearchAfterRequest(
+      @Nonnull OperationContext opContext,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      @Nullable Integer size,
+      @Nullable String keepAliveDuration,
+      @Nullable String pitId,
+      @Nullable Object[] sort,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+    SearchRequest searchRequest = new SearchRequest();
+
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.query(filterQuery);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
+    }
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    searchRequest.source(searchSourceBuilder);
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAliveDuration);
 
     return searchRequest;
   }
@@ -468,7 +566,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         new ScrollResult()
             .setEntities(new SearchEntityArray(resultList))
             .setMetadata(searchResultMetadata)
-            .setPageSize(size)
+            .setPageSize(Math.min(size, totalCount))
             .setNumEntities(totalCount);
 
     if (nextScrollId != null) {
@@ -567,16 +665,36 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   private Map<String, Double> extractFeatures(@Nonnull SearchHit searchHit) {
-    return ImmutableMap.of(
-        Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
+    Map<String, Double> features = new HashMap<>();
+    features.put(Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
+    Optional.ofNullable(searchHit.getSourceAsMap().get("usageCountLast30Days"))
+        .ifPresent(
+            value ->
+                features.put(Features.Name.QUERY_COUNT.toString(), ((Number) value).doubleValue()));
+    return features;
   }
 
-  private SearchEntity getResult(@Nonnull SearchHit hit) {
+  private static StringMap getStringMap(
+      @Nonnull ObjectMapper objectMapper, Map<String, Object> sourceAsMap) {
+    StringMap stringMap = new StringMap();
+    sourceAsMap.forEach(
+        (key, value) -> {
+          try {
+            stringMap.put(key, objectMapper.writeValueAsString(value));
+          } catch (IOException e) {
+            log.warn("Failed to serialize extra field: " + key, e);
+          }
+        });
+    return stringMap;
+  }
+
+  private SearchEntity getResult(@Nonnull ObjectMapper objectMapper, @Nonnull SearchHit hit) {
     return new SearchEntity()
         .setEntity(getUrnFromSearchHit(hit))
         .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
         .setScore(hit.getScore())
-        .setFeatures(new DoubleMap(extractFeatures(hit)));
+        .setFeatures(new DoubleMap(extractFeatures(hit)))
+        .setExtraFields(getStringMap(objectMapper, hit.getSourceAsMap()));
   }
 
   /**
@@ -591,7 +709,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return ESAccessControlUtil.restrictSearchResult(
         opContext,
         Arrays.stream(searchResponse.getHits().getHits())
-            .map(this::getResult)
+            .map(r -> getResult(opContext.getObjectMapper(), r))
             .collect(Collectors.toList()));
   }
 
@@ -774,4 +892,215 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
     return Collections.emptySet();
   }
+
+  // SAAS ONLY - Predicate support for filters
+
+  /**
+   * Constructs the search query based on the query request.
+   *
+   * <p>TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or
+   * later
+   *
+   * @param input the search input text
+   * @param predicate the search filter in predicate form
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a valid search request
+   */
+  @Nonnull
+  @WithSpan
+  public SearchRequest getPredicateSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);
+    SearchSourceBuilder searchSourceBuilder = constructSearchSourceBuilder(from, size);
+
+    SearchRequest searchRequest = new SearchRequest();
+    return buildSearchRequestPageAgnostic(
+        opContext,
+        searchRequest,
+        searchSourceBuilder,
+        input,
+        searchFlags,
+        filterQuery,
+        facets,
+        sortCriteria);
+  }
+
+  public BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext, @Nullable Predicate predicate) {
+    BoolQueryBuilder filterQuery =
+        ESPredicateUtils.buildFilterQuery(
+            predicate,
+            false,
+            searchableFieldPaths,
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain);
+
+    filterQuery =
+        ESPredicateUtils.applyDefaultSearchFilters(
+            opContext, this.entityNames, predicate, filterQuery);
+
+    filterQuery =
+        queryFilterRewriteChain.rewrite(
+            opContext,
+            QueryFilterRewriterContext.builder()
+                .searchFlags(opContext.getSearchContext().getSearchFlags())
+                .queryFilterRewriteChain(queryFilterRewriteChain)
+                .searchType(QueryFilterRewriterSearchType.PREDICATE)
+                .build(false),
+            filterQuery);
+
+    return filterQuery;
+  }
+
+  @WithSpan
+  public SearchResult extractPredicateResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Predicate predicate,
+      int from,
+      @Nullable Integer size) {
+    int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+    SearchResultMetadata searchResultMetadata =
+        extractPredicateSearchResultMetadata(opContext, searchResponse, predicate);
+
+    return new SearchResult()
+        .setEntities(new SearchEntityArray(resultList))
+        .setMetadata(searchResultMetadata)
+        .setFrom(from)
+        .setPageSize(ConfigUtils.applyLimit(searchServiceConfig, size))
+        .setNumEntities(totalCount);
+  }
+
+  /**
+   * Extracts SearchResultMetadata section.
+   *
+   * @param searchResponse the raw {@link SearchResponse} as obtained from the search engine
+   * @param predicate the provided predicate to use with Elasticsearch
+   * @return {@link SearchResultMetadata} with aggregation and list of urns obtained from {@link
+   *     SearchResponse}
+   */
+  @Nonnull
+  private SearchResultMetadata extractPredicateSearchResultMetadata(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nullable Predicate predicate) {
+    final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    final SearchResultMetadata searchResultMetadata =
+        new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
+
+    if (Boolean.FALSE.equals(searchFlags.isSkipAggregates())) {
+      final List<AggregationMetadata> aggregationMetadataList =
+          aggregationQueryBuilder.extractPredicateAggregationMetadata(
+              searchResponse, predicate, opContext, searchableFieldPaths, searchableFieldTypes);
+      searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
+    }
+
+    final List<SearchSuggestion> searchSuggestions = extractSearchSuggestions(searchResponse);
+    searchResultMetadata.setSuggestions(new SearchSuggestionArray(searchSuggestions));
+
+    return searchResultMetadata;
+  }
+
+  @Nonnull
+  @WithSpan
+  public SearchRequest getPredicateSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Predicate predicate,
+      List<SortCriterion> sortCriteria,
+      @Nullable Object[] sort,
+      @Nullable String pitId,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      @Nonnull List<String> facets,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, predicate);
+    SearchRequest searchRequest = new PITAwareSearchRequest();
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
+
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
+    }
+    if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
+      searchSourceBuilder.highlighter(highlights);
+    }
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    searchRequest.source(searchSourceBuilder);
+    log.debug("Search request is: " + searchRequest);
+    searchRequest.indicesOptions(null);
+
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
+
+    return buildSearchRequestPageAgnostic(
+            opContext,
+            searchRequest,
+            searchSourceBuilder,
+            input,
+            searchFlags,
+            filterQuery,
+            facets,
+            sortCriteria)
+        .indicesOptions(null);
+  }
+
+  @WithSpan
+  public ScrollResult extractPredicateScrollResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Predicate predicate,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      boolean supportsPointInTime) {
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
+    int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+    SearchResultMetadata searchResultMetadata =
+        extractPredicateSearchResultMetadata(opContext, searchResponse, predicate);
+    SearchHit[] searchHits = searchResponse.getHits().getHits();
+    // Only return next scroll ID if there are more results, indicated by full size results
+    String nextScrollId = null;
+    if (searchHits.length == size) {
+      Object[] sort = searchHits[searchHits.length - 1].getSortValues();
+      long expirationTimeMs = 0L;
+      if (keepAlive != null && supportsPointInTime) {
+        expirationTimeMs =
+            TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
+                + System.currentTimeMillis();
+      }
+      nextScrollId =
+          new SearchAfterWrapper(sort, searchResponse.pointInTimeId(), expirationTimeMs)
+              .toScrollId();
+    }
+
+    ScrollResult scrollResult =
+        new ScrollResult()
+            .setEntities(new SearchEntityArray(resultList))
+            .setMetadata(searchResultMetadata)
+            .setPageSize(Math.min(size, totalCount))
+            .setNumEntities(totalCount);
+
+    if (nextScrollId != null) {
+      scrollResult.setScrollId(nextScrollId);
+    }
+    return scrollResult;
+  }
+
+  // END SAAS ONLY -- Add methods prior to this section
 }

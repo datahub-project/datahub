@@ -32,10 +32,15 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class SpringWebConfig implements WebMvcConfigurer {
   private static final String LEGACY_VERSION = "3.0.1";
   private static final Set<String> OPERATIONS_PACKAGES =
-      Set.of("io.datahubproject.openapi.operations", "io.datahubproject.openapi.health");
+      Set.of(
+          "io.datahubproject.openapi.operations",
+          "io.datahubproject.openapi.health",
+          "io.datahubproject.openapi.tests");
   private static final Set<String> V1_PACKAGES = Set.of("io.datahubproject.openapi.v1");
   private static final Set<String> V2_PACKAGES = Set.of("io.datahubproject.openapi.v2");
   private static final Set<String> V3_PACKAGES = Set.of("io.datahubproject.openapi.v3");
+  private static final Set<String> METADATA_TESTS_PACKAGES =
+      Set.of("io.datahubproject.openapi.metadatatests");
 
   private static final Set<String> OPENLINEAGE_PACKAGES =
       Set.of("io.datahubproject.openapi.openlineage");
@@ -110,6 +115,16 @@ public class SpringWebConfig implements WebMvcConfigurer {
         .addOpenApiCustomizer(
             openApi -> openApi.specVersion(SpecVersion.V30).openapi(LEGACY_VERSION))
         .packagesToScan(EVENTS_PACKAGES.toArray(String[]::new))
+        .build();
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "metadataTests.enabled", havingValue = "true")
+  public GroupedOpenApi metadataTestsOpenApiGroup() {
+    return GroupedOpenApi.builder()
+        .group("60-metadatatests")
+        .displayName("Metadata Tests")
+        .packagesToScan(METADATA_TESTS_PACKAGES.toArray(String[]::new))
         .build();
   }
 

@@ -3,37 +3,22 @@ import React from 'react';
 import styled from 'styled-components';
 
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
-import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/CompletedPromptAuditStamp';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import BulkSubmissionButton from '@app/entity/shared/entityForm/prompts/BulkSubmissionButton';
+import ColumnSelector from '@app/entity/shared/entityForm/prompts/ColumnSelector';
+import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/CompletedPromptAuditStamp';
+import PromptHeader from '@app/entity/shared/entityForm/prompts/PromptHeader';
 import useStructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/useStructuredPropertyPrompt';
+import { ColumnSelectorProps } from '@app/entity/shared/entityForm/prompts/types';
 import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
 import { applyOpacity } from '@app/shared/styleUtils';
 
 import { FormPrompt, SchemaField, SubmitFormPromptInput } from '@types';
 
-const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
+const PromptWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     height: min-content;
-    ${(props) => props.displayBulkStyles && `color: white;`}
-`;
-
-const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
-    font-size: 16px;
-    font-weight: 600;
-    line-height: 20px;
-    ${(props) => props.displayBulkStyles && `font-size: 20px;`}
-`;
-
-const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
-    font-size: 12px;
-    margin-left: 4px;
-    color: #a8071a;
-    ${(props) =>
-        props.displayBulkStyles &&
-        `
-        color: #FFCCC7;
-        margin-left: 8px;
-    `}
 `;
 
 export const PromptSubTitle = styled.div`
@@ -67,6 +52,7 @@ interface Props {
     submitResponse: (input: SubmitFormPromptInput, onSuccess: () => void) => void;
     field?: SchemaField;
     optimisticCompletedTimestamp?: number | null;
+    columnSelectorProps?: ColumnSelectorProps;
 }
 
 export default function StructuredPropertyPrompt({
@@ -75,6 +61,7 @@ export default function StructuredPropertyPrompt({
     submitResponse,
     field,
     optimisticCompletedTimestamp,
+    columnSelectorProps,
 }: Props) {
     const {
         hasEdited,
@@ -84,6 +71,12 @@ export default function StructuredPropertyPrompt({
         submitStructuredPropertyResponse,
         updateSelectedValues,
     } = useStructuredPropertyPrompt({ prompt, submitResponse, field });
+
+    const {
+        prompt: { displayBulkPromptStyles },
+        entity: { selectedEntities },
+    } = useEntityFormContext();
+
     const { isComplete, completedByName, completedByTime } = usePromptCompletionInfo({
         prompt,
         field,
@@ -94,19 +87,19 @@ export default function StructuredPropertyPrompt({
     if (!structuredProperty) return null;
 
     const { displayName, description } = structuredProperty.definition;
-    const showSaveButton = hasEdited && selectedValues.length > 0;
-    const showConfirmButton = !hasEdited && !isComplete && selectedValues.length > 0;
+    const showSaveButton = !displayBulkPromptStyles && hasEdited && selectedValues.length > 0;
+    const showConfirmButton = !displayBulkPromptStyles && !hasEdited && !isComplete && selectedValues.length > 0;
 
     return (
         <>
             <PromptWrapper>
                 <PromptInputWrapper>
-                    <PromptTitle>
-                        {promptNumber !== undefined && <>{promptNumber}. </>}
-                        {displayName}
-                        {prompt.required && <RequiredText>required</RequiredText>}
-                    </PromptTitle>
-                    {description && <PromptSubTitle>{description}</PromptSubTitle>}
+                    <PromptHeader
+                        title={prompt.title || displayName || ''}
+                        description={prompt.description || description}
+                        promptNumber={promptNumber}
+                        required={prompt.required}
+                    />
                     <InputSection>
                         <StructuredPropertyInput
                             structuredProperty={structuredProperty}
@@ -115,9 +108,18 @@ export default function StructuredPropertyPrompt({
                             toggleSelectedValue={toggleSelectedValue}
                             updateSelectedValues={updateSelectedValues}
                         />
+                        {displayBulkPromptStyles && (
+                            <BulkSubmissionButton
+                                isDisabled={!selectedValues.length || !selectedEntities.length}
+                                submitResponse={submitStructuredPropertyResponse}
+                            />
+                        )}
                     </InputSection>
+                    {field && columnSelectorProps && (showSaveButton || showConfirmButton) && (
+                        <ColumnSelector field={field} {...columnSelectorProps} />
+                    )}
                 </PromptInputWrapper>
-                {isComplete && !hasEdited && (
+                {isComplete && !hasEdited && !displayBulkPromptStyles && (
                     <CompletedPromptAuditStamp completedByName={completedByName} completedByTime={completedByTime} />
                 )}
             </PromptWrapper>

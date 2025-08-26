@@ -21,11 +21,17 @@ const bodyStyle = {
 
 type DescriptionPreviewModalProps = {
     description: string;
+    isInferred?: boolean;
     editMode: boolean;
     onClose: (showConfirm?: boolean) => void;
 };
 
-export const DescriptionPreviewModal = ({ description, editMode, onClose }: DescriptionPreviewModalProps) => {
+export const DescriptionPreviewModal = ({
+    description,
+    isInferred,
+    editMode,
+    onClose,
+}: DescriptionPreviewModalProps) => {
     const routeToTab = useRouteToTab();
 
     const onConfirmClose = () => {
@@ -66,6 +72,7 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
                 )) || (
                     <DescriptionPreview
                         description={description}
+                        isInferred={isInferred}
                         onEdit={() =>
                             routeToTab({ tabName: 'Documentation', tabParams: { editing: true, modal: true } })
                         }

@@ -9,6 +9,7 @@ import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sideb
 import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
@@ -121,6 +122,9 @@ export class ContainerEntity implements Entity<Container> {
             component: SidebarAboutSection,
         },
         {
+            component: SidebarMetadataSection,
+        },
+        {
             component: SidebarOwnerSection,
         },
         {
@@ -152,7 +156,7 @@ export class ContainerEntity implements Entity<Container> {
                 urn={data.urn}
                 name={this.displayName(data)}
                 platformName={data.platform.properties?.displayName || capitalizeFirstLetterOnly(data.platform.name)}
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data.platform?.properties?.logoUrl}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 subTypes={data.subTypes}
@@ -221,6 +225,7 @@ export class ContainerEntity implements Entity<Container> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
+            EntityCapabilityType.TEST,
         ]);
     };
 

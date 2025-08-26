@@ -65,6 +65,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                             info: {
                                 description: stagedDescription,
                             },
+                            assetOrigin: null,
                         });
                     }
                 })
@@ -134,6 +135,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         hasFeedback
                     >
                         <Input
+                            data-testid="modal-group-name-input"
                             placeholder="A name for your group"
                             value={stagedName}
                             onChange={(event) => setStagedName(event.target.value)}
@@ -145,7 +147,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     <Form.Item name="description" rules={[{ whitespace: true }]} hasFeedback>
                         {/* Styled editor for the group description */}
                         <div ref={styledEditorRef}>
-                            <StyledEditor doNotFocus content={stagedDescription} onChange={updateDescription} />
+                            <StyledEditor
+                                doNotFocus
+                                dataTestId="modal-group-description-input"
+                                content={stagedDescription}
+                                onChange={updateDescription}
+                            />
                         </div>
                     </Form.Item>
                 </Form.Item>
@@ -159,6 +166,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                                 creation.
                             </Typography.Paragraph>
                             <Form.Item
+                                data-testid="group-id-input"
                                 name="groupId"
                                 rules={[
                                     () => ({

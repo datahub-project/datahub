@@ -1,0 +1,5 @@
+query getTotalDatasets($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        ...searchResults
+    }
+}

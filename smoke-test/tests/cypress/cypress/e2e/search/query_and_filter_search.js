@@ -4,7 +4,18 @@ const searchToExecute = (value) => {
 };
 
 const selectFilteredEntity = (textToClick, entity, url) => {
-  cy.get(`[data-testid=filter-dropdown-${textToClick}]`).click({ force: true });
+  // check if filter dropdown exists, if not, go into more filters
+  cy.get("body").then(($body) => {
+    if ($body.find(`[data-testid=filter-dropdown-${textToClick}]`).length > 0) {
+      cy.get(`[data-testid=filter-dropdown-${textToClick}]`).click({
+        force: true,
+      });
+    } else {
+      cy.get(`[data-testid=more-filters-dropdown]`).click({ force: true });
+      cy.get(`[data-testid=more-filter-${textToClick}]`).click({ force: true });
+    }
+  });
+
   cy.get(`[data-testid="filter-option-${entity}"]`).click({ force: true });
   cy.get("[data-testid=update-filters]").click({ force: true });
   cy.url().should("include", `${url}`);
@@ -87,7 +98,7 @@ describe("auto-complete dropdown, filter plus query search test", () => {
   it("Verify the 'filter by tag' section + query", () => {
     // CypressFeatureTag
     searchToExecute("*");
-    selectFilteredEntity("Tag", "CypressFeatureTag", "filter_tags");
+    selectFilteredEntity("Tagged-With", "CypressFeatureTag", "filter_tags");
     clickAndVerifyEntity("Tags");
     cy.mouseover('[data-testid="tag-CypressFeatureTag"]');
     verifyFilteredEntity("CypressFeatureTag");

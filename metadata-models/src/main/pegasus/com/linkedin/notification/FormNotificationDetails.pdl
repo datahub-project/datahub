@@ -1,0 +1,18 @@
+namespace com.linkedin.notification
+
+import com.linkedin.common.Urn
+
+/**
+ * Info about all of the notifications a user has received for a given form
+ */
+record FormNotificationDetails {
+  /**
+   * The urn of the form that these notification details are on behalf of
+   */
+  formUrn: Urn
+
+  /**
+   * The list of details per notification sent on behalf of this form
+   */
+  notificationLog: array[FormNotificationEntry] = []
+}

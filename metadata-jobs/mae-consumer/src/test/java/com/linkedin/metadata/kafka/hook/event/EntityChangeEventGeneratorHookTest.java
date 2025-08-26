@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook.event;
 
+import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.SchemaFieldUtils.generateSchemaFieldUrn;
 import static org.mockito.ArgumentMatchers.*;
@@ -7,6 +8,13 @@ import static org.mockito.Mockito.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.actionrequest.ActionRequestInfo;
+import com.linkedin.actionrequest.ActionRequestParams;
+import com.linkedin.actionrequest.ActionRequestStatus;
+import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
+import com.linkedin.actionrequest.DescriptionProposal;
+import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
@@ -29,6 +37,9 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.container.ContainerProperties;
+import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
@@ -45,6 +56,12 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentSource;
+import com.linkedin.incident.IncidentSourceType;
+import com.linkedin.incident.IncidentState;
+import com.linkedin.incident.IncidentStatus;
+import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -62,7 +79,9 @@ import com.linkedin.schema.*;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -77,6 +96,8 @@ public class EntityChangeEventGeneratorHookTest {
 
   private static final String TEST_DATASET_URN =
       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset,PROD)";
+  private static final String TEST_CONTAINER_URN =
+      "urn:li:container:ea9bf06119088957cda7146cd6f37eb7";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   private static final String TEST_ASSERTION_URN = "urn:li:assertion:123";
   private static final String TEST_RUN_ID = "runId";
@@ -87,6 +108,18 @@ public class EntityChangeEventGeneratorHookTest {
   private static final String TEST_DATA_FLOW_URN = "urn:li:dataFlow:flow";
   private static final String TEST_DATA_JOB_URN = "urn:li:dataJob:job";
   private Urn actorUrn;
+
+  // SaaS only
+  private static final String TEST_ACTION_REQUEST_URN = "urn:li:actionRequest:123";
+  private static final String TEST_GLOSSARY_TERM_URN = "urn:li:glossaryTerm:123";
+  private static final String TEST_TAG_URN = "urn:li:tag:123";
+  private static final String TEST_GROUP_URN = "urn:li:corpGroup:123";
+  private static final String TEST_PARENT_NODE_URN = "urn:li:glossaryNode:123";
+  private static final String TEST_GLOSSARY_NODE_NAME = "Classification";
+  private static final String TEST_GLOSSARY_NODE_DESCRIPTION = "A classification of data";
+  private static final String TEST_GLOSSARY_TERM_NAME = "PII";
+  private static final String TEST_GLOSSARY_TERM_DESCRIPTION =
+      "Personally Identifiable Information";
 
   private SystemEntityClient _mockClient;
   private EntityChangeEventGeneratorHook _entityChangeEventHook;
@@ -128,7 +161,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.ADD,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString()),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -160,7 +193,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.REMOVE,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString()),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -196,7 +229,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.ADD,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
+            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -232,7 +265,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.GLOSSARY_TERM,
             ChangeOperation.REMOVE,
             glossaryTermUrn.toString(),
-            ImmutableMap.of("termUrn", glossaryTermUrn.toString()),
+            ImmutableMap.of("termUrn", glossaryTermUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -389,6 +422,7 @@ public class EntityChangeEventGeneratorHookTest {
     Deprecation newDeprecation = new Deprecation();
     newDeprecation.setDeprecated(true);
     newDeprecation.setNote("Test Note");
+    newDeprecation.setDecommissionTime(EVENT_TIME);
     newDeprecation.setActor(actorUrn);
 
     event.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
@@ -407,7 +441,13 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.DEPRECATION,
             ChangeOperation.MODIFY,
             null,
-            ImmutableMap.of("status", "DEPRECATED"),
+            ImmutableMap.of(
+                "status",
+                "DEPRECATED",
+                "timestamp",
+                String.valueOf(EVENT_TIME),
+                "note",
+                "Test Note"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -668,6 +708,317 @@ public class EntityChangeEventGeneratorHookTest {
   }
 
   @Test
+  public void testInvokePendingActionRequest() throws Exception {
+    Urn actionRequestUrn = Urn.createFromString(TEST_ACTION_REQUEST_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(ACTION_REQUEST_ENTITY_NAME);
+    event.setEntityUrn(actionRequestUrn);
+    event.setAspectName(ACTION_REQUEST_STATUS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME);
+
+    ActionRequestStatus actionRequestStatus =
+        new ActionRequestStatus()
+            .setStatus(ACTION_REQUEST_STATUS_PENDING)
+            .setLastModified(auditStamp);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(actionRequestStatus));
+    event.setCreated(auditStamp);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ACTION_REQUEST_STATUS_KEY, ACTION_REQUEST_STATUS_PENDING);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            ACTION_REQUEST_ENTITY_NAME,
+            actionRequestUrn,
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.PENDING,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
+  public void testInvokeCompletedActionRequest() throws Exception {
+    Urn actionRequestUrn = Urn.createFromString(TEST_ACTION_REQUEST_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(ACTION_REQUEST_ENTITY_NAME);
+    event.setEntityUrn(actionRequestUrn);
+    event.setAspectName(ACTION_REQUEST_STATUS_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME);
+
+    ActionRequestStatus actionRequestStatus =
+        new ActionRequestStatus()
+            .setStatus(ACTION_REQUEST_STATUS_COMPLETE)
+            .setResult(ACTION_REQUEST_RESULT_ACCEPTED)
+            .setLastModified(auditStamp);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(actionRequestStatus));
+    event.setCreated(auditStamp);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ACTION_REQUEST_STATUS_KEY, ACTION_REQUEST_STATUS_COMPLETE);
+    parameters.put(ACTION_REQUEST_RESULT_KEY, ACTION_REQUEST_RESULT_ACCEPTED);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            ACTION_REQUEST_ENTITY_NAME,
+            actionRequestUrn,
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.COMPLETED,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
+  public void testInvokeGlossaryTermProposal() throws Exception {
+    Urn actionRequestUrn = Urn.createFromString(TEST_ACTION_REQUEST_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(ACTION_REQUEST_ENTITY_NAME);
+    event.setEntityUrn(actionRequestUrn);
+    event.setAspectName(ACTION_REQUEST_INFO_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME);
+
+    final ActionRequestInfo actionRequestInfo =
+        buildActionRequestInfo(ACTION_REQUEST_TYPE_TERM_PROPOSAL, DATASET_ENTITY_NAME);
+    final ActionRequestParams actionRequestParams =
+        new ActionRequestParams()
+            .setGlossaryTermProposal(
+                new GlossaryTermProposal()
+                    .setGlossaryTerm(Urn.createFromString(TEST_GLOSSARY_TERM_URN)));
+    actionRequestInfo.setParams(actionRequestParams);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(actionRequestInfo));
+    event.setCreated(auditStamp);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters =
+        getActionRequestParameters(ACTION_REQUEST_TYPE_TERM_PROPOSAL, DATASET_ENTITY_NAME);
+    parameters.put(GLOSSARY_TERM_URN_KEY, TEST_GLOSSARY_TERM_URN);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            ACTION_REQUEST_ENTITY_NAME,
+            actionRequestUrn,
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.CREATE,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
+  public void testInvokeTagProposal() throws Exception {
+    Urn actionRequestUrn = Urn.createFromString(TEST_ACTION_REQUEST_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(ACTION_REQUEST_ENTITY_NAME);
+    event.setEntityUrn(actionRequestUrn);
+    event.setAspectName(ACTION_REQUEST_INFO_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME);
+
+    final ActionRequestInfo actionRequestInfo =
+        buildActionRequestInfo(ACTION_REQUEST_TYPE_TAG_PROPOSAL, DATASET_ENTITY_NAME);
+    final ActionRequestParams actionRequestParams =
+        new ActionRequestParams()
+            .setTagProposal(new TagProposal().setTag(Urn.createFromString(TEST_TAG_URN)));
+    actionRequestInfo.setParams(actionRequestParams);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(actionRequestInfo));
+    event.setCreated(auditStamp);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters =
+        getActionRequestParameters(ACTION_REQUEST_TYPE_TAG_PROPOSAL, DATASET_ENTITY_NAME);
+    parameters.put(TAG_URN_KEY, TEST_TAG_URN);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            ACTION_REQUEST_ENTITY_NAME,
+            actionRequestUrn,
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.CREATE,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
+  public void testInvokeCreateGlossaryNodeProposal() throws Exception {
+    Urn actionRequestUrn = Urn.createFromString(TEST_ACTION_REQUEST_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(ACTION_REQUEST_ENTITY_NAME);
+    event.setEntityUrn(actionRequestUrn);
+    event.setAspectName(ACTION_REQUEST_INFO_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME);
+
+    final ActionRequestInfo actionRequestInfo =
+        buildActionRequestInfo(
+            ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL, GLOSSARY_NODE_ENTITY_NAME);
+    final ActionRequestParams actionRequestParams =
+        new ActionRequestParams()
+            .setCreateGlossaryNodeProposal(
+                new CreateGlossaryNodeProposal()
+                    .setName(TEST_GLOSSARY_NODE_NAME)
+                    .setParentNode(Urn.createFromString(TEST_PARENT_NODE_URN))
+                    .setDescription(TEST_GLOSSARY_NODE_DESCRIPTION));
+    actionRequestInfo.setParams(actionRequestParams);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(actionRequestInfo));
+    event.setCreated(auditStamp);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters =
+        getActionRequestParameters(
+            ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL, GLOSSARY_NODE_ENTITY_NAME);
+    parameters.put(GLOSSARY_ENTITY_NAME_KEY, TEST_GLOSSARY_NODE_NAME);
+    parameters.put(PARENT_NODE_URN_KEY, TEST_PARENT_NODE_URN);
+    parameters.put(DESCRIPTION_KEY, TEST_GLOSSARY_NODE_DESCRIPTION);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            ACTION_REQUEST_ENTITY_NAME,
+            actionRequestUrn,
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.CREATE,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
+  public void testInvokeCreateGlossaryTermProposal() throws Exception {
+    Urn actionRequestUrn = Urn.createFromString(TEST_ACTION_REQUEST_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(ACTION_REQUEST_ENTITY_NAME);
+    event.setEntityUrn(actionRequestUrn);
+    event.setAspectName(ACTION_REQUEST_INFO_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME);
+
+    final ActionRequestInfo actionRequestInfo =
+        buildActionRequestInfo(
+            ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL, GLOSSARY_TERM_ENTITY_NAME);
+    final ActionRequestParams actionRequestParams =
+        new ActionRequestParams()
+            .setCreateGlossaryNodeProposal(
+                new CreateGlossaryNodeProposal()
+                    .setName(TEST_GLOSSARY_TERM_NAME)
+                    .setParentNode(Urn.createFromString(TEST_PARENT_NODE_URN))
+                    .setDescription(TEST_GLOSSARY_TERM_DESCRIPTION));
+    actionRequestInfo.setParams(actionRequestParams);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(actionRequestInfo));
+    event.setCreated(auditStamp);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters =
+        getActionRequestParameters(
+            ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL, GLOSSARY_TERM_ENTITY_NAME);
+    parameters.put(GLOSSARY_ENTITY_NAME_KEY, TEST_GLOSSARY_TERM_NAME);
+    parameters.put(PARENT_NODE_URN_KEY, TEST_PARENT_NODE_URN);
+    parameters.put(DESCRIPTION_KEY, TEST_GLOSSARY_TERM_DESCRIPTION);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            ACTION_REQUEST_ENTITY_NAME,
+            actionRequestUrn,
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.CREATE,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
+  public void testInvokeUpdateDescriptionProposal() throws Exception {
+    Urn actionRequestUrn = Urn.createFromString(TEST_ACTION_REQUEST_URN);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(ACTION_REQUEST_ENTITY_NAME);
+    event.setEntityUrn(actionRequestUrn);
+    event.setAspectName(ACTION_REQUEST_INFO_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+
+    AuditStamp auditStamp = new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME);
+
+    final ActionRequestInfo actionRequestInfo =
+        buildActionRequestInfo(
+            ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL, GLOSSARY_TERM_ENTITY_NAME);
+    final ActionRequestParams actionRequestParams =
+        new ActionRequestParams()
+            .setUpdateDescriptionProposal(
+                new DescriptionProposal().setDescription(TEST_GLOSSARY_TERM_DESCRIPTION));
+    actionRequestInfo.setParams(actionRequestParams);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(actionRequestInfo));
+    event.setCreated(auditStamp);
+
+    _entityChangeEventHook.invoke(event);
+
+    Map<String, Object> parameters =
+        getActionRequestParameters(
+            ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL, GLOSSARY_TERM_ENTITY_NAME);
+    parameters.put(DESCRIPTION_KEY, TEST_GLOSSARY_TERM_DESCRIPTION);
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            ACTION_REQUEST_ENTITY_NAME,
+            actionRequestUrn,
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.CREATE,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent, false);
+  }
+
+  @Test
   public void testInvokeIneligibleAspect() throws Exception {
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(DATASET_ENTITY_NAME);
@@ -888,6 +1239,128 @@ public class EntityChangeEventGeneratorHookTest {
   }
 
   @Test
+  public void testEditableContainerDescriptionAdd() throws Exception {
+    final String newDescription = "New desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(CONTAINER_ENTITY_NAME);
+    event.setAspectName(CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_CONTAINER_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new EditableDatasetProperties().setDescription(newDescription)));
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(new EditableDatasetProperties()));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            CONTAINER_ENTITY_NAME,
+            Urn.createFromString(TEST_CONTAINER_URN),
+            ChangeCategory.DOCUMENTATION,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of("description", newDescription),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testEditableContainerDescriptionModify() throws Exception {
+    final String newDescription = "New desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(CONTAINER_ENTITY_NAME);
+    event.setAspectName(CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_CONTAINER_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new EditableDatasetProperties().setDescription(newDescription)));
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(
+            new EditableDatasetProperties().setDescription("Old desc")));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            CONTAINER_ENTITY_NAME,
+            Urn.createFromString(TEST_CONTAINER_URN),
+            ChangeCategory.DOCUMENTATION,
+            ChangeOperation.MODIFY,
+            null,
+            ImmutableMap.of("description", newDescription),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testcontainerDescriptionAdd() throws Exception {
+    final String newDescription = "New desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(CONTAINER_ENTITY_NAME);
+    event.setAspectName(CONTAINER_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_CONTAINER_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new EditableDatasetProperties().setDescription(newDescription)));
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(new EditableDatasetProperties()));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            CONTAINER_ENTITY_NAME,
+            Urn.createFromString(TEST_CONTAINER_URN),
+            ChangeCategory.DOCUMENTATION,
+            ChangeOperation.ADD,
+            null,
+            ImmutableMap.of("description", newDescription),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testContainerDescriptionModify() throws Exception {
+    final String newDescription = "New desc";
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(CONTAINER_ENTITY_NAME);
+    event.setAspectName(CONTAINER_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_CONTAINER_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    event.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new EditableDatasetProperties().setDescription(newDescription)));
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(
+            new EditableDatasetProperties().setDescription("Old desc")));
+
+    _entityChangeEventHook.invoke(event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            CONTAINER_ENTITY_NAME,
+            Urn.createFromString(TEST_CONTAINER_URN),
+            ChangeCategory.DOCUMENTATION,
+            ChangeOperation.MODIFY,
+            null,
+            ImmutableMap.of("description", newDescription),
+            actorUrn);
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
   public void testEditableDatasetDescriptionRemove() throws Exception {
     final String oldDescription = "Old desc";
     MetadataChangeLog event = new MetadataChangeLog();
@@ -1063,6 +1536,159 @@ public class EntityChangeEventGeneratorHookTest {
         true);
   }
 
+  @Test
+  public void testInvokeIncidentRaised() throws Exception {
+    final Urn incidentUrn = UrnUtils.getUrn("urn:li:incident:new-incident");
+    final IncidentInfo info = new IncidentInfo();
+    final UrnArray entities = new UrnArray(Urn.createFromString(TEST_DATASET_URN));
+    info.setEntities(entities);
+    info.setType(IncidentType.OPERATIONAL);
+    info.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    info.setStatus(
+        new IncidentStatus()
+            .setState(IncidentState.ACTIVE)
+            .setLastUpdated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME + 1)));
+    info.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    final MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(INCIDENT_ENTITY_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setAspectName(INCIDENT_INFO_ASPECT_NAME);
+    event.setAspect(GenericRecordUtils.serializeAspect(info));
+    event.setEntityUrn(incidentUrn); // Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    // No previous incident aspect.
+    _entityChangeEventHook.invoke(event);
+
+    final Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ENTITY_REF, info.getEntities().toString());
+    parameters.put(INCIDENT_TYPE, info.getType().toString());
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            INCIDENT_ENTITY_NAME,
+            incidentUrn,
+            ChangeCategory.INCIDENT,
+            ChangeOperation.ACTIVE,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testInvokeIncidentResolved() throws Exception {
+    final Urn incidentUrn = UrnUtils.getUrn("urn:li:incident:new-incident");
+    final IncidentInfo info = new IncidentInfo();
+    final UrnArray entities = new UrnArray(Urn.createFromString(TEST_DATASET_URN));
+    info.setEntities(entities);
+    info.setType(IncidentType.OPERATIONAL);
+    info.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    info.setStatus(
+        new IncidentStatus()
+            .setState(IncidentState.RESOLVED)
+            .setLastUpdated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME + 2)));
+    info.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    final IncidentInfo prevInfo = new IncidentInfo();
+    prevInfo.setEntities(entities);
+    prevInfo.setType(IncidentType.OPERATIONAL);
+    prevInfo.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL));
+    prevInfo.setStatus(
+        new IncidentStatus()
+            .setState(IncidentState.ACTIVE)
+            .setLastUpdated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME + 1)));
+    prevInfo.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    final MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(INCIDENT_ENTITY_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setAspectName(INCIDENT_INFO_ASPECT_NAME);
+    event.setAspect(GenericRecordUtils.serializeAspect(info));
+    event.setEntityUrn(incidentUrn); // Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevInfo));
+
+    // No previous incident aspect.
+    _entityChangeEventHook.invoke(event);
+
+    final Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ENTITY_REF, info.getEntities().toString());
+    parameters.put(INCIDENT_TYPE, info.getType().toString());
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            INCIDENT_ENTITY_NAME,
+            incidentUrn,
+            ChangeCategory.INCIDENT,
+            ChangeOperation.RESOLVED,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
+  @Test
+  public void testInvokeAssertionBasedIncidentRaised() throws Exception {
+    final Urn incidentUrn = UrnUtils.getUrn("urn:li:incident:new-incident");
+    final UrnArray entities =
+        new UrnArray(ImmutableList.of(Urn.createFromString(TEST_DATASET_URN)));
+    final IncidentInfo info =
+        new IncidentInfo()
+            .setType(IncidentType.FIELD)
+            .setCustomType("Custom Type")
+            .setDescription("Description")
+            .setPriority(5)
+            .setTitle("Title")
+            .setEntities(entities)
+            .setSource(
+                new IncidentSource()
+                    .setType(IncidentSourceType.ASSERTION_FAILURE)
+                    .setSourceUrn(UrnUtils.getUrn("urn:li:assertion:test")))
+            .setStatus(
+                new IncidentStatus()
+                    .setState(IncidentState.ACTIVE)
+                    .setMessage("Message")
+                    .setLastUpdated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME + 1)))
+            .setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    final MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(INCIDENT_ENTITY_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setAspectName(INCIDENT_INFO_ASPECT_NAME);
+    event.setAspect(GenericRecordUtils.serializeAspect(info));
+    event.setEntityUrn(incidentUrn); // Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    // No previous incident aspect.
+    _entityChangeEventHook.invoke(event);
+
+    final Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ENTITY_REF, info.getEntities().toString());
+    parameters.put(INCIDENT_TYPE, info.getType().toString());
+    parameters.put(INCIDENT_TITLE, info.getTitle());
+    parameters.put(INCIDENT_DESCRIPTION, info.getDescription());
+    parameters.put(INCIDENT_STATUS_MESSAGE, info.getStatus().getMessage());
+
+    // Create Platform Event
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            INCIDENT_ENTITY_NAME,
+            incidentUrn,
+            ChangeCategory.INCIDENT,
+            ChangeOperation.ACTIVE,
+            null,
+            parameters,
+            actorUrn);
+
+    verifyProducePlatformEvent(_mockClient, platformEvent);
+  }
+
   private PlatformEvent createChangeEvent(
       String entityType,
       Urn entityUrn,
@@ -1104,6 +1730,11 @@ public class EntityChangeEventGeneratorHookTest {
     registry.register(DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());
     registry.register(
+        CONTAINER_PROPERTIES_ASPECT_NAME, new ContainerPropertiesChangeEventGenerator());
+    registry.register(
+        CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+        new EditableContainerPropertiesChangeEventGenerator());
+    registry.register(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
         new EditableDatasetPropertiesChangeEventGenerator());
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
@@ -1119,6 +1750,15 @@ public class EntityChangeEventGeneratorHookTest {
         DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
         new DataProcessInstanceRunEventChangeEventGenerator(
             mock(OperationContext.class), _mockClient));
+
+    // Action Request change event generators
+    registry.register(
+        ACTION_REQUEST_STATUS_ASPECT_NAME, new ActionRequestStatusChangeEventGenerator());
+    registry.register(ACTION_REQUEST_INFO_ASPECT_NAME, new ActionRequestInfoChangeEventGenerator());
+
+    // Incidents change event generator
+    registry.register(INCIDENT_INFO_ASPECT_NAME, new IncidentInfoChangeEventGenerator());
+
     return registry;
   }
 
@@ -1168,6 +1808,19 @@ public class EntityChangeEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
+    // Build Dataset Entity Spec
+    EntitySpec containerSpec = Mockito.mock(EntitySpec.class);
+
+    AspectSpec mockContainerProperties = createMockAspectSpec(ContainerProperties.class);
+    Mockito.when(containerSpec.getAspectSpec(eq(CONTAINER_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockContainerProperties);
+
+    AspectSpec mockEditableContainerProperties =
+        createMockAspectSpec(EditableContainerProperties.class);
+    Mockito.when(containerSpec.getAspectSpec(eq(CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockEditableContainerProperties);
+    Mockito.when(registry.getEntitySpec(eq(CONTAINER_ENTITY_NAME))).thenReturn(containerSpec);
+
     // Build Assertion Entity Spec
     EntitySpec assertionSpec = Mockito.mock(EntitySpec.class);
     AspectSpec mockAssertionRunEvent = createMockAspectSpec(AssertionRunEvent.class);
@@ -1186,6 +1839,29 @@ public class EntityChangeEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME))
         .thenReturn(dataProcessInstanceSpec);
+
+    Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
+
+    // Build Action Request Entity Spec
+    EntitySpec actionRequestSpec = Mockito.mock(EntitySpec.class);
+
+    AspectSpec mockActionRequestStatus = createMockAspectSpec(ActionRequestStatus.class);
+    Mockito.when(actionRequestSpec.getAspectSpec(eq(ACTION_REQUEST_STATUS_ASPECT_NAME)))
+        .thenReturn(mockActionRequestStatus);
+
+    AspectSpec mockActionRequestInfo = createMockAspectSpec(ActionRequestInfo.class);
+    Mockito.when(actionRequestSpec.getAspectSpec(eq(ACTION_REQUEST_INFO_ASPECT_NAME)))
+        .thenReturn(mockActionRequestInfo);
+
+    Mockito.when(registry.getEntitySpec(ACTION_REQUEST_ENTITY_NAME)).thenReturn(actionRequestSpec);
+
+    // Build Incident Entity Spec
+    EntitySpec incidentRequestSpec = Mockito.mock(EntitySpec.class);
+    Mockito.when(registry.getEntitySpec(INCIDENT_ENTITY_NAME)).thenReturn(incidentRequestSpec);
+
+    AspectSpec mockIncidents = createMockAspectSpec(IncidentInfo.class);
+    Mockito.when(incidentRequestSpec.getAspectSpec(eq(INCIDENT_INFO_ASPECT_NAME)))
+        .thenReturn(mockIncidents);
 
     return TestOperationContexts.systemContextNoSearchAuthorization(registry);
   }
@@ -1226,5 +1902,24 @@ public class EntityChangeEventGeneratorHookTest {
     }
     entityResponse.setAspects(aspectMap);
     return entityResponse;
+  }
+
+  // SaaS only
+  private ActionRequestInfo buildActionRequestInfo(
+      @Nonnull final String proposalType, @Nonnull final String resourceType)
+      throws URISyntaxException {
+    return new ActionRequestInfo()
+        .setType(proposalType)
+        .setAssignedUsers(new UrnArray(actorUrn))
+        .setAssignedGroups(new UrnArray(Urn.createFromString(TEST_GROUP_URN)))
+        .setResourceType(resourceType);
+  }
+
+  private Map<String, Object> getActionRequestParameters(
+      @Nonnull final String proposalType, @Nonnull final String resourceType) {
+    Map<String, Object> parameters = new HashMap<>();
+    parameters.put(ACTION_REQUEST_TYPE_KEY, proposalType);
+    parameters.put(RESOURCE_TYPE_KEY, resourceType);
+    return parameters;
   }
 }

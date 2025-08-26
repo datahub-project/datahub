@@ -58,7 +58,7 @@ public class DataPlatformInstanceMapper {
     mappingHelper.mapToResult(
         Constants.GLOBAL_TAGS_ASPECT_NAME,
         (dataPlatformInstance, dataMap) ->
-            this.mapGlobalTags(context, dataPlatformInstance, dataMap, entityUrn));
+            mapGlobalTags(context, dataPlatformInstance, dataMap, entityUrn));
     mappingHelper.mapToResult(
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataPlatformInstance, dataMap) ->

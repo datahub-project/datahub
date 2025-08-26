@@ -1,13 +1,18 @@
 import {
     AppWindow,
     BookBookmark,
+    FileLock,
     Gear,
     Globe,
+    Heartbeat,
+    Lightning,
+    ListChecks,
     Plugs,
     Question,
     SignOut,
     SquaresFour,
     Tag,
+    TestTube,
     TextColumns,
     TrendUp,
     UserCircle,
@@ -27,15 +32,19 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useAppConfig } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
+import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
+import { useIsHomePage } from '@src/app/shared/useIsHomePage';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
+import { generateReleaseNotesLink } from '@src/conf/utils';
 import { EntityType } from '@src/types.generated';
 
 import AcrylIcon from '@images/acryl-light-mark.svg?react';
@@ -85,8 +94,10 @@ export const NavSidebar = () => {
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
+    const isHomePage = useIsHomePage();
 
     const { isUserInitializing } = useContext(OnboardingContext);
+    const { triggerModalTour } = useOnboardingTour();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
@@ -99,18 +110,37 @@ export const NavSidebar = () => {
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
+    /* SaaS Only */
+    const { helpLinkState, globalSettings } = useGlobalSettingsContext();
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
+    const showActionRequests = config?.actionRequestsConfig?.enabled || false;
+    const showTests = ((config?.testsConfig?.enabled || false) && me?.platformPrivileges?.manageTests) || false;
+    const showAddHelpLink = !helpLinkState.isEnabled && me.platformPrivileges?.manageGlobalSettings;
+    const showAutomations = config?.classificationConfig?.enabled && me?.platformPrivileges?.manageIngestion;
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled &&
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
+    const { viewIngestionSourcePrivilegesEnabled } = config.featureFlags;
+    /* End SaaS Only */
+
     const showDataSources =
         config.managedIngestionConfig.enabled &&
-        me &&
-        me.platformPrivileges?.manageIngestion &&
-        me.platformPrivileges?.manageSecrets;
+        (me.platformPrivileges?.manageIngestion ||
+            me.platformPrivileges?.manageSecrets ||
+            (me.platformPrivileges?.canViewIngestionPage && viewIngestionSourcePrivilegesEnabled));
 
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showDataSources, HOME_PAGE_INGESTION_ID);
 
-    const customLogoUrl = appConfig.config.visualConfig.logoUrl;
+    const customLogoUrl = globalSettings?.visualSettings?.customLogoUrl || appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
     const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
+
+    const {
+        state: { unfinishedTaskCount },
+    } = userContext;
 
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
@@ -120,6 +150,8 @@ export const NavSidebar = () => {
         isExternalLink: true,
         key: `helpMenu${value.label}`,
     })) as NavBarMenuDropdownItemElement[];
+
+    const versionLink = generateReleaseNotesLink(config?.appVersion);
 
     const mainMenu: NavBarMenuItems = {
         items: [
@@ -131,6 +163,19 @@ export const NavSidebar = () => {
                 key: 'home',
                 link: PageRoutes.ROOT,
                 onlyExactPathMapping: true,
+            },
+            {
+                type: NavBarMenuItemTypes.Item,
+                title: 'Tasks',
+                icon: <ListChecks />,
+                selectedIcon: <ListChecks weight="fill" />,
+                key: 'tasks',
+                isHidden: !showActionRequests,
+                link: PageRoutes.ACTION_REQUESTS,
+                badge: {
+                    count: unfinishedTaskCount,
+                    show: unfinishedTaskCount > 0,
+                },
             },
             {
                 type: NavBarMenuItemTypes.Group,
@@ -177,12 +222,56 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
+                        title: 'Tests',
+                        key: 'tests',
+                        isHidden: !showTests,
+                        icon: <TestTube />,
+                        selectedIcon: <TestTube weight="fill" />,
+                        link: PageRoutes.TESTS,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Automations',
+                        description: 'Manage automated actions across your data assets',
+                        icon: <Lightning />,
+                        selectedIcon: <Lightning weight="fill" />,
+                        key: 'automations',
+                        link: PageRoutes.AUTOMATIONS,
+                        isHidden: !showAutomations,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Compliance Forms',
+                        key: 'complianceForms',
+                        isHidden: !showDocumentationCenter,
+                        icon: <FileLock />,
+                        selectedIcon: <FileLock weight="fill" />,
+                        link: PageRoutes.GOVERN_DASHBOARD,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
                         title: 'Structured Properties',
                         key: 'structuredProperties',
                         isHidden: !showStructuredProperties,
                         icon: <TextColumns />,
                         selectedIcon: <TextColumns weight="fill" />,
                         link: PageRoutes.STRUCTURED_PROPERTIES,
+                    },
+                ],
+            },
+            {
+                type: NavBarMenuItemTypes.Group,
+                key: 'observe',
+                title: 'Observe',
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Data Health',
+                        key: 'dataHealth',
+                        isHidden: !showDatasetHealth,
+                        icon: <Heartbeat />,
+                        selectedIcon: <Heartbeat weight="fill" />,
+                        link: PageRoutes.DATASET_HEALTH_DASHBOARD,
                     },
                 ],
             },
@@ -241,10 +330,24 @@ export const NavSidebar = () => {
                 items: [
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
+                        title: helpLinkState.label,
+                        link: helpLinkState.link,
+                        isExternalLink: true,
+                        isHidden: !helpLinkState.isEnabled,
+                        key: 'helpHelp',
+                    },
+                    {
+                        type: NavBarMenuItemTypes.DropdownElement,
                         title: 'Product Tour',
                         description: 'Take a quick tour of this page',
                         key: 'helpProductTour',
-                        onClick: showOnboardingTour,
+                        onClick: () => {
+                            if (isHomePage) {
+                                triggerModalTour();
+                            } else {
+                                showOnboardingTour();
+                            }
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
@@ -265,11 +368,19 @@ export const NavSidebar = () => {
                     ...HelpContentMenuItems,
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
+                        title: 'Add Custom Help Link',
+                        link: PageRoutes.SETTINGS_HELP_LINK,
+                        key: 'helpAddCustomHelpLink',
+                        isHidden: !showAddHelpLink,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.DropdownElement,
                         title: config?.appVersion || '',
                         isHidden: !config?.appVersion,
+                        link: versionLink,
                         isExternalLink: true,
                         key: 'helpAppVersion',
-                        disabled: true,
+                        disabled: !versionLink,
                     },
                 ],
             },

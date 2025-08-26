@@ -1,4 +1,5 @@
 import { colors } from '@components';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import {
     ArrowCounterClockwise,
     ArrowsCounterClockwise,
@@ -31,10 +32,33 @@ export const yamlToJson = (yaml: string): string => {
     const jsonStr = JSON.stringify(obj);
     return jsonStr;
 };
+export const removeEmptyArrays = (obj) => {
+    if (Array.isArray(obj)) {
+        // Filter out empty arrays
+        return obj.filter((item) => !(Array.isArray(item) && item.length === 0));
+    }
+    if (typeof obj === 'object' && obj !== null) {
+        // Recursively remove empty arrays from object properties
+        const cleanedObj = Object.fromEntries(
+            Object.entries(obj).map(([key, value]) => [key, removeEmptyArrays(value)]),
+        );
+        if (cleanedObj.conditions) {
+            const propertiesToDelete = Object.keys(cleanedObj.conditions);
+            if (propertiesToDelete.some((prop) => cleanedObj.conditions[prop]?.length === 0)) {
+                delete cleanedObj.conditions;
+            }
+        }
+        // Filter out undefined properties but leave nulls
+        return Object.fromEntries(Object.entries(cleanedObj).filter(([_, v]) => v !== undefined));
+    }
+    // Return non-array, non-object values as it is
+    return obj;
+};
 
 export const jsonToYaml = (json: string): string => {
     const obj = JSON.parse(json);
-    const yamlStr = YAML.stringify(obj, 6);
+    const result = removeEmptyArrays(obj);
+    const yamlStr = YAML.stringify(result, 6);
     return yamlStr;
 };
 
@@ -51,6 +75,7 @@ export const FAILURE = 'FAILURE';
 export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
 export const CANCELLED = 'CANCELLED';
 export const ABORTED = 'ABORTED';
+export const DUPLICATE = 'DUPLICATE';
 export const UP_FOR_RETRY = 'UP_FOR_RETRY';
 export const ROLLING_BACK = 'ROLLING_BACK';
 export const ROLLED_BACK = 'ROLLED_BACK';
@@ -73,6 +98,7 @@ export const getExecutionRequestStatusIcon = (status?: string) => {
         (status === ROLLING_BACK && ArrowsCounterClockwise) ||
         (status === ROLLBACK_FAILED && X) ||
         (status === ABORTED && X) ||
+        (status === DUPLICATE && Prohibit) ||
         ClockClockwise
     );
 };
@@ -89,6 +115,7 @@ export const getExecutionRequestStatusDisplayText = (status?: string) => {
         (status === ROLLING_BACK && 'Rolling Back') ||
         (status === ROLLBACK_FAILED && 'Rollback Failed') ||
         (status === ABORTED && 'Aborted') ||
+        (status === DUPLICATE && 'Duplicate') ||
         status
     );
 };
@@ -113,6 +140,8 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return 'Ingestion rollback failed.';
         case ABORTED:
             return 'Ingestion job got aborted due to worker restart.';
+        case DUPLICATE:
+            return 'Ingestion job was cancelled because another instance(s) of this job already exists.';
         default:
             return 'Ingestion status not recognized.';
     }
@@ -130,8 +159,13 @@ export const getExecutionRequestStatusDisplayColor = (status?: string) => {
         (status === ROLLING_BACK && colors.yellow[500]) ||
         (status === ROLLBACK_FAILED && colors.red[500]) ||
         (status === ABORTED && colors.red[500]) ||
+        (status === DUPLICATE && colors.gray[1700]) ||
         colors.gray[1700]
     );
+};
+
+export const checkIsExecutionRequestRunning = (executionRequestResult?: Maybe<ExecutionRequestResult>): boolean => {
+    return !executionRequestResult || executionRequestResult.status === RUNNING;
 };
 
 export const validateURL = (fieldName: string) => {
@@ -251,10 +285,10 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
         return null;
     }
 
-    // 3. Transform into the typed model that we have.
+    // 2. Transform into the typed model that we have.
     const structuredReport = transformToStructuredReport(structuredReportObject);
 
-    // 4. Return JSON report
+    // 3. Return JSON report
     return structuredReport;
 };
 

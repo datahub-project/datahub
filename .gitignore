@@ -23,6 +23,7 @@ metadata-events/mxe-registration/src/main/resources/**/*.avsc
 .java-version
 
 # Python
+/.python-version
 .venv
 venv/
 env.bak/
@@ -88,7 +89,7 @@ coverage*.xml
 .envrc
 **/.claude/settings.local.json
 
-# A long series of binary directories we should ignore
+# A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
 datahub-frontend/bin/test/
 datahub-graphql-core/bin/
@@ -111,6 +112,7 @@ metadata-jobs/mce-consumer/bin/
 metadata-jobs/pe-consumer/bin/
 metadata-models-validator/bin/
 metadata-models/bin/
+metadata-service/admin-servlet-impl/bin/
 metadata-service/auth-config/bin/
 metadata-service/auth-filter/bin/
 metadata-service/auth-impl/bin/
@@ -127,8 +129,5 @@ metadata-service/servlet/bin/
 metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
-
-datahub-executor/
-datahub-integrations-service/
-metadata-ingestion-modules/acryl-cloud
+notifications/bin/
 

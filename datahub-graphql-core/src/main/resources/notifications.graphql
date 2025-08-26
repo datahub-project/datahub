@@ -1,0 +1,213 @@
+extend type Query {
+  """
+  Get a user's Notification Settings. Returns null if the user does not have any Notification Settings.
+  """
+  getUserNotificationSettings: NotificationSettings
+
+  """
+  Get a group's Notification Settings. Returns null if the group does not have any Notification Settings.
+  """
+  getGroupNotificationSettings(
+    input: GetGroupNotificationSettingsInput!
+  ): NotificationSettings
+}
+
+extend type Mutation {
+  """
+  Update a user's Notification Settings.
+  """
+  updateUserNotificationSettings(
+    input: UpdateUserNotificationSettingsInput!
+  ): NotificationSettings!
+
+  """
+  Update a user's Notification Settings.
+  """
+  updateGroupNotificationSettings(
+    input: UpdateGroupNotificationSettingsInput!
+  ): NotificationSettings!
+
+  """
+  Send notification requests for compliance form initiatives.
+  This endpoint is in Beta and is subject to change.
+  """
+  sendFormNotificationRequest(
+    input: SendFormNotificationRequestInput!
+  ): Boolean!
+}
+
+input GetGroupNotificationSettingsInput {
+  """
+  The group's Urn.
+  """
+  groupUrn: String!
+}
+
+input UpdateUserNotificationSettingsInput {
+  """
+  The user's Notification Settings
+  """
+  notificationSettings: NotificationSettingsInput!
+}
+
+input UpdateGroupNotificationSettingsInput {
+  """
+  The group's Urn
+  """
+  groupUrn: String!
+
+  """
+  The group's Notification Settings
+  """
+  notificationSettings: NotificationSettingsInput!
+}
+
+input NotificationSettingsInput {
+  """
+  Sink types that notifications are sent to. If left undefined, the sink types will NOT be changed.
+  """
+  sinkTypes: [NotificationSinkType!]
+
+  """
+  Slack Notification Settings
+  """
+  slackSettings: SlackNotificationSettingsInput
+
+  """
+  Email Notification Settings
+  """
+  emailSettings: EmailNotificationSettingsInput
+
+  """
+  Scenario settings, dictating scenarios in which the actor is notified. This may be updated in isolation without impacting sink types, slack settings, or email settings.
+
+  If not provided, these will be unchanged.
+  """
+  settings: [NotificationSettingInput!]
+}
+
+type NotificationSettings {
+  """
+  Sink types that notifications are sent to.
+  """
+  sinkTypes: [NotificationSinkType!]!
+
+  """
+  Slack Notification Settings
+  """
+  slackSettings: SlackNotificationSettings
+
+  """
+  Email Notification Settings
+  """
+  emailSettings: EmailNotificationSettings
+
+  """
+  Scenario settings, dictating scenarios in which the actor is notified.
+  """
+  settings: [NotificationSetting!]
+}
+
+input SlackNotificationSettingsInput {
+  """
+  The actor's handle. Only filled if the actor is a user.
+  """
+  userHandle: String
+
+  """
+  The actor's list of channels to notify. Only filled if the actor is a group.
+  """
+  channels: [String!]
+}
+
+input EmailNotificationSettingsInput {
+  """
+  The email to send the notification to, either associated with a user or a group.
+  """
+  email: String!
+}
+
+type SlackNotificationSettings {
+  """
+  The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
+  """
+  userHandle: String
+
+  """
+  The actor's list of channels to notify. Only filled if the actor is a group.
+  """
+  channels: [String!]
+}
+
+type EmailNotificationSettings {
+  """
+  The email to send the notification to, either associated with a user or a group.
+  """
+  email: String!
+}
+
+enum NotificationSinkType {
+  """
+  Slack
+  """
+  SLACK
+
+  """
+  Email
+  """
+  EMAIL
+}
+
+enum FormNotificationType {
+  """
+  Sent when letting a user know about a new form to work on
+  """
+  BROADCAST_COMPLIANCE_FORM_PUBLISH
+}
+
+input SendFormNotificationRequestInput {
+  """
+  The type of form notification being sent
+  """
+  type: FormNotificationType!
+
+  """
+  The parameters that are used for this notification.
+  These parameters are what is used to add specific info to
+  the notification template.
+  """
+  parameters: [StringMapEntryInput!]
+
+  """
+  Info on who is to receive this notification
+  """
+  recipients: [FormNotificationRecipientInput!]!
+}
+
+enum NotificationRecipientType {
+  EMAIL
+  SLACK_CHANNEL
+  SLACK_DM
+}
+
+input FormNotificationRecipientInput {
+  """
+  What type of notification recipient this is being sent to
+  """
+  type: NotificationRecipientType!
+
+  """
+  ID of the recipient
+  """
+  id: String
+
+  """
+  The urn of the actor this notification is being sent to
+  """
+  actor: String
+
+  """
+  Display name of the recipient
+  """
+  displayName: String
+}

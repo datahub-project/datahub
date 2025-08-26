@@ -1,11 +1,20 @@
+import { red } from '@ant-design/colors';
 import { DeleteOutlined } from '@ant-design/icons';
 import { Button, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 
-const MultiStringWrapper = styled.div``;
+const MultiStringWrapper = styled.div<{ $displayBulkStyles?: boolean }>`
+    ${(props) =>
+        props.$displayBulkStyles &&
+        `
+        max-height: 150px;
+        overflow: auto;
+    `}
+`;
 
 const StyledInput = styled(Input)`
     width: 75%;
@@ -20,14 +29,18 @@ const InputWrapper = styled.div`
     margin-top: 8px;
 `;
 
-const StyledButton = styled(Button)`
+const StyledButton = styled(Button)<{ $displayBulkStyles?: boolean }>`
     display: block;
     margin-top: 4px;
     padding: 0;
 `;
 
-const DeleteButton = styled(Button)`
+const DeleteButton = styled(Button)<{ $displayBulkStyles?: boolean }>`
     margin-left: 4px;
+
+    &:hover {
+        ${(props) => props.$displayBulkStyles && `color: ${red[3]};`}
+    }
 `;
 
 interface Props {
@@ -37,6 +50,9 @@ interface Props {
 }
 
 export default function MultipleOpenEndedInput({ selectedValues, updateSelectedValues, inputType = 'text' }: Props) {
+    const {
+        prompt: { displayBulkPromptStyles },
+    } = useEntityFormContext();
     function updateInput(text: string, index: number) {
         const updatedValues =
             selectedValues.length > 0 ? selectedValues.map((value, i) => (i === index ? text : value)) : [text];
@@ -57,7 +73,7 @@ export default function MultipleOpenEndedInput({ selectedValues, updateSelectedV
     }
 
     return (
-        <MultiStringWrapper>
+        <MultiStringWrapper $displayBulkStyles={displayBulkPromptStyles}>
             {selectedValues.length > 1 &&
                 selectedValues.map((selectedValue, index) => {
                     const key = `${index}`;
@@ -68,7 +84,12 @@ export default function MultipleOpenEndedInput({ selectedValues, updateSelectedV
                                 value={selectedValue}
                                 onChange={(e) => updateInput(e.target.value, index)}
                             />
-                            <DeleteButton type="text" icon={<DeleteOutlined />} onClick={() => deleteValue(index)} />
+                            <DeleteButton
+                                $displayBulkStyles={displayBulkPromptStyles}
+                                type="text"
+                                icon={<DeleteOutlined />}
+                                onClick={() => deleteValue(index)}
+                            />
                         </InputWrapper>
                     );
                 })}
@@ -79,7 +100,7 @@ export default function MultipleOpenEndedInput({ selectedValues, updateSelectedV
                     onChange={(e) => updateInput(e.target.value, 0)}
                 />
             )}
-            <StyledButton type="link" onClick={addNewValue}>
+            <StyledButton type="link" onClick={addNewValue} $displayBulkStyles={displayBulkPromptStyles}>
                 + Add More
             </StyledButton>
         </MultiStringWrapper>

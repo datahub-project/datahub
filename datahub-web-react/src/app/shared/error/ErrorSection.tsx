@@ -4,8 +4,6 @@ import styled, { useTheme } from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 
-import dataHubLogo from '@images/datahublogo.png';
-
 const Section = styled.div`
     width: auto;
     margin-top: 40px;
@@ -66,7 +64,7 @@ export const ErrorSection = (): JSX.Element => {
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={dataHubLogo} preview={false} style={{ width: 40 }} />
+                    <Image src={themeConfig.assets.logoUrl} style={{ width: 40 }} preview={false} />
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>

@@ -25,6 +25,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
             email
             slack
         }
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -75,6 +78,9 @@ query getGroup($urn: String!, $membersCount: Int!) {
                     }
                 }
             }
+        }
+        assetOrigin {
+            ...originFields
         }
     }
 }
@@ -217,6 +223,9 @@ query listGroups($input: ListGroupsInput!) {
             origin {
                 type
                 externalType
+            }
+            assetOrigin {
+                ...originFields
             }
             info {
                 displayName

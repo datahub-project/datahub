@@ -1,0 +1,6 @@
+{
+    "password": "ELASTICSEARCH_PASSWORD",
+    "opendistro_security_roles": [
+        "ROLE"
+    ]
+}

@@ -11,6 +11,7 @@
         <packages>
             <package name="com.linkedin.metadata.graph.search.opensearch.*" />
             <package name="com.linkedin.metadata.search.opensearch.*"/>
+            <package name="com.linkedin.metadata.test.batch.opensearch.*"/>
         </packages>
     </test>
 </suite>

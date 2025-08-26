@@ -13,13 +13,17 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.QueryPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.query.QueryProperties;
 import com.linkedin.query.QuerySubjects;
+import com.linkedin.query.QueryUsageFeatures;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -53,6 +57,13 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
                 QueryPropertiesMapper.map(context, new QueryProperties(dataMap), entityUrn)));
     mappingHelper.mapToResult(QUERY_SUBJECTS_ASPECT_NAME, this::mapQuerySubjects);
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapPlatform);
+    mappingHelper.mapToResult(QUERY_USAGE_FEATURES_ASPECT_NAME, this::mapQueryUsageFeatures);
+    mappingHelper.mapToResult(
+        LINEAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLineageFeatures(
+                LineageFeaturesMapper.map(context, new LineageFeatures(dataMap))));
+
     return mappingHelper.getResult();
   }
 
@@ -102,5 +113,41 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     SchemaFieldEntity partialSchemaField = new SchemaFieldEntity();
     partialSchemaField.setUrn(urn.toString());
     return partialSchemaField;
+  }
+
+  @Nonnull
+  private void mapQueryUsageFeatures(@Nonnull QueryEntity query, @Nonnull DataMap dataMap) {
+    QueryUsageFeatures queryUsageFeatures = new QueryUsageFeatures(dataMap);
+    com.linkedin.datahub.graphql.generated.QueryUsageFeatures result =
+        new com.linkedin.datahub.graphql.generated.QueryUsageFeatures();
+
+    if (queryUsageFeatures.getQueryCountLast30Days() != null) {
+      result.setQueryCountLast30Days(queryUsageFeatures.getQueryCountLast30Days());
+    }
+
+    if (queryUsageFeatures.getQueryCountTotal() != null) {
+      result.setQueryCountTotal(queryUsageFeatures.getQueryCountTotal());
+    }
+
+    if (queryUsageFeatures.getLastExecutedAt() != null) {
+      result.setLastExecutedAt(queryUsageFeatures.getLastExecutedAt());
+    }
+
+    if (queryUsageFeatures.getQueryCostLast30Days() != null) {
+      result.setQueryCostLast30Days(queryUsageFeatures.getQueryCostLast30Days().floatValue());
+    }
+
+    if (queryUsageFeatures.getRunsPercentileLast30days() != null) {
+      result.setRunsPercentileLast30days(queryUsageFeatures.getRunsPercentileLast30days());
+    }
+
+    if (queryUsageFeatures.getTopUsersLast30Days() != null) {
+      result.setTopUsersLast30Days(
+          queryUsageFeatures.getTopUsersLast30Days().stream()
+              .map(urn -> UrnToEntityMapper.map(null, urn))
+              .collect(Collectors.toList()));
+    }
+
+    query.setUsageFeatures(result);
   }
 }

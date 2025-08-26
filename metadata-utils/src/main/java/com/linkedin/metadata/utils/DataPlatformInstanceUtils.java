@@ -21,6 +21,7 @@ import com.linkedin.metadata.key.MLFeatureTableKey;
 import com.linkedin.metadata.key.MLModelDeploymentKey;
 import com.linkedin.metadata.key.MLModelGroupKey;
 import com.linkedin.metadata.key.MLModelKey;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -104,6 +105,12 @@ public class DataPlatformInstanceUtils {
                       EntityKeyUtils.convertUrnToEntityKeyInternal(
                           urn, MLModelGroupKey.dataSchema()))
                   .getPlatform());
+        case "schemaField":
+          return getDataPlatform(
+              ((SchemaFieldKey)
+                      EntityKeyUtils.convertUrnToEntityKeyInternal(
+                          urn, SchemaFieldKey.dataSchema()))
+                  .getParent());
         default:
           log.error(
               String.format(

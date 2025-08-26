@@ -11,11 +11,13 @@ import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -45,7 +47,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
       "com.linkedin.gms.factory.change",
       "com.datahub.event.hook",
       "com.linkedin.gms.factory.notifications",
-      "com.linkedin.gms.factory.search.filter"
+      "com.linkedin.gms.factory.search.filter",
+      "com.linkedin.gms.factory.test.openapi"
     })
 public class MCLSpringCommonTestConfiguration {
 
@@ -75,6 +78,8 @@ public class MCLSpringCommonTestConfiguration {
 
   @MockBean(name = "settingsBuilder")
   public SettingsBuilder settingsBuilder;
+
+  @MockBean public SettingsService settingsService;
 
   @MockBean(name = "systemAuthentication")
   public Authentication systemAuthentication;
@@ -113,4 +118,7 @@ public class MCLSpringCommonTestConfiguration {
   public AdminClient traceAdminClient;
 
   @MockBean public MetricUtils metricUtils;
+
+  @MockBean(name = "integrationsService")
+  IntegrationsService integrationsService;
 }

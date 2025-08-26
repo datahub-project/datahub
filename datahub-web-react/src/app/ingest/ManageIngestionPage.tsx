@@ -6,6 +6,10 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import {
+    REMOTE_EXECUTORS_CREATE_SOURCE_ID,
+    RemoteExecutorPoolsList,
+} from '@app/ingest/executor_saas/RemoteExecutorPoolsList';
 import { SecretsList } from '@app/ingest/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
 import { TabType } from '@app/ingest/types';
@@ -79,14 +83,22 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
+    const canViewIngestionPage =
+        platformPrivileges?.canViewIngestionPage && config.featureFlags.viewIngestionSourcePrivilegesEnabled;
+    const canManageIngestion = platformPrivileges?.manageIngestion;
+    const showIngestionTab = isIngestionEnabled && (canManageIngestion || canViewIngestionPage);
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
+    const canManagePools = canManageIngestion;
+    // TODO: For now remote executors privilege is tied to manage ingestion
+    const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 
     // undefined == not loaded, null == no permissions
     const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
 
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
+    const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
+
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
@@ -96,11 +108,20 @@ export const ManageIngestionPage = () => {
                 setSelectedTab(TabType.Sources);
             } else if (showSecretsTab) {
                 setSelectedTab(TabType.Secrets);
+            } else if (showRemoteExecutorsTab) {
+                setSelectedTab(TabType.RemoteExecutors);
             } else {
                 setSelectedTab(null);
             }
         }
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
+    }, [
+        loadedAppConfig,
+        loadedPlatformPrivileges,
+        showIngestionTab,
+        showSecretsTab,
+        showRemoteExecutorsTab,
+        selectedTab,
+    ]);
 
     const history = useHistory();
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
@@ -119,15 +140,28 @@ export const ManageIngestionPage = () => {
         setShowCreateSecretModal(true);
     };
 
+    const handleCreatePool = () => {
+        setShowCreatePoolModal(true);
+    };
+
     const TabTypeToListComponent = {
         [TabType.Sources]: (
             <IngestionSourceList
+                onSwitchTab={onSwitchTab}
                 showCreateModal={showCreateSourceModal}
                 setShowCreateModal={setShowCreateSourceModal}
             />
         ),
         [TabType.Secrets]: (
             <SecretsList showCreateModal={showCreateSecretModal} setShowCreateModal={setShowCreateSecretModal} />
+        ),
+        // SaaS only
+        [TabType.RemoteExecutors]: (
+            <RemoteExecutorPoolsList
+                onSwitchTab={onSwitchTab}
+                showCreatePoolModal={showCreatePoolModal}
+                setShowCreatePoolModal={setShowCreatePoolModal}
+            />
         ),
     };
 
@@ -155,6 +189,7 @@ export const ManageIngestionPage = () => {
                             id={INGESTION_CREATE_SOURCE_ID}
                             onClick={handleCreateSource}
                             data-testid="create-ingestion-source-button"
+                            disabled={!canManageIngestion}
                         >
                             <PlusOutlined style={{ marginRight: '4px' }} /> Create new source
                         </Button>
@@ -163,6 +198,17 @@ export const ManageIngestionPage = () => {
                     {selectedTab === TabType.Secrets && showSecretsTab && (
                         <Button variant="filled" onClick={handleCreateSecret} data-testid="create-secret-button">
                             <PlusOutlined style={{ marginRight: '4px' }} /> Create new secret
+                        </Button>
+                    )}
+
+                    {selectedTab === TabType.RemoteExecutors && showRemoteExecutorsTab && canManagePools && (
+                        <Button
+                            variant="filled"
+                            onClick={handleCreatePool}
+                            data-testid="create-pool-button"
+                            id={REMOTE_EXECUTORS_CREATE_SOURCE_ID}
+                        >
+                            <PlusOutlined style={{ marginRight: '4px' }} /> Create new pool
                         </Button>
                     )}
                 </HeaderActionsContainer>
@@ -174,6 +220,8 @@ export const ManageIngestionPage = () => {
             >
                 {showIngestionTab && <Tab key={TabType.Sources} tab={TabType.Sources} />}
                 {showSecretsTab && <Tab key={TabType.Secrets} tab={TabType.Secrets} />}
+                {/* SaaS only */}
+                {showRemoteExecutorsTab && <Tab key={TabType.RemoteExecutors} tab={TabType.RemoteExecutors} />}
             </StyledTabs>
             <ListContainer>{TabTypeToListComponent[selectedTab]}</ListContainer>
         </PageContainer>

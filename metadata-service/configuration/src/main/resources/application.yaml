@@ -23,6 +23,10 @@ authentication:
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
+    - type: com.datahub.authentication.authenticator.LegacyTokenAuthenticator
+      configs:
+        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
+        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
       configs:
         guestUser: ${GUEST_AUTHENTICATION_USER:guest}
@@ -71,12 +75,24 @@ ingestion:
   batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
   scheduler:
     refreshIntervalSeconds: ${INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS:43200} # The interval at which the ingestion source scheduler will check for new or updated ingestion sources
+  setActorAsOwnerHook:
+    enabled: ${INGESTION_SET_ACTOR_AS_OWNER_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${INGESTION_SET_ACTOR_AS_OWNER_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
   enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false} # whether mixpanel tracking is enabled.
   enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
+  userTrackingEnabled: ${USER_TRACKING_ENABLED:false} # whether our user tracking tool is enabled or not (hotjar)
+  mixpanel: # Add custom mixpanel tracking token. This is in addition to default mixpanel tracking we do from within frontend.
+    enabled: ${MIXPANEL_ENABLED:false}
+    token: ${MIXPANEL_TOKEN:7cee38380de7a8469069c040a1fee320}
+    useStandardEndpoints: ${MIXPANEL_USE_STANDARD_ENDPOINTS:true} # Must default to true for SaaS. Whether to use standard Mixpanel endpoints instead of DataHub's custom endpoints
+    disableObfuscation: ${MIXPANEL_DISABLE_OBFUSCATION:true} # Must default to true for SaaS. Whether to disable obfuscation of sensitive fields
+  googleAnalytics: # Add custom GA4 measurement id (tracking token).
+    enabled: ${GOOGLE_ANALYTICS_ENABLED:false}
+    measurementId: ${GOOGLE_ANALYTICS_MEASUREMENT_ID:}
 
 secretService:
   encryptionKey: "#{systemEnvironment['SECRET_SERVICE_ENCRYPTION_KEY'] ?: 'ENCRYPTION_KEY'}"
@@ -108,6 +124,9 @@ datahub:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:
       path: ${AUTH_PLUGIN_PATH:/etc/datahub/plugins/auth}
+    openApiClient:
+      maxRetries: ${DATAHUB_GMS_OPENAPI_CLIENT_MAX_RETRIES:3}
+      backOffMillis: ${DATAHUB_GMS_OPENAPI_CLIENT_BACK_OFF_MILLIS:1000}
 
   metrics:
     # measures the time from request to post-MCL hook
@@ -121,6 +140,9 @@ entityService:
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
+  applyMclSyncForSources:
+    ui: ${ENTITY_SERVICE_SYNC_MCL_UI:true}
+    reportingExecutor: ${ENTITY_SERVICE_SYNC_MCL_REPORTING_EXECUTOR:true}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -138,6 +160,8 @@ searchService:
   cache:
     hazelcast:
       serviceName: ${SEARCH_SERVICE_HAZELCAST_SERVICE_NAME:hazelcast-service}
+  ranker:
+    type: ${SEARCH_SERVICE_RANKER_TYPE:}
   queryFilterRewriter:
     containerExpansion:
       enabled: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED:true}
@@ -171,6 +195,14 @@ systemMetadataService:
       apiDefault: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
       strict: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
+recommendationService:
+  mostPopular:
+    offline: ${MOST_POPULAR_RECOMMENDATIONS_OFFLINE:false}
+  topTags:
+    offline: ${TOP_TAGS_RECOMMENDATIONS_OFFLINE:false}
+  topTerms:
+    offline: ${TOP_TERMS_RECOMMENDATIONS_OFFLINE:false}
+
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
   # Priority is given to the `path` setting above (outside jar)
@@ -192,7 +224,7 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
+    logoUrl: ${REACT_APP_LOGO_URL:/assets/logos/acryl-dark-mark.svg} # we rely on this default constant in frontend - change in datahub-web-react/src/app/homeV2/layout/NavSidebar.tsx if updating
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
@@ -205,6 +237,15 @@ visualConfig:
     showSidebarSectionWhenEmpty: ${APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY:false}
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
+
+# Enable or disable the automations screen.
+classificationConfig:
+  # enable the classification center
+  enabled: ${CLASSIFICATION_CONFIG_ENABLED:false}
+  automations:
+    # support enabling/disabling individual automation types
+    snowflake: ${CLASSIFICATION_AUTOMATIONS_SNOWFLAKE_ENABLED:false}
+    aiTermClassification: ${AI_TERM_CLASSIFICATION_ENABLED:true}
 
 # Storage Layer
 
@@ -306,7 +347,7 @@ elasticsearch:
       withPrefix: ${ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX:true} # include prefix exact matches
       exactFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR:16.0} # boost multiplier when exact with case
       prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.1} # boost multiplier when exact prefix
-      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.0} # stacked boost multiplier when case mismatch
+      caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.9} # stacked boost multiplier when case mismatch
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
     wordGram:
       twoGramFactor: ${ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR:1.2} # boost multiplier when match on 2-gram tokens
@@ -318,7 +359,7 @@ elasticsearch:
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
-      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}
+      file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config_acryl.yaml} # update for Saas
       searchFieldConfigDefault: ${ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for search
       autoCompleteFieldConfigDefault: ${ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT:legacy} # which field configuration to use by default for autocomplete
     graph:
@@ -331,6 +372,8 @@ elasticsearch:
       impactMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:32} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
+  scroll:
+    timeout: ${ELASTICSEARCH_SCROLL_TIMEOUT:5m} # Default timeout of the scroll reference for legacy scroll and PIT for searchAfter
 
 # TODO: Kafka topic convention
 kafka:
@@ -501,7 +544,76 @@ springdoc:
     enabled: true
 
 metadataTests:
+  # Enable metadata tests feature
   enabled: ${METADATA_TESTS_ENABLED:false}
+  jvmShutdownHookEnabled: ${METADATA_TESTS_JVM_SHUTDOWN_HOOK:false}
+  futuresBatchSize: ${METADATA_TESTS_FUTURES_BATCH_SIZE:20}
+  hook:
+    enabled: ${METADATA_TESTS_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${METADATA_TESTS_HOOK_CONSUMER_GROUP_SUFFIX:}
+    onTestChange: ${METADATA_TESTS_ON_TEST_CHANGE:true}
+    onEntityChange: ${METADATA_TESTS_ON_ENTITY_CHANGE:false}
+    hookExecutionLimit: # Configures the limits on number of entities for running tests in real time for each executor
+      elasticSearchExecutor: ${METADATA_TESTS_TEST_CHANGE_LIMIT_ELASTIC:10000} # configures the limit for the faster Elastic executor
+      defaultExecutor: ${METADATA_TESTS_TEST_CHANGE_LIMIT_SQL:1000} # configures the limit for the default sql executor
+  cacheRefreshDelayIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_DELAY_INTERVAL_SECONDS:10}
+  cacheRefreshIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_INTERVAL_SECONDS:120}
+  # Flags to enable bootstrap ingestion of default policies
+  bootstrap:
+    enabled: ${METADATA_TESTS_BOOTSTRAP_ENABLED:true}
+    activeDefaults: ${METADATA_TESTS_BOOTSTRAP_ACTIVE_DEFAULTS:false}
+  elasticSearchExecutor:
+    enabled: ${METADATA_TESTS_ELASTICSEARCH_EXECUTOR_ENABLED:true} # Will try to execute test queries through Elastic if query is supported by searchable fields
+  # SAAS Only
+  forwardingAction:
+    enabled: ${METADATA_TESTS_FORWARDING_ACTION_ENABLED:false} # Forwarding integration-service action to target instance for Metadata Test Results and Actions, enables bootstrapping of action request
+    recipe: ${METADATA_TESTS_FORWARDING_ACTION_RECIPE:} # JSON String representing the recipe config
+  actions:
+    concurrency: ${METADATA_TESTS_ACTIONS_CONCURRENCY:2} # parallel threads
+    queueSize: ${METADATA_TESTS_ACTIONS_QUEUE_SIZE:500}
+    threadKeepAlive: ${METADATA_TESTS_ACTIONS_THREAD_KEEP_ALIVE:60}
+
+# Notifications config
+notifications:
+  # Enable if you want to enable creation of the Notification Manager.
+  enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:true} # Enable to turn on notifications.
+  consumerGroupSuffix: ${NOTIFICATIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
+
+  defaultSettingsHook:
+    enabled: ${DEFAULT_NOTIFICATION_SETTINGS_HOOK_ENABLED:true}
+
+  # Required if enabled is true! The set of notification sinks to use.
+  sinks:
+    - type: com.datahub.notification.slack.SlackNotificationSink
+      # This simply determines whether we try to instantiate and register this sink. Note that it does not control
+      # app-layer configurations as to whether notifications are actually sent to slack.
+      enabled: ${SLACK_SINK_ENABLED:true}
+      configs:
+        botToken: ${SLACK_BOT_TOKEN}
+        defaultChannel: ${SLACK_DEFAULT_CHANNEL:datahub-slack-notifications}
+        # Whether we should attempt to retry sending important Slack notifications
+        retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
+        maxNumRetries: ${SLACK_MAX_NUM_RETRIES:2}
+        proxyUrl: ${SLACK_PROXY_URL:}
+        slackSinkV2Enabled: ${SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:false} # Whether the new Slack sink in integrations service is enabled.
+    - type: com.datahub.notification.proxy.EmailProxySink
+      enabled: ${EMAIL_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
+    - type: com.datahub.notification.proxy.SlackProxySink
+      enabled: ${SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
+
+# Mirroring events to external systems (e.g. Event Bridge)
+eventSinks:
+  entityChangeEvent:
+    # Set of optional change event sinks.
+    sinks:
+      - type: "com.linkedin.metadata.event.change.aws.AwsEventBridgeChangeEventSink"
+        enabled: ${AWS_EVENT_BRIDGE_EVENT_SYNC_ENABLED:false}
+        configs:
+          # URL to which event bridge instance should be sinked.
+          eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN}
+          region: ${AWS_EVENT_BRIDGE_BUS_REGION}
+          assumeRoleArn: ${AWS_EVENT_BRIDGE_ASSUME_ROLE:}
+          externalId: ${AWS_EVENT_BRIDGE_EXTERNAL_ID:}
 
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
@@ -512,19 +624,39 @@ updateIndices:
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
   consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:}
+assertions:
+  hook:
+    enabled: ${ENABLE_ASSERTIONS_HOOK:true}
+    consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
+assertionAnalytics:
+  hook:
+    enabled: ${ENABLE_ASSERTION_ANALYTICS_HOOK:true}
+    consumerGroupSuffix: ${ASSERTION_ANALYTICS_HOOK_CONSUMER_GROUP_SUFFIX:}
 incidents:
   hook:
+    # Only managed incident summary hook. Should be better named.
     enabled: ${ENABLE_INCIDENTS_HOOK:true}
     maxIncidentHistory: ${MAX_INCIDENT_HISTORY:100}
     consumerGroupSuffix: ${INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
+  # Enable or disable the hook responsible for generating activity events, powering the activity log.
+  activityEventsHook:
+    enabled: ${ENABLE_INCIDENT_ACTIVITY_EVENTS:true}
 
 bootstrap:
+  defaultPersonas:
+    enabled: ${BOOTSTRAP_DEFAULT_PERSONAS:false} # Enables ingesting default personas
   policies:
     file: ${BOOTSTRAP_POLICIES_FILE:classpath:boot/policies.json}
     # eg for local file
     # file: "file:///datahub/datahub-gms/resources/custom-policies.json"
   servlets:
     waitTimeout: ${BOOTSTRAP_SERVLETS_WAITTIMEOUT:60} # Total waiting time in seconds for servlets to initialize
+
+sentry:
+  enabled: ${SENTRY_ENABLED:false}
+  dsn: ${SENTRY_DSN:set_when_sentry_is_enabled}
+  env: ${SENTRY_ENVIRONMENT:dev}
+  debug: ${SENTRY_DEBUG:false}
 
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
@@ -543,11 +675,21 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DOMAIN_DESCRIPTION_CLL_LIMIT:0}
+  postInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_LIMIT:0}
   dashboardInfo:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_DELAY_MS:30000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_DASHBOARD_INFO_CLL_LIMIT:0}
+  assertionInfo:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_BATCH_SIZE:1000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_DELAY_MS:30000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_ASSERTION_INFO_CLL_LIMIT:0}
   browsePathsV2:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
@@ -599,6 +741,26 @@ systemUpdate:
   removeQueryEdges:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
     numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
+  migrateProcessInstanceEdges:
+    enabled: ${MIGRATE_PROCESS_INSTANCE_EDGES_ENABLED:false}
+    batchSize: ${MIGRATE_PROCESS_INSTANCE_EDGES_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${MIGRATE_PROCESS_INSTANCE_EDGES_REPROCESS:false}
+    # Comma-separated strings, e.g. `one,two,three`
+    inputPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_INPUT_PLATFORMS:}
+    outputPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_OUTPUT_PLATFORMS:}
+    parentPlatforms: ${MIGRATE_PROCESS_INSTANCE_EDGES_PARENT_PLATFORMS:}
+  executorPools:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_BATCH_SIZE:500}
+    customerId: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_CUSTOMER_ID:unset}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_EXECUTOR_POOLS_REPROCESS:false}
+  purgeLegacyExecutors:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_BATCH_SIZE:1000}
+    reprocess:
+      enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_REPROCESS:false}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
@@ -610,17 +772,28 @@ healthCheck:
 
 featureFlags:
   showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
-  lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true} # Enables in-memory cache for searchAcrossLineage query
-  graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
-  pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with main line ElasticSearch releases after 7.10. OpenSearch is unsupported, plans to eventually target OpenSearch 2.4+ with a divergent client
-  alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
-  searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
-  readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
-  showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
-  showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
-  showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
-  platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
-  lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
+  lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true}
+  # Enables in-memory cache for searchAcrossLineage query
+  graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true}
+  # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
+  pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false}
+  # Enables creation of point in time snapshots for the scroll API, only works with main line ElasticSearch releases after 7.10. OpenSearch is unsupported, plans to eventually target OpenSearch 2.4+ with a divergent client
+  alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false}
+  # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
+  searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true}
+  # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
+  readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false}
+  # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
+  showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false}
+  #Whether we should show AccessManagement tab in the datahub UI.
+  showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true}
+  # Enables showing the search filters V2 experience.
+  showBrowseV2: ${SHOW_BROWSE_V2:true}
+  # Enables showing the browse v2 sidebar experience.
+  platformBrowseV2: ${PLATFORM_BROWSE_V2:true}
+  # Enables the platform browse experience, instead of the entity-oriented browse default.
+  lineageGraphV2: ${LINEAGE_GRAPH_V2:true}
+  # Enables the new lineage visualization.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
@@ -654,6 +827,71 @@ featureFlags:
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
+  # SaaS-only features
+  showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false}
+  # If turned on, the bulk form by question view will be shown by default from the task center
+  showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false}
+  # Enables showing sort by row count, query count, update count, size in bytes.
+  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:true}
+  # Enables the ability to create native assertions inside the UI.
+  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:true}
+  # Enables the ability to run native assertions inside the UI.
+  schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:true}
+  # Enables the ability to create native schema assertions inside the UI.
+  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true}
+  # Enables the ability to subscribe to notifications
+  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:true}
+  # Enables the Dataset Health dashboard in the application
+  aiFeaturesEnabled: ${AI_FEATURES_ENABLED:true}
+  # Whether AI-powered features are enabled. Not supported for non-AWS deployments.
+  documentationAiDefaultEnabled: ${DOCUMENTATION_AI_ENABLED:false}
+  # If the AI-powered documentation feature should be enabled by default.
+  # The globalSettings.documentationAi.enabled setting takes precedence over this.
+  # Requires aiFeaturesEnabled to be true.
+  slackAtMentionDefaultEnabled: ${SLACK_AT_MENTION_DEFAULT_ENABLED:false}
+  # If the Slack @DataHub bot mention feature should be enabled by default when not explicitly set.
+  # Serves as fallback when datahubAtMentionEnabled is null in SlackIntegrationSettings.
+  metadataShareEnabled: ${METADATA_SHARE_ENABLED:false}
+  # Enables the metadata sharing feature to share entities between instances
+  documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true}
+  # Enables the documentation forms feature and shows/hides everything for it in the UI
+  emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false}
+  # Enables the email notifications feature.
+  slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:true}
+  # Enables the ability to configure slack bot tokens via the integrations settings UI
+  slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true}
+  # Obfuscates sensitive tokens in graphQL endpoints where connection details are surfaced
+  broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true}
+  # Enables stateful updating of active incidents in 3rd party destinations.
+  separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false}
+  # Whether siblings lineage should be separate from each other or not
+  formCreationEnabled: ${FORM_CREATION_ENABLED:true}
+  # Enables the form creation workflow feature on the documentation page
+  showFormAnalytics: ${SHOW_FORM_ANALYTICS:true}
+  # If turned on, show the tab in the Compliance Form center to get to forms analytics
+  showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true}
+  # If turned on, show the re-designed Stats tab on the entity page
+  requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false}
+  # If turned on, request minimal required slack permissions
+  showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false}
+  # If turned on, show the re-designed Proposals page in Task Center
+  usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false}
+  # If turned on, use the general Propagations Framework over specialized propagations actions
+  displayExecutorPools: ${DISPLAY_EXECUTOR_POOLS:false}
+  # If turned on, display executor pools across the UI
+  onlineSmartAssertionsEnabled: ${ONLINE_SMART_ASSERTIONS_ENABLED:true}
+  # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
+  showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true}
+  # If turned on, show the default external links on the entity page
+  showCreatedAtFilter: ${SHOW_CREATED_AT_FILTER:false}
+  # If turned on, show the re-designed Ingestion page
+  # If turned on, show the expand more button (>>) in the lineage graph
+  formsNotificationsEnabled: ${FORMS_NOTIFICATIONS_ENABLED:false}
+  # Enables the redesign of the lineage v2 graph
+  viewIngestionSourcePrivilegesEnabled: ${VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED:false}
+  # Enables getting to the ingestion source page if you have permission to view any ingestion sources
+  tagPropagationV2Enabled: ${TAG_PROPAGATION_V2_ENABLED:false}
+  # If enabled, the new V2 tag propagation automation will be available instead of the original V1 version
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -705,6 +943,11 @@ cache:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
       lightningThreshold: ${CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD:300}
+      maxSize: ${CACHE_SEARCH_LINEAGE_MAX_SIZE:10000}
+      evictionPolicy:
+        ${CACHE_SEARCH_LINEAGE_EXPIRATION_POLICY:SIZE_AND_TTL} # One of NEVER, TTL, MAX_SIZE, SIZE_AND_TTL ->
+        # NEVER will ignore max size and ttl configurations, TTL will only apply TTL and ignore size,
+        # MAX_SIZE will ignore TTL and apply size, SIZE_AND_TTL will apply both ttl and size
   client:
     usageClient:
       enabled: ${CACHE_CLIENT_USAGE_CLIENT_ENABLED:true}
@@ -738,11 +981,42 @@ cache:
           structuredPropertyKey: 86400 # 1 day
         chart:
           usageFeatures: 21600 # 6hrs
+          domains: 20
         dataset:
           usageFeatures: 21600 # 6hrs
           storageFeatures: 21600 # 6hrs
+          domains: 20
         dashboard:
           dashboardUsageStatistics: 21600 # 6hrs
+          domains: 20
+        globalSettings:
+          globalSettingsInfo: 60
+        dataHubSecret:
+          dataHubSecretValue: 600 # 10 min
+        domain:
+          domainProperties: 20
+        dataJob:
+          domains: 20
+        dataFlow:
+          domains: 20
+        notebook:
+          domains: 20
+        container:
+          domains: 20
+        glossaryTerm:
+          domains: 20
+        mlModel:
+          domains: 20
+        mlModelGroup:
+          domains: 20
+        mlFeatureTable:
+          domains: 20
+        mlFeature:
+          domains: 20
+        mlPrimaryKey:
+          domains: 20
+        dataProduct:
+          domains: 20
         telemetry:
           telemetryClientId: 86400 # 1 day
 
@@ -802,9 +1076,98 @@ chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
   lineageEnabled: ${CHROME_EXTENSION_LINEAGE_ENABLED:true}
 
+assertionActions:
+  hook:
+    enabled: ${ASSERTION_ACTIONS_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${ASSERTION_ACTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
+
+monitorDeletion:
+  hook:
+    enabled: ${DELETE_MONITOR_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${MONITOR_DELETION_HOOK_CONSUMER_GROUP_SUFFIX:}
+
+# Acryl-Only
+integrationsService:
+  host: ${DATAHUB_INTEGRATIONS_HOST:localhost}
+  port: ${DATAHUB_INTEGRATIONS_PORT:9003}
+  useSsl: ${DATAHUB_INTEGRATIONS_USE_SSL:false}
+monitorService:
+  host: ${DATAHUB_EXECUTOR_HOST:localhost}
+  port: ${DATAHUB_EXECUTOR_PORT:9004}
+  useSsl: ${DATAHUB_EXECUTOR_USE_SSL:false}
+
+assertionMonitors:
+  resolveIngestionSourceForAspects: ${DATAHUB_EXECUTOR_RESOLVE_ASSERTION_INGESTION_SOURCE_WITH_ASPECTS:datasetProperties,datasetProfile,schemaMetadata}
+
+connections:
+  testExecutionRequestHook:
+    enabled: ${CONNECTION_TEST_EXECUTION_REQUEST_HOOK_ENABLED:true} # Enables processing of DataHubConnection test execution requests
+
+subscriptions:
+  ownerSubscriptionHook:
+    enabled: ${OWNER_SUBSCRIPTION_HOOK_ENABLED:false}
+    consumerGroupSuffix: ${SUBSCRIPTIONS_OWNER_HOOK_CONSUMER_GROUP_SUFFIX:}
+  subResourceDeletionHook:
+    enabled: ${SUBSCRIPTION_SUBRESOURCE_DELETION_HOOK_ENABLED:true}
+    consumerGroupSuffix: ${SUBSCRIPTIONS_SUB_RESOURCE_HOOK_CONSUMER_GROUP_SUFFIX:}
+
+executors:
+  backendRevision: 2
+  executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
+  executorCustomerId: ${DATAHUB_EXECUTOR_CUSTOMER_ID:#{null}}
+  executorPoolHook:
+    enabled: ${EXECUTOR_POOL_HOOK_ENABLED:true}
+    messageRetentionPeriod: "86400"
+    visibilityTimeout: "43200"
+    managedSseEnabled: true
+    consumerGroupSuffix: ${EXECUTOR_POOL_HOOK_CONSUMER_GROUP_SUFFIX:}
+    sqsMaxRetries: 5
+    sqsBaseDelayMs: 500
+    policyTemplate: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "Delegation",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "arn:aws:iam::795586375822:root"
+            },
+            "Action": "sqs:*",
+            "Resource": "{{queueArn}}"
+          },
+          {
+            "Sid": "Remote",
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": "{{roleArn}}"
+            },
+            "Action": [
+              "sqs:SendMessage",
+              "sqs:ReceiveMessage",
+              "sqs:GetQueueUrl",
+              "sqs:GetQueueAttributes",
+              "sqs:DeleteMessage",
+              "sqs:ChangeMessageVisibility"
+            ],
+            "Resource": "{{queueArn}}"
+          }
+        ]
+      }
+
+corpuser:
+  hook:
+    slackMemberResolutionHook:
+      enabled: ${SLACK_MEMBER_RESOLUTION_HOOK_ENABLED:false}
+      consumerGroupSuffix: ${SLACK_MEMBER_RESOLUTION_HOOK_CONSUMER_GROUP_SUFFIX:corpuser}
+
 forms:
   hook:
     enabled: ${FORMS_HOOK_ENABLED:true}
+    completionEnabled: ${FORMS_COMPLETION_HOOK_ENABLED:true}
+    infoEnabled: ${FORM_INFO_HOOK_ENABLED:true}
+    assignmentStatusEnabled: ${FORM_ASSIGNMENT_STATUS_HOOK_ENABLED:true}
+    settingsEnabled: ${FORM_SETTINGS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
@@ -824,6 +1187,7 @@ metadataChangeProposal:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
+      configFile: ${MCP_VALIDATION_EXTENSIONS_CONFIG_FILE:extended_properties_config.yml}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}
@@ -858,7 +1222,7 @@ metadataChangeProposal:
       maxAttempts: ${MCP_TIMESERIES_MAX_ATTEMPTS:1000}
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
-      maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+      maxIntervalMs: ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
@@ -866,3 +1230,20 @@ eventsApi:
 icebergCatalog:
   enablePublicRead: ${ENABLE_PUBLIC_READ:false}
   publiclyReadableTag: ${PUBLICLY_READABLE_TAG:PUBLICLY_READABLE}
+
+# SaaS only
+aws:
+  eventBridge:
+    eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN:}
+    region: ${AWS_EVENT_BRIDGE_BUS_REGION:}
+    assumeRoleArn: ${AWS_EVENT_BRIDGE_ASSUME_ROLE:}
+    externalId: ${AWS_EVENT_BRIDGE_EXTERNAL_ID:}
+    maxBatchSize: ${AWS_EVENT_BRIDGE_MAX_BATCH_SIZE:5} # Maximum of 10
+    maxRetries: ${AWS_EVENT_BRIDGE_MAX_RETRIES:3}
+    flushIntervalSeconds: ${AWS_EVENT_BRIDGE_FLUSH_INTERVAL_SECONDS:1}
+    auditEventExport:
+      enabled: ${AWS_EVENT_BRIDGE_AUDIT_EVENT_EXPORT_ENABLED:false}
+      consumerGroupSuffix: ${AWS_EVENT_BRIDGE_AUDIT_EVENT_EXPORT_CONSUMER_GROUP:audit-event}
+      usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent,LogInEvent,LogOutEvent,FailedLogInEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
+      aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
+      userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all

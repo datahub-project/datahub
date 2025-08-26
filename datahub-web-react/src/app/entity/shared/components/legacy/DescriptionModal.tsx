@@ -31,7 +31,9 @@ type Props = {
     propagatedDescription?: string | undefined;
     onClose: () => void;
     onSubmit: (description: string) => void;
+    onPropose?: (description: string) => void;
     isAddDesc?: boolean;
+    showPropose?: boolean;
 };
 
 export default function UpdateDescriptionModal({
@@ -41,7 +43,9 @@ export default function UpdateDescriptionModal({
     propagatedDescription,
     onClose,
     onSubmit,
+    onPropose,
     isAddDesc,
+    showPropose,
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
@@ -66,6 +70,11 @@ export default function UpdateDescriptionModal({
             footer={
                 <>
                     <Button onClick={onClose}>Cancel</Button>
+                    {showPropose && onPropose && (
+                        <Button onClick={() => onPropose(updatedDesc)} disabled={updatedDesc === description}>
+                            Propose
+                        </Button>
+                    )}
                     <Button
                         onClick={() => onSubmit(updatedDesc)}
                         disabled={updatedDesc === description}

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import { DescriptionPreviewToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreviewToolbar';
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import InferenceDetailsPill from '@src/app/sharedV2/inferred/InferenceDetailsPill';
 
 const EditorContainer = styled.div`
     overflow: auto;
@@ -11,14 +12,16 @@ const EditorContainer = styled.div`
 
 type DescriptionPreviewProps = {
     description: string;
+    isInferred?: boolean;
     onEdit: () => void;
 };
 
-export const DescriptionPreview = ({ description, onEdit }: DescriptionPreviewProps) => {
+export const DescriptionPreview = ({ description, isInferred, onEdit }: DescriptionPreviewProps) => {
     return (
         <>
             <DescriptionPreviewToolbar onEdit={onEdit} />
             <EditorContainer>
+                {isInferred && <InferenceDetailsPill pillStyles={{ marginTop: 16, marginLeft: 24 }} />}
                 <Editor content={description} readOnly />
             </EditorContainer>
         </>

@@ -55,6 +55,8 @@ buildscript {
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.18'
+  ext.logbackContribVersion = '0.1.5'
+  ext.janinoVersion = '3.0.12'
   ext.hadoop3Version = '3.3.6'
   ext.kafkaVersion = '8.0.0'
   ext.hazelcastVersion = '5.3.6'
@@ -65,7 +67,9 @@ buildscript {
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
 
-  ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
+  ext.sentry = '8.8.0'
+
+  ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", '795586375822.dkr.ecr.us-west-2.amazonaws.com')
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
@@ -123,6 +127,9 @@ project.ext.externalDependency = [
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro': 'org.apache.avro:avro:1.11.4',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
+    'awsJavaSdkCore': 'software.amazon.awssdk:sdk-core:2.17.261',
+    'awsJavaSdkSts': 'software.amazon.awssdk:sts:2.17.261',
+    'awsJavaSdkS3': 'software.amazon.awssdk:s3:2.17.261',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.23',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.0',
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
@@ -135,6 +142,7 @@ project.ext.externalDependency = [
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
     'commonsLang': 'commons-lang:commons-lang:2.6',
+    'commonsLang3': 'org.apache.commons:commons-lang3:3.17.0',
     'commonsText': 'org.apache.commons:commons-text:1.12.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
@@ -155,6 +163,7 @@ project.ext.externalDependency = [
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
     'gson': 'com.google.code.gson:gson:2.12.0',
+    'gsonFire': 'io.gsonfire:gson-fire:1.8.5',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
     'guava': 'com.google.guava:guava:32.1.3-jre',
@@ -206,6 +215,9 @@ project.ext.externalDependency = [
     'kafkaAvroSerializer': "io.confluent:kafka-avro-serializer:$kafkaVersion",
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.7',
+    'logbackJackson': "ch.qos.logback.contrib:logback-jackson:$logbackContribVersion",
+    'logbackJsonClassic': "ch.qos.logback.contrib:logback-json-classic:$logbackContribVersion",
+    'janino': "org.codehaus.janino:janino:$janinoVersion",
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
     'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
@@ -259,6 +271,10 @@ project.ext.externalDependency = [
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
     'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
+    'jakartaAnnotations': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
+    'jakartaWsRsApi': 'jakarta.ws.rs:jakarta.ws.rs-api:3.1.0',
+    'sentry': "io.sentry:sentry:$sentry",
+    'sentryLogback': "io.sentry:sentry-logback:$sentry",
     'shiroCore': 'org.apache.shiro:shiro-core:1.13.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
     'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.0.3',
@@ -270,6 +286,7 @@ project.ext.externalDependency = [
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
+    'springRetry': "org.springframework.retry:spring-retry:1.3.1",
     'springBootTest': "org.springframework.boot:spring-boot-starter-test:$springBootVersion",
     'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
     'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
@@ -304,7 +321,10 @@ project.ext.externalDependency = [
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
-    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.7'
+    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.7',
+    'scimServer': 'io.acryl:scim-server:1.0.3',
+    'scimSpec': 'io.acryl:scim-spec-schema:1.0.3',
+    'scimSpecTest': 'io.acryl:scim-compliance-tests:1.0.3'
 ]
 
 allprojects {
@@ -395,9 +415,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "javax.mail", module: "mail"
     exclude group: 'org.glassfish', module: 'javax.json'
     exclude group: 'org.glassfish', module: 'jakarta.json'
-    exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
+exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
-    
+
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
@@ -414,6 +434,18 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       force "org.eclipse.jetty:jetty-xml:${jettyVersion}"
     }
   }
+}
+
+String getFullName(project) {
+  if (project.parent) {
+    return getFullName(project.parent) + ":" + project.name
+  } else {
+    return project.name
+  }
+}
+
+boolean shouldApplySpotless(project) {
+  return !getFullName(project).endsWith(":datahub-integrations-service:clients:java");
 }
 
 apply plugin: 'com.gorylenko.gradle-git-properties'
@@ -442,11 +474,12 @@ tasks.register("generateGitPropertiesGlobal", com.gorylenko.GenerateGitPropertie
     }
   }
 }
-
 subprojects {
 
   apply plugin: 'maven-publish'
-  apply plugin: 'com.diffplug.spotless'
+  if (shouldApplySpotless(project)) {
+    apply plugin: 'com.diffplug.spotless'
+  }
 
   def gitPropertiesTask = tasks.register("copyGitProperties", Copy) {
     dependsOn rootProject.tasks.named("generateGitPropertiesGlobal")
@@ -481,7 +514,7 @@ subprojects {
         implementation(externalDependency.protobuf)
       }
     }
-
+    if (shouldApplySpotless(project)) {
     spotless {
       java {
         googleJavaFormat()
@@ -541,6 +574,7 @@ subprojects {
       if (compileJavaTask != null) {
         spotlessJavaTask.dependsOn compileJavaTask
       }
+    }
     }
   }
 

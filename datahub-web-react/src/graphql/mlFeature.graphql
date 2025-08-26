@@ -3,6 +3,9 @@ query getMLFeature($urn: String!) {
         urn
         type
         ...nonRecursiveMLFeature
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -19,6 +22,12 @@ query getMLFeature($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        proposals: proposals {
+            ...proposalsFragment
+        }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
         }
         ...notes
     }

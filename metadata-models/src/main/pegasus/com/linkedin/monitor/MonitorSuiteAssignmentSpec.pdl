@@ -1,0 +1,23 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.metadata.query.filter.Filter
+
+/**
+ * Information about entities that should be monitored by a monitor suite.
+ */
+record MonitorSuiteAssignmentSpec {
+    /**
+     * The filter applied when assigning this form to entities. Entities that match this filter
+     * will have this form applied to them. Right now this filter only supports filtering by
+     * platform, entity type, container, term, tag, domain, and urns through the UI.
+     */
+    filter: Filter
+
+    /**
+     * The stringified json representing the logical predicate built in the UI to select assets.
+     * This predicate is turned into orFilters to send through graphql since graphql doesn't support
+     * arbitrary nesting. This string is used to restore the UI for this logical predicate.
+     */
+    json: optional string
+}
+

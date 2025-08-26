@@ -1,0 +1,13 @@
+namespace com.linkedin.action
+
+/**
+* Captures the various status codes for different stages of a DataHub Action Pipeline
+*/
+
+enum DataHubActionStageStatusCode {
+    RUNNING, // The stage is currently running
+    SUCCESS, // The stage has completed successfully
+    FAILED,  // The stage has failed
+    STOPPED,  // The stage has been stopped
+    CANCELLED // The stage has been cancelled
+}

@@ -1,4 +1,4 @@
-import { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
+import Icon, { EditOutlined, ExpandAltOutlined } from '@ant-design/icons';
 import { Button, Divider, Typography } from 'antd';
 import queryString from 'query-string';
 import React, { useEffect } from 'react';
@@ -14,6 +14,9 @@ import { DescriptionPreviewModal } from '@app/entity/shared/tabs/Documentation/c
 import { LinkList } from '@app/entity/shared/tabs/Documentation/components/LinkList';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entity/shared/utils';
+import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
+
+import SparklesIcon from '@images/sparkles.svg?react';
 
 const DocumentationContainer = styled.div`
     margin: 0 32px;
@@ -27,7 +30,7 @@ interface Props {
 
 export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const hideLinksButton = properties?.hideLinksButton;
-    const { urn, entityData } = useEntityData();
+    const { urn, entityData, entityType } = useEntityData();
     const refetch = useRefetch();
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
     const links = entityData?.institutionalMemory?.elements || [];
@@ -36,6 +39,8 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
     const showModal = queryString.parse(useLocation().search, { parseBooleans: true }).modal;
+
+    const shouldShowGenerateButton = useShouldShowInferDocumentationButton(entityType);
 
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
@@ -96,9 +101,22 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                 </>
             ) : (
                 <EmptyTab tab="documentation">
-                    <Button onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}>
+                    <Button
+                        data-testid="add-documentation"
+                        onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
+                    >
                         <EditOutlined /> Add Documentation
                     </Button>
+                    {shouldShowGenerateButton && (
+                        <Button
+                            data-testid="generate-documentation"
+                            onClick={() =>
+                                routeToTab({ tabName: 'Documentation', tabParams: { editing: true, generate: true } })
+                            }
+                        >
+                            <Icon component={SparklesIcon} /> Generate Documentation
+                        </Button>
+                    )}
                     {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </EmptyTab>
             )}

@@ -82,7 +82,6 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
 
   private FieldResolver.FieldValue getDomains(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-
     final EnvelopedAspect domainsAspect;
     try {
       if (entitySpec.getEntity().isEmpty()) {

@@ -1,0 +1,29 @@
+name: Term Propagation
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8080/schema-registry/api/}
+datahub:
+  server: ${DATAHUB_SERVER_URL:-http://localhost:8080}
+
+action:
+  type: datahub_integrations.propagation.propagation.generic_propagation_action.GenericPropagationAction
+  config:
+    propagation_rule:
+      entityTypes:
+        - "dataset"
+        - "schemaField"
+      targetUrnResolution:
+        - type: downstream
+      metadataPropagated:
+          terms:
+             target_terms:
+               - urn:li:glossaryTerm:TestTerm1_1 # This term and any terms inherited from it will be propagated
+               - urn:li:glossaryTerm:TestTerm1_2 # This term will be propagated
+               - urn:li:glossaryTerm:TestTerm2_2 # leaf term that will be propagated
+             term_groups:
+               - urn:li:glossaryNode:TestGlossaryNode1 # Any terms contained under this node will be propagated
+
+

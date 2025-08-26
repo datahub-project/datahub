@@ -1,6 +1,6 @@
 {
   "on": {
-    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard"],
+    "types": ["dataset", "container", "dataJob", "dataFlow", "chart", "dashboard", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "glossaryTerm", "glossaryNode", "domain", "dataProduct"],
     "conditions": {
       "or": [
         {
@@ -32,7 +32,7 @@
                   "values": ["urn:li:container:test"]
                 },
                 {
-                  "property": "entityType",
+                  "property": "_entityType",
                   "operator": "equals",
                   "values": ["dataset"]
                 },
@@ -56,7 +56,7 @@
                   "values": ["urn:li:container:test-2"]
                 },
                 {
-                  "property": "entityType",
+                  "property": "_entityType",
                   "operator": "equals",
                   "values": ["dashboard"]
                 },
@@ -87,7 +87,7 @@
             "values": ["urn:li:container:test"]
           },
           {
-            "property": "entityType",
+            "property": "_entityType",
             "operator": "equals",
             "values": ["dataset"]
           },
@@ -111,7 +111,7 @@
             "values": ["urn:li:container:test-2"]
           },
           {
-            "property": "entityType",
+            "property": "_entityType",
             "operator": "equals",
             "values": ["dashboard"]
           },

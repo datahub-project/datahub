@@ -445,6 +445,15 @@ public class ESGraphQueryDAO {
         intermediateStream = entitiesToExplore.stream();
       }
     }
+    if (remainingHops > 0) {
+      // If there are hops remaining, we expect to explore everything getting passed back to the
+      // loop, barring a timeout
+      List<Urn> entitiesToExplore = intermediateStream.collect(Collectors.toList());
+      entitiesToExplore.forEach(urn -> result.get(urn).setExplored(true));
+      // reassign the stream after consuming it
+      intermediateStream = entitiesToExplore.stream();
+    }
+
     return intermediateStream;
   }
 

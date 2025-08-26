@@ -1,5 +1,6 @@
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined';
 import { Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -83,17 +84,21 @@ function healthIcon({ type }: Health) {
             return <ReportProblemOutlinedIcon fontSize="inherit" />;
         case HealthStatusType.Assertions:
             return <ErrorOutlineOutlinedIcon fontSize="inherit" />;
+        case HealthStatusType.Tests:
+            return <VerifiedOutlinedIcon fontSize="inherit" />;
         default:
             return null;
     }
 }
 
-function healthUrlSuffix({ type }: Health) {
+export function healthUrlSuffix({ type }: Pick<Health, 'type'>) {
     switch (type) {
         case HealthStatusType.Incidents:
             return '/Incidents';
         case HealthStatusType.Assertions:
             return '/Quality/List';
+        case HealthStatusType.Tests:
+            return '/Governance/Tests';
         default:
             return null;
     }
@@ -107,6 +112,8 @@ function healthMessage({ message, status, type }: Health) {
                 return 'All assertions are passing';
             case HealthStatusType.Incidents:
                 return 'No active incidents';
+            case HealthStatusType.Tests:
+                return 'No failing governance tests';
             default:
                 return null;
         }

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.notebook;
 
 import static com.linkedin.datahub.graphql.Constants.*;
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -46,7 +47,6 @@ import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -73,7 +73,8 @@ public class NotebookType
           DOMAINS_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-          BROWSE_PATHS_V2_ASPECT_NAME);
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -175,7 +176,9 @@ public class NotebookType
           _entityClient.batchGetV2(
               context.getOperationContext(),
               NOTEBOOK_ENTITY_NAME,
-              new HashSet<>(urns),
+              urns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_RESOLVE);
 
       return urns.stream()

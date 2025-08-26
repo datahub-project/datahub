@@ -1326,7 +1326,7 @@ def test_native_user_endpoints(auth_session):
 
     # Test that only a native user can reset their password
     jaas_user_reset_credentials_json = {
-        "email": "datahub",
+        "email": "admin",
         "password": "password",
         "resetToken": reset_token,
     }

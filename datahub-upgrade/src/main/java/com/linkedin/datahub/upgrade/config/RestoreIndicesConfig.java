@@ -5,9 +5,11 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,20 +22,27 @@ public class RestoreIndicesConfig {
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
   public RestoreIndices createInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       final Database ebeanServer,
       final EntityService<?> entityService,
       final EntitySearchService entitySearchService,
       final GraphService graphService,
       final SystemMetadataService systemMetadataService) {
     return new RestoreIndices(
-        ebeanServer, entityService, systemMetadataService, entitySearchService, graphService);
+        systemOperationContext,
+        ebeanServer,
+        entityService,
+        systemMetadataService,
+        entitySearchService,
+        graphService);
   }
 
   @Bean(name = "restoreIndices")
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "cassandra")
   @Nonnull
-  public RestoreIndices createNotImplInstance() {
+  public RestoreIndices createNotImplInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOperationContext) {
     log.warn("restoreIndices is not supported for cassandra!");
-    return new RestoreIndices(null, null, null, null, null);
+    return new RestoreIndices(systemOperationContext, null, null, null, null, null);
   }
 }

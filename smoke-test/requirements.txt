@@ -3,11 +3,12 @@ pytest-dependency>=0.5.1
 psutil
 tenacity
 -e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql]
-pydantic>2
+pydantic>=1.5
 slack-sdk==3.18.1
 aiohttp
 joblib
 pytest-xdist
+pytest-split
 networkx
 # libaries for linting below this
 mypy==1.14.1
@@ -22,3 +23,16 @@ deepdiff!=8.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.0.1
+acryl-executor==0.2.2
+
+# Additional dependencies for telemetry API test
+confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
+pydantic>=1.10.0,!=1.10.3
+python-snappy>=0.6.1
+
+# SaaS Only:
+# required to propagation tests
+-e ../datahub-integrations-service
+# required for bigquery docs propagation tests
+-e ../metadata-ingestion[bigquery-slim]
+-e ../datahub-actions

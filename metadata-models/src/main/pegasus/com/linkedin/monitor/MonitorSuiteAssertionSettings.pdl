@@ -1,0 +1,34 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.assertion.FixedIntervalSchedule
+import com.linkedin.assertion.AssertionAction
+import com.linkedin.assertion.AssertionExclusionWindow
+
+/**
+ * Settings for assertion monitors within a monitor suite.
+ */
+record MonitorSuiteAssertionSettings {
+    /**
+     * The schedule for the assertion monitors within this group.
+     * Not applicable for freshness anomaly monitors.
+     */
+    schedule: optional FixedIntervalSchedule
+
+    /**
+     * The lookback window configuration for retrieving training data points.
+     * Defines how far back in time to look when gathering data for training.
+     * Defaults to 60 days if not specified.
+     */
+    trainingDataLookbackWindowDays: long = 60
+
+    /**
+     * The action to take when an assertion evaluates.
+     * I.e., raise an incident if the assertion fails.
+     */
+    action: optional AssertionAction
+
+    /**
+     * The exclusion windows for the assertion monitors within this group.
+     */
+    exclusionWindows: optional array[AssertionExclusionWindow]
+}

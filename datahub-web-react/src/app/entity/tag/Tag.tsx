@@ -50,7 +50,7 @@ export class TagEntity implements Entity<Tag> {
 
     getGraphName = () => 'tag';
 
-    getPathName: () => string = () => 'tag';
+    getPathName: () => string = () => this.getGraphName();
 
     getCollectionName: () => string = () => 'Tags';
 

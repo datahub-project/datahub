@@ -56,7 +56,7 @@ public class IncidentTypeTest {
   private static final IncidentKey TEST_INCIDENT_KEY = new IncidentKey().setId("guid-1");
   private static final IncidentInfo TEST_INCIDENT_INFO =
       new IncidentInfo()
-          .setType(IncidentType.OPERATIONAL)
+          .setType(IncidentType.DATASET_COLUMN)
           .setCustomType("Custom Type")
           .setDescription("Description")
           .setPriority(5)
@@ -64,7 +64,7 @@ public class IncidentTypeTest {
           .setEntities(new UrnArray(ImmutableList.of(testDatasetUrn)))
           .setSource(
               new IncidentSource()
-                  .setType(IncidentSourceType.MANUAL)
+                  .setType(IncidentSourceType.ASSERTION_FAILURE)
                   .setSourceUrn(testAssertionUrn))
           .setStatus(
               new IncidentStatus()

@@ -6,7 +6,9 @@ import { useCustomTheme } from '@src/customThemeContext';
 
 // add new theme ids here
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-enum ThemeId {}
+enum ThemeId {
+    FIS = 'FIS',
+}
 
 function useCustomThemeId() {
     const { config, loaded } = useAppConfig();
@@ -30,6 +32,11 @@ export function useSetAppTheme() {
 
     useEffect(() => {
         // here is where we can start adding new custom themes based on customThemeId
+        if (customThemeId && customThemeId === ThemeId.FIS) {
+            // React doesn't allow dynamic imports so need to do theme-ing based on ID and have an if check to render correct theme config
+            import('../conf/theme/custom/fis_theme.config.json').then((theme) => updateTheme(theme));
+            return;
+        }
 
         if (isThemeV2) {
             import('../conf/theme/theme_v2.config.json').then((theme) => updateTheme(theme));

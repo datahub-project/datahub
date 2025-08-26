@@ -43,16 +43,13 @@ public class CancelIngestionExecutionRequestResolver
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
 
+    final CancelIngestionExecutionRequestInput input =
+        bindArgument(environment.getArgument("input"), CancelIngestionExecutionRequestInput.class);
+    final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageIngestion(context)) {
-
-            final CancelIngestionExecutionRequestInput input =
-                bindArgument(
-                    environment.getArgument("input"), CancelIngestionExecutionRequestInput.class);
-
+          if (IngestionAuthUtils.canExecuteIngestion(context, ingestionSourceUrn)) {
             try {
-              final Urn ingestionSourceUrn = Urn.createFromString(input.getIngestionSourceUrn());
               final Map<Urn, EntityResponse> response =
                   _entityClient.batchGetV2(
                       context.getOperationContext(),

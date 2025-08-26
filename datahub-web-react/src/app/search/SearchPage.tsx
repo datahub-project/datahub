@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
 import { EntityAndType } from '@app/entity/shared/types';
@@ -12,21 +11,16 @@ import {
 } from '@app/onboarding/config/SearchOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
 import { SearchResults } from '@app/search/SearchResults';
-import { useSelectedSortOption } from '@app/search/context/SearchContext';
-import SearchFilters from '@app/search/filters/SearchFilters';
+import { SearchFilters } from '@app/search/filters/SearchFilters';
 import useFilterMode from '@app/search/filters/useFilterMode';
 import useSearchFilterAnalytics from '@app/search/filters/useSearchFilterAnalytics';
 import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
-import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/search/utils/constants';
-import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
-import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { scrollToTop } from '@app/shared/searchUtils';
+import useSearchPage from '@app/search/useSearchPage';
+import { ENTITY_SUB_TYPE_FILTER_FIELDS } from '@app/search/utils/constants';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { FacetFilterInput } from '@types';
 
 /**
  * A search results page.
@@ -36,13 +30,10 @@ export const SearchPage = () => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const searchVersion = useSearchVersion();
-    const history = useHistory();
-    const { query, unionType, filters, orFilters, viewUrn, page, activeType, sortInput } = useGetSearchQueryInputs();
+    const { query, unionType, filters, orFilters, viewUrn, page, sortInput } = useGetSearchQueryInputs();
     const { filterMode, filterModeRef, setFilterMode } = useFilterMode(filters, unionType);
-    const selectedSortOption = useSelectedSortOption();
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
-    const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
     const {
@@ -68,99 +59,23 @@ export const SearchPage = () => {
     });
 
     const total = data?.searchAcrossEntities?.total || 0;
-
-    const searchResultEntities =
-        data?.searchAcrossEntities?.searchResults?.map((result) => ({
-            urn: result.entity.urn,
-            type: result.entity.type,
-        })) || [];
-    const searchResultUrns = searchResultEntities.map((entity) => entity.urn);
-
-    // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
-    // download the correct results given the current context.
-    // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
-    // TODO: Revisit this pattern -- what can we push down?
-    const { refetch: refetchForDownload } = useDownloadScrollAcrossEntitiesSearchResults({
-        variables: {
-            input: {
-                types: [],
-                query,
-                count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters,
-                scrollId: null,
-            },
-        },
-        skip: true,
+    const {
+        isSelectMode,
+        setIsSelectMode,
+        downloadSearchResults,
+        onChangeFilters,
+        onChangeUnionType,
+        onChangePage,
+        onChangeSelectAll,
+    } = useSearchPage({
+        searchResults: data?.searchAcrossEntities?.searchResults || [],
+        selectedEntities,
+        setSelectedEntities,
     });
-
-    const downloadSearchResults = (
-        input: DownloadSearchResultsInput,
-    ): Promise<DownloadSearchResults | null | undefined> => {
-        return refetchForDownload(input);
-    };
-
-    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToSearchUrl({
-            type: activeType,
-            query,
-            selectedSortOption,
-            page: 1,
-            filters: newFilters,
-            history,
-            unionType,
-        });
-    };
 
     const onClearFilters = () => {
         trackClearAllFiltersEvent(total);
         onChangeFilters([]);
-    };
-
-    const onChangeUnionType = (newUnionType: UnionType) => {
-        navigateToSearchUrl({
-            type: activeType,
-            query,
-            selectedSortOption,
-            page: 1,
-            filters,
-            history,
-            unionType: newUnionType,
-        });
-    };
-
-    const onChangePage = (newPage: number) => {
-        scrollToTop();
-        navigateToSearchUrl({
-            type: activeType,
-            query,
-            selectedSortOption,
-            page: newPage,
-            filters,
-            history,
-            unionType,
-        });
-    };
-
-    /**
-     * Invoked when the "select all" checkbox is clicked.
-     *
-     * This method either adds the entire current page of search results to
-     * the list of selected entities, or removes the current page from the set of selected entities.
-     */
-    const onChangeSelectAll = (selected: boolean) => {
-        if (selected) {
-            // Add current page of urns to the master selected entity list
-            const entitiesToAdd = searchResultEntities.filter(
-                (entity) =>
-                    selectedEntities.findIndex(
-                        (element) => element.urn === entity.urn && element.type === entity.type,
-                    ) < 0,
-            );
-            setSelectedEntities(Array.from(new Set(selectedEntities.concat(entitiesToAdd))));
-        } else {
-            // Filter out the current page of entity urns from the list
-            setSelectedEntities(selectedEntities.filter((entity) => searchResultUrns.indexOf(entity.urn) === -1));
-        }
     };
 
     useEffect(() => {
@@ -192,7 +107,7 @@ export const SearchPage = () => {
     useEffect(() => {
         // When the query changes, then clear the select mode state
         setIsSelectMode(false);
-    }, [query]);
+    }, [query, setIsSelectMode]);
 
     useEffect(() => {
         if (!isSelectMode) {

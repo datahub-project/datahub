@@ -1,0 +1,134 @@
+namespace com.linkedin.common
+
+/**
+ * Summary related to entity assertions
+ */
+@Aspect = {
+    "name": "assertionsSummary"
+}
+record AssertionsSummary {
+    /**
+    * Failing assertions for an asset
+    * Deprecated! Use failingAssertionDetails.
+    */
+    @deprecated
+    failingAssertions: array[Urn] = []
+
+    /**
+    * Passing assertions for an asset
+    * Deprecated! Use passingAssertionDetails.
+    */
+    @deprecated
+    passingAssertions: array[Urn] = []
+
+    /**
+    * The last time an assertion was run.
+    */
+    @Searchable = {
+      "fieldType": "DATETIME",
+      "fieldName": "lastAssertionResultAt",
+      "queryByDefault": false,
+    }
+    lastAssertionResultAt: optional long
+
+    /**
+    * Summary details about the set of passing assertions
+    */
+    @Searchable = {
+      "/*/urn" : {
+        "fieldType": "URN",
+        "fieldName": "passingAssertions",
+        "hasValuesFieldName": "hasPassingAssertions",
+        "numValuesFieldName": "numPassingAssertions",
+        "queryByDefault": false,
+      },
+      "/*/type" : {
+        "fieldType": "KEYWORD",
+        "fieldName": "passingAssertionTypes",
+        "queryByDefault": false,
+      },
+      "/*/lastResultAt" : {
+        "fieldType": "DATETIME",
+        "fieldName": "passingAssertionResultTimes",
+        "queryByDefault": false,
+      },
+      "/*/source" : {
+        "fieldName": "passingAssertionSources",
+        "queryByDefault": false,
+      }
+    }
+    @Relationship = {
+     "/*/urn" : {
+       "name": "PassingAssertions",
+       "entityTypes": [ "assertion" ]
+     }
+    }
+    passingAssertionDetails: array[AssertionSummaryDetails] = []
+
+    /**
+    * Summary details about the set of failing assertions
+    */
+    @Searchable = {
+      "/*/urn" : {
+        "fieldType": "URN",
+        "fieldName": "failingAssertions",
+        "hasValuesFieldName": "hasFailingAssertions",
+        "numValuesFieldName": "numFailingAssertions",
+        "addHasValuesToFilters": true,
+        "queryByDefault": false,
+      },
+      "/*/type" : {
+        "fieldType": "KEYWORD",
+        "fieldName": "failingAssertionType",
+        "queryByDefault": false,
+      },
+      "/*/lastResultAt" : {
+       "fieldType": "DATETIME",
+       "fieldName": "failingAssertionResultTimes",
+       "queryByDefault": false,
+      },
+      "/*/source" : {
+        "fieldName": "failingAssertionSources",
+        "queryByDefault": false,
+      }
+    }
+    @Relationship = {
+      "/*/urn" : {
+        "name": "FailingAssertions",
+        "entityTypes": [ "assertion" ]
+      }
+    }
+    failingAssertionDetails: array[AssertionSummaryDetails] = []
+
+    /**
+    * Summary details about the set of erroring assertions
+    */
+    @Searchable = {
+      "/*/urn" : {
+        "fieldType": "URN",
+        "fieldName": "erroringAssertions",
+        "hasValuesFieldName": "hasErroringAssertions",
+        "numValuesFieldName": "numErroringAssertions",
+        "queryByDefault": false,
+      },
+      "/*/type" : {
+        "fieldType": "KEYWORD",
+        "fieldName": "erroringAssertionType"
+      },
+      "/*/lastResultAt" : {
+       "fieldType": "DATETIME",
+       "fieldName": "erroringAssertionResultTimes"
+      },
+      "/*/source" : {
+        "fieldName": "erroringAssertionSources",
+        "queryByDefault": false,
+      }
+    }
+    @Relationship = {
+      "/*/urn" : {
+        "name": "ErroringAssertions",
+        "entityTypes": [ "assertion" ]
+      }
+    }
+    erroringAssertionDetails: array[AssertionSummaryDetails] = []
+}

@@ -1,0 +1,18 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.structured.StructuredPropertyValueAssignment
+
+record StructuredPropertyProposal {
+    /**
+     * The urns of the domain(s) being proposed. Currently, only 1 domain is supported per asset.
+     * If this changes in the future, the data model will be ready.
+     * TODO: Decide if indexing the value would also be useful.
+     */
+    @Searchable = {
+        "/*/propertyUrn": {
+            "addToFilters": true
+            "fieldName": "structuredPropertyUrns"
+        },
+    }
+    structuredPropertyValues: optional array[StructuredPropertyValueAssignment]
+  }

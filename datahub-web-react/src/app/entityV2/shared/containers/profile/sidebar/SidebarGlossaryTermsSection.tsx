@@ -2,16 +2,20 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getProposedItemsByType } from '@app/entityV2/shared/utils';
 import { ENTITY_PROFILE_GLOSSARY_TERMS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import ConstraintGroup from '@app/shared/constraints/ConstraintGroup';
+import { findTopLevelProposals } from '@app/shared/tags/utils/proposalUtils';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 
-import { EntityType } from '@types';
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { ActionRequestType, EntityType } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -26,13 +30,21 @@ interface Props {
 
 export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
     const { entityType, entityData } = useEntityData();
+    const baseEntity = useBaseEntity<GetDatasetQuery>();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState<EntityType | undefined>(undefined);
 
-    const areTermsEmpty = !entityData?.glossaryTerms?.terms?.length;
+    const proposedTerms = findTopLevelProposals(
+        getProposedItemsByType(entityData?.proposals || [], ActionRequestType.TermAssociation) || [],
+    );
+
+    const areTermsEmpty = !entityData?.glossaryTerms?.terms?.length && !proposedTerms?.length;
+
+    const canEditGlossaryTerms = !!entityData?.privileges?.canEditGlossaryTerms;
+    const canProposeGlossaryTerms = !!entityData?.privileges?.canProposeGlossaryTerms;
 
     return (
         <div id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
@@ -40,6 +52,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                 title="Terms"
                 content={
                     <Content>
+                        <ConstraintGroup constraints={baseEntity?.dataset?.constraints || []} />
                         {!areTermsEmpty ? (
                             <TagTermGroup
                                 editableGlossaryTerms={entityData?.glossaryTerms}
@@ -50,6 +63,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                                 refetch={refetch}
                                 readOnly={readOnly}
                                 fontSize={12}
+                                proposedGlossaryTerms={proposedTerms}
                                 showAddButton={false}
                             />
                         ) : (
@@ -65,6 +79,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                             setAddModalType(EntityType.GlossaryTerm);
                             event.stopPropagation();
                         }}
+                        actionPrivilege={canEditGlossaryTerms || canProposeGlossaryTerms}
                     />
                 }
             />
@@ -75,6 +90,8 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                canAddTerm={canEditGlossaryTerms}
+                canProposeTerm={canProposeGlossaryTerms}
             />
         </div>
     );

@@ -191,6 +191,20 @@ input SearchFlags {
   Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
   """
   filterNonLatestVersions: Boolean
+
+  """
+  Additional fields to fetch from the search document in the search results
+  These will be fetched in addition to the default fields and will be included
+  in the ExtraProperties field of the search result as name-value pairs.
+  Note: these are additional fields to fetch and not replacements for the default fields.
+  """
+  fetchExtraFields: [String!]
+
+  """
+  Invoke query rewrite chain for filters based on configured rewriters. ie. expand to include
+  assets in child domains and child containers.
+  """
+  rewriteQuery: Boolean
 }
 
 """
@@ -280,6 +294,23 @@ input SearchAcrossEntitiesInput {
   Optional - Information on how to sort this search result
   """
   sortInput: SearchSortInput
+
+  """
+  Optional - filter on how to search for entities by metadata forms
+  """
+  formFilter: FormFilter
+
+  # SAAS ONLY
+  """
+  Optional - Predicate filter for search, will combine with specified filters if present. Represented as a json string
+  of rules.
+  """
+  predicateFilter: String
+
+  """
+  Optional - Convert the provided filter from search inputs into a predicate to do a predicate search
+  """
+  convertToPredicate: Boolean
 }
 
 """
@@ -317,6 +348,11 @@ input AggregateAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - filter on how to search for entities by metadata forms
+  """
+  formFilter: FormFilter
 }
 
 """
@@ -362,6 +398,11 @@ input ScrollAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - Convert the provided filter from scroll inputs into a predicate to do a predicate search
+  """
+  convertToPredicate: Boolean
 
   """
   Optional - Information on how to sort this search result
@@ -597,6 +638,12 @@ enum FilterOperator {
   LESS_THAN_OR_EQUAL_TO
 
   """
+  Represent the relation within an inclusive range, e.g. 3 <= ownerCount <= 5
+  Note, the `values` in FacetFilter must have two entries for a lower and upper bound.
+  """
+  BETWEEN
+
+  """
   Represent the relation: String field starts with value, e.g. name starts with PageView
   """
   START_WITH
@@ -802,6 +849,11 @@ type ScrollAcrossLineageResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+
+  """
+  Optional freshness characteristics of this query (cached, staleness etc.)
+  """
+  freshness: FreshnessStats
 }
 
 """
@@ -1409,6 +1461,11 @@ input BrowseV2Input {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - filter on how to search for entities by metadata forms
+  """
+  formFilter: FormFilter
 }
 
 """

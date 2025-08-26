@@ -49,6 +49,12 @@ record TestEntityInfo includes CustomProperties {
   }
   foreignKeyArray: optional array[Urn]
 
+  @Searchable = {
+    "/nestedFieldToBeRemoved": null
+  }
+  @Relationship = {
+    "/nestedFieldToBeRemoved": null
+  }
   nestedRecordField: optional record SimpleNestedRecord1 {
     @Searchable = {
       "fieldType": "COUNT"
@@ -63,6 +69,10 @@ record TestEntityInfo includes CustomProperties {
       "fieldType": "URN_PARTIAL"
     }
     nestedForeignKey: optional Urn
+
+    @Relationship = {}
+    @Searchable = {}
+    nestedFieldToBeRemoved: optional string
   }
 
   nestedRecordArrayField: optional array[record SimpleNestedRecord2 {
@@ -130,6 +140,14 @@ record TestEntityInfo includes CustomProperties {
     }
   }
   esObjectFieldFloat: optional map[string, float]
+
+  @Searchable = {
+    "/$key": {
+      "fieldType": "MAP_ARRAY",
+      "queryByDefault": false
+    }
+  }
+  mapArrayField: optional map[string, array[Urn]]
 
   @Searchable = {
        "/*": {

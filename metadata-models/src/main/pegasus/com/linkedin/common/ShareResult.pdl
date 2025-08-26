@@ -1,0 +1,89 @@
+namespace com.linkedin.common
+
+/**
+ * Info about the results from sharing metadata for a given entity
+ */
+record ShareResult {
+ /**
+  * Urn of the DataHubConnection related to another Acryl instance
+  */
+  destination: Urn
+
+  /**
+   * If this share happened implicitly due to another entity being shared, this field
+   * will be populated with that entity urn. Example: if a dataset is shared, its containers
+   * will also be shared. The share result for the container will have the dataset urn here.
+   */
+  implicitShareEntity: optional Urn
+
+ /**
+  * Audit stamp for when the first share request for the given destination occurred.
+  */
+  created: AuditStamp
+
+ /**
+  * When did we get this share result and who requested the share. This will be the time
+  * that we try and execute the share on the backend, regardless of success.
+  */
+  lastAttempt: AuditStamp
+
+  /**
+  * The request id that generated this share result. This is the id of the request that triggered this share.
+  * This is primarily used for debugging purposes.
+  */
+  lastAttemptRequestId: optional string
+
+ /**
+  * The config for this particular share result
+  */
+  shareConfig: optional record ShareConfig {
+    /**
+    * Upstream lineage was shared
+    */
+    enableUpstreamLineage: optional boolean
+
+    /**
+    * Downstream lineage was shared
+    */
+    enableDownstreamLineage: optional boolean
+  }
+
+ /**
+  * Audit stamp for the last time a share to this above destination successfully occurred
+  */
+  lastSuccess: optional AuditStamp
+
+ /**
+  * Status for this share result - whether or not it succeeded
+  */
+  status: enum ShareResultState {
+    /**
+    * The share request is still in progress
+    */
+    RUNNING
+    /**
+    * The share was successful
+    */
+    SUCCESS
+    /**
+    * The share was partially successful. Some, but not all, aspects were shared.
+    */
+    PARTIAL_SUCCESS
+    /**
+    * The share was a failure
+    */
+    FAILURE
+   }
+
+  /**
+  * The last time the status was updated. Timestamp in milliseconds since epoch.
+  * Useful for monitoring if the status is stale.
+  */
+  statusLastUpdated: optional long
+
+ /**
+  * Optional message for this share result. Error messages will be stored here.
+  * This message will be presented to the end user, so it should not include stack traces etc.
+  */
+  message: optional string
+}

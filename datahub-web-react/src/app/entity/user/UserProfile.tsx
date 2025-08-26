@@ -2,11 +2,15 @@ import { Col, Row } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { EntityContext } from '@app/entity/shared/EntityContext';
 import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { decodeUrn } from '@app/entity/shared/utils';
 import { UserAssets } from '@app/entity/user/UserAssets';
 import UserGroups from '@app/entity/user/UserGroups';
 import UserInfoSideBar from '@app/entity/user/UserInfoSideBar';
+import { UserSubscriptions } from '@app/entity/user/UserSubscriptions';
+import { EntityHead } from '@app/shared/EntityHead';
 import { RoutedTabs } from '@app/shared/RoutedTabs';
 import useUserParams from '@app/shared/entitySearch/routingUtils/useUserParams';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
@@ -22,8 +26,9 @@ export interface Props {
 export enum TabType {
     Assets = 'Owner Of',
     Groups = 'Groups',
+    Subscription = 'Subscriptions',
 }
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Groups, TabType.Subscription];
 
 const GROUP_PAGE_SIZE = 20;
 
@@ -62,7 +67,7 @@ export default function UserProfile() {
     const urn = decodeUrn(encodedUrn);
     const entityRegistry = useEntityRegistry();
 
-    const { error, data, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
+    const { error, data, loading, refetch } = useGetUserQuery({ variables: { urn, groupsCount: GROUP_PAGE_SIZE } });
 
     const castedCorpUser = data?.corpUser as any;
 
@@ -88,6 +93,14 @@ export default function UserProfile() {
                 content: <UserGroups urn={urn} initialRelationships={userGroups} pageSize={GROUP_PAGE_SIZE} />,
                 display: {
                     enabled: () => userGroups?.length > 0,
+                },
+            },
+            {
+                name: TabType.Subscription,
+                path: TabType.Subscription.toLocaleLowerCase(),
+                content: <UserSubscriptions urn={urn} />,
+                display: {
+                    enabled: () => true,
                 },
             },
         ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
@@ -125,7 +138,19 @@ export default function UserProfile() {
     }
 
     return (
-        <>
+        <EntityContext.Provider
+            value={{
+                urn,
+                loading,
+                refetch,
+                entityType: EntityType.CorpUser,
+                entityData: (data?.corpUser ?? null) as GenericEntityProperties | null,
+                routeToTab: () => {},
+                dataNotCombinedWithSiblings: null,
+                baseEntity: null,
+            }}
+        >
+            <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper>
                 <Row>
@@ -139,6 +164,6 @@ export default function UserProfile() {
                     </Col>
                 </Row>
             </UserProfileWrapper>
-        </>
+        </EntityContext.Provider>
     );
 }

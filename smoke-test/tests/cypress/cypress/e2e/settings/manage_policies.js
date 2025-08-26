@@ -71,6 +71,13 @@ function editPolicy(
 }
 
 function deletePolicy(policyEdited, deletePolicy) {
+  cy.waitTextVisible("Users & Groups");
+  cy.get(".ant-select-selection-item").should("be.visible").click();
+  cy.get(".rc-virtual-list-holder-inner")
+    .contains("All")
+    .should("be.visible")
+    .click();
+  cy.get(".ant-select-selection-item").should("be.visible").click();
   searchAndToggleMetadataPolicyStatus(policyEdited, "DEACTIVATE");
   cy.waitTextVisible("Successfully deactivated policy.");
   cy.contains("DEACTIVATE").should("not.exist");
@@ -91,6 +98,7 @@ describe("create and manage platform and metadata policies", () => {
   it("create platform policy", () => {
     cy.waitTextVisible("Manage Permissions");
     changeFilterToAll();
+    cy.waitTextVisible("Users & Groups");
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", platform_policy_name);
     cy.get('[data-testid="policy-type"] [title="Metadata"]').click();
@@ -103,6 +111,7 @@ describe("create and manage platform and metadata policies", () => {
 
   it("edit platform policy", () => {
     changeFilterToAll();
+    cy.waitTextVisible("Users & Groups");
     editPolicy(
       `${platform_policy_name}`,
       platform_policy_edited,
@@ -123,6 +132,7 @@ describe("create and manage platform and metadata policies", () => {
 
   it("create metadata policy", () => {
     changeFilterToAll();
+    cy.waitTextVisible("Users & Groups");
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", metadata_policy_name);
     cy.get('[data-testid="policy-type"]').should("have.text", "Metadata");
@@ -134,6 +144,7 @@ describe("create and manage platform and metadata policies", () => {
 
   it("edit metadata policy", () => {
     changeFilterToAll();
+    cy.waitTextVisible("Users & Groups");
     editPolicy(
       `${metadata_policy_name}`,
       metadata_policy_edited,

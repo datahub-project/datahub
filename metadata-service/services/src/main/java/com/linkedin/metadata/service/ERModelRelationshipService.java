@@ -2,12 +2,14 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -24,8 +26,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ERModelRelationshipService extends BaseService {
 
-  public ERModelRelationshipService(@Nonnull SystemEntityClient entityClient) {
-    super(entityClient);
+  public ERModelRelationshipService(
+      @Nonnull SystemEntityClient entityClient,
+      @Nonnull OpenApiClient openApiClient,
+      @Nonnull ObjectMapper objectMapper) {
+    super(entityClient, openApiClient, objectMapper);
   }
 
   static final Set<String> ASPECTS_TO_RESOLVE =

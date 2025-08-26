@@ -1,0 +1,6 @@
+on:
+  types:
+    - my_bad_type
+rules:
+  - query: editableDatasetProperties.description
+    operation: exists

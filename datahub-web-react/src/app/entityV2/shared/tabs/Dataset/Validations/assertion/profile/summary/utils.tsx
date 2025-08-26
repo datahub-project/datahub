@@ -351,17 +351,22 @@ export const getFreshnessAssertionPlainTextDescription = (
 const useBuildPrimaryLabel = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
-    options?: { showColumnTag?: boolean },
+    options?: { showColumnTag?: boolean; ellipsis?: boolean },
 ): JSX.Element => {
     let primaryLabel = <Typography.Text>No description found</Typography.Text>;
     if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
-        primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
+        primaryLabel = (
+            <Typography.Text ellipsis={options?.ellipsis ? { tooltip: assertionInfo.description } : undefined}>
+                {assertionInfo.description}
+            </Typography.Text>
+        );
     } else {
         switch (assertionInfo?.type) {
             case AssertionType.Dataset:
                 primaryLabel = (
                     <DatasetAssertionDescription
                         assertionInfo={assertionInfo.datasetAssertion as DatasetAssertionInfo}
+                        ellipsis={options?.ellipsis}
                     />
                 );
                 break;
@@ -370,16 +375,20 @@ const useBuildPrimaryLabel = (
                     <FreshnessAssertionDescription
                         assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
                         monitorSchedule={monitorSchedule}
+                        ellipsis={options?.ellipsis}
                     />
                 );
                 break;
             case AssertionType.Volume:
                 primaryLabel = (
-                    <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
+                    <VolumeAssertionDescription
+                        assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo}
+                        ellipsis={options?.ellipsis}
+                    />
                 );
                 break;
             case AssertionType.Sql:
-                primaryLabel = <SqlAssertionDescription assertionInfo={assertionInfo} />;
+                primaryLabel = <SqlAssertionDescription assertionInfo={assertionInfo} ellipsis={options?.ellipsis} />;
                 break;
             case AssertionType.Field:
                 primaryLabel = (
@@ -387,12 +396,16 @@ const useBuildPrimaryLabel = (
                         assertionDescription={assertionInfo?.description}
                         assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo}
                         showColumnTag={options?.showColumnTag}
+                        ellipsis={options?.ellipsis}
                     />
                 );
                 break;
             case AssertionType.DataSchema:
                 primaryLabel = (
-                    <SchemaAssertionDescription assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo} />
+                    <SchemaAssertionDescription
+                        assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo}
+                        ellipsis={options?.ellipsis}
+                    />
                 );
                 break;
             default:
@@ -504,7 +517,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
 export const useBuildAssertionDescriptionLabels = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
-    options?: { showColumnTag?: boolean },
+    options?: { showColumnTag?: boolean; ellipsis?: boolean },
 ): {
     primaryLabel: JSX.Element;
     secondaryLabel: JSX.Element | null;
@@ -526,13 +539,42 @@ export const useBuildAssertionDescriptionLabels = (
  * Similar to {@link #useBuildPrimaryLabel}, but returns plaintext instead of jsx.
  * Primarily used for building the search index!
  */
-export const getPlainTextDescriptionFromAssertion = (assertionInfo?: AssertionInfo): string => {
+export const getPlainTextDescriptionFromAssertion = (
+    assertionInfo?: AssertionInfo,
+    monitorSchedule?: CronSchedule,
+): string => {
     // if description is present don't generate dynamic description
     if (assertionInfo?.description) {
         return assertionInfo.description;
     }
 
-    return assertionInfo
-        ? getDatasetAssertionPlainTextDescription(assertionInfo.datasetAssertion as DatasetAssertionInfo)
-        : '';
+    let primaryLabel = '';
+    switch (assertionInfo?.type) {
+        case AssertionType.Dataset:
+            primaryLabel = getDatasetAssertionPlainTextDescription(
+                assertionInfo.datasetAssertion as DatasetAssertionInfo,
+            );
+            break;
+        case AssertionType.Freshness:
+            primaryLabel = getFreshnessAssertionPlainTextDescription(
+                assertionInfo.freshnessAssertion as FreshnessAssertionInfo,
+                monitorSchedule as CronSchedule,
+            );
+            break;
+        case AssertionType.Volume:
+            primaryLabel = getVolumeAssertionPlainTextDescription(assertionInfo.volumeAssertion as VolumeAssertionInfo);
+            break;
+        case AssertionType.Sql:
+            primaryLabel = assertionInfo.description || '';
+            break;
+        case AssertionType.Field:
+            primaryLabel = getFieldAssertionPlainTextDescription(assertionInfo.fieldAssertion as FieldAssertionInfo);
+            break;
+        case AssertionType.DataSchema:
+            primaryLabel = getSchemaAssertionPlainTextDescription(assertionInfo.schemaAssertion as SchemaAssertionInfo);
+            break;
+        default:
+            break;
+    }
+    return primaryLabel;
 };

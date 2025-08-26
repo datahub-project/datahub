@@ -3,7 +3,7 @@ import { SearchResultInterface } from '@app/entity/shared/components/styled/sear
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { CorpGroup, CorpUser, DashboardStatsSummary, DatasetStatsSummary, EntityType } from '@types';
 
 const searchCsvDownloadHeader = [
     'urn',
@@ -20,6 +20,11 @@ const searchCsvDownloadHeader = [
     'platform',
     'container',
     'entity url',
+    'view count',
+    'unique users',
+    'row count',
+    'size in bytes',
+    'queries last month',
 ];
 
 export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface) => {
@@ -88,6 +93,16 @@ export const transformGenericEntityPropertiesToCsvRow = (
         properties?.container?.properties?.name || '',
         // entity url
         window.location.origin + entityUrl,
+        // view count
+        String((properties?.statsSummary as DashboardStatsSummary)?.viewCount || ''),
+        // unique users
+        String(properties?.statsSummary?.uniqueUserCountLast30Days || ''),
+        // row count
+        String((properties?.statsSummary as DatasetStatsSummary)?.rowCount || ''),
+        // size in bytes
+        String((properties?.statsSummary as DatasetStatsSummary)?.sizeInBytes || ''),
+        // queries last month
+        String((properties?.statsSummary as DatasetStatsSummary)?.queryCountLast30Days || ''),
     ];
     if (typeof result.degree === 'number') {
         // optional level of dependency

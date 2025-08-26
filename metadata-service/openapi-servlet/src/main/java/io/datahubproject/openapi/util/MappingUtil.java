@@ -372,7 +372,7 @@ public class MappingUtil {
         Schema avroSchema = (Schema) getClassSchema.invoke(null);
         Schema.Field avroField = avroSchema.getField(fieldName);
 
-        if (avroField.schema().isUnion()) {
+        if (avroField.schema().getType() == Schema.Type.UNION) {
           Class<?> discriminatedClazz =
               REFLECT_AVRO.lookupClass(node.get(DISCRIMINATOR).asText(), true);
           return Optional.of(discriminatedClazz.getName().replace(".pegasus2avro", ""));

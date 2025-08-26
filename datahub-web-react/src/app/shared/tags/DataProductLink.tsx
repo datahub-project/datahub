@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { IconStyleType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataProduct, EntityType } from '@types';
@@ -68,6 +69,7 @@ export const DataProductLink = ({
     fontSize,
 }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
     const urn = dataProduct?.urn;
 
     if (readOnly) {
@@ -89,7 +91,7 @@ export const DataProductLink = ({
 
     return (
         <HoverEntityTooltip entity={dataProduct}>
-            <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.DataProduct, urn)}>
+            <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.DataProduct, urn)} {...linkProps}>
                 <DataProductContent
                     dataProduct={dataProduct}
                     name={name}

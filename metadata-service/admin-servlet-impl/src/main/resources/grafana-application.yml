@@ -1,0 +1,8 @@
+grafana:
+  uri: ${GRAFANA_URI:https://grafana-customers.admin.acryl.io}
+  token: ${GRAFANA_TOKEN:}
+  namespace: ${GRAFANA_NAMESPACE:none}
+  datasource: ${GRAFANA_DATASOURCE:uber-query}
+  orgId: ${GRAFANA_ORGID:1}
+  dashboards: ${GRAFANA_DASHBOARDS:{"/default":"/d/3fpDTED4k/customer-metrics","/customer-metrics":"/d/3fpDTED4k/customer-metrics"}}
+  logging: ${GRAFANA_LOGGING:false}

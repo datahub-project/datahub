@@ -1,6 +1,6 @@
 import { EditOutlined } from '@ant-design/icons';
 import { FetchResult } from '@apollo/client';
-import { Button, Typography, message } from 'antd';
+import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -12,9 +12,11 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { Button } from '@src/alchemy-components';
+import CompactMarkdownViewer from '@src/app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
-import { StringMapEntry } from '@types';
+import { ActionRequestType, EntityType, StringMapEntry } from '@types';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -77,15 +79,6 @@ const ReadLessText = styled(Typography.Link)`
     margin-right: 4px;
 `;
 
-const StyledViewer = styled(Editor)`
-    padding-right: 8px;
-    display: block;
-
-    .remirror-editor.ProseMirror {
-        padding: 0;
-    }
-`;
-
 const AttributeDescription = styled.div`
     margin-top: 8px;
     color: ${ANTD_GRAY[7]};
@@ -100,16 +93,19 @@ const StyledAttributeViewer = styled(Editor)`
     }
 `;
 
+const EditButton = styled(Button)`
+    margin-left: 4px;
+`;
+
 type Props = {
-    onExpanded: (expanded: boolean) => void;
     onBAExpanded?: (expanded: boolean) => void;
-    expanded: boolean;
     baExpanded?: boolean;
     description: string;
     original?: string | null;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
+    onPropose?: (description: string) => void;
     isEdited?: boolean;
     isReadOnly?: boolean;
     businessAttributeDescription?: string;
@@ -120,12 +116,11 @@ type Props = {
 const ABBREVIATED_LIMIT = 80;
 
 export default function DescriptionField({
-    expanded,
     baExpanded,
-    onExpanded: handleExpanded,
     onBAExpanded: handleBAExpanded,
     description,
     onUpdate,
+    onPropose,
     isEdited = false,
     original,
     isReadOnly,
@@ -134,7 +129,6 @@ export default function DescriptionField({
     sourceDetail,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
-    const overLimit = removeMarkdown(description).length > 80;
     const isSchemaEditable = React.useContext(SchemaEditableContext) && !isReadOnly;
     const onCloseModal = () => setShowAddModal(false);
     const { urn, entityType } = useEntityData();
@@ -142,22 +136,18 @@ export default function DescriptionField({
         ? removeMarkdown(businessAttributeDescription).length > 80
         : false;
 
-    const sendAnalytics = () => {
-        analytics.event({
-            type: EventType.EntityActionEvent,
-            actionType: EntityActionType.UpdateSchemaDescription,
-            entityType,
-            entityUrn: urn,
-        });
-    };
-
     const onUpdateModal = async (desc: string | null) => {
         message.loading({ content: 'Updating...' });
         try {
             await onUpdate(desc || '');
             message.destroy();
             message.success({ content: 'Updated!', duration: 2 });
-            sendAnalytics();
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateSchemaDescription,
+                entityType,
+                entityUrn: urn,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) message.error({ content: `Update Failed! \n ${e.message || ''}`, duration: 2 });
@@ -165,62 +155,54 @@ export default function DescriptionField({
         onCloseModal();
     };
 
-    const EditButton =
-        (isSchemaEditable && description && (
-            <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
-        )) ||
-        undefined;
+    const onProposeModal = async (desc: string | null) => {
+        try {
+            await onPropose?.(desc || '');
+            message.destroy();
+            message.success({ content: 'Proposed!', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.ProposalCreated,
+                actionQualifier: ActionRequestType.UpdateDescription,
+                entityType: EntityType.Dataset,
+                entityUrn: urn,
+            });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) message.error({ content: `Proposal Failed! \n ${e.message || ''}`, duration: 2 });
+        }
+        onCloseModal();
+    };
 
     const showAddDescription = isSchemaEditable && !description;
 
     return (
         <DescriptionContainer>
-            {expanded ? (
-                <>
-                    {!!description && <StyledViewer content={description} readOnly />}
-                    {!!description && (EditButton || overLimit) && (
-                        <ExpandedActions>
-                            {overLimit && (
-                                <ReadLessText
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleExpanded(false);
-                                    }}
-                                >
-                                    Read Less
-                                </ReadLessText>
-                            )}
-                            {EditButton}
-                        </ExpandedActions>
+            <>
+                <DescriptionWrapper>
+                    {isPropagated && (
+                        <>
+                            <PropagationDetails sourceDetail={sourceDetail} />
+                            &nbsp;
+                        </>
                     )}
-                </>
-            ) : (
-                <>
-                    <DescriptionWrapper>
-                        {isPropagated && <PropagationDetails sourceDetail={sourceDetail} />}
-                        &nbsp;
-                        <StripMarkdownText
-                            limit={ABBREVIATED_LIMIT}
-                            readMore={
-                                <>
-                                    <Typography.Link
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleExpanded(true);
-                                        }}
-                                    >
-                                        Read More
-                                    </Typography.Link>
-                                </>
-                            }
-                            suffix={EditButton}
-                            shouldWrap
-                        >
-                            {description}
-                        </StripMarkdownText>
-                    </DescriptionWrapper>
-                </>
-            )}
+                    <CompactMarkdownViewer
+                        content={description}
+                        lineLimit={2}
+                        fixedLineHeight
+                        customStyle={{ fontSize: '12px' }}
+                        scrollableY={false}
+                    />
+                    {isSchemaEditable && !!description && (
+                        <EditButton
+                            icon={{ icon: 'Edit' }}
+                            size="md"
+                            variant="text"
+                            onClick={() => setShowAddModal(true)}
+                        />
+                    )}
+                </DescriptionWrapper>
+            </>
             {isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
@@ -230,63 +212,66 @@ export default function DescriptionField({
                         original={original || ''}
                         onClose={onCloseModal}
                         onSubmit={onUpdateModal}
+                        onPropose={onProposeModal}
                         isAddDesc={!description}
                     />
                 </div>
             )}
             {showAddDescription && (
-                <AddNewDescription type="text" onClick={() => setShowAddModal(true)}>
+                <AddNewDescription variant="text" onClick={() => setShowAddModal(true)}>
                     + Add Description
                 </AddNewDescription>
             )}
-            <AttributeDescription>
-                {baExpanded || !attributeDescriptionOverLimit ? (
-                    <>
-                        {!!businessAttributeDescription && (
-                            <StyledAttributeViewer content={businessAttributeDescription} readOnly />
-                        )}
-                        {!!businessAttributeDescription && (
-                            <ExpandedActions>
-                                {attributeDescriptionOverLimit && (
-                                    <ReadLessText
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (handleBAExpanded) {
-                                                handleBAExpanded(false);
-                                            }
-                                        }}
-                                    >
-                                        Read Less
-                                    </ReadLessText>
-                                )}
-                            </ExpandedActions>
-                        )}
-                    </>
-                ) : (
-                    <>
-                        <StripMarkdownText
-                            limit={ABBREVIATED_LIMIT}
-                            readMore={
-                                <>
-                                    <Typography.Link
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (handleBAExpanded) {
-                                                handleBAExpanded(true);
-                                            }
-                                        }}
-                                    >
-                                        Read More
-                                    </Typography.Link>
-                                </>
-                            }
-                            shouldWrap
-                        >
-                            {businessAttributeDescription}
-                        </StripMarkdownText>
-                    </>
-                )}
-            </AttributeDescription>
+            {!!businessAttributeDescription && (
+                <>
+                    {baExpanded || !attributeDescriptionOverLimit ? (
+                        <AttributeDescription>
+                            {!!businessAttributeDescription && (
+                                <StyledAttributeViewer content={businessAttributeDescription} readOnly />
+                            )}
+                            {!!businessAttributeDescription && (
+                                <ExpandedActions>
+                                    {attributeDescriptionOverLimit && (
+                                        <ReadLessText
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (handleBAExpanded) {
+                                                    handleBAExpanded(false);
+                                                }
+                                            }}
+                                        >
+                                            Read Less
+                                        </ReadLessText>
+                                    )}
+                                </ExpandedActions>
+                            )}
+                        </AttributeDescription>
+                    ) : (
+                        <AttributeDescription>
+                            <StripMarkdownText
+                                limit={ABBREVIATED_LIMIT}
+                                readMore={
+                                    <>
+                                        <Typography.Link
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (handleBAExpanded) {
+                                                    handleBAExpanded(true);
+                                                }
+                                            }}
+                                        >
+                                            Read More
+                                        </Typography.Link>
+                                    </>
+                                }
+                                shouldWrap
+                            >
+                                {businessAttributeDescription}
+                            </StripMarkdownText>
+                        </AttributeDescription>
+                    )}
+                </>
+            )}
         </DescriptionContainer>
     );
 }

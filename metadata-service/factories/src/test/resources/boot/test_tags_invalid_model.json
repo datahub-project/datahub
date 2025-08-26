@@ -1,0 +1,8 @@
+[
+  {
+    "urn": "urn:li:tag:test",
+    "someRandomAspect": {
+      "name": "Test Tag"
+    }
+  }
+]

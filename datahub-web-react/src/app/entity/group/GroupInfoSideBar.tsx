@@ -1,5 +1,6 @@
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
-import { Button, Col, Divider, Row, Space, Tooltip, Typography, message } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Col, Divider, Row, Space, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
@@ -21,7 +22,6 @@ import {
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { Editor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
-import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 
 import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
@@ -158,23 +158,6 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const { url } = useRouteMatch();
     const history = useHistory();
-
-    const { updateTitle } = useBrowserTitle();
-
-    useEffect(() => {
-        // You can use the title and updateTitle function here
-        // For example, updating the title when the component mounts
-        if (name) {
-            updateTitle(`Group | ${name}`);
-        }
-        // // Don't forget to clean up the title when the component unmounts
-        return () => {
-            if (name) {
-                // added to condition for rerendering issue
-                updateTitle('');
-            }
-        };
-    }, [name, updateTitle]);
 
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [editGroupModal, showEditGroupModal] = useState(false);

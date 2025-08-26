@@ -11,8 +11,9 @@ const homePageRedirection = () => {
 const addOrEditAnnouncement = (text, title, description, testId) => {
   cy.waitTextPresent(text);
   cy.get('[data-testid="create-post-title"]').clear().type(title);
-  cy.get('[id="description"]').clear().type(description);
+  cy.get(".create-post-description").clear().type(description);
   cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
+  cy.get(".ant-table-row ").contains(title).should("be.visible");
   cy.reload();
   homePageRedirection();
 };
@@ -23,6 +24,7 @@ const addOrEditLink = (text, title, url, imagesURL, testId) => {
   cy.get('[data-testid="create-post-link"]').clear().type(url);
   cy.get('[data-testid="create-post-media-location"]').clear().type(imagesURL);
   cy.get(`[data-testid="${testId}-post-button"]`).click({ force: true });
+  cy.get(".ant-table-row ").contains(title).should("be.visible");
   cy.reload();
   homePageRedirection();
 };
@@ -37,8 +39,10 @@ const clickOnMoreOption = (title) => {
 
 describe("create announcement and link post", () => {
   beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
-    cy.goToHomePagePostSettings();
+    cy.goToHomePagePostSettingsV1();
+    cy.waitTestIdVisible("posts-create-post");
   });
 
   it("create announcement post and verify", () => {
@@ -55,6 +59,7 @@ describe("create announcement and link post", () => {
   it("edit announced post and verify", () => {
     clickOnMoreOption(TEST_ANNOUNCEMENT_TITLE);
     cy.clickOptionWithText("Edit");
+    cy.contains("label", "Announcement").click();
     addOrEditAnnouncement(
       "Edit",
       EDITED_TEST_ANNOUNCEMENT_TITLE,
@@ -75,9 +80,9 @@ describe("create announcement and link post", () => {
   });
 
   it("create link post and verify", () => {
-    clickOnNewPost();
-    cy.waitTextPresent("Create new Post");
-    cy.contains("label", "Link").click();
+    clickOnNewPost("Link");
+    cy.waitTextPresent("Create");
+    cy.contains("label", "Pinned Link").click();
     addOrEditLink(
       "Create",
       TEST_LINK_TITLE,
@@ -91,6 +96,7 @@ describe("create announcement and link post", () => {
   it("edit linked post and verify", () => {
     clickOnMoreOption(TEST_LINK_TITLE);
     cy.clickOptionWithText("Edit");
+    cy.contains("label", "Pinned Link").click();
     addOrEditLink(
       "Edit",
       EDITED_TEST_LINK_TITLE,

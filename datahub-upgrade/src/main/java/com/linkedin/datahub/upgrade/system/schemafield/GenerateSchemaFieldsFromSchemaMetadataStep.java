@@ -1,11 +1,7 @@
 package com.linkedin.datahub.upgrade.system.schemafield;
 
 import static com.linkedin.datahub.upgrade.system.AbstractMCLStep.LAST_URN_KEY;
-import static com.linkedin.metadata.Constants.APP_SOURCE;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;

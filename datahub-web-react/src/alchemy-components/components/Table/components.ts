@@ -30,7 +30,6 @@ export const BaseTable = styled.table({
 
 export const TableHeader = styled.thead({
     backgroundColor: colors.gray[1500],
-    boxShadow: '0px 1px 1px rgba(0, 0, 0, 0.1)',
     borderRadius: radius.lg,
     borderBottom: `1px solid ${colors.gray[1400]}`,
     position: 'sticky',

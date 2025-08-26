@@ -4,9 +4,24 @@
   <timestamp key="byDate" datePattern="yyyy-MM-dd"/>
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <layout class="ch.qos.logback.classic.PatternLayout">
-      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
-    </layout>
+    <if condition='property("LOG_OUTPUT").contains("STRUCTURED")'>
+      <then>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+          <layout class="ch.qos.logback.contrib.json.classic.JsonLayout">
+            <timestampFormat>yyyy-MM-dd'T'HH:mm:ss.SSSX</timestampFormat>
+            <timestampFormatTimezoneId>Etc/UTC</timestampFormatTimezoneId>
+            <jsonFormatter class="ch.qos.logback.contrib.jackson.JacksonJsonFormatter">
+              <prettyPrint>true</prettyPrint>
+            </jsonFormatter>
+          </layout>
+        </encoder>
+      </then>
+      <else>
+        <encoder>
+          <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
+        </encoder>
+      </else>
+    </if>
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
       <level>INFO</level>
     </filter>
@@ -25,7 +40,7 @@
       <maxFileSize>100MB</maxFileSize>
       <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
       <totalSizeCap>10GB</totalSizeCap>
-      <!-- 30 days to keep -->
+      <!-- 30 file to keep (last 3GB of logs) -->
       <maxHistory>30</maxHistory>
     </rollingPolicy>
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -57,6 +72,16 @@
     </encoder>
   </appender>
 
+  <appender name="Sentry" class="io.sentry.logback.SentryAppender">
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>WARN</level>
+    </filter>
+    <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+      <excluded>Unable to renew the session. The session store may not support this feature</excluded>
+      <excluded>Preferred JWS algorithm: null not available. Using all metadata algorithms:</excluded>
+    </filter>
+  </appender>
+
   <!-- Change this to disable logging debug -->
   <logger name="com.linkedin" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
@@ -80,5 +105,6 @@
   <root level="INFO">
     <appender-ref ref="STDOUT"/>
     <appender-ref ref="FILE"/>
+    <appender-ref ref="Sentry"/>
   </root>
 </configuration>

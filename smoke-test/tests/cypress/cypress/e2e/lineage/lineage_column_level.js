@@ -1,8 +1,31 @@
+import { hasOperationName } from "../utils";
+
 const DATASET_ENTITY_TYPE = "dataset";
 const DATASET_URN =
   "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)";
 
+function updateEnvVars() {
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.alias = "gqlappConfigQuery";
+
+      req.on("response", (res) => {
+        res.body.data.appConfig.featureFlags.themeV2Enabled = false;
+        res.body.data.appConfig.featureFlags.datasetHealthDashboardEnabled = false;
+      });
+    } else if (hasOperationName(req, "getMe")) {
+      req.alias = "gqlgetMeQuery";
+      req.on("response", (res) => {
+        res.body.data.me.corpUser.settings.appearance.showThemeV2 = false;
+      });
+    }
+  });
+}
+
 describe("column-level lineage graph test", () => {
+  beforeEach(() => {
+    updateEnvVars();
+  });
   it("navigate to lineage graph view and verify that column-level lineage is showing correctly", () => {
     cy.login();
     cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);

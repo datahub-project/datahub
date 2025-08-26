@@ -46,7 +46,7 @@ public class RemoveStructuredPropertiesResolver
         () -> {
           try {
             // check authorization first
-            if (!AuthorizationUtils.canEditProperties(assetUrn, context)) {
+            if (!AuthorizationUtils.canEditProperties(assetUrn, context, null)) {
               throw new AuthorizationException(
                   String.format(
                       "Not authorized to update properties on the gives urn %s", assetUrn));

@@ -1,12 +1,12 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
-import { Tooltip, Typography } from 'antd';
+import { Tooltip, colors } from '@components';
+import { Typography } from 'antd';
 import { CaretRight } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Entity } from '@types';
 
@@ -15,12 +15,11 @@ const ParentNodesWrapper = styled.div`
     color: ${colors.gray[1700]};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
     overflow: hidden;
+    line-height: 22px;
 `;
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`
-    margin-left: 4px;
     color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
 `;
 

@@ -1,0 +1,147 @@
+[build-system]
+requires = ["setuptools>=78.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acryl-datahub-integrations"
+version = "1!0.0.0.dev0"
+description = ""
+authors = [
+	{ name="Acryl Data", email="eng@acryl.io" },
+]
+requires-python = ">=3.11"
+
+dependencies = [
+	"acryl-datahub[base,sql-parser,snowflake-slim,bigquery-slim]",
+	"fastapi>=0.103.1",
+	"uvicorn[standard]>=0.23.2",
+	"pydantic>=2.10.0",
+	"loguru",
+	"sentry-sdk[loguru]",
+	"build",
+	# Slack.
+	"slack-bolt",
+	"inflect",
+	# MCP
+	"fastmcp",
+	"markdown_to_mrkdwn",
+	# Actions.
+	"acryl-datahub-actions[kafka,tag_propagation,term_propagation,doc_propagation,snowflake_tag_propagation]",
+	"httpx",
+	"anyio>=4",
+	"asyncer",
+	"reactpy",
+	"reactpy-router",
+	# AI.
+	"tenacity",
+	"boto3",
+	"mlflow-skinny",
+	# Email notifications.
+	"sendgrid",
+	# Reporting.
+	"duckdb",
+	"pandas",
+	"boto3",
+	"pyarrow",
+	"jinja2",
+	"cachetools",
+	# dbt sync.
+	"pygitops",
+	"PyGithub",
+	"GitPython",
+	"h11>=0.16",
+	"azure-identity==1.21.0",
+	"aws-msk-iam-sasl-signer-python==1.0.2",
+	"msal>=1.32.3",
+	# Databricks sync -> conaction hangs forever on malformed http_path with newer databricks-sql-connector
+	"databricks-sql-connector>=2.8.0,<3.0.0",
+	"debugpy", # Enables remote debugging. Used in dev env
+]
+
+[project.optional-dependencies]
+dev = [
+	"acryl-datahub[testing-utils]",
+	"setuptools",  # for pkg_resources
+	"ruff==0.11.4",
+	"pytest",
+	"mypy",
+	"pytest-cov",
+	"asgi-lifespan",
+	"httpx",
+	"httpx-sse",
+	"types-setuptools",
+	"types-cachetools",
+	"types-PyYAML",
+	"types-requests>=2.28.11.6,<=2.31.0.3",
+	"mypy-boto3-bedrock-runtime",
+	"faker",
+	"freezegun",
+	"typer",
+	# Iteration
+	"papermill",
+	"json5",
+	"streamlit",
+	"tiktoken",
+	"mlflow",
+	"diskcache",
+	"seaborn",
+	"matplotlib",
+	"ipykernel",
+]
+
+[project.entry-points."datahub_actions.source.plugins"]
+replay = "datahub_integrations.actions.replay_source.ReplayEventSource"
+
+[project.entry-points."datahub_actions.action.plugins"]
+record = "datahub_integrations.actions.recording_action.RecordingAction"
+dbt_sync_back = "datahub_integrations.dbt.dbt_sync_back:DbtSyncBackAction"
+ai_term_suggestion = "datahub_integrations.gen_ai.term_suggestion_action:TermSuggestionAction"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+exclude = [
+	".git",
+	"venv",
+	"__pycache__",
+	"experiments/*-private/",
+	"experiments/*/archive/",
+	"scripts/forms/*.py",
+]
+
+[tool.ruff.lint.isort]
+section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
+sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch", "datahub_integrations.gen_ai.mlflow_init", "datahub_integrations.experimentation.ai_init"] }
+combine-as-imports = true
+
+[tool.ruff.lint]
+extend-select = [
+	"ASYNC",
+	"B",      # flake8-bugbear
+	"E",      # pycodestyle errors
+	"F",      # pyflakes
+	"G010",   # logging.warn -> logging.warning
+	"I",      # isort
+	"INP001",
+	"TID",    # flake8-tidy-imports
+	"RUF100", # unused-noqa
+]
+extend-ignore = [
+	'E501', # Ignore line length, since black handles that.
+	'D203', # Ignore 1 blank line required before class docstring.
+]
+exclude = [
+	"experiments/**/*.ipynb",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"experiments/**.py" = ["INP001", "E402"]
+"scripts/**.py" = ["B008"]
+
+[tool.pyright]
+extraPaths = ['tests']
+
+[tool.pytest.ini_options]
+markers = [
+    "asyncio: mark a test as an asyncio coroutine."
+]

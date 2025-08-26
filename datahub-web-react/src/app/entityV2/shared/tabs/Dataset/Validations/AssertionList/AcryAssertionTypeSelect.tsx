@@ -34,7 +34,7 @@ export function AcryAssertionTypeSelect({ options, selectedValue, onSelect }: Pr
             size="md"
             showClear={false}
             optionSwitchable
-            width={50}
+            width={44}
         />
     );
 }

@@ -67,7 +67,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
             <MoreFilterOptionLabel
                 ref={labelRef}
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
-                isActive={!!numActiveFilters}
+                $isActive={!!numActiveFilters}
                 isOpen={isMenuOpen}
                 data-testid={`more-filter-${displayName?.replace(/\s/g, '-')}`}
             >

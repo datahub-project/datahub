@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import DomainIcon from '@app/domain/DomainIcon';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain, EntityType } from '@types';
@@ -65,6 +66,7 @@ export type Props = {
 
 export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly, fontSize }: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
     const urn = domain?.urn;
 
     if (readOnly) {
@@ -86,7 +88,7 @@ export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly
 
     return (
         <HoverEntityTooltip entity={domain}>
-            <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)}>
+            <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)} {...linkProps}>
                 <DomainContent
                     domain={domain}
                     name={name}

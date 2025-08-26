@@ -218,6 +218,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         properties {
             name
             description
+            externalUrl
         }
         editableProperties {
             description
@@ -305,6 +306,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 ...structuredPropertiesFields
             }
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         exists
@@ -349,6 +353,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLModel {
@@ -406,6 +413,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLFeatureTable {
         ...nonRecursiveMLFeatureTable
@@ -451,14 +461,6 @@ fragment lineageFields on EntityWithRelationships {
     ... on Dataset {
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                }
-                ...lineageNodeProperties
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) {
             count
@@ -577,14 +579,6 @@ fragment entityLineage on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                }
-                ...lineageNodeProperties
-            }
         }
         siblingsSearch(input: { query: "*", count: 5 }) {
             count
@@ -656,6 +650,12 @@ fragment lineageSchemaField on SchemaField {
     fieldPath
     type
     nativeDataType
+    schemaFieldEntity {
+        lineageFeatures {
+            upstreamCount
+            downstreamCount
+        }
+    }
 }
 
 fragment entityLineageV2 on Entity {
@@ -961,6 +961,14 @@ query getSearchAcrossLineageCounts(
         facets {
             ...facetFields
         }
+    }
+}
+
+query getLineagePreview($urns: [String!]!) {
+    entities(urns: $urns) {
+        urn
+        type
+        ...autoCompleteFields
     }
 }
 

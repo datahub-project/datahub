@@ -2,8 +2,10 @@ import {
     CheckCircleOutlined,
     CheckOutlined,
     CloseOutlined,
+    ExceptionOutlined,
     ExclamationCircleOutlined,
     ExclamationCircleTwoTone,
+    FileDoneOutlined,
     WarningFilled,
     WarningOutlined,
 } from '@ant-design/icons';
@@ -120,6 +122,23 @@ export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) 
     }
 };
 
+// acryl-main only
+export const getTestsHealthIcon = (status: HealthStatus, fontSize: number) => {
+    switch (status) {
+        case HealthStatus.Pass: {
+            return <FileDoneOutlined style={{ color: getHealthColor(status), fontSize }} />;
+        }
+        case HealthStatus.Fail: {
+            return <ExceptionOutlined style={{ color: getHealthColor(status), fontSize }} />;
+        }
+        case HealthStatus.Warn: {
+            return <ExceptionOutlined style={{ color: getHealthColor(status), fontSize }} />;
+        }
+        default:
+            throw new Error(`Unrecognized Health Status ${status} provided`);
+    }
+};
+
 export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {
@@ -141,6 +160,10 @@ export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, font
     switch (type) {
         case HealthStatusType.Assertions: {
             return getAssertionsHealthIcon(status, fontSize);
+        }
+        case HealthStatusType.Tests: {
+            // acryl-main only
+            return getTestsHealthIcon(status, fontSize);
         }
         case HealthStatusType.Incidents: {
             return getIncidentsHealthIcon(status, fontSize);

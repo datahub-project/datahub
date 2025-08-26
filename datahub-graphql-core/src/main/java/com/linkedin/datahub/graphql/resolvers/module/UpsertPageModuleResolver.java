@@ -139,7 +139,10 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       hierarchyViewParams.setShowRelatedEntities(
           paramsInput.getHierarchyViewParams().getShowRelatedEntities());
 
-      // TODO: add filters field
+      if (paramsInput.getHierarchyViewParams().getRelatedEntitiesFilterJson() != null) {
+        hierarchyViewParams.setRelatedEntitiesFilterJson(
+            paramsInput.getHierarchyViewParams().getRelatedEntitiesFilterJson());
+      }
 
       gmsParams.setHierarchyViewParams(hierarchyViewParams);
     }

@@ -9,6 +9,8 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import CompactMarkdownViewer from '@app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from '@app/entity/shared/tabs/Properties/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getSchemaFieldParentLink } from '@src/app/entity/schemaField/utils';
+import { Entity, EntityType } from '@src/types.generated';
 
 import ExternalLink from '@images/link-out.svg?react';
 
@@ -72,6 +74,11 @@ interface Props {
 export default function StructuredPropertyValue({ value, isRichText, filterText, truncateText, isFieldColumn }: Props) {
     const entityRegistry = useEntityRegistry();
 
+    const getEntityLink = (entity: Entity) =>
+        entity.type === EntityType.SchemaField
+            ? getSchemaFieldParentLink(entity.urn)
+            : entityRegistry.getEntityUrl(entity.type, entity.urn);
+
     return (
         <ValueText>
             {value.entity ? (
@@ -82,11 +89,7 @@ export default function StructuredPropertyValue({ value, isRichText, filterText,
                     <EntityName ellipsis={{ tooltip: true }}>
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
-                    <Typography.Link
-                        href={entityRegistry.getEntityUrl(value.entity.type, value.entity.urn)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
+                    <Typography.Link href={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon component={ExternalLink} />
                     </Typography.Link>
                 </EntityWrapper>

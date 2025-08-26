@@ -1,4 +1,5 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
@@ -105,6 +106,7 @@ const StyledHighlight = styled(Highlight)`
     margin-left: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: ${colors.gray[500]};
 `;
 
 interface Props {

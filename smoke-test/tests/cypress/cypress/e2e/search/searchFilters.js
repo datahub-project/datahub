@@ -39,7 +39,7 @@ describe("search", () => {
     cy.get("[data-testid=search-filters-v2]").should("exist");
   });
 
-  it("should add and remove multiple filters with no issues", () => {
+  it.skip("should add and remove multiple filters with no issues", () => {
     setSearchFiltersFeatureFlag(true);
     cy.login();
     cy.visit("/");

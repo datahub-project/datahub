@@ -25,14 +25,14 @@ public class GlossaryTermsMapper {
   public static GlossaryTerms map(
       @Nonnull final QueryContext context,
       @Nonnull final com.linkedin.common.GlossaryTerms glossaryTerms,
-      @Nonnull final Urn entityUrn) {
+      final Urn entityUrn) {
     return INSTANCE.apply(context, glossaryTerms, entityUrn);
   }
 
   public GlossaryTerms apply(
       @Nonnull final QueryContext context,
       @Nonnull final com.linkedin.common.GlossaryTerms glossaryTerms,
-      @Nonnull final Urn entityUrn) {
+      final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlossaryTerms result =
         new com.linkedin.datahub.graphql.generated.GlossaryTerms();
     result.setTerms(
@@ -46,7 +46,7 @@ public class GlossaryTermsMapper {
   }
 
   private com.linkedin.datahub.graphql.generated.GlossaryTermAssociation mapGlossaryTermAssociation(
-      @Nonnull final GlossaryTermAssociation input, @Nonnull final Urn entityUrn) {
+      @Nonnull final GlossaryTermAssociation input, final Urn entityUrn) {
     final com.linkedin.datahub.graphql.generated.GlossaryTermAssociation result =
         new com.linkedin.datahub.graphql.generated.GlossaryTermAssociation();
 
@@ -65,6 +65,9 @@ public class GlossaryTermsMapper {
     }
     if (entityUrn != null) {
       result.setAssociatedUrn(entityUrn.toString());
+    }
+    if (input.getContext() != null) {
+      result.setContext(input.getContext());
     }
 
     return result;

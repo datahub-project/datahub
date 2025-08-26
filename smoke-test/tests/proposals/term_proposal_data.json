@@ -1,0 +1,202 @@
+[
+    {
+      "auditHeader": null,
+      "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-terms,PROD)",
+          "aspects": [
+            {
+              "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                "schemaName": "SampleKafkaTestProposal",
+                "platform": "urn:li:dataPlatform:kafka",
+                "version": 0,
+                "created": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "lastModified": {
+                  "time": 1581407189000,
+                  "actor": "urn:li:corpuser:jdoe",
+                  "impersonator": null
+                },
+                "deleted": null,
+                "dataset": null,
+                "cluster": null,
+                "hash": "",
+                "platformSchema": {
+                  "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                  }
+                },
+                "fields": [
+                  {
+                    "fieldPath": "field_foo",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "description": {
+                      "string": "Foo field description"
+                    },
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "glossaryTerms": {
+                      "terms": [
+                            { "urn": "urn:li:glossaryTerm:test-term-already-applied" }, 
+                            { "urn": "urn:li:glossaryTerm:legacy-test-term-already-applied" }
+                        ],
+                        "auditStamp": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:test"
+                        }
+                    },
+                    "recursive": false
+                  },
+                  {
+                    "fieldPath": "field_bar",
+                    "jsonPath": null,
+                    "nullable": false,
+                    "description": {
+                      "string": "Bar field description"
+                    },
+                    "type": {
+                      "type": {
+                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                      }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false
+                  }
+                ],
+                "primaryKeys": null,
+                "foreignKeysSpecs": null
+              }
+            }
+          ]
+        }
+      },
+      "proposedDelta": null
+    },
+    {
+        "auditHeader": null,
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-proposal-terms,PROD)",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "glossaryTerms",
+        "aspect": {
+            "json": {
+                "terms": [
+                  {
+                    "urn": "urn:li:glossaryTerm:test-term-already-applied"
+                  },
+                  {
+                    "urn": "urn:li:glossaryTerm:legacy-test-term-already-applied"
+                  }
+                ],
+                "auditStamp": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:test"
+                }
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1642233600000,
+            "runId": "test-terms",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+        }
+    },
+    {
+      "auditHeader": null,
+      "entityType": "glossaryTerm",
+      "entityUrn": "urn:li:glossaryTerm:test-term-to-apply",
+      "entityKeyAspect": null,
+      "changeType": "UPSERT",
+      "aspectName": "glossaryTermInfo",
+      "aspect": {
+        "json": {
+            "name": "Test Term",
+            "definition": "Test term documentation",
+            "termSource": "none"
+        }
+      },
+      "systemMetadata": {
+        "lastObserved": 1642233600000,
+        "runId": "test-terms",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+      }
+    },
+    {
+        "auditHeader": null,
+        "entityType": "glossaryTerm",
+        "entityUrn": "urn:li:glossaryTerm:test-term-already-applied",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "glossaryTermInfo",
+        "aspect": {
+          "json": {
+              "name": "Already Applied Term",
+              "definition": "Test term documentation",
+              "termSource": "none"
+          }
+        },
+        "systemMetadata": {
+          "lastObserved": 1642233600000,
+          "runId": "test-terms",
+          "registryName": null,
+          "registryVersion": null,
+          "properties": null
+        }
+      },
+      {
+        "auditHeader": null,
+        "entityType": "glossaryTerm",
+        "entityUrn": "urn:li:glossaryTerm:legacy-test-term-to-apply",
+        "entityKeyAspect": null,
+        "changeType": "UPSERT",
+        "aspectName": "glossaryTermInfo",
+        "aspect": {
+          "json": {
+              "name": "Legacy Test Term",
+              "definition": "Test term documentation",
+              "termSource": "none"
+          }
+        },
+        "systemMetadata": {
+          "lastObserved": 1642233600000,
+          "runId": "test-terms",
+          "registryName": null,
+          "registryVersion": null,
+          "properties": null
+        }
+      },
+      {
+          "auditHeader": null,
+          "entityType": "glossaryTerm",
+          "entityUrn": "urn:li:glossaryTerm:legacy-test-term-already-applied",
+          "entityKeyAspect": null,
+          "changeType": "UPSERT",
+          "aspectName": "glossaryTermInfo",
+          "aspect": {
+            "json": {
+                "name": "Legacy Already Applied Term",
+                "definition": "Test term documentation",
+                "termSource": "none"
+            }
+          },
+          "systemMetadata": {
+            "lastObserved": 1642233600000,
+            "runId": "test-terms",
+            "registryName": null,
+            "registryVersion": null,
+            "properties": null
+          }
+        }
+  ]

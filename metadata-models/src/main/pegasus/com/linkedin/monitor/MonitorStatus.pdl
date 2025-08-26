@@ -1,0 +1,62 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * The status of an asset monitor
+ */
+record MonitorStatus {
+    /**
+    * The current operation mode of the monitor
+    */
+    @Searchable = { }
+    mode: enum MonitorMode {
+      /**
+       * The monitor should be actively operating.
+       */
+      ACTIVE
+
+      /**
+       * The monitor is not actively operating.
+       */
+       INACTIVE
+
+       /**
+        * The monitor is running in passive mode.
+        * For assertion monitors, this means that assertions will be run in dry mode.
+        * This is for internal troubleshooting purposes.
+        */
+       PASSIVE
+    }
+
+    /**
+     * The start time of the monitor
+     */
+     @Searchable = { }
+     state: optional enum MonitorState {
+        /**
+         * The monitor is in the training stage.
+         */
+        TRAINING
+        /**
+         * The monitor is in the evaluation stage.
+         */
+        EVALUATION
+        /**
+         * The monitor is in the evaluation stage.
+         */
+        ERROR
+     }
+
+    /**
+     * The last time the monitor was started
+     */
+    error: optional MonitorError
+
+    /**
+     * The last time the monitor was started
+     */
+     @Searchable = { }
+     reviewedAt: optional long
+}

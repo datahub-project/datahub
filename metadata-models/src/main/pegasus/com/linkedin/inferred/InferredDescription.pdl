@@ -1,0 +1,16 @@
+namespace com.linkedin.inferred
+
+/**
+ * Records inferred description and its provenance
+ */
+record InferredDescription {
+    /**
+     * Inferred description text
+     */    
+    description: string
+
+    /**
+     * Provenance details about this inference
+     */
+    source: InferredMetadataSource
+}

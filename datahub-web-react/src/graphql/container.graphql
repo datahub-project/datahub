@@ -17,6 +17,9 @@ query getContainer($urn: String!) {
                 value
             }
         }
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -38,8 +41,11 @@ query getContainer($urn: String!) {
         subTypes {
             typeNames
         }
-        entities(input: { start: 0, count: 1 }) {
+        entities(input: { start: 0, count: 10000 }) {
             total
+            facets {
+                ...facetFields
+            }
         }
         container {
             ...entityContainer
@@ -82,6 +88,12 @@ query getContainer($urn: String!) {
             ...browsePathV2Fields
         }
         ...notes
+        proposals: proposals {
+            ...proposalsFragment
+        }
+        assetOrigin {
+            ...originFields
+        }
     }
 }
 

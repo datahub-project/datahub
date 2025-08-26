@@ -5,6 +5,7 @@ import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { IconStyleType } from '@app/entityV2/Entity';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -14,6 +15,7 @@ import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
+import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
@@ -56,6 +58,8 @@ export default function SetDataProductModal({
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
     const inputEl = useRef(null);
+    useAutoFocusInModal(inputEl);
+    const { isInFormContext } = useEntityFormContext();
 
     const [getSearchResults, { data, loading: searchLoading }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const { recommendedData: recommendedDataProducts, loading: recommendationsLoading } = useGetRecommendations([
@@ -169,7 +173,7 @@ export default function SetDataProductModal({
             title={titleOverride || 'Set Data Product'}
             open
             onCancel={onModalClose}
-            getContainer={getModalDomContainer}
+            getContainer={!isInFormContext ? getModalDomContainer : undefined} // if filling out form in full page modal, don't change container as this modal gets hidden
             footer={
                 <ModalButtonContainer>
                     <Button variant="text" color="gray" onClick={onModalClose}>

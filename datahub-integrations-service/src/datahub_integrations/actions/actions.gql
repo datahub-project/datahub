@@ -1,0 +1,31 @@
+fragment ActionInfo on ActionPipeline {
+  urn
+  details {
+    type
+    name
+    config {
+      recipe
+      executorId
+      version
+      debugMode
+    }
+    state
+  }
+}
+
+query listActions {
+  listActionPipelines(input: {count: 100}) {
+    start
+    count
+    total
+    actionPipelines {
+      ...ActionInfo
+    }
+  }
+}
+
+query getAction($urn: String!) {
+  actionPipeline(urn: $urn) {
+    ...ActionInfo
+  }
+}

@@ -21,23 +21,29 @@ reader_role_all_privileges = set()
 editor_role_all_privileges = set()
 for policy in all_policies:
     urn = policy["urn"]
+    displayName = policy.get("info", {}).get("displayName")
     if urn == "urn:li:dataHubPolicy:0":
         root_user_platform_policy_privileges = policy["info"]["privileges"]
         root_user_all_privileges.update(set(root_user_platform_policy_privileges))
-    elif urn == "urn:li:dataHubPolicy:1":
+    if urn == "urn:li:dataHubPolicy:1":
         root_user_all_privileges.update(set(policy["info"]["privileges"]))
-    elif urn == "urn:li:dataHubPolicy:admin-platform-policy":
+    if urn == "urn:li:dataHubPolicy:admin-platform-policy":
         admin_role_platform_privileges = policy["info"]["privileges"]
         admin_role_all_privileges.update(set(admin_role_platform_privileges))
-    elif urn == "urn:li:dataHubPolicy:admin-metadata-policy":
+    if urn == "urn:li:dataHubPolicy:admin-metadata-policy":
         admin_role_all_privileges.update(set(policy["info"]["privileges"]))
-    elif urn == "urn:li:dataHubPolicy:editor-platform-policy":
+    if urn == "urn:li:dataHubPolicy:editor-platform-policy":
         editor_platform_policy_privileges = policy["info"]["privileges"]
-    elif urn == "urn:li:dataHubPolicy:7":
+    if (
+        displayName is not None
+        and displayName == "All Users - Base Platform Privileges"
+    ):
         all_user_platform_policy_privileges = policy["info"]["privileges"]
-    elif urn.startswith("urn:li:dataHubPolicy:reader-"):
+    if urn == "urn:li:dataHubPolicy:7":
+        all_user_platform_policy_privileges = policy["info"]["privileges"]
+    if urn.startswith("urn:li:dataHubPolicy:reader-"):
         reader_role_all_privileges.update(set(policy["info"]["privileges"]))
-    elif urn.startswith("urn:li:dataHubPolicy:editor-"):
+    if urn.startswith("urn:li:dataHubPolicy:editor-"):
         editor_role_all_privileges.update(set(policy["info"]["privileges"]))
     try:
         doc_type = policy["info"]["type"]

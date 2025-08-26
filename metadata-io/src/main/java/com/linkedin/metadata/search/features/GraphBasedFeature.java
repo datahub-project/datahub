@@ -1,0 +1,58 @@
+package com.linkedin.metadata.search.features;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.utils.Neo4jUtil;
+import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.ConcurrencyUtils;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
+public class GraphBasedFeature implements FeatureExtractor {
+
+  private final GraphService _graphService;
+
+  private static final Set<String> RELEVANT_RELATIONSHIP_TYPES =
+      ImmutableSet.of("DownstreamOf", "Consumes");
+
+  @Override
+  public List<Features> extractFeatures(
+      @Nonnull OperationContext opContext, List<SearchEntity> entities) {
+    return ConcurrencyUtils.transformAndCollectAsync(
+            entities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+            urn -> getOutDegree(opContext, urn))
+        .stream()
+        .map(
+            outDegree ->
+                new Features(ImmutableMap.of(Features.Name.OUT_DEGREE, outDegree.doubleValue())))
+        .collect(Collectors.toList());
+  }
+
+  private int getOutDegree(@Nonnull OperationContext opContext, Urn urn) {
+    RelatedEntitiesResult graphResult =
+        _graphService.findRelatedEntities(
+            opContext,
+            null,
+            QueryUtils.EMPTY_FILTER,
+            null,
+            QueryUtils.newFilter("urn", urn.toString()),
+            RELEVANT_RELATIONSHIP_TYPES,
+            Neo4jUtil.newRelationshipFilter(
+                QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
+            0,
+            1000);
+    return graphResult.getCount();
+  }
+}

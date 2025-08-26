@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.restli.common.RestConstants.DEFAULT_COUNT;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -18,6 +20,9 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -33,9 +38,6 @@ import org.apache.commons.lang3.StringUtils;
 @Slf4j
 @RequiredArgsConstructor
 public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFuture<ScrollResults>> {
-
-  private static final int DEFAULT_START = 0;
-  private static final int DEFAULT_COUNT = 10;
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
@@ -53,7 +55,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final List<String> entityNames =
         entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
 
-    // escape forward slash since it is a reserved character in Elasticsearch, default to * if
+    // escape forward slash since it is a reserved character in Elasticsearch,
+    // default to * if
     // blank/empty
     final String sanitizedQuery =
         StringUtils.isNotBlank(input.getQuery())
@@ -83,6 +86,12 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           }
           List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
 
+          Filter finalFilter =
+              maybeResolvedView != null
+                  ? FilterUtils.combineFilters(
+                      baseFilter, maybeResolvedView.getDefinition().getFilter())
+                  : baseFilter;
+
           try {
             log.debug(
                 "Executing search for multiple entities: entity types {}, query {}, filters: {}, scrollId: {}, count: {}",
@@ -92,6 +101,15 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 scrollId,
                 count);
             String keepAlive = input.getKeepAlive() != null ? input.getKeepAlive() : "5m";
+
+            String predicateJson = null;
+            if (input.getConvertToPredicate() != null
+                && input.getConvertToPredicate()
+                && finalFilter != null) {
+              Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(finalFilter);
+              predicateJson =
+                  context.getOperationContext().getObjectMapper().writeValueAsString(predicate);
+            }
 
             return UrnScrollResultsMapper.map(
                 context,
@@ -104,14 +122,13 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                             entityNames, maybeResolvedView.getDefinition().getEntityTypes())
                         : entityNames,
                     sanitizedQuery,
-                    maybeResolvedView != null
-                        ? SearchUtils.combineFilters(
-                            baseFilter, maybeResolvedView.getDefinition().getFilter())
-                        : baseFilter,
+                    finalFilter,
                     scrollId,
                     keepAlive,
                     sortCriteria,
-                    count));
+                    count,
+                    null,
+                    predicateJson));
           } catch (Exception e) {
             log.error(
                 "Failed to execute search for multiple entities: entity types {}, query {}, filters: {}, searchAfter: {}, count: {}",

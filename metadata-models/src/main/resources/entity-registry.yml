@@ -50,6 +50,23 @@ entities:
       - versionProperties
       - icebergCatalogInfo
       - logicalParent
+
+      # SaaS Only
+      - inferredNeighbors
+      - inferredMetadata
+      - schemaFieldsInferredMetadata
+      - schemaFieldsInferredNeighbors
+      - assertionsSummary
+      - usageFeatures
+      - storageFeatures
+      - lineageFeatures
+      - proposals
+      - schemaProposals
+      - anomaliesSummary
+      - share
+      - origin
+      - documentation
+      - entityInferenceMetadata
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -83,6 +100,13 @@ entities:
       - incidentsSummary
       - testResults
       - dataTransformLogic
+      # SaaS Only
+      - proposals
+      - anomaliesSummary
+      - share
+      - origin
+      - lineageFeatures
+      - documentation
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -107,6 +131,12 @@ entities:
       - forms
       - subTypes
       - testResults
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - lineageFeatures
+      - documentation
   - name: dataProcess
     keyAspect: dataProcessKey
     aspects:
@@ -130,6 +160,8 @@ entities:
       - subTypes
       - container
       - mlTrainingRunProperties
+      # SaaS Only
+      - lineageFeatures
   - name: chart
     category: core
     keyAspect: chartKey
@@ -157,6 +189,13 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+      # SaaS Only
+      - usageFeatures
+      - lineageFeatures
+      - proposals
+      - share
+      - origin
+      - documentation
   - name: dashboard
     keyAspect: dashboardKey
     aspects:
@@ -182,6 +221,13 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+      # SaaS Only
+      - usageFeatures
+      - lineageFeatures
+      - proposals
+      - share
+      - origin
+      - documentation
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -201,6 +247,11 @@ entities:
       - dataPlatformInstance
       - browsePathsV2
       - testResults
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - documentation
   - name: corpuser
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
@@ -221,6 +272,9 @@ entities:
       - testResults
       - subTypes
       - slackUserInfo
+      # SaaS Only
+      - share
+      - formNotifications
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -236,6 +290,10 @@ entities:
       - forms
       - testResults
       - subTypes
+      # SaaS Only
+      - corpGroupSettings
+      - share
+      - formNotifications
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -248,6 +306,9 @@ entities:
       - forms
       - testResults
       - displayProperties
+      # SaaS Only
+      - share
+      - origin
   - name: container
     doc: A container of related data assets.
     category: core
@@ -272,6 +333,11 @@ entities:
       - forms
       - testResults
       - access
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - documentation
   - name: tag
     category: core
     keyAspect: tagKey
@@ -281,6 +347,9 @@ entities:
       - deprecation
       - status
       - testResults
+      # SaaS Only
+      - share
+      - origin
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
@@ -299,6 +368,9 @@ entities:
       - forms
       - testResults
       - subTypes
+      # SaaS Only
+      - share
+      - origin
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -312,6 +384,9 @@ entities:
       - testResults
       - subTypes
       - displayProperties
+      # SaaS Only
+      - share
+      - origin
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -341,6 +416,12 @@ entities:
       - assertionActions
       - status
       - globalTags
+      # SaaS Only
+      - lineageFeatures
+      - assertionRunSummary # Acryl-Only (Observe)
+      - assertionAnalyticsRunEvent # Acryl-Only (Observe)
+      - assertionDryRunEvent # Acryl-Only (Observe)
+      - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey
@@ -390,6 +471,13 @@ entities:
       - versionProperties
       - subTypes
       - container
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - lineageFeatures
+      - documentation
+      - incidentsSummary
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -411,6 +499,13 @@ entities:
       - testResults
       - subTypes
       - container
+      - institutionalMemory
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - lineageFeatures
+      - documentation
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -444,6 +539,12 @@ entities:
       - forms
       - testResults
       - subTypes
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - lineageFeatures
+      - documentation
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -465,6 +566,13 @@ entities:
       - forms
       - testResults
       - subTypes
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - lineageFeatures
+      - documentation
+      - incidentsSummary
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -484,6 +592,11 @@ entities:
       - forms
       - testResults
       - subTypes
+      # SaaS Only
+      - proposals
+      - share
+      - origin
+      - lineageFeatures
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -500,6 +613,9 @@ entities:
     keyAspect: testKey
     aspects:
       - testInfo
+      # SaaS Only
+      - status
+      - batchTestRunEvent
   - name: dataHubUpgrade
     category: internal
     keyAspect: dataHubUpgradeKey
@@ -526,6 +642,9 @@ entities:
       - deprecation
       - subTypes
       - logicalParent
+      # SaaS Only
+      - schemaFieldProfile
+      - lineageFeatures
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -544,6 +663,9 @@ entities:
     aspects:
       - incidentInfo
       - globalTags
+      # SaaS Only
+      - incidentNotificationDetails
+      - incidentActivityEvent
   - name: dataHubRole
     category: core
     keyAspect: dataHubRoleKey
@@ -555,6 +677,8 @@ entities:
     aspects:
       - postInfo
       - subTypes
+      # SaaS Only
+      - status
   - name: dataHubStepState
     category: internal
     keyAspect: dataHubStepStateKey
@@ -576,6 +700,8 @@ entities:
       - status
       - globalTags
       - glossaryTerms
+      # SaaS Only
+      - lineageFeatures
   - name: query
     category: core
     keyAspect: queryKey
@@ -586,6 +712,9 @@ entities:
       - status
       - dataPlatformInstance
       - subTypes
+      # SaaS Only
+      - queryUsageFeatures
+      - lineageFeatures
   - name: dataProduct
     category: core
     keyAspect: dataProductKey
@@ -602,6 +731,9 @@ entities:
       - forms
       - testResults
       - subTypes
+      # SaaS Only
+      - share
+      - origin
   - name: application
     category: core
     keyAspect: applicationKey
@@ -674,6 +806,9 @@ entities:
       - structuredPropertySettings
       - institutionalMemory
       - status
+      # SaaS Only
+      - share
+      - origin
   - name: form
     category: core
     keyAspect: formKey
@@ -681,6 +816,8 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+      - formSettings
+      - formAssignmentStatus
   - name: dataHubPageTemplate
     category: core
     keyAspect: dataHubPageTemplateKey
@@ -714,12 +851,94 @@ entities:
     keyAspect: dataHubOpenAPISchemaKey
     aspects:
       - systemMetadata
+  # SaaS Only Entities
+  # TODO: Move this out to acryl-entity-registry.yml
+  - name: dataHubRemoteExecutor
+    category: internal
+    keyAspect: dataHubRemoteExecutorKey
+    aspects:
+      - dataHubRemoteExecutorStatus
+  - name: dataHubRemoteExecutorPool
+    category: internal
+    keyAspect: dataHubRemoteExecutorPoolKey
+    aspects:
+      - dataHubRemoteExecutorPoolInfo
+  - name: dataHubRemoteExecutorGlobalConfig
+    category: internal
+    keyAspect: dataHubRemoteExecutorGlobalConfigKey
+    aspects:
+      - dataHubRemoteExecutorPoolGlobalConfig
+  - name: constraint
+    keyAspect: constraintKey
+    aspects:
+      - constraintInfo
+  - name: recommendationModule
+    keyAspect: recommendationModuleKey
+    aspects:
+      - recommendationModule
+  - name: actionRequest
+    category: internal
+    keyAspect: actionRequestKey
+    aspects:
+      - actionRequestStatus
+      - actionRequestInfo
+  - name: dataHubConnection
+    category: internal
+    keyAspect: dataHubConnectionKey
+    aspects:
+      - dataHubConnectionDetails
+      - dataPlatformInstance
+      - status
+  - name: monitor
+    category: core
+    keyAspect: monitorKey
+    aspects:
+      - monitorInfo
+      - monitorTimeseriesState
+      - monitorAnomalyEvent
+  - name: monitorSuite
+    category: core
+    keyAspect: monitorSuiteKey
+    aspects:
+      - monitorSuiteInfo
+  - name: linkPreview
+    category: internal
+    keyAspect: linkPreviewKey
+    aspects:
+      - linkPreviewInfo
+  - name: dataHubAction
+    category: internal
+    keyAspect: dataHubActionKey
+    aspects:
+      - dataHubActionInfo
+      - dataHubActionStatus
+  - name: subscription
+    category: core
+    keyAspect: subscriptionKey
+    aspects:
+      - subscriptionInfo
+      - status
+  - name: dataHubPersona
+    category: internal
+    keyAspect: dataHubPersonaKey
+    aspects:
+      - dataHubPersonaInfo
+  - name: dataHubMetricCube
+    category: internal
+    keyAspect: dataHubMetricCubeKey
+    aspects:
+      - dataHubMetricCubeDefinition
+      - dataHubMetricCubeEvent
+      # To be added later.
+      # - dataHubMetricCubeStorageConfig
 events:
+  # SaaS Only Events
+  - name: notificationRequest
 plugins:
   aspectPayloadValidators:
-    - className: 'com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator'
+    - className: "com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
+        - "com.linkedin.metadata.structuredproperties.validation"
       enabled: true
       supportedOperations:
         - CREATE
@@ -730,26 +949,26 @@ plugins:
           aspectName: propertyDefinition
         - entityName: structuredProperty
           aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator'
+    - className: "com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
+        - "com.linkedin.metadata.structuredproperties.validation"
       enabled: true
       supportedOperations:
         - CREATE
         - UPSERT
         - DELETE
       supportedEntityAspectNames:
-        - entityName: '*'
+        - entityName: "*"
           aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
+    - className: "com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator"
       enabled: true
       supportedOperations:
         - CREATE
         - CREATE_ENTITY
       supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
+        - entityName: "*"
+          aspectName: "*"
+    - className: "com.linkedin.metadata.aspect.validation.ConditionalWriteValidator"
       enabled: true
       supportedOperations:
         - CREATE
@@ -759,18 +978,18 @@ plugins:
         - UPDATE
         - PATCH
       supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
+        - entityName: "*"
+          aspectName: "*"
+    - className: "com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator"
       enabled: true
       spring:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
   mcpSideEffects:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
+    - className: "com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
+        - "com.linkedin.metadata.structuredproperties.hooks"
       enabled: true
       supportedOperations:
         - DELETE
@@ -779,21 +998,21 @@ plugins:
           aspectName: propertyDefinition
         - entityName: structuredProperty
           aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
+    - className: "com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect"
       enabled: true
       spring:
         enabled: true
       packageScan:
         - com.linkedin.gms.factory.plugins
   mutationHooks:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
+    - className: "com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete"
       packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
+        - "com.linkedin.metadata.structuredproperties.hooks"
       enabled: true
       supportedEntityAspectNames:
-        - entityName: '*'
+        - entityName: "*"
           aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
+    - className: "com.linkedin.metadata.aspect.hooks.FieldPathMutator"
       enabled: true
       supportedOperations:
         - CREATE
@@ -802,10 +1021,10 @@ plugins:
         - RESTATE
         - PATCH
       supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'schemaMetadata'
-        - entityName: '*'
-          aspectName: 'editableSchemaMetadata'
+        - entityName: "*"
+          aspectName: "schemaMetadata"
+        - entityName: "*"
+          aspectName: "editableSchemaMetadata"
     - className: 'com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes'
       enabled: true
       supportedOperations:
@@ -817,7 +1036,32 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: 'ownership'
-    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
+    - className: "com.linkedin.metadata.aspect.plugins.hooks.MutationHook"
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
+    # SaaS Only Mutation Hooks
+    # Calculates md5 hash on test definitions on read/write
+    - className: "com.linkedin.metadata.test.hooks.MetadataTestHash"
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - CREATE
+        - RESTATE
+      supportedEntityAspectNames:
+        - entityName: "test"
+          aspectName: testInfo
+    - className: "com.linkedin.metadata.aspect.hooks.CorpUserEditableInfoMutator"
+      enabled: true
+      supportedOperations:
+        - UPSERT
+        - UPDATE
+      supportedEntityAspectNames:
+        - entityName: "*"
+          aspectName: "corpUserEditableInfo"
+    - className: "com.linkedin.metadata.aspect.plugins.hooks.MutationHook"
       enabled: true
       spring:
         enabled: true

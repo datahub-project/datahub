@@ -6,10 +6,10 @@ import static com.linkedin.metadata.Constants.SECRET_VALUE_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateSecretInput;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.datahub.graphql.types.ingest.secret.mapper.DataHubSecretValueMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -41,7 +41,7 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
     final Urn secretUrn = Urn.createFromString(input.getUrn());
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (IngestionAuthUtils.canManageSecrets(context)) {
+          if (AuthorizationUtils.canManageSecrets(context)) {
 
             try {
               EntityResponse response =

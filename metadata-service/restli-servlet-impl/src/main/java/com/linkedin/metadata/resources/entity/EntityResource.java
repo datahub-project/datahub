@@ -431,7 +431,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) @Nullable Integer count,
-      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags,
+      @ActionParam(PARAM_PREDICATE_FILTER) @Optional String predicateFilterJson) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
@@ -453,7 +454,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtils.toTask(
         () -> {
-          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, validateAndConvert(filter), sortCriterionList, start, count);
+          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, validateAndConvert(filter),
+              sortCriterionList, start, count, null);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -489,7 +491,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SCROLL_ID) @Optional @Nullable String scrollId,
       @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
       @ActionParam(PARAM_COUNT) @Nullable Integer count,
-      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
+      @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags,
+      @ActionParam(PARAM_PREDICATE_FILTER) @Optional String predicateJson) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
@@ -523,7 +526,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   sortCriterionList,
                   scrollId,
                   keepAlive,
-                  count);
+                  count,
+                  null,
+                  predicateJson);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -581,18 +586,27 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         entityList,
         input);
     return RestliUtils.toTask(systemOperationContext,
-        () -> validateLineageSearchResult(opContext, lineageSearchService.searchAcrossLineage(
-                  opContext,
-                  urn,
-                  LineageDirection.valueOf(direction),
-                  entityList,
-                  input,
-                  maxHops,
-                  validateAndConvert(filter),
-                  sortCriterionList,
-                  start,
-                  count),
-            entityService),
+        () -> {
+          LineageSearchResult result = validateLineageSearchResult(opContext, lineageSearchService.searchAcrossLineage(
+                    opContext,
+                    urn,
+                    LineageDirection.valueOf(direction),
+                    entityList,
+                    input,
+                    maxHops,
+                    validateAndConvert(filter),
+                    sortCriterionList,
+                    start,
+                    count), entityService);
+
+            return restrictedService.encryptRestricted(resultUrn -> {
+                if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
+                        && opContext.getSearchContext().isRestrictedSearch()) {
+                    return canViewEntity(opContext, resultUrn);
+                }
+                return true;
+            }, result);
+          },
         "searchAcrossRelationships");
   }
 
@@ -623,7 +637,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .withSearchFlags(flags -> (searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true))
                     .setIncludeRestricted(true))
             .withLineageFlags(flags -> flags.setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
-                    .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
+                            .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
 
     if (!isAPIAuthorized(
             opContext,
@@ -644,21 +658,28 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
     return RestliUtils.toTask(systemOperationContext,
-        () ->
-            validateLineageScrollResult(opContext,
-                lineageSearchService.scrollAcrossLineage(
-                        opContext,
-                    urn,
-                    LineageDirection.valueOf(direction),
-                    entityList,
-                    input,
-                    maxHops,
-                    validateAndConvert(filter),
-                    sortCriterionList,
-                    scrollId,
-                    keepAlive,
-                    count),
-                entityService),
+        () -> {
+          LineageScrollResult result = validateLineageScrollResult(opContext,lineageSearchService.scrollAcrossLineage(
+                  opContext,
+                  urn,
+                  LineageDirection.valueOf(direction),
+                  entityList,
+                  input,
+                  maxHops,
+                  validateAndConvert(filter),
+                  sortCriterionList,
+                  scrollId,
+                  keepAlive,
+                  count), entityService);
+
+            return restrictedService.encryptRestricted(resultUrn -> {
+                if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
+                        && opContext.getSearchContext().isRestrictedSearch()) {
+                    return canViewEntity(opContext, resultUrn);
+                }
+                return true;
+            }, result);
+          },
         "scrollAcrossLineage");
   }
 
@@ -731,7 +752,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     return RestliUtils.toTask(systemOperationContext,
         () -> {
-          AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit);
+          AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, validateAndConvert(filter), limit);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -769,7 +790,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtils.toTask(systemOperationContext,
         () -> {
-          BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
+          BrowseResult result = entitySearchService.browse(opContext, entityName, path, validateAndConvert(filter), start, limit);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -1210,12 +1231,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
+    final Filter finalFilter = validateAndConvert(filter);
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
-    log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
+    log.info("FILTER RESULTS for {} with filter {}", entityName, finalFilter);
     return RestliUtils.toTask(systemOperationContext,
         () -> {
           SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)),
-                  entityName, filter, sortCriterionList, start, count);
+              entityName, finalFilter, sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {

@@ -15,6 +15,7 @@ import {
     SearchResult,
     StructuredProperties,
     StructuredPropertyEntity,
+    StructuredPropertyFilterStatus,
     StructuredPropertySettings,
 } from '@src/types.generated';
 
@@ -31,6 +32,7 @@ export type StructuredProp = {
     immutable?: boolean;
     allowedValues?: AllowedValue[];
     settings?: StructuredPropertySettings | null;
+    filterStatus?: StructuredPropertyFilterStatus; // deprecated, need to support for backwards compatibility
 };
 
 export const valueTypes = [

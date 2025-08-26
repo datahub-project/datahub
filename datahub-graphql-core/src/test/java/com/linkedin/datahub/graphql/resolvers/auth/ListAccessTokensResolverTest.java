@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;

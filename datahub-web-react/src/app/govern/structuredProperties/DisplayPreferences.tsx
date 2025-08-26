@@ -11,7 +11,7 @@ import { StructuredProp, canBeAssetBadge, getDisplayName } from '@app/govern/str
 import { Icon, Pill, Switch, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
-import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
+import { AllowedValue, StructuredPropertyEntity, StructuredPropertyFilterStatus } from '@src/types.generated';
 
 const SCHEMA_FIELD_URN = 'urn:li:entityType:datahub.schemaField';
 
@@ -87,7 +87,10 @@ const DisplayPreferences = ({
                             <Switch
                                 label="Show in Search Filters"
                                 size="sm"
-                                checked={formValues?.settings?.showInSearchFilters}
+                                checked={
+                                    formValues?.settings?.showInSearchFilters ||
+                                    formValues?.filterStatus === StructuredPropertyFilterStatus.Enabled
+                                }
                                 onChange={(e) => handleDisplaySettingChange('showInSearchFilters', e.target.checked)}
                                 isDisabled={formValues?.settings?.isHidden}
                                 labelHoverText="If enabled, this property will appear in search filters"
@@ -152,7 +155,7 @@ const DisplayPreferences = ({
                     modalText={
                         <p>
                             <span>Another property </span>
-                            <Pill label={getDisplayName(badgeProperty)} size="sm" color="violet" clickable={false} />
+                            <Pill label={getDisplayName(badgeProperty)} size="sm" color="primary" clickable={false} />
                             &nbsp;is already being shown on asset previews, but only one property is allowed at a time.
                             Do you want to replace the current property? This will hide {getDisplayName(
                                 badgeProperty,

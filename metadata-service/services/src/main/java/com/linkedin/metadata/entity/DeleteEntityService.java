@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
@@ -25,6 +24,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
@@ -33,6 +33,7 @@ import com.linkedin.metadata.run.RelatedAspectArray;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -84,6 +85,7 @@ public class DeleteEntityService {
     // Delete references for entities referencing the deleted urn with searchables.
     // Only works for Form deletion for now
     int totalSearchAssetCount = deleteSearchReferences(opContext, urn, dryRun);
+    int subscriptionsCount = deleteSubscriptions(opContext, urn, dryRun);
 
     RelatedEntitiesResult relatedEntities =
         _graphService.findRelatedEntities(
@@ -110,7 +112,7 @@ public class DeleteEntityService {
             .collect(Collectors.toList());
 
     result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
-    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount);
+    result.setTotal(relatedEntities.getTotal() + totalSearchAssetCount + subscriptionsCount);
 
     if (dryRun) {
       return result;
@@ -688,8 +690,7 @@ public class DeleteEntityService {
     RecordTemplate record = _entityService.getLatestAspect(opContext, assetUrn, "forms");
     if (record == null) return null;
 
-    return DeleteEntityUtils.removeFormFromFormsAspect(
-        new Forms(record.data()), assetUrn, deletedUrn);
+    return DeleteEntityUtils.removeFormFromFormsAspect(assetUrn, deletedUrn);
   }
 
   @Nullable
@@ -702,6 +703,46 @@ public class DeleteEntityService {
 
     return DeleteEntityUtils.createFormInfoUpdateProposal(
         new FormInfo(record.data()), assetUrn, deletedUrn);
+  }
+
+  private int deleteSubscriptions(
+      @Nonnull OperationContext opContext, @Nonnull final Urn deletedUrn, final boolean dryRun) {
+
+    int subscriptionsCount = 0;
+    String scrollId = null;
+    Filter filter =
+        newFilter(
+            CriterionUtils.buildCriterion("entityUrn", Condition.EQUAL, deletedUrn.toString()));
+
+    while (true) {
+      ScrollResult scrollResult =
+          _searchService.structuredScroll(
+              opContext,
+              ImmutableList.of("subscription"),
+              "*",
+              filter,
+              null,
+              scrollId,
+              "5m",
+              dryRun ? 1 : BATCH_SIZE);
+
+      if (dryRun) {
+        return scrollResult.getNumEntities();
+      }
+
+      scrollResult.getEntities().stream()
+          .map(SearchEntity::getEntity)
+          .forEach(referringUrn -> _entityService.deleteUrn(opContext, referringUrn));
+
+      subscriptionsCount += scrollResult.getEntities().size();
+
+      if (scrollResult.getScrollId() == null) {
+        break;
+      }
+      scrollId = scrollResult.getScrollId();
+    }
+
+    return subscriptionsCount;
   }
 
   private AuditStamp createAuditStamp() {

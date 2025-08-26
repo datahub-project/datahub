@@ -13,7 +13,7 @@ import { EntityType } from '@types';
 
 const DomainsWrapper = styled.div`
     overflow: auto;
-    padding: 0 28px 16px 28px;
+    padding: 0 0px 0px 0px;
 `;
 
 interface Props {

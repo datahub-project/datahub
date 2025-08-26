@@ -1,0 +1,73 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.Urn
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * A lifecycle event for an incident lifecycle change event
+ * that should be visible in the incident activity log.
+ */
+@Aspect = {
+  "name": "incidentActivityEvent",
+  "type": "timeseries",
+}
+record IncidentActivityEvent includes TimeseriesAspectBase {
+    /**
+    * The actual changes that occurred in the incident activity event.
+    */
+    changes: array[IncidentActivityChange] = []
+
+    /**
+    * The raw previous incident info. Removed all annotations.
+    */
+    @Relationship = {
+        "/entities/*": null,
+    }
+    @Searchable = {
+        "/type": null,
+        "/customType": null,
+        "/title": null,
+        "/description": null,
+        "/entities/*": null,
+        "/priority": null,
+        "/assignees/*/actor": null,
+        "/status/state": null,
+        "/status/stage": null,
+        "/status/lastUpdated/time": null,
+        "/source/type": null,
+        "/source/sourceUrn": null,
+        "/startedAt": null,
+        "/created/time": null,
+    }
+    previousInfo: IncidentInfo
+
+    /**
+    * The raw new incident info. Removed all annotations.
+    */
+    @Relationship = {
+        "/entities/*": null,
+    }
+    @Searchable = {
+        "/type": null,
+        "/customType": null,
+        "/title": null,
+        "/description": null,
+        "/entities/*": null,
+        "/priority": null,
+        "/assignees/*/actor": null,
+        "/status/state": null,
+        "/status/stage": null,
+        "/status/lastUpdated/time": null,
+        "/source/type": null,
+        "/source/sourceUrn": null,
+        "/startedAt": null,
+        "/created/time": null,
+    }
+    newInfo: IncidentInfo
+
+    /**
+    * The actor who performed the activity.
+    */
+    @TimeseriesField = {}
+    actorUrn: Urn
+}

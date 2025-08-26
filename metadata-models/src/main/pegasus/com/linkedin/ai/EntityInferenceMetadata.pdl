@@ -1,0 +1,24 @@
+namespace com.linkedin.ai
+
+/**
+ * AI Inference Metadata for a specific entity.
+ */
+@Aspect = {
+  "name": "entityInferenceMetadata"
+}
+record EntityInferenceMetadata {
+  /**
+   * Information about a group of inferences made for Glossary Terms.
+   */
+  @Searchable = {
+    "/lastInferredAt": {
+        "fieldName": "glossaryTermsLastInferredAt",
+        "queryByDefault": false,
+    },
+    "/version": {
+        "fieldName": "glossaryTermsVersion",
+        "queryByDefault": false,
+    },
+  }
+  glossaryTermsInference: optional InferenceGroupMetadata
+}

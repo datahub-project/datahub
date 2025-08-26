@@ -5,6 +5,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
@@ -144,6 +145,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public TelemetryConfiguration telemetryConfiguration() {
       TelemetryConfiguration config = new TelemetryConfiguration();
       config.setEnabledServer(false);
+
+      // Create and configure MixpanelConfiguration
+      MixpanelConfiguration mixpanelConfig = new MixpanelConfiguration();
+      mixpanelConfig.setEnabled(true); // Make sure Mixpanel is enabled too
+      config.setMixpanel(mixpanelConfig);
+
       return config;
     }
 
@@ -190,6 +197,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     }
 
     @Bean
+    @Qualifier("mixpanelConfiguration")
+    public MixpanelConfiguration mixpanelConfiguration() {
+      return mock(MixpanelConfiguration.class);
+    }
+
+    @Bean
     @Qualifier("dataHubUsageProducer")
     public Producer<String, String> dataHubUsageProducer() {
       return mock(Producer.class);
@@ -205,6 +218,8 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public TelemetryConfiguration telemetryConfiguration() {
       TelemetryConfiguration config = new TelemetryConfiguration();
       config.setEnabledServer(true);
+      MixpanelConfiguration mixpanelConfig = new MixpanelConfiguration();
+      config.setMixpanel(mixpanelConfig);
       return config;
     }
 
@@ -257,6 +272,12 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     @Qualifier("gitVersion")
     public GitVersion gitVersion() {
       return mock(GitVersion.class);
+    }
+
+    @Bean
+    @Qualifier("mixpanelConfiguration")
+    public MixpanelConfiguration mixpanelConfiguration() {
+      return mock(MixpanelConfiguration.class);
     }
 
     @Bean

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -24,6 +25,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.ownership.OwnershipTypeInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.openapi.client.OpenApiClient;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -35,12 +37,14 @@ public class OwnershipTypeServiceTest {
   private static final Urn TEST_USER_URN = UrnUtils.getUrn("urn:li:corpuser:test");
   private static final OperationContext opContext =
       TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN);
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   @Test
   private void testCreateOwnershipTypeSuccess() throws Exception {
 
     final SystemEntityClient mockClient = createOwnershipTypeMockEntityClient();
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Case 1: With description
     Urn urn = service.createOwnershipType(opContext, "test OwnershipType", "my description", 0L);
@@ -62,7 +66,8 @@ public class OwnershipTypeServiceTest {
   @Test
   private void testCreateOwnershipTypeErrorMissingInputs() throws Exception {
     final SystemEntityClient mockClient = createOwnershipTypeMockEntityClient();
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Only case: missing OwnershipType Name
     Assert.assertThrows(
@@ -79,7 +84,8 @@ public class OwnershipTypeServiceTest {
         .ingestProposal(
             any(OperationContext.class), any(MetadataChangeProposal.class), Mockito.eq(false));
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -96,7 +102,8 @@ public class OwnershipTypeServiceTest {
     resetUpdateOwnershipTypeMockEntityClient(
         mockClient, TEST_OWNERSHIP_TYPE_URN, oldName, oldDescription, TEST_USER_URN, 0L, 0L);
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
     final String newName = "new name";
     final String newDescription = "new description";
 
@@ -152,7 +159,8 @@ public class OwnershipTypeServiceTest {
                 Mockito.eq(ImmutableSet.of(OWNERSHIP_TYPE_INFO_ASPECT_NAME))))
         .thenReturn(null);
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     final String newName = "new name";
 
@@ -174,7 +182,8 @@ public class OwnershipTypeServiceTest {
             Mockito.eq(TEST_OWNERSHIP_TYPE_URN),
             Mockito.eq(ImmutableSet.of(OWNERSHIP_TYPE_INFO_ASPECT_NAME)));
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(
@@ -187,7 +196,8 @@ public class OwnershipTypeServiceTest {
   private void testDeleteOwnershipTypeSuccess() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     service.deleteOwnershipType(opContext, TEST_OWNERSHIP_TYPE_URN, true);
 
@@ -202,7 +212,8 @@ public class OwnershipTypeServiceTest {
   private void testDeleteOwnershipTypeError() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
@@ -224,7 +235,8 @@ public class OwnershipTypeServiceTest {
     resetGetOwnershipTypeInfoMockEntityClient(
         mockClient, TEST_OWNERSHIP_TYPE_URN, name, description, TEST_USER_URN, 0L, 1L);
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     final OwnershipTypeInfo info = service.getOwnershipTypeInfo(opContext, TEST_OWNERSHIP_TYPE_URN);
 
@@ -248,7 +260,8 @@ public class OwnershipTypeServiceTest {
                 Mockito.eq(ImmutableSet.of(OWNERSHIP_TYPE_INFO_ASPECT_NAME))))
         .thenReturn(null);
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     Assert.assertNull(service.getOwnershipTypeInfo(opContext, TEST_OWNERSHIP_TYPE_URN));
   }
@@ -266,7 +279,8 @@ public class OwnershipTypeServiceTest {
             Mockito.eq(
                 ImmutableSet.of(OWNERSHIP_TYPE_INFO_ASPECT_NAME, Constants.STATUS_ASPECT_NAME)));
 
-    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+    final OwnershipTypeService service =
+        new OwnershipTypeService(mockClient, Mockito.mock(OpenApiClient.class), objectMapper);
 
     // Throws wrapped exception
     Assert.assertThrows(

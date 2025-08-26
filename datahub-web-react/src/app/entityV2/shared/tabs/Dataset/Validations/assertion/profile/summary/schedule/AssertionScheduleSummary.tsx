@@ -2,13 +2,14 @@ import { ClockCircleOutlined, StopOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getCronAsText } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { InferredAssertionLogo } from '@app/entityV2/shared/tabs/Dataset/Validations/InferredAssertionLogo';
+import { extractLatestGeneratedAt, getCronAsText } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { AssertionScheduleSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummarySection';
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
 import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 
-import { Assertion, CronSchedule } from '@types';
+import { Assertion, AssertionSourceType, CronSchedule, Monitor } from '@types';
 
 const Container = styled.div`
     margin-top: 20px;
@@ -28,8 +29,13 @@ const StyledStopOutlined = styled(StopOutlined)`
     font-size: 14px;
 `;
 
+const StyledLastUpdatedLogo = styled(InferredAssertionLogo)`
+    margin-right: 8px;
+`;
+
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
     schedule?: CronSchedule;
     lastEvaluatedAtMillis?: number | undefined;
     nextEvaluatedAtMillis?: number | undefined;
@@ -41,6 +47,7 @@ type Props = {
  */
 export const AssertionScheduleSummary = ({
     assertion,
+    monitor,
     schedule,
     lastEvaluatedAtMillis,
     nextEvaluatedAtMillis,
@@ -79,6 +86,17 @@ export const AssertionScheduleSummary = ({
      */
     const isExternal = isExternalAssertion(assertion);
 
+    /**
+     * For smart assertions, show the last time the rule was updated.
+     */
+    const isSmartAssertion = assertion?.info?.source?.type === AssertionSourceType.Inferred;
+    const generatedAtTs = isSmartAssertion && monitor ? extractLatestGeneratedAt(monitor) : undefined;
+    const generatedAt = generatedAtTs ? new Date(generatedAtTs) : undefined;
+    const lastUpdatedAtTimeLocal = generatedAt
+        ? `${generatedAt.toLocaleDateString()} at ${generatedAt.toLocaleTimeString()} (${localeTimezone})`
+        : null;
+    const lastUpdatedAtTimeGmt = generatedAt ? generatedAt.toUTCString() : null;
+
     return (
         <Container>
             <Sections>
@@ -107,7 +125,7 @@ export const AssertionScheduleSummary = ({
                         title="Next evaluation"
                         subtitle={nextEvaluatedTimeLocal}
                         tooltip={nextEvaluatedTimeGMT}
-                        showDivider={false}
+                        showDivider={!!lastUpdatedAtTimeLocal}
                     />
                 )) ||
                     (nextEvaluatedTimeLocal && (
@@ -115,10 +133,19 @@ export const AssertionScheduleSummary = ({
                             icon={<StyledStopOutlined />}
                             title="Next evaluation"
                             subtitle="This assertion is not actively running. Start the assertion to view the next evaluation time."
-                            showDivider={false}
+                            showDivider={!!lastUpdatedAtTimeLocal}
                         />
                     )) ||
                     null}
+                {lastUpdatedAtTimeLocal ? (
+                    <AssertionScheduleSummarySection
+                        icon={<StyledLastUpdatedLogo />}
+                        title="Last trained"
+                        subtitle={`Monitor predictions were last refreshed at ${lastUpdatedAtTimeLocal}.`}
+                        tooltip={lastUpdatedAtTimeGmt}
+                        showDivider={false}
+                    />
+                ) : null}
             </Sections>
         </Container>
     );

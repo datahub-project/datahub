@@ -3,7 +3,10 @@ namespace com.linkedin.dataset
 import com.linkedin.timeseries.TimeseriesAspectBase
 
 /**
- * Stats corresponding to datasets
+ * Metrics corresponding to datasets.
+ *
+ * Notice that this aspect may be partially completed so the user
+ * should filter for existence of the stats they need when querying.
  */
 @Aspect = {
   "name": "datasetProfile",
@@ -17,6 +20,7 @@ record DatasetProfile includes TimeseriesAspectBase {
     "fieldType": "COUNT",
     "hasValuesFieldName": "hasRowCount"
   }
+  @TimeseriesField = {}
   rowCount: optional long
 
   /**
@@ -26,19 +30,28 @@ record DatasetProfile includes TimeseriesAspectBase {
     "fieldType": "COUNT",
     "hasValuesFieldName": "hasColumnCount"
   }
+  @TimeseriesField = {}
   columnCount: optional long
 
   /**
-   * Profiles for each column (or schema field)
-   */
-  fieldProfiles: optional array[DatasetFieldProfile]
-
- /**
   * Storage size in bytes
   */
   @Searchable = {
     "fieldType": "COUNT",
     "hasValuesFieldName": "hasSizeInBytes"
   }
+  @TimeseriesField = {}
   sizeInBytes: optional long
+
+  /**
+   * Profiles for each column (or schema field). Notice that we are moving away from
+   * using this model and moving toward DatasetFieldProfiles attached to the dataset
+   * field urn directly. This field is kept for backward compatibility.
+   */
+  fieldProfiles: optional array[DatasetFieldProfile]
+
+  /**
+   * Rich details about the source of the metrics provided in this profile.
+   */
+  source: optional DatasetMetricsSourceDetails
 }

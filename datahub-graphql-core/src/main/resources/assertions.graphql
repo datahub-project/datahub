@@ -1,4 +1,36 @@
+extend type Query {
+  """
+  Fetch a list of assertions across the platform that match requested criteria.
+  """
+  listAssertions(input: ListAssertionsInput!): ListAssertionsResult
+}
+
 extend type Mutation {
+  """
+  Create an existing Dataset Assertion
+  """
+  createDatasetAssertion(input: CreateDatasetAssertionInput!): Assertion!
+
+  """
+  Create an new Freshness Assertion
+  """
+  createFreshnessAssertion(input: CreateFreshnessAssertionInput!): Assertion!
+
+  """
+  Create an new Volume Assertion
+  """
+  createVolumeAssertion(input: CreateVolumeAssertionInput!): Assertion!
+
+  """
+  Create a new Sql Assertion
+  """
+  createSqlAssertion(input: CreateSqlAssertionInput!): Assertion!
+
+  """
+  Create a new Field Assertion
+  """
+  createFieldAssertion(input: CreateFieldAssertionInput!): Assertion!
+
   """
   Upsert a Custom Assertion
   """
@@ -28,108 +60,634 @@ extend type Mutation {
     """
     result: AssertionResultInput!
   ): Boolean!
+
+  """
+  Tests a given assertion and returns the result.
+  """
+  testAssertion(input: TestAssertionInput!): AssertionResult!
+
+  """
+  Runs a native assertion and returns the result.
+  If the provided URN does not exist, or is not a native assertion, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertion(
+    """
+    The URN of the assertion to run.
+    """
+    urn: String!
+    """
+    Whether to save the result of the assertion run for viewing through the UI.
+    """
+    saveResult: Boolean
+    """
+    An optional set of custom runtime parameters to inject into any SQL fragment in the assertion.
+    """
+    parameters: [StringMapEntryInput!]
+    """
+    Whether to run assertion asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly.
+    """
+    async: Boolean
+  ): AssertionResult
+
+  """
+  Runs a native assertion and returns the result.
+  If the provided URN does not exist, or is not a native assertion, an error will be returned.
+
+  The maximum number of assertions allowed to run at once is 20.
+  If more than 20 URNs are provided, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertions(
+    """
+    The urns of the assertion to run.
+    """
+    urns: [String!]!
+    """
+    Whether to save the results of the assertion run for viewing through the UI.
+    """
+    saveResults: Boolean
+    """
+    An optional set of custom runtime parameters to inject into any SQL fragment in the assertion.
+    """
+    parameters: [StringMapEntryInput!]
+    """
+    Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly.
+    """
+    async: Boolean
+  ): RunAssertionsResult
+
+  """
+  Runs the assertions associated with a specific asset. Any NON-NATIVE assertions associated with the asset
+  will simply be omitted in the result.
+
+  The maximum number of assertions allowed to run at once is 20.
+  If more than 20 URNs are provided, an error will be returned.
+
+  The timeout for this API is 30 seconds. If you have long-running assertions,
+  please use the async option, and poll for the result by fetching the assertion results by URN.
+  If async is True (false by default), then the result will be null.
+  """
+  runAssertionsForAsset(
+    """
+    The urn of the asset whose assertions should be run
+    """
+    urn: String!
+    """
+    An optional set of tags URNs used to filter the assertions that are run
+    """
+    tagUrns: [String!]
+    """
+    An optional set of custom runtime parameters to inject into any SQL fragment in any assertions for the asset
+    """
+    parameters: [StringMapEntryInput!]
+    """
+    Whether to run assertions asynchronously. False by default. If true, the response will be immediate, but the results will be available later accessible by fetching the assertion run events directly.
+    """
+    async: Boolean
+  ): RunAssertionsResult
+
+  """
+  Update an existing Dataset Assertion
+  """
+  updateDatasetAssertion(
+    urn: String!
+    input: UpdateDatasetAssertionInput!
+  ): Assertion!
+
+  """
+  Update basic metadata for a given assertion, including description and actions.
+  """
+  updateAssertionMetadata(
+    urn: String!
+    input: UpdateAssertionMetadataInput!
+  ): Assertion!
+
+  """
+  Create or Update a Freshness Assertion
+  """
+  upsertDatasetFreshnessAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Freshness Assertion
+    """
+    assertionUrn: String
+
+    """
+    Input for creating or updating a Freshness assertion.
+    """
+    input: UpsertDatasetFreshnessAssertionMonitorInput!
+  ): Assertion!
+
+  """
+  Create or Update a Freshness Assertion
+  """
+  upsertDatasetVolumeAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Volume Assertion
+    """
+    assertionUrn: String
+
+    """
+    Input for creating or updating a Volume assertion.
+    """
+    input: UpsertDatasetVolumeAssertionMonitorInput!
+  ): Assertion!
+
+  """
+  Create or Update a new SQL Assertion
+  """
+  upsertDatasetSqlAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing SQL Assertion
+    """
+    assertionUrn: String
+
+    """
+    Input for creating or updating an SQL assertion.
+    """
+    input: UpsertDatasetSqlAssertionMonitorInput!
+  ): Assertion!
+
+  """
+  Create or Update a new Field Assertion
+  """
+  upsertDatasetFieldAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Field Assertion
+    """
+    assertionUrn: String
+
+    """
+    Input for creating or updating an Field assertion.
+    """
+    input: UpsertDatasetFieldAssertionMonitorInput!
+  ): Assertion!
+
+  """
+  Create or Update a new Schema Assertion
+  """
+  upsertDatasetSchemaAssertionMonitor(
+    """
+    The urn of assertion
+    Provide only if updating an existing Schema Assertion
+    """
+    assertionUrn: String
+
+    """
+    Input for creating or updating an Schema assertion.
+    """
+    input: UpsertDatasetSchemaAssertionMonitorInput!
+  ): Assertion!
 }
 
 """
-Input for upserting a Custom Assertion.
+Input for updating a Dataset Assertion
 """
-input UpsertCustomAssertionInput {
+input CreateDatasetAssertionInput {
   """
-  The entity targeted by this assertion.
+  The urn of the dataset that the assertion is related to
+  """
+  datasetUrn: String!
+
+  """
+  The scope of the Dataset assertion.
+  """
+  scope: DatasetAssertionScope!
+
+  """
+  The urns of schema fields associated with the columns being tested.
+  """
+  fieldUrns: [String!]
+
+  """
+  Standardized assertion operator
+  """
+  aggregation: AssertionStdAggregation
+
+  """
+  Standardized assertion operator
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
+  """
+  parameters: AssertionStdParametersInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+}
+
+"""
+Input for creating an Freshness Assertion
+"""
+input CreateFreshnessAssertionInput {
+  """
+  The type of Freshness assertion to create.
+  """
+  type: FreshnessAssertionType!
+
+  """
+  The urn of the dataset that the assertion is related to
   """
   entityUrn: String!
 
   """
-  The type of the custom assertion.
+  The Freshness assertion's schedule
   """
-  type: String!
+  schedule: FreshnessAssertionScheduleInput!
 
   """
-  The description of this assertion.
+  Optional filter clause
   """
-  description: String!
+  filter: DatasetFilterInput
 
   """
-  The dataset field targeted by this assertion, if any.
+  Optional actions to apply on success or failure of the assertion
   """
-  fieldPath: String
-
-  """
-  The external Platform associated with the assertion
-  """
-  platform: PlatformInput!
-
-  """
-  Native platform URL of the Assertion
-  """
-  externalUrl: String
-
-  """
-  Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
-  """
-  logic: String
+  actions: AssertionActionsInput
 }
 
 """
-Input for reporting result of the assertion
+Input for updating a Dataset Assertion
 """
-input AssertionResultInput {
+input UpdateDatasetAssertionInput {
   """
-  Optional: Provide a timestamp associated with the run event. If not provided, one will be generated for you based
-  on the current time.
+  The scope of the Dataset assertion.
   """
-  timestampMillis: Long
+  scope: DatasetAssertionScope!
 
   """
-  The final result of assertion, e.g. either SUCCESS or FAILURE.
+  The urns of schema fields associated with the columns being tested.
   """
-  type: AssertionResultType!
+  fieldUrns: [String!]
 
   """
-  Additional metadata representing about the native results of the assertion.
-  These will be displayed alongside the result.
-  It should be used to capture additional context that is useful for the user.
+  Standardized assertion operator
   """
-  properties: [StringMapEntryInput!]
+  aggregation: AssertionStdAggregation
 
   """
-  Native platform URL of the Assertion Run Event
+  Standardized assertion operator
   """
-  externalUrl: String
+  operator: AssertionStdOperator!
 
   """
-  Error details, if type is ERROR
+  Standard parameters required for the assertion. e.g. min_value, max_value, value, columns
   """
-  error: AssertionResultErrorInput
+  parameters: AssertionStdParametersInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
 }
 
 """
-Input for reporting an Error during Assertion Run
+Input to upsert a Freshness Assertion
 """
-input AssertionResultErrorInput {
+input UpsertDatasetFreshnessAssertionMonitorInput {
   """
-  The type of error encountered
+  The urn of the dataset that the assertion is related to
+  Required if creating new Freshness Assertion
   """
-  type: AssertionResultErrorType!
+  entityUrn: String
 
   """
-  The error message with details of error encountered
+  Description, which is used in displaying the assertion
   """
-  message: String!
+  description: String
+
+  """
+  If enabled, this will be created as a smart assertion that is actively inferred by an AI model.
+  You can pass in any value for the 'schedule' parameter, but we recommend setting it as at least daily.
+  """
+  inferWithAI: Boolean
+
+  """
+  Settings for the AI assertion monitor.
+  """
+  inferenceSettings: AssertionAdjustmentSettingsInput
+
+  """
+  The Freshness assertion's schedule
+  Set to null if inferWithAI is enabled, else required.
+  """
+  schedule: FreshnessAssertionScheduleInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  Should match the cron in the 'schedule' field above.
+  For inferWithAI, this is still required even if the schedule is not set.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
+  Optional filter clause
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  If not provided for update operation, no change is made to existing actions.
+  """
+  actions: AssertionActionsInput
+
+  """
+  The parameters required to evaluate a dataset freshness assertion.
+  """
+  evaluationParameters: DatasetFreshnessAssertionParametersInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
 }
+
 """
-Input representing A Data Platform
+Input to upsert a Volume Assertion
 """
-input PlatformInput {
+input UpsertDatasetVolumeAssertionMonitorInput {
   """
-  Urn of platform
+  The urn of the dataset that the assertion is related to
+  Required if creating new Volume Assertion
   """
-  urn: String
+  entityUrn: String
 
   """
-  Name of platform
+  Description, which is used in displaying the assertion
   """
-  name: String
+  description: String
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: VolumeAssertionType!
+
+  """
+  If enabled, this will be created as a smart assertion that is actively inferred by an AI model.
+  The row count predictions will be inferred from the dataset metrics.
+  To start, you can pass in any value for the rowCountTotal or rowCountChange.
+  """
+  inferWithAI: Boolean
+
+  """
+  Settings for the AI assertion monitor.
+  """
+  inferenceSettings: AssertionAdjustmentSettingsInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count does not meet
+  specific requirements. Required if type is 'ROW_COUNT_TOTAL'
+  """
+  rowCountTotal: RowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count delta does not meet
+  specific requirements. Required if type is 'ROW_COUNT_CHANGE'
+  """
+  rowCountChange: RowCountChangeInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's latest incrementing segment row count total
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'
+  """
+  incrementingSegmentRowCountTotal: IncrementingSegmentRowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's incrementing segment row count delta
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'
+  """
+  incrementingSegmentRowCountChange: IncrementingSegmentRowCountChangeInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  If not provided for update operation, no change is made to existing actions.
+  """
+  actions: AssertionActionsInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
+  The parameters required to evaluate a dataset volume assertion.
+  """
+  evaluationParameters: DatasetVolumeAssertionParametersInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+Input to upsert a new SQL Assertion.
+"""
+input UpsertDatasetSqlAssertionMonitorInput {
+  """
+  The entity targeted by this SQL check.
+  """
+  entityUrn: String!
+
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: SqlAssertionType!
+
+  """
+  The SQL statement to be executed when evaluating the assertion.
+  """
+  statement: String!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  Required if the type is METRIC_CHANGE.
+  """
+  changeType: AssertionValueChangeType
+
+  """
+  The operator you'd like to apply to the result of the SQL query.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  """
+  parameters: AssertionStdParametersInput!
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+Input to upsert a new Field Assertion.
+"""
+input UpsertDatasetFieldAssertionMonitorInput {
+  """
+  The type of the field assertion being monitored.
+  """
+  type: FieldAssertionType!
+
+  """
+  Description, which is used in displaying the assertion
+  """
+  description: String
+
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  If enabled, this will be created as a smart assertion that is actively inferred by an AI model.
+  NOTE: only supported for fieldMetricAssertion for now.
+  """
+  inferWithAI: Boolean
+
+  """
+  Settings for the AI assertion monitor.
+  """
+  inferenceSettings: AssertionAdjustmentSettingsInput
+
+  """
+  The definition of an assertion that validates individual values of a field / column for a set of rows.
+  """
+  fieldValuesAssertion: FieldValuesAssertionInput
+
+  """
+  The definition of an assertion that validates a common metric obtained about a field / column for a set of rows.
+  """
+  fieldMetricAssertion: FieldMetricAssertionInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  """
+  evaluationSchedule: CronScheduleInput!
+
+  """
+  The parameters required to evaluate a dataset field assertion.
+  """
+  evaluationParameters: DatasetFieldAssertionParametersInput!
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
+}
+
+"""
+Input to upsert a new Schema Assertion
+"""
+input UpsertDatasetSchemaAssertionMonitorInput {
+  """
+  Description, which is used in displaying the assertion
+  """
+  description: String
+
+  """
+  The entity targeted by this schema check.
+  """
+  entityUrn: String!
+
+  """
+  The expected schema of the entity
+  """
+  assertion: SchemaAssertionInput!
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+
+  """
+  Information about the current status of a Monitor.
+  """
+  mode: MonitorMode!
+
+  """
+  Advanced: The executor pool id of the remote monitor service, if any.
+  """
+  executorId: String
+
+  """
+  The parameters required to evaluate a dataset schema assertion -- Optional since there are no useful options yet.
+  """
+  evaluationParameters: DatasetSchemaAssertionParametersInput
+
+  """
+  A cron schedule dictating when the assertion is evaluated.
+  If not provided, a default of every 6 hours will be used.
+  """
+  evaluationSchedule: CronScheduleInput
 }
 
 """
@@ -153,6 +711,41 @@ type SchemaAssertionField {
 }
 
 """
+Defines a schema input consisting of a list of fields, each with a specified path and type.
+"""
+input SchemaAssertionFieldInput {
+  """
+  The standard V1 path of the field within the schema.
+  """
+  path: String!
+
+  """
+  The std type of the field
+  """
+  type: SchemaFieldDataType!
+
+  """
+  Optional: The specific native or standard type of the field.
+  """
+  nativeType: String
+}
+
+"""
+The input model for asserting a schema with compatibility and field definitions.
+"""
+input SchemaAssertionInput {
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+
+  """
+  The list of fields defining the schema.
+  """
+  fields: [SchemaAssertionFieldInput!]!
+}
+
+"""
 Defines the required compatibility level for the schema assertion to pass.
 """
 enum SchemaAssertionCompatibility {
@@ -170,6 +763,134 @@ enum SchemaAssertionCompatibility {
   The schema must be a subset of the expected schema.
   """
   SUBSET
+}
+
+"""
+Input for updating basic metadata associated with a particular assertion
+"""
+input UpdateAssertionMetadataInput {
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
+
+  """
+  An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
+  """
+  note: String
+
+  """
+  An optional set of actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+}
+
+"""
+Parameters for AssertionStdOperators
+"""
+input AssertionStdParametersInput {
+  """
+  The value parameter of an assertion
+  """
+  value: AssertionStdParameterInput
+
+  """
+  The maxValue parameter of an assertion
+  """
+  maxValue: AssertionStdParameterInput
+
+  """
+  The minValue parameter of an assertion
+  """
+  minValue: AssertionStdParameterInput
+}
+
+"""
+Parameter for AssertionStdOperator.
+"""
+input AssertionStdParameterInput {
+  """
+  The parameter value
+  """
+  value: String!
+
+  """
+  The type of the parameter
+  """
+  type: AssertionStdParameterType!
+}
+
+"""
+Input for updating the action settings associated with a particular Assertion
+"""
+input AssertionActionsInput {
+  """
+  Actions to be executed on successful assertion run.
+  """
+  onSuccess: [AssertionActionInput!]!
+
+  """
+  Actions to be executed on failed assertion run.
+  """
+  onFailure: [AssertionActionInput!]!
+}
+
+"""
+Input for an Freshness assertion schedule
+"""
+input FreshnessAssertionScheduleInput {
+  """
+  The type of schedule.
+  """
+  type: FreshnessAssertionScheduleType!
+
+  """
+  A cron schedule. This is populated if the type is CRON.
+  """
+  cron: FreshnessCronScheduleInput
+
+  """
+  A fixed interval schedule. This is populated if the type is FIXED_INTERVAL.
+  """
+  fixedInterval: FixedIntervalScheduleInput
+}
+
+"""
+Input for a cron-formatted schedule
+"""
+input FreshnessCronScheduleInput {
+  """
+  A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+  """
+  cron: String!
+
+  """
+  Timezone in which the cron interval applies, e.g. America/Los_Angeles
+  """
+  timezone: String!
+
+  """
+  An optional offset in milliseconds to SUBTRACT from the timestamp generated by the cron schedule
+  to generate the lower bounds of the "Freshness window", or the window of time in which an event must have occurred in order for the Freshness
+  to be considering passing.
+  If left empty, the start of the Freshness window will be the end of the previously evaluated Freshness window.
+  """
+  windowStartOffsetMs: Long
+}
+
+"""
+Input required to created a fixed interval schedule.
+"""
+input FixedIntervalScheduleInput {
+  """
+  Interval unit such as minute/hour/day etc.
+  """
+  unit: DateInterval!
+
+  """
+  How many units. Defaults to 1.
+  """
+  multiple: Int!
 }
 
 """
@@ -279,6 +1000,16 @@ type AssertionAction {
 }
 
 """
+Input required to create an assertion action
+"""
+input AssertionActionInput {
+  """
+  The type of the actions
+  """
+  type: AssertionActionType!
+}
+
+"""
 The type of the Action
 """
 enum AssertionActionType {
@@ -290,6 +1021,292 @@ enum AssertionActionType {
   Resolve open incidents related to the assertion.
   """
   RESOLVE_INCIDENT
+}
+
+"""
+A set of settings that can be used to adjust assertion values
+This is mainly applied against inferred assertions
+"""
+type AssertionAdjustmentSettings {
+  """
+  The algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithm: AdjustmentAlgorithm
+
+  """
+  The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithmName: String
+
+  """
+  The context to use to adjust assertion values
+  """
+  context: [StringMapEntry!]
+
+  """
+  Exclusion windows for the assertion. If not provided, no exclusion windows are applied.
+  """
+  exclusionWindows: [AssertionExclusionWindow!]
+
+  """
+  The training lookback window in events. If not provided, the default is used.
+  """
+  trainingDataLookbackWindowDays: Int
+
+  """
+  The sensitivity level for the assertion. If not provided, the default is applied.
+  """
+  sensitivity: AssertionMonitorSensitivity
+}
+
+input AssertionAdjustmentSettingsInput {
+  """
+  The algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithm: AdjustmentAlgorithm
+
+  """
+  The name of the algorithm to use to adjust assertion values to power the sensitivity control feature
+  """
+  algorithmName: String
+
+  """
+  The context to use to adjust assertion values
+  """
+  context: [StringMapEntryInput!]
+
+  """
+  Exclusion windows for the assertion. If not provided, no exclusion windows are applied.
+  """
+  exclusionWindows: [AssertionExclusionWindowInput!]
+
+  """
+  The training lookback window in events. If not provided, the default is used.
+  """
+  trainingDataLookbackWindowDays: Int
+
+  """
+  The sensitivity level for the assertion. If not provided, the default is applied.
+  """
+  sensitivity: AssertionMonitorSensitivityInput
+}
+
+"""
+Enum representing the type of exclusion window.
+"""
+enum AssertionExclusionWindowType {
+  """
+  One-off time range to exclude.
+  """
+  FIXED_RANGE
+
+  """
+  Recurring weekly time range to exclude.
+  """
+  WEEKLY
+
+  """
+  Specific holiday to exclude.
+  """
+  HOLIDAY
+}
+
+"""
+Represents a recurring time window that repeats weekly.
+"""
+type WeeklyWindow {
+  """
+   Days of the week included in the exclusion window.
+  If not specified, all days are included.
+  """
+  daysOfWeek: [DayOfWeek!]
+
+  """
+   Start time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "09:00" for 9 AM).
+  If not specified, defaults to the start of the day ("00:00").
+  """
+  startTime: String
+
+  """
+   End time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "17:00" for 5 PM).
+  If not specified, defaults to the end of the day ("23:59").
+  """
+  endTime: String
+
+  """
+   Time zone used to interpret start and end times.
+  Uses standard time zone identifiers (e.g., "America/Los_Angeles", "UTC").
+  Defaults to UTC if not specified.
+  """
+  timezone: String
+}
+
+input WeeklyWindowInput {
+  """
+   Days of the week included in the exclusion window.
+  If not specified, all days are included.
+  """
+  daysOfWeek: [DayOfWeek!]
+
+  """
+   Start time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "09:00" for 9 AM).
+  If not specified, defaults to the start of the day ("00:00").
+  """
+  startTime: String
+
+  """
+   End time of the exclusion window on each specified day.
+  Format: "HH:MM" in 24-hour format (e.g., "17:00" for 5 PM).
+  If not specified, defaults to the end of the day ("23:59").
+  """
+  endTime: String
+
+  """
+   Time zone used to interpret start and end times.
+  Uses standard time zone identifiers (e.g., "America/Los_Angeles", "UTC").
+  Defaults to UTC if not specified.
+  """
+  timezone: String
+}
+
+"""
+Enum representing days of the week.
+"""
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+"""
+Represents an exclusion window based on a holiday. Need to add buffers.
+"""
+type HolidayWindow {
+  """
+  The name of the holiday (e.g., "Thanksgiving").
+  """
+  name: String!
+
+  """
+  The region where the holiday is observed (e.g., "US").
+  """
+  region: String
+
+  """
+  The time zone associated with the holiday (e.g., "America/New_York").
+  """
+  timezone: String
+}
+
+input HolidayWindowInput {
+  """
+  The name of the holiday (e.g., "Thanksgiving").
+  """
+  name: String!
+
+  """
+  The region where the holiday is observed (e.g., "US").
+  """
+  region: String
+
+  """
+  The time zone associated with the holiday (e.g., "America/New_York").
+  """
+  timezone: String
+}
+
+"""
+ Information about an assertion exclusion window.
+Used to exclude specific time periods from assertion evaluation or training.
+"""
+type AssertionExclusionWindow {
+  """
+  The type of exclusion window (e.g., fixed range or holiday-based).
+  """
+  type: AssertionExclusionWindowType!
+
+  """
+  Display name for this exclusion window.
+  """
+  displayName: String
+
+  """
+   Date window for one-off exclusions.
+  Only applicable if the type is FIXED_RANGE.
+  """
+  fixedRange: AbsoluteTimeWindow
+
+  """
+  Recurring weekly exclusion window.
+  """
+  weekly: WeeklyWindow
+
+  """
+   Holiday-based exclusion window.
+  Only applicable if the type is HOLIDAY.
+  """
+  holiday: HolidayWindow
+}
+
+input AssertionExclusionWindowInput {
+  """
+  The type of exclusion window (e.g., fixed range or holiday-based).
+  """
+  type: AssertionExclusionWindowType!
+
+  """
+  Display name for this exclusion window.
+  """
+  displayName: String
+
+  """
+   Date window for one-off exclusions.
+  Only applicable if the type is FIXED_RANGE.
+  """
+  fixedRange: AbsoluteTimeWindowInput
+
+  """
+  Recurring weekly exclusion window.
+  """
+  weekly: WeeklyWindowInput
+
+  """
+   Holiday-based exclusion window.
+  Only applicable if the type is HOLIDAY.
+  """
+  holiday: HolidayWindowInput
+}
+
+type AssertionMonitorSensitivity {
+  """
+  The sensitivity level, from 1-10.
+  """
+  level: Int!
+}
+
+input AssertionMonitorSensitivityInput {
+  """
+  The sensitivity level, from 1-10.
+  """
+  level: Int!
+}
+
+"""
+The algorithm to use to adjust assertion values to power the sensitivity control feature
+"""
+enum AdjustmentAlgorithm {
+  """
+  Custom adjustment algorithm. Refer `algorithmName` for exact algorithm to use.
+  In future, we can use this enum to define exact algorithms.
+  """
+  CUSTOM
 }
 
 """
@@ -309,7 +1326,7 @@ type FreshnessAssertionInfo {
   """
   Produce FAIL Assertion Result if the asset is not updated on the cadence and within the time range described by the schedule.
   """
-  schedule: FreshnessAssertionSchedule!
+  schedule: FreshnessAssertionSchedule
 
   """
   A filter applied when querying an external Dataset or Table
@@ -335,6 +1352,11 @@ type FreshnessAssertionSchedule {
   A fixed interval schedule. This is populated if the type is FIXED_INTERVAL.
   """
   fixedInterval: FixedIntervalSchedule
+
+  """
+  Evaluation windows for the assertion. If not provided, no evaluation windows are applied.
+  """
+  exclusions: [AssertionExclusionWindow!]
 }
 
 """
@@ -711,6 +1733,176 @@ type VolumeAssertionInfo {
 }
 
 """
+Input for creating a new Volume Assertion.
+"""
+input CreateVolumeAssertionInput {
+  """
+  The entity targeted by this Volume check.
+  """
+  entityUrn: String!
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: VolumeAssertionType!
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count does not meet
+  specific requirements. Required if type is 'ROW_COUNT_TOTAL'
+  """
+  rowCountTotal: RowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count delta does not meet
+  specific requirements. Required if type is 'ROW_COUNT_CHANGE'
+  """
+  rowCountChange: RowCountChangeInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's latest incrementing segment row count total
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'
+  """
+  incrementingSegmentRowCountTotal: IncrementingSegmentRowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's incrementing segment row count delta
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'
+  """
+  incrementingSegmentRowCountChange: IncrementingSegmentRowCountChangeInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+}
+
+"""
+Input for a ROW_COUNT_TOTAL volume assertion.
+"""
+input RowCountTotalInput {
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for a ROW_COUNT_CHANGE volume assertion.
+"""
+input RowCountChangeInput {
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for an INCREMENTING_SEGMENT_ROW_COUNT_TOTAL volume assertion.
+"""
+input IncrementingSegmentRowCountTotalInput {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpecInput!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for an INCREMENTING_SEGMENT_ROW_COUNT_CHANGE volume assertion.
+"""
+input IncrementingSegmentRowCountChangeInput {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpecInput!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply to the row count value
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for the specification of the incrementing segment.
+"""
+input IncrementingSegmentSpecInput {
+  """
+  The field to use to generate segments. It must be constantly incrementing as new rows are inserted.
+  """
+  field: SchemaFieldSpecInput!
+
+  """
+  Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.
+  If not provided, then no operator will be applied to the field. (identity function)
+  """
+  transformer: IncrementingSegmentFieldTransformerInput
+}
+
+"""
+Input for the transformer function to obtain the final segment or bucket identifier.
+"""
+input IncrementingSegmentFieldTransformerInput {
+  """
+  The 'standard' transformer type. Note that not all source systems will support all operators.
+  """
+  type: IncrementingSegmentFieldTransformerType!
+
+  """
+  The 'native' transformer type, useful as a back door if a custom transformer is required.
+  This field is required if the type is NATIVE.
+  """
+  nativeType: String
+}
+
+"""
 The type of the SQL assertion being monitored.
 """
 enum SqlAssertionType {
@@ -759,6 +1951,52 @@ type SqlAssertionInfo {
   The parameters you'd like to provide as input to the operator.
   """
   parameters: AssertionStdParameters!
+}
+
+"""
+Input for creating a new SQL Assertion.
+"""
+input CreateSqlAssertionInput {
+  """
+  The entity targeted by this SQL check.
+  """
+  entityUrn: String!
+
+  """
+  An optional human-readable description of the assertion
+  """
+  description: String
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: SqlAssertionType!
+
+  """
+  The SQL statement to be executed when evaluating the assertion.
+  """
+  statement: String!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  Required if the type is METRIC_CHANGE.
+  """
+  changeType: AssertionValueChangeType
+
+  """
+  The operator you'd like to apply to the result of the SQL query.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  """
+  parameters: AssertionStdParametersInput!
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
 }
 
 """
@@ -1012,6 +2250,294 @@ type FieldMetricAssertion {
 }
 
 """
+Input for creating a new Field Assertion.
+"""
+input CreateFieldAssertionInput {
+  """
+  The type of the field assertion being monitored.
+  """
+  type: FieldAssertionType!
+
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The definition of an assertion that validates individual values of a field / column for a set of rows.
+  """
+  fieldValuesAssertion: FieldValuesAssertionInput
+
+  """
+  The definition of an assertion that validates a common metric obtained about a field / column for a set of rows.
+  """
+  fieldMetricAssertion: FieldMetricAssertionInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
+}
+
+"""
+Input for upserting a Custom Assertion.
+"""
+input UpsertCustomAssertionInput {
+  """
+  The entity targeted by this assertion.
+  """
+  entityUrn: String!
+
+  """
+  The type of the custom assertion.
+  """
+  type: String!
+
+  """
+  The description of this assertion.
+  """
+  description: String!
+
+  """
+  The dataset field targeted by this assertion, if any.
+  """
+  fieldPath: String
+
+  """
+  The external Platform associated with the assertion
+  """
+  platform: PlatformInput!
+
+  """
+  Native platform URL of the Assertion
+  """
+  externalUrl: String
+
+  """
+  Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
+  """
+  logic: String
+}
+
+"""
+Input for reporting result of the assertion
+"""
+input AssertionResultInput {
+  """
+  Optional: Provide a timestamp associated with the run event. If not provided, one will be generated for you based
+  on the current time.
+  """
+  timestampMillis: Long
+
+  """
+  The final result of assertion, e.g. either SUCCESS or FAILURE.
+  """
+  type: AssertionResultType!
+
+  """
+  Additional metadata representing about the native results of the assertion.
+  These will be displayed alongside the result.
+  It should be used to capture additional context that is useful for the user.
+  """
+  properties: [StringMapEntryInput!]
+
+  """
+  Native platform URL of the Assertion Run Event
+  """
+  externalUrl: String
+
+  """
+  Error details, if type is ERROR
+  """
+  error: AssertionResultErrorInput
+}
+
+"""
+Input for reporting an Error during Assertion Run
+"""
+input AssertionResultErrorInput {
+  """
+  The type of error encountered
+  """
+  type: AssertionResultErrorType!
+
+  """
+  The error message with details of error encountered
+  """
+  message: String!
+}
+"""
+Input representing A Data Platform
+"""
+input PlatformInput {
+  """
+  Urn of platform
+  """
+  urn: String
+
+  """
+  Name of platform
+  """
+  name: String
+}
+"""
+Input for a Field Values assertion.
+"""
+input FieldValuesAssertionInput {
+  """
+  The field under evaluation.
+  """
+  field: SchemaFieldSpecInput!
+
+  """
+  An optional transform to apply to field values before evaluating the operator.
+  """
+  transform: FieldTransformInput
+
+  """
+  The predicate to evaluate against a single value of the field.
+  Depending on the operator, parameters may be required
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParametersInput
+
+  """
+  Additional customization about when the assertion should be officially considered failing.
+  """
+  failThreshold: FieldValuesFailThresholdInput!
+
+  """
+  Whether to ignore or allow nulls when running the values assertion.
+  """
+  excludeNulls: Boolean!
+}
+
+"""
+Input for a Field Transform.
+"""
+input FieldTransformInput {
+  """
+  The type of the field transform.
+  """
+  type: FieldTransformType!
+}
+
+"""
+Input for a Field Values Fail Threshold.
+"""
+input FieldValuesFailThresholdInput {
+  """
+  The type of failure threshold.
+  """
+  type: FieldValuesFailThresholdType!
+
+  """
+  The value of the threshold, either representing a count or percentage.
+  """
+  value: Long!
+}
+
+"""
+Input for a Field Metric assertion.
+"""
+input FieldMetricAssertionInput {
+  """
+  The field under evaluation
+  """
+  field: SchemaFieldSpecInput!
+
+  """
+  The specific metric to assert against.
+  """
+  metric: FieldMetricType!
+
+  """
+  The predicate to evaluate against the metric for the field / column.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParametersInput
+}
+
+"""
+Input for creating a new Data Schema Assertion.
+"""
+input CreateSchemaAssertionInput {
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+
+  """
+  The list of fields defining the schema.
+  """
+  fields: [SchemaAssertionFieldInput!]!
+}
+
+"""
+Input for testing a new Assertion
+"""
+input TestAssertionInput {
+  """
+  The type of the assertion being tested.
+  """
+  type: AssertionType!
+
+  """
+  The urn of the connection required to evaluate the assertion. For now, this is the same as the platform urn.
+  """
+  connectionUrn: String!
+
+  """
+  Input for testing a Freshness assertion. Required if type is Freshness.
+  """
+  freshnessTestInput: CreateFreshnessAssertionInput
+
+  """
+  Input for testing a Volume assertion. Required if type is VOLUME.
+  """
+  volumeTestInput: CreateVolumeAssertionInput
+
+  """
+  Input for testing a SQL assertion. Required if type is SQL.
+  """
+  sqlTestInput: CreateSqlAssertionInput
+
+  """
+  Input for testing a Field assertion. Required if type is FIELD.
+  """
+  fieldTestInput: CreateFieldAssertionInput
+
+  """
+  Input for testing a Schema assertion. Required if type is DATA_SCHEMA.
+  """
+  schemaTestInput: CreateSchemaAssertionInput
+
+  """
+  Parameters required to evaluate the assertion
+  """
+  parameters: AssertionEvaluationParametersInput
+}
+
+"""
 Information about an Schema assertion
 """
 type SchemaAssertionInfo {
@@ -1060,4 +2586,164 @@ type CustomAssertionInfo {
   Logic comprising a raw, unstructured assertion.
   """
   logic: String
+}
+
+type RunAssertionsResult {
+  """
+  The number of assertions that passed
+  """
+  passingCount: Int
+
+  """
+  The number of assertions that failed
+  """
+  failingCount: Int
+
+  """
+  The number of assertions that errored
+  """
+  errorCount: Int
+
+  """
+  The result of each assertion
+  """
+  results: [RunAssertionResult!]!
+}
+
+type RunAssertionResult {
+  """
+  The assertion itself
+  """
+  assertion: Assertion!
+
+  """
+  The latest result of the assertion
+  """
+  result: AssertionResult!
+}
+
+"""
+"""
+input ListAssertionsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of assertions to be returned in the result set
+  """
+  count: Int
+
+  """
+  Optional search query
+  """
+  query: String
+
+  """
+  Filter results
+  """
+  filterInput: AssertionsQueryFilterInput
+
+  """
+  Sort results
+  """
+  sortInput: SearchSortInput
+}
+
+input AssertionsQueryFilterInput {
+  """
+  Time range filter.
+  """
+  timeRanges: AssertionsTimeRangeFilter
+
+  """
+  Urn of assertion creators
+  """
+  creator: [String!]
+
+  """
+  Urn of assertion tags
+  """
+  tags: [String!]
+
+  """
+  Assertion types
+  """
+  type: [AssertionType!]
+
+  """
+  Urn of parent asset's domain
+  """
+  asserteeDomain: [String!]
+
+  """
+  Urn of parent asset's data product
+  """
+  asserteeDataProduct: [String!]
+
+  """
+  Urn of parent asset's terms
+  """
+  asserteeTerms: [String!]
+
+  """
+  Urn of parent asset's tags
+  """
+  asserteeTags: [String!]
+
+  """
+  Urn of parent asset's owner
+  """
+  asserteeOwner: [String!]
+
+  """
+  Urn of parent asset's platform
+  """
+  asserteePlatform: [String!]
+
+  """
+  Urn of parent asset's platform instance
+  """
+  asserteePlatformInstance: [String!]
+}
+
+"""
+A DataHub Time Range Filter.
+"""
+input AssertionsTimeRangeFilter {
+  """
+  The operator used to combine the filters.
+  """
+  operator: LogicalOperator!
+
+  """
+  A set of filters combined using the operator. If left empty, then no filters will be applied.
+  """
+  filter: [FacetFilterInput!]!
+}
+
+"""
+The result obtained when listing DataHub Assertions
+"""
+type ListAssertionsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Assertions in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Assertions in the result set
+  """
+  total: Int!
+
+  """
+  The Assertions themselves
+  """
+  assertions: [Assertion!]!
 }

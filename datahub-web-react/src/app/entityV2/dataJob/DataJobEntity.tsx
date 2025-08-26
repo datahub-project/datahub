@@ -21,6 +21,7 @@ import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarDataJobTransformationLogicSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
@@ -46,8 +47,8 @@ const getDataJobPlatformName = (data?: DataJob): string => {
 };
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -168,6 +169,7 @@ export class DataJobEntity implements Entity<DataJob> {
             component: SidebarStructuredProperties,
         },
         { component: StatusSection },
+        { component: SharingAssetSection },
     ];
 
     getSidebarTabs = () => [
@@ -310,6 +312,10 @@ export class DataJobEntity implements Entity<DataJob> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    getPlatformProperties = (data: DataJob) => {
+        return data?.dataFlow?.platform;
     };
 
     supportedCapabilities = () => {

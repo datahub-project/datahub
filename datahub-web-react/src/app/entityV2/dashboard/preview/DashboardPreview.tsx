@@ -126,7 +126,9 @@ export const DashboardPreview = ({
                         chartCount={chartCount}
                         viewCount={statsSummary?.viewCount}
                         viewCountLast30Days={statsSummary?.viewCountLast30Days}
+                        viewCountPercentileLast30Days={statsSummary?.viewCountPercentileLast30Days}
                         uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                        uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
                         createdMs={createdMs}
                     />
                 )

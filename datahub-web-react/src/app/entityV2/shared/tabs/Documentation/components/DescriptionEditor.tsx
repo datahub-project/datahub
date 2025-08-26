@@ -5,13 +5,45 @@ import styled from 'styled-components/macro';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityUpdate } from '@app/entity/shared/types';
+import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
+import {
+    useIsDocumentationInferenceEnabled,
+    useShouldShowInferDocumentationButton,
+} from '@app/entityV2/shared/components/inferredDocs/utils';
+import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
+import { useAppConfig } from '@src/app/useAppConfig';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
+import { EntityType } from '@types';
+
+export const PROPOSAL_ENTITY_TYPES = [
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.Dataset,
+    EntityType.Container,
+    EntityType.Chart,
+    EntityType.Dashboard,
+    EntityType.Domain,
+    EntityType.Mlfeature,
+    EntityType.MlfeatureTable,
+    EntityType.Mlmodel,
+    EntityType.MlmodelGroup,
+    EntityType.MlprimaryKey,
+    EntityType.DataFlow,
+    EntityType.DataJob,
+    EntityType.DataProduct,
+];
+
+export function getShouldShowProposeButton(entityType: EntityType) {
+    return PROPOSAL_ENTITY_TYPES.includes(entityType);
+}
 
 const EditorContainer = styled.div`
     flex: 1;
@@ -24,23 +56,35 @@ const EditorSourceWrapper = styled.div`
     flex: 1;
 `;
 
+const InferDocsPanelWrapper = styled.div`
+    padding: 16px;
+`;
+
 type DescriptionEditorProps = {
+    inferOnMount?: boolean;
     onComplete?: () => void;
 };
 
-export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
+export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEditorProps) => {
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
 
+    const canEditDescription = entityData?.privileges?.canEditDescription;
+    const canProposeDescription = entityData?.privileges?.canProposeDescription;
+
+    const shouldShowInferDocsAction = useShouldShowInferDocumentationButton(entityType);
+
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
+    const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
 
     const { displayedDescription, isUsingDocumentationAspect: isUsingDocumentationAspectRaw } =
         getAssetDescriptionDetails({
             entityProperties: entityData,
+            enableInferredDescriptions: useIsDocumentationInferenceEnabled(),
             defaultDescription: '',
         });
 
@@ -57,6 +101,10 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     );
     const hasUnsavedChangesRef = useRef(isDescriptionUpdated);
     hasUnsavedChangesRef.current = isDescriptionUpdated;
+
+    const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     /**
      * Auto-Save the description edits to local storage every 5 seconds.
@@ -142,6 +190,32 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         refetch?.();
     };
 
+    function proposeUpdate(proposalNote?: string) {
+        const sanitizedDescription = sanitizeRichText(updatedDescription);
+        proposeUpdateDescription({
+            variables: {
+                input: {
+                    description: sanitizedDescription,
+                    resourceUrn: mutationUrn,
+                    proposalNote,
+                },
+            },
+        })
+            .then(() => {
+                message.success({ content: `Proposed description update!`, duration: 2 });
+                setIsDescriptionUpdated(false);
+                const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+                delete editedDescriptionsLocal[mutationUrn];
+                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
+                setShowProposeModal(false);
+                if (onComplete) onComplete();
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to propose: \n ${e.message || ''}`, duration: 3 });
+            });
+    }
+
     function handleCancel() {
         const onCancel = () => {
             delete editedDescriptions[mutationUrn];
@@ -192,6 +266,16 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
         }
     };
 
+    const shouldShowProposeButton = getShouldShowProposeButton(entityType);
+
+    const handlePropose = () => {
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            proposeUpdate();
+        }
+    };
+
     return !loading ? (
         <>
             <EditorSourceWrapper>
@@ -202,10 +286,32 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                         onChange={handleEditorChange}
                         placeholder="Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!"
                     />
+                    {shouldShowInferDocsAction && (
+                        <InferDocsPanelWrapper>
+                            <InferDocsPanel
+                                urn={mutationUrn}
+                                inferOnMount={inferOnMount}
+                                onInsertDescription={(desc) => {
+                                    handleEditorChange(updatedDescription + desc);
+                                    setEditorKey((v) => v + 1);
+                                }}
+                                surface="entity-docs-editor"
+                            />
+                        </InferDocsPanelWrapper>
+                    )}
                 </EditorContainer>
                 <SourceDescription />
             </EditorSourceWrapper>
-            <DescriptionEditorToolbar onSave={handleSave} onCancel={handleCancel} disableSave={!isDescriptionUpdated} />
+            <DescriptionEditorToolbar
+                onSave={handleSave}
+                onPropose={handlePropose}
+                onCancel={handleCancel}
+                disableSave={!isDescriptionUpdated || !canEditDescription}
+                disablePropose={!shouldShowProposeButton || !isDescriptionUpdated || !canProposeDescription}
+            />
+            {showProposeModal && (
+                <ProposalDescriptionModal onPropose={proposeUpdate} onCancel={() => setShowProposeModal(false)} />
+            )}
         </>
     ) : null;
 };

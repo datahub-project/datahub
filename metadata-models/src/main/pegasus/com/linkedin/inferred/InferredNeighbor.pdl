@@ -1,0 +1,18 @@
+namespace com.linkedin.inferred
+
+import com.linkedin.common.Urn
+
+/**
+ * Records Urn of inferred neighbor entity and its provenance
+ */
+record InferredNeighbor { 
+    /**
+     * Urn of inferred neighbor entity
+     */
+    urn: Urn
+
+    /**
+     * Provenance details about this inference
+     */
+    source: InferredMetadataSource 
+}

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -23,7 +24,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.execution.DataFetcherResult;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -68,7 +68,9 @@ public class MLPrimaryKeyType implements SearchableEntityType<MLPrimaryKey, Stri
           _entityClient.batchGetV2(
               context.getOperationContext(),
               ML_PRIMARY_KEY_ENTITY_NAME,
-              new HashSet<>(mlPrimaryKeyUrns),
+              mlPrimaryKeyUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               null);
 
       final List<EntityResponse> gmsResults =

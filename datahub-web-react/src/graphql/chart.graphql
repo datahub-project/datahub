@@ -6,6 +6,9 @@ query getChart($urn: String!) {
         lastIngested
         tool
         chartId
+        share {
+            ...shareFields
+        }
         platform {
             ...platformFields
         }
@@ -27,12 +30,20 @@ query getChart($urn: String!) {
                 value
             }
         }
+        info {
+            created {
+                time
+            }
+        }
         query {
             rawQuery
             type
         }
         ownership {
             ...ownershipFields
+        }
+        documentation {
+            ...documentationFields
         }
         globalTags {
             ...globalTagsFields
@@ -79,7 +90,10 @@ query getChart($urn: String!) {
         }
         statsSummary {
             viewCount
+            viewCountLast30Days
+            viewCountPercentileLast30Days
             uniqueUserCountLast30Days
+            uniqueUserPercentileLast30Days
             topUsersLast30Days {
                 urn
                 type
@@ -121,6 +135,12 @@ query getChart($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        assetOrigin {
+            ...originFields
+        }
+        proposals: proposals {
+            ...proposalsFragment
         }
         ...notes
     }

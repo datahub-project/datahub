@@ -1,0 +1,21 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.subscription.EntityChangeDetails
+import com.linkedin.subscription.SubscriptionNotificationConfig
+/**
+ * Settings for notifications from monitors within a monitor suite.
+ */
+record MonitorSuiteNotificationSettings {
+
+    /**
+     * The change types that trigger a notification for the monitor suite.
+     * NOTE: only use Assertion and Incident change types for monitor suites.
+     */
+    entityChangeTypes: array[EntityChangeDetails]
+
+    /**
+     * The notification config for the monitor suite.
+     */
+    notificationConfig: SubscriptionNotificationConfig
+
+}

@@ -1,6 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
+: ${SKIP_ELASTICSEARCH_CHECK:=true}
+: ${SKIP_KAFKA_CHECK:=true}
+
 # Add default URI (http) scheme if needed
 if [[ -n ${NEO4J_HOST:-} ]] && [[ ${NEO4J_HOST} != *"://"* ]]; then
   NEO4J_HOST="http://$NEO4J_HOST"

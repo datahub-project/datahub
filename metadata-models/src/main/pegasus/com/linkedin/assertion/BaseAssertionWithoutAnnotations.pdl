@@ -1,0 +1,44 @@
+namespace com.linkedin.assertion
+
+record BaseAssertionWithoutAnnotations {
+  /**
+   * The optional AssertionInfo which contains the original/untransformed assertion that was predicted.
+   * This field is used to store the original assertion that was made before the evaluation process.
+   * It is optional and may not always be present in the AssertionRunEvent record.
+   * When present, it provides additional context about the original assertion that was made.
+   *
+   * Acryl Only! An assertion without any searchable or relationship annotations.
+   */
+   @Relationship = {
+       "/datasetAssertion/dataset": null,
+       "/datasetAssertion/fields/*": null,
+       "/freshnessAssertion/entity": null,
+       "/volumeAssertion/entity": null,
+       "/sqlAssertion/entity": null,
+       "/fieldAssertion/entity": null,
+       "/schemaAssertion/entity": null,
+   }
+   @Searchable = {
+       "/type": null,
+       "/source/type": null,
+       "/datasetAssertion/dataset": null,
+       "/datasetAssertion/fields/*": null,
+       "/datasetAssertion/aggregation": null,
+       "/datasetAssertion/scope": null,
+       "/freshnessAssertion/entity": null,
+       "/freshnessAssertion/type": null,
+       "/freshnessAssertion/schedule/type": null,
+       "/volumeAssertion/entity": null,
+       "/volumeAssertion/type": null,
+       "/sqlAssertion/entity": null,
+       "/sqlAssertion/type": null,
+       "/fieldAssertion/entity": null,
+       "/fieldAssertion/type": null,
+       "/fieldAssertion/fieldMetricAssertion/field/path": null,
+       "/fieldAssertion/fieldValuesAssertion/field/path": null,
+       "/schemaAssertion/entity": null,
+       "/externalUrl": null,
+       "/customProperties/*": null,
+   }
+   baseAssertion: optional AssertionInfo
+}

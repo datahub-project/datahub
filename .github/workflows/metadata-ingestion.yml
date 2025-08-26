@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - releases/**
+      - hotfixes/**
     paths:
       - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
@@ -38,7 +39,9 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.9", "3.11"]
+        # For SaaS - we don't really develop on metadata-ingestion here,
+        # so we remove parts of the python-version matrix to speed up CI.
+        python-version: ["3.11"]
         command:
           [
             "testQuick",
@@ -128,7 +131,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Upload
         uses: actions/upload-artifact@v4

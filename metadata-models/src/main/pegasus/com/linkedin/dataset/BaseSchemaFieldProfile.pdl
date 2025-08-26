@@ -1,0 +1,105 @@
+namespace com.linkedin.dataset
+
+/**
+ * Shared fields part of legacy DatasetFieldProfile embedded object and future SchemaFieldProfile aspect.
+ *
+ * Metrics corresponding to a single schema field.
+ * Notice that this aspect may be partially completed so the user
+ * should filter for existence of the stats they need when querying.
+ *
+ * In the long term, this serves as a replacement for the DatasetFieldProfile object.
+ * Note that it does not yet support quantiles, histograms, etc, but may evolve to in the future.
+ */
+record BaseSchemaFieldProfile {
+  /**
+   * The count of unique values for the field across the dataset.
+   * Useful for understanding the diversity of field values.
+   */
+  uniqueCount: optional long
+
+  /**
+   * The proportion of unique values over the total number of non-null entries.
+   * Helps in assessing the uniqueness of the data in the field.
+   */
+  uniqueProportion: optional float
+
+  /**
+   * The count of null or missing entries for the field.
+   * Important for data quality assessments.
+   */
+  nullCount: optional long
+
+  /**
+   * The proportion of null entries over the total number of entries in the field.
+   * Useful for identifying fields with a high rate of missing values.
+   */
+  nullProportion: optional float
+
+  /**
+   * The minimum value in the field for string-representable data types.
+   * Provides a sense of the lower bound of field values.
+   */
+  min: optional string
+
+  /**
+   * The maximum value in the field for string-representable data types.
+   * Provides a sense of the upper bound of field values.
+   */
+  max: optional string
+
+  /**
+   * The mean (average) value of the field, represented as a string.
+   * Useful for numerical fields to understand the central tendency.
+   */
+  mean: optional string
+
+  /**
+   * The median value of the field, represented as a string.
+   * Useful for understanding the middle value when data is sorted.
+   */
+  median: optional string
+
+  /**
+   * The standard deviation of the field values, represented as a string.
+   * Indicates the amount of variation or dispersion of field values.
+   */
+  stdev: optional string
+
+ /**
+  * Only for numerical columns. Sorted list of quantile cutoffs for the field, in ascending order.
+  * Helps in assessing the diversity of the data in the field.
+  * Expect both the quantile and the value field to be string-ified floats.
+  * Ex: quantile: "0.25", value: "1.0" means the 25th percentile of values falls at 1.0
+  */
+  quantiles: optional array[record Quantile {
+    quantile: string
+    value: string
+  }]
+
+ /**
+  * Only for numerical columns. A histogram where a range of values in a numerical column
+  * are rolled up into bins, with the heights representing the number of values in that bin.
+  * Divided into k bin boundaries, with k-1 frequencies; first+last frequency values are tail weights
+  * Currently unused in the product.
+  */
+  histogram: optional record Histogram {
+    boundaries: array[string]
+    heights: array[float]
+  }
+
+ /**
+  * Volume of each column value for a low-cardinality / categorical field.
+  * Useful for understanding the distribution of values in the field, and monitoring for changes
+  * in specific value volumes.
+  * For numeric colums, the value will contain a strigified value.
+  */
+  distinctValueFrequencies: optional array[record ValueFrequency {
+    value: string
+    frequency: long
+  }]
+
+  /**
+   * N randomly sampled values of the column. Useful for showing rough preview of the column.
+   */
+  sampleValues: optional array[string]
+}

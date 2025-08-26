@@ -33,9 +33,28 @@ type Test implements Entity {
   definition: TestDefinition!
 
   """
+  Summary of the results for the test
+  """
+  results: TestResultsSummary!
+
+  """
+  Summary of the results for the test
+  """
+  status: TestStatus
+
+  """
   Unused for tests
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Batch run events for this test, e.g. when the batch implementation of the test last ran.
+  """
+  batchRunEvents(
+    startTimeMillis: Long
+    endTimeMillis: Long
+    limit: Int
+  ): BatchTestRunEventsResult
 }
 
 """
@@ -97,7 +116,7 @@ extend type Dataset {
   """
   The results of evaluating tests
   """
-  testResults: TestResults
+  testResults(includeSoftDeleted: Boolean): TestResults
 }
 
 extend type Query {
@@ -110,6 +129,11 @@ extend type Query {
   List all DataHub Tests
   """
   listTests(input: ListTestsInput!): ListTestsResult
+
+  """
+  Validate test definition
+  """
+  validateTest(input: TestDefinitionInput!): TestValidationResult
 }
 
 """
@@ -130,6 +154,11 @@ input ListTestsInput {
   Optional query string to match on
   """
   query: String
+
+  """
+  An optional list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
 }
 
 """
@@ -204,6 +233,11 @@ input UpdateTestInput {
   The test definition
   """
   definition: TestDefinitionInput!
+
+  """
+  The status of the metadata test
+  """
+  status: TestStatusInput
 }
 
 input TestDefinitionInput {
@@ -212,6 +246,54 @@ input TestDefinitionInput {
   Deprecated! JSON representation is no longer supported.
   """
   json: String
+}
+
+type TestValidationResult {
+  """
+  Whether or not the test definition is valid
+  """
+  isValid: Boolean
+
+  """
+  Additional messages to indicate the reasons why definition is invalid
+  """
+  messages: [String!]
+}
+
+enum RunTestDefinitionStatus {
+  """
+  The test passed
+  """
+  PASS
+
+  """
+  The test failed
+  """
+  FAIL
+
+  """
+  The test was not run (did not match)
+  """
+  NONE
+}
+
+type RunTestDefinitionResult {
+  """
+  Whether or not the test passed
+  """
+  status: RunTestDefinitionStatus!
+}
+
+enum TestEvaluationMode {
+  """
+  Evaluate the test only. Do not save results or apply actions.
+  """
+  EVALUATE_ONLY
+
+  """
+  Default mode. Evaluate, store results, and apply actions.
+  """
+  DEFAULT
 }
 
 extend type Mutation {
@@ -229,4 +311,134 @@ extend type Mutation {
   Delete an existing test - note that this will NOT delete dangling pointers until the next execution of the test.
   """
   deleteTest(urn: String!): Boolean
+
+  """
+  Execute a test definition against a specific urn
+  """
+  runTestDefinition(
+    urn: String!
+    test: TestDefinitionInput!
+    mode: TestEvaluationMode
+  ): RunTestDefinitionResult!
+
+  """
+  Run tests for the given entity urn
+  """
+  runTests(urn: String!): Boolean
+}
+
+"""
+A summary of the latest passing and failing entities for a given test.
+"""
+type TestResultsSummary {
+  """
+  The number of assets passing the test
+  """
+  passingCount: Long!
+
+  """
+  The number of assets failing the test
+  """
+  failingCount: Long!
+
+  """
+  The definition of the test that was used to generate these results
+  """
+  testDefinitionMd5: String
+
+  """
+  The timestamp of the last batch run of the test.
+  Note: This is a lower bound on how fresh the results are.
+  """
+  lastRunTimestampMillis: Long
+}
+
+"""
+Result returned when fetching batch run events for a Metadata Test
+"""
+type BatchTestRunEventsResult {
+  """
+  The run events themselves
+  """
+  batchRunEvents: [BatchTestRunEvent!]!
+}
+
+"""
+An event representing the current status of evaluating a batch metadata test (run offline)
+"""
+type BatchTestRunEvent implements TimeSeriesAspect {
+  """
+  The event timestamp field as epoch at UTC in milli seconds.
+  """
+  timestampMillis: Long!
+
+  """
+  The status of the Test run as per this timeseries event.
+  """
+  status: BatchTestRunStatus!
+
+  """
+  Results of test, present if the status is COMPLETE
+  """
+  result: BatchTestRunResult
+}
+
+"""
+The status of the batch test run
+"""
+enum BatchTestRunStatus {
+  """
+  The Test Run has completed
+  """
+  COMPLETE
+}
+
+"""
+The result of running a batch metadata test
+"""
+type BatchTestRunResult {
+  """
+  Number of assets that were passing the test.
+  """
+  passingCount: Long!
+
+  """
+  Number of assets that were failing the test.
+  """
+  failingCount: Long!
+}
+
+"""
+The status of the Metadata Test
+"""
+type TestStatus {
+  """
+  The evaluation mode of the Metadata Test.
+  """
+  mode: TestMode
+}
+
+"""
+The input for updating the status of the Metadata Test
+"""
+input TestStatusInput {
+  """
+  The evaluation mode of the Metadata Test.
+  """
+  mode: TestMode
+}
+
+"""
+The evaluation mode of the Metadata Test.
+"""
+enum TestMode {
+  """
+  The test is running on a schedule in the default running mode.
+  """
+  ACTIVE
+
+  """
+  The test is paused, disabled, not running.
+  """
+  INACTIVE
 }

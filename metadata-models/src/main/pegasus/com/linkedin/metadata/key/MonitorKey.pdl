@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+
+
+/**
+ * Key for a Monitor
+ */
+@Aspect = {
+  "name": "monitorKey",
+}
+record MonitorKey {
+  /**
+   * The entity being monitored
+   */
+  @Relationship = {
+    "name": "Monitors",
+    "entityTypes": [ "dataset" ]
+  }
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  entity: Urn
+
+  /**
+  * Unique id for the monitor.
+  */
+  id: string
+}

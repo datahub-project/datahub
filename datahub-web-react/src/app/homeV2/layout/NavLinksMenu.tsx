@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
 import CustomNavLink from '@app/homeV2/layout/CustomNavLink';
 import { NavMenuItem, NavSubMenuItem } from '@app/homeV2/layout/types';
@@ -15,7 +16,9 @@ import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
 import AnalyticsMenuIcon from '@images/analyticsMenuIcon.svg?react';
 import GovernMenuIcon from '@images/governMenuIcon.svg?react';
 import HelpMenuIcon from '@images/help-icon.svg?react';
+import InboxMenuIcon from '@images/inboxMenuIcon.svg?react';
 import IngestionMenuIcon from '@images/ingestionMenuIcon.svg?react';
+import ObserveMenuIcon from '@images/observeMenuIcon.svg?react';
 import SettingsMenuIcon from '@images/settingsMenuIcon.svg?react';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
@@ -61,7 +64,7 @@ const SubMenu = styled.div`
     position: absolute;
     top: 3px;
     left: 50px;
-    width: 220px;
+    width: 225px;
     padding-left: 10px;
 `;
 
@@ -99,21 +102,39 @@ export function NavLinksMenu(props: Props) {
     const me = useUserContext();
     const { config } = useAppConfig();
     const themeConfig = useTheme();
+    const { helpLinkState } = useGlobalSettingsContext();
+    const { isEnabled: isHelpLinkEnabled, label, link } = helpLinkState;
+    const helpMenuLabel = label;
+    const helpMenuLink = link;
     const version = config?.appVersion;
+    const showAddHelpLink = !isHelpLinkEnabled && me.platformPrivileges?.manageGlobalSettings;
 
     // Submenu states
     const [showGovernMenu, setShowGovernMenu] = useState(false);
+    const [showObserveMenu, setShowObserveMenu] = useState(false);
     const [showHelpMenu, setShowHelpMenu] = useState(false);
 
     // Flags to show/hide menu items
     const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
+    const isTestsEnabled = config?.testsConfig?.enabled;
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
 
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showIngestion =
-        isIngestionEnabled && me && me.platformPrivileges?.manageIngestion && me.platformPrivileges?.manageSecrets;
+        isIngestionEnabled && (me.platformPrivileges?.manageIngestion || me.platformPrivileges?.manageSecrets);
+    const showActionRequests = isActionRequestsEnabled || false;
+    const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
+    const showObserve = showDatasetHealth;
+    const showDocumentationCenter =
+        config?.featureFlags?.documentationFormsEnabled &&
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
 
+    const showAutomations = config?.classificationConfig?.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
@@ -135,6 +156,13 @@ export function NavLinksMenu(props: Props) {
 
     // Menu Items
     const menuItems: Array<NavMenuItem> = [
+        {
+            icon: InboxMenuIcon,
+            title: 'Tasks',
+            description: 'Review and approve metadata proposals',
+            link: PageRoutes.ACTION_REQUESTS,
+            isHidden: !showActionRequests,
+        },
         {
             icon: AnalyticsMenuIcon,
             title: 'Analytics',
@@ -171,11 +199,51 @@ export function NavLinksMenu(props: Props) {
                         isHidden: false,
                     },
                     {
+                        title: 'Tests',
+                        description: 'Monitor policies & automate actions across data assets',
+                        link: PageRoutes.TESTS,
+                        isHidden: !showTests,
+                    },
+                    {
+                        title: 'Automations',
+                        description: 'Manage automated actions across your data assets',
+                        link: PageRoutes.AUTOMATIONS,
+                        isHidden: !showAutomations,
+                    },
+                    {
+                        title: 'Compliance Forms',
+                        showNewTag: true,
+                        description: 'Manage compliance initiatives for your data assets',
+                        link: PageRoutes.GOVERN_DASHBOARD,
+                        isHidden: !showDocumentationCenter,
+                    },
+                    {
                         title: 'Structured Properties',
                         showNewTag: true,
                         description: `Manage custom properties for your data assets`,
                         link: PageRoutes.STRUCTURED_PROPERTIES,
                         isHidden: !showStructuredProperties,
+                    },
+                ],
+            },
+        },
+        {
+            icon: ObserveMenuIcon,
+            title: 'Observe',
+            description: 'Monitor data health and usage',
+            link: null,
+            isHidden: !showObserve,
+            subMenu: {
+                isOpen: showObserveMenu,
+                open: () => setShowObserveMenu(true),
+                close: () => setShowObserveMenu(false),
+                items: [
+                    {
+                        title: 'Dataset Health',
+                        description:
+                            "Monitor active incidents & failing assertions across your organization's datasets",
+                        link: PageRoutes.DATASET_HEALTH_DASHBOARD,
+                        isHidden: !showDatasetHealth,
                     },
                 ],
             },
@@ -206,6 +274,14 @@ export function NavLinksMenu(props: Props) {
                 close: () => setShowHelpMenu(false),
                 items: [
                     {
+                        title: helpMenuLabel,
+                        description: '',
+                        link: helpMenuLink,
+                        isHidden: !isHelpLinkEnabled,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                    },
+                    {
                         title: 'Product Tour',
                         description: 'Take a quick tour of this page',
                         isHidden: false,
@@ -234,6 +310,12 @@ export function NavLinksMenu(props: Props) {
                         description: '',
                         link: null,
                         isHidden: !version,
+                    },
+                    {
+                        title: 'Add Custom Help Link',
+                        description: '',
+                        link: PageRoutes.SETTINGS_HELP_LINK,
+                        isHidden: !showAddHelpLink,
                     },
                 ],
             },

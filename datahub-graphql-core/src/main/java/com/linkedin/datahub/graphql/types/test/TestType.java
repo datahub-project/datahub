@@ -19,7 +19,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 
+@Slf4j
 public class TestType implements com.linkedin.datahub.graphql.types.EntityType<Test, String> {
 
   static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(Constants.TEST_INFO_ASPECT_NAME);
@@ -63,10 +66,27 @@ public class TestType implements com.linkedin.datahub.graphql.types.EntityType<T
       }
       return gmsResults.stream()
           .map(
-              gmsResult ->
-                  gmsResult == null
-                      ? null
-                      : DataFetcherResult.<Test>newResult().data(TestMapper.map(gmsResult)).build())
+              gmsResult -> {
+                DataFetcherResult<Test> result =
+                    gmsResult == null
+                        ? null
+                        : DataFetcherResult.<Test>newResult()
+                            .data(TestMapper.map(gmsResult))
+                            .build();
+                if (result == null || result.getData() == null) {
+                  String urn =
+                      gmsResult != null ? gmsResult.getUrn().toString() : StringUtils.EMPTY;
+                  // Only have access to urn from result here, so log and then exclude with filter
+                  // after
+                  // TODO: Ideally this would be done at the top level in GMSGraphQLEngine for all
+                  // batch loaders, but
+                  //      need to evaluate performance implications before adding in widespread.
+                  // Start with small scope
+                  log.warn("Excluding empty result for urn: {}", urn);
+                }
+                return result;
+              })
+          .filter(result -> result != null && result.getData() != null)
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Tests", e);

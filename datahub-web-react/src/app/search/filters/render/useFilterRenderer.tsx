@@ -1,11 +1,10 @@
 import FilterRendererRegistry from '@app/search/filters/render/FilterRendererRegistry';
-import { HasActiveIncidentsRenderer } from '@app/search/filters/render/incident/HasActiveIncidentsRenderer';
-import { HasSiblingsRenderer } from '@app/search/filters/render/siblings/HasSiblingsRenderer';
+import { renderers as acrylRenderers } from '@app/search/filters/render/acrylRenderers';
 
 /**
  * Configure the render registry.
  */
-const RENDERERS = [new HasActiveIncidentsRenderer(), new HasSiblingsRenderer()];
+const RENDERERS = [...acrylRenderers];
 const REGISTRY = new FilterRendererRegistry();
 RENDERERS.forEach((renderer) => REGISTRY.register(renderer));
 

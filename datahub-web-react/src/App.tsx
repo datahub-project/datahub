@@ -3,6 +3,7 @@ import '@src/AppV2.less';
 
 import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
+import * as Sentry from '@sentry/react';
 import Cookies from 'js-cookie';
 import React from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
@@ -18,7 +19,7 @@ import { useCustomTheme } from '@src/customThemeContext';
 import possibleTypesResult from '@src/possibleTypes.generated';
 
 /*
-    Construct Apollo Client
+	Construct Apollo Client
 */
 const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
 
@@ -41,6 +42,7 @@ const errorLink = onError((error) => {
     //     // Fallback in case the calling component does not handle.
     //     message.error(`${firstError.message} (code ${errorCode})`, 3); // TODO: Decide if we want this back.
     // }
+    // TODO: Decide if we want this back.
 });
 
 const client = new ApolloClient({
@@ -75,6 +77,12 @@ const client = new ApolloClient({
             fetchPolicy: 'no-cache',
         },
     },
+});
+
+Sentry.init({
+    dsn: 'https://50799ff93031aceb3246b8b31ca063ad@o4504487219363840.ingest.us.sentry.io/4508738535424000',
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 0.5,
 });
 
 export const InnerApp: React.VFC = () => {

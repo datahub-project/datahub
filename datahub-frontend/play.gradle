@@ -72,7 +72,7 @@ dependencies {
   implementation externalDependency.playPac4j
   implementation "com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion"
   implementation externalDependency.jsonSmart
-  
+
   implementation externalDependency.shiroCore
 
   implementation externalDependency.playCache
@@ -86,6 +86,7 @@ dependencies {
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
 
+  testImplementation externalDependency.json
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
   testImplementation externalDependency.playTest
@@ -108,8 +109,13 @@ dependencies {
   implementation externalDependency.log4j2Api
 
   implementation externalDependency.logbackClassic
-
+  implementation externalDependency.logbackJackson
+  implementation externalDependency.logbackJsonClassic
+  implementation externalDependency.janino
   annotationProcessor externalDependency.lombok
+
+  implementation externalDependency.sentry
+  implementation externalDependency.sentryLogback
 }
 
 play {

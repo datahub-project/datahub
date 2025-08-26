@@ -662,6 +662,30 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
+  @Override
+  @Nonnull
+  public SearchResult searchAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      int start,
+      @Nonnull Integer count,
+      List<SortCriterion> sortCriteria,
+      @Nullable String predicateJson)
+      throws RemoteInvocationException {
+    return searchAcrossEntities(
+        opContext,
+        entities,
+        input,
+        filter,
+        start,
+        count,
+        sortCriteria,
+        Collections.emptyList(),
+        predicateJson);
+  }
+
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
    *
@@ -684,7 +708,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       int start,
       @Nullable Integer count,
       List<SortCriterion> sortCriteria,
-      @Nullable List<String> facets)
+      @Nullable List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -710,6 +735,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
 
+    if (predicateJson != null) {
+      requestBuilder.predicateFilterParam(predicateJson);
+    }
+
     return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
@@ -723,7 +752,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable String keepAlive,
       List<SortCriterion> sortCriteria,
       @Nullable Integer count,
-      @Nullable List<String> facets)
+      @Nullable List<String> facets,
+      @Nullable String predicateJson)
       throws RemoteInvocationException {
     final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final EntitiesDoScrollAcrossEntitiesRequestBuilder requestBuilder =
@@ -748,6 +778,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (!CollectionUtils.isEmpty(sortCriteria)) {
       requestBuilder.sortParam(sortCriteria.get(0));
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
+    }
+    if (predicateJson != null) {
+      requestBuilder.predicateFilterParam(predicateJson);
     }
 
     return sendClientRequest(requestBuilder, opContext).getEntity();
@@ -797,6 +830,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
 
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
+
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
+    }
 
     return sendClientRequest(requestBuilder, opContext).getEntity();
   }
@@ -848,6 +886,11 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
 
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
+
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
+    }
 
     return sendClientRequest(requestBuilder, opContext).getEntity();
   }

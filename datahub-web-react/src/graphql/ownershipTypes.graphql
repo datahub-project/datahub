@@ -1,0 +1,56 @@
+query getOwnershipType($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on OwnershipTypeEntity {
+            urn
+            type
+            info {
+                name
+                description
+                created {
+                    time
+                    actor
+                }
+                lastModified {
+                    time
+                    actor
+                }
+            }
+            status {
+                removed
+            }
+        }
+    }
+}
+
+query searchOwnershipTypes($query: String!, $start: Int!, $count: Int!) {
+    searchAcrossEntities(input: { query: $query, types: [CUSTOM_OWNERSHIP_TYPE], start: $start, count: $count }) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                ... on OwnershipTypeEntity {
+                    urn
+                    type
+                    info {
+                        name
+                        description
+                        created {
+                            time
+                            actor
+                        }
+                        lastModified {
+                            time
+                            actor
+                        }
+                    }
+                    status {
+                        removed
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,4 +1,4 @@
-import { BookFilled, BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
@@ -10,6 +10,7 @@ import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfi
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarMetadataSection } from '@app/entity/shared/containers/profile/sidebar/SidebarMetadataSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
@@ -17,6 +18,7 @@ import { SchemaTab } from '@app/entity/shared/tabs/Dataset/Schema/SchemaTab';
 import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { FetchedEntity } from '@app/lineage/types';
 import { PageRoutes } from '@conf/Global';
 
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
@@ -26,19 +28,21 @@ import { EntityType, GlossaryTerm, SearchResult } from '@types';
  * Definition of the DataHub Dataset entity.
  */
 export class GlossaryTermEntity implements Entity<GlossaryTerm> {
+    getLineageVizConfig?: ((entity: GlossaryTerm) => FetchedEntity) | undefined;
+
     type: EntityType = EntityType.GlossaryTerm;
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookOutlined style={{ fontSize, color }} />;
+            return <BookmarkSimple style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <BookFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <BookmarkSimple style={{ fontSize, color: color || '#B37FEB' }} weight="fill" />;
         }
 
         return (
-            <BookOutlined
+            <BookmarkSimple
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',
@@ -124,6 +128,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: SidebarAboutSection,
         },
         {
+            component: SidebarMetadataSection,
+        },
+        {
             component: SidebarOwnerSection,
         },
         {
@@ -157,6 +164,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
+                deprecation={data?.deprecation}
                 domain={data.domain?.domain}
             />
         );

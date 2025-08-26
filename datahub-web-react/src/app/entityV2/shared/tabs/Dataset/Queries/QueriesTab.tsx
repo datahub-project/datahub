@@ -60,8 +60,17 @@ export default function QueriesTab() {
     /**
      * Fetch the List of Popular Queries
      */
-    const { selectedUsersFilter, setSelectedUsersFilter, selectedColumnsFilter, setSelectedColumnsFilter } =
-        usePopularQueries({ entityUrn, siblingUrn, filterText });
+    const {
+        popularQueries,
+        loading: popularQueriesLoading,
+        pagination: popularQueriesPagination,
+        total,
+        sorting: popularSorting,
+        selectedUsersFilter,
+        setSelectedUsersFilter,
+        selectedColumnsFilter,
+        setSelectedColumnsFilter,
+    } = usePopularQueries({ entityUrn, siblingUrn, filterText });
 
     /**
      * Fetch the List of Downstream Queries
@@ -87,9 +96,18 @@ export default function QueriesTab() {
     };
 
     // can add something about initalLoading if there was never data, or have state that is like finishedInitialLoad = false, with useEffect
-    const isLoading = !entityUrn || highlightedQueriesLoading || downstreamQueriesLoading || recentQueriesLoading;
+    const isLoading =
+        !entityUrn ||
+        highlightedQueriesLoading ||
+        popularQueriesLoading ||
+        downstreamQueriesLoading ||
+        recentQueriesLoading;
     const showEmptyView =
-        !isLoading && !recentQueries.length && !highlightedQueries.length && !downstreamQueries.length;
+        !isLoading &&
+        !recentQueries.length &&
+        !highlightedQueries.length &&
+        !downstreamQueries.length &&
+        !popularQueries.length;
 
     // shared props with all of the QueriesListSection components below
     const props = {
@@ -133,6 +151,8 @@ export default function QueriesTab() {
                                 addQueryDisabled={!canEditQueries}
                                 onAddQuery={() => setShowQueryBuilder(true)}
                                 isTopSection
+                                isAllowedToEdit={canEditQueries}
+                                isEditable
                                 {...props}
                             />
                         )}
@@ -147,6 +167,20 @@ export default function QueriesTab() {
                                 onButtonClick={() => setShowQueryBuilder(true)}
                             />
                         )}
+                        {(popularQueries.length > 0 || popularQueriesLoading) && (
+                            <QueriesListSection
+                                title="Popular Queries"
+                                section={QueriesTabSection.Popular}
+                                tooltip="The most popular queries that were run against this dataset"
+                                queries={popularQueries}
+                                loading={popularQueriesLoading}
+                                totalQueries={total}
+                                pagination={popularQueriesPagination}
+                                isAllowedToEdit={canEditQueries}
+                                sorting={popularSorting}
+                                {...props}
+                            />
+                        )}
                         {downstreamQueries.length > 0 && (
                             <QueriesListSection
                                 title="Downstream Queries"
@@ -154,6 +188,7 @@ export default function QueriesTab() {
                                 tooltip="Queries that power downstream assets"
                                 queries={downstreamQueries}
                                 totalQueries={downstreamQueries.length}
+                                isAllowedToEdit={canEditQueries}
                                 {...props}
                             />
                         )}
@@ -164,6 +199,7 @@ export default function QueriesTab() {
                                 tooltip="Recently executed queries against this dataset"
                                 queries={recentQueries}
                                 totalQueries={recentQueries.length}
+                                isAllowedToEdit={canEditQueries}
                                 {...props}
                             />
                         )}
@@ -172,7 +208,7 @@ export default function QueriesTab() {
             </Content>
             {showQueryBuilder && (
                 <QueryBuilderModal
-                    datasetUrn={baseEntity.dataset?.urn}
+                    datasetUrn={baseEntity?.dataset?.urn}
                     onClose={() => setShowQueryBuilder(false)}
                     onSubmit={onQueryCreated}
                 />

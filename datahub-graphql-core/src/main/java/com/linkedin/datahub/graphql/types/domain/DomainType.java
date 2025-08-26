@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.domain;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,7 +21,6 @@ import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,8 +41,11 @@ public class DomainType
           Constants.OWNERSHIP_ASPECT_NAME,
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
+          Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
+          // SaaS Only
           Constants.FORMS_ASPECT_NAME,
-          Constants.DISPLAY_PROPERTIES_ASPECT_NAME);
+          Constants.SHARE_ASPECT_NAME,
+          Constants.ORIGIN_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public DomainType(final EntityClient entityClient) {
@@ -73,7 +77,9 @@ public class DomainType
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DOMAIN_ENTITY_NAME,
-              new HashSet<>(domainUrns),
+              domainUrns.stream()
+                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .collect(Collectors.toSet()),
               ASPECTS_TO_FETCH);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());

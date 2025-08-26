@@ -21,6 +21,7 @@ POST          /resetNativeUserCredentials                                     co
 GET           /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String, request: Request)
 POST          /callback/:protocol                                             controllers.SsoCallbackController.handleCallback(protocol: String, request: Request)
 GET           /logOut                                                         controllers.CentralLogoutController.executeLogout(request: Request)
+POST          /oidcImplicitTokenExchange                                      controllers.OidcImplicitController.exchangeTokenForSession(request: Request)
 
 # Proxies API requests to the metadata service api
 GET           /api/*path                                                      controllers.Application.proxy(path: String, request: Request)
@@ -35,6 +36,16 @@ DELETE        /openapi/*path                                                   c
 PUT           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 HEAD          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 PATCH         /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+
+# Acryl Only! Proxies 3rd party integrations to integrations service.
+GET           /integrations/*path                                             controllers.IntegrationsController.proxyToIntegrationsService(path: String, request: Request)
+POST          /integrations/*path                                             controllers.IntegrationsController.proxyToIntegrationsService(path: String, request: Request)
+DELETE        /integrations/*path                                             controllers.IntegrationsController.proxyToIntegrationsService(path: String, request: Request)
+PUT           /integrations/*path                                             controllers.IntegrationsController.proxyToIntegrationsService(path: String, request: Request)
+
+# Proxies Dashboard requests to the metadata service
+GET           /admin/dashboard/*path                                         controllers.Application.proxy(path: String, request: Request)
+POST          /admin/dashboard/*path                                         controllers.Application.proxy(path: String, request: Request)
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/icons/favicon.ico                                        controllers.RedirectController.favicon(request: Request)

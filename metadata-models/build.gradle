@@ -42,7 +42,7 @@ dependencies {
 sourceSets {
   main {
     java {
-      srcDirs = ["$buildDir/openapi/generated/src/main/java"]
+      srcDirs = ["$buildDir/openapi/generated/src/main/java", 'src/main/java']
     }
   }
 }

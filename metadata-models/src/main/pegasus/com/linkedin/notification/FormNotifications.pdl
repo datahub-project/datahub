@@ -1,0 +1,21 @@
+namespace com.linkedin.notification
+
+/**
+ * The history of notifications sent to this actor on behalf of forms
+ */
+@Aspect = {
+  "name": "formNotifications"
+}
+record FormNotifications {
+  /**
+   * List of details for notifications for each form
+   */
+  @Searchable = {
+    "/*/formUrn": {
+      "fieldName": "notificationFormUrn",
+      "fieldType": "URN",
+      "queryByDefault": false,
+    }
+  }
+  notificationDetails: array[FormNotificationDetails] = []
+}

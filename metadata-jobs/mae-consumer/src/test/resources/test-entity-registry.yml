@@ -22,6 +22,7 @@ entities:
     keyAspect: datasetKey
     aspects:
       - upstreamLineage
+      - testResults
   - name: chart
     keyAspect: chartKey
     aspects:
@@ -31,9 +32,21 @@ entities:
     aspects:
       - incidentInfo
       - status
+  - name: assertion
+    keyAspect: assertionKey
+    aspects:
+      - assertionInfo
+      - assertionRunEvent
+      - status
   - name: schemaField
     category: core
     keyAspect: schemaFieldKey
     aspects: []
+  - name: monitor
+    category: core
+    keyAspect: monitorKey
+    aspects:
+      - monitorInfo
+      - monitorTimeseriesState
 events:
   - name: entityChangeEvent

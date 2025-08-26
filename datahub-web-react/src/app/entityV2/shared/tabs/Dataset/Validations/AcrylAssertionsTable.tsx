@@ -12,7 +12,7 @@ import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/share
 import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 
-import { Assertion, AssertionRunStatus, DataContract } from '@types';
+import { Assertion, AssertionRunStatus, AssertionType, DataContract, Entity } from '@types';
 
 type StyledTableProps = {
     showSelect?: boolean;
@@ -73,6 +73,9 @@ type Props = {
     showMenu?: boolean;
     showSelect?: boolean;
     selectedUrns?: string[];
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    canEditSqlAssertions: boolean;
     onSelect?: (assertionUrn: string) => void;
     refetch?: () => void;
 };
@@ -87,6 +90,9 @@ export const AcrylAssertionsTable = ({
     showMenu = true,
     showSelect = false,
     selectedUrns,
+    canEditAssertions,
+    canEditMonitors,
+    canEditSqlAssertions,
     onSelect,
     refetch,
 }: Props) => {
@@ -97,6 +103,11 @@ export const AcrylAssertionsTable = ({
     const focusedEntityUrn = focusedAssertion ? getEntityUrnForAssertion(focusedAssertion) : undefined;
     const focusedAssertionEntity =
         focusedEntityUrn && entityData ? getSiblingWithUrn(entityData, focusedEntityUrn) : undefined;
+
+    const canEditFocusAssertion = focusedAssertion
+        ? (focusedAssertion?.info?.type === AssertionType.Sql && canEditSqlAssertions) || canEditAssertions
+        : false;
+    const canEditFocusMonitor = focusedAssertion ? canEditMonitors : false;
 
     if (focusAssertionUrn && !focusedAssertion) {
         setFocusAssertionUrn(null);
@@ -147,6 +158,7 @@ export const AcrylAssertionsTable = ({
                         )}
                         <DetailsColumn
                             assertion={record.assertion}
+                            monitor={record.monitor}
                             contract={contract}
                             lastEvaluation={record.lastEvaluation}
                             onViewAssertionDetails={() => setFocusAssertionUrn(record.urn)}
@@ -161,12 +173,16 @@ export const AcrylAssertionsTable = ({
             key: '',
             render: (_, record: any) => {
                 // TODO: Add permission for editing contract.
+                const isSqlAssertion = record.type === AssertionType.Sql;
                 return (
                     <>
                         {(showMenu && (
                             <ActionsColumn
                                 assertion={record.assertion}
+                                monitor={record.monitor}
                                 contract={contract}
+                                canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
+                                canEditMonitor={canEditMonitors}
                                 canEditContract
                                 refetch={refetch}
                             />
@@ -211,7 +227,10 @@ export const AcrylAssertionsTable = ({
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}
+                    entity={focusedAssertionEntity as Entity}
                     contract={contract}
+                    canEditAssertion={canEditFocusAssertion}
+                    canEditMonitor={canEditFocusMonitor}
                     closeDrawer={() => setFocusAssertionUrn(null)}
                     refetch={refetch}
                 />

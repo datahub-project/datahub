@@ -1,0 +1,29 @@
+
+# Extra rules.
+.git/
+
+# Copied from the root .dockerignore.
+**/node_modules/
+datahub-frontend/build/
+metadata-ingestion/venv/
+metadata-ingestion/build/
+metadata-ingestion/dist/
+**/.venv/
+**/venv/
+docs-website/sphinx/venv/
+docs-website/sphinx/_build/
+out
+.vercel/
+**/.mypy_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+docs-website/build/
+**/*.class
+# Have to copy gradle/wrapper/gradle-wrapper.jar, can't exclude ALL jars
+**/build/**/*.jar
+# Content in .git is used to get the git version
+# Just ignore the heavy parts that are not used
+.git/logs
+.git/COMMIT_*
+.git/index
+.gradle

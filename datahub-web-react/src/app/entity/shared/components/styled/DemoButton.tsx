@@ -2,7 +2,7 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-const StyledButton = styled(Button)`
+export const StyledButton = styled(Button)`
     padding: 8px;
     font-size: 14px;
     margin-left: 18px;

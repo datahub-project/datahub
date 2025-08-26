@@ -90,6 +90,7 @@ export const TopButtonsWrapper = styled.div`
     justify-content: flex-end;
     gap: 8px;
     max-width: 100%;
+    width: 100%;
 `;
 
 const HeaderIconsWrapper = styled.span`
@@ -223,7 +224,12 @@ export const DefaultEntityHeader = ({
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
-                        {headerDropdownItems && <EntityMenuActions menuItems={headerDropdownItems} />}
+                        {headerDropdownItems && (
+                            <EntityMenuActions
+                                menuItems={headerDropdownItems}
+                                shouldExternalLinksFillAllAvailableSpace={!headerActionItems}
+                            />
+                        )}
                     </TopButtonsWrapper>
                 </RightColumn>
             </Row>

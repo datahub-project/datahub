@@ -7,8 +7,6 @@ import { BrowsableEntityPage } from '@app/browse/BrowsableEntityPage';
 import { useUserContext } from '@app/context/useUserContext';
 import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
 import { decodeUrn } from '@app/entity/shared/utils';
-import LineageExplorer from '@app/lineage/LineageExplorer';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -33,7 +31,6 @@ export const EntityPage = ({ entityType }: Props) => {
     const entity = entityRegistry.getEntity(entityType);
     const isBrowsable = entity.isBrowseEnabled();
     const isLineageSupported = entity.isLineageEnabled();
-    const isLineageMode = useIsLineageMode();
     const authenticatedUserUrn = useUserContext()?.user?.urn;
     const { error, data } = useGetGrantedPrivilegesQuery({
         variables: {
@@ -76,18 +73,14 @@ export const EntityPage = ({ entityType }: Props) => {
             {error && <ErrorSection />}
             {data && !canViewEntityPage && <UnauthorizedPage />}
             {canViewEntityPage &&
-                ((showNewPage && <>{entityRegistry.renderProfile(entityType, urn)}</>) || (
+                ((showNewPage && entityRegistry.renderProfile(entityType, urn)) || (
                     <BrowsableEntityPage
                         isBrowsable={isBrowsable}
                         urn={urn}
                         type={entityType}
                         lineageSupported={isLineageSupported}
                     >
-                        {isLineageMode && isLineageSupported ? (
-                            <LineageExplorer type={entityType} urn={urn} />
-                        ) : (
-                            entityRegistry.renderProfile(entityType, urn)
-                        )}
+                        {entityRegistry.renderProfile(entityType, urn)}
                     </BrowsableEntityPage>
                 ))}
         </>

@@ -1,0 +1,26 @@
+namespace com.linkedin.common
+
+/**
+ * Summary statistics about assertions on an entity.
+ */
+record AssertionSummaryDetails {
+    /**
+     * The urn of the assertion
+     */
+    urn: Urn
+
+    /**
+    * The top-level type of an assertion
+    */
+    type: string
+
+    /**
+     * The time at which the last result was produced.
+     */
+    lastResultAt: long
+
+    /**
+     * The source of the assertion
+     */
+    source: optional string
+}

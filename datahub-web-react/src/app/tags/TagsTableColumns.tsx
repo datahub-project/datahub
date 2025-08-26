@@ -12,6 +12,7 @@ import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useCustomTheme } from '@src/customThemeContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -136,6 +137,7 @@ export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
 export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const { theme } = useCustomTheme();
     const entityFilters = [{ field: 'tags', values: [tagUrn] }];
 
     const { data: facetData, loading: facetLoading } = useGetSearchResultsForMultipleQuery({
@@ -206,7 +208,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                     }
                 }}
             >
-                <Text style={{ color: colors.violet[500] }}>
+                <Text style={{ color: theme?.styles['primary-color'] }}>
                     {totalCount} {totalCount === 1 ? 'entity' : 'entities'}
                 </Text>
             </div>
@@ -226,7 +228,7 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
                             }
                         }}
                     >
-                        <Text style={{ color: colors.violet[500] }}>
+                        <Text style={{ color: theme?.styles['primary-color'] }}>
                             {agg.count} {entityRegistry.getCollectionName(agg.value as unknown as EntityType)}
                         </Text>
                     </div>

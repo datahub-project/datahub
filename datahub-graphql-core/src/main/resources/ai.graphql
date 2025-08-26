@@ -1,0 +1,41 @@
+# Acryl's AI-powered features
+
+extend type Mutation {
+  """
+  Infer documentation for a given entity. Currently only supports Datasets & Columns (Schema Fields).
+
+  This allows you to generate for datasets or columns separately, but by default generates and returns descriptions for both.
+  By default, the inferred documentation is NOT saved for the asset or columns.
+  """
+  inferDocumentation(
+    urn: String!
+    saveResult: Boolean
+    excludeAsset: Boolean
+    excludeColumns: Boolean
+  ): InferredDocumentation
+}
+
+"""
+Contains inferred documentation for a given entity
+"""
+type InferredDocumentation {
+  """
+  Inferred entity description
+  """
+  entityDescription: String
+  """
+  Inferred descriptions for each column on the entity
+  """
+  columnDescriptions: InferredColumnDescriptions
+}
+
+"""
+Inferred descriptions for each column on the entity
+"""
+type InferredColumnDescriptions {
+  """
+  A JSON blob string containing inferred descriptions for every column.
+  Structure is expected to be { [columnName:string]: string }
+  """
+  jsonBlob: String
+}

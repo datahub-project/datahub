@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an ActionRequest
+ */
+@Aspect = {
+  "name": "actionRequestKey"
+}
+record ActionRequestKey {
+  id: string
+}

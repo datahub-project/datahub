@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for the *Singleton* DataHub Remote Executor Global Config
+ */
+@Aspect = {
+  "name": "dataHubRemoteExecutorGlobalConfigKey"
+}
+record RemoteExecutorGlobalConfigKey {
+    /**
+     * The unique identifier for the remote executor global config
+     * NOTE: since this a singleton, there should be a hardcoded key in the AcrylConstants file
+     */
+    id: string
+}

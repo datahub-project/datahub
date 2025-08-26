@@ -13,7 +13,7 @@ outputs:
     value: ${{ steps.filter.outputs.frontend == 'false' && steps.filter.outputs.ingestion == 'false' && steps.filter.outputs.backend == 'true' }}
   backend-change:
     description: "Backend code has changed"
-    value: ${{ steps.filter.outputs.backend == 'true' ||  steps.trigger.outputs.trigger == 'manual' }}
+    value: ${{ steps.filter.outputs.backend == 'true' || steps.filter.outputs.backend-saas == 'true' || steps.trigger.outputs.trigger == 'manual' }}
   ingestion-change:
     description: "Ingestion code has changed"
     value: ${{ steps.filter.outputs.ingestion == 'true' || steps.trigger.outputs.trigger == 'manual' }}
@@ -45,6 +45,13 @@ outputs:
     description: "Actions code has changed"
     value: ${{ steps.filter.outputs.actions == 'true' }}
 
+  # Saas Only
+  integrations-service-change:
+    description: "Integrations Service code has changed"
+    value: ${{ steps.filter.outputs.integrations-service == 'true' || steps.trigger.outputs.trigger == 'manual' }}
+  datahub-executor-change:
+    description: "Datahub executor code has changed"
+    value: ${{ steps.filter.outputs.datahub-executor == 'true' || steps.trigger.outputs.trigger == 'manual' }}
 runs:
   using: "composite"
   steps:
@@ -91,6 +98,9 @@ runs:
             - "metadata-operation-context/**"
             - "datahub-graphql-core/**"
             - "docker/**"
+          backend-saas:
+            - "datahub-executor/**"
+            - "datahub-integrations-service/**"
           kafka-setup:
             - "docker/kafka-setup/**"
           mysql-setup:
@@ -104,3 +114,17 @@ runs:
           actions:
             - "datahub-actions/**"
             - "docker/datahub-actions/**"
+
+          integrations-service:
+            - "datahub-integrations-service/**"
+            - "metadata-ingestion/**"
+            - "metadata-models/**"
+            - "docker/datahub-ingestion-**"
+            - "docker/datahub-integrations-service/**"
+          datahub-executor:
+            - "docker/datahub-executor/**"
+            - "datahub-executor/**"
+            - "metadata-ingestion/**"
+            - "metadata-models/**"
+            - "docker/datahub-ingestion-**"
+            - "docker/datahub-executor/**"

@@ -3,6 +3,9 @@ query getMLPrimaryKey($urn: String!) {
         urn
         type
         ...nonRecursiveMLPrimaryKey
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -19,6 +22,9 @@ query getMLPrimaryKey($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        proposals: proposals {
+            ...proposalsFragment
         }
         ...notes
     }

@@ -1,0 +1,35 @@
+on:
+  types:
+    - dataset
+  conditions:
+    - property: datasetProperties.name
+      operator: "starts_with"
+      values: ["special_prefix"]
+rules:
+  and:
+    - property: editableDatasetProperties.description
+      operator: exists
+    - property: datasetProperties.description
+      operator: contains_str
+      values: ["pii"]
+actions:
+  passing:
+    - type: ADD_OWNERS
+      params:
+        values:
+          - "urn:li:corpuser:1"
+          - "urn:li:corpGroup:2"
+    - type: REMOVE_OWNERS
+      params:
+        values:
+          - "urn:li:corpuser:1"
+          - "urn:li:corpGroup:2"
+  failing:
+    - type: ADD_GLOSSARY_TERMS
+      values:
+        - "urn:li:glossaryTerm:1"
+        - "urn:li:glossaryTerm:2"
+    - type: remove_glossary_terms
+      values:
+        - "urn:li:glossaryTerm:1"
+        - "urn:li:glossaryTerm:2"

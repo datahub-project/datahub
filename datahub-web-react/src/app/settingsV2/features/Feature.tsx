@@ -139,7 +139,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                             <OptionTitle>
                                 <span>{option.title}</span>
                                 {!option.isAvailable && (
-                                    <Pill color="violet" size="sm" label="Only available on DataHub Cloud" />
+                                    <Pill color="primary" size="sm" label="Only available on DataHub Cloud" />
                                 )}
                             </OptionTitle>
                             <div>
@@ -182,7 +182,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                     <span>
                         <OptionTitle>
                             <span>{option.title}</span>
-                            <Pill color="violet" size="sm" label="DataHub Cloud" />
+                            <Pill color="primary" size="sm" label="DataHub Cloud" />
                         </OptionTitle>
                     </span>
                     <StructuredPopover

@@ -5,8 +5,9 @@ on:
     - cron: "0 0 * * *" # Run at midnight UTC every day
   push:
     branches:
-      - master
+      - acryl-main
       - releases/**
+      - hotfixes/**
   pull_request:
     branches:
       - "**"
@@ -21,11 +22,17 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DOCKER_REGISTRY: "acryldata"
+  DOCKER_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
+  ACRYLIO_DOCKER_REGISTRY: "acrylio"
+  CLOUDSMITH_REGISTRY: "docker.cloudsmith.io/datahub/enterprise"
+
+  DATAHUB_INGESTION_BASE_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base"
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+
+  CI_BUILD_ID: ${{ github.run_id }}
 
 permissions:
   contents: read
@@ -44,7 +51,10 @@ jobs:
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       docker-login: ${{ steps.docker-login.outputs.docker-login }}
+      cloudsmith-login: ${{ steps.cloudsmith-login.outputs.cloudsmith-login }}
       publish: ${{ steps.publish.outputs.publish }}
+      acrylio_publish: ${{ steps.acrylio-publish.outputs.acrylio-publish }} # publish to private dockerhub
+      cloudsmith_publish: ${{ steps.cloudsmith-publish.outputs.cloudsmith-publish }} # publish to cloudsmith
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
@@ -62,8 +72,8 @@ jobs:
       postgres_setup_change: ${{ steps.ci-optimize.outputs.postgres-setup-change == 'true' }}
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
-      integrations_service_change: "false"
-      datahub_executor_change: "false"
+      integrations_service_change: ${{ steps.ci-optimize.outputs.integrations-service-change == 'true' }}
+      datahub_executor_change: ${{ steps.ci-optimize.outputs.datahub-executor-change == 'true' }}
 
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
@@ -73,6 +83,7 @@ jobs:
       uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -95,20 +106,49 @@ jobs:
             echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
             echo "repository_name=${GITHUB_REPOSITORY#*/}"
           } >> "$GITHUB_OUTPUT"
-      - name: Check whether docker login is possible
+      - name: Check whether Docker login is possible
         id: docker-login
         env:
-          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' || secrets.AWS_ECR_SECRET_ACCESS_KEY != '' }}
         run: |
           echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
           echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether acrylio DockerHub enabled
+        id: acrylio-publish
+        env:
+          ENABLE_ACRYLIO_PUBLISH: >-
+            ${{
+               github.event_name == 'release'
+               && ( secrets.ACRYLIO_DOCKER_USERNAME != '' && secrets.ACRYLIO_DOCKER_PASSWORD != '' )
+            }}
+        run: |
+          echo "Enable acrylio publish: ${{ env.ENABLE_ACRYLIO_PUBLISH }}"
+          echo "acrylio-publish=${{ env.ENABLE_ACRYLIO_PUBLISH }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether Cloudsmith login is possible
+        id: cloudsmith-login
+        env:
+          ENABLE_CLOUDSMITH_LOGIN: ${{ secrets.CLOUDSMITH_PASSWORD != '' || secrets.AWS_ECR_SECRET_ACCESS_KEY != '' }}
+        run: |
+          echo "Enable Cloudsmith Login: ${{ env.ENABLE_CLOUDSMITH_LOGIN }}"
+          echo "cloudsmith-login=${{ env.ENABLE_CLOUDSMITH_LOGIN }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether Cloudsmith enabled
+        id: cloudsmith-publish
+        env:
+          ENABLE_CLOUDSMITH_PUBLISH: >-
+            ${{
+               github.event_name == 'release'
+               && ( secrets.CLOUDSMITH_USERNAME != '' && secrets.CLOUDSMITH_PASSWORD != '' )
+            }}
+        run: |
+          echo "Enable Cloudsmith publish: ${{ env.ENABLE_CLOUDSMITH_PUBLISH }}"
+          echo "cloudsmith-publish=${{ env.ENABLE_CLOUDSMITH_PUBLISH }}" >> "$GITHUB_OUTPUT"
       - name: Check whether publishing enabled
         id: publish
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
-               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+            (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push')  && github.ref == 'refs/heads/acryl-main')) 
+               && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
             }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
@@ -119,7 +159,7 @@ jobs:
           ENABLE_PUBLISH: >-
             ${{
                (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+               && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
             }}
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
@@ -129,38 +169,34 @@ jobs:
 
       - name: Determine runner type
         id: set-runner
-        # This needs to handle two scenarios:
-        # 1. Running on a PR from a fork. There are some auth issues that prevent us from using depot in that case.
+        # This differs from oss. For fork, we always use depot runner. Retain as is during oss merges.
         #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test.
-        #    Note, concurrency is lower when using github runners, queue times can be longer, test time is longer due to fewer parallel jobs.
         # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
         #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
         #    and hence short queue times and higher parallelism of smoke tests
 
         run: |
-          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
-            echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
-            echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
-            # publishing is currently only supported via depot
-          fi
+          echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+          echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+          echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
+          echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
 
       - name: Compute UV Cache Key
         id: uv-cache-key
+        # Fork and OSS will have a different implementation of this key. Do not merge.
         run: |
           echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
             './datahub-actions/pyproject.toml',
             './datahub-actions/setup.py',
             './smoke-test/requirements.txt',
             './smoke-test/pyproject.toml',
+            './metadata-integration/java/spark-lineage-legacy/spark-smoke-test/requirements.txt',
+            './datahub-integrations-service/requirements.txt',
+            './datahub-integrations-service/pyproject.toml',
             './metadata-ingestion/pyproject.toml',
-            './metadata-ingestion/setup.py') }}" >> "$GITHUB_OUTPUT"
+            './metadata-ingestion/setup.py',
+            './datahub-executor/requirements.txt',
+            './datahub-executor/pyproject.toml') }}" >> "$GITHUB_OUTPUT"
           echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
 
       - name: Compute Yarn Cache Key
@@ -171,7 +207,7 @@ jobs:
 
   smoke_test_lint:
     name: Lint on smoke tests
-    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    runs-on: depot-ubuntu-24.04
     needs: setup
     if: ${{ needs.setup.outputs.smoke_test_change == 'true' }}
     steps:
@@ -209,7 +245,7 @@ jobs:
     name: Build all images
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
     needs: setup
-    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
+    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On oss fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
@@ -248,23 +284,24 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' }}
-        with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-
       - name: Build all Images (For Smoke tests)
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.acrylio_publish != 'true' && needs.setup.outputs.cloudsmith_publish != 'true'}}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
         run: |
           ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
-      - name: Build all Images (Publish)
+      - name: Login to AWS ECR
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        with:
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+
+      - name: Build Saas Images (Publish - ECR)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
 
       - name: Capture build Id
         id: capture-build-id
@@ -275,15 +312,40 @@ jobs:
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
           echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
 
+      - name: Login to ACRYLIO DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+
+      - name: Login to Cloudsmith
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.cloudsmith-login == 'true' }}
+        with:
+          registry: "docker.cloudsmith.io"
+          username: ${{ secrets.CLOUDSMITH_USERNAME }}
+          password: ${{ secrets.CLOUDSMITH_PASSWORD }}
+
+      - name: Build Saas Images (Publish - ACRYLIO)
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        run: |
+          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
+
+      - name: Build Saas Images (Publish - Cloudsmith)
+        if: ${{ needs.setup.outputs.cloudsmith_publish == 'true' }}
+        run: |
+          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
+
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main' }}
         with:
           path: |
             ~/.cache/yarn
@@ -297,7 +359,7 @@ jobs:
     name: Scan images for vulnerabilities
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
-    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' || needs.setup.outputs.acrylio_publish == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
@@ -318,6 +380,9 @@ jobs:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
         with:
           image-ref: ${{ steps.download_image.outputs.docker_image }}
           format: "template"
@@ -328,6 +393,7 @@ jobs:
           vuln-type: "os,library"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: ${{ false }} # Saas only - we can't upload results
         with:
           sarif_file: "trivy-results.sarif"
 
@@ -349,8 +415,8 @@ jobs:
             echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
-            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+            echo "cypress_batch_count=15" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=8" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -416,7 +482,6 @@ jobs:
           key: ${{ needs.setup.outputs.yarn_cache_key }}
           restore-keys: |
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
@@ -430,17 +495,10 @@ jobs:
           cache: "pip"
 
       - uses: gradle/actions/setup-gradle@v4
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' }}
-        with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+        if: ${{ env.DEPOT_PROJECT_ID == '' }}
 
       - name: build images
-        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        if: ${{ env.DEPOT_PROJECT_ID == '' }}
         run: |
           ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
@@ -456,10 +514,16 @@ jobs:
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_REPO: ${{ env.DOCKER_REGISTRY }}
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          DATAHUB_EXECUTOR_VERSION: ${{ needs.setup.outputs.tag }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          DATAHUB_INTEGRATIONS_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
+          AWS_REGION: us-west-2
         run: |
           ./smoke-test/run-quickstart.sh
 
@@ -486,15 +550,28 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
 
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
+          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
+          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
+          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
+          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
+
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CYPRESS_RECORD_KEY: ${{ secrets.ACRYL_CYPRESS_RECORD_KEY }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: ${{ matrix.test_strategy }}
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
         run: |
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
@@ -522,6 +599,14 @@ jobs:
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
+          retention-days: 5
+      - name: Upload videos
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-videos
+          path: smoke-test/tests/cypress/cypress/videos/
+          retention-days: 5
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -531,6 +616,7 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
+          retention-days: 5
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
@@ -539,7 +625,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main'  && matrix.batch == '0' }}
         # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
@@ -547,25 +633,42 @@ jobs:
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        if: ${{ github.ref == 'refs/heads/acryl-main' && matrix.batch == '0'  && matrix.batch == '0' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
 
-  deploy_datahub_head:
-    name: Deploy to Datahub HEAD
-    runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint, smoke_test]
+  smoke_test_cleanup:
+    name: Smoke Tests Cleanup Items
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: [setup, base_build]
+    if: ${{ always() }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - name: Cleanup old SQS queues
+        env:
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
+          AWS_REGION: us-west-2
+        run: |
+          pip install awscli
+          ./datahub-executor/scripts/smoke-test-cleanup.sh
+
+  sync_deployments:
+    name: Sync ArgoCD deployments
+    runs-on: depot-ubuntu-22.04-small
+    needs: [setup, base_build]
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
-        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
+        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'acryldata' && needs.setup.outputs.repository_name == 'datahub-fork' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
           aws-region: us-west-2
       - uses: isbang/sqs-action@v0.2.0
-        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
+        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'acryldata' && needs.setup.outputs.repository_name == 'datahub-fork' }}
         with:
-          sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
+          sqs-url: ${{ secrets.DATAHUB_ARGOCD_SYNC_QUEUE }}
           message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'

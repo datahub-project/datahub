@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 
 import { SERVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
 import { checkAuthStatus } from '@app/auth/checkAuthStatus';
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { useAppConfigQuery } from '@graphql/app.generated';
@@ -23,6 +24,8 @@ function changeFavicon(src) {
 
 const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: appConfigData, refetch } = useAppConfigQuery({ fetchPolicy: 'no-cache' });
+    const { globalSettings } = useGlobalSettingsContext();
+    const customLogoUrl = globalSettings?.visualSettings?.customLogoUrl;
 
     const refreshAppConfig = () => {
         refetch();
@@ -39,9 +42,9 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
             if (appConfigData.appConfig.appVersion) {
                 localStorage.setItem(SERVER_VERSION_KEY, appConfigData.appConfig.appVersion);
             }
-            changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
+            changeFavicon(customLogoUrl || appConfigData.appConfig.visualConfig.faviconUrl);
         }
-    }, [appConfigData]);
+    }, [customLogoUrl, appConfigData]);
 
     return (
         <AppConfigContext.Provider

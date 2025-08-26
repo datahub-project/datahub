@@ -17,6 +17,12 @@ public enum ChangeOperation {
   REINSTATE,
   /** Run has STARTED */
   STARTED,
-  /** Run is completed */
-  COMPLETED
+  /** Run or Proposal is completed */
+  COMPLETED,
+  /** Proposal is pending */
+  PENDING,
+  /** Incident is active */
+  ACTIVE,
+  /** Incident is resolved */
+  RESOLVED,
 }

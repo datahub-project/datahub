@@ -25,8 +25,8 @@ const AvatarStackWithHover = ({
     maxToShow = 4,
     entityRegistry,
 }: Props) => {
-    const users = avatars.filter((avatar) => avatar.type === AvatarType.user);
-    const groups = avatars.filter((avatar) => avatar.type === AvatarType.group);
+    const users = avatars?.filter((avatar) => avatar.type === AvatarType.user) || [];
+    const groups = avatars?.filter((avatar) => avatar.type === AvatarType.group) || [];
 
     const renderTitle = (headerText, count) => (
         <HeaderContainer>

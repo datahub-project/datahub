@@ -29,13 +29,17 @@ import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+import { useUserContext } from '@src/app/context/useUserContext';
+import { ManageActorNotifications } from '@src/app/settingsV2/personal/notifications/ManageActorNotifications';
+import { ManageActorSubscriptions } from '@src/app/settingsV2/personal/subscriptions/ManageActorSubscriptions';
+import { useGetGrantedPrivilegesQuery } from '@src/graphql/policy.generated';
 
 import { useGetGroupQuery } from '@graphql/group.generated';
 import { EntityRelationshipsResult, EntityType, OriginType, Ownership } from '@types';
 
 const messageStyle = { marginTop: '10%' };
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members, TabType.Notifications, TabType.Subscriptions];
 
 const MEMBER_PAGE_SIZE = 15;
 
@@ -88,6 +92,26 @@ export default function GroupProfile({ urn }: Props) {
     const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
     const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
 
+    const authenticatedUserUrn = useUserContext()?.user?.urn;
+    const { data: privilegesData } = useGetGrantedPrivilegesQuery({
+        variables: {
+            input: {
+                actorUrn: authenticatedUserUrn as string,
+                resourceSpec: {
+                    resourceType: EntityType.CorpGroup,
+                    resourceUrn: urn,
+                },
+            },
+        },
+        skip: !authenticatedUserUrn,
+        fetchPolicy: 'cache-first',
+    });
+
+    const canManageNotifications =
+        privilegesData?.getGrantedPrivileges?.privileges?.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
+        privilegesData?.getGrantedPrivileges?.privileges?.some((v) => v === 'EDIT_ENTITY') || // All edit permissions
+        false;
+
     const finalTabs = [
         {
             name: 'About',
@@ -127,6 +151,29 @@ export default function GroupProfile({ urn }: Props) {
                         }}
                     />
                 ),
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Notifications,
+                path: TabType.Notifications.toLocaleLowerCase(),
+                content: (
+                    <ManageActorNotifications
+                        isPersonal={false}
+                        groupUrn={urn}
+                        groupName={groupName}
+                        canManageNotifications={canManageNotifications}
+                    />
+                ),
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Subscriptions,
+                path: TabType.Subscriptions.toLocaleLowerCase(),
+                content: <ManageActorSubscriptions isPersonal={false} groupUrn={urn} />,
                 display: {
                     enabled: () => true,
                 },

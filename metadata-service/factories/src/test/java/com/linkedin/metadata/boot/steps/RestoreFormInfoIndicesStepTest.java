@@ -37,8 +37,8 @@ import org.testng.annotations.Test;
 
 public class RestoreFormInfoIndicesStepTest {
 
-  private static final String CURRENT_VERSION = "2";
-  private static final String NEW_VERSION = "3";
+  private static final String CURRENT_VERSION = "3";
+  private static final String NEW_VERSION = "4";
   private static final String FORM_INFO_UPGRADE_URN =
       String.format(
           "urn:li:%s:%s", Constants.DATA_HUB_UPGRADE_ENTITY_NAME, "restore-form-info-indices");

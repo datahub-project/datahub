@@ -47,4 +47,36 @@ public class FeatureFlags {
   private boolean showProductUpdates = false;
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
+  private boolean viewIngestionSourcePrivilegesEnabled = false;
+
+  /* SaaS Only */
+  private boolean assertionMonitorsEnabled = false;
+  private boolean schemaAssertionMonitorsEnabled = false;
+  private boolean subscriptionsEnabled = false;
+  private boolean slackBotTokensConfigEnabled = false;
+  private boolean slackBotTokensObfuscationEnabled = false;
+  private boolean datasetHealthDashboardEnabled = false;
+  private boolean aiFeaturesEnabled = true;
+  private boolean documentationAiDefaultEnabled = false;
+  private boolean slackAtMentionDefaultEnabled = false;
+  private boolean metadataShareEnabled = false;
+  private boolean documentationFormsEnabled = false;
+  private boolean emailNotificationsEnabled = false;
+  private boolean runAssertionsEnabled = false;
+  private boolean broadcastNewIncidentUpdatesEnabled = false;
+  private boolean separateSiblingsLineageByDefault = false;
+  private boolean formCreationEnabled = false;
+  private boolean showBulkFormByDefault = false;
+  private boolean showDatasetFeaturesSearchSortOptions = false;
+  private boolean showFormAnalytics = false;
+  private boolean showStatsTabRedesign = false;
+  private boolean requestMinimalSlackPermissions = false;
+  private boolean showTaskCenterRedesign = false;
+  private boolean usePropagationsFramework = false;
+  private boolean displayExecutorPools = false;
+  private boolean onlineSmartAssertionsEnabled = false;
+  private boolean showDefaultExternalLinks = true;
+  private boolean showCreatedAtFilter = false;
+  private boolean formsNotificationsEnabled = false;
+  private boolean tagPropagationV2Enabled = false;
 }

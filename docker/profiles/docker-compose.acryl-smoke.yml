@@ -1,0 +1,14 @@
+---
+name: acryl-smoke
+
+include:
+  # Contains storage layers: i.e. mysql, kafka, elasticsearch
+  - docker-compose.prerequisites.yml
+  # Frontend
+  - docker-compose.frontend.yml
+  # Remaining components: i.e. gms, system-update, consumers
+  - docker-compose.gms.yml
+  # Saas components: i.e. monitors & integrations services
+  - docker-compose.acryl-python-services.yml
+  # Remote Executor Worker (to test SQS workflows)
+  - docker-compose.acryl-remote-executor.yml

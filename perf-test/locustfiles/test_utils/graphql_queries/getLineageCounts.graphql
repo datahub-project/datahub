@@ -1,0 +1,12 @@
+{
+"operationName": "getLineageCounts",
+"variables": {
+"excludeUpstream": false,
+"excludeDownstream": false,
+"urn": null,
+"separateSiblings": false,
+"startTimeMillis": 0,
+"endTimeMillis": null
+},
+"query": "query getLineageCounts($urn: String!, $separateSiblings: Boolean, $startTimeMillis: Long, $endTimeMillis: Long, $excludeUpstream: Boolean = false, $excludeDownstream: Boolean = false) {\n  entity(urn: $urn) {\n    urn\n    type\n    ... on EntityWithRelationships {\n      upstream: lineage(\n        input: {direction: UPSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings, startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis}\n      ) @skip(if: $excludeUpstream) {\n        filtered\n        total\n        __typename\n      }\n      downstream: lineage(\n        input: {direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings, startTimeMillis: $startTimeMillis, endTimeMillis: $endTimeMillis}\n      ) @skip(if: $excludeDownstream) {\n        filtered\n        total\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n"
+}

@@ -72,6 +72,12 @@ public class SearchFlagsInputMapper
     if (searchFlags.getFilterNonLatestVersions() != null) {
       result.setFilterNonLatestVersions(searchFlags.getFilterNonLatestVersions());
     }
+    if (searchFlags.getFetchExtraFields() != null) {
+      result.setFetchExtraFields(new StringArray(searchFlags.getFetchExtraFields()));
+    }
+    if (searchFlags.getRewriteQuery() != null) {
+      result.setRewriteQuery(searchFlags.getRewriteQuery());
+    }
     return result;
   }
 }

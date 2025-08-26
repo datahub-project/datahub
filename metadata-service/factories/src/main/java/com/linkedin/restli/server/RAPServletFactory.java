@@ -52,6 +52,15 @@ public class RAPServletFactory {
           SpringInjectResourceFactory springInjectResourceFactory,
       @Qualifier("parseqEngineThreads") int threads) {
     log.info("Starting restli servlet with {} threads.", threads);
+
+    // !!!!!!! IMPORTANT !!!!!!!
+    // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
+    // Without this the limit is
+    // whatever Jackson is defaulting to (5 MB currently).
+    AbstractJacksonDataCodec.JSON_FACTORY.setStreamReadConstraints(
+        StreamReadConstraints.builder().maxStringLength(maxSerializedStringLength).build());
+    // !!!!!!! IMPORTANT !!!!!!!
+
     Engine parseqEngine =
         new EngineBuilder()
             .setTaskExecutor(Executors.newFixedThreadPool(threads))

@@ -48,6 +48,9 @@ query getStructuredProperty($urn: String!) {
                     }
                 }
             }
+            assetOrigin {
+                ...originFields
+            }
         }
     }
 }
@@ -141,4 +144,8 @@ mutation updateStructuredProperty($input: UpdateStructuredPropertyInput!) {
 
 mutation deleteStructuredProperty($input: DeleteStructuredPropertyInput!) {
     deleteStructuredProperty(input: $input)
+}
+
+mutation proposeStructuredPropeties($input: ProposeStructuredPropertiesInput!) {
+    proposeStructuredProperties(input: $input)
 }

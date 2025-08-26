@@ -25,7 +25,7 @@ function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions, th
     }
 
     return {
-        primaryColor: getColor(color, 500, theme),
+        primaryColor: getColor(color, 700, theme),
         bgColor: color === 'gray' ? getColor(color, 100, theme) : getColor(color, 0, theme),
         hoverColor: color === 'gray' ? getColor(color, 100, theme) : getColor(color, 1100, theme),
         borderColor: getColor('gray', 1800, theme),

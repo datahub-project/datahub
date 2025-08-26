@@ -31,10 +31,10 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 RUN apk add --no-cache mysql-client bash mariadb-connector-c sqlite
 
 COPY docker/mysql-setup/init.sql /init.sql
+COPY docker/mysql-setup/user.sql /user.sql
 COPY docker/mysql-setup/init.sh /init.sh
 RUN chmod 755 init.sh
 
 ENV DATAHUB_DB_NAME="datahub"
 
 CMD dockerize -wait tcp://$MYSQL_HOST:$MYSQL_PORT -timeout 240s /init.sh
-

@@ -26,6 +26,10 @@ def get_frontend_session():
     return login_as(username, password)
 
 
+def check_integrations_service() -> bool:
+    return os.getenv("CHECK_INTEGRATIONS_SERVICE", "true").lower() in ["true", "yes"]
+
+
 def login_as(username: str, password: str):
     return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
@@ -38,13 +42,13 @@ def get_admin_username() -> str:
 
 def get_admin_credentials():
     return (
-        os.getenv("ADMIN_USERNAME", "datahub"),
-        os.getenv("ADMIN_PASSWORD", "datahub"),
+        os.getenv("ADMIN_USERNAME", "admin"),
+        os.getenv("ADMIN_PASSWORD", "mypass"),
     )
 
 
 def get_root_urn():
-    return "urn:li:corpuser:datahub"
+    return "urn:li:corpuser:admin"
 
 
 def get_gms_url():
@@ -83,6 +87,10 @@ def get_sleep_info() -> Tuple[int, int]:
     )
 
 
+def get_integrations_service_url() -> str:
+    return os.getenv("DATAHUB_INTEGRATIONS_SERVICE_URL") or "http://localhost:9003"
+
+
 def is_k8s_enabled():
     return os.getenv("K8S_CLUSTER_ENABLED", "false").lower() in ["true", "yes"]
 
@@ -90,6 +98,9 @@ def is_k8s_enabled():
 def wait_for_healthcheck_util(auth_session):
     assert not check_endpoint(auth_session, f"{get_frontend_url()}/admin")
     assert not check_endpoint(auth_session, f"{get_gms_url()}/health")
+    if not check_integrations_service():
+        return
+    assert not check_endpoint(auth_session, f"{get_integrations_service_url()}/docs")
 
 
 def check_endpoint(auth_session, url):
@@ -250,6 +261,7 @@ class TestSessionWrapper:
         self._upstream = requests_session
         self._frontend_url = get_frontend_url()
         self._gms_url = get_gms_url()
+        self._integrations_url = get_integrations_service_url()
         self._gms_token_id, self._gms_token = self._generate_gms_token()
 
     def __getattr__(self, name):
@@ -292,6 +304,9 @@ class TestSessionWrapper:
 
     def gms_url(self):
         return self._gms_url
+
+    def integrations_service_url(self):
+        return self._integrations_url
 
     def _wait(self, *args, **kwargs):
         if "/logIn" not in args[0]:
@@ -347,3 +362,37 @@ class TestSessionWrapper:
                 f"{self._frontend_url}/api/v2/graphql", json=json
             )
             response.raise_for_status()
+
+
+def assert_dict_contains(subset, superset):
+    if isinstance(subset, dict):
+        assert isinstance(superset, dict), "superset is not a dictionary"
+        for key, value in subset.items():
+            assert key in superset, f"key {key} not found in superset"
+            assert_dict_contains(value, superset[key])
+    elif isinstance(subset, list):
+        assert isinstance(superset, list), "superset is not a list"
+        assert all(item in superset for item in subset), (
+            "subset list items not found in superset list"
+        )
+    else:
+        assert subset == superset, (
+            f"value {subset} does not match value in superset {superset}"
+        )
+
+
+def execute_gql(auth_session, query, variables=None):
+    """
+    Helper for sending GraphQL requests via the auth_session's post method.
+    Raises an HTTP error on bad status, returns the parsed JSON response on success.
+    """
+    payload = {"query": query}
+    if variables is not None:
+        payload["variables"] = variables
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=payload
+    )
+    response.raise_for_status()
+
+    return response.json()

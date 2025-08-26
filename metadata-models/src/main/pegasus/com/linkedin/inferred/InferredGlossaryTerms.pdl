@@ -1,0 +1,19 @@
+namespace com.linkedin.inferred
+
+import com.linkedin.common.Urn
+
+/**
+ * Records inferred glossary terms along with their provenance
+ * All glossary terms from this record share same provenance
+ */
+record InferredGlossaryTerms {
+    /**
+     * Urn of inferred glossary term
+     */
+    glossaryTerms: array[Urn]
+    
+    /**
+     * Provenance details about this inference
+     */
+    source: InferredMetadataSource 
+}

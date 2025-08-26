@@ -1,0 +1,27 @@
+namespace com.linkedin.monitor
+
+
+/**
+ * Information about the parameters required to evaluate a volume assertion
+ */
+record DatasetVolumeAssertionParameters {
+  /**
+  * The source of the change operation.
+  */
+  sourceType: enum DatasetVolumeSourceType {
+    /**
+    * Determine the row count using an information schema query - not applicable to all platforms.
+    */
+    INFORMATION_SCHEMA
+
+    /**
+    * Determine the row count using a COUNT(*) query
+    */
+    QUERY
+
+    /**
+    * Determine the row count using the DataHub Dataset Profile aspect
+    */
+    DATAHUB_DATASET_PROFILE
+  }
+}

@@ -7,6 +7,7 @@ import EntityRegistry from '@app/entity/EntityRegistry';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { EntityTab, GenericEntityProperties } from '@app/entity/shared/types';
+import EntityRegistryV2 from '@app/entityV2/EntityRegistry';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
@@ -18,12 +19,13 @@ import {
     ENTITY_PROFILE_OWNERS_ID,
     ENTITY_PROFILE_PROPERTIES_ID,
     ENTITY_PROFILE_SCHEMA_ID,
+    ENTITY_PROFILE_SUBSCRIPTION_ID,
     ENTITY_PROFILE_TAGS_ID,
 } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import usePrevious from '@app/shared/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { AppConfig, EntityType } from '@types';
+import { AppConfig, EntityType, ShareResult } from '@types';
 
 /**
  * The structure of our path will be
@@ -70,7 +72,7 @@ export function getDataForEntityType<T>({
             (sibling) => getDataForEntityType({ data: sibling.entity, getOverrideProperties: () => ({}) }),
         );
 
-        const allPlatforms = anyEntityData.siblings.isPrimary
+        const allPlatforms = anyEntityData.siblings?.isPrimary
             ? [anyEntityData.platform, genericSiblingProperties?.[0]?.platform]
             : [genericSiblingProperties?.[0]?.platform, anyEntityData.platform];
 
@@ -89,7 +91,7 @@ export function getDataForEntityType<T>({
 export function getEntityPath(
     entityType: EntityType,
     urn: string,
-    entityRegistry: EntityRegistry,
+    entityRegistry: EntityRegistry | EntityRegistryV2,
     isLineageMode: boolean,
     isHideSiblingMode: boolean,
     tabName?: string,
@@ -192,6 +194,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
                 ENTITY_PROFILE_OWNERS_ID,
@@ -202,6 +205,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_ENTITIES_ID,
                 ENTITY_PROFILE_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -213,6 +217,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_DOCUMENTATION_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -245,4 +250,22 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
 
 export function getNestedValue(obj: any, path: string) {
     return path.split('.').reduce((o, p) => (o || {})[p], obj);
+}
+
+export function sortSharedList(sharedItems: ShareResult[]) {
+    // sort by lastSuccess time considering the running state items with lastSuccess null
+    const sortedItems = sharedItems.slice().sort((a, b) => {
+        if (a.lastSuccess === null && b.lastSuccess !== null) {
+            return -1;
+        }
+        if (a.lastSuccess !== null && b.lastSuccess === null) {
+            return 1;
+        }
+        if (a.lastSuccess === null && b.lastSuccess === null) {
+            return 0;
+        }
+        return (b.lastSuccess?.time || 0) - (a.lastSuccess?.time || 0);
+    });
+
+    return sortedItems;
 }

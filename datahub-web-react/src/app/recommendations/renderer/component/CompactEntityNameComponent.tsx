@@ -16,11 +16,19 @@ const NameWrapper = styled.span<{ addMargin: boolean }>`
     align-items: center;
     max-width: 100%;
     ${(props) => props.addMargin && 'margin: 2px 0;'}
+
+    .ant-tag {
+        padding: 0 4px 0 0;
+    }
 `;
 
 const StyledArrow = styled(ArrowRightOutlined)`
     color: ${ANTD_GRAY[8]};
     margin: 0 4px;
+`;
+
+const FullWidthContainer = styled.span`
+    max-width: 100%;
 `;
 
 type CompactEntityNameProps = {
@@ -30,6 +38,7 @@ type CompactEntityNameProps = {
     placement?: TooltipPlacement;
     onClick?: () => void;
     linkUrlParams?: Record<string, string | boolean>;
+    isProposed?: boolean;
 };
 
 export const CompactEntityNameComponent = ({
@@ -39,6 +48,7 @@ export const CompactEntityNameComponent = ({
     placement,
     onClick,
     linkUrlParams,
+    isProposed,
 }: CompactEntityNameProps) => {
     const entityRegistry = useEntityRegistry();
 
@@ -67,7 +77,7 @@ export const CompactEntityNameComponent = ({
                 placement={placement}
                 showArrow={false}
             >
-                <span>
+                <FullWidthContainer>
                     <EntityPreviewTag
                         showNameTooltip={!showFullTooltip}
                         displayName={displayName}
@@ -80,8 +90,9 @@ export const CompactEntityNameComponent = ({
                         onClick={onClick}
                         columnName={columnName}
                         dataTestId={`compact-entity-link-${processedEntity.urn}`}
+                        isProposed={isProposed}
                     />
-                </span>
+                </FullWidthContainer>
             </HoverEntityTooltip>
             {showArrow && <StyledArrow />}
         </NameWrapper>

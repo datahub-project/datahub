@@ -19,6 +19,9 @@ fragment dataFlowFields on DataFlow {
             value
         }
     }
+    share {
+        ...shareFields
+    }
     privileges {
         ...entityPrivileges
     }
@@ -65,6 +68,9 @@ fragment dataFlowFields on DataFlow {
     subTypes {
         typeNames
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 query getDataFlow($urn: String!) {
@@ -86,6 +92,9 @@ query getDataFlow($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        proposals: proposals {
+            ...proposalsFragment
         }
         ...notes
     }

@@ -30,7 +30,12 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import {
+    getDashboardPopularityTier,
+    isValuePresent,
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
@@ -64,8 +69,8 @@ const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
  */
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -242,6 +247,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         {
             component: StatusSection,
         },
+        {
+            component: SharingAssetSection,
+        },
     ];
 
     getSidebarTabs = () => [
@@ -297,8 +305,17 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 subtype={data.subTypes?.typeNames?.[0]}
+                tier={
+                    isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDashboardPopularityTier(
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
+                }
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
                 browsePaths={data.browsePathV2 || undefined}
@@ -332,7 +349,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 snippet={
                     <MatchedFieldList
                         customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
@@ -343,6 +360,15 @@ export class DashboardEntity implements Entity<Dashboard> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                tier={
+                    isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getDashboardPopularityTier(
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
+                }
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
             />
@@ -375,12 +401,20 @@ export class DashboardEntity implements Entity<Dashboard> {
         return data.properties?.name || data.urn;
     };
 
+    createdTime = (data: Dashboard) => {
+        return data?.properties?.created?.time || data?.info?.created?.time;
+    };
+
     getGenericEntityProperties = (data: Dashboard) => {
         return getDataForEntityType({
             data,
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    getPlatformProperties = (data: Dashboard) => {
+        return data?.platform;
     };
 
     supportedCapabilities = () => {

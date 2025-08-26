@@ -5,8 +5,10 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
+import com.linkedin.structured.PrimitivePropertyValueArray;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -18,6 +20,9 @@ public class StructuredPropertiesPatchBuilder
   private static final String BASE_PATH = "/properties";
   private static final String URN_KEY = "propertyUrn";
   private static final String VALUES_KEY = "values";
+  private static final String LAST_MODIFIED_KEY = "lastModified";
+  private static final String TIME_KEY = "time";
+  private static final String ACTOR_KEY = "actor";
 
   /**
    * Remove a property from a structured properties aspect. If the property doesn't exist, this is a
@@ -112,6 +117,37 @@ public class StructuredPropertiesPatchBuilder
             PatchOperationType.ADD.getValue(),
             BASE_PATH + "/" + encodeValueUrn(propertyUrn),
             newProperty));
+    return this;
+  }
+
+  public StructuredPropertiesPatchBuilder setProperty(
+      @Nonnull Urn propertyUrn,
+      @Nonnull PrimitivePropertyValueArray propertyValues,
+      @Nonnull AuditStamp lastModified) {
+    ObjectNode newProperty = instance.objectNode();
+    newProperty.put(URN_KEY, propertyUrn.toString());
+
+    ArrayNode valuesNode = instance.arrayNode();
+    propertyValues.forEach(
+        propertyValue -> {
+          ObjectNode propertyValueNode = instance.objectNode();
+          if (propertyValue.isString()) {
+            propertyValueNode.set("string", instance.textNode(propertyValue.getString()));
+          } else {
+            propertyValueNode.set("double", instance.numberNode(propertyValue.getDouble()));
+          }
+          valuesNode.add(propertyValueNode);
+        });
+    newProperty.set(VALUES_KEY, valuesNode);
+
+    ObjectNode lastModifiedValue = instance.objectNode();
+    lastModifiedValue.put(TIME_KEY, lastModified.getTime());
+    lastModifiedValue.put(ACTOR_KEY, lastModified.getActor().toString());
+    newProperty.set(LAST_MODIFIED_KEY, lastModifiedValue);
+
+    pathValues.add(
+        ImmutableTriple.of(
+            PatchOperationType.ADD.getValue(), BASE_PATH + "/" + propertyUrn, newProperty));
     return this;
   }
 

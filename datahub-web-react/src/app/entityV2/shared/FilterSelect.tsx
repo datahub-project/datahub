@@ -20,6 +20,9 @@ interface FilterSelectProps {
     onFilterChange: (selectedFilters: FilterOption[]) => void;
     excludedCategories?: string[];
     initialSelectedOptions?: NestedSelectOption[];
+    placeholder?: string;
+    width?: number | 'fit-content' | 'full';
+    shouldDisplayConfirmationFooter?: boolean;
 }
 
 export const FilterSelect = ({
@@ -27,6 +30,9 @@ export const FilterSelect = ({
     onFilterChange,
     excludedCategories,
     initialSelectedOptions,
+    placeholder,
+    width,
+    shouldDisplayConfirmationFooter,
 }: FilterSelectProps) => {
     const handleFilterChange = useCallback(
         (selectedValues: NestedSelectOption[]) => {
@@ -68,16 +74,17 @@ export const FilterSelect = ({
 
     return (
         <NestedSelect
-            placeholder="Filter"
+            placeholder={placeholder || 'Filter'}
             options={options}
             initialValues={initialSelectedOptions}
             onUpdate={handleFilterChange}
             isMultiSelect
             areParentsSelectable={false}
-            width={100}
-            selectLabelProps={{ variant: 'labeled', label: 'Filter' }}
+            width={width || 100}
+            selectLabelProps={{ variant: 'labeled', label: placeholder || 'Filter' }}
             shouldAlwaysSyncParentValues
             hideParentCheckbox
+            shouldDisplayConfirmationFooter={shouldDisplayConfirmationFooter}
         />
     );
 };

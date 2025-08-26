@@ -7,12 +7,14 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -20,6 +22,8 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -35,6 +39,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ResolverUtils {
+
+  public static final String ADMIN_USER_URN = "urn:li:corpuser:admin";
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -181,7 +187,7 @@ public class ResolverUtils {
     if (viewInfo == null) {
       return null;
     }
-    Filter result = SearchUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
+    Filter result = FilterUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
     return result;
   }
 
@@ -198,5 +204,22 @@ public class ResolverUtils {
       return System.currentTimeMillis();
     }
     return null;
+  }
+
+  public static Filter createUrnFilter(
+      @Nonnull final String fieldName, @Nonnull final List<Urn> urns) {
+    Filter filter = new Filter();
+    CriterionArray criterionArray = new CriterionArray();
+
+    StringArray urnStrings = new StringArray();
+    urns.forEach(urn -> urnStrings.add(urn.toString()));
+    Criterion criterion = CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, urnStrings);
+
+    criterionArray.add(criterion);
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
+
+    return filter;
   }
 }

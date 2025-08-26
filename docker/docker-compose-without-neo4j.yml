@@ -7,9 +7,9 @@
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react
-    image: ${DATAHUB_FRONTEND_IMAGE:-acryldata/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
-    - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
+      - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
@@ -18,7 +18,7 @@ services:
       datahub-gms:
         condition: service_healthy
     volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-actions:
     hostname: actions
@@ -35,12 +35,12 @@ services:
         condition: service_healthy
   datahub-gms:
     hostname: datahub-gms
-    image: ${DATAHUB_GMS_IMAGE:-acryldata/datahub-gms}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
-    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
+      - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     build:
-        context: ../
-        dockerfile: docker/datahub-gms/Dockerfile
+      context: ../
+      dockerfile: docker/datahub-gms/Dockerfile
     env_file: datahub-gms/env/docker-without-neo4j.env
     environment:
       - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
@@ -55,13 +55,13 @@ services:
       datahub-upgrade:
         condition: service_completed_successfully
     volumes:
-    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-upgrade:
     hostname: datahub-upgrade
-    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_UPGRADE_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade}:${DATAHUB_VERSION:-head}
     command:
-    - -u
-    - SystemUpdate
+      - -u
+      - SystemUpdate
     build:
       context: ../
       dockerfile: docker/datahub-upgrade/Dockerfile
@@ -76,7 +76,7 @@ services:
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
     hostname: elasticsearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-acryldata/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
@@ -91,7 +91,7 @@ services:
       datahub_setup_job: true
   kafka-setup:
     hostname: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-acryldata/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     build:
       dockerfile: ./docker/kafka-setup/Dockerfile
       context: ../
@@ -107,7 +107,7 @@ services:
     hostname: elasticsearch
     image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
     ports:
-    - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
+      - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env
     environment:
     - discovery.type=single-node
@@ -123,12 +123,12 @@ services:
       retries: 3
       timeout: 5s
     volumes:
-    - esdata:/usr/share/elasticsearch/data
+      - esdata:/usr/share/elasticsearch/data
   schema-registry:
     hostname: schema-registry
     image: ${DATAHUB_CONFLUENT_SCHEMA_REGISTRY_IMAGE:-confluentinc/cp-schema-registry}:${DATAHUB_CONFLUENT_VERSION:-7.9.2}
     ports:
-    - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
+      - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
     env_file: schema-registry/env/docker.env
     healthcheck:
       test: nc -z schema-registry ${DATAHUB_SCHEMA_REGISTRY_PORT:-8081}
@@ -143,7 +143,7 @@ services:
     hostname: broker
     image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.9.2}
     ports:
-    - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
+      - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     env_file: broker/env/docker.env
     healthcheck:
       test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
@@ -155,12 +155,12 @@ services:
       zookeeper:
         condition: service_healthy
     volumes:
-    - broker:/var/lib/kafka/data/
+      - broker:/var/lib/kafka/data/
   zookeeper:
     hostname: zookeeper
     image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-7.9.2}
     ports:
-    - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
+      - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     env_file: zookeeper/env/docker.env
     healthcheck:
       test: echo srvr | nc zookeeper $${DATAHUB_ZK_PORT:-2181}

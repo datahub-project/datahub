@@ -71,7 +71,8 @@ public class AuthUtilTest {
                 new ConjunctivePrivilegeGroup(List.of("VIEW_ENTITY_PAGE")),
                 new ConjunctivePrivilegeGroup(List.of("GET_ENTITY_PRIVILEGE")),
                 new ConjunctivePrivilegeGroup(List.of("EDIT_ENTITY")),
-                new ConjunctivePrivilegeGroup(List.of("DELETE_ENTITY")))));
+                new ConjunctivePrivilegeGroup(List.of("DELETE_ENTITY")),
+                new ConjunctivePrivilegeGroup(List.of("VIEW_ENTITY")))));
   }
 
   @Test

@@ -7,6 +7,7 @@ enum UsageTimeRange {
     WEEK
     MONTH
     QUARTER
+    HALF_YEAR
     YEAR
     ALL
 }

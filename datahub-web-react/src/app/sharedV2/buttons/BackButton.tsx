@@ -5,6 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
+    flex-shrink: 0;
     height: 25px;
     width: 25px;
     color: ${(p) => p.theme.styles['primary-color']};

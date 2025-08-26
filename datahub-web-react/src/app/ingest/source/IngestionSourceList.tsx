@@ -1,6 +1,6 @@
-import { Button, SearchBar, SimpleSelect } from '@components';
+import { Button, SearchBar, SimpleSelect, colors } from '@components';
 import { Modal, Pagination, message } from 'antd';
-import { ArrowClockwise } from 'phosphor-react';
+import { ArrowClockwise, X } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -17,6 +17,7 @@ import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRe
 import { isExecutionRequestActive } from '@app/ingest/source/executions/IngestionSourceExecutionList';
 import useRefreshIngestionData from '@app/ingest/source/executions/useRefreshIngestionData';
 import { useCommandS } from '@app/ingest/source/hooks';
+import { usePoolActionsForIngestionSourceList } from '@app/ingest/source/hooks.saas';
 import {
     CLI_EXECUTOR_ID,
     addToListIngestionSourcesCache,
@@ -25,18 +26,15 @@ import {
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
 
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
     useDeleteIngestionSourceMutation,
-    useGetIngestionSourceQuery,
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
 import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
@@ -95,6 +93,24 @@ const StyledSimpleSelect = styled(SimpleSelect)`
     align-self: start;
 `;
 
+// SaaS only buttons
+const PoolsFilterButton = styled(Button)`
+    margin: 8px;
+    font-weight: bold;
+    &:hover {
+        background-color: transparent;
+    }
+`;
+
+const CloseButton = styled(X)`
+    cursor: pointer;
+    margin-left: 2px;
+    position: relative;
+    top: 2px;
+    align-items: center;
+    gap: 8px;
+`;
+
 const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
 
 enum IngestionSourceType {
@@ -118,14 +134,16 @@ const removeExecutionsFromIngestionSource = (source) => {
 };
 
 type Props = {
+    onSwitchTab: (tab: string) => void;
     showCreateModal?: boolean;
     setShowCreateModal?: (show: boolean) => void;
 };
 
-export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Props) => {
+export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreateModal }: Props) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.[INGESTION_TAB_QUERY_PARAMS.searchQuery] as string) || undefined;
+    const paramsPoolFilter = (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined; // SaaS only
 
     const [query, setQuery] = useState<undefined | string>(undefined);
     const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -184,6 +202,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         });
     }
 
+    // SaaS only
+    if (paramsPoolFilter) {
+        filters.push({ field: 'sourceExecutorId', values: [paramsPoolFilter], negated: false });
+    }
+
     // Ingestion Source Queries
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
@@ -199,7 +222,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
-    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
     // Execution Request queries
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
@@ -208,24 +230,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
     const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
-    const [focusSource, setFocusSource] = useState(
-        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined,
-    );
-
-    const { data: focusSourceData, refetch: focusSourceRefetch } = useGetIngestionSourceQuery({
-        variables: {
-            urn: focusSourceUrn || '',
-        },
-        skip: !focusSourceUrn,
-    });
-
-    const combinedRefetch = async () => {
-        await Promise.all([focusSourceRefetch(), refetch()]);
-    };
-
-    useEffect(() => {
-        setFocusSource(focusSourceData?.ingestionSource as IngestionSource);
-    }, [focusSourceData?.ingestionSource]);
+    const focusSource =
+        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
     const onRefresh = useCallback(() => {
         refetch();
@@ -289,22 +295,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
-        owners?: PendingOwner[],
     ) => {
         if (focusSourceUrn) {
             // Update:
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
-                    if (owners && owners.length > 0) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners: owners || [],
-                                    resources: [{ resourceUrn: focusSourceUrn }],
-                                },
-                            },
-                        });
-                    }
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
@@ -329,7 +324,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: 'Loading...', duration: 3 });
                     const newSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
@@ -340,19 +335,15 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                             timezone: input.schedule?.timezone || null,
                         },
                         platform: null,
+                        privileges: {
+                            canEdit: false,
+                            canDelete: false,
+                            canExecute: false,
+                            canView: false,
+                        },
                         executions: null,
                         ownership: null,
                     };
-                    if (owners && owners.length > 0) {
-                        batchAddOwnersMutation({
-                            variables: {
-                                input: {
-                                    owners,
-                                    resources: [{ resourceUrn: newSource.urn }],
-                                },
-                            },
-                        });
-                    }
                     addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {
                         refetch();
@@ -368,7 +359,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         if (shouldRun && result.data?.createIngestionSource) {
                             executeIngestionSource(result.data.createIngestionSource);
                         }
-                    }, 2000);
+                    }, 3000);
                     setIsBuildingSource(false);
                     setFocusSourceUrn(undefined);
                     resetState();
@@ -437,7 +428,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             },
             resetState,
             shouldRun,
-            recipeBuilderState.owners,
         );
     };
 
@@ -497,6 +487,9 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         );
     };
 
+    // SaaS only
+    const { onViewPool, clearPoolFilter } = usePoolActionsForIngestionSourceList(params, onSwitchTab);
+
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
@@ -531,6 +524,13 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                             </Button>
                         </RefreshButtonContainer>
                     </StyledTabToolbar>
+                    {/* SaaS only: Pools filter query param indicator with an 'x' button */}
+                    {paramsPoolFilter && (
+                        <PoolsFilterButton variant="text" onClick={clearPoolFilter}>
+                            Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
+                            <CloseButton color={colors.gray[500]} size={12} />
+                        </PoolsFilterButton>
+                    )}
                 </HeaderContainer>
                 <TableContainer>
                     <IngestionSourceTable
@@ -543,6 +543,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         onDelete={onDelete}
                         onRefresh={onRefresh}
                         onChangeSort={onChangeSort}
+                        saasProps={{ onViewPool }}
                     />
                 </TableContainer>
                 <PaginationContainer>
@@ -561,12 +562,16 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
-                sourceRefetch={combinedRefetch}
                 selectedSource={focusSource}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
-                <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
+                <ExecutionDetailsModal
+                    urn={focusExecutionUrn}
+                    open
+                    onClose={() => setFocusExecutionUrn(undefined)}
+                    saasProps={{ onViewPool }}
+                />
             )}
         </>
     );

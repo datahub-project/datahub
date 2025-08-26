@@ -1,0 +1,15 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema proposals aspect for proposed tags and glossary terms on schema metadata.
+ */
+@Aspect = {
+    "name": "schemaProposals"
+}
+
+record SchemaProposals  {
+    /**
+    * Array of SchemaProposal
+    */
+    schemaProposals: array[SchemaProposal]
+}

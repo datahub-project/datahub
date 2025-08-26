@@ -4,6 +4,8 @@ import static com.datahub.util.RecordUtils.toJsonString;
 import static com.datahub.util.RecordUtils.toRecordTemplate;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.CACHE_HIT_ATTR;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -14,9 +16,14 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
+import com.linkedin.metadata.test.definition.operator.OperatorType;
+import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -42,6 +49,11 @@ public class CachingEntitySearchService {
       entitySearchService; // This is a shared component, also used in search aggregation
   private final int batchSize;
   private final boolean enableCache;
+
+  /** Clears all caches associated with the CacheManager */
+  public void clearCache() {
+    cacheManager.getCacheNames().forEach(name -> cacheManager.getCache(name).clear());
+  }
 
   /**
    * Retrieves cached search results. If the query has been cached, this will return quickly. If
@@ -362,6 +374,7 @@ public class CachingEntitySearchService {
   }
 
   /** Executes the expensive search query using the {@link EntitySearchService} */
+  @WithSpan
   private SearchResult getRawSearchResults(
       @Nonnull OperationContext opContext,
       final List<String> entityNames,
@@ -376,6 +389,7 @@ public class CachingEntitySearchService {
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
+  @WithSpan
   private AutoCompleteResult getRawAutoCompleteResults(
       @Nonnull OperationContext opContext,
       final String entityName,
@@ -387,6 +401,7 @@ public class CachingEntitySearchService {
   }
 
   /** Executes the expensive autocomplete query using the {@link EntitySearchService} */
+  @WithSpan
   private BrowseResult getRawBrowseResults(
       @Nonnull OperationContext opContext,
       final String entityName,
@@ -421,5 +436,231 @@ public class CachingEntitySearchService {
   /** Returns true if the cache should be used or skipped when fetching search results */
   private boolean enableCache(@Nullable final SearchFlags searchFlags) {
     return enableCache && (searchFlags == null || !searchFlags.isSkipCache());
+  }
+
+  /* SAAS ONLY */
+  /**
+   * Retrieves cached search results. If the query has been cached, this will return quickly. If
+   * not, a full search request will be made.
+   *
+   * @param opContext the operation's context
+   * @param entityNames the names of the entity to search
+   * @param query the search query
+   * @param filters the filters to include
+   * @param sortCriteria the sort criteria
+   * @param from the start offset
+   * @param size the count
+   * @param facets list of facets we want aggregations for
+   * @param predicateJson json representation of predicate filter
+   * @return a {@link SearchResult} containing the requested batch of search results
+   */
+  public SearchResult predicateSearch(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets,
+      @Nullable String predicateJson) {
+    return getCachedPredicateSearchResults(
+        opContext, entityNames, query, filters, sortCriteria, from, size, facets, predicateJson);
+  }
+
+  /**
+   * Get search results corresponding to the input "from" and "size" It goes through batches,
+   * starting from the beginning, until we get enough results to return This lets us have batches
+   * that return a variable number of results (we have no idea which batch the "from" "size" page
+   * corresponds to)
+   */
+  public SearchResult getCachedPredicateSearchResults(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets,
+      @Nullable String predicateJson) {
+    size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
+    return new CacheableSearcher<>(
+            cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
+            batchSize,
+            querySize ->
+                getRawPredicateSearchResults(
+                    opContext,
+                    entityNames,
+                    query,
+                    filters,
+                    sortCriteria,
+                    querySize.getFrom(),
+                    querySize.getSize(),
+                    facets,
+                    predicateJson),
+            querySize ->
+                Octet.with(
+                    opContext.getSearchContextId(),
+                    entityNames,
+                    query,
+                    filters != null ? toJsonString(filters) : null,
+                    !CollectionUtils.isEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+                    facets,
+                    querySize,
+                    predicateJson),
+            enableCache)
+        .getSearchResults(opContext, from, size);
+  }
+
+  /** Executes the expensive search query using the {@link EntitySearchService} */
+  @WithSpan
+  private SearchResult getRawPredicateSearchResults(
+      @Nonnull OperationContext opContext,
+      final List<String> entityNames,
+      final String input,
+      final Filter filters,
+      final List<SortCriterion> sortCriteria,
+      final int start,
+      final int count,
+      @Nonnull final List<String> facets,
+      @Nullable String predicateJson) {
+    try {
+      Predicate finalFilterPredicate =
+          filters != null ? AcrylSearchUtils.convertFilterToPredicate(filters) : null;
+      Predicate inputPredicate =
+          opContext.getObjectMapper().readValue(predicateJson, Predicate.class);
+      final Predicate finalPredicate =
+          finalFilterPredicate != null
+              ? Predicate.of(
+                  OperatorType.AND, ImmutableList.of(finalFilterPredicate, inputPredicate))
+              : inputPredicate;
+      return entitySearchService.predicateSearch(
+          opContext, entityNames, input, finalPredicate, sortCriteria, start, count, facets);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Retrieves cached scroll results. If the query has been cached, this will return quickly. If
+   * not, a full scroll request will be made.
+   *
+   * @param opContext the operation's context
+   * @param entities the names of the entities to search
+   * @param query the search query
+   * @param filters the filters to include
+   * @param sortCriteria the sort criteria
+   * @param scrollId opaque scroll identifier for a scroll request
+   * @param keepAlive the string representation of how long to keep point in time alive
+   * @param size the count
+   * @return a {@link ScrollResult} containing the requested batch of scroll results
+   */
+  public ScrollResult predicateScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entities,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      String predicateJson) {
+    return getCachedPredicateScrollResults(
+        opContext,
+        entities,
+        query,
+        filters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        predicateJson);
+  }
+
+  @WithSpan
+  public ScrollResult getCachedPredicateScrollResults(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entities,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      String predicateJson) {
+    try {
+      Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
+      ScrollResult result;
+      Predicate finalFilterPredicate =
+          filters != null ? AcrylSearchUtils.convertFilterToPredicate(filters) : null;
+      Predicate inputPredicate =
+          opContext.getObjectMapper().readValue(predicateJson, Predicate.class);
+      final Predicate finalPredicate =
+          finalFilterPredicate != null
+              ? Predicate.of(
+                  OperatorType.AND, ImmutableList.of(finalFilterPredicate, inputPredicate))
+              : inputPredicate;
+      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+
+        Object cacheKey =
+            Octet.with(
+                opContext.getSearchContextId(),
+                entities,
+                query,
+                filters != null ? toJsonString(filters) : null,
+                CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+                scrollId,
+                predicateJson,
+                size);
+        String json = cache.get(cacheKey, String.class);
+        result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
+
+        if (result == null) {
+          Span.current().setAttribute(CACHE_HIT_ATTR, "false");
+          result =
+              getRawPredicateScrollResults(
+                  opContext,
+                  entities,
+                  query,
+                  finalPredicate,
+                  sortCriteria,
+                  scrollId,
+                  keepAlive,
+                  size);
+          cache.put(cacheKey, toJsonString(result));
+        } else {
+          Span.current().setAttribute(CACHE_HIT_ATTR, "true");
+        }
+      } else {
+        Span.current().setAttribute(CACHE_HIT_ATTR, "false");
+        result =
+            getRawPredicateScrollResults(
+                opContext,
+                entities,
+                query,
+                finalPredicate,
+                sortCriteria,
+                scrollId,
+                keepAlive,
+                size);
+      }
+      return result;
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private ScrollResult getRawPredicateScrollResults(
+      @Nonnull OperationContext opContext,
+      final Collection<String> entities,
+      final String input,
+      final Predicate predicate,
+      final List<SortCriterion> sortCriteria,
+      @Nullable final String scrollId,
+      @Nullable final String keepAlive,
+      final int count) {
+    return entitySearchService.predicateScroll(
+        opContext, entities, input, predicate, sortCriteria, scrollId, keepAlive, count);
   }
 }

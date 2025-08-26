@@ -293,7 +293,6 @@ public class DataHubAuthorizer implements Authorizer {
       final ResolvedEntitySpec resolvedActorSpec =
           entitySpecResolver.resolve(
               new EntitySpec(actorUrn.get().getEntityType(), request.getActorUrn()));
-
       final PolicyEngine.PolicyEvaluationResult result =
           policyEngine.evaluatePolicy(
               systemOpContext,
@@ -391,13 +390,13 @@ public class DataHubAuthorizer implements Authorizer {
       }
     }
 
-    private void addPoliciesToCache(
+    private static void addPoliciesToCache(
         final Map<String, List<DataHubPolicyInfo>> cache,
         final List<PolicyFetcher.Policy> policies) {
       policies.forEach(policy -> addPolicyToCache(cache, policy.getPolicyInfo()));
     }
 
-    private void addPolicyToCache(
+    private static void addPolicyToCache(
         final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
       final List<String> privileges = policy.getPrivileges();
       for (String privilege : privileges) {

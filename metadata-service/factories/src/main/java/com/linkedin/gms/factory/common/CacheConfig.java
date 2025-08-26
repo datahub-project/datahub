@@ -1,5 +1,7 @@
 package com.linkedin.gms.factory.common;
 
+import static com.linkedin.gms.factory.search.LineageSearchServiceFactory.*;
+
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.EvictionConfig;
@@ -13,6 +15,8 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.spi.merge.LatestUpdateMergePolicy;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.cache.CacheConfiguration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -109,5 +113,38 @@ public class CacheConfig {
             new MergePolicyConfig().setPolicy(LatestUpdateMergePolicy.class.getName()));
 
     return mapConfig;
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  public MapConfig lineageCacheConfig(final ConfigurationProvider configurationProvider) {
+    CacheConfiguration cacheConfiguration = configurationProvider.getCache();
+    MapConfig lineageMapConfig = new MapConfig();
+    String evictionPolicy = cacheConfiguration.getSearch().getLineage().getEvictionPolicy();
+    if (InternalEvictionPolicy.TTL.isPolicy(evictionPolicy)
+        || InternalEvictionPolicy.SIZE_AND_TTL.isPolicy(evictionPolicy)) {
+      int ttl =
+          Long.valueOf(cacheConfiguration.getSearch().getLineage().getTtlSeconds()).intValue();
+      lineageMapConfig.setTimeToLiveSeconds(ttl);
+    }
+
+    EvictionConfig evictionConfig = new EvictionConfig();
+
+    if (InternalEvictionPolicy.MAX_SIZE.isPolicy(evictionPolicy)
+        || InternalEvictionPolicy.SIZE_AND_TTL.isPolicy(evictionPolicy)) {
+      evictionConfig
+          .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+          .setSize(cacheMaxSize)
+          .setEvictionPolicy(EvictionPolicy.LFU);
+    } else {
+      evictionConfig
+          .setSize(0) // Ignored
+          .setEvictionPolicy(
+              EvictionPolicy
+                  .NONE); // Will never evict based on size, allows infinite growth of cache entries
+    }
+    lineageMapConfig.setEvictionConfig(evictionConfig);
+    lineageMapConfig.setName(LINEAGE_SEARCH_SERVICE_CACHE_NAME);
+    return lineageMapConfig;
   }
 }

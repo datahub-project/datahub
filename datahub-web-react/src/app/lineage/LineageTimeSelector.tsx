@@ -1,5 +1,6 @@
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
-import { DatePicker, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { DatePicker } from 'antd';
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';

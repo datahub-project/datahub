@@ -350,6 +350,11 @@ type ERModelRelationship implements EntityWithRelationships & Entity {
   No-op required for the model
   """
   lineage(input: LineageInput!): EntityLineageResult
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -599,9 +604,22 @@ type Mutation {
   batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
   """
-  Add a link, or institutional memory, from a particular Entity
+  Add a link, or institutional memory, for a particular asset
   """
   addLink(input: AddLinkInput!): Boolean
+
+  """
+  Update a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier for which link to update.
+  """
+  updateLink(input: UpdateLinkInput!): Boolean
+
+  """
+  Upsert a link, or institutional memory, for a particular asset.
+  A combo of link label and url create a unique identifier to update a link,
+  or add a new link if no links with label/url combo are found.
+  """
+  upsertLink(input: UpsertLinkInput!): Boolean
 
   """
   Remove a link, or institutional memory, from a particular Entity
@@ -612,6 +630,11 @@ type Mutation {
   Incubating. Updates the description of a resource. Currently only supports Dataset Schema Fields, Containers
   """
   updateDescription(input: DescriptionUpdateInput!): Boolean
+
+  """
+  Incubating. Updates the short description of a resource. Currently only supports Domains
+  """
+  updateShortDescription(input: DescriptionUpdateInput!): Boolean
 
   """
   Remove a user. Requires Manage Users & Groups Platform Privilege
@@ -1268,6 +1291,21 @@ enum EntityType {
   DATAHUB_CONNECTION
 
   """
+  A datahub actions pipeline.
+  """
+  ACTIONS_PIPELINE
+
+  """
+  A datahub action request.
+  """
+  ACTION_REQUEST
+
+  """
+  An asset monitor
+  """
+  MONITOR
+
+  """
   A DataHub incident - SaaS only
   """
   INCIDENT
@@ -1329,6 +1367,16 @@ enum EntityType {
   VERSION_SET
 
   """
+  A Remote Executor
+  """
+  REMOTE_EXECUTOR
+
+  """
+  A Remote Executor Pool
+  """
+  REMOTE_EXECUTOR_POOL
+
+  """
   An application
   """
   APPLICATION
@@ -1342,6 +1390,11 @@ enum EntityType {
   An DataHub Page Module
   """
   DATAHUB_PAGE_MODULE
+
+  """
+  A DataHub subscription
+  """
+  SUBSCRIPTION
 }
 
 """
@@ -1604,6 +1657,23 @@ interface TimeSeriesAspect {
   timestampMillis: Long!
 }
 
+type LineageFeatures {
+  """
+  Cached number of entities related by lineage, upstream.
+  """
+  upstreamCount: Int!
+
+  """
+  Cached number of entities related by lineage, downstream.
+  """
+  downstreamCount: Int!
+
+  """
+  Record of when and how lineage features were computed.
+  """
+  computedAt: AuditStamp!
+}
+
 """
 Deprecated, use relationships field instead
 """
@@ -1627,6 +1697,11 @@ interface EntityWithRelationships implements Entity {
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -1705,6 +1780,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   editableSchemaMetadata: EditableSchemaMetadata
 
   """
+  Documentation aspect for this asset
+  """
+  documentation: Documentation
+
+  """
   Status of the Dataset
   """
   status: Status
@@ -1752,8 +1832,14 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Statistics about how this Dataset is used
   The first parameter, `resource`, is deprecated and no longer needs to be provided
+  timeZone accepts standard IANA time zone identifier ie. America/New_York
   """
-  usageStats(resource: String, range: TimeRange): UsageQueryResult
+  usageStats(
+    resource: String
+    range: TimeRange
+    startTimeMillis: Long
+    timeZone: String
+  ): UsageQueryResult
 
   """
   Experimental - Summary operational & usage statistics about a Dataset
@@ -1914,6 +2000,26 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Structured properties about this Dataset
   """
   structuredProperties: StructuredProperties
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
+
+  """
+  Statistics about how this Dataset has been operated on
+  """
+  operationsStats(input: OperationsStatsInput): OperationsQueryResult
 }
 
 type RoleAssociation {
@@ -2083,7 +2189,7 @@ type SiblingProperties {
   """
   The sibling entities
   """
-  siblings: [Entity]
+  siblings: [Entity] @deprecated(reason: "Use siblingsSearch on Entity instead")
 }
 
 """
@@ -2489,6 +2595,16 @@ type GlossaryTerm implements Entity {
   The forms associated with the Dataset
   """
   forms: Forms
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -2657,6 +2773,21 @@ type GlossaryNode implements Entity {
   Executes a search on the children of this glossary node
   """
   glossaryChildrenSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  References to internal resources related to the glossary node
+  """
+  institutionalMemory: InstitutionalMemory
 }
 
 """
@@ -2981,6 +3112,16 @@ enum FabricType {
   Designates sandbox fabrics
   """
   SANDBOX
+
+  """
+  SAAS ONLY Designates alternative spelling PROD
+  """
+  PRD
+
+  """
+  SAAS ONLY Designates alternative spelling TEST
+  """
+  TST
 }
 
 """
@@ -3063,6 +3204,24 @@ type Container implements Entity {
   application: ApplicationAssociation
 
   """
+  Incidents associated with the Dataset
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
+
+  """
   The deprecation status of the container
   """
   deprecation: Deprecation
@@ -3122,6 +3281,16 @@ type Container implements Entity {
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
   browsePathV2: BrowsePathV2
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -3280,6 +3449,11 @@ type InstitutionalMemoryMetadata {
   created: AuditStamp!
 
   """
+  An AuditStamp corresponding to the updating of this resource
+  """
+  updated: AuditStamp
+
+  """
   Deprecated, use label instead
   Description of the resource
   """
@@ -3289,6 +3463,21 @@ type InstitutionalMemoryMetadata {
   Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Settings for this record of institutional memory
+  """
+  settings: InstitutionalMemoryMetadataSettings
+}
+
+"""
+Settings for an institutional memory record
+"""
+type InstitutionalMemoryMetadataSettings {
+  """
+  Show record in asset preview like on entity header and search previews
+  """
+  showInAssetPreview: Boolean!
 }
 
 """
@@ -3532,6 +3721,11 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   Documentation aspect for this schema field
   """
   documentation: Documentation
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 
   """
   The status of the SchemaFieldEntity
@@ -3951,9 +4145,24 @@ type StringMapEntry {
   key: String!
 
   """
-  The value fo the map entry
+  The value for the map entry
   """
   value: String
+}
+
+"""
+An entry in a integer string map represented as a tuple
+"""
+type IntMapEntry {
+  """
+  The key of the map entry
+  """
+  key: String!
+
+  """
+  The value for the map entry
+  """
+  value: Int
 }
 
 """
@@ -4079,7 +4288,7 @@ enum OwnershipType {
   DEVELOPER @deprecated
 
   """
-  A person or a group that overseas the operation, eg a DBA or SRE
+  A person or a group that oversees the operation, eg a DBA or SRE
   Deprecated! This ownership type is no longer supported. Use TECHNICAL_OWNER instead.
   """
   DELEGATE @deprecated
@@ -4218,6 +4427,16 @@ type CorpUser implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -4608,9 +4827,10 @@ type CorpGroup implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Deprecated in favor of assetOrigin for consistency with other entity types.
   Origin info about this group.
   """
-  origin: Origin
+  origin: Origin @deprecated
 
   """
   Deprecated, use properties field instead
@@ -4643,6 +4863,16 @@ type CorpGroup implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -4874,6 +5104,21 @@ type Tag implements Entity {
   For fetching extra entities that do not have custom UI code yet
   """
   aspects(input: AspectParams): [RawAspect!]
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -4927,6 +5172,11 @@ type TagAssociation {
   Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this tag is associated
+  """
+  context: String
 }
 
 """
@@ -4976,6 +5226,11 @@ type GlossaryTermAssociation {
   Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this term is associated
+  """
+  context: String
 }
 
 """
@@ -5602,6 +5857,21 @@ type Notebook implements Entity & BrowsableEntity {
   For fetching extra entities that do not have custom UI code yet
   """
   aspects(input: AspectParams): [RawAspect!]
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -5805,6 +6075,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   editableProperties: DashboardEditableProperties
 
   """
+  Documentation aspect for this asset
+  """
+  documentation: Documentation
+
+  """
   Ownership metadata of the dashboard
   """
   ownership: Ownership
@@ -5951,6 +6226,21 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   The forms associated with the Dataset
   """
   forms: Forms
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -6143,6 +6433,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   editableProperties: ChartEditableProperties
 
   """
+  Documentation aspect for this asset
+  """
+  documentation: Documentation
+
+  """
   Info about the query which is used to render the chart
   """
   query: ChartQuery
@@ -6287,6 +6582,21 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   The forms associated with the Dataset
   """
   forms: Forms
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -6557,6 +6867,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   editableProperties: DataFlowEditableProperties
 
   """
+  Documentation aspect for this asset
+  """
+  documentation: Documentation
+
+  """
   Ownership metadata of the flow
   """
   ownership: Ownership
@@ -6689,6 +7004,21 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   Sub Types that this entity implements
   """
   subTypes: SubTypes
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -6794,6 +7124,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   properties: DataJobProperties
 
   """
+  Documentation aspect for this asset
+  """
+  documentation: Documentation
+
+  """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
@@ -6852,6 +7187,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   The application associated with the entity
   """
   application: ApplicationAssociation
+
+  """
+  Assertions associated with the Data Job
+  """
+  assertions(start: Int, count: Int): EntityAssertionsResult
 
   """
   Granular API for querying edges extending from this entity
@@ -6930,6 +7270,21 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   Data Transform Logic associated with the Data Job
   """
   dataTransformLogic: DataTransformLogic
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -6991,6 +7346,11 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
   The link to view the task run in the source system
   """
   externalUrl: String
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -7322,9 +7682,59 @@ type DatasetStatsSummary {
   queryCountLast30Days: Int
 
   """
+  The relative percentile for query count in the past 30 days
+  """
+  queryCountPercentileLast30Days: Int
+
+  """
+  The relative rank for query count in the past 30 days
+  """
+  queryCountRankLast30Days: Int
+
+  """
   The unique user count in the past 30 days
   """
   uniqueUserCountLast30Days: Int
+
+  """
+  The relative percentile for number of unique users in the last 30 days
+  """
+  uniqueUserPercentileLast30Days: Int
+
+  """
+  The relative rank for number of unique users in the last 30 days
+  """
+  uniqueUserRankLast30Days: Int
+
+  """
+  The total write count in past 30 days - includes inserts, updates, deletes, alters.
+  """
+  updateCountLast30Days: Int
+
+  """
+  The write count percentile in the last 30 days
+  """
+  updateCountPercentileLast30Days: Int
+
+  """
+  Row count for the table
+  """
+  rowCount: Long
+
+  """
+  Row count percentile for the table
+  """
+  rowCountPercentile: Int
+
+  """
+  Storage size in bytes for the table
+  """
+  sizeInBytes: Long
+
+  """
+  Storage size in bytes percentile for the table
+  """
+  sizeInBytesPercentile: Int
 
   """
   The top users in the past 30 days
@@ -7492,10 +7902,27 @@ type DashboardStatsSummary {
   The view count in the last 30 days
   """
   viewCountLast30Days: Int
+
+  """
+  The relative percentile for view count in the past 30 days
+  """
+  viewCountPercentileLast30Days: Int
+
   """
   The unique user count in the past 30 days
   """
   uniqueUserCountLast30Days: Int
+
+  """
+  The relative percentile for number of unique users in the last 30 days
+  """
+  uniqueUserPercentileLast30Days: Int
+
+  """
+  The relative rank for number of unique users in the last 30 days
+  """
+  uniqueUserRankLast30Days: Int
+
   """
   The top users in the past 30 days
   """
@@ -7515,10 +7942,26 @@ type ChartStatsSummary {
   The view count in the last 30 days
   """
   viewCountLast30Days: Int
+
+  """
+  The relative percentile for view count in the past 30 days
+  """
+  viewCountPercentileLast30Days: Int
+
   """
   The unique user count in the past 30 days
   """
   uniqueUserCountLast30Days: Int
+
+  """
+  The relative percentile for number of unique users in the last 30 days
+  """
+  uniqueUserPercentileLast30Days: Int
+
+  """
+  The relative rank for number of unique users in the last 30 days
+  """
+  uniqueUserRankLast30Days: Int
 
   """
   The top users in the past 30 days
@@ -7574,6 +8017,11 @@ enum TimeRange {
   Last quarter
   """
   QUARTER
+
+  """
+  Last half year
+  """
+  HALF_YEAR
 
   """
   Last year
@@ -7762,6 +8210,36 @@ type TimeWindow {
 }
 
 """
+A time window with a finite start and end time
+"""
+type AbsoluteTimeWindow {
+  """
+  The start time of the time window.
+  """
+  startTimeMillis: Long!
+
+  """
+  The end time of the time window.
+  """
+  endTimeMillis: Long!
+}
+
+"""
+A time window with a finite start and end time
+"""
+input AbsoluteTimeWindowInput {
+  """
+  The start time of the time window.
+  """
+  startTimeMillis: Long!
+
+  """
+  The end time of the time window.
+  """
+  endTimeMillis: Long!
+}
+
+"""
 An assertion represents a programmatic validation, check, or test performed periodically against another Entity.
 """
 type Assertion implements EntityWithRelationships & Entity {
@@ -7813,6 +8291,11 @@ type Assertion implements EntityWithRelationships & Entity {
   lineage(input: LineageInput!): EntityLineageResult
 
   """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
+
+  """
   Status metadata of the assertion
   """
   status: Status
@@ -7847,6 +8330,11 @@ type AssertionInfo {
   An optional human-readable description of the assertion
   """
   description: String
+
+  """
+  An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
+  """
+  note: String
 
   """
   URL where assertion details are available
@@ -8017,6 +8505,41 @@ type AssertionResult {
   Error details, if type is ERROR
   """
   error: AssertionResultError
+
+  """
+  Acryl Only! The definition of the assertion that was used for this run
+  """
+  assertion: AssertionInfo
+
+  """
+  Acryl Only! The parameters that were used for running the assertion
+  """
+  parameters: AssertionEvaluationParameters
+
+  """
+  Acryl Only! Contextual details populated here if this assertion was inferred with AI
+  """
+  assertionInferenceDetails: AssertionInferenceDetails
+
+  """
+  Acryl Only! The metric that was sampled & used when evaluating the assertion.
+  """
+  metric: AssertionMetric
+}
+
+"""
+The metric that was sampled & used when evaluating the assertion.
+"""
+type AssertionMetric {
+  """
+  The timestamp of the metric.
+  """
+  timestampMillis: Long!
+
+  """
+  The value of the metric.
+  """
+  value: Float!
 }
 
 """
@@ -8979,9 +9502,9 @@ input OwnerInput {
 
   """
   The ownership type for the new owner. If none is provided, then a new NONE will be added.
-  Deprecated - Use ownershipTypeUrn field instead.
+  If a custom ownership type is desired, use the ownershipTypeUrn field instead.
   """
-  type: OwnershipType @deprecated
+  type: OwnershipType
 
   """
   The urn of the ownership type entity.
@@ -9082,6 +9605,78 @@ input AddLinkInput {
   The urn of the resource or entity to attach the link to, for example a dataset urn
   """
   resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
+}
+
+"""
+Input provided when updating the association between a Metadata Entity and a Link
+"""
+input UpdateLinkInput {
+  """
+  Current url of the link
+  """
+  currentUrl: String!
+
+  """
+  Current label of the link
+  """
+  currentLabel: String!
+
+  """
+  The new url of the link
+  """
+  linkUrl: String!
+
+  """
+  The new label of the link
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+
+  """
+  The new optional settings input for the link
+  """
+  settings: LinkSettingsInput
+}
+
+"""
+Input provided when upsert the association between a Metadata Entity and a Link
+"""
+input UpsertLinkInput {
+  """
+  The url of the link to add or update
+  """
+  linkUrl: String!
+
+  """
+  The url of the link to add or update
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+
+  """
+  Optional settings input for this link
+  """
+  settings: LinkSettingsInput
+}
+
+input LinkSettingsInput {
+  """
+  Determines whether this link should be shown in the asset preview like entity header and search result cards
+  """
+  showInAssetPreview: Boolean
 }
 
 """
@@ -9089,9 +9684,14 @@ Input provided when removing the association between a Metadata Entity and a Lin
 """
 input RemoveLinkInput {
   """
-  The url of the link to add or remove, which uniquely identifies the Link
+  The url of the link to remove, which uniquely identifies the Link
   """
   linkUrl: String!
+
+  """
+  The label of the link to remove, which uniquely identifies the Link
+  """
+  label: String
 
   """
   The urn of the resource or entity to attach the link to, for example a dataset urn
@@ -9122,6 +9722,12 @@ input DescriptionUpdateInput {
   A sub resource identifier, eg dataset field path
   """
   subResource: String
+
+  """
+  Optional description providing context for the proposal
+  Also called description for some other proposal types
+  """
+  proposalNote: String
 }
 
 """
@@ -9880,6 +10486,11 @@ input ListUsersInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """
@@ -9925,6 +10536,11 @@ input ListGroupsInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 type EntityCountResults {
@@ -10191,6 +10807,51 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
+
+  """
+  Incidents associated with the ML Model
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any state.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any state.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
 }
 
 """
@@ -10232,6 +10893,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   Human readable description for MLModelGroup
   """
   description: String
+
+  """
+  References to internal resources related to the ml model group
+  """
+  institutionalMemory: InstitutionalMemory
 
   """
   Additional read only properties about the ML Model Group
@@ -10328,6 +10994,21 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -10515,6 +11196,51 @@ type MLFeature implements EntityWithRelationships & Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
+
+  """
+  Incidents associated with the ML Feature
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any state.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any state.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
 }
 
 type MLHyperParam {
@@ -10755,6 +11481,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   exists: Boolean
 
   """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+
+  """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
@@ -10771,9 +11502,19 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   forms: Forms
 
   """
-  Privileges given to a user relevant to this entity
+  Info about the results from sharing metadata for this entity
   """
-  privileges: EntityPrivileges
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 type MLPrimaryKeyProperties {
@@ -10928,6 +11669,21 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 type MLFeatureTableEditableProperties {
@@ -11355,6 +12111,17 @@ type Domain implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  # SaaS Only
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -11410,6 +12177,11 @@ input DomainEntitiesInput {
   Optional Facet filters to apply to the result set
   """
   filters: [FacetFilterInput!]
+
+  """
+  Optional flags controlling search options
+  """
+  searchFlags: SearchFlags
 }
 
 """
@@ -11575,6 +12347,12 @@ input CreateGlossaryEntityInput {
   Optional parent node urn for the Glossary Node or Term
   """
   parentNode: String
+
+  """
+  Optional description providing context for the proposal
+  Also called description for some other proposal types
+  """
+  proposalNote: String
 }
 
 enum HealthStatus {
@@ -11607,6 +12385,11 @@ enum HealthStatusType {
   Incidents status
   """
   INCIDENTS
+
+  """
+  Tests status
+  """
+  TESTS
 }
 
 """
@@ -11716,6 +12499,58 @@ input StringMapEntryInput {
 }
 
 """
+Information about an individual subscription association
+"""
+type SubscriptionAssociation {
+  """
+  The entity being referenced
+  """
+  entity: Entity!
+  """
+  When the subscription was created
+  """
+  created: AuditStamp!
+}
+
+"""
+A set of asset subscriptions
+"""
+type Subscriptions {
+  """
+  A set of asset subscriptions
+  """
+  subscriptions: [SubscriptionAssociation!]!
+}
+
+"""
+Input provided when creating a subscription between an actor and an asset / resource
+"""
+input AddSubscriptionInput {
+  """
+  Actor urn that is subscribing, currently only users are supported.
+  """
+  actorUrn: String!
+  """
+  The urn of the resource (asset) to subscribe to, e.g. a dataset, chart, dashboard, data flow, or data job.
+  """
+  resourceUrn: String!
+}
+
+"""
+Input provided when removing an existing subscription between an actor and an asset / resource
+"""
+input RemoveSubscriptionInput {
+  """
+  Actor urn that is subscribed, currently only users are supported.
+  """
+  actorUrn: String!
+  """
+  The urn of the resource (asset) that is subscribed to, e.g. a dataset, chart, dashboard, data flow, or data job.
+  """
+  resourceUrn: String!
+}
+
+"""
 Token that allows users to sign up as a native user
 """
 type InviteToken {
@@ -11758,6 +12593,68 @@ type Origin {
   Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
   """
   externalType: String
+
+  """
+  Most relevant details about the source by which this asset was originated
+  """
+  resolvedSourceDetails: SourceDetails
+
+  """
+  Raw list of details about the source(s) by which this asset was originated
+  """
+  rawSourceDetails: [SourceDetails!]
+}
+
+"""
+Info about how this asset was brought into DataHub
+"""
+type SourceDetails {
+  """
+  Source of this asset ie. an ingestion source or acyl platform connection
+  """
+  source: Entity!
+
+  """
+  The platform this asset originates from such as snowflake or acryl.
+  """
+  platform: Entity!
+
+  """
+  Audit stamp for when this asset was synced
+  """
+  lastModified: ResolvedAuditStamp!
+
+  """
+  The means by which this asset got synchronized
+  """
+  mechanism: SyncMechanism!
+
+  """
+  Additional information related to the origin of this metadata
+  """
+  properties: [StringMapEntry!]
+}
+
+"""
+Enum to define where an entity originated from.
+"""
+enum SyncMechanism {
+  """
+  Synced via ingestion recipes
+  """
+  INGEST
+  """
+  Synced via metadata sharing with another Acryl instance
+  """
+  SHARE
+  """
+  Synced via the API (pushed from clients using the API directly)
+  """
+  API
+  """
+  Synced via some other mechanism
+  """
+  OTHER
 }
 
 """
@@ -12503,6 +13400,11 @@ input UpdateUserHomePageSettingsInput {
   The list of urns of announcement posts dismissed by the user.
   """
   newDismissedAnnouncements: [String]
+
+  """
+  Whether to remove the page template for the user.
+  """
+  removePageTemplate: Boolean
 }
 
 """
@@ -12625,7 +13527,8 @@ The subject for a Query
 """
 type QuerySubject {
   """
-  The dataset which is the subject of the Query
+  The dataset which is the subject of the Query.
+  If schemaField is not empty, this field represents the parent dataset of the schmeaField.
   """
   dataset: Dataset!
 
@@ -12639,7 +13542,7 @@ type QuerySubject {
 """
 An individual Query
 """
-type QueryEntity implements Entity {
+type QueryEntity implements Entity & EntityWithRelationships {
   """
   A primary key associated with the Query
   """
@@ -12666,9 +13569,19 @@ type QueryEntity implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
+  Edges extending from this entity grouped by direction in the lineage graph
+  """
+  lineage(input: LineageInput!): EntityLineageResult
+
+  """
   Platform from which the Query was detected
   """
   platform: DataPlatform
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """
@@ -12920,6 +13833,16 @@ type DataProduct implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Info about the results from sharing metadata for this entity
+  """
+  share: Share
+
+  """
+  Carries information about where an entity originated from.
+  """
+  assetOrigin: Origin
 }
 
 """
@@ -13489,6 +14412,11 @@ type Restricted implements Entity & EntityWithRelationships {
   Edges extending from this entity grouped by direction in the lineage graph
   """
   lineage(input: LineageInput!): EntityLineageResult
+
+  """
+  Cached, potentially stale information about the entity's lineage.
+  """
+  lineageFeatures: LineageFeatures
 }
 
 """

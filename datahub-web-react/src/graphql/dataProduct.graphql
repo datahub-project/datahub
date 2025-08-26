@@ -3,6 +3,9 @@ query getDataProduct($urn: String!) {
         urn
         type
         ...dataProductFields
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -18,6 +21,9 @@ query getDataProduct($urn: String!) {
             ...formsFields
         }
         ...notes
+        proposals: proposals {
+            ...proposalsFragment
+        }
     }
 }
 
@@ -52,6 +58,9 @@ fragment dataProductFields on DataProduct {
     }
     institutionalMemory {
         ...institutionalMemoryFields
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 

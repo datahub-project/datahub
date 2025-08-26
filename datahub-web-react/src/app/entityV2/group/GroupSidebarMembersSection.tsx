@@ -6,7 +6,7 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { EntityRelationshipsResult } from '@types';
 
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
 };
 
 export const GroupSidebarMembersSection = ({ groupMemberRelationships }: Props) => {

@@ -1,0 +1,10 @@
+on:
+  types:
+    - dataset
+rules:
+  and:
+    -
+      property: urn
+      operator: contains_str
+      values:
+        - adoption

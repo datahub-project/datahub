@@ -1,0 +1,21 @@
+namespace com.linkedin.metadata.snapshot
+
+import com.linkedin.common.Urn
+import com.linkedin.metadata.aspect.ConstraintAspect
+
+@Entity = {
+  "name": "constraint",
+  "keyAspect": "constraintKey"
+}
+record ConstraintSnapshot {
+
+  /**
+   * URN for the entity the metadata snapshot is associated with.
+   */
+  urn: Urn
+
+  /**
+   * The list of metadata aspects associated with the Action Request.
+   */
+  aspects: array[ConstraintAspect]
+}

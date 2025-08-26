@@ -8,6 +8,7 @@ import { EditColumn } from '@app/entity/shared/tabs/Properties/Edit/EditColumn';
 import StructuredPropertyValue from '@app/entity/shared/tabs/Properties/StructuredPropertyValue';
 import { mapStructuredPropertyValues } from '@app/entity/shared/tabs/Properties/useStructuredProperties';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { SchemaField, SearchResult, StdDataType } from '@types';
 
@@ -46,6 +47,7 @@ interface Props {
 }
 
 export default function FieldProperties({ expandedField, schemaColumnProperties }: Props) {
+    const entityRegistry = useEntityRegistry();
     const { schemaFieldEntity } = expandedField;
     const { refetch } = useGetEntityWithSchema(true);
     const { entityData } = useEntityData();
@@ -84,7 +86,10 @@ export default function FieldProperties({ expandedField, schemaColumnProperties 
                         <PropertyWrapper key={structuredProp.structuredProperty.urn}>
                             <div>
                                 <PropertyTitle>
-                                    {structuredProp.structuredProperty.definition.displayName}
+                                    {entityRegistry.getDisplayName(
+                                        structuredProp.structuredProperty.type,
+                                        structuredProp.structuredProperty,
+                                    )}
                                 </PropertyTitle>
                                 {hasMultipleValues ? (
                                     <StyledList>

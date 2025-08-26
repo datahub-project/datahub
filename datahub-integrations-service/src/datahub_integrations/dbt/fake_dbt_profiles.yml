@@ -1,0 +1,49 @@
+DBT_PROFILE_NAME_snowflake:
+  target: prod
+  outputs:
+    prod:
+      type: snowflake
+      account: foo
+      user: foo
+      password: foo
+      role: foo
+      database: foo
+      schema: foo
+
+DBT_PROFILE_NAME_postgres:
+  target: prod
+  outputs:
+    prod:
+      type: postgres
+      host: foo
+      user: foo
+      password: foo
+      port: 5432
+      dbname: foo
+      schema: foo
+      threads: 1
+      keepalives_idle: 0 # default 0, indicating the system default
+
+DBT_PROFILE_NAME_bigquery:
+  target: prod
+  outputs:
+    prod:
+      type: bigquery
+      method: service-account
+      project: foo
+      dataset: foo
+      threads: 1
+      keyfile: this/does/not/exist.json
+
+DBT_PROFILE_NAME_redshift:
+  target: prod
+  outputs:
+    prod:
+      type: redshift
+      host: hostname.region.redshift.amazonaws.com
+      user: foo
+      password: foo
+      port: 5439
+      dbname: foo
+      schema: foo
+      threads: 1

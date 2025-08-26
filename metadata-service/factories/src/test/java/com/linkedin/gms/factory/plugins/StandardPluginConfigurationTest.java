@@ -195,4 +195,10 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertNotNull(validator);
     assertTrue(validator instanceof ExecuteIngestionAuthValidator);
   }
+
+  @Test
+  public void testExtendedModelStructuredPropertyMutatorNotCreatedWhenDisabled() {
+    // Extensions are disabled in our test properties
+    assertFalse(context.containsBean("extendedModelStructuredPropertyMutator"));
+  }
 }

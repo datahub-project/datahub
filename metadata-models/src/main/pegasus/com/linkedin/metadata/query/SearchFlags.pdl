@@ -75,4 +75,11 @@ record SearchFlags {
     * are defined in the configuration file `search_config.yaml`
     */
     fieldConfiguration:optional string
+
+  /**
+    * Extra fields to fetch from the search documents
+    * Note: This will be added on top of the default fields that is controlled
+      by the server
+    */
+  fetchExtraFields: optional array[string] = []
 }

@@ -5,9 +5,12 @@ import styled from 'styled-components/macro';
 import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import {
+    ExtendedOwner,
+    getOwnershipTypeName,
+} from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 
-import { Owner, OwnershipTypeEntity } from '@types';
+import { OwnershipTypeEntity } from '@types';
 
 const OwnershipTypeContainer = styled.div`
     display: flex;
@@ -29,11 +32,12 @@ const OwnersContainer = styled.div`
     flex-wrap: wrap;
     margin-top: 8px;
     max-width: inherit;
+    gap: 8px;
 `;
 
 interface Props {
     ownershipType: OwnershipTypeEntity;
-    owners: Owner[];
+    owners: ExtendedOwner[];
     readOnly?: boolean;
 }
 
@@ -52,6 +56,7 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
                         owner={owner}
                         refetch={refetch}
                         readOnly={readOnly}
+                        hidePopOver={owner.isProposed}
                     />
                 ))}
             </OwnersContainer>

@@ -143,7 +143,8 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
             null,
             scrollId,
             null,
-            batchSize);
+            batchSize,
+            null);
 
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().isEmpty()) {
       return null;

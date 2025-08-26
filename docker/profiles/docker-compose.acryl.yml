@@ -1,0 +1,12 @@
+---
+name: acryl
+
+include:
+  # Contains storage layers: i.e. mysql, kafka, elasticsearch
+  - docker-compose.prerequisites.yml
+  # Frontend
+  - docker-compose.frontend.yml
+  # Remaining components: i.e. gms, system-update, consumers
+  - docker-compose.gms.yml
+  # Saas components: i.e. monitors & integrations services
+  - docker-compose.acryl-python-services.yml

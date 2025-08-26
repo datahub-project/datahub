@@ -1,21 +1,23 @@
 package com.linkedin.gms.factory.incident;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.metadata.service.IncidentService;
+import io.datahubproject.openapi.client.OpenApiClient;
 import javax.annotation.Nonnull;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Scope;
 
 @Configuration
-@Import({SystemAuthenticationFactory.class})
 public class IncidentServiceFactory {
   @Bean(name = "incidentService")
-  @Scope("singleton")
   @Nonnull
-  protected IncidentService getInstance(final SystemEntityClient entityClient) throws Exception {
-    return new IncidentService(entityClient);
+  protected IncidentService getInstance(
+      @Qualifier("systemEntityClient") final SystemEntityClient entityClient,
+      @Qualifier("openApiClient") final OpenApiClient openApiClient,
+      final ObjectMapper objectMapper)
+      throws Exception {
+    return new IncidentService(entityClient, openApiClient, objectMapper);
   }
 }

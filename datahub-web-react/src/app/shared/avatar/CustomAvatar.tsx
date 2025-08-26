@@ -1,4 +1,5 @@
-import { Avatar, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Avatar } from 'antd';
 import { TooltipPlacement } from 'antd/lib/tooltip';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';

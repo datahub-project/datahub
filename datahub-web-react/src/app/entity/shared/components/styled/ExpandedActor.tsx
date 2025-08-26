@@ -1,9 +1,11 @@
-import { Popover, Tag } from 'antd';
+import { Popover } from '@components';
+import { Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { CustomAvatar } from '@app/shared/avatar';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpGroup, CorpUser, EntityType } from '@types';
@@ -25,6 +27,7 @@ const ActorTag = styled(Tag)`
 
 export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     let name = '';
     if (actor.__typename === 'CorpGroup') {
@@ -38,7 +41,7 @@ export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
 
     return (
         <ActorTag onClose={onClose} closable={closable}>
-            <Link to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}>
+            <Link to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}/owner of`} {...linkProps}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
                 {(!popOver && <>{name}</>) || (
                     <Popover overlayStyle={{ maxWidth: 200 }} placement="left" content={popOver}>

@@ -91,7 +91,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     <Typography.Text keyboard>Authorization</Typography.Text> header when making API requests:
                 </ModalSectionParagraph>
                 <Typography.Paragraph copyable={{ text: accessTokenCurl }}>
-                    <pre>{accessTokenCurl}</pre>
+                    <pre data-testid="access-token-curl">{accessTokenCurl}</pre>
                 </Typography.Paragraph>
             </ModalSection>
             <ModalSection>

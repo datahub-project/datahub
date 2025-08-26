@@ -10,9 +10,10 @@ const StyledSelect = styled(Select)`
 type Props = {
     value: string;
     onChange: (newTimezone: any) => void;
+    disabled?: boolean;
 };
 
-export const TimezoneSelect = ({ value, onChange }: Props) => {
+export const TimezoneSelect = ({ value, onChange, ..._props }: Props) => {
     const timezones = moment.tz.names();
     return (
         <>

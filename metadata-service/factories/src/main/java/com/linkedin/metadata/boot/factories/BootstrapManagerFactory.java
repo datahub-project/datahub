@@ -1,40 +1,59 @@
 package com.linkedin.metadata.boot.factories;
 
-import com.google.common.collect.ImmutableList;
+import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.incident.IncidentServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
+import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.boot.steps.IndexDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
+import com.linkedin.metadata.boot.steps.IngestDefaultPersonasAndViews;
+import com.linkedin.metadata.boot.steps.IngestDefaultTagsStep;
 import com.linkedin.metadata.boot.steps.IngestEntityTypesStep;
+import com.linkedin.metadata.boot.steps.IngestMetadataTestsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
+import com.linkedin.metadata.boot.steps.IngestStructuredPropertyExtensionsStep;
+import com.linkedin.metadata.boot.steps.IngestionMetadataTestResultsActionStep;
+import com.linkedin.metadata.boot.steps.MigrateAssertionsSummaryStep;
+import com.linkedin.metadata.boot.steps.MigrateFreshnessAssertionCronToSinceTheLastCheck;
 import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
+import com.linkedin.metadata.boot.steps.MigrateIncidentsSummaryStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
+import com.linkedin.metadata.config.ForwardingActionConfiguration;
+import com.linkedin.metadata.config.structuredProperties.extensions.ModelExtensionValidationConfiguration;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.service.IncidentService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -46,7 +65,9 @@ import org.springframework.core.io.Resource;
   EntityServiceFactory.class,
   EntityRegistryFactory.class,
   EntitySearchServiceFactory.class,
-  SearchDocumentTransformerFactory.class
+  SearchDocumentTransformerFactory.class,
+  AssertionServiceFactory.class,
+  IncidentServiceFactory.class
 })
 public class BootstrapManagerFactory {
 
@@ -71,6 +92,18 @@ public class BootstrapManagerFactory {
   private SearchDocumentTransformer _searchDocumentTransformer;
 
   @Autowired
+  @Qualifier("assertionService")
+  private AssertionService _assertionService;
+
+  @Autowired
+  @Qualifier("incidentService")
+  private IncidentService _incidentService;
+
+  @Autowired
+  @Qualifier("timeseriesAspectService")
+  private TimeseriesAspectService _timeseriesAspectService;
+
+  @Autowired
   @Qualifier("entityAspectDao")
   private AspectMigrationsDao _migrationsDao;
 
@@ -83,6 +116,18 @@ public class BootstrapManagerFactory {
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
   @Autowired private ConfigurationProvider _configurationProvider;
+
+  @Autowired private IntegrationsService integrationsService;
+
+  @Value("${bootstrap.defaultPersonas.enabled}")
+  private Boolean _defaultPersonasEnabled;
+
+  // Saas-only
+  @Autowired
+  @Qualifier("ingestMetadataTestsStep")
+  private IngestMetadataTestsStep _ingestMetadataTestsStep;
+
+  @Autowired private ApplicationContext applicationContext;
 
   @Value("${bootstrap.policies.file}")
   private Resource _policiesResource;
@@ -98,7 +143,7 @@ public class BootstrapManagerFactory {
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep =
-        new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+        new RestoreGlossaryIndices(_entityService, _entitySearchService);
     final IndexDataPlatformsStep indexDataPlatformsStep =
         new IndexDataPlatformsStep(_entityService, _entitySearchService);
     final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
@@ -116,10 +161,24 @@ public class BootstrapManagerFactory {
         new RestoreFormInfoIndicesStep(_entityService);
     final MigrateHomePageLinksStep migrateHomePageLinksStep =
         new MigrateHomePageLinksStep(_entityService, _entitySearchService);
+    final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
+
+    final MigrateAssertionsSummaryStep assertionsSummaryStep =
+        new MigrateAssertionsSummaryStep(
+            _entityService,
+            _entitySearchService,
+            _assertionService,
+            _timeseriesAspectService,
+            _configurationProvider);
+    final MigrateIncidentsSummaryStep incidentsSummaryStep =
+        new MigrateIncidentsSummaryStep(_entityService, _entitySearchService, _incidentService);
+    final MigrateFreshnessAssertionCronToSinceTheLastCheck
+        migrateFreshnessAssertionCronToSinceTheLastCheckStep =
+            new MigrateFreshnessAssertionCronToSinceTheLastCheck(
+                _entityService, _searchService, _assertionService);
 
     final List<BootstrapStep> finalSteps =
-        new ArrayList<>(
-            ImmutableList.of(
+        Stream.of(
                 waitForSystemUpdateStep,
                 ingestPoliciesStep,
                 ingestDataPlatformInstancesStep,
@@ -131,7 +190,38 @@ public class BootstrapManagerFactory {
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
                 ingestEntityTypesStep,
-                restoreFormInfoIndicesStep));
+                restoreFormInfoIndicesStep,
+                ingestEntityTypesStep,
+                assertionsSummaryStep,
+                incidentsSummaryStep,
+                migrateFreshnessAssertionCronToSinceTheLastCheckStep,
+                // Saas-only
+                _ingestMetadataTestsStep,
+                ingestDefaultTagsStep)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+
+    if (_defaultPersonasEnabled) {
+      finalSteps.add(new IngestDefaultPersonasAndViews(_entityService, _entityRegistry));
+    }
+
+    ModelExtensionValidationConfiguration mcpExtensionValidationConfig =
+        _configurationProvider.getMetadataChangeProposal().getValidation().getExtensions();
+    if (mcpExtensionValidationConfig.isEnabled()) {
+      ExtendedModelStructuredPropertyMutator mutator =
+          applicationContext.getBean(ExtendedModelStructuredPropertyMutator.class);
+      finalSteps.add(
+          new IngestStructuredPropertyExtensionsStep(
+              _entityService, mutator.getStructuredPropertyMappings()));
+    }
+
+    ForwardingActionConfiguration forwardingActionConfiguration =
+        _configurationProvider.getMetadataTests().getForwardingAction();
+    if (forwardingActionConfiguration.isEnabled()) {
+      finalSteps.add(
+          new IngestionMetadataTestResultsActionStep(
+              _entityService, integrationsService, forwardingActionConfiguration));
+    }
 
     if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
       finalSteps.add(migrateHomePageLinksStep);

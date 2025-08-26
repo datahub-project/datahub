@@ -3,6 +3,10 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.anomaly.MonitorAnomalyEvent;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
@@ -14,31 +18,45 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
+import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.AssertionService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** GraphQL Resolver used for fetching AssertionRunEvents. */
+@Slf4j
 public class AssertionRunEventResolver
     implements DataFetcher<CompletableFuture<AssertionRunEventsResult>> {
 
   private final EntityClient _client;
+  private final AssertionService _assertionService;
 
-  public AssertionRunEventResolver(final EntityClient client) {
+  public AssertionRunEventResolver(
+      final EntityClient client, final AssertionService assertionService) {
     _client = client;
+    _assertionService = assertionService;
   }
 
   @Override
@@ -59,26 +77,33 @@ public class AssertionRunEventResolver
                   : null;
 
           try {
-            // Step 1: Fetch aspects from GMS
-            List<EnvelopedAspect> aspects =
-                _client.getTimeseriesAspectValues(
-                    context.getOperationContext(),
+            // Step 1: Fetch run events from GMS
+            List<AssertionRunEvent> runEvents =
+                fetchAssertionRunEvents(
+                    context,
                     urn,
-                    Constants.ASSERTION_ENTITY_NAME,
-                    Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
                     maybeStartTimeMillis,
                     maybeEndTimeMillis,
                     maybeLimit,
-                    buildFilter(
-                        maybeFilters,
-                        maybeStatus,
-                        context.getOperationContext().getAspectRetriever()));
+                    maybeFilters,
+                    maybeStatus);
 
-            // Step 2: Bind profiles into GraphQL strong types.
-            List<AssertionRunEvent> runEvents =
-                aspects.stream()
-                    .map(a -> AssertionRunEventMapper.map(context, a))
-                    .collect(Collectors.toList());
+            // Step 2. Fetch anomaly events from GMS
+            final List<MonitorAnomalyEvent> anomalyEvents =
+                fetchAnomalyEvents(context, urn, maybeStartTimeMillis, maybeEndTimeMillis);
+            // Step 2.1: Map anomaly events to run events
+            final Map<Long, MonitorAnomalyEvent> anomalyEventMap =
+                buildAnomalyEventMap(anomalyEvents);
+            runEvents.forEach(
+                runEvent -> {
+                  // Hydrate with the matching anomaly event, if exists
+                  final MonitorAnomalyEvent matchingAnomalyEvent =
+                      anomalyEventMap.get(runEvent.getTimestampMillis());
+                  if (matchingAnomalyEvent != null) {
+                    runEvent.setAnomalyEvent(
+                        MonitorMapper.mapMonitorAnomalyEvent(matchingAnomalyEvent));
+                  }
+                });
 
             // Step 3: Package and return response.
             final AssertionRunEventsResult result = new AssertionRunEventsResult();
@@ -121,6 +146,117 @@ public class AssertionRunEventResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private List<AssertionRunEvent> fetchAssertionRunEvents(
+      @Nonnull QueryContext context,
+      @Nonnull String urn,
+      @Nullable Long maybeStartTimeMillis,
+      @Nullable Long maybeEndTimeMillis,
+      @Nullable Integer maybeLimit,
+      @Nullable FilterInput maybeFilters,
+      @Nullable String maybeStatus)
+      throws RemoteInvocationException {
+    List<EnvelopedAspect> aspects =
+        _client.getTimeseriesAspectValues(
+            context.getOperationContext(),
+            urn,
+            Constants.ASSERTION_ENTITY_NAME,
+            Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+            maybeStartTimeMillis,
+            maybeEndTimeMillis,
+            maybeLimit,
+            buildFilter(
+                maybeFilters, maybeStatus, context.getOperationContext().getAspectRetriever()));
+
+    return aspects.stream()
+        .map(a -> AssertionRunEventMapper.map(context, a))
+        .collect(Collectors.toList());
+  }
+
+  /** Fetches the anomaly events for a given assertion. */
+  @Nonnull
+  private List<MonitorAnomalyEvent> fetchAnomalyEvents(
+      @Nonnull QueryContext context,
+      @Nonnull String assertionUrn,
+      @Nullable Long maybeStartTimeMillis,
+      @Nullable Long maybeEndTimeMillis)
+      throws RemoteInvocationException {
+    final Urn monitorUrn =
+        _assertionService.getMonitorUrnForAssertion(
+            context.getOperationContext(), UrnUtils.getUrn(assertionUrn));
+    if (monitorUrn == null) {
+      return Collections.emptyList();
+    }
+    final List<EnvelopedAspect> aspects =
+        _client.getTimeseriesAspectValues(
+            context.getOperationContext(),
+            monitorUrn.toString(),
+            Constants.MONITOR_ENTITY_NAME,
+            Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME,
+            null,
+            null,
+            null, // NOTE: we cannot pass through the limit as there may be multiple anomaly
+            // feedback events for a given assertion run
+            maybeStartTimeMillis != null || maybeEndTimeMillis != null
+                ? buildAnomalyFeedbackEventsFilter(maybeStartTimeMillis, maybeEndTimeMillis)
+                : null);
+
+    return aspects.stream()
+        .map(
+            aspect ->
+                GenericRecordUtils.deserializeAspect(
+                    aspect.getAspect().getValue(),
+                    aspect.getAspect().getContentType(),
+                    com.linkedin.anomaly.MonitorAnomalyEvent.class))
+        .toList();
+  }
+
+  @Nonnull
+  protected static Filter buildAnomalyFeedbackEventsFilter(
+      @Nullable Long maybeStartTimeMillis, @Nullable Long maybeEndTimeMillis) {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion()
+                    .setAnd(
+                        new CriterionArray(
+                            ImmutableList.of(
+                                new Criterion()
+                                    .setField("sourceEventTimestampMillis")
+                                    .setCondition(Condition.BETWEEN)
+                                    .setValues(
+                                        new StringArray(
+                                            List.of(
+                                                maybeStartTimeMillis != null
+                                                    ? maybeStartTimeMillis.toString()
+                                                    : "0",
+                                                maybeEndTimeMillis != null
+                                                    ? maybeEndTimeMillis.toString()
+                                                    : String.valueOf(Long.MAX_VALUE)))))))));
+  }
+
+  private static Map<Long, MonitorAnomalyEvent> buildAnomalyEventMap(
+      @Nonnull List<MonitorAnomalyEvent> anomalyEvents) {
+    final Map<Long, MonitorAnomalyEvent> anomalyEventMap = new HashMap<>();
+
+    for (MonitorAnomalyEvent anomalyEvent : anomalyEvents) {
+      if (anomalyEvent.getSource().getSourceEventTimestampMillis() == null) {
+        continue;
+      }
+      final MonitorAnomalyEvent maybeExistingEvent =
+          anomalyEventMap.get(anomalyEvent.getSource().getSourceEventTimestampMillis());
+      // If an anomaly event already exists for this timestamp, skip if the new one is NOT more
+      // recent
+      if (maybeExistingEvent != null
+          && anomalyEvent.getTimestampMillis() <= maybeExistingEvent.getTimestampMillis()) {
+        continue;
+      }
+      // Use the timestamp as the key to map anomaly events to run events
+      anomalyEventMap.put(anomalyEvent.getSource().getSourceEventTimestampMillis(), anomalyEvent);
+    }
+
+    return anomalyEventMap;
   }
 
   @Nullable

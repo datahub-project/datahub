@@ -30,7 +30,10 @@ record IncidentSource {
   }
 
   /**
-  * Reference to an URN related to the source of an incident.
+  * Reference to an URN related to the source of an incident. Currently populated when the type of the incident
+  * is ASSERTION_FAILURE.
+  *
+  * If this incident was raised due to an assertion failure, then this will contain the urn of the source Assertion.
   */
   @Searchable = {
     "fieldType": "URN"

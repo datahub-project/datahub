@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 
@@ -62,6 +63,16 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
                                     context.getOperationContext(),
                                     UrnUtils.getUrn(e.getUrn()),
                                     urn))
+                    .collect(Collectors.toList());
+
+            // Saas only
+            viewable =
+                viewable.stream()
+                    .filter(
+                        e ->
+                            context == null
+                                || canView(
+                                    context.getOperationContext(), UrnUtils.getUrn(e.getUrn())))
                     .collect(Collectors.toList());
 
             final ParentDomainsResult result = new ParentDomainsResult();

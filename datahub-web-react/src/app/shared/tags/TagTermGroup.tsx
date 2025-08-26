@@ -1,17 +1,22 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
+import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { BookmarkSimple } from '@phosphor-icons/react';
+import { Tag as AntTag, Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
+import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY, EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
 import { DomainLink } from '@app/shared/tags/DomainLink';
+import ProposalModal from '@app/shared/tags/ProposalModal';
 import Tag from '@app/shared/tags/tag/Tag';
 import StyledTerm from '@app/shared/tags/term/StyledTerm';
+import { shouldShowProposeButton } from '@app/shared/tags/utils/proposalUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '@types';
+import { ActionRequest, Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '@types';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -33,6 +38,9 @@ type Props = {
     fontSize?: number;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
+
+    proposedGlossaryTerms?: ActionRequest[];
+    proposedTags?: ActionRequest[];
 };
 
 const NoElementButton = styled(Button)`
@@ -43,7 +51,11 @@ const NoElementButton = styled(Button)`
 
 const TagText = styled.span`
     color: ${ANTD_GRAY[7]};
-    margin: 0 7px 0 0;
+`;
+
+const ProposedTerm = styled(AntTag)`
+    opacity: 0.7;
+    border-style: dashed;
 `;
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
@@ -60,6 +72,8 @@ export default function TagTermGroup({
     maxShow,
     uneditableGlossaryTerms,
     editableGlossaryTerms,
+    proposedGlossaryTerms,
+    proposedTags,
     domain,
     entityUrn,
     entityType,
@@ -72,8 +86,14 @@ export default function TagTermGroup({
     const entityRegistry = useEntityRegistry();
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
-    const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
-    const termsEmpty = !editableGlossaryTerms?.terms?.length && !uneditableGlossaryTerms?.terms?.length;
+
+    const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | null | undefined>(null);
+
+    const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length && !proposedTags?.length;
+    const termsEmpty =
+        !editableGlossaryTerms?.terms?.length &&
+        !uneditableGlossaryTerms?.terms?.length &&
+        !proposedGlossaryTerms?.length;
 
     let renderedTags = 0;
 
@@ -123,6 +143,31 @@ export default function TagTermGroup({
                     fontSize={fontSize}
                 />
             ))}
+            {proposedGlossaryTerms?.map((actionRequest) => {
+                const proposedTerm =
+                    actionRequest.params?.glossaryTermProposal?.glossaryTerm ||
+                    actionRequest.params?.glossaryTermProposal?.glossaryTerms?.[0];
+
+                return (
+                    <>
+                        {proposedTerm && (
+                            <ProposedTerm
+                                closable={false}
+                                data-testid={`proposed-term-${proposedTerm?.name}`}
+                                onClick={() => {
+                                    setSelectedActionRequest(actionRequest);
+                                }}
+                            >
+                                <BookmarkSimple style={{ marginRight: '3%' }} />
+                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, proposedTerm)}
+                                <Tooltip overlay="Proposed Term - Pending Approval" showArrow={false}>
+                                    <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                                </Tooltip>
+                            </ProposedTerm>
+                        )}
+                    </>
+                );
+            })}
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
@@ -163,6 +208,31 @@ export default function TagTermGroup({
                         refetch={refetch}
                         fontSize={fontSize}
                     />
+                );
+            })}
+            {proposedTags?.map((actionRequest) => {
+                const proposedTag =
+                    actionRequest?.params?.tagProposal?.tag || actionRequest?.params?.tagProposal?.tags?.[0];
+                return (
+                    <>
+                        {proposedTag && (
+                            <StyledTag
+                                data-testid={`proposed-tag-${proposedTag?.properties?.name}`}
+                                $colorHash={proposedTag?.urn}
+                                $color={proposedTag?.properties?.colorHex}
+                                onClick={() => {
+                                    setSelectedActionRequest(actionRequest);
+                                }}
+                            >
+                                <span>
+                                    {entityRegistry.getDisplayName(EntityType.Tag, proposedTag)}
+                                    <Tooltip overlay="Proposed Tag - Pending Approval" showArrow={false}>
+                                        <ClockCircleOutlined style={{ color: ANTD_GRAY[7], marginLeft: '5px' }} />
+                                    </Tooltip>
+                                </span>
+                            </StyledTag>
+                        )}
+                    </>
                 );
             })}
             {showEmptyMessage && canAddTag && tagsEmpty && (
@@ -208,7 +278,7 @@ export default function TagTermGroup({
                     onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);
-                        refetch?.();
+                        setTimeout(() => refetch?.(), 2000);
                     }}
                     resources={[
                         {
@@ -217,6 +287,16 @@ export default function TagTermGroup({
                             subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     ]}
+                    showPropose={shouldShowProposeButton(entityType)}
+                    entityType={entityType}
+                />
+            )}
+            {selectedActionRequest && (
+                <ProposalModal
+                    actionRequest={selectedActionRequest}
+                    selectedActionRequest={selectedActionRequest}
+                    setSelectedActionRequest={setSelectedActionRequest}
+                    refetch={refetch}
                 />
             )}
         </>

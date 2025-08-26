@@ -8,6 +8,8 @@ import ProfileSidebar from '@app/entity/shared/containers/profile/sidebar/Profil
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import Form from '@app/entity/shared/entityForm/Form';
 import ProgressBar from '@app/entity/shared/entityForm/ProgressBar';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { FORM_QUESTION_VIEW_BUTTON, WELCOME_TO_BULK_BY_ENTITY_ID } from '@app/onboarding/config/FormOnboardingConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 
@@ -25,6 +27,7 @@ const FlexWrapper = styled.div`
     max-height: 100%;
     overflow: auto;
     width: 100%;
+    flex: 1;
 `;
 
 interface Props {
@@ -32,8 +35,10 @@ interface Props {
 }
 
 export default function FormByEntity({ formUrn }: Props) {
-    const { selectedEntity, entityData: selectedEntityData, refetch, loading } = useEntityFormContext();
-    const { entityType } = useEntityContext();
+    const {
+        entity: { selectedEntity, entityData: selectedEntityData },
+    } = useEntityFormContext();
+    const { entityType, loading, refetch } = useEntityContext();
     const entityRegistry = useEntityRegistry();
     const sidebarSections = entityRegistry.getSidebarSections(selectedEntity?.type || entityType);
     const isV2 = useIsThemeV2();
@@ -60,6 +65,7 @@ export default function FormByEntity({ formUrn }: Props) {
                 lineage: undefined,
             }}
         >
+            <OnboardingTour stepIds={[WELCOME_TO_BULK_BY_ENTITY_ID, FORM_QUESTION_VIEW_BUTTON]} />
             <ContentWrapper>
                 <ProgressBar formUrn={formUrn} />
                 <FlexWrapper>
@@ -69,6 +75,7 @@ export default function FormByEntity({ formUrn }: Props) {
                             sidebarSections={loading ? [] : sections}
                             topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
                             backgroundColor="white"
+                            loading={loading}
                         />
                     )}
                 </FlexWrapper>

@@ -16,7 +16,7 @@ import styled from 'styled-components/macro';
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { ViewSelect } from '@app/entity/view/select/ViewSelect';
 import { CommandK } from '@app/search/CommandK';
@@ -57,7 +57,7 @@ const StyledSearchBar = styled(Input)`
         border: 2px solid transparent;
 
         &:focus-within {
-            border: 2px solid ${REDESIGN_COLORS.BLUE};
+            border: 2px solid ${(props) => props.theme.styles['primary-color']};
         }
     }
     > .ant-input::placeholder {
@@ -135,6 +135,7 @@ interface Props {
     onBlur?: () => void;
     showViewAllResults?: boolean;
     searchInputRef?: MutableRefObject<any>;
+    dataTestId?: string;
 }
 
 const defaultProps = {
@@ -164,6 +165,7 @@ export const SearchBar = ({
     onFocus,
     onBlur,
     showViewAllResults = false,
+    dataTestId,
     ...props
 }: Props) => {
     const history = useHistory();
@@ -211,7 +213,7 @@ export const SearchBar = ({
             type: '',
             label: (
                 <Button type="link" onClick={onClickExploreAll}>
-                    Explore all →
+                    View all →
                 </Button>
             ),
             style: { marginLeft: 'auto', cursor: 'auto' },
@@ -266,7 +268,7 @@ export const SearchBar = ({
         if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
             onQueryChange(searchQuery);
         }
-    });
+    }, [searchQuery, selectedQuickFilter, previousSelectedQuickFilterValue, onQueryChange]);
 
     // clear quick filters when this search bar is unmounted (ie. going from search results to home page)
     useEffect(() => {
@@ -322,9 +324,14 @@ export const SearchBar = ({
     useEffect(() => {
         if (showCommandK) {
             const handleKeyDown = (event) => {
-                // Support command-k to select the search bar.
+                const isMac = (navigator as any).userAgentData
+                    ? (navigator as any).userAgentData.platform.toLowerCase().includes('mac')
+                    : navigator.userAgent.toLowerCase().includes('mac');
+
+                // Support command-k to select the search bar on all platforms
+                // Support ctrl-k to select the search bar on non-Mac platforms
                 // 75 is the keyCode for 'k'
-                if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
+                if ((event.metaKey || (!isMac && event.ctrlKey)) && event.keyCode === 75) {
                     searchInputRef.current?.focus();
                 }
             };
@@ -406,7 +413,7 @@ export const SearchBar = ({
                     style={{ ...inputStyle, color: 'red' }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    data-testid="search-input"
+                    data-testid={dataTestId || 'search-input'}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
                     allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}

@@ -10,6 +10,7 @@ fragment globalTagsFields on GlobalTags {
                 colorHex
             }
         }
+        context
         associatedUrn
     }
 }
@@ -177,6 +178,7 @@ fragment glossaryTerms on GlossaryTerms {
         actor {
             urn
         }
+        context
         associatedUrn
     }
 }
@@ -239,89 +241,93 @@ fragment parentDomainsFields on ParentDomainsResult {
     }
 }
 
-fragment ownershipFields on Ownership {
-    owners {
-        owner {
-            ... on CorpUser {
-                urn
-                type
-                username
-                info {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                properties {
-                    active
-                    displayName
-                    title
-                    email
-                    firstName
-                    lastName
-                    fullName
-                }
-                editableProperties {
-                    displayName
-                    title
-                    pictureLink
-                    email
-                }
+fragment owner on Owner {
+    owner {
+        ... on CorpUser {
+            urn
+            type
+            username
+            info {
+                active
+                displayName
+                title
+                email
+                firstName
+                lastName
+                fullName
             }
-            ... on CorpGroup {
-                urn
-                type
-                name
-                properties {
-                    displayName
-                    email
-                }
-                info {
-                    displayName
-                    email
-                    admins {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            email
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                            teams
-                            skills
-                        }
-                    }
-                    members {
-                        urn
-                        username
-                        info {
-                            active
-                            displayName
-                            title
-                            email
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableInfo {
-                            pictureLink
-                            teams
-                            skills
-                        }
-                    }
-                    groups
-                }
+            properties {
+                active
+                displayName
+                title
+                email
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                title
+                pictureLink
+                email
             }
         }
+        ... on CorpGroup {
+            urn
+            type
+            name
+            properties {
+                displayName
+                email
+            }
+            info {
+                displayName
+                email
+                admins {
+                    urn
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                        teams
+                        skills
+                    }
+                }
+                members {
+                    urn
+                    username
+                    info {
+                        active
+                        displayName
+                        title
+                        email
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableInfo {
+                        pictureLink
+                        teams
+                        skills
+                    }
+                }
+                groups
+            }
+        }
+    }
+}
+
+fragment ownershipFields on Ownership {
+    owners {
+        ...owner
         type
         ownershipType {
             urn
@@ -363,11 +369,15 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             ...resolvedActorFields
         }
         description
+        label
         created {
             actor
             time
         }
         associatedUrn
+        settings {
+            showInAssetPreview
+        }
     }
 }
 
@@ -416,6 +426,7 @@ fragment nonRecursiveDatasetFields on Dataset {
             value
         }
         externalUrl
+        created
         lastModified {
             time
             actor
@@ -429,6 +440,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     editableProperties {
         name
         description
+    }
+    documentation {
+        ...documentationFields
     }
     ownership {
         ...ownershipFields
@@ -484,6 +498,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     editableProperties {
         description
     }
+    documentation {
+        ...documentationFields
+    }
     ownership {
         ...ownershipFields
     }
@@ -515,6 +532,9 @@ fragment nonRecursiveDataJobFields on DataJob {
             key
             value
         }
+    }
+    documentation {
+        ...documentationFields
     }
     globalTags {
         ...globalTagsFields
@@ -587,7 +607,7 @@ fragment dataJobFields on DataJob {
         ...parentContainersFields
     }
     privileges {
-        canEditLineage
+        ...entityPrivileges
     }
     browsePathV2 {
         ...browsePathV2Fields
@@ -600,6 +620,9 @@ fragment dataJobFields on DataJob {
     }
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
+    }
+    assetOrigin {
+        ...originFields
     }
     dataTransformLogic {
         ...dataTransformLogicFields
@@ -632,6 +655,9 @@ fragment dashboardFields on Dashboard {
     }
     editableProperties {
         description
+    }
+    documentation {
+        ...documentationFields
     }
     ownership {
         ...ownershipFields
@@ -675,7 +701,11 @@ fragment dashboardFields on Dashboard {
     }
     statsSummary {
         viewCount
+        viewCountLast30Days
+        viewCountPercentileLast30Days
         uniqueUserCountLast30Days
+        uniqueUserPercentileLast30Days
+        uniqueUserRankLast30Days
         topUsersLast30Days {
             urn
             type
@@ -699,11 +729,13 @@ fragment dashboardFields on Dashboard {
         typeNames
     }
     privileges {
-        canEditLineage
-        canEditEmbed
+        ...entityPrivileges
     }
     health {
         ...entityHealth
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 
@@ -786,6 +818,9 @@ fragment nonRecursiveMLFeature on MLFeature {
             ...structuredPropertiesFields
         }
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -861,6 +896,9 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             ...structuredPropertiesFields
         }
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -924,6 +962,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
         properties {
             ...structuredPropertiesFields
         }
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 
@@ -1118,6 +1159,9 @@ fragment nonRecursiveMLModel on MLModel {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    assetOrigin {
+        ...originFields
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -1181,6 +1225,12 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    assetOrigin {
+        ...originFields
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
 }
 
@@ -1250,6 +1300,9 @@ fragment entityContainer on Container {
 fragment parentContainerFields on Container {
     urn
     type
+    platform {
+        ...platformFields
+    }
     properties {
         name
     }
@@ -1259,10 +1312,26 @@ fragment parentContainerFields on Container {
 }
 
 fragment domainEntitiesFields on Domain {
-    entities(input: { start: 0, count: 0 }) {
+    entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [
+                { field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"], value: "DATA_PRODUCT" }
+            ]
+            searchFlags: { skipCache: true }
+        }
+    ) {
         total
     }
-    dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {
+    dataProducts: entities(
+        input: {
+            start: 0
+            count: 0
+            filters: [{ field: "_entityType", values: "DATA_PRODUCT" }]
+            searchFlags: { skipCache: true }
+        }
+    ) {
         total
     }
     applications: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "APPLICATION" }] }) {
@@ -1349,6 +1418,252 @@ fragment inputFieldsFields on InputFields {
     }
 }
 
+fragment proposalsFragment on ActionRequest {
+    urn
+    type
+    status
+    result
+    subResourceType
+    subResource
+    entity {
+        urn
+        type
+        ... on Dataset {
+            name
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+        }
+        ... on Dashboard {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Chart {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Container {
+            properties {
+                name
+                qualifiedName
+            }
+        }
+        ... on DataJob {
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on DataFlow {
+            orchestrator
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLFeature {
+            name
+        }
+        ... on MLFeatureTable {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLModel {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLModelGroup {
+            name
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+            }
+            properties {
+                description
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on MLPrimaryKey {
+            name
+        }
+        ... on GlossaryNode {
+            properties {
+                name
+                description
+            }
+        }
+        ... on GlossaryTerm {
+            properties {
+                name
+                description
+            }
+        }
+    }
+    params {
+        glossaryTermProposal {
+            glossaryTerm {
+                ...glossaryTerm
+            }
+            glossaryTerms {
+                ...glossaryTerm
+            }
+        }
+        tagProposal {
+            tag {
+                urn
+                type
+                name
+                description
+                properties {
+                    name
+                    colorHex
+                }
+            }
+            tags {
+                urn
+                type
+                name
+                properties {
+                    name
+                    colorHex
+                }
+            }
+        }
+        ownerProposal {
+            owners {
+                ...owner
+                type
+                ownershipType {
+                    urn
+                    type
+                    info {
+                        name
+                        description
+                    }
+                    status {
+                        removed
+                    }
+                }
+                associatedUrn
+            }
+        }
+        domainProposal {
+            domain {
+                urn
+                type
+                properties {
+                    name
+                    description
+                }
+                parentDomains {
+                    ...parentDomainsFields
+                }
+                ...domainEntitiesFields
+                displayProperties {
+                    ...displayPropertiesFields
+                }
+            }
+        }
+        structuredPropertyProposal {
+            structuredProperties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    created {
+        time
+        actor {
+            urn
+            type
+            username
+            info {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableInfo {
+                pictureLink
+            }
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+            username
+            info {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableInfo {
+                pictureLink
+            }
+        }
+    }
+    origin
+    inferenceMetadata {
+        lastInferredAt
+        confidenceLevel
+    }
+}
+
 fragment browsePathV2Fields on BrowsePathV2 {
     path {
         name
@@ -1372,6 +1687,10 @@ fragment entityDisplayNameFields on Entity {
     }
     ... on CorpUser {
         username
+        editableProperties {
+            displayName
+            email
+        }
         properties {
             displayName
             title
@@ -1424,6 +1743,11 @@ fragment entityDisplayNameFields on Entity {
         hierarchicalName
         properties {
             name
+        }
+        parentNodes {
+            nodes {
+                urn
+            }
         }
     }
     ... on GlossaryNode {
@@ -1496,6 +1820,82 @@ fragment entityDisplayNameFields on Entity {
     }
 }
 
+fragment entityPlatformFields on Entity {
+    ... on Dataset {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Dashboard {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Chart {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataFlow {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataPlatform {
+        ...platformFields
+    }
+    ... on DataPlatformInstance {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataJob {
+        dataFlow {
+            platform {
+                ...platformFields
+            }
+        }
+    }
+    ... on Container {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLFeatureTable {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLFeature {
+        properties {
+            sources {
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+    ... on MLPrimaryKey {
+        properties {
+            sources {
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+    ... on MLModel {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLModelGroup {
+        platform {
+            ...platformFields
+        }
+    }
+}
+
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     name
     source {
@@ -1542,6 +1942,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
@@ -1564,6 +1965,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             }
         }
         cardinality
+        filterStatus
         typeQualifier {
             allowedTypes {
                 urn
@@ -1619,7 +2021,6 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
     structuredProperty {
-        exists
         ...structuredPropertyFields
     }
     values {
@@ -1648,6 +2049,130 @@ fragment autoRenderAspectFields on RawAspect {
     }
 }
 
+fragment formFields on Form {
+    urn
+    type
+    exists
+    info {
+        name
+        description
+        type
+        created {
+            time
+            actor {
+                urn
+                ...entityDisplayNameFields
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                ...entityDisplayNameFields
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
+        prompts {
+            id
+            formUrn
+            title
+            description
+            type
+            required
+            structuredPropertyParams {
+                structuredProperty {
+                    ...structuredPropertyFields
+                }
+            }
+            ownershipParams {
+                cardinality
+                allowedOwners {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+                allowedOwnershipTypes {
+                    urn
+                    type
+                    info {
+                        name
+                        description
+                    }
+                }
+            }
+            glossaryTermsParams {
+                cardinality
+                resolvedAllowedTerms {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+            domainParams {
+                allowedDomains {
+                    urn
+                    type
+                    ...entityDisplayNameFields
+                }
+            }
+        }
+        actors {
+            owners
+            isAssignedToMe
+            users {
+                urn
+                properties {
+                    displayName
+                    email
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+            groups {
+                urn
+                properties {
+                    displayName
+                    description
+                }
+                editableProperties {
+                    pictureLink
+                }
+            }
+        }
+        status {
+            state
+            lastModified {
+                time
+                actor
+            }
+        }
+    }
+    ownership {
+        ...ownershipFields
+    }
+    dynamicFormAssignment {
+        json
+    }
+    formSettings {
+        notificationSettings {
+            notifyAssigneesOnPublish
+        }
+    }
+    formAssignmentStatus {
+        status
+        timestamp
+    }
+}
+
 fragment formAssociationFields on FormAssociation {
     associatedUrn
     incompletePrompts {
@@ -1657,33 +2182,7 @@ fragment formAssociationFields on FormAssociation {
         ...formPromptAssociationFields
     }
     form {
-        urn
-        type
-        info {
-            name
-            description
-            type
-            prompts {
-                id
-                formUrn
-                title
-                description
-                type
-                required
-                structuredPropertyParams {
-                    structuredProperty {
-                        ...structuredPropertyFields
-                    }
-                }
-            }
-            actors {
-                owners
-                isAssignedToMe
-            }
-        }
-        ownership {
-            ...ownershipFields
-        }
+        ...formFields
     }
 }
 
@@ -1697,6 +2196,33 @@ fragment formPromptAssociationFields on FormPromptAssociation {
             ...entityDisplayNameFields
         }
     }
+    response {
+        ownershipResponse {
+            owners {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+            ownershipTypeUrn
+        }
+        documentationResponse {
+            documentation
+        }
+        glossaryTermsResponse {
+            glossaryTerms {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+        domainResponse {
+            domain {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+    }
     fieldAssociations {
         completedFieldPrompts {
             fieldPath
@@ -1708,6 +2234,26 @@ fragment formPromptAssociationFields on FormPromptAssociation {
                     ...entityDisplayNameFields
                 }
             }
+            response {
+                ownershipResponse {
+                    owners {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                    ownershipTypeUrn
+                }
+                documentationResponse {
+                    documentation
+                }
+                glossaryTermsResponse {
+                    glossaryTerms {
+                        urn
+                        type
+                        ...entityDisplayNameFields
+                    }
+                }
+            }
         }
     }
 }
@@ -1717,6 +2263,20 @@ fragment entityHealth on Health {
     status
     message
     causes
+    reportedAt
+    activeIncidentHealthDetails {
+        latestIncidentUrn
+        latestIncidentTitle
+        lastActivityAt
+        count
+    }
+    latestAssertionStatusByType {
+        type
+        status
+        total
+        statusCount
+        lastStatusResultAt
+    }
 }
 
 fragment formsFields on Forms {
@@ -1729,6 +2289,8 @@ fragment formsFields on Forms {
     verifications {
         form {
             urn
+            type
+            exists
         }
         lastModified {
             time
@@ -1753,17 +2315,73 @@ fragment entityPrivileges on EntityPrivileges {
     canEditAssertions
     canEditIncidents
     canEditDeprecation
+    canProposeDescription
+    canProposeTags
+    canProposeGlossaryTerms
+    canProposeDomains
+    canProposeOwners
+    canProposeStructuredProperties
     canEditSchemaFieldTags
     canEditSchemaFieldGlossaryTerms
     canEditSchemaFieldDescription
+    canEditSchemaFieldStructuredProperties
+    canProposeSchemaFieldDescription
+    canProposeSchemaFieldGlossaryTerms
+    canProposeSchemaFieldTags
+    canProposeSchemaFieldStructuredProperties
     canEditQueries
     canEditEmbed
     canManageEntity
     canManageChildren
     canEditProperties
+    canShareEntity
+    canEditMonitors
+    canEditSqlAssertionMonitors
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
+    canEditDataContract
+    canProposeDataContract
+}
+
+fragment shareResultFields on ShareResult {
+    lastSuccess {
+        time
+    }
+    lastAttempt {
+        time
+    }
+    destination {
+        urn
+        details {
+            name
+        }
+    }
+    implicitShareEntity {
+        urn
+        type
+        ...entityDisplayNameFields
+        ...entityPlatformFields
+    }
+    status
+    message
+    statusLastUpdated
+    created {
+        time
+    }
+    shareConfig {
+        enableUpstreamLineage
+        enableDownstreamLineage
+    }
+}
+
+fragment shareFields on Share {
+    lastShareResults {
+        ...shareResultFields
+    }
+    lastUnshareResults {
+        ...shareResultFields
+    }
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
@@ -1810,6 +2428,43 @@ fragment businessAttribute on BusinessAttributeAssociation {
         }
     }
     associatedUrn
+}
+
+fragment sourceDetailsFields on SourceDetails {
+    source {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    platform {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+            ...entityDisplayNameFields
+        }
+    }
+    mechanism
+    properties {
+        key
+        value
+    }
+}
+
+fragment originFields on Origin {
+    type
+    externalType
+    resolvedSourceDetails {
+        ...sourceDetailsFields
+    }
+    rawSourceDetails {
+        ...sourceDetailsFields
+    }
 }
 
 fragment datasetProfileFields on DatasetProfile {
@@ -1916,6 +2571,12 @@ fragment ingestionSourceFields on IngestionSource {
         type
         name
     }
+    privileges {
+        canEdit
+        canView
+        canDelete
+        canExecute
+    }
 }
 
 fragment minimalIngestionExecutionRequestFields on ExecutionRequest {
@@ -1968,6 +2629,7 @@ fragment ingestionExecutionRequestFields on ExecutionRequest {
         startTimeMs
         durationMs
         report
+        executorInstanceId # SaaS only
         structuredReport {
             type
             serializedValue

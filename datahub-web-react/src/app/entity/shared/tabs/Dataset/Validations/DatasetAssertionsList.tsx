@@ -6,7 +6,8 @@ import {
     RightOutlined,
     StopOutlined,
 } from '@ant-design/icons';
-import { Button, Checkbox, Dropdown, Empty, Image, Modal, Tag, Tooltip, Typography, message } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Checkbox, Dropdown, Empty, Image, Modal, Tag, Typography, message } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -187,13 +188,13 @@ export const DatasetAssertionsList = ({
                             <DatasetAssertionDescription
                                 description={description}
                                 assertionInfo={record.datasetAssertionInfo}
+                                lastEvaluation={record.lastEvaluation}
                             />
                         ) : (
                             <AssertionDescriptionContainer>
                                 {description ?? 'No description provided'}
                             </AssertionDescriptionContainer>
                         )}
-
                         {(isPartOfContract && entityData?.urn && (
                             <Tooltip
                                 title={

@@ -17,6 +17,7 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
@@ -155,6 +156,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         {
             component: StatusSection,
         },
+        {
+            component: SharingAssetSection,
+        },
     ];
 
     getSidebarTabs = () => [
@@ -227,6 +231,10 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             entityType: this.type,
             getOverrideProperties: (data) => data,
         });
+    };
+
+    getPlatformProperties = (data: MlFeatureTable) => {
+        return data?.platform;
     };
 
     supportedCapabilities = () => {

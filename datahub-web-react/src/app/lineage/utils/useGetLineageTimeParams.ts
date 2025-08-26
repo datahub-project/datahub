@@ -1,13 +1,27 @@
+import moment from 'moment';
 import * as QueryString from 'query-string';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+
+import { useAppConfig } from '@app/useAppConfig';
 
 export const START_TIME_MILLIS_URL_PARAM = 'start_time_millis';
 export const END_TIME_MILLIS_URL_PARAM = 'end_time_millis';
 export const SHOW_ALL_TIME_LINEAGE_URL_PARAM = 'show_all_time_lineage';
 
 export function useGetDefaultLineageStartTimeMillis() {
-    return useMemo(() => null, []);
+    const appConfig = useAppConfig();
+    const { defaultLastDaysFilter } = appConfig.config.lineageConfig;
+    return useMemo(
+        () =>
+            defaultLastDaysFilter
+                ? moment()
+                      .subtract(defaultLastDaysFilter, 'days')
+                      .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
+                      .valueOf()
+                : null,
+        [defaultLastDaysFilter],
+    );
 }
 
 export function useGetLineageTimeParams() {

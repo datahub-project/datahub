@@ -1,0 +1,6 @@
+on:
+  types:
+    - dataset
+rules:
+  - property: editableDatasetProperties.description
+    operator: unknown_operator

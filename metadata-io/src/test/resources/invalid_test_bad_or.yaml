@@ -1,0 +1,7 @@
+on:
+  types:
+    - dataset
+rules:
+  or: # Not an array
+    property: editableDatasetProperties.description
+    operator: exists

@@ -29,9 +29,12 @@ type Props = {
     isExpanded: boolean;
     lastRefresh: number;
     onRefresh: () => void;
+    saasProps: {
+        onViewPool: (poolName: string) => void;
+    };
 };
 
-export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onRefresh }: Props) => {
+export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onRefresh, saasProps }: Props) => {
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
     const [page, setPage] = useState(1);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
@@ -55,6 +58,8 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
             isExecutionRequestActive(request as ExecutionRequest),
         );
     }
+
+    const canExecute = !!data?.ingestionSource?.privileges?.canExecute;
     useRefreshIngestionData(refetch, hasActiveExecution);
 
     const [cancelExecutionRequestMutation] = useCancelIngestionExecutionRequestMutation();
@@ -170,12 +175,14 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
                 handleViewDetails={handleViewDetails}
                 handleRollbackExecution={handleRollbackExecution}
                 setNumResultsPerPage={setNumResultsPerPage}
+                canExecute={canExecute}
             />
             {focusExecutionUrn && (
                 <ExecutionDetailsModal
                     urn={focusExecutionUrn}
                     open={focusExecutionUrn !== undefined}
                     onClose={() => setFocusExecutionUrn(undefined)}
+                    saasProps={{ onViewPool: saasProps.onViewPool }}
                 />
             )}
         </ListContainer>

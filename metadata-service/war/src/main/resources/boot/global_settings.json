@@ -1,6 +1,13 @@
 {
-  "views": {
+  "integrations": {
+    "slackSettings": {
+      "enabled": false
+    }
   },
+  "notifications": {
+    "settings": {}
+  },
+  "views": {},
   "docPropagation": {
     "enabled": true,
     "columnPropagationEnabled": true

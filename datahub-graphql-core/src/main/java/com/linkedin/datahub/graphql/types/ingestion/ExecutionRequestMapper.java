@@ -146,6 +146,9 @@ public class ExecutionRequestMapper implements ModelMapper<EntityResponse, Execu
     if (execRequestResult.hasStructuredReport()) {
       result.setStructuredReport(mapStructuredReport(execRequestResult.getStructuredReport()));
     }
+    if (execRequestResult.hasExecutorInstanceId()) { // SaaS only
+      result.setExecutorInstanceId(execRequestResult.getExecutorInstanceId());
+    }
     return result;
   }
 

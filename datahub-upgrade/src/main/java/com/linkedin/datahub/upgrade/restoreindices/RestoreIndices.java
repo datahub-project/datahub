@@ -11,9 +11,11 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class RestoreIndices implements Upgrade {
@@ -28,6 +30,10 @@ public class RestoreIndices implements Upgrade {
   public static final String URN_BASED_PAGINATION_ARG_NAME = "urnBasedPagination";
   public static final String CREATE_DEFAULT_ASPECTS_ARG_NAME = "createDefaultAspects";
 
+  // SaaS Only
+  public static final String RESTORE_FROM_PARQUET = "RESTORE_FROM_PARQUET";
+  public static final String DRY_RUN = "DRY_RUN";
+
   public static final String STARTING_OFFSET_ARG_NAME = "startingOffset";
   public static final String LAST_URN_ARG_NAME = "lastUrn";
   public static final String LAST_ASPECT_ARG_NAME = "lastAspect";
@@ -38,6 +44,7 @@ public class RestoreIndices implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public RestoreIndices(
+      @Nonnull OperationContext systemOperationContext,
       @Nullable final Database server,
       final EntityService<?> entityService,
       final SystemMetadataService systemMetadataService,
@@ -46,7 +53,12 @@ public class RestoreIndices implements Upgrade {
     if (server != null) {
       _steps =
           buildSteps(
-              server, entityService, systemMetadataService, entitySearchService, graphService);
+              systemOperationContext,
+              server,
+              entityService,
+              systemMetadataService,
+              entitySearchService,
+              graphService);
     } else {
       _steps = List.of();
     }
@@ -63,6 +75,7 @@ public class RestoreIndices implements Upgrade {
   }
 
   private List<UpgradeStep> buildSteps(
+      @Nonnull OperationContext systemOperationContext,
       final Database server,
       final EntityService<?> entityService,
       final SystemMetadataService systemMetadataService,
@@ -73,6 +86,7 @@ public class RestoreIndices implements Upgrade {
     steps.add(new ClearSearchServiceStep(entitySearchService, false));
     steps.add(new ClearGraphServiceStep(graphService, false));
     steps.add(new SendMAEStep(server, entityService));
+    steps.add(new RestoreFromParquetStep(systemOperationContext, entityService));
     return steps;
   }
 

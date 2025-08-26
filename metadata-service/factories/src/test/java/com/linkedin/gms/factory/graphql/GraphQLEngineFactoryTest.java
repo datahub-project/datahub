@@ -16,13 +16,13 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
-import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
@@ -31,11 +31,15 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.service.*;
+import com.linkedin.metadata.test.TestEngine;
+import com.linkedin.metadata.test.action.ActionApplier;
+import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.RestrictedService;
@@ -135,6 +139,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private SecretService secretService;
 
   @MockBean
+  @Qualifier("testEngine")
+  private TestEngine testEngine;
+
+  @MockBean
   @Qualifier("gitVersion")
   private GitVersion gitVersion;
 
@@ -203,6 +211,26 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private RestrictedService restrictedService;
 
   @MockBean
+  @Qualifier("monitorService")
+  private MonitorService monitorService;
+
+  @MockBean
+  @Qualifier("dataContractService")
+  private DataContractService dataContractService;
+
+  @MockBean
+  @Qualifier("integrationsService")
+  private IntegrationsService integrationsService;
+
+  @MockBean
+  @Qualifier("subscriptionService")
+  private SubscriptionService subscriptionService;
+
+  @MockBean
+  @Qualifier("shareService")
+  private ShareService shareService;
+
+  @MockBean
   @Qualifier("businessAttributeService")
   private BusinessAttributeService businessAttributeService;
 
@@ -213,6 +241,14 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockBean
   @Qualifier("assertionService")
   private AssertionService assertionService;
+
+  @MockBean
+  @Qualifier("metadataTestClient")
+  private MetadataTestClient metadataTestClient;
+
+  @MockBean
+  @Qualifier("actionRequestService")
+  private ActionRequestService actionRequestService;
 
   @MockBean
   @Qualifier("entityClient")
@@ -243,9 +279,12 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private PageTemplateService pageTemplateService;
 
   @MockBean
-  @Qualifier("baseElasticSearchComponents")
-  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
-      baseElasticSearchComponents;
+  @Qualifier("queryEngine")
+  private QueryEngine queryEngine;
+
+  @MockBean
+  @Qualifier("testActionApplier")
+  private ActionApplier testActionApplier;
 
   @MockBean
   @Qualifier("pageModuleService")
@@ -303,6 +342,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(configurationProvider.getFeatureFlags());
     assertNotNull(configurationProvider.getGraphQL());
     assertNotNull(configurationProvider.getChromeExtension());
+    assertNotNull(configurationProvider.getClassificationConfig());
+    assertNotNull(configurationProvider.getExecutors());
+    assertNotNull(configurationProvider.getAssertionMonitors());
     assertNotNull(configurationProvider.getCache());
 
     // Verify nested configurations
@@ -327,12 +369,14 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "indexConvention", indexConvention);
     setField(factoryWithAnalytics, "graphClient", graphClient);
     setField(factoryWithAnalytics, "entityService", entityService);
+    setField(factoryWithAnalytics, "_entitySearchService", entitySearchService);
     setField(factoryWithAnalytics, "graphService", graphService);
     setField(factoryWithAnalytics, "siblingGraphService", siblingGraphService);
     setField(factoryWithAnalytics, "timeseriesAspectService", timeseriesAspectService);
     setField(factoryWithAnalytics, "recommendationsService", recommendationsService);
     setField(factoryWithAnalytics, "statefulTokenService", statefulTokenService);
     setField(factoryWithAnalytics, "secretService", secretService);
+    setField(factoryWithAnalytics, "_testEngine", testEngine);
     setField(factoryWithAnalytics, "entityRegistry", entityRegistry);
     setField(factoryWithAnalytics, "configProvider", configurationProvider);
     setField(factoryWithAnalytics, "gitVersion", gitVersion);
@@ -352,10 +396,18 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     setField(factoryWithAnalytics, "applicationService", applicationService);
     setField(factoryWithAnalytics, "formService", formService);
     setField(factoryWithAnalytics, "restrictedService", restrictedService);
+    setField(factoryWithAnalytics, "_monitorService", monitorService);
+    setField(factoryWithAnalytics, "_dataContractService", dataContractService);
+    setField(factoryWithAnalytics, "_integrationsService", integrationsService);
+    setField(factoryWithAnalytics, "_subscriptionService", subscriptionService);
+    setField(factoryWithAnalytics, "_shareService", shareService);
     setField(factoryWithAnalytics, "businessAttributeService", businessAttributeService);
     setField(factoryWithAnalytics, "_connectionService", connectionService);
     setField(factoryWithAnalytics, "assertionService", assertionService);
+    setField(factoryWithAnalytics, "metadataTestClient", metadataTestClient);
+    setField(factoryWithAnalytics, "actionRequestService", actionRequestService);
     setField(factoryWithAnalytics, "isAnalyticsEnabled", true);
+    setField(factoryWithAnalytics, "defaultLineageLastDaysFilter", 30);
 
     // When
     GraphQLEngine engineWithAnalytics =
@@ -386,6 +438,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(recommendationsService);
     assertNotNull(statefulTokenService);
     assertNotNull(secretService);
+    assertNotNull(testEngine);
     assertNotNull(entityRegistry);
     assertNotNull(gitVersion);
     assertNotNull(timelineService);
@@ -404,9 +457,16 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     assertNotNull(applicationService);
     assertNotNull(formService);
     assertNotNull(restrictedService);
+    assertNotNull(monitorService);
+    assertNotNull(dataContractService);
+    assertNotNull(integrationsService);
+    assertNotNull(subscriptionService);
+    assertNotNull(shareService);
     assertNotNull(businessAttributeService);
     assertNotNull(connectionService);
     assertNotNull(assertionService);
+    assertNotNull(metadataTestClient);
+    assertNotNull(actionRequestService);
     assertNotNull(entityClient);
     assertNotNull(systemEntityClient);
     assertNotNull(entityVersioningService);

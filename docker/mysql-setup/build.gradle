@@ -6,8 +6,8 @@ apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
-    docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
-    docker_repo = 'datahub-mysql-setup'
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-mysql-setup' : 'datahub-mysql-setup'
     docker_dir = 'mysql-setup'
 }
 

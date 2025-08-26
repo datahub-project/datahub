@@ -1,0 +1,16 @@
+namespace com.linkedin.monitor
+
+/**
+ * Information about the parameters required to evaluate a schema assertion.
+ */
+record DatasetSchemaAssertionParameters {
+  /**
+  * The source of the actual schema.
+  */
+  sourceType: enum DatasetSchemaSourceType {
+    /**
+    * Validate the expected columns against the DataHub Schema Metadata aspect (the only option currently)
+    */
+    DATAHUB_SCHEMA
+  }
+}

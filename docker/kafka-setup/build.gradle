@@ -6,7 +6,8 @@ apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
-    docker_repo = 'datahub-kafka-setup'
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-kafka-setup' : 'datahub-kafka-setup'
     docker_dir = 'kafka-setup'
 }
 

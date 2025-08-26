@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { useBrowsePath, useEntityType } from '@app/search/sidebar/BrowseContext';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from '@app/search/sidebar/constants';
 import { useSidebarFilters } from '@app/search/sidebar/useSidebarFilters';
@@ -16,6 +17,12 @@ const useBrowsePagination = ({ skip }: Props) => {
     const type = useEntityType();
     const path = useBrowsePath();
     const sidebarFilters = useSidebarFilters();
+    const {
+        filter: { formFilter },
+        isInFormContext,
+        shouldRefetch,
+        setShouldRefetch,
+    } = useEntityFormContext();
     const [startToBrowseMap, setStartToBrowseMap] = useState<Record<number, GetBrowseResultsV2Query | undefined>>({});
     const startList = useMemo(
         () =>
@@ -34,12 +41,19 @@ const useBrowsePagination = ({ skip }: Props) => {
     const done = !!latestData && groups.length >= total;
 
     const [getBrowseResultsV2, { data, error, refetch }] = useGetBrowseResultsV2LazyQuery({
-        fetchPolicy: 'cache-first',
+        fetchPolicy: isInFormContext ? 'no-cache' : 'cache-first',
     });
 
     const retry = () => {
         if (refetch) refetch();
     };
+
+    useEffect(() => {
+        if (shouldRefetch) {
+            refetch?.();
+            setShouldRefetch(false);
+        }
+    }, [shouldRefetch, refetch, setShouldRefetch]);
 
     const getBrowseResultsV2WithDeps = useCallback(
         (start: number) => {
@@ -54,11 +68,21 @@ const useBrowsePagination = ({ skip }: Props) => {
                         orFilters: sidebarFilters.orFilters,
                         viewUrn: sidebarFilters.viewUrn,
                         query: sidebarFilters.query,
+                        formFilter,
                     },
                 },
             });
         },
-        [getBrowseResultsV2, path, sidebarFilters.orFilters, sidebarFilters.query, sidebarFilters.viewUrn, skip, type],
+        [
+            getBrowseResultsV2,
+            path,
+            sidebarFilters.orFilters,
+            sidebarFilters.query,
+            sidebarFilters.viewUrn,
+            skip,
+            type,
+            formFilter,
+        ],
     );
 
     useEffect(() => {

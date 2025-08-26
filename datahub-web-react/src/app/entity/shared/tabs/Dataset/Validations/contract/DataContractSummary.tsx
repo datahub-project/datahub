@@ -4,12 +4,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     getContractSummaryIcon,
     getContractSummaryMessage,
     getContractSummaryTitle,
 } from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
-import { AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/types';
 
 import { DataContractState } from '@types';
 

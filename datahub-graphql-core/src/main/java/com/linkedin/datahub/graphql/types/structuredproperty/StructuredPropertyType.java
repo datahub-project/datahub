@@ -28,7 +28,9 @@ public class StructuredPropertyType
 
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
-          STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME);
+          STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+          STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

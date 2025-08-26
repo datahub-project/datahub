@@ -43,17 +43,32 @@ public class ElasticSearchBulkProcessorFactory {
   @Value("${elasticsearch.bulkProcessor.refreshPolicy}")
   private String refreshPolicy;
 
-  @Bean(name = "elasticSearchBulkProcessor")
+  @Bean(name = "elasticSearchBulkProcessor", destroyMethod = "close")
   @Nonnull
   protected ESBulkProcessor getInstance(MetricUtils metricUtils) {
-    return ESBulkProcessor.builder(searchClient, metricUtils)
-        .async(async)
-        .bulkFlushPeriod(bulkFlushPeriod)
-        .bulkRequestsLimit(bulkRequestsLimit)
-        .retryInterval(retryInterval)
-        .numRetries(numRetries)
-        .batchDelete(enableBatchDelete)
-        .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
-        .build();
+    ESBulkProcessor processor =
+        ESBulkProcessor.builder(searchClient, metricUtils)
+            .async(async)
+            .bulkFlushPeriod(bulkFlushPeriod)
+            .bulkRequestsLimit(bulkRequestsLimit)
+            .retryInterval(retryInterval)
+            .numRetries(numRetries)
+            .batchDelete(enableBatchDelete)
+            .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
+            .build();
+
+    Runtime.getRuntime()
+        .addShutdownHook(
+            new Thread(
+                () -> {
+                  try {
+                    log.info("Flushing ElasticSearchBulkProcessor in shutdown hook...");
+                    processor.flush();
+                  } catch (Exception e) {
+                    log.error("Error flushing ElasticSearchBulkProcessor in shutdown hook", e);
+                  }
+                }));
+
+    return processor;
   }
 }

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.tag.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.Urn;
@@ -16,14 +18,12 @@ public class GlobalTagsMapper {
   public static com.linkedin.datahub.graphql.generated.GlobalTags map(
       @Nullable final QueryContext context,
       @Nonnull final GlobalTags standardTags,
-      @Nonnull final Urn entityUrn) {
+      final Urn entityUrn) {
     return INSTANCE.apply(context, standardTags, entityUrn);
   }
 
   public com.linkedin.datahub.graphql.generated.GlobalTags apply(
-      @Nullable final QueryContext context,
-      @Nonnull final GlobalTags input,
-      @Nonnull final Urn entityUrn) {
+      @Nullable final QueryContext context, @Nonnull final GlobalTags input, final Urn entityUrn) {
     final com.linkedin.datahub.graphql.generated.GlobalTags result =
         new com.linkedin.datahub.graphql.generated.GlobalTags();
     result.setTags(
@@ -38,14 +38,22 @@ public class GlobalTagsMapper {
   private static Optional<com.linkedin.datahub.graphql.generated.TagAssociation> mapTagAssociation(
       @Nullable final QueryContext context,
       @Nonnull final TagAssociation input,
-      @Nonnull final Urn entityUrn) {
+      final Urn entityUrn) {
 
-    final com.linkedin.datahub.graphql.generated.TagAssociation result =
-        new com.linkedin.datahub.graphql.generated.TagAssociation();
-    final Tag resultTag = new Tag();
-    resultTag.setUrn(input.getTag().toString());
-    result.setTag(resultTag);
-    result.setAssociatedUrn(entityUrn.toString());
-    return Optional.of(result);
+    if (context == null || canView(context.getOperationContext(), input.getTag())) {
+      final com.linkedin.datahub.graphql.generated.TagAssociation result =
+          new com.linkedin.datahub.graphql.generated.TagAssociation();
+      final Tag resultTag = new Tag();
+      resultTag.setUrn(input.getTag().toString());
+      result.setTag(resultTag);
+      if (entityUrn != null) {
+        result.setAssociatedUrn(entityUrn.toString());
+      }
+      if (input.getContext() != null) {
+        result.setContext(input.getContext());
+      }
+      return Optional.of(result);
+    }
+    return Optional.empty();
   }
 }

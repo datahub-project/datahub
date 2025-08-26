@@ -9,6 +9,7 @@ query getMLModelGroup($urn: String!) {
                 time
                 actor
             }
+            createdAt
             lastModified {
                 time
                 actor
@@ -36,6 +37,9 @@ query getMLModelGroup($urn: String!) {
         ) {
             ...fullRelationshipResults
         }
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -49,6 +53,9 @@ query getMLModelGroup($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        proposals: proposals {
+            ...proposalsFragment
         }
         ...notes
     }

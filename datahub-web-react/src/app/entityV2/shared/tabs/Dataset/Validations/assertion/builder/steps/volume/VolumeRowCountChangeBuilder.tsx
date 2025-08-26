@@ -1,0 +1,181 @@
+import { Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { VolumeNumberInput } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeNumberInput';
+import { VolumeAssertionBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { getPropertyFromVolumeType } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
+
+import { AssertionStdOperator, AssertionStdParameterType, AssertionValueChangeType } from '@types';
+
+const Container = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+type Props = {
+    volumeInfo: VolumeAssertionBuilderState;
+    value: VolumeAssertionBuilderState['parameters'];
+    onChange: (newParams: VolumeAssertionBuilderState['parameters']) => void;
+    updateVolumeAssertion: (newParams: VolumeAssertionBuilderState) => void;
+    disabled?: boolean;
+};
+
+export const VolumeRowCountChangeBuilder = ({
+    volumeInfo,
+    value,
+    onChange,
+    updateVolumeAssertion,
+    disabled,
+}: Props) => {
+    const selectedType = volumeInfo.type;
+    const propertyName = selectedType ? getPropertyFromVolumeType(selectedType) : '';
+    const operator = volumeInfo[propertyName]?.operator;
+
+    const handleValueChange = (newValue: number) => {
+        onChange({
+            ...value,
+            value: {
+                type: AssertionStdParameterType.Number,
+                value: newValue?.toString(),
+            },
+        });
+    };
+    const handleMinValueChange = (newValue: number) => {
+        onChange({
+            ...value,
+            minValue: {
+                type: AssertionStdParameterType.Number,
+                value: newValue?.toString(),
+            },
+        });
+    };
+    const handleMaxValueChange = (newValue: number) => {
+        onChange({
+            ...value,
+            maxValue: {
+                type: AssertionStdParameterType.Number,
+                value: newValue?.toString(),
+            },
+        });
+    };
+    const handleTypeChange = (newValue: string) => {
+        updateVolumeAssertion({
+            [propertyName]: {
+                ...volumeInfo[propertyName],
+                type: newValue,
+            },
+        });
+    };
+
+    switch (operator) {
+        case AssertionStdOperator.GreaterThanOrEqualTo:
+        case AssertionStdOperator.LessThanOrEqualTo:
+            return (
+                <Container>
+                    <VolumeNumberInput
+                        name="parameters.value"
+                        placeholder="Number"
+                        enableNegatives
+                        value={value?.value?.value ? parseInt(value.value.value, 10) : undefined}
+                        onChange={(newValue) => handleValueChange(newValue as number)}
+                        disabled={disabled}
+                        select={{
+                            value: (volumeInfo[propertyName] as any)?.type,
+                            options: [
+                                {
+                                    label: 'total rows',
+                                    value: AssertionValueChangeType.Absolute,
+                                },
+                                {
+                                    label: '% of total table size',
+                                    value: AssertionValueChangeType.Percentage,
+                                },
+                            ],
+                            onChange: handleTypeChange,
+                        }}
+                    />
+                    <Typography.Paragraph type="secondary">
+                        Between subsequent evaluations of this assertion
+                    </Typography.Paragraph>
+                </Container>
+            );
+        case AssertionStdOperator.Between:
+            return (
+                <Container>
+                    <Typography.Text strong>At least</Typography.Text>
+                    <VolumeNumberInput
+                        name="parameters.minValue"
+                        placeholder="Min"
+                        enableNegatives
+                        value={value?.minValue?.value ? parseInt(value.minValue.value, 10) : undefined}
+                        onChange={(newValue) => handleMinValueChange(newValue as number)}
+                        disabled={disabled}
+                        select={{
+                            value: (volumeInfo[propertyName] as any)?.type,
+                            options: [
+                                {
+                                    label: 'total rows',
+                                    value: AssertionValueChangeType.Absolute,
+                                },
+                                {
+                                    label: '% of total table size',
+                                    value: AssertionValueChangeType.Percentage,
+                                },
+                            ],
+                            onChange: handleTypeChange,
+                        }}
+                        customRules={[
+                            ({ getFieldValue }) => ({
+                                validator(_, fieldValue) {
+                                    if (fieldValue >= getFieldValue('parameters.maxValue')) {
+                                        return Promise.reject(new Error('Must be less than maximum'));
+                                    }
+                                    return Promise.resolve();
+                                },
+                            }),
+                        ]}
+                    />
+                    <Typography.Text strong>Or at most</Typography.Text>
+                    <VolumeNumberInput
+                        name="parameters.maxValue"
+                        placeholder="Max"
+                        enableNegatives
+                        value={value?.maxValue?.value ? parseInt(value.maxValue.value, 10) : undefined}
+                        onChange={(newValue) => handleMaxValueChange(newValue as number)}
+                        disabled={disabled}
+                        select={{
+                            value: (volumeInfo[propertyName] as any)?.type,
+                            options: [
+                                {
+                                    label: 'total rows',
+                                    value: AssertionValueChangeType.Absolute,
+                                },
+                                {
+                                    label: '% of total table size',
+                                    value: AssertionValueChangeType.Percentage,
+                                },
+                            ],
+                            onChange: handleTypeChange,
+                        }}
+                        customRules={[
+                            ({ getFieldValue }) => ({
+                                validator(_, fieldValue) {
+                                    if (fieldValue <= getFieldValue('parameters.minValue')) {
+                                        return Promise.reject(new Error('Must be greater than minimum'));
+                                    }
+                                    return Promise.resolve();
+                                },
+                            }),
+                        ]}
+                    />
+                    <Typography.Paragraph type="secondary">
+                        Between subsequent evaluations of this assertion
+                    </Typography.Paragraph>
+                </Container>
+            );
+        default:
+            return null;
+    }
+};

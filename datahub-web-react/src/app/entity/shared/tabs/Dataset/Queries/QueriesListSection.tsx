@@ -1,5 +1,6 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Pagination, Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Pagination, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 

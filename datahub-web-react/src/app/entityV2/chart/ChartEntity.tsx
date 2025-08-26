@@ -29,7 +29,9 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
+import { getChartPopularityTier, isValuePresent } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
@@ -59,8 +61,8 @@ import { Chart, EntityType, LineageDirection, SearchResult } from '@types';
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
 ]);
@@ -248,6 +250,9 @@ export class ChartEntity implements Entity<Chart> {
         {
             component: StatusSection,
         },
+        {
+            component: SharingAssetSection,
+        },
     ];
 
     getSidebarTabs = () => [
@@ -299,6 +304,15 @@ export class ChartEntity implements Entity<Chart> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
                 subType={data.subTypes?.typeNames?.[0]}
+                tier={
+                    isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getChartPopularityTier(
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
+                }
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
                 externalUrl={data.properties?.externalUrl}
@@ -329,7 +343,7 @@ export class ChartEntity implements Entity<Chart> {
                 deprecation={data.deprecation}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data?.properties)}
-                createdMs={data.properties?.created?.time}
+                createdMs={this.createdTime(data)}
                 externalUrl={data.properties?.externalUrl}
                 snippet={
                     <MatchedFieldList
@@ -339,6 +353,15 @@ export class ChartEntity implements Entity<Chart> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                tier={
+                    isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
+                    isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
+                        ? getChartPopularityTier(
+                              data.statsSummary?.viewCountPercentileLast30Days,
+                              data.statsSummary?.uniqueUserPercentileLast30Days,
+                          )
+                        : undefined
+                }
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
             />
@@ -368,12 +391,20 @@ export class ChartEntity implements Entity<Chart> {
         return data.properties?.name || data.urn;
     };
 
+    createdTime = (data: Chart) => {
+        return data?.properties?.created?.time || data?.info?.created?.time;
+    };
+
     getGenericEntityProperties = (data: Chart) => {
         return getDataForEntityType({
             data,
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    getPlatformProperties = (data: Chart) => {
+        return data?.platform;
     };
 
     supportedCapabilities = () => {

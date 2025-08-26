@@ -14,7 +14,7 @@
 import dayjs from "dayjs";
 import { hasOperationName } from "../e2e/utils";
 
-function selectorWithtestId(id) {
+export function selectorWithtestId(id) {
   return `[data-testid="${id}"]`;
 }
 
@@ -38,13 +38,10 @@ Cypress.Commands.add("login", () => {
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
   cy.visit("/login");
-  if ((username, password)) {
-    cy.get("input[data-testid=username]").type(username);
-    cy.get("input[data-testid=password]").type(password);
-  } else {
-    cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
-    cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
-  }
+  username = username || Cypress.env("ADMIN_USERNAME");
+  password = password || Cypress.env("ADMIN_PASSWORD");
+  cy.get("input[data-testid=username]").type(username, { delay: 0 });
+  cy.get("input[data-testid=password]").type(password, { delay: 0 });
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
   localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
@@ -56,6 +53,19 @@ Cypress.Commands.add("visitWithLogin", (url) => {
   cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
   localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
   cy.contains("Sign In").click();
+});
+
+// Login commands for onboarding tour testing (without setting skipOnboardingTour)
+Cypress.Commands.add("loginForOnboarding", () => {
+  cy.request({
+    method: "POST",
+    url: "/logIn",
+    body: {
+      username: Cypress.env("ADMIN_USERNAME"),
+      password: Cypress.env("ADMIN_PASSWORD"),
+    },
+    retryOnStatusCodeFailure: true,
+  });
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {
@@ -96,6 +106,12 @@ Cypress.Commands.add("goToBusinessAttributeList", () => {
   cy.wait(3000);
 });
 
+Cypress.Commands.add("goToTestsList", () => {
+  cy.clickOptionWithText("Govern");
+  cy.get('[role="menuitem"]').contains("Tests").click();
+  cy.waitTextVisible("Metadata Tests");
+});
+
 Cypress.Commands.add("goToDomainList", () => {
   cy.visit("/domains");
   cy.waitTextVisible("Domains");
@@ -111,9 +127,19 @@ Cypress.Commands.add("goToOwnershipTypesSettings", () => {
   cy.waitTextVisible("Manage Ownership");
 });
 
-Cypress.Commands.add("goToHomePagePostSettings", () => {
+Cypress.Commands.add("goToIntegrationsSettings", () => {
+  cy.visit("/settings/integrations");
+  cy.waitTextVisible("Manage integrations with third party tools");
+});
+
+Cypress.Commands.add("goToSubscriptionsSettings", () => {
+  cy.visit("/settings/personal-subscriptions");
+  cy.waitTextVisible("My Subscriptions");
+});
+
+Cypress.Commands.add("goToHomePagePostSettingsV1", () => {
   cy.visit("/settings/posts");
-  cy.waitTextVisible("Home Page Posts");
+  cy.waitTestIdVisible("managePostsV1");
 });
 
 Cypress.Commands.add("goToHomePagePostSettingsV1", () => {
@@ -132,16 +158,28 @@ Cypress.Commands.add("goToAccessTokenSettings", () => {
   cy.wait(3000);
 });
 
+Cypress.Commands.add("goToMyNotificationSettings", () => {
+  cy.visit("/settings/personal-notifications");
+  cy.waitTextVisible("My Notifications");
+  cy.wait(3000);
+});
+
+Cypress.Commands.add("goToGroupNotificationSettings", (groupUrn) => {
+  cy.visit(`/group/${groupUrn}/notifications`);
+  cy.waitTextVisible("Group Notifications");
+  cy.wait(3000);
+});
+
 Cypress.Commands.add("goToIngestionPage", () => {
   cy.visit("/ingestion");
   cy.waitTextVisible("Sources");
 });
 
-Cypress.Commands.add("goToDataset", (urn, dataset_name, login) => {
+Cypress.Commands.add("goToDataset", (urn, dataset_name, login, tab = "") => {
   if (login) {
-    cy.visitWithLogin(`/dataset/${urn}/`);
+    cy.visitWithLogin(`/dataset/${urn}/${tab}`);
   } else {
-    cy.visit(`/dataset/${urn}/`);
+    cy.visit(`/dataset/${urn}/${tab}`);
   }
   cy.wait(3000);
   cy.waitTextVisible(dataset_name);
@@ -155,7 +193,7 @@ Cypress.Commands.add("goToBusinessAttribute", (urn, attribute_name) => {
 
 Cypress.Commands.add("goToTag", (urn, tag_name) => {
   cy.visit(`/tag/${urn}`);
-  cy.wait(5000);
+  cy.wait(3000);
   cy.waitTextVisible(tag_name);
 });
 
@@ -466,13 +504,17 @@ Cypress.Commands.add("mouseHoverOnFirstElement", (selector) =>
   cy.get(selector).first().trigger("mouseover", { force: true }),
 );
 
-Cypress.Commands.add("createUser", (name, password, email) => {
+Cypress.Commands.add("createUser", (name, password, email, isV2 = false) => {
   cy.visit("/settings/identities/users");
   cy.clickOptionWithText("Invite Users");
   cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
     const inviteLink = $elem.text();
     cy.visit("/settings/identities/users");
-    cy.logout();
+    if (isV2) {
+      cy.logoutV2();
+    } else {
+      cy.logout();
+    }
     cy.visit(inviteLink);
     cy.enterTextInTestId("email", email);
     cy.enterTextInTestId("name", name);
@@ -481,11 +523,18 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.mouseover("#title").click();
     cy.waitTextVisible("Other").click();
     cy.get("[type=submit]").click();
-    cy.waitTextVisible("Welcome back");
-    cy.hideOnboardingTour();
-    cy.waitTextVisible(name);
-    cy.logout();
-    cy.loginWithCredentials();
+    if (isV2) {
+      cy.waitTextVisible("Get Started");
+      cy.clickOptionWithText("Skip");
+      cy.waitTextVisible(name);
+      cy.logoutV2();
+    } else {
+      cy.waitTextVisible("Welcome");
+      cy.hideOnboardingTour();
+      cy.waitTextVisible(name);
+      cy.logout();
+    }
+    cy.login();
   });
 });
 
@@ -509,9 +558,11 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.contains(group_name).should("be.visible");
   cy.get('[role="tab"]').contains("Members").click();
   cy.clickOptionWithText("Add Member");
-  cy.contains("Search for users...").click({ force: true });
-  cy.focused().type(member_name);
-  cy.contains(member_name).click();
+  cy.contains("Search for users...")
+    .click({ force: true })
+    .focused()
+    .type(member_name);
+  cy.get(".ant-select-item-option-content").contains(member_name).click();
   cy.focused().blur();
   cy.contains(member_name).should("have.length", 1);
   cy.get('[role="dialog"] button').contains("Add").click({ force: true });
@@ -529,6 +580,78 @@ Cypress.Commands.add("createGlossaryTermGroup", (term_group_name) => {
     .contains(term_group_name)
     .should("be.visible");
   cy.waitTextVisible(`Created Term Group!`);
+});
+
+// SaaS only
+Cypress.Commands.add(
+  "typeSearchDisableCache",
+  { prevSubject: "element" },
+  (subject, input) => {
+    const randomStrGenerator = () => Cypress._.random(0, 1e9);
+    const randomStr = randomStrGenerator();
+    const combinedStr = `${input} | ${randomStr}{enter}`;
+    cy.get(subject.selector).type(combinedStr);
+  },
+);
+
+Cypress.Commands.add(
+  "searchNotCachedContainsDataset",
+  (searchTerm, datasetName) => {
+    cy.visit("/");
+    cy.get("input[data-testid=search-input]").typeSearchDisableCache(
+      searchTerm,
+    );
+    cy.contains(datasetName);
+    cy.contains(searchTerm);
+  },
+);
+
+Cypress.Commands.add(
+  "searchNotCachedDoesNotContainDataset",
+  (searchTerm, datasetName) => {
+    cy.visit("/");
+    cy.get("input[data-testid=search-input]").typeSearchDisableCache(
+      searchTerm,
+    );
+    cy.contains(datasetName).should("not.exist");
+  },
+);
+
+Cypress.Commands.add("doInInbox", (action) => {
+  cy.contains("span", "Tasks").click();
+  cy.clickOptionWithTestId("proposals-tab");
+  cy.get(".action-request-test-id").should("have.length", 1);
+  cy.getWithTestId(action).first().click({ force: true });
+  cy.contains("Yes").click({ force: true });
+  cy.get(".action-request-test-id").should("have.length", 0);
+});
+
+Cypress.Commands.add("acceptProposalInbox", () => {
+  cy.doInInbox("approve-button");
+});
+
+Cypress.Commands.add("rejectProposalInbox", () => {
+  cy.doInInbox("decline-button");
+});
+
+Cypress.Commands.add("handleIntroducePage", () => {
+  // Not sure how to wait for potential redirect
+  // Previously always redirected to /introduce and ran through the flow, think this is better
+  cy.wait(1000);
+  cy.url().then((url) => {
+    if (url.includes("/introduce")) {
+      cy.get(".ant-select ").first().click();
+      cy.get(".ant-select-item-option-content")
+        .contains("Data Analyst")
+        .should("be.visible")
+        .click();
+      cy.get(".ant-select-selection-overflow").click();
+      cy.get('[src*="bigquerylogo.png"]').should("be.visible").click();
+      cy.get("body").click();
+      cy.contains("Data Engineer").click();
+      cy.get(".ant-btn-primary").click();
+    }
+  });
 });
 
 const SKIP_INTRODUCE_PAGE_KEY = "skipAcrylIntroducePage";

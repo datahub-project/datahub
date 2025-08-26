@@ -5,8 +5,11 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
+import OrganizationInfo from '@app/settingsV2/OrganizationInfo';
 import { useAppConfig } from '@app/useAppConfig';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '@app/useIsThemeV2';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
 import { useUpdateUserSettingMutation } from '@graphql/me.generated';
@@ -86,6 +89,11 @@ export const Preferences = () => {
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const authenticatedUser = useGetAuthenticatedUser();
+    const canManageOrganizationDisplayPreferences =
+        authenticatedUser?.platformPrivileges?.manageOrganizationDisplayPreferences;
     const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
 
     return (
@@ -134,13 +142,16 @@ export const Preferences = () => {
                     <>
                         <StyledCard>
                             <UserSettingRow>
-                                <TextContainer>
-                                    <SettingText>Try New User Experience</SettingText>
-                                    <DescriptionText>
-                                        Enable an early preview of the new DataHub UX - a complete makeover for your app
-                                        with a sleek new design and advanced features.
-                                    </DescriptionText>
-                                </TextContainer>
+                                <span>
+                                    <SettingText>Try DataHub 2.0 (beta)</SettingText>
+                                    <div>
+                                        <DescriptionText>
+                                            Enable an early preview of DataHub 2.0 - a complete makeover for your app
+                                            with a sleek new design and advanced features. Flip the switch and refresh
+                                            your browser to try it out!
+                                        </DescriptionText>
+                                    </div>
+                                </span>
                                 <Switch
                                     label=""
                                     checked={isThemeV2EnabledForUser}
@@ -167,6 +178,13 @@ export const Preferences = () => {
                         </StyledCard>
                     </>
                 )}
+                {canManageOrganizationDisplayPreferences && isShowNavBarRedesign && <OrganizationInfo />}
+                {!showSimplifiedHomepageSetting &&
+                    !isThemeV2Toggleable &&
+                    !canManageOrganizationDisplayPreferences &&
+                    !canManageApplicationAppearance && (
+                        <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
+                    )}
                 {canManageApplicationAppearance && (
                     <StyledCard>
                         <UserSettingRow>
@@ -194,9 +212,6 @@ export const Preferences = () => {
                             />
                         </UserSettingRow>
                     </StyledCard>
-                )}
-                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageApplicationAppearance && (
-                    <div style={{ color: colors.gray[1700] }}>No appearance settings found.</div>
                 )}
             </SourceContainer>
         </Page>

@@ -62,7 +62,7 @@ export const getSelectPadding = (size) => {
             padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         md: {
-            padding: `${spacing.xsm} ${spacing.xsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         lg: {
             padding: `${spacing.sm} ${spacing.sm}`,
@@ -149,4 +149,12 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         ...paddingStyles,
         ...minHeightStyles,
     };
+};
+
+export const getDropdownStyle = () => {
+    const baseStyle = {
+        fontFamily: typography.fonts.body,
+    };
+
+    return { ...baseStyle };
 };

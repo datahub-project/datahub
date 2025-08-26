@@ -1,11 +1,15 @@
 import Editor from '@monaco-editor/react';
 import { Form, Input, Typography } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
+import { useShouldShowInferDocumentationButton } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+
+import { EntityType } from '@types';
 
 const EditorWrapper = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};
@@ -33,6 +37,10 @@ type Props = {
 };
 
 export default function QueryBuilderForm({ state, updateState }: Props) {
+    // Key to force re-render of the editor when the description should be updated.
+    const [editorKey, setEditorKey] = useState(0);
+    const shouldShowInferenceButton = useShouldShowInferDocumentationButton(EntityType.Query);
+
     const updateQuery = (query) => {
         updateState({
             ...state,
@@ -84,12 +92,25 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
             </Form.Item>
             <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
                 <StyledEditor
+                    key={editorKey}
                     data-testid="query-builder-description-input"
                     doNotFocus
                     content={state.description}
                     onChange={updateDescription}
                 />
             </Form.Item>
+            {shouldShowInferenceButton && state.urn && (
+                <InferDocsPanel
+                    urn={state.urn}
+                    insertText="Insert"
+                    showInsert
+                    onInsertDescription={(description) => {
+                        updateDescription(description);
+                        setEditorKey(editorKey + 1); // Force the description editor to refresh
+                    }}
+                    surface="query-builder-form"
+                />
+            )}
         </Form>
     );
 }

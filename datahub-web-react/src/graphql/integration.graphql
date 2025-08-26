@@ -1,0 +1,7 @@
+query getLinkPreview($input: GetLinkPreviewInput!) {
+    getLinkPreview(input: $input) {
+        type
+        json
+        lastRefreshed
+    }
+}

@@ -31,7 +31,6 @@ interface AcrylAssertionListFiltersProps {
 
 const SearchFilterContainer = styled.div`
     display: flex;
-    padding: 0px 10px;
     margin-bottom: 8px;
     margin-top: 8px;
     gap: 12px;
@@ -43,7 +42,6 @@ const FiltersContainer = styled.div`
 `;
 
 const StyledFilterContainer = styled.div`
-    margin-right: 12px;
     button {
         box-shadow: none !important;
         height: 36px !important;
@@ -63,8 +61,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
 }) => {
     const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState([]);
 
-    const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const searchText = event.target.value;
+    const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
             ...selectedFilters,
             filterCriteria: { ...selectedFilters.filterCriteria, searchText },

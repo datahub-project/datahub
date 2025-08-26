@@ -101,6 +101,30 @@ export default defineConfig(async ({ mode }) => {
         // },
         envPrefix: 'REACT_APP_',
         build: {
+            rollupOptions: {
+                input: {
+                    main: 'index.html',
+                    dev: 'index.dev.html',
+                },
+                output: {
+                    manualChunks(id) {
+                        if (id.includes('node_modules')) {
+                            if (id.includes('@mui')) {
+                                return 'mui-vendor';
+                            }
+                            if (id.includes('phosphor-icons')) {
+                                return 'phosphor-vendor';
+                            }
+                            // All other node_modules
+                            return 'vendor';
+                        }
+                        if (id.includes('src/')) {
+                            return 'source';
+                        }
+                        return null;
+                    },
+                },
+            },
             outDir: 'dist',
             target: 'esnext',
             minify: 'esbuild',
@@ -134,7 +158,7 @@ export default defineConfig(async ({ mode }) => {
                 enabled: true,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],
+                include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],
             },

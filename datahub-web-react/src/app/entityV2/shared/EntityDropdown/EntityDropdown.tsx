@@ -356,7 +356,7 @@ const EntityDropdown = (props: Props) => {
                                     qualifiedName={entityData?.properties?.qualifiedName}
                                 />
                             </StyledSubMenu>
-                        )}{' '}
+                        )}
                     </Menu>
                 }
                 trigger={triggerType}

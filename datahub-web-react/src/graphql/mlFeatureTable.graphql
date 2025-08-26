@@ -3,6 +3,9 @@ query getMLFeatureTable($urn: String!) {
         urn
         type
         ...nonRecursiveMLFeatureTable
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -16,6 +19,9 @@ query getMLFeatureTable($urn: String!) {
         }
         forms {
             ...formsFields
+        }
+        proposals: proposals {
+            ...proposalsFragment
         }
         ...notes
     }

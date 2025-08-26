@@ -5,16 +5,30 @@ import com.linkedin.common.FieldFormPromptAssociationArray;
 import com.linkedin.common.FormPromptAssociationArray;
 import com.linkedin.common.Forms;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.DocumentationResponse;
+import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainPromptResponse;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FieldFormPromptAssociation;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormAssociation;
 import com.linkedin.datahub.graphql.generated.FormPromptAssociation;
 import com.linkedin.datahub.graphql.generated.FormPromptFieldAssociations;
+import com.linkedin.datahub.graphql.generated.FormPromptResponse;
 import com.linkedin.datahub.graphql.generated.FormVerificationAssociation;
+import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.datahub.graphql.generated.GlossaryTermsPromptResponse;
+import com.linkedin.datahub.graphql.generated.NumberValue;
+import com.linkedin.datahub.graphql.generated.OwnershipPromptResponse;
+import com.linkedin.datahub.graphql.generated.PropertyValue;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.generated.StringValue;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyPromptResponse;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 public class FormsMapper {
@@ -89,8 +103,85 @@ public class FormsMapper {
             association.setFieldAssociations(
                 mapFieldAssociations(promptAssociation.getFieldAssociations()));
           }
+          if (promptAssociation.getResponse() != null) {
+            association.setResponse(mapPromptResponse(promptAssociation.getResponse()));
+          }
           result.add(association);
         });
+    return result;
+  }
+
+  private FormPromptResponse mapPromptResponse(
+      @Nonnull final com.linkedin.common.FormPromptResponse promptResponse) {
+    FormPromptResponse result = new FormPromptResponse();
+    if (promptResponse.getStructuredPropertyResponse() != null) {
+      com.linkedin.common.StructuredPropertyPromptResponse gmsPropertyResponse =
+          promptResponse.getStructuredPropertyResponse();
+      StructuredPropertyPromptResponse propertyResponse = new StructuredPropertyPromptResponse();
+      propertyResponse.setPropertyUrn(gmsPropertyResponse.getPropertyUrn().toString());
+      List<PropertyValue> values = new ArrayList<>();
+      gmsPropertyResponse
+          .getValues()
+          .forEach(
+              v -> {
+                if (v.getString() != null) {
+                  values.add(new StringValue(v.getString()));
+                } else {
+                  values.add(new NumberValue(v.getDouble()));
+                }
+              });
+      propertyResponse.setValues(values);
+      result.setStructuredPropertyResponse(propertyResponse);
+    }
+
+    if (promptResponse.getOwnershipResponse() != null) {
+      com.linkedin.common.OwnershipPromptResponse gmsOwnerResponse =
+          promptResponse.getOwnershipResponse();
+      OwnershipPromptResponse ownershipPromptResponse = new OwnershipPromptResponse();
+      List<Entity> ownerEntities =
+          gmsOwnerResponse.getOwners().stream()
+              .map(o -> UrnToEntityMapper.map(null, o))
+              .collect(Collectors.toList());
+      ownershipPromptResponse.setOwners(ownerEntities);
+      ownershipPromptResponse.setOwnershipTypeUrn(
+          gmsOwnerResponse.getOwnershipTypeUrn().toString());
+      result.setOwnershipResponse(ownershipPromptResponse);
+    }
+    if (promptResponse.getDocumentationResponse() != null) {
+      com.linkedin.common.DocumentationPromptResponse gmsDocumentationResponse =
+          promptResponse.getDocumentationResponse();
+      DocumentationResponse documentationResponse = new DocumentationResponse();
+      documentationResponse.setDocumentation(gmsDocumentationResponse.getDocumentation());
+      result.setDocumentationResponse(documentationResponse);
+    }
+    if (promptResponse.getGlossaryTermsResponse() != null) {
+      com.linkedin.common.GlossaryTermsPromptResponse gmsGlossaryTermsResponse =
+          promptResponse.getGlossaryTermsResponse();
+      GlossaryTermsPromptResponse glossaryTermsResponse = new GlossaryTermsPromptResponse();
+      List<GlossaryTerm> terms = new ArrayList<>();
+      gmsGlossaryTermsResponse
+          .getGlossaryTerms()
+          .forEach(
+              urn -> {
+                GlossaryTerm term = new GlossaryTerm();
+                term.setType(EntityType.GLOSSARY_TERM);
+                term.setUrn(urn.toString());
+                terms.add(term);
+              });
+      glossaryTermsResponse.setGlossaryTerms(terms);
+      result.setGlossaryTermsResponse(glossaryTermsResponse);
+    }
+    if (promptResponse.getDomainResponse() != null) {
+      com.linkedin.common.DomainPromptResponse gmsDomainResponse =
+          promptResponse.getDomainResponse();
+      DomainPromptResponse domainResponse = new DomainPromptResponse();
+      Domain domain = new Domain();
+      domain.setUrn(gmsDomainResponse.getDomain().toString());
+      domain.setType(EntityType.DOMAIN);
+      domainResponse.setDomain(domain);
+      result.setDomainResponse(domainResponse);
+    }
+
     return result;
   }
 
@@ -103,6 +194,9 @@ public class FormsMapper {
           association.setFieldPath(fieldFormPromptAssociation.getFieldPath());
           association.setLastModified(
               createAuditStamp(fieldFormPromptAssociation.getLastModified()));
+          if (fieldFormPromptAssociation.getResponse() != null) {
+            association.setResponse(mapPromptResponse(fieldFormPromptAssociation.getResponse()));
+          }
           result.add(association);
         });
     return result;

@@ -64,7 +64,7 @@ export default function StatsTab() {
         )}`;
 
     const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
-    const queryCountLast30Days = baseEntity.dataset?.statsSummary?.queryCountLast30Days;
+    const queryCountLast30Days = baseEntity?.dataset?.statsSummary?.queryCountLast30Days;
 
     const statsHeader = (
         <StatsHeader

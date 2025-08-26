@@ -1,0 +1,33 @@
+namespace com.linkedin.operations
+
+/**
+ * Aggregation results for operations query
+ */
+record OperationsAggregationsResult {
+    /** Total number of operations in the bucket */
+    totalOperations: optional int
+
+    /** Total number of inserts in the bucket */
+    totalInserts: optional int
+
+    /** Total number of updates in the bucket */
+    totalUpdates: optional int
+
+    /** Total number of deletes in the bucket */
+    totalDeletes: optional int
+
+    /** Total number of creates in the bucket */
+    totalCreates: optional int
+
+    /** Total number of alters in the bucket */
+    totalAlters: optional int
+
+    /** Total number of drops in the bucket */
+    totalDrops: optional int
+
+    /** Total number of custom types in the bucket */
+    totalCustoms: optional int
+
+    /** A map from each custom operation type to the total count for that type*/
+    customOperationsMap: optional map[string, int]
+}

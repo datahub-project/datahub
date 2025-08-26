@@ -121,7 +121,11 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion\/tests\//,
     /^metadata-ingestion-examples\//,
-    /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
+    /^metadata-ingestion-modules\/acryl-cloud\/README.md/,
+    /^datahub-integrations-service\/README.md/,
+    /^datahub-executor\/README.md/,
+    /^docker\/(?!README\.md|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
+    /^gradle\/docker\/README\.md/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /^\s*$/, //Empty string
@@ -616,7 +620,10 @@ function write_markdown_file(
   const pathname = path.dirname(output_filepath);
   fs.mkdirSync(pathname, { recursive: true });
   try {
-    fs.writeFileSync(output_filepath, contents.stringify(""));
+    fs.writeFileSync(
+      output_filepath,
+      matter.stringify(contents.content, contents.data)
+    );
   } catch (error) {
     console.log(`Failed to write file ${output_filepath}`);
     console.log(`contents = ${contents}`);

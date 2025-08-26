@@ -10,7 +10,7 @@ import NoMarkdownViewer from '@app/entity/shared/components/styled/StripMarkdown
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
 import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
-import StructuredPropertyBadge from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
+import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import EntityPaths from '@app/preview/EntityPaths/EntityPaths';
 import { getUniqueOwners } from '@app/preview/utils';
 import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';

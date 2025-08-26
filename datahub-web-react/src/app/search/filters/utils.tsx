@@ -1,5 +1,4 @@
 import {
-    BookOutlined,
     DatabaseOutlined,
     FileOutlined,
     FolderFilled,
@@ -8,6 +7,7 @@ import {
     UserOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons/lib/components/Icon';
+import { BookmarkSimple, Globe } from '@phosphor-icons/react';
 import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -15,6 +15,7 @@ import styled from 'styled-components';
 import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FORM_RESPONSES_FILTER, FormResponsesFilter } from '@app/entity/shared/entityForm/EntityFormContext';
 import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
 import { FilterOptionType } from '@app/search/filters/types';
 import {
@@ -54,8 +55,6 @@ import {
     GlossaryTerm,
     StructuredPropertyEntity,
 } from '@types';
-
-import DomainsIcon from '@images/domain.svg?react';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
@@ -168,6 +167,16 @@ function getFilterWithEntityIconAndLabel(
     return { icon, label };
 }
 
+export function getLabelForFormResponsesFilter(filterValue: string) {
+    if (filterValue === FormResponsesFilter.INCOMPLETE) {
+        return 'Missing Response';
+    }
+    if (filterValue === FormResponsesFilter.COMPLETE) {
+        return 'Has a Response';
+    }
+    return null;
+}
+
 export function getFilterIconAndLabel(
     filterField: string,
     filterValue: string,
@@ -224,6 +233,8 @@ export function getFilterIconAndLabel(
     } else if (filterField.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
         label = getStructuredPropFilterDisplayName(filterField, filterValue, facetEntity);
         icon = <Icon component={TableIcon} />;
+    } else if (filterField === FORM_RESPONSES_FILTER) {
+        label = getLabelForFormResponsesFilter(filterValue);
     } else {
         label = filterValue;
     }
@@ -298,7 +309,7 @@ export function getFilterDropdownIcon(field: string) {
         case TYPE_NAMES_FILTER_NAME:
             return <FileOutlined />;
         case GLOSSARY_TERMS_FILTER_NAME:
-            return <BookOutlined />;
+            return <BookmarkSimple />;
         case TAGS_FILTER_NAME:
             return <TagOutlined />;
         case OWNERS_FILTER_NAME:
@@ -306,7 +317,7 @@ export function getFilterDropdownIcon(field: string) {
         case CONTAINER_FILTER_NAME:
             return <FolderOutlined />;
         case DOMAINS_FILTER_NAME:
-            return <Icon component={DomainsIcon} />;
+            return <Globe />;
         default:
             return null;
     }

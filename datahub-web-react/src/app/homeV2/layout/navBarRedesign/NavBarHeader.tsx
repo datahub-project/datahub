@@ -4,8 +4,11 @@ import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { colors } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
+import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 
-import DatahubCoreLogo from '@images/datahub_core.svg?react';
+import DatahubCloudLogo from '@images/datahub_cloud.svg?react';
 
 const Container = styled.div`
     display: flex;
@@ -38,6 +41,19 @@ const Logotype = styled.div`
     }
 `;
 
+const Title = styled.div`
+    color: ${colors.gray[1700]};
+    font-style: normal;
+    font: 700 16px Mulish;
+    text-wrap: nowrap;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: calc(100% - 30px);
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: end;
+`;
+
 const StyledLink = styled(Link)`
     display: flex;
     height: 40px;
@@ -53,12 +69,15 @@ type Props = {
 
 export default function NavBarHeader({ logotype }: Props) {
     const { isCollapsed } = useNavBarContext();
+    const { globalSettings } = useGlobalSettingsContext();
+    const customName = globalSettings?.visualSettings?.customOrgName;
 
     return (
         <Container>
-            <StyledLink to="/">
+            <StyledLink to="/" onClick={() => analytics.event({ type: EventType.NavBarItemClick, label: 'Home' })}>
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed && <DatahubCoreLogo />}
+                {!isCollapsed && !customName && <DatahubCloudLogo />}
+                {!isCollapsed && customName && <Title>{customName}</Title>}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>

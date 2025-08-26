@@ -1,0 +1,58 @@
+[
+  {
+    "urn": "urn:li:tag:__default_gold",
+    "properties": {
+      "name": "⭐ Gold",
+      "description": "Assigned to critical data assets within your organization.",
+      "colorHex": "#FFDA75"
+    }
+  },
+  {
+    "urn": "urn:li:tag:__default_low_queries",
+    "properties": {
+      "name": "\uD83D\uDCC9 Least Queried",
+      "description": "Assigned to Tables that are among the least queried inside the data platform within the past 30 days.",
+      "colorHex": "#FFDA75"
+    }
+  },
+  {
+    "urn": "urn:li:tag:__default_low_changes",
+    "properties": {
+      "name": "\uD83D\uDCC9 Least Changed",
+      "description": "Assigned to Tables that are among the least changed inside the data platform within the past 30 days.",
+      "colorHex": "#FFDA75"
+    }
+  },
+  {
+    "urn": "urn:li:tag:__default_high_queries",
+    "properties": {
+      "name": "\uD83D\uDCC8 Most Queried",
+      "description": "Assigned to Tables that are among the highest queried inside the data platform within the past 30 days.",
+      "colorHex": "#FFDA75"
+    }
+  },
+  {
+    "urn": "urn:li:tag:__default_large_table",
+    "properties": {
+      "name": "\uD83D\uDCB2 Large Table",
+      "description": "Assigned to Tables that are among the largest in terms of storage size footprint inside the data platform within the past 30 days.",
+      "colorHex": "#FFDA75"
+    }
+  },
+  {
+    "urn": "urn:li:tag:__default_no_queries",
+    "properties": {
+      "name": "\uD83D\uDEAB No Recent Queries",
+      "description": "Assigned to Tables that have not been queried within the past 30 days.",
+      "colorHex": "#FFDA75"
+    }
+  },
+  {
+    "urn": "urn:li:tag:__default_no_changes",
+    "properties": {
+      "name": "\uD83D\uDEAB No Recent Changes",
+      "description": "Assigned to Tables that have not been changed within the past 30 days.",
+      "colorHex": "#FFDA75"
+    }
+  }
+]

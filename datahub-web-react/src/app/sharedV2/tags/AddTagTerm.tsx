@@ -1,6 +1,7 @@
 import React from 'react';
 
 import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
+import { shouldShowProposeButton } from '@app/shared/tags/utils/proposalUtils';
 
 import { EntityType, SubResourceType } from '@types';
 
@@ -13,6 +14,10 @@ type Props = {
     showAddModal: boolean;
     setShowAddModal: React.Dispatch<React.SetStateAction<boolean>>;
     addModalType: any;
+    canAddTerm?: boolean;
+    canProposeTerm?: boolean;
+    canAddTag?: boolean;
+    canProposeTag?: boolean;
 };
 
 export default function AddTagTerm({
@@ -24,6 +29,10 @@ export default function AddTagTerm({
     showAddModal,
     setShowAddModal,
     addModalType,
+    canAddTerm = true,
+    canProposeTerm = true,
+    canAddTag = true,
+    canProposeTag = true,
 }: Props) {
     return (
         <>
@@ -34,7 +43,7 @@ export default function AddTagTerm({
                     onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);
-                        setTimeout(() => refetch?.(), 2000);
+                        setTimeout(() => refetch?.(), 3500);
                     }}
                     resources={[
                         {
@@ -43,6 +52,11 @@ export default function AddTagTerm({
                             subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     ]}
+                    showPropose={shouldShowProposeButton(entityType)}
+                    canAddTerm={canAddTerm}
+                    canProposeTerm={canProposeTerm}
+                    canAddTag={canAddTag}
+                    canProposeTag={canProposeTag}
                 />
             )}
         </>

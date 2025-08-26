@@ -18,7 +18,11 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi.v2.generated.controller"})
+@ComponentScan(
+    basePackages = {
+      "io.datahubproject.openapi.v2.generated.controller",
+      "com.linkedin.gms.factory.scim"
+    })
 @Import({DatahubUsageEventsImpl.class, OpenAPIAnalyticsTestConfiguration.class})
 public class DatahubUsageEventsImplTest extends AbstractTestNGSpringContextTests {
 

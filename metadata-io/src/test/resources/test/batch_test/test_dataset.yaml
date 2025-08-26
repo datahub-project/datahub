@@ -1,0 +1,21 @@
+on:
+  types:
+    - dataset
+rules:
+  and:
+    -
+      property: urn
+      operator: contains_str
+      values:
+        - pet
+actions:
+  passing:
+    -
+      type: add_tags
+      values:
+        - 'urn:li:tag:__default_large_table'
+  failing:
+    -
+      type: remove_tags
+      values:
+        - 'urn:li:tag:__default_large_table'

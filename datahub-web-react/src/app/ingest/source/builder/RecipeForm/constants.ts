@@ -218,6 +218,7 @@ import {
     UNITY_METASTORE_ID_DENY,
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
+    WAREHOUSE_ID,
     WORKSPACE_URL,
 } from '@app/ingest/source/builder/RecipeForm/unity_catalog';
 import {
@@ -500,7 +501,7 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [UNITY_CATALOG]: {
-        fields: [WORKSPACE_URL, TOKEN],
+        fields: [WORKSPACE_URL, WAREHOUSE_ID, TOKEN],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,
             UNITY_METASTORE_ID_DENY,
@@ -596,7 +597,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             AZURE_GRAPH_URL,
         ],
         filterFields: [GROUP_ALLOW, GROUP_DENY, USER_ALLOW, USER_DENY],
-        advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED, SKIP_USERS_WITHOUT_GROUP],
+        advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED],
     },
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],

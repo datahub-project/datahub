@@ -52,7 +52,7 @@ record DataHubIngestionSourceInfo {
       version: optional string
 
      /**
-      * The id of the executor to use to execute the ingestion run
+      * The id of the executor pool to use to execute the ingestion run
       */
       @Searchable = {
          "fieldName": "sourceExecutorId",

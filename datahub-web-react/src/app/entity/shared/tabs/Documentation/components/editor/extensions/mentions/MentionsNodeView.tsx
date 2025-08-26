@@ -1,5 +1,6 @@
+import { Tooltip } from '@components';
 import { NodeViewComponentProps } from '@remirror/react';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 

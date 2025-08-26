@@ -1,0 +1,34 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Slack integration settings.
+ */
+record SlackIntegrationSettings {
+  /**
+   * Whether the slack integration is enabled or not.
+   * Deprecated! This is no longer used in favor of using the connections abstraction.
+   * If a connection is present, then this is enabled.
+   */
+  @deprecated
+  enabled: boolean = true
+
+  /**
+   * An encrypted bot token.
+   * Deprecated! This is no longer used in favor of using the connections abstraction.
+   */
+  @deprecated
+  encryptedBotToken: optional string
+
+  /**
+   * A default slack channel to use.
+   */
+  defaultChannelName: optional string
+
+  /**
+   * Whether the Slack @DataHub bot mention functionality is enabled.
+   * If null, use the default value from feature flags.
+   */
+  datahubAtMentionEnabled: optional boolean
+}

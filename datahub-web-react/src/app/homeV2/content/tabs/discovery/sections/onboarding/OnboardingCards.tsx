@@ -23,6 +23,10 @@ export const OnboardingCards = () => {
     // We use manage policies here because this determines whether users can invite other users
     // with particular roles.
     const canManageUsers = platformPrivileges?.managePolicies;
+    // Determines if the user has privileges to create a domain
+    const canCreateDomains = platformPrivileges?.createDomains;
+    // Determines if the user has privileges to create an ingestion source
+    const canManageIngestion = platformPrivileges?.manageIngestion;
 
     const openInviteUsers = () => {
         setIsViewingInviteToken(true);
@@ -30,31 +34,35 @@ export const OnboardingCards = () => {
 
     return (
         <div style={{ display: 'flex', gap: '16px' }} id={HOME_PAGE_ONBOARDING_CARDS_ID}>
-            <Link to={`${PageRoutes.INGESTION}`}>
-                <Card
-                    icon={<Plugs color={colors.gray[1800]} size={32} />}
-                    title="Add Data Sources"
-                    subTitle="Connect your data platforms"
-                    button={<Button variant="text">Add</Button>}
-                />
-            </Link>
+            {canManageIngestion ? (
+                <Link to={`${PageRoutes.INGESTION}`}>
+                    <Card
+                        icon={<Plugs color={colors.gray[1800]} size={24} />}
+                        title="Add Data Sources"
+                        subTitle="Connect your data"
+                        button={<Button variant="text">Add</Button>}
+                    />
+                </Link>
+            ) : null}
             {canManageUsers ? (
                 <Card
-                    icon={<UserPlus color={colors.gray[1800]} size={32} />}
+                    icon={<UserPlus color={colors.gray[1800]} size={24} />}
                     title="Invite Users"
-                    subTitle="Invite users to DataHub"
+                    subTitle="Send a link, or setup SSO"
                     onClick={openInviteUsers}
                     button={<Button variant="text">Invite</Button>}
                 />
             ) : null}
-            <Link to={`${PageRoutes.DOMAINS}?create=true`}>
-                <Card
-                    icon={<Globe color={colors.gray[1800]} size={32} />}
-                    title="Add Domains"
-                    subTitle="Configure your data domains"
-                    button={<Button variant="text">Add</Button>}
-                />
-            </Link>
+            {canCreateDomains ? (
+                <Link to={`${PageRoutes.DOMAINS}`}>
+                    <Card
+                        icon={<Globe color={colors.gray[1800]} size={24} />}
+                        title="Add Domains"
+                        subTitle="Organize, Create data products, more..."
+                        button={<Button variant="text">Add</Button>}
+                    />
+                </Link>
+            ) : null}
             <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
         </div>
     );

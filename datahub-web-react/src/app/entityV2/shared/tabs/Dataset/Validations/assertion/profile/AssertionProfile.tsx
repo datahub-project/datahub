@@ -1,36 +1,65 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
 import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
 import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeaderLoading';
 import { AssertionTabs } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionTabs';
+import { AssertionNoteTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/note/AssertionNoteTab';
+import { AssertionSettingsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/settings/AssertionSettingsTab';
 import { AssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryTab';
-import { useGetAssertionWithRunEventsQuery } from '@src/graphql/assertion.generated';
+import {
+    AssertionEditabilityScopeType,
+    getAssertionEditabilityType,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionUtils';
 
-import { Assertion, DataContract } from '@types';
+import { useGetAssertionWithMonitorsQuery } from '@graphql/monitor.generated';
+import { Assertion, DataContract, Entity, Maybe, Monitor } from '@types';
 
 enum TabType {
     Summary = 'Summary',
+    Note = 'Note',
     Settings = 'Settings',
 }
 
 type Props = {
     urn: string;
+    entity: Entity; // TODO: ideally this would be a field on the assertion itself.
     contract?: DataContract; // TODO: ideally this would be a field available on the assertion itself.
+    // TODO: Ideally this would come from the load of the assertion details itself with the GraphQL call.
+    // Currently this is a function of privileges on the target dataset!
+    canEditAssertion: boolean;
+    canEditMonitor: boolean;
     close: () => void;
     refetch?: () => void;
 };
 
 // TODO: Handling Loading Errors.
 
-export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
+export const AssertionProfile = ({
+    urn,
+    entity,
+    contract,
+    canEditAssertion,
+    canEditMonitor,
+    close,
+    refetch,
+}: Props) => {
     const {
         data,
         loading,
         refetch: localRefetch,
-    } = useGetAssertionWithRunEventsQuery({ variables: { assertionUrn: urn } });
-    const assertion = data?.assertion as Assertion;
+    } = useGetAssertionWithMonitorsQuery({ variables: { assertionUrn: urn } });
+    // TODO: we should move these casts to a deep partial assertion type
+    const assertion = data?.assertion as Maybe<Assertion>;
+    const monitor = data?.assertion?.monitor?.relationships?.[0]?.entity as Monitor;
     const result = assertion?.runEvents?.runEvents[0]?.result;
+    const editAllowed = canEditMonitor && canEditAssertion;
+
+    const [selectedTab, setSelectedTab] = useState<string>(TabType.Summary);
+
+    const openAssertionNote = () => {
+        setSelectedTab(TabType.Note);
+    };
 
     const fullRefetch = () => {
         localRefetch();
@@ -41,23 +70,57 @@ export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
         {
             key: TabType.Summary,
             label: 'Summary',
-            content: <AssertionSummaryTab loading={loading} assertion={assertion} />,
+            content: (
+                <AssertionSummaryTab
+                    loading={loading}
+                    assertion={assertion}
+                    monitor={monitor}
+                    openAssertionNote={openAssertionNote}
+                />
+            ),
+        },
+        {
+            key: TabType.Note,
+            label: 'Notes',
+            content: <AssertionNoteTab loading={loading} assertion={assertion} editAllowed={editAllowed} />,
+        },
+        {
+            key: TabType.Settings,
+            label: 'Settings',
+            content: (
+                <AssertionSettingsTab
+                    loading={loading}
+                    assertion={assertion}
+                    entity={entity}
+                    refetch={fullRefetch}
+                    monitor={monitor}
+                    editable={
+                        !!assertion && getAssertionEditabilityType(assertion) !== AssertionEditabilityScopeType.NONE
+                    }
+                    editAllowed={editAllowed}
+                />
+            ),
         },
     ];
 
     return (
         <>
-            {(loading && <AssertionProfileHeaderLoading />) || (
+            {loading || !assertion ? (
+                <AssertionProfileHeaderLoading />
+            ) : (
                 <AssertionProfileHeader
                     assertion={assertion}
+                    monitor={monitor}
                     contract={contract}
                     result={result || undefined}
+                    canEditAssertion={canEditAssertion}
+                    canEditMonitor={canEditMonitor}
                     canEditContract
                     refetch={fullRefetch}
                     close={close}
                 />
             )}
-            <AssertionTabs defaultSelectedTab={TabType.Summary} tabs={tabs} />
+            <AssertionTabs selectedTab={selectedTab} setSelectedTab={setSelectedTab} tabs={tabs} />
             <AssertionProfileFooter />
         </>
     );

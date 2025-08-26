@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 
 import { PostList } from '@app/settings/posts/PostsList';
 
-const PageContainer = styled.div`
+export const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;
     display: flex;
@@ -12,13 +12,13 @@ const PageContainer = styled.div`
     overflow: auto;
 `;
 
-const PageHeaderContainer = styled.div`
+export const PageHeaderContainer = styled.div`
     && {
         padding-left: 24px;
     }
 `;
 
-const PageTitle = styled(Typography.Title)`
+export const PageTitle = styled(Typography.Title)`
     && {
         margin-bottom: 12px;
     }
@@ -33,10 +33,10 @@ const ListContainer = styled.div`
 export default function ManagePosts() {
     return (
         <PageContainer>
-            <PageHeaderContainer>
-                <PageTitle level={3}>Home Page Posts</PageTitle>
+            <PageHeaderContainer data-testid="managePostsV1">
+                <PageTitle level={3}>Home Page</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View and manage pinned posts that appear to all users on the landing page.
+                    View and manage pinned announcements and links that appear to all users on the landing page.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>

@@ -1,0 +1,12 @@
+namespace com.linkedin.metric
+
+/**
+ * The definition of the measures of a metric cube.
+ * A measure is a metric that is being tracked in the cube.
+ */
+record DataHubMetricCubeMeasures {
+  /**
+  *  The first measure being tracked in the cube.
+  */
+  measure: DataHubMetricCubeMeasure
+}

@@ -8,15 +8,15 @@ import {
 import React from 'react';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DataContractCategoryType } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
-import { AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/types';
+import { AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     FAILURE_COLOR_HEX,
     SUCCESS_COLOR_HEX,
     WARNING_COLOR_HEX,
-} from '@app/entity/shared/tabs/Dataset/Validations/utils';
+} from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
+import { DataContractCategoryType } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
 
-import { Assertion, AssertionType, DataContract, DataContractState } from '@types';
+import { ActionRequestStatus, Assertion, AssertionType, DataContract, DataContractState } from '@types';
 
 export const getContractSummaryIcon = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {
@@ -112,6 +112,19 @@ export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
     return DataContractCategoryType.DATA_QUALITY;
 };
 
+export const useIsActiveProposal = (dataContractProposalData: any): boolean => {
+    const hasContractProposal =
+        ((dataContractProposalData?.listActionRequests?.total || 0) > 0 &&
+            dataContractProposalData?.listActionRequests?.actionRequests?.length) ||
+        undefined;
+    const contractActionRequest =
+        hasContractProposal && dataContractProposalData?.listActionRequests?.actionRequests[0];
+    const actionRequestStatus = contractActionRequest && contractActionRequest.status;
+    const actionRequestParams = contractActionRequest && contractActionRequest.params;
+    const contractProposal = actionRequestParams && actionRequestParams?.dataContractProposal;
+    const isActiveProposal = contractProposal && actionRequestStatus === ActionRequestStatus.Pending;
+    return isActiveProposal;
+};
 export const DATA_QUALITY_ASSERTION_TYPES = new Set([
     AssertionType.Volume,
     AssertionType.Sql,

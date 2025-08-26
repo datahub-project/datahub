@@ -13,8 +13,12 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
+import com.linkedin.metadata.config.ActionPipelineConfiguration;
+import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
+import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.ExecutorConfiguration;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
@@ -28,28 +32,38 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
+import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
+import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.PageModuleService;
 import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
+import com.linkedin.metadata.service.ShareService;
+import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import lombok.Data;
+import software.amazon.awssdk.services.sts.StsClient;
 
 @Data
 public class GmsGraphQLEngineArgs {
@@ -99,6 +113,7 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   AssertionService assertionService;
   EntityVersioningService entityVersioningService;
+  StsClient stsClient;
   ApplicationService applicationService;
   PageTemplateService pageTemplateService;
   PageModuleService pageModuleService;
@@ -106,4 +121,18 @@ public class GmsGraphQLEngineArgs {
   MetricUtils metricUtils;
 
   // any fork specific args should go below this line
+  Integer defaultLineageLastDaysFilter;
+  ActionRequestService actionRequestService;
+  ClassificationConfiguration classificationConfiguration;
+  EntitySearchService entitySearchService;
+  TestEngine testEngine;
+  MonitorService monitorService;
+  IntegrationsService integrationsService;
+  ActionPipelineConfiguration actionPipelineConfiguration;
+  SubscriptionService subscriptionService;
+  ShareService shareService;
+  ExecutorConfiguration executorConfiguration;
+  DataContractService dataContractService;
+  MetadataTestClient metadataTestClient;
+  AssertionMonitorsConfiguration assertionMonitorsConfiguration;
 }

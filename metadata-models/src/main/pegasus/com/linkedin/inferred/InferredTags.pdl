@@ -1,0 +1,19 @@
+namespace com.linkedin.inferred
+
+import com.linkedin.common.Urn
+
+/**
+ * Records inferred tags along with their provenance
+ * All tags in this record share same provenance
+ */
+record InferredTags { 
+    /**
+     * Urns of inferred Tag
+     */
+    tags: array[Urn]
+
+    /**
+     * Provenance details about this inference
+     */
+    source: InferredMetadataSource
+}

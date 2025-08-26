@@ -1,0 +1,53 @@
+extend type Query {
+  """
+  Fetch a preview of a Link to render inside the DataHub application.
+  Returns null if one cannot be found.
+  """
+  getLinkPreview(input: GetLinkPreviewInput): LinkPreview
+}
+
+"""
+A preview of a link.
+"""
+type LinkPreview {
+  """
+  The type of the Link Preview Content.
+  """
+  type: LinkPreviewType!
+
+  """
+  The JSON-encoded preview. Understood and rendered by DataHub UI.
+  """
+  json: String!
+
+  """
+  The time at which the preview was last refreshed from the source.
+  """
+  lastRefreshed: Long!
+}
+
+"""
+A specific type of link preview. In the future, you can imagine this growing to support Teams Message, Jira Issue,
+Linear Issue, GitHub PR, GitHub Repo, etc.
+"""
+enum LinkPreviewType {
+  """
+  A preview of a Slack message.
+  """
+  SLACK_MESSAGE
+
+  """
+  A preview of a Teams message.
+  """
+  TEAMS_MESSAGE
+}
+
+"""
+Input required to render a Link Preview
+"""
+input GetLinkPreviewInput {
+  """
+  The URL to the content to be previewed.
+  """
+  url: String!
+}

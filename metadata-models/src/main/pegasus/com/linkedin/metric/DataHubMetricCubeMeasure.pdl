@@ -1,0 +1,11 @@
+namespace com.linkedin.metric
+
+/**
+ * The definition of a metric cube measure.
+ */
+record DataHubMetricCubeMeasure {
+  /**
+  *  The name of the measure
+  */
+  name: string
+}

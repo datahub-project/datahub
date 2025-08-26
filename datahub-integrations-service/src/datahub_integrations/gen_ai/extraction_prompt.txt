@@ -1,0 +1,27 @@
+Task :  You are to identify the final answer from the previous LLM in the <answer> tags
+
+
+
+Your output should strictly be a JSON object with the following structure: ( DO NOT TUPLE, HEADER OR PROVIDE ADDITONAL REASONING AFTER )
+{{
+  "table": [list of assigned glossary terms for the table],
+  "column_name1": [list of assigned glossary terms for column1],
+  "column_name2": [list of assigned glossary terms for column2],
+  ...
+}}
+
+Each assigned glossary term should be an object with:
+- urn: Unique identifier of the glossary term
+- name: Name of the glossary term
+- reasoning: Brief explanation of term relevance in less than 15 words. 
+- confidence_score: Float from 1 to 10 (10 = perfect match)
+
+3. Confidence Score Guidelines
+
+- 10: Perfect match, term directly describes the column/table
+- 8-9: Strong match, term is highly relevant.
+- 4-7: Moderate match, term is related but not perfectly aligned
+- 1-3: Weak match, term is tangentially related
+
+
+LLM response to evaluate : {raw_llm_response}

@@ -90,8 +90,8 @@ public class SearchableAnnotation {
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
       throw new ModelValidationException(
           String.format(
-              "Failed to validate @%s annotation declared at %s: Invalid value type provided (Expected Map)",
-              ANNOTATION_NAME, context));
+              "Failed to validate @%s annotation declared at %s: Invalid value type %s provided (Expected Map)",
+              ANNOTATION_NAME, context, annotationObj.getClass()));
     }
 
     Map map = (Map) annotationObj;

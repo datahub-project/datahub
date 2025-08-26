@@ -68,7 +68,7 @@ export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
                     <Button onClick={handleClose} type="text">
                         Cancel
                     </Button>
-                    <Button form="addDeprecationForm" key="submit" htmlType="submit">
+                    <Button data-testid="add" form="addDeprecationForm" key="submit" htmlType="submit">
                         Ok
                     </Button>
                 </>

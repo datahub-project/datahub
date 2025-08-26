@@ -152,9 +152,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickFirstOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");
@@ -189,9 +189,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");
@@ -281,7 +281,10 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickFirstOptionWithText("Marketing");
     cy.clickOptionWithText("Add to Assets");
     cy.waitTextVisible("Add assets to Domain");
-    cy.get("[data-testid='search-input']").last().type("Baz Chart 2");
+    cy.get("[data-testid='search-input']")
+      .last()
+      .type("Baz Chart 2", { delay: 0 });
+    cy.wait(1000);
     cy.get('[data-testid="preview-urn:li:chart:(looker,cypress_baz2)"]');
     cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     cy.clickOptionWithId("#continueButton");

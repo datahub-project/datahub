@@ -39,7 +39,8 @@ record EditableSchemaFieldInfo {
     },
     "/tags/*/attribution/time": {
         "fieldName": "editedFieldTagAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false
       },
     "/tags/*/attribution/actor": {
         "fieldName": "editedFieldTagAttributionActors",
@@ -73,7 +74,8 @@ record EditableSchemaFieldInfo {
     },
     "/terms/*/attribution/time": {
         "fieldName": "editedFieldTermAttributionDates",
-        "fieldType": "DATETIME"
+        "fieldType": "DATETIME",
+        "queryByDefault": false
       },
     "/terms/*/attribution/actor": {
         "fieldName": "editedFieldTermAttributionActors",

@@ -1,14 +1,18 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
+import com.linkedin.datahub.upgrade.propagate.PropagateTerms;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
+import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.datahub.upgrade.secret.RotateSecrets;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
 import com.linkedin.datahub.upgrade.system.elasticsearch.ReindexDebug;
+import com.linkedin.datahub.upgrade.test.EvaluateTests;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -70,6 +74,24 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("reindexDebug")
   private ReindexDebug reindexDebug;
 
+  // Saas-only
+
+  @Inject
+  @Named("restoreAspect")
+  private RestoreAspect restoreAspect;
+
+  @Inject
+  @Named("propagateTerms")
+  private PropagateTerms propagateTerms;
+
+  @Inject
+  @Named("rotateSecrets")
+  private RotateSecrets rotateSecrets;
+
+  @Autowired(required = false)
+  @Named("evaluateTests")
+  private EvaluateTests evaluateTests;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(restoreIndices);
@@ -89,6 +111,14 @@ public class UpgradeCli implements CommandLineRunner {
     }
     if (reindexDebug != null) {
       _upgradeManager.register(reindexDebug);
+    }
+
+    // Saas-only
+    _upgradeManager.register(restoreAspect);
+    _upgradeManager.register(propagateTerms);
+    _upgradeManager.register(rotateSecrets);
+    if (evaluateTests != null) {
+      _upgradeManager.register(evaluateTests);
     }
 
     final Args args = new Args();

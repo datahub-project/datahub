@@ -23,6 +23,7 @@ import {
     BOOLEAN_FIELDS,
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
+    CREATED_AT_FILTER_NAME,
     DATA_PLATFORM_INSTANCE_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     ENTITY_FIELDS,
@@ -47,7 +48,12 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/searchV2/utils/constants';
-import { capitalizeFirstLetterOnly, forcePluralize, pluralizeIfIrregular } from '@app/shared/textUtil';
+import {
+    capitalizeFirstLetter,
+    capitalizeFirstLetterOnly,
+    forcePluralize,
+    pluralizeIfIrregular,
+} from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
@@ -88,7 +94,9 @@ export function getNewFilters(
             field: filterField,
             values: selectedFilterValues,
             // TODO: Define on filter field instead
-            condition: filterField === LAST_MODIFIED_FILTER_NAME ? FilterOperator.GreaterThan : undefined,
+            condition: [LAST_MODIFIED_FILTER_NAME, CREATED_AT_FILTER_NAME].includes(filterField)
+                ? FilterOperator.GreaterThan
+                : undefined,
         },
     ].filter((f) => !(f.values?.length === 0));
 }
@@ -691,9 +699,29 @@ export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
     return false;
 }
 
-export function getFilterDisplayName(option: FilterValueOption, field: FilterField) {
+export function getActionRequestFilterDisplayName(option: FilterValueOption, field: FilterField) {
+    if (field.field === 'type' || field.field === 'status') {
+        // SNAKE_CASE to Pascal Case with spaces
+        return option.value?.split('_').map(capitalizeFirstLetter)?.join(' ');
+    }
+
+    return null;
+}
+
+export function getFilterDisplayName(
+    option: FilterValueOption,
+    field: FilterField,
+    aggregationsEntityTypes?: Array<EntityType>,
+) {
     if (option.displayName) {
         return option.displayName;
+    }
+
+    const displayNameForProposalsFilters =
+        aggregationsEntityTypes?.includes(EntityType.ActionRequest) && getActionRequestFilterDisplayName(option, field);
+
+    if (displayNameForProposalsFilters) {
+        return displayNameForProposalsFilters;
     }
 
     return field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)

@@ -9,17 +9,22 @@ import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/compo
 import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
 import { EditableSchemaMetadata, SchemaField, SubResourceType } from '@types';
 
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
+    options?: {
+        onInferSchemaDescriptions?: () => Promise<void>;
+    },
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [expandedRows, setExpandedRows] = useState({});
+    const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
 
     const refresh: any = () => {
@@ -31,10 +36,9 @@ export default function useDescriptionRenderer(
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
-            record,
-            description,
-        );
+        const { schemaFieldEntity } = record;
+        const { displayedDescription, sanitizedDescription, isPropagated, isInferred, sourceDetail } =
+            extractFieldDescription(record, description);
         const original = record.description ? sanitizeRichText(record.description) : undefined;
 
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
@@ -47,6 +51,7 @@ export default function useDescriptionRenderer(
             <DescriptionField
                 onExpanded={handleExpandedRows}
                 expanded={!!expandedRows[index]}
+                fieldPath={schemaFieldEntity?.fieldPath}
                 description={sanitizedDescription}
                 original={original}
                 isEdited={!!editableFieldInfo?.description}
@@ -62,8 +67,23 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refresh)
                 }
+                onPropose={(updatedDescription) =>
+                    proposeUpdateDescription({
+                        variables: {
+                            input: {
+                                description: sanitizeRichText(updatedDescription),
+                                resourceUrn: urn,
+                                subResource: record.fieldPath,
+                                subResourceType: SubResourceType.DatasetField,
+                            },
+                        },
+                    }).then(refresh)
+                }
+                onInferDescription={options?.onInferSchemaDescriptions}
                 isReadOnly
+                enableInferenceButton
                 isPropagated={isPropagated}
+                isInferred={isInferred}
                 sourceDetail={sourceDetail}
             />
         );

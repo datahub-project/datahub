@@ -67,7 +67,6 @@ const TYPE_NAMES_FACET_NAME = 'typeNames';
 export default function IngestedAssets({ id, executionResult }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    // First thing to do is to search for all assets with the id as the run id!
     const [showAssetSearch, setShowAssetSearch] = useState(false);
 
     // Try getting the counts via the ingestion report.
@@ -154,7 +153,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             {showAssetSearch && (
                 <EmbeddedListSearchModal
                     title="View Ingested Assets"
-                    searchBarStyle={{ width: 600, marginRight: 40 }}
+                    searchBarStyle={{ width: 525, marginRight: 40 }}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [{ field: 'runId', values: [id] }],

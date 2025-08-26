@@ -1,9 +1,13 @@
-import { Button, Form, Modal, Typography } from 'antd';
+import { Form, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import InferDocsPanel from '@app/entityV2/shared/components/inferredDocs/InferDocsPanel';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { Button } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -26,24 +30,42 @@ const OriginalDocumentation = styled(Form.Item)`
 
 type Props = {
     title: string;
+    fieldPath?: string;
     description?: string;
     original?: string;
     propagatedDescription?: string;
+    inferredDescription?: string;
     onClose: () => void;
     onSubmit: (description: string) => void;
+    onPropose?: (description: string) => void;
     isAddDesc?: boolean;
+    showPropose?: boolean;
+    inferOnMount?: boolean;
+    isEmbeddedProfile?: boolean;
+    canEditDescription?: boolean;
+    canProposeDescription?: boolean;
 };
 
 export default function UpdateDescriptionModal({
     title,
     description,
+    fieldPath,
     original,
     propagatedDescription,
+    inferredDescription,
     onClose,
     onSubmit,
+    onPropose,
     isAddDesc,
+    showPropose,
+    inferOnMount,
+    isEmbeddedProfile,
+    canEditDescription = true,
+    canProposeDescription = true,
 }: Props) {
+    const urn = useMutationUrn();
     const [updatedDesc, setDesc] = useState(description || original || '');
+    const [editorKey, setEditorKey] = useState(0);
 
     return (
         <Modal
@@ -53,17 +75,28 @@ export default function UpdateDescriptionModal({
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
             footer={
-                <>
-                    <Button onClick={onClose}>Cancel</Button>
+                <ModalButtonContainer>
+                    <Button type="button" variant="text" color="gray" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    {showPropose && onPropose && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onPropose(updatedDesc)}
+                            disabled={updatedDesc === description || !canProposeDescription}
+                        >
+                            Propose
+                        </Button>
+                    )}
                     <Button
-                        type="primary"
                         onClick={() => onSubmit(updatedDesc)}
-                        disabled={updatedDesc === description}
+                        disabled={updatedDesc === description || !canEditDescription}
                         data-testid="description-modal-update-button"
                     >
                         Publish
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Form layout="vertical">
@@ -77,9 +110,27 @@ export default function UpdateDescriptionModal({
                         <StyledViewer content={propagatedDescription || ''} readOnly />
                     </OriginalDocumentation>
                 )}
+                {!isAddDesc && description && inferredDescription && (
+                    <OriginalDocumentation label={<FormLabel>AI Generated:</FormLabel>}>
+                        <StyledViewer content={inferredDescription || ''} readOnly />
+                    </OriginalDocumentation>
+                )}
                 <Form.Item>
-                    <StyledEditor content={updatedDesc} onChange={setDesc} />
+                    <StyledEditor key={editorKey} content={updatedDesc} onChange={setDesc} />
                 </Form.Item>
+
+                {(fieldPath || isEmbeddedProfile) && (
+                    <InferDocsPanel
+                        urn={urn}
+                        forColumnPath={fieldPath}
+                        inferOnMount={inferOnMount}
+                        onInsertDescription={(desc) => {
+                            setDesc(updatedDesc + desc);
+                            setEditorKey((key) => key + 1);
+                        }}
+                        surface="schema-docs-editor"
+                    />
+                )}
             </Form>
         </Modal>
     );

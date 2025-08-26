@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { getAssertionsSummary } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import { DataContractEmptyState } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractEmptyState';
 import { DataContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractSummary';
 import { DataQualityContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataQualityContractSummary';
@@ -9,9 +10,10 @@ import { FreshnessContractSummary } from '@app/entity/shared/tabs/Dataset/Valida
 import { SchemaContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/SchemaContractSummary';
 import { DataContractBuilderModal } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilderModal';
 import { createBuilderState } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/utils';
-import { getAssertionsSummary } from '@app/entity/shared/tabs/Dataset/Validations/utils';
+import { DataContractProposal } from '@app/entity/shared/tabs/Dataset/Validations/contract/proposal/DataContractProposal';
+import { useIsActiveProposal } from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
 
-import { useGetDatasetContractQuery } from '@graphql/contract.generated';
+import { useGetContractProposalsQuery, useGetDatasetContractQuery } from '@graphql/contract.generated';
 import { DataContractState } from '@types';
 
 const Container = styled.div`
@@ -30,9 +32,15 @@ const RightColumn = styled.div`
  * Component used for rendering the Data Contract Tab on the Assertions parent tab.
  */
 export const DataContractTab = () => {
-    const { urn } = useEntityData();
+    const { urn, entityType } = useEntityData();
 
     const { data, refetch } = useGetDatasetContractQuery({
+        variables: {
+            urn,
+        },
+    });
+
+    const { data: dataContractProposalData } = useGetContractProposalsQuery({
         variables: {
             urn,
         },
@@ -56,6 +64,7 @@ export const DataContractTab = () => {
     const hasSchemaContract = schemaContracts && schemaContracts?.length;
     const hasDataQualityContract = dataQualityContracts && dataQualityContracts?.length;
     const showLeftColumn = hasFreshnessContract || hasSchemaContract || undefined;
+    const isActiveProposal = useIsActiveProposal(dataContractProposalData);
 
     const onContractUpdate = () => {
         if (contract) {
@@ -70,7 +79,7 @@ export const DataContractTab = () => {
 
     return (
         <>
-            {data?.dataset?.contract ? (
+            {data?.dataset?.contract && (
                 <>
                     <DataContractSummary
                         state={contractState}
@@ -103,15 +112,29 @@ export const DataContractTab = () => {
                         </RightColumn>
                     </Container>
                 </>
-            ) : (
-                <DataContractEmptyState showContractBuilder={() => setShowContractBuilder(true)} />
             )}
+            <>
+                {!data?.dataset?.contract &&
+                    (isActiveProposal ? (
+                        <DataContractProposal
+                            refetch={refetch}
+                            showContractBuilder={() => setShowContractBuilder(true)}
+                            entityUrn={urn}
+                            entityType={entityType}
+                        />
+                    ) : (
+                        <DataContractEmptyState showContractBuilder={() => setShowContractBuilder(true)} />
+                    ))}
+            </>
+
             {showContractBuilder && (
                 <DataContractBuilderModal
                     initialState={createBuilderState(data?.dataset?.contract as any)}
                     entityUrn={urn}
                     onCancel={() => setShowContractBuilder(false)}
+                    onPropose={onContractUpdate}
                     onSubmit={onContractUpdate}
+                    entityType={entityType}
                 />
             )}
         </>

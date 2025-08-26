@@ -51,8 +51,41 @@ query getDatasetContract($urn: String!) {
     }
 }
 
+query getContractProposals($urn: String!) {
+    listActionRequests(input: { resourceUrn: $urn, type: DATA_CONTRACT }) {
+        total
+        actionRequests {
+            urn
+            params {
+                dataContractProposal {
+                    freshness {
+                        assertion {
+                            ...assertionDetailsWithMonitors
+                        }
+                    }
+                    schema {
+                        assertion {
+                            ...assertionDetailsWithMonitors
+                        }
+                    }
+                    dataQuality {
+                        assertion {
+                            ...assertionDetailsWithMonitors
+                        }
+                    }
+                }
+            }
+            status
+        }
+    }
+}
+
 mutation upsertDataContract($input: UpsertDataContractInput!) {
     upsertDataContract(input: $input) {
         ...dataContractDetails
     }
+}
+
+mutation proposeDataContract($input: ProposeDataContractInput!) {
+    proposeDataContract(input: $input)
 }

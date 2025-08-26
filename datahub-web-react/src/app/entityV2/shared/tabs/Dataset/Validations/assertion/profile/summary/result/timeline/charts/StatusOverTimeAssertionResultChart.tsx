@@ -114,6 +114,7 @@ export const StatusOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                     content={
                                         <AssertionResultPopoverContent
                                             assertion={data.context.assertion}
+                                            monitor={data.context.monitor}
                                             run={dataPoint.relatedRunEvent}
                                         />
                                     }

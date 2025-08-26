@@ -1,0 +1,14 @@
+query listExecutorConfigs {
+  listExecutorConfigs {
+    total
+    executorConfigs {
+      region
+      executorId
+      queueUrl
+      accessKeyId
+      secretKeyId
+      sessionToken
+      expiration
+    }
+  }
+}

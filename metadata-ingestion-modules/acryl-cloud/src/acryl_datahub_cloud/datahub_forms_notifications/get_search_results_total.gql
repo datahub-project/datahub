@@ -1,0 +1,14 @@
+query getSearchResultsTotal($orFilters: [AndFilterInput!]!, $count: Int!) {
+  searchAcrossEntities(
+    input: {
+      types: []
+      query: "*"
+      count: $count
+      searchFlags: { skipCache: true }
+      orFilters: $orFilters
+    }
+  ) {
+    count
+    total
+  }
+}

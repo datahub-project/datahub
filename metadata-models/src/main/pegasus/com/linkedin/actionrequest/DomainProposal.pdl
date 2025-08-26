@@ -1,0 +1,17 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.Urn
+
+record DomainProposal {
+    /**
+     * The urns of the domain(s) being proposed. Currently, only 1 domain is supported per asset.
+     * If this changes in the future, this data modeling will suffice.
+     */
+    @Searchable = {
+        "/*": {
+            "addToFilters": true
+            "fieldName": "domains"
+        }
+    }
+    domains: array[Urn]
+  }

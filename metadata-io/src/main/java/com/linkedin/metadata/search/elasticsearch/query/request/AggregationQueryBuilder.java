@@ -2,15 +2,19 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toStructuredPropertyFacetName;
+import static com.linkedin.metadata.search.utils.ESPredicateUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -19,6 +23,10 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.test.definition.expression.Query;
+import com.linkedin.metadata.test.definition.operator.Predicate;
+import com.linkedin.metadata.test.query.QueryOperation;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -393,11 +401,11 @@ public class AggregationQueryBuilder {
       @Nonnull final List<AggregationMetadata> originalMetadata,
       @Nullable AspectRetriever aspectRetriever) {
     for (Criterion criterion : criteria) {
-      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata, aspectRetriever);
+      addFacetFiltersToAggregationMetadata(criterion, originalMetadata, aspectRetriever);
     }
   }
 
-  public void addCriterionFiltersToAggregationMetadata(
+  public void addFacetFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
       @Nullable AspectRetriever aspectRetriever) {
@@ -636,13 +644,80 @@ public class AggregationQueryBuilder {
     aggregationMetadataList.add(aggregationMetadata);
   }
 
-  // If values are not equal, throw error
+  // If values are not equal, pick the first one
   private BinaryOperator<String> mapMerger() {
     return (s1, s2) -> {
       if (!StringUtils.equals(s1, s2)) {
-        throw new IllegalStateException(String.format("Unable to merge values %s and %s", s1, s2));
+        log.warn(
+            String.format(
+                "Encountered two equal values %s and %s when merging facet to display name map",
+                s1, s2));
       }
       return s1;
     };
   }
+
+  /* SAAS ONLY */
+
+  public List<AggregationMetadata> extractPredicateAggregationMetadata(
+      @Nonnull SearchResponse searchResponse,
+      @Nullable Predicate predicate,
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<PathSpec, String> searchableFieldPaths,
+      @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    if (searchResponse.getAggregations() == null) {
+      return addPredicatesToAggregationMetadata(
+          aggregationMetadataList,
+          predicate,
+          opContext,
+          searchableFieldPaths,
+          searchableFieldTypes);
+    }
+    for (Map.Entry<String, Aggregation> entry :
+        searchResponse.getAggregations().getAsMap().entrySet()) {
+      if (entry.getValue() instanceof ParsedTerms) {
+        processTermAggregations(entry, aggregationMetadataList);
+      }
+      if (entry.getValue() instanceof ParsedMissing) {
+        processMissingAggregations(entry, aggregationMetadataList);
+      }
+    }
+    return addPredicatesToAggregationMetadata(
+        aggregationMetadataList, predicate, opContext, searchableFieldPaths, searchableFieldTypes);
+  }
+
+  private List<AggregationMetadata> addPredicatesToAggregationMetadata(
+      @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable final Predicate predicate,
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<PathSpec, String> searchableFieldPaths,
+      @Nonnull Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    if (predicate == null) {
+      return originalMetadata;
+    }
+    Set<QueryOperation> queryOperations = Predicate.extractQueryOperationsForPredicate(predicate);
+    queryOperations.forEach(
+        queryOperation -> {
+          List<String> fieldNames =
+              resolveField(
+                  new Query(queryOperation.getQuery().getQuery()),
+                  searchableFieldPaths,
+                  searchableFieldTypes,
+                  opContext.getAspectRetriever());
+          for (String fieldName : fieldNames) {
+            List<String> values =
+                queryOperation.getValues().stream()
+                    .map(literal -> getSearchValueField(literal, fieldName, opContext))
+                    .flatMap(StringArray::stream)
+                    .collect(Collectors.toList());
+            Criterion criterion = CriterionUtils.buildCriterion(fieldName, Condition.EQUAL, values);
+            addFacetFiltersToAggregationMetadata(
+                criterion, originalMetadata, opContext.getAspectRetriever());
+          }
+        });
+    return originalMetadata;
+  }
+
+  // END SAAS ONLY -- Add methods prior to this section
 }

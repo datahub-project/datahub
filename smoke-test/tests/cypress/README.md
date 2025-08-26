@@ -6,14 +6,24 @@
 2. Load Cypress fixture data and run Cypress UI
    `./gradlew cypressDev`
 
-## Run Tests Against Remote Instance
+## Run Cypress Tests Against Remote Instance
 
 Warning: this does not load any data.
 For now, either load data onto the remote instance manually, or only run tests that do not require preset data.
 
+```
+./gradlew :smoke-test:cypressTestRemote -PbaseUrl=<url> -Pusername=<username> -Ppassword=<password> -PtestDir=<path>
+```
+
+The `baseUrl` should be the URL of the remote instance with a trailing slash, e.g. `https://dev01.acryl.io/`.
+
+The `testDir` path should be relative to the upper `cypress` directory, e.g. `cypress/customers/figma`.
+
+### Open Cypress Against Remote Instance
+
 `./gradlew :smoke-test:cypressRemote -PbaseUrl=<url> -Pusername=<username> -Ppassword=<password>`
 
-### Run Tests Against Remote Instance with Local Frontend
+### Open Cypress Against Remote Instance with Local Frontend
 
 1. Build frontend
 

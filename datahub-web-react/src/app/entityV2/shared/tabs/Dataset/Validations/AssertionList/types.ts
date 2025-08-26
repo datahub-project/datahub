@@ -1,6 +1,6 @@
 import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import { AssertionWithMonitorDetails } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import {
-    Assertion,
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
@@ -9,6 +9,7 @@ import {
     AuditStamp,
     DataPlatform,
     EntityType,
+    Monitor,
     TagAssociation,
 } from '@src/types.generated';
 
@@ -48,7 +49,8 @@ export type AssertionListTableRow = {
     lastEvaluationTimeMs?: number;
     lastEvaluationResult?: AssertionResultType; // add type
     lastEvaluationUrl?: string;
-    assertion: Assertion;
+    assertion: AssertionWithMonitorDetails;
+    monitor: Monitor;
     status: AssertionRunStatus; // status;
     groupName?: string;
     name?: string;
@@ -106,4 +108,4 @@ export type AssertionRecommendedFilter = {
     displayName: string;
 };
 
-export type AssertionWithDescription = Assertion & { description: string };
+export type AssertionWithDescription = AssertionWithMonitorDetails & { description: string };

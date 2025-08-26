@@ -251,6 +251,9 @@ fragment entityPreview on Entity {
                 value
             }
         }
+        parentNodes {
+            ...parentNodesFields
+        }
         deprecation {
             ...deprecationFields
         }
@@ -259,6 +262,9 @@ fragment entityPreview on Entity {
         properties {
             name
             description
+        }
+        parentNodes {
+            ...parentNodesFields
         }
     }
     ... on MLFeatureTable {

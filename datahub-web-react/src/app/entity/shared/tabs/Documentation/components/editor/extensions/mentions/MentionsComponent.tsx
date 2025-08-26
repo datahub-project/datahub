@@ -1,3 +1,4 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import { FloatingWrapper } from '@remirror/react';
 import { Empty, Spin } from 'antd';
 import React, { useEffect, useState } from 'react';
@@ -52,7 +53,7 @@ export const MentionsComponent = () => {
     return (
         <FloatingWrapper positioner={mentionsPositioner} enabled={active} placement="bottom-start">
             <Container className="ant-select-dropdown">
-                <Spin spinning={loading} delay={100}>
+                <Spin spinning={loading} delay={100} indicator={<LoadingOutlined />}>
                     {suggestions?.length > 0 ? (
                         <MentionsDropdown suggestions={suggestions} />
                     ) : (

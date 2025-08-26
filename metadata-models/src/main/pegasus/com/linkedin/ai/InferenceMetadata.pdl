@@ -1,0 +1,25 @@
+namespace com.linkedin.ai
+
+/**
+ * Reusable metadata about an individual inference - i.e. a single glossary term, tag, description, etc.
+ */
+record InferenceMetadata {
+  /**
+   * Timestamp of the last inference in milliseconds.
+   */
+  lastInferredAt: long
+
+  /**
+   * Monotonically incrementing version number. Once bumped, will re-trigger a new inference.
+   */
+  version: int
+
+  /**
+   * Numeric confidence level of the inference that was made.
+   *
+   *    0 = Low Confidence
+   *    1 = Medium Confidence
+   *    2 = High Confidence
+   */
+  confidenceLevel: optional int
+}

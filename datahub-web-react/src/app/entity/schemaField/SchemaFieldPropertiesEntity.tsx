@@ -4,6 +4,8 @@ import * as React from 'react';
 import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
 import { Preview } from '@app/entity/schemaField/preview/Preview';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { Dataset, EntityType, SchemaFieldEntity, SearchResult } from '@types';
@@ -66,7 +68,8 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
 
     renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaFieldEntity);
 
-    displayName = (data: SchemaFieldEntity) => data?.fieldPath || data.urn;
+    displayName = (data: SchemaFieldEntity) =>
+        decodeSchemaField(downgradeV2FieldPath(data?.fieldPath) || '') || data.urn;
 
     getGenericEntityProperties = (data: SchemaFieldEntity) =>
         getDataForEntityType({ data, entityType: this.type, getOverrideProperties: (newData) => newData });

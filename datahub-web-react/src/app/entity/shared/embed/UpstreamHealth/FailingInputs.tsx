@@ -1,16 +1,22 @@
 import { orange } from '@ant-design/colors';
 import { DownOutlined, WarningFilled } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
+import ActiveIncidents from '@app/entity/shared/embed/UpstreamHealth/ActiveIncidents';
 import FailingAssertions from '@app/entity/shared/embed/UpstreamHealth/FailingAssertions';
-import { UpstreamSummary } from '@app/entity/shared/embed/UpstreamHealth/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
-const TextWrapper = styled.span`
+import { Dataset } from '@types';
+
+const FailingEntityTitle = styled(Typography.Text)`
     font-size: 16px;
     line-height: 24px;
-    margin-left: 8px;
+    margin-left: 6px;
 `;
 
 const StyledWarning = styled(WarningFilled)`
@@ -21,11 +27,17 @@ const StyledWarning = styled(WarningFilled)`
 const FailingDetailsWrapper = styled.span`
     font-size: 14px;
     color: ${ANTD_GRAY[8]};
-    margin-left: 8px;
+    margin-left: 6px;
+    white-space: nowrap;
     &:hover {
         cursor: pointer;
-        color: $ ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
+`;
+
+const FailingInputsHeader = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
 const StyledArrow = styled(DownOutlined)<{ isOpen: boolean }>`
@@ -40,20 +52,62 @@ const StyledArrow = styled(DownOutlined)<{ isOpen: boolean }>`
 `;
 
 interface Props {
-    upstreamSummary: UpstreamSummary;
+    datasetsWithActiveIncidents: Dataset[];
+    totalDatasetsWithActiveIncidents: number;
+    fetchMoreIncidentsData: () => void;
+    isLoadingIncidents: boolean;
+    datasetsWithFailingAssertions: Dataset[];
+    totalDatasetsWithFailingAssertions: number;
+    fetchMoreAssertionsData: () => void;
+    isLoadingAssertions: boolean;
 }
 
-export default function FailingInputs({ upstreamSummary }: Props) {
+export default function FailingInputs({
+    datasetsWithActiveIncidents,
+    totalDatasetsWithActiveIncidents,
+    fetchMoreIncidentsData,
+    isLoadingIncidents,
+    datasetsWithFailingAssertions,
+    totalDatasetsWithFailingAssertions,
+    fetchMoreAssertionsData,
+    isLoadingAssertions,
+}: Props) {
     const [areFailingDetailsVisible, setAreFailingDetailsVisible] = useState(false);
+    const entityRegistry = useEntityRegistry();
+    const { entityData, entityType } = useEntityData();
+    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
     return (
         <div>
-            <StyledWarning />
-            <TextWrapper>Some data inputs are not healthy</TextWrapper>
-            <FailingDetailsWrapper onClick={() => setAreFailingDetailsVisible(!areFailingDetailsVisible)}>
-                view details <StyledArrow isOpen={areFailingDetailsVisible} />
-            </FailingDetailsWrapper>
-            {areFailingDetailsVisible && <FailingAssertions upstreamSummary={upstreamSummary} />}
+            <FailingInputsHeader>
+                <StyledWarning />
+                <FailingEntityTitle ellipsis={{ tooltip: true }}>
+                    Data quality issues impacting this {displayedEntityType}
+                </FailingEntityTitle>
+                <FailingDetailsWrapper onClick={() => setAreFailingDetailsVisible(!areFailingDetailsVisible)}>
+                    details <StyledArrow isOpen={areFailingDetailsVisible} />
+                </FailingDetailsWrapper>
+            </FailingInputsHeader>
+            {areFailingDetailsVisible && (
+                <>
+                    {datasetsWithActiveIncidents.length > 0 && (
+                        <ActiveIncidents
+                            datasetsWithActiveIncidents={datasetsWithActiveIncidents}
+                            totalDatasetsWithActiveIncidents={totalDatasetsWithActiveIncidents}
+                            fetchMoreIncidentsData={fetchMoreIncidentsData}
+                            isLoadingIncidents={isLoadingIncidents}
+                        />
+                    )}
+                    {datasetsWithFailingAssertions.length > 0 && (
+                        <FailingAssertions
+                            datasetsWithFailingAssertions={datasetsWithFailingAssertions}
+                            totalDatasetsWithFailingAssertions={totalDatasetsWithFailingAssertions}
+                            fetchMoreAssertionsData={fetchMoreAssertionsData}
+                            isLoadingAssertions={isLoadingAssertions}
+                        />
+                    )}
+                </>
+            )}
         </div>
     );
 }

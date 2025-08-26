@@ -48,6 +48,17 @@ const EntityProfileOnboardingConfig: OnboardingStep[] = [
         ),
     },
     {
+        id: ENTITY_PROFILE_V2_SUBSCRIPTION_ID,
+        selector: `#${ENTITY_PROFILE_V2_SUBSCRIPTION_ID}`,
+        title: 'Stay in the know 🛎️',
+        content: (
+            <Typography.Paragraph>
+                You can subscribe yourself or your team to stay up-to-date with important changes such as incidents,
+                schema changes, failing tests, documentation updates, and more.
+            </Typography.Paragraph>
+        ),
+    },
+    {
         id: ENTITY_PROFILE_V2_DOCUMENTATION_ID,
         selector: `[id^='rc-tabs'][id$='Documentation']`,
         title: 'Documentation 📖',

@@ -1,10 +1,17 @@
-import { Button, Form, Input, Modal, Tooltip, Typography, message } from 'antd';
+import { MoreOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Button, Form, Input, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
+
+const StyledInput = styled(Input)`
+    margin-bottom: 4px;
+`;
 
 type PropsData = {
     name: string | undefined;
@@ -213,16 +220,30 @@ export default function UserEditProfileModal({ open, onClose, onSave, editModalD
                 </Form.Item>
                 <Form.Item
                     name="slack"
-                    label={<Typography.Text strong>Slack</Typography.Text>}
+                    label={
+                        <>
+                            <Typography.Text strong>Slack Member ID</Typography.Text>
+                        </>
+                    }
                     rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                     hasFeedback
                 >
-                    <Input
-                        placeholder="john_smith"
+                    <StyledInput
+                        placeholder="ABC12345678"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
                         disabled={readOnlyModeEnabled}
                     />
+                    <Typography.Text type="secondary">
+                        Find your member ID from the <MoreOutlined /> menu in your Slack profile. More info{' '}
+                        <a
+                            href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            here.
+                        </a>
+                    </Typography.Text>
                 </Form.Item>
                 <Form.Item
                     name="phone"

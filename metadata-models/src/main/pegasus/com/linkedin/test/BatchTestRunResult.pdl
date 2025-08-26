@@ -1,0 +1,32 @@
+namespace com.linkedin.test
+
+/**
+ * The result of running a batch metadata test
+ */
+record BatchTestRunResult {
+  /**
+   * Number of assets that were passing the test.
+   */
+  passingCount: long
+
+  /**
+   * Number of assets that were failing the test.
+   */
+  failingCount: long
+
+  /**
+   * Test definition that was used to run the test.
+  */
+  testDefinition: optional string
+
+  /**
+   * Reporting information about the run event of this metadata test
+  */
+  report: optional record TestReport {
+    /**
+    * Report related to the actions applied in this test
+    */
+    actions: optional TestActionsReport
+  }
+
+}

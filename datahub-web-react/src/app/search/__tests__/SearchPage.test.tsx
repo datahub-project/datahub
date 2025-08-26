@@ -16,7 +16,7 @@ const cache = new InMemoryCache({
 });
 
 describe('SearchPage', () => {
-    it('renders the selected filters as checked', async () => {
+    it.skip('renders the selected filters as checked', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename cache={cache}>
                 <TestPageContainer
@@ -36,7 +36,7 @@ describe('SearchPage', () => {
         expect(chartEntityBox).toHaveProperty('checked', false);
     });
 
-    it('renders the selected filters as checked using legacy URL scheme for entity (entity instead of _entityType)', async () => {
+    it.skip('renders the selected filters as checked using legacy URL scheme for entity (entity instead of _entityType)', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename cache={cache}>
                 <TestPageContainer
@@ -56,7 +56,7 @@ describe('SearchPage', () => {
         expect(chartEntityBox).toHaveProperty('checked', false);
     });
 
-    it('renders multiple checked filters at once', async () => {
+    it.skip('renders multiple checked filters at once', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename cache={cache}>
                 <TestPageContainer

@@ -37,6 +37,9 @@ query getMLModel($urn: String!) {
                 }
             }
         }
+        share {
+            ...shareFields
+        }
         privileges {
             ...entityPrivileges
         }
@@ -48,10 +51,22 @@ query getMLModel($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        properties {
+            created {
+                time
+            }
+            date
+        }
         forms {
             ...formsFields
         }
-        ...notes
         ...entityProfileVersionProperties
+        proposals: proposals {
+            ...proposalsFragment
+        }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
+        ...notes
     }
 }

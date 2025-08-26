@@ -1,5 +1,5 @@
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 

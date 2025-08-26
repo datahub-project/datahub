@@ -1,0 +1,25 @@
+namespace com.linkedin.test
+
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+
+/**
+ * The status of a Metadata Test
+ */
+record TestStatus {
+    /**
+    * The evaluation mode of the Metadata Test.
+    */
+    @Searchable = { }
+    mode: enum TestMode {
+      /**
+       * The test is running on a schedule in the default running mode.
+       */
+      ACTIVE
+
+      /**
+       * The test is paused, disabled, not running.
+       */
+      INACTIVE
+    }
+}

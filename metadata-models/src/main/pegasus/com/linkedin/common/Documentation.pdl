@@ -26,6 +26,11 @@ namespace com.linkedin.common
 record Documentation {
 
   /**
+   * The time and actor that generated or last updated this documentation.
+   */
+  lastModified: optional AuditStamp
+
+  /**
    * Documentations associated with this asset. We could be receiving docs from different sources
    */
   documentations: array[DocumentationAssociation]

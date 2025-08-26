@@ -1,0 +1,8 @@
+namespace com.linkedin.monitor
+
+record AssertionMonitorBootstrapStatus {
+    /**
+     * Whether the metrics cube for this monitor has been bootstrapped.
+     */
+    metricsCubeBootstrapStatus: optional AssertionMonitorMetricsCubeBootstrapStatus
+}

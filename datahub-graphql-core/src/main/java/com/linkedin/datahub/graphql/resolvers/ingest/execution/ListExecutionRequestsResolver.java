@@ -134,6 +134,9 @@ public class ListExecutionRequestsResolver
   private void addAccessibleIngestionSourceFilter(
       QueryContext context, List<FacetFilterInput> filters, @Nullable Boolean systemSources)
       throws Exception {
+    // Saas only
+    // Users can see only executions of system/nonsystem ingestion sources accessible by policy
+    // rules
     List<Urn> sourceUrns = getUrnsOfIngestionSources(context, systemSources);
     filters.add(
         new FacetFilterInput(

@@ -339,7 +339,7 @@ export const SearchBar = ({
                 type: '',
                 label: (
                     <Button variant="text" onClick={onClickExploreAll}>
-                        Explore all →
+                        View all →
                     </Button>
                 ),
                 style: { marginLeft: 'auto', cursor: 'auto' },

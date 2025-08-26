@@ -1,4 +1,5 @@
-import { Avatar, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Avatar } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -27,7 +28,7 @@ export default function UsageFacepile({ users, maxNumberDisplayed }: Props) {
     return (
         <SpacedAvatarGroup maxCount={2}>
             {displayedUsers?.map((user) => (
-                <Tooltip title={user?.userEmail}>
+                <Tooltip title={user?.userEmail} showArrow={false}>
                     <AvatarStyled backgroundColor={getAvatarColor(user?.userEmail || undefined)}>
                         {user?.userEmail?.charAt(0).toUpperCase()}
                     </AvatarStyled>

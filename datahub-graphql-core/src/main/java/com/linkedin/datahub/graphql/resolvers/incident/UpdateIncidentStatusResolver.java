@@ -64,19 +64,26 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
             // Currently only supporting a single entity. TODO: Support multiple incident entities.
             final Urn resourceUrn = info.getEntities().get(0);
             if (isAuthorizedToUpdateIncident(resourceUrn, context)) {
-              info.setStatus(
-                  new IncidentStatus()
-                      .setState(IncidentState.valueOf(input.getState().name()))
-                      .setLastUpdated(
-                          new AuditStamp()
-                              .setActor(UrnUtils.getUrn(context.getActorUrn()))
-                              .setTime(System.currentTimeMillis())));
+              if (input.getState() != null) {
+                info.setStatus(
+                    new IncidentStatus()
+                        .setState(IncidentState.valueOf(input.getState().name()))
+                        .setLastUpdated(
+                            new AuditStamp()
+                                .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                                .setTime(System.currentTimeMillis())));
+              }
               if (input.getMessage() != null) {
                 info.getStatus().setMessage(input.getMessage());
               }
               if (input.getStage() != null) {
                 info.getStatus().setStage(IncidentStage.valueOf(input.getStage().name()));
               }
+              info.getStatus()
+                  .setLastUpdated(
+                      new AuditStamp()
+                          .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                          .setTime(System.currentTimeMillis()));
               try {
                 // Finally, create the MetadataChangeProposal.
                 final MetadataChangeProposal proposal =

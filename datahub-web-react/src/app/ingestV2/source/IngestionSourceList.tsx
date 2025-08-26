@@ -1,7 +1,8 @@
-import { Pagination, SearchBar, SimpleSelect } from '@components';
+import { Button, Pagination, SearchBar, SimpleSelect, colors } from '@components';
 import { InputRef, message } from 'antd';
+import { X } from 'phosphor-react';
 import * as QueryString from 'query-string';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -9,7 +10,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
-import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { CLI_EXECUTOR_ID, INGESTION_TAB_QUERY_PARAMS } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import CancelExecutionConfirmation from '@app/ingestV2/executions/components/columns/CancelExecutionConfirmation';
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
@@ -27,6 +28,7 @@ import {
     removeFromListIngestionSourcesCache,
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
+import { usePoolActionsForIngestionSourceList } from '@app/ingestV2/source/hooks.saas';
 import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
 import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
@@ -108,6 +110,24 @@ const PaginationContainer = styled.div`
     flex-shrink: 0;
 `;
 
+// SaaS only buttons
+const PoolsFilterButton = styled(Button)`
+    margin: 8px;
+    font-weight: bold;
+    &:hover {
+        background-color: transparent;
+    }
+`;
+
+const CloseButton = styled(X)`
+    cursor: pointer;
+    margin-left: 2px;
+    position: relative;
+    top: 2px;
+    align-items: center;
+    gap: 8px;
+`;
+
 export enum IngestionSourceType {
     ALL,
     UI,
@@ -149,23 +169,18 @@ export const IngestionSourceList = ({
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramsQuery = (params?.query as string) || undefined;
+
+    const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location]);
+    const paramsQuery = useMemo(() => (params?.query as string) || undefined, [params]);
+    const paramsPoolFilter = useMemo(
+        () => (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined,
+        [params],
+    ); // SaaS only
     const history = useHistory();
 
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
-    // highlight search input if user arrives with a query preset for salience
-    useEffect(() => {
-        if (paramsQuery?.length) {
-            setQuery(paramsQuery);
-            setSearchInput(paramsQuery);
-            setTimeout(() => {
-                searchInputRef.current?.focus?.();
-            }, 0);
-        }
-    }, [paramsQuery]);
 
     const handleSearchInputChange = (value: string) => {
         setSearchInput(value);
@@ -201,6 +216,31 @@ export const IngestionSourceList = ({
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [sort, setSort] = useState<SortCriterion>();
 
+    // highlight search input if user arrives with a query preset for salience
+    useEffect(() => {
+        if (paramsQuery?.length) {
+            setQuery(paramsQuery);
+            setSearchInput(paramsQuery);
+            setTimeout(() => {
+                searchInputRef.current?.focus?.();
+            }, 0);
+        }
+    }, [paramsQuery]);
+
+    // Reset the source type filter in the case of applying filters by links from another tabs
+    // Query params should be changed
+    useEffect(() => {
+        if (paramsQuery?.length || paramsPoolFilter) {
+            setSourceFilter(IngestionSourceType.ALL);
+
+            // Saas only (reset query in the search input additionally)
+            if (paramsPoolFilter) {
+                setQuery('');
+                setSearchInput('');
+            }
+        }
+    }, [paramsQuery, paramsPoolFilter]);
+
     // Debounce the search query
     useDebounce(
         () => {
@@ -231,6 +271,11 @@ export const IngestionSourceList = ({
         });
     }
 
+    // SaaS only
+    if (paramsPoolFilter) {
+        filters.push({ field: 'sourceExecutorId', values: [paramsPoolFilter], negated: false });
+    }
+
     const queryInputs = {
         start,
         count: pageSize,
@@ -256,11 +301,6 @@ export const IngestionSourceList = ({
 
     const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
     const defaultOwnerType: OwnershipTypeEntity | undefined = ownershipTypes.length > 0 ? ownershipTypes[0] : undefined;
-    useEffect(() => {
-        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
-        setFinalSources(sources);
-        setTotalSources(data?.listIngestionSources?.total || 0);
-    }, [data?.listIngestionSources]);
 
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -432,6 +472,12 @@ export const IngestionSourceList = ({
                             timezone: input.schedule?.timezone || null,
                         },
                         platform: null,
+                        privileges: {
+                            canEdit: true,
+                            canDelete: true,
+                            canExecute: true,
+                            canView: true,
+                        },
                         executions: null,
                         ownership: {
                             owners: buildOwnerEntities(newUrn, owners, defaultOwnerType),
@@ -612,6 +658,9 @@ export const IngestionSourceList = ({
 
     const handleSetFocusExecutionUrn = useCallback((val) => setFocusExecutionUrn(val), []);
 
+    // SaaS only
+    const { onViewPool, clearPoolFilter } = usePoolActionsForIngestionSourceList(params, shouldPreserveParams);
+
     return (
         <>
             {error && (
@@ -644,6 +693,13 @@ export const IngestionSourceList = ({
                             <RefreshButton onClick={() => refetch()} id={INGESTION_REFRESH_SOURCES_ID} />
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
+                    {/* SaaS only: Pools filter query param indicator with an 'x' button */}
+                    {paramsPoolFilter && (
+                        <PoolsFilterButton variant="text" onClick={clearPoolFilter}>
+                            Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
+                            <CloseButton color={colors.gray[500]} size={12} />
+                        </PoolsFilterButton>
+                    )}
                 </HeaderContainer>
                 {!loading && data?.listIngestionSources?.total === 0 ? (
                     <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
@@ -660,13 +716,14 @@ export const IngestionSourceList = ({
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
                                 isLoading={
-                                    loading && (!data || data?.listIngestionSources?.ingestionSources.length === 0)
+                                    loading && (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
                                 isLastPage={isLastPage}
                                 sourcesToRefetch={sourcesToRefetch}
                                 executedUrns={executedUrns}
                                 setSelectedTab={setSelectedTab}
+                                saasProps={{ onViewPool }}
                             />
                         </TableContainer>
                         <PaginationContainer>

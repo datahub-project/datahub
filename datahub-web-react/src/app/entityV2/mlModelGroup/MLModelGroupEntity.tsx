@@ -17,6 +17,7 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
@@ -33,7 +34,6 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
-    EntityMenuItems.EXTERNAL_URL,
 ]);
 
 /**
@@ -155,6 +155,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         {
             component: StatusSection,
         },
+        {
+            component: SharingAssetSection,
+        },
     ];
 
     getSidebarTabs = () => [
@@ -218,12 +221,20 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
     };
 
+    createdTime = (data: MlModelGroup) => {
+        return data?.properties?.created?.time || data?.properties?.createdAt;
+    };
+
     getGenericEntityProperties = (mlModelGroup: MlModelGroup) => {
         return getDataForEntityType({
             data: mlModelGroup,
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    getPlatformProperties = (data: MlModelGroup) => {
+        return data?.platform;
     };
 
     supportedCapabilities = () => {

@@ -29,7 +29,6 @@ const StatusContainer = styled.div`
     justify-content: left;
     align-items: center;
 `;
-
 const AllStatusWrapper = styled.div`
     display: flex;
     flex-direction: column;
@@ -172,6 +171,7 @@ export function ActionsColumn({
     onExecute,
     onDelete,
 }: ActionsColumnProps) {
+    const { canEdit, canDelete, canExecute } = record?.privileges || {};
     return (
         <ActionButtonContainer>
             {navigator.clipboard && (
@@ -191,7 +191,7 @@ export function ActionsColumn({
                     style={{ marginRight: 16 }}
                     onClick={() => onEdit(record.urn)}
                 >
-                    EDIT
+                    {canEdit ? 'EDIT' : 'VIEW'}
                 </Button>
             )}
             {record.cliIngestion && (
@@ -201,7 +201,7 @@ export function ActionsColumn({
             )}
             {record.lastExecStatus !== RUNNING && (
                 <Button
-                    disabled={record.cliIngestion}
+                    disabled={record.cliIngestion || !canExecute}
                     style={{ marginRight: 16 }}
                     onClick={() => onExecute(record.urn)}
                 >
@@ -215,10 +215,12 @@ export function ActionsColumn({
             )}
             <Button
                 data-testid={`delete-ingestion-source-${record.name}`}
+                data-icon="delete"
                 onClick={() => onDelete(record.urn)}
                 type="text"
                 shape="circle"
                 danger
+                disabled={!canDelete}
             >
                 <DeleteOutlined />
             </Button>

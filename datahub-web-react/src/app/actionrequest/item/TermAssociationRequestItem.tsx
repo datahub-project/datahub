@@ -1,0 +1,50 @@
+import { BookmarkSimple } from '@phosphor-icons/react';
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+import AddContentView from '@app/actionrequest/item/AddContentView';
+import MetadataAssociationRequestItem from '@app/actionrequest/item/MetadataAssociationRequestItem';
+import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ActionRequest, EntityType } from '@types';
+
+type Props = {
+    actionRequest: ActionRequest;
+    showActionsButtons: boolean;
+    onUpdate: () => void;
+};
+
+const REQUEST_TYPE_DISPLAY_NAME = 'Glossary Term Proposal';
+
+/**
+ * A list item representing a glossary term proposal request.
+ */
+export default function TermAssociationRequestItem({ actionRequest, showActionsButtons, onUpdate }: Props) {
+    const entityRegistry = useEntityRegistry();
+
+    const term =
+        actionRequest.params?.glossaryTermProposal?.glossaryTerm ||
+        actionRequest.params?.glossaryTermProposal?.glossaryTerms?.[0];
+    const termName = term && entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
+    const termView = term && (
+        <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
+            <StyledTag noMargin $color={null} style={{ marginRight: 2, marginLeft: 2 }}>
+                {termName}
+                <BookmarkSimple style={{ marginLeft: '2%' }} />
+            </StyledTag>
+        </Link>
+    );
+
+    const contentView = <AddContentView requestMetadataViews={[{ primary: termView }]} actionRequest={actionRequest} />;
+
+    return (
+        <MetadataAssociationRequestItem
+            requestTypeDisplayName={REQUEST_TYPE_DISPLAY_NAME}
+            requestContentView={contentView}
+            actionRequest={actionRequest}
+            onUpdate={onUpdate}
+            showActionsButtons={showActionsButtons}
+        />
+    );
+}

@@ -80,7 +80,7 @@ const StructuredPropsFormSection = ({
                                 title="Choose the types of entities that are allowed as values for this property"
                                 showArrow={false}
                             >
-                                <Icon icon="Info" color="violet" size="lg" />
+                                <Icon icon="Info" color="primary" size="lg" />
                             </Tooltip>
                         </FlexContainer>
                         {isEditMode && (
@@ -131,7 +131,7 @@ const StructuredPropsFormSection = ({
                             title="Select the types of entities that this property can be added to"
                             showArrow={false}
                         >
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon="Info" color="primary" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                     {isEditMode && (

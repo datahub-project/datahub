@@ -1,23 +1,28 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Tag as CustomTag, Empty, Form, Modal, Select, Typography, message } from 'antd';
+import { Tag as CustomTag, Empty, Form, Select, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import CreateTagModal from '@app/shared/tags/CreateTagModal';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
+import { ModalButton } from '@src/alchemy-components/components/Modal/Modal';
+import ProposalDescriptionModal from '@src/app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { getModalDomContainer } from '@utils/focus';
+import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import {
     useBatchAddTagsMutation,
@@ -25,8 +30,9 @@ import {
     useBatchRemoveTagsMutation,
     useBatchRemoveTermsMutation,
 } from '@graphql/mutations.generated';
+import { useProposeTagsMutation, useProposeTermsMutation } from '@graphql/proposals.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { Entity, EntityType, ResourceRefInput, Tag } from '@types';
+import { ActionRequestType, Entity, EntityType, ResourceRefInput, SubResourceType, Tag } from '@types';
 
 export enum OperationType {
     ADD,
@@ -41,6 +47,12 @@ type EditTagsModalProps = {
     operationType?: OperationType;
     defaultValues?: { urn: string; entity?: Entity | null }[];
     onOkOverride?: (result: string[]) => void;
+    showPropose?: boolean;
+    entityType?: EntityType;
+    canProposeTerm?: boolean;
+    canAddTerm?: boolean;
+    canProposeTag?: boolean;
+    canAddTag?: boolean;
 };
 
 const StyleTag = styled(CustomTag)`
@@ -124,8 +136,15 @@ export default function EditTagTermsModal({
     operationType = OperationType.ADD,
     defaultValues = [],
     onOkOverride,
+    showPropose = false,
+    entityType,
+    canAddTerm = true,
+    canProposeTerm = true,
+    canAddTag = true,
+    canProposeTag = true,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
+    const { isInFormContext } = useEntityFormContext();
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAction, setDisableAction] = useState(false);
@@ -145,12 +164,21 @@ export default function EditTagTermsModal({
     const [batchAddTermsMutation] = useBatchAddTermsMutation();
     const [batchRemoveTermsMutation] = useBatchRemoveTermsMutation();
 
+    // Saas-only
+    const [proposeTagsMutation] = useProposeTagsMutation();
+    const [proposeTermsMutation] = useProposeTermsMutation();
+
     const [tagTermSearch, { data: tagsSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
 
     const tagSearchResults: Array<Entity> = tagsSearchData?.autoComplete?.entities || [];
     const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.Tag]);
     const loading = (recommendationsLoading as boolean) || searchLoading;
     const inputEl = useRef(null);
+    useAutoFocusInModal(inputEl);
+
+    const [showProposeModal, setShowProposeModal] = useState(false);
+    const { config } = useAppConfig();
+    const { showTaskCenterRedesign } = config.featureFlags;
 
     const handleSearch = (text: string) => {
         if (text.length > 0) {
@@ -283,6 +311,83 @@ export default function EditTagTermsModal({
         setIsFocusedOnInput(true);
         setSelectedTerms(selectedTerms.filter((term) => term.urn !== urn));
         setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
+    };
+
+    // SaaS-only: Propose tag or term.
+    const onOkProposal = (description?: string) => {
+        let mutation: ((input: any) => Promise<any>) | null = null;
+
+        if (type === EntityType.Tag) {
+            mutation = proposeTagsMutation;
+        }
+        if (type === EntityType.GlossaryTerm) {
+            mutation = proposeTermsMutation;
+        }
+
+        // Proposals only supported on a single entity as of today.
+        if (resources.length !== 1 || !mutation) {
+            onCloseModal();
+            return;
+        }
+
+        setDisableAction(true);
+
+        let input = {};
+        let actionQualifier;
+        if (type === EntityType.Tag) {
+            input = {
+                tagUrns: urns,
+                resourceUrn: resources[0].resourceUrn,
+                subResource: resources[0].subResource,
+                subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
+                description,
+            };
+            actionQualifier = ActionRequestType.TagAssociation;
+        }
+        if (type === EntityType.GlossaryTerm) {
+            input = {
+                termUrns: urns,
+                resourceUrn: resources[0].resourceUrn,
+                subResource: resources[0].subResource,
+                subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
+                description,
+            };
+            actionQualifier = ActionRequestType.TermAssociation;
+        }
+
+        mutation({
+            variables: {
+                input,
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors && resources && resources.length) {
+                    const entityUrn = resources[0].resourceUrn;
+                    message.success({
+                        content: `${'Proposed'} ${type === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
+                        duration: 2,
+                    });
+                    setShowProposeModal(false);
+                    analytics.event({
+                        type: EventType.EntityActionEvent,
+                        actionType: EntityActionType.ProposalCreated,
+                        actionQualifier,
+                        entityType,
+                        entityUrn,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to propose: \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            })
+            .finally(() => {
+                setDisableAction(false);
+                onCloseModal();
+            });
     };
 
     const batchAddTags = () => {
@@ -463,86 +568,120 @@ export default function EditTagTermsModal({
         }
     }
 
+    const handlePropose = () => {
+        if (showTaskCenterRedesign) {
+            setShowProposeModal(true);
+        } else {
+            onOkProposal();
+        }
+    };
+
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
 
+    const cancelButton: ModalButton = {
+        text: 'Cancel',
+        key: 'Cancel',
+        variant: 'text',
+        onClick: onCloseModal,
+        type: 'button',
+    };
+
+    const addButton: ModalButton = {
+        text: 'Add',
+        key: 'Add',
+        variant: 'filled',
+        onClick: onOk,
+        disabled: (type === EntityType.GlossaryTerm ? !canAddTerm : !canAddTag) || urns.length === 0 || disableAction,
+        id: 'addTagButton',
+        buttonDataTestId: 'add-tag-term-from-modal-btn',
+    };
+
+    const proposeButton: ModalButton = {
+        text: 'Propose',
+        key: 'Propose',
+        variant: 'outline',
+        type: 'button',
+        onClick: handlePropose,
+        disabled:
+            (type === EntityType.GlossaryTerm ? !canProposeTerm : !canProposeTag) || urns.length === 0 || disableAction,
+        buttonDataTestId: 'create-proposal-btn',
+    };
+
     return (
-        <Modal
-            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
-            open={open}
-            onCancel={onCloseModal}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={onCloseModal} color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        id="addTagButton"
-                        data-testid="add-tag-term-from-modal-btn"
-                        onClick={onOk}
-                        disabled={urns.length === 0 || disableAction}
-                    >
-                        Add
-                    </Button>
-                </ModalButtonContainer>
-            }
-            getContainer={getModalDomContainer}
-        >
-            <Form component={false}>
-                <Form.Item>
-                    <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
-                        <Select
-                            data-testid="tag-term-modal-input"
-                            autoFocus
-                            defaultOpen
-                            mode="multiple"
-                            ref={inputEl}
-                            filterOption={false}
-                            placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
-                            showSearch
-                            defaultActiveFirstOption={false}
-                            onSelect={(asset: any) => onSelectValue(asset)}
-                            onDeselect={(asset: any) => onDeselectValue(asset)}
-                            onSearch={(value: string) => {
-                                // eslint-disable-next-line react/prop-types
-                                handleSearch(value.trim());
-                                // eslint-disable-next-line react/prop-types
-                                setInputValue(value.trim());
-                            }}
-                            style={{ width: '100%' }}
-                            tagRender={tagRender}
-                            value={urns}
-                            onClear={clearInput}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            onBlur={handleBlur}
-                            onInputKeyDown={handleKeyDown}
-                            dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
-                            loading={loading}
-                            notFoundContent={
-                                !loading ? (
-                                    <Empty
-                                        description={`No ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'} found`}
-                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                        style={{ color: ANTD_GRAY[7] }}
-                                    />
-                                ) : null
-                            }
-                        >
-                            {loading ? (
-                                <Select.Option value="loading">
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
-                                </Select.Option>
-                            ) : (
-                                tagSearchOptions
-                            )}
-                        </Select>
-                        <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                            <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
-                </Form.Item>
-            </Form>
-        </Modal>
+        <>
+            {!showProposeModal && (
+                <Modal
+                    title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(
+                        type,
+                    )}s`}
+                    open={open}
+                    onCancel={onCloseModal}
+                    buttons={showPropose ? [cancelButton, proposeButton, addButton] : [cancelButton, addButton]}
+                    getContainer={!isInFormContext ? getModalDomContainer : undefined} // if filling out form in full page modal, don't change container as this modal gets hidden
+                >
+                    <Form component={false}>
+                        <Form.Item>
+                            <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
+                                <Select
+                                    data-testid="tag-term-modal-input"
+                                    autoFocus
+                                    defaultOpen
+                                    mode="multiple"
+                                    ref={inputEl}
+                                    filterOption={false}
+                                    placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                                    showSearch
+                                    defaultActiveFirstOption={false}
+                                    onSelect={(asset: any) => onSelectValue(asset)}
+                                    onDeselect={(asset: any) => onDeselectValue(asset)}
+                                    onSearch={(value: string) => {
+                                        // eslint-disable-next-line react/prop-types
+                                        handleSearch(value.trim());
+                                        // eslint-disable-next-line react/prop-types
+                                        setInputValue(value.trim());
+                                    }}
+                                    style={{ width: '100%' }}
+                                    tagRender={tagRender}
+                                    value={urns}
+                                    onClear={clearInput}
+                                    onFocus={() => setIsFocusedOnInput(true)}
+                                    onBlur={handleBlur}
+                                    onInputKeyDown={handleKeyDown}
+                                    dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
+                                    loading={loading}
+                                    notFoundContent={
+                                        !loading ? (
+                                            <Empty
+                                                description={`No ${
+                                                    type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'
+                                                } found`}
+                                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                                style={{ color: ANTD_GRAY[7] }}
+                                            />
+                                        ) : null
+                                    }
+                                >
+                                    {loading ? (
+                                        <Select.Option value="loading">
+                                            <LoadingWrapper>
+                                                <LoadingOutlined />
+                                            </LoadingWrapper>
+                                        </Select.Option>
+                                    ) : (
+                                        tagSearchOptions
+                                    )}
+                                </Select>
+                                <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
+                                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
+                                </BrowserWrapper>
+                            </ClickOutside>
+                        </Form.Item>
+                    </Form>
+                </Modal>
+            )}
+            {showProposeModal && (
+                <ProposalDescriptionModal onPropose={onOkProposal} onCancel={() => setShowProposeModal(false)} />
+            )}
+        </>
     );
 }

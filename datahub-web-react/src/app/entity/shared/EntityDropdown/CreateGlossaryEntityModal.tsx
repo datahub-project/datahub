@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
-import analytics, { EventType } from '@app/analytics';
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
 import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
@@ -16,7 +16,11 @@ import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
-import { EntityType } from '@types';
+import {
+    useProposeCreateGlossaryNodeMutation,
+    useProposeCreateGlossaryTermMutation,
+} from '@graphql/proposals.generated';
+import { ActionRequestType, EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -34,11 +38,13 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
+    // acryl-main only prop
+    canCreateGlossaryEntity: boolean;
     isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
-    const { entityType, onClose, refetchData } = props;
+    const { entityType, onClose, refetchData, canCreateGlossaryEntity } = props;
     const entityData = useEntityData();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToNewEntity } = useGlossaryEntityData();
     const [form] = Form.useForm();
@@ -54,6 +60,8 @@ function CreateGlossaryEntityModal(props: Props) {
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
+    const [proposeCreateGlossaryTermMutation] = useProposeCreateGlossaryTermMutation();
+    const [proposeCreateGlossaryNodeMutation] = useProposeCreateGlossaryNodeMutation();
 
     useEffect(() => {
         if (props.isCloning && entityData.entityData) {
@@ -138,6 +146,42 @@ function CreateGlossaryEntityModal(props: Props) {
         onClose();
     }
 
+    function proposeGlossaryEntity() {
+        const mutation =
+            entityType === EntityType.GlossaryTerm
+                ? proposeCreateGlossaryTermMutation
+                : proposeCreateGlossaryNodeMutation;
+
+        const sanitizedDescription = DOMPurify.sanitize(documentation);
+        mutation({
+            variables: {
+                input: {
+                    name: stagedName,
+                    parentNode: selectedParentUrn || null,
+                    description: sanitizedDescription || null,
+                },
+            },
+        })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to propose: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    actionType: EntityActionType.ProposalCreated,
+                    actionQualifier:
+                        entityType === EntityType.GlossaryTerm
+                            ? ActionRequestType.CreateGlossaryTerm
+                            : ActionRequestType.CreateGlossaryNode,
+                    entityType,
+                    entityUrn: '',
+                });
+                message.success({ content: `Proposed ${entityRegistry.getEntityName(entityType)}!`, duration: 2 });
+            });
+        onClose();
+    }
+
     function addDocumentation(description: string) {
         setDocumentation(description);
         setIsDocumentationModalVisible(false);
@@ -153,10 +197,13 @@ function CreateGlossaryEntityModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
+                    <Button onClick={proposeGlossaryEntity} disabled={createButtonDisabled}>
+                        Propose
+                    </Button>
                     <Button
-                        onClick={createGlossaryEntity}
-                        disabled={createButtonDisabled}
                         data-testid="glossary-entity-modal-create-button"
+                        onClick={createGlossaryEntity}
+                        disabled={createButtonDisabled || !canCreateGlossaryEntity}
                     >
                         Create
                     </Button>

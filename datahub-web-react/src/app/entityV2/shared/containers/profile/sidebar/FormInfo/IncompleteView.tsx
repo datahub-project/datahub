@@ -62,7 +62,7 @@ export default function IncompleteView({
                                 </>
                             )}
                             {!isUserAssigned && <StyledImgIcon src={ShieldExclamation} disable />}
-                            Awaiting {showVerificationStyles ? 'Verification' : 'Documentation'}
+                            Pending {showVerificationStyles ? 'Verification' : 'Compliance'} Tasks
                         </Title>
                         {isUserAssigned && <StyledArrow isOpen={isOpen} />}
                     </TitleWrapper>
@@ -84,7 +84,7 @@ export default function IncompleteView({
                             showVerificationStyles ? 'complete-verification-button' : 'complete-documentation-button'
                         }
                     >
-                        {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
+                        Complete
                     </Button>
                 </StyledButtonWrapper>
             )}
