@@ -1,5 +1,6 @@
 import logging
-from typing import Iterable, Optional, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Iterable, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -11,8 +12,13 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
+if TYPE_CHECKING:
+    from mypy_boto3_s3.service_resource import ObjectSummary
+
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
+
+LIST_OBJECTS_PAGE_SIZE = 1000
 
 
 def get_s3_tags(
@@ -74,16 +80,79 @@ def get_s3_tags(
     return new_tags
 
 
+@dataclass
+class DirEntry:
+    """
+    Intended to be similar to os.DirEntry, which contains a name, full path, and possibly
+    other attributes of a directory entry. Currently only used to represent S3 folder-like
+    paths.
+    """
+
+    name: str
+    path: str
+
+
 def list_folders_path(
-    s3_uri: str, aws_config: Optional[AwsConnectionConfig]
-) -> Iterable[str]:
+    s3_uri: str,
+    *,
+    startswith: str = "",
+    aws_config: Optional[AwsConnectionConfig] = None,
+) -> Iterable[DirEntry]:
+    """
+    Given an S3 URI to a folder or bucket, return all sub-folders underneath that URI,
+    optionally filtering by startswith. Returned entries never contain a trailing slash.
+    """
+
     if not is_s3_uri(s3_uri):
         raise ValueError("Not a s3 URI: " + s3_uri)
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
+
+    if not s3_uri.endswith("/"):
+        s3_uri += "/"
+
     bucket_name = get_bucket_name(s3_uri)
-    prefix = get_bucket_relative_path(s3_uri)
-    yield from list_folders(bucket_name, prefix, aws_config)
+    if not bucket_name:
+        # No bucket name means we only have the s3[an]:// protocol, not a full bucket and
+        # prefix.
+        for folder in list_buckets(startswith, aws_config):
+            yield DirEntry(name=folder, path=f"{s3_uri}{folder}")
+        return
+
+    prefix = get_bucket_relative_path(s3_uri) + startswith
+    for folder in list_folders(bucket_name, prefix, aws_config):
+        folder = folder.removesuffix("/").split("/")[-1]
+        yield DirEntry(name=folder, path=f"{s3_uri}{folder}")
+
+
+def list_objects_recursive_path(
+    s3_uri: str, *, startswith: str, aws_config: Optional[AwsConnectionConfig]
+) -> Iterable["ObjectSummary"]:
+    """
+    Given an S3 URI to a folder or bucket, return all objects underneath that URI, optionally
+    filtering by startswith.
+    """
+
+    if not is_s3_uri(s3_uri):
+        raise ValueError("Not a s3 URI: " + s3_uri)
+    if aws_config is None:
+        raise ValueError("aws_config not set. Cannot browse s3")
+    if startswith and "/" in startswith:
+        raise ValueError(f"startswith contains forward slash: {repr(startswith)}")
+
+    if not s3_uri.endswith("/"):
+        s3_uri += "/"
+
+    bucket_name = get_bucket_name(s3_uri)
+    if not bucket_name:
+        # No bucket name means we only have the s3[an]:// protocol, not a full bucket and
+        # prefix.
+        for bucket_name in list_buckets(startswith, aws_config):
+            yield from list_objects_recursive(bucket_name, "", aws_config)
+        return
+
+    prefix = get_bucket_relative_path(s3_uri) + startswith
+    yield from list_objects_recursive(bucket_name, prefix, aws_config)
 
 
 def list_folders(
@@ -99,3 +168,26 @@ def list_folders(
             if folder.endswith("/"):
                 folder = folder[:-1]
             yield f"{folder}"
+
+
+def list_buckets(
+    prefix: str, aws_config: Optional[AwsConnectionConfig]
+) -> Iterable[str]:
+    if aws_config is None:
+        raise ValueError("aws_config not set. Cannot browse s3")
+    s3_client = aws_config.get_s3_client()
+    paginator = s3_client.get_paginator("list_buckets")
+    for page in paginator.paginate(Prefix=prefix):
+        for o in page.get("Buckets", []):
+            yield str(o.get("Name"))
+
+
+def list_objects_recursive(
+    bucket_name: str, prefix: str, aws_config: Optional[AwsConnectionConfig]
+) -> Iterable["ObjectSummary"]:
+    if aws_config is None:
+        raise ValueError("aws_config not set. Cannot browse s3")
+    s3_resource = aws_config.get_s3_resource()
+    bucket = s3_resource.Bucket(bucket_name)
+    for obj in bucket.objects.filter(Prefix=prefix).page_size(LIST_OBJECTS_PAGE_SIZE):
+        yield obj
