@@ -84,7 +84,7 @@ describe('useLinkUtils', () => {
 
             const { result } = renderHook(() => useLinkUtils());
             await act(async () => {
-                await result.current.handleDeleteLink(mockDeleteLinkInput);
+                await result.current.handleDeleteLink();
             });
 
             expect(removeLinkMutationMock).toHaveBeenCalledWith({
@@ -102,7 +102,7 @@ describe('useLinkUtils', () => {
 
             const { result } = renderHook(() => useLinkUtils());
             await act(async () => {
-                await result.current.handleDeleteLink(mockDeleteLinkInput);
+                await result.current.handleDeleteLink();
             });
 
             expect(message.destroy).toHaveBeenCalled();
