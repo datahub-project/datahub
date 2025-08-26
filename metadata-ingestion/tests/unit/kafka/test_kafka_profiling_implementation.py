@@ -205,7 +205,7 @@ class TestKafkaProfilingImplementation:
             enabled=True,
             max_sample_time_seconds=30,
             sampling_strategy="random",
-            flatten_max_depth=3,
+            nested_field_max_depth=3,
             max_workers=4,
             sample_size=500,
         )
@@ -213,7 +213,7 @@ class TestKafkaProfilingImplementation:
         # Test that Kafka-specific fields are properly set
         assert config.max_sample_time_seconds == 30
         assert config.sampling_strategy == "random"
-        assert config.flatten_max_depth == 3
+        assert config.nested_field_max_depth == 3
         assert config.max_workers == 4
         assert config.sample_size == 500  # Kafka default override
 

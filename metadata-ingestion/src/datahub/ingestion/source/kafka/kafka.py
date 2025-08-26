@@ -355,26 +355,76 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             topic_names, is_key_schema=True
         )
 
-        # Handle schemaless fallback for topics without schemas
-        if self.source_config.schemaless_fallback.enabled:
-            topics_needing_fallback = [
+        # Handle comprehensive schema resolution for topics without schemas
+        # Support both new and old config names for backward compatibility
+        schema_resolution_enabled = (
+            self.source_config.schema_resolution.enabled
+            or self.source_config.schemaless_fallback.enabled
+        )
+        if schema_resolution_enabled:
+            topics_needing_resolution = [
                 topic
                 for topic in topic_names
                 if topic_value_schemas.get(topic, (None, []))[0] is None
                 and not topic_value_schemas.get(topic, (None, []))[1]
             ]
 
-            if topics_needing_fallback:
+            if topics_needing_resolution:
                 logger.info(
-                    f"Processing {len(topics_needing_fallback)} topics with schema-less fallback"
-                )
-                fallback_results = self.schema_inference.infer_schemas_batch(
-                    topics_needing_fallback
+                    f"Processing {len(topics_needing_resolution)} topics with comprehensive schema resolution"
                 )
 
-                # Update results with fallback schemas
-                for topic, inferred_fields in fallback_results.items():
-                    topic_value_schemas[topic] = (None, inferred_fields)
+                # Initialize schema resolver if not already done
+                if not hasattr(self, "_schema_resolver"):
+                    from datahub.ingestion.source.kafka.schema_resolution import (
+                        KafkaSchemaResolver,
+                    )
+
+                    self._schema_resolver = KafkaSchemaResolver(
+                        source_config=self.source_config,
+                        schema_registry_client=self.schema_registry_client.get_schema_registry_client(),
+                        known_subjects=self.schema_registry_client.get_subjects(),
+                        max_workers=self.source_config.profiling.max_workers,
+                    )
+
+                # Resolve value schemas
+                value_resolution_results = self._schema_resolver.resolve_schemas_batch(
+                    topics_needing_resolution, is_key_schema=False
+                )
+
+                # Resolve key schemas
+                key_resolution_results = self._schema_resolver.resolve_schemas_batch(
+                    topics_needing_resolution, is_key_schema=True
+                )
+
+                # Update results with resolved schemas
+                for topic in topics_needing_resolution:
+                    value_result = value_resolution_results.get(topic)
+                    key_result = key_resolution_results.get(topic)
+
+                    # Update value schema
+                    if value_result and (value_result.schema or value_result.fields):
+                        topic_value_schemas[topic] = (
+                            value_result.schema,
+                            value_result.fields,
+                        )
+                        logger.info(
+                            f"Resolved value schema for topic {topic} using {value_result.resolution_method}"
+                        )
+                    elif topic not in topic_value_schemas:
+                        topic_value_schemas[topic] = (None, [])
+
+                    # Update key schema
+                    if key_result and (key_result.schema or key_result.fields):
+                        topic_key_schemas[topic] = (
+                            key_result.schema,
+                            key_result.fields,
+                        )
+                        logger.info(
+                            f"Resolved key schema for topic {topic} using {key_result.resolution_method}"
+                        )
+                    elif topic not in topic_key_schemas:
+                        topic_key_schemas[topic] = (None, [])
 
         # Process topics sequentially (fast since schemas are pre-fetched) and collect profiling tasks
         profiling_tasks = []
@@ -841,7 +891,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                     flattened_data = cast(Dict[str, Any], decoded_value)
                                     return flatten_json(
                                         flattened_data,
-                                        max_depth=self.source_config.profiling.flatten_max_depth,
+                                        max_depth=self.source_config.profiling.nested_field_max_depth,
                                     )
                                 return decoded_value
                         except Exception as e:
@@ -882,7 +932,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         data,
                         topic,
                         flatten_json_func=flatten_json,
-                        max_depth=self.source_config.profiling.flatten_max_depth,
+                        max_depth=self.source_config.profiling.nested_field_max_depth,
                     )
 
             except Exception as e:

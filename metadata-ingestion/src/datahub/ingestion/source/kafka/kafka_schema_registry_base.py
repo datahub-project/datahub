@@ -2,7 +2,10 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 
-from confluent_kafka.schema_registry.schema_registry_client import Schema
+from confluent_kafka.schema_registry.schema_registry_client import (
+    Schema,
+    SchemaRegistryClient,
+)
 
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -27,6 +30,11 @@ class KafkaSchemaRegistryBase(ABC):
     def _get_subject_for_topic(
         self, dataset_subtype: str, is_key_schema: bool
     ) -> Optional[str]:
+        pass
+
+    @abstractmethod
+    def get_schema_registry_client(self) -> SchemaRegistryClient:
+        """Get the underlying SchemaRegistryClient for direct access."""
         pass
 
     def get_schema_and_fields_batch(

@@ -517,3 +517,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
     def get_subjects(self) -> List[str]:
         return self.known_schema_registry_subjects
+
+    def get_schema_registry_client(self) -> SchemaRegistryClient:
+        """Get the underlying SchemaRegistryClient for direct access."""
+        return self.schema_registry_client

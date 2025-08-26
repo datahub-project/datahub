@@ -93,7 +93,7 @@ def test_kafka_source_profiling_config_inheritance(mock_kafka):
                 "max_number_of_fields_to_profile": 20,
                 "profile_nested_fields": True,
                 "max_workers": 4,
-                "flatten_max_depth": 3,
+                "nested_field_max_depth": 3,
             },
         }
     )
@@ -110,7 +110,7 @@ def test_kafka_source_profiling_config_inheritance(mock_kafka):
 
     # Check Kafka-specific config
     assert profiling_config.max_workers == 4
-    assert profiling_config.flatten_max_depth == 3
+    assert profiling_config.nested_field_max_depth == 3
 
     kafka_source.close()
 

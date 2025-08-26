@@ -18,22 +18,39 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 
-class SchemalessFallback(ConfigModel):
-    """Configuration for schema-less fallback."""
+class SchemaResolutionFallback(ConfigModel):
+    """
+    Configuration for comprehensive schema resolution with multiple fallback strategies.
+
+    This enables a multi-stage approach to resolve schemas for Kafka topics:
+    1. TopicNameStrategy: Direct lookup using topic name
+    2. RecordNameStrategy: Extract record name from messages and lookup
+    3. TopicRecordNameStrategy: Combine topic + record name for lookup
+    4. TopicSubjectMap: User-defined topic-to-subject mappings
+    5. Schema Inference: Infer schema from message data as final fallback
+    """
 
     enabled: bool = Field(
         default=False,
-        description="Enable automatic fallback to schema-less processing for topics not found in the schema registry.",
+        description="Enable comprehensive schema resolution with multiple fallback strategies for topics where schema registry lookup fails.",
     )
 
     sample_timeout_seconds: float = Field(
         default=2.0,
-        description="Maximum time to spend sampling messages from a single topic (in seconds).",
+        description="Maximum time to spend sampling messages from a single topic (in seconds) for record name extraction and schema inference.",
     )
     sample_strategy: str = Field(
         default="hybrid",
         description="Sampling strategy: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest).",
     )
+    max_messages_per_topic: int = Field(
+        default=10,
+        description="Maximum number of messages to sample per topic for record name extraction and schema inference.",
+    )
+
+
+# Backward compatibility alias
+SchemalessFallback = SchemaResolutionFallback
 
 
 class ProfilerConfig(GEProfilingConfig):
@@ -73,11 +90,7 @@ class ProfilerConfig(GEProfilingConfig):
 
     # Inherits max_workers from GEProfilingConfig - controls profiling and schema inference parallelization
 
-    # Kafka-specific field for handling complex nested JSON/Avro structures
-    flatten_max_depth: int = Field(
-        default=5,
-        description="Maximum recursion depth when flattening nested JSON structures. Lower values prevent recursion errors but may truncate deeply nested data.",
-    )
+    # Uses inherited nested_field_max_depth from GEProfilingConfig for recursion protection
 
 
 class KafkaSourceConfig(
@@ -129,9 +142,15 @@ class KafkaSourceConfig(
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
-    schemaless_fallback: SchemalessFallback = Field(
-        default=SchemalessFallback(),
-        description="Settings for schema-less fallback when topics are not found in schema registry",
+    schema_resolution: SchemaResolutionFallback = Field(
+        default=SchemaResolutionFallback(),
+        description="Configuration for comprehensive schema resolution with multiple fallback strategies.",
+    )
+
+    # Backward compatibility alias
+    schemaless_fallback: SchemaResolutionFallback = Field(
+        default=SchemaResolutionFallback(),
+        description="[DEPRECATED] Use 'schema_resolution' instead. Configuration for comprehensive schema resolution with multiple fallback strategies.",
     )
     disable_topic_record_naming_strategy: bool = Field(
         default=False,

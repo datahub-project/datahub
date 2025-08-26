@@ -374,7 +374,7 @@ class TestKafkaProfiler(unittest.TestCase):
 
     def test_profile_topic_recursion_error_handling(self):
         """Test that profile_topic handles recursion errors gracefully"""
-        config = ProfilerConfig(enabled=True, flatten_max_depth=1)
+        config = ProfilerConfig(enabled=True, nested_field_max_depth=1)
 
         # Create deeply nested sample that could cause recursion
         from typing import Any, Dict

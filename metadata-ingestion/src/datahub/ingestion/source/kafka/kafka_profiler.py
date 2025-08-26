@@ -9,6 +9,7 @@ import avro.schema
 from pydantic import BaseModel, Field
 
 from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
+from datahub.ingestion.source.kafka.kafka_utils import MessageValue
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -39,7 +40,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 # Type aliases for better type safety
-MessageValue = Union[str, int, float, bool, dict, list, None]
+# Import MessageValue from kafka_utils for consistency
 FieldValue = Union[str, int, float, bool, None]
 NumericValue = Union[int, float]
 

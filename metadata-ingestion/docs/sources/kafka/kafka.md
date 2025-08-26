@@ -242,13 +242,20 @@ config:
 
 The underlying implementation is similar to [dbt meta mapping](https://docs.datahub.com/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
 
-### Data Profiling
+### Schema Resolution
 
-The Kafka source supports comprehensive data profiling of message content to generate field-level statistics and sample values. Profiling analyzes message samples from Kafka topics to provide insights into data quality and distribution.
+DataHub provides comprehensive schema resolution for Kafka topics with multiple fallback strategies. This feature is **completely independent** of data profiling and specifically handles cases where schemas cannot be found in the schema registry.
 
-#### Schema-less Topic Support
+**Key Points:**
 
-DataHub can automatically fall back to schema-less processing for topics not found in the schema registry:
+- Schema resolution works by sampling messages from Kafka topics to extract record names and infer schemas
+- It can be enabled/disabled independently of data profiling
+- It's primarily for **metadata extraction** (schema discovery), not data quality analysis
+- Data profiling (covered in the next section) is for **statistical analysis** of message content
+
+#### Multi-Stage Schema Resolution
+
+When DataHub cannot find schemas in the schema registry, it uses a comprehensive multi-stage approach to resolve schemas for Kafka topics:
 
 ```yaml
 source:
@@ -256,24 +263,33 @@ source:
   config:
     # ... other config ...
 
-    # Configure schema-less fallback
-    schemaless_fallback:
-      enabled: true # Enable automatic fallback (disabled by default)
-      max_workers: 20 # Parallel processing for multiple topics (default: 5 * CPU cores)
-      sample_timeout_seconds: 2.0 # Timeout per topic
+    # Configure comprehensive schema resolution
+    schema_resolution:
+      enabled: true # Enable multi-stage schema resolution (disabled by default)
+      sample_timeout_seconds: 2.0 # Timeout per topic for record name extraction and schema inference
       sample_strategy: "hybrid" # "earliest", "latest", or "hybrid"
+      max_messages_per_topic: 10 # Maximum messages to sample per topic (default: 10)
+
+    profiling:
+      max_workers: 20 # Controls parallelization for both profiling and schema resolution (default: 5 * CPU cores)
+      nested_field_max_depth: 5 # Maximum recursion depth for nested JSON structures (default: 10)
 ```
 
-When `schemaless_fallback.enabled` is true:
+When `schema_resolution.enabled` is true (or the legacy `schemaless_fallback.enabled`):
 
-- Topics without schema registry entries will automatically have their schema inferred from message data
-- DataHub will sample a few messages from the topic to determine field names and types
-- This allows ingestion to succeed even for topics that don't use the schema registry
-- The inferred schema will include field descriptions showing sample values
+DataHub uses a comprehensive multi-stage approach to resolve schemas for Kafka topics:
+
+1. **TopicNameStrategy**: Direct lookup using `<topic>-key/value` pattern (most common)
+2. **TopicSubjectMap**: User-defined topic-to-subject mappings via `topic_subject_map` config
+3. **RecordNameStrategy**: Extract record names from message data and lookup `<record_name>-key/value`
+4. **TopicRecordNameStrategy**: Combine topic + record name: `<topic>-<record_name>-key/value`
+5. **Schema Inference**: As final fallback, infer schema from message data analysis
+
+This approach ensures maximum compatibility with different Confluent Schema Registry [naming strategies](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work) while providing intelligent fallbacks when schemas cannot be found in the registry.
 
 #### Performance Tuning
 
-For better performance when using schema-less fallback, you can tune the sampling behavior:
+For better performance when using schema resolution, you can tune the sampling and parallelization behavior:
 
 ```yaml
 source:
@@ -281,11 +297,15 @@ source:
   config:
     # ... other config ...
 
-    schemaless_fallback:
+    schema_resolution:
       enabled: true
-      max_workers: 10 # Parallel processing (default: 5 * CPU cores)
-      sample_timeout_seconds: 1.0 # Limit time per topic (default: 2.0)
+      sample_timeout_seconds: 1.0 # Limit time per topic for record extraction/inference (default: 2.0)
       sample_strategy: "latest" # Sampling strategy (default: "hybrid")
+      max_messages_per_topic: 10 # Maximum messages to sample per topic (default: 10)
+
+    profiling:
+      max_workers: 10 # Parallel processing for both profiling and schema resolution (default: 5 * CPU cores)
+      nested_field_max_depth: 8 # Control recursion depth for complex nested messages
 ```
 
 **Performance Benefits:**
@@ -302,31 +322,37 @@ source:
 **High-Performance Setup (Many topics, powerful machine)**:
 
 ```yaml
-schemaless_fallback:
+schema_resolution:
   enabled: true
-  max_workers: 20 # Higher parallelism
   sample_timeout_seconds: 1.0
   sample_strategy: "latest" # Fastest - recent messages only
+  max_messages_per_topic: 5 # Fewer samples for speed
+profiling:
+  max_workers: 20 # Higher parallelism
 ```
 
 **Resource-Constrained Setup (Limited CPU/memory)**:
 
 ```yaml
-schemaless_fallback:
+schema_resolution:
   enabled: true
-  max_workers: 2 # Lower parallelism
   sample_timeout_seconds: 2.0
   sample_strategy: "hybrid"
+  max_messages_per_topic: 5 # Fewer samples to reduce load
+profiling:
+  max_workers: 2 # Lower parallelism
 ```
 
 **Conservative Setup (Prioritize accuracy over speed)**:
 
 ```yaml
-schemaless_fallback:
+schema_resolution:
   enabled: true
-  max_workers: 5
   sample_timeout_seconds: 5.0
   sample_strategy: "earliest" # Most comprehensive - scan from beginning
+  max_messages_per_topic: 20 # More samples for better accuracy
+profiling:
+  max_workers: 5
 ```
 
 #### Sampling Strategies
@@ -344,7 +370,15 @@ DataHub supports three sampling strategies for schema inference:
 | `hybrid` | ⚡⚡ | 🔍🔍🔍 | **Recommended - balanced** |
 | `earliest` | ⚡ | 🔍🔍🔍 | Comprehensive analysis |
 
-If you prefer the old behavior (warnings for missing schemas), set `enable_schemaless_fallback: false`.
+**Backward Compatibility**: The old `schemaless_fallback` configuration is still supported but deprecated. Use `schema_resolution` for new configurations. If you prefer the old behavior (warnings for missing schemas), set `schema_resolution.enabled: false`.
+
+### Data Profiling
+
+The Kafka source supports comprehensive data profiling of message content to generate field-level statistics and sample values. Profiling analyzes message samples from Kafka topics to provide insights into data quality and distribution.
+
+**Note**: Data profiling is completely independent of schema resolution. You can enable profiling with or without schema resolution, and vice versa.
+
+**Nested Field Depth Control**: The `nested_field_max_depth` setting (default: 10) prevents recursion errors when processing deeply nested or circular JSON structures. This is a global DataHub setting that applies to all connectors handling dynamic JSON content.
 
 #### Basic Profiling Configuration
 
@@ -485,8 +519,8 @@ DataHub automatically handles schema parsing errors gracefully and continues pro
 source:
   type: kafka
   config:
-    schemaless_fallback:
-      enabled: true # Automatically infer schemas when parsing fails
+    schema_resolution:
+      enabled: true # Automatically resolve schemas using multiple strategies
       sample_strategy: "hybrid" # Try latest messages first, fallback to earliest
 ```
 
@@ -506,7 +540,7 @@ source:
   config:
     connection:
       schema_registry_url: "http://localhost:8081"
-    schemaless_fallback:
+    schema_resolution:
       enabled: true # Fallback when registry is unavailable
 ```
 
@@ -529,10 +563,11 @@ source:
     profiling:
       enabled: true
       max_workers: 20 # Controls both profiling AND schema inference parallelization
+      nested_field_max_depth: 10 # Prevent recursion issues with deeply nested JSON
       sample_size: 100 # Reduce sample size for faster processing
 
-    # Optimize schema inference
-    schemaless_fallback:
+    # Optimize schema resolution
+    schema_resolution:
       enabled: true
       sample_timeout_seconds: 1.0 # Faster sampling
 ```

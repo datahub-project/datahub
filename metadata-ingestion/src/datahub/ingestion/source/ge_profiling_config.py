@@ -208,6 +208,13 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Whether to profile complex types like structs, arrays and maps. ",
     )
 
+    nested_field_max_depth: int = Field(
+        default=10,
+        description="Maximum recursion depth when flattening nested JSON structures during profiling. "
+        "Lower values prevent recursion errors but may truncate deeply nested data. "
+        "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
+    )
+
     @pydantic.root_validator(pre=True)
     def deprecate_bigquery_temp_table_schema(cls, values):
         # TODO: Update docs to remove mention of this field.

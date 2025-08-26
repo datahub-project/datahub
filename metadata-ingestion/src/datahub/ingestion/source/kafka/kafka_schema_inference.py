@@ -11,6 +11,7 @@ from confluent_kafka import Consumer
 
 from datahub.ingestion.source.kafka.kafka_config import SchemalessFallback
 from datahub.ingestion.source.kafka.kafka_utils import (
+    MessageValue,
     process_kafka_message_for_sampling,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -24,8 +25,7 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-# Type aliases for better type safety
-MessageValue = Dict[str, Union[str, int, float, bool, list, dict, None]]
+# Import MessageValue from kafka_utils for consistency
 
 
 @dataclass
@@ -199,7 +199,7 @@ class KafkaSchemaInference:
             )
 
             while (
-                len(messages) < 5  # Sample 5 messages
+                len(messages) < self.fallback_config.max_messages_per_topic
                 and attempts < max_attempts
                 and (time.time() - start_time) < timeout_seconds
             ):
@@ -277,9 +277,12 @@ class KafkaSchemaInference:
         # Collect all unique field paths and their types from samples
         field_info: FieldInfo = {}
 
-        for message in sample_messages[
-            :50
-        ]:  # Limit to first 50 messages for performance
+        # Process messages up to the configured limit for performance
+        max_messages_to_process = min(
+            len(sample_messages), self.fallback_config.max_messages_per_topic * 5
+        )  # Allow more for field extraction
+
+        for message in sample_messages[:max_messages_to_process]:
             if not isinstance(message, dict):
                 continue
 

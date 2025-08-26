@@ -38,7 +38,8 @@ class TestKafkaProfilingConfig:
         # Should have Kafka-specific fields
         assert hasattr(config, "max_sample_time_seconds")
         assert hasattr(config, "sampling_strategy")
-        assert hasattr(config, "flatten_max_depth")
+        # Should have inherited global nested field depth control
+        assert hasattr(config, "nested_field_max_depth")
 
     def test_profiler_config_kafka_specific_defaults(self):
         """Test Kafka-specific default values."""
@@ -52,7 +53,10 @@ class TestKafkaProfilingConfig:
         assert config.max_sample_time_seconds == 60
         assert config.sampling_strategy == "latest"
         assert config.batch_size == 100
-        assert config.flatten_max_depth == 5
+        # Test that global nested_field_max_depth is inherited
+        assert (
+            config.nested_field_max_depth == 10
+        )  # Global default from GEProfilingConfig
 
     def test_profiler_config_inherited_defaults(self):
         """Test that inherited GE defaults work correctly."""
@@ -162,6 +166,7 @@ class TestSchemalessFallbackConfig:
         assert config.enabled is False  # Default to disabled (opt-in)
         assert config.sample_timeout_seconds == 2.0
         assert config.sample_strategy == "hybrid"
+        assert config.max_messages_per_topic == 10
 
     def test_schemaless_fallback_custom_values(self):
         """Test custom values for SchemalessFallback."""
@@ -169,11 +174,13 @@ class TestSchemalessFallbackConfig:
             enabled=True,
             sample_timeout_seconds=5.0,
             sample_strategy="latest",
+            max_messages_per_topic=20,
         )
 
         assert config.enabled is True
         assert config.sample_timeout_seconds == 5.0
         assert config.sample_strategy == "latest"
+        assert config.max_messages_per_topic == 20
 
     def test_schemaless_fallback_validation(self):
         """Test validation of SchemalessFallback fields."""
