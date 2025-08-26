@@ -40,6 +40,7 @@ export * from './components/Table';
 export * from './components/Text';
 export * from './components/TextArea';
 export * from './components/Timeline';
+export * from './components/ToggleCard';
 export * from './components/Tooltip';
 export * from './components/Utils';
 export * from './components/WhiskerChart';

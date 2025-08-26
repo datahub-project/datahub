@@ -24,11 +24,17 @@ export interface TreeNodeProps {
     depth: number;
 }
 
-export interface TreeViewContextType {
-    nodes: TreeNode[];
+export type LoadingTriggerType = 'button' | 'infiniteScroll';
 
+export interface TreeViewContextType {
+    // Tree/node utils and params
+    nodes: TreeNode[];
     getHasParentNode: (node: TreeNode) => boolean;
     getIsRootNode: (node: TreeNode) => boolean;
+    rootNodesLength: number;
+    rootNodesTotal: number;
+    getChildrenLength: (node: TreeNode) => number;
+    getChildrenTotal: (node: TreeNode) => number;
 
     // Expand
     getIsExpandable: (node: TreeNode) => boolean;
@@ -54,13 +60,18 @@ export interface TreeViewContextType {
     explicitlyUnselectParent?: boolean;
     enableIntermediateSelectState?: boolean;
 
-    // Async loading of children
+    // Async loading
     // -------------------------------------------------
+    loadingTriggerType?: LoadingTriggerType;
+    // Optional loading of root nodes
+    loadRootNodes?: () => void;
+    hasMoreRootNodes?: boolean;
+    rootNodesLoading?: boolean;
+
     getIsChildrenLoading: (node: TreeNode) => boolean;
-    getNumberOfNotLoadedChildren: (node: TreeNode) => number;
     loadChildren: (node: TreeNode) => void;
     // Max number of children to load per each loadChildren call
-    numberOfChildrenToLoad: number;
+    loadBatchSize: number;
 
     // Optional custom node label renderer
     renderNodeLabel?: (props: TreeNodeProps) => React.ReactNode;
@@ -104,7 +115,13 @@ export interface TreeViewContextProviderProps {
     renderNodeLabel?: (props: TreeNodeProps) => React.ReactNode;
 
     // Async
+    // Optional pagination/loading of root nodes
+    loadingTriggerType?: LoadingTriggerType;
+    rootNodesTotal?: number;
+    loadRootNodes?: () => void;
+    hasMoreRootNodes?: boolean;
+    rootNodesLoading?: boolean;
     // Callback to load children of a specific node
     loadChildren?: (node: TreeNode) => void;
-    numberOfChildrenToLoad?: number;
+    loadBatchSize?: number;
 }
