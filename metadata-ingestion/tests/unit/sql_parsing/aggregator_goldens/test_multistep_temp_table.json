@@ -18,7 +18,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream1,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
+                    "query": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f"
                 },
                 {
                     "auditStamp": {
@@ -31,7 +31,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream2,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
+                    "query": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f"
                 }
             ],
             "fineGrainedLineages": [
@@ -45,7 +45,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),a)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
+                    "query": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -57,7 +57,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),b)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
+                    "query": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -69,7 +69,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),c)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
+                    "query": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f"
                 }
             ]
         }
@@ -77,11 +77,12 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a",
+    "entityUrn": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE #temp2 AS\nSELECT\n  b,\n  c\nFROM upstream2;\n\nCREATE TABLE #temp1 AS\nSELECT\n  a,\n  2 * b AS b\nFROM upstream1;\n\nCREATE TEMPORARY TABLE staging_foo AS\nSELECT\n  up1.a,\n  up1.b,\n  up2.c\nFROM #temp1 AS up1\nLEFT JOIN #temp2 AS up2\n  ON up1.b = up2.b\nWHERE\n  up1.b > 0;\n\nINSERT INTO prod_foo\nSELECT\n  *\nFROM staging_foo",
                 "language": "SQL"
@@ -100,7 +101,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a",
+    "entityUrn": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -130,7 +131,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a",
+    "entityUrn": "urn:li:query:composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

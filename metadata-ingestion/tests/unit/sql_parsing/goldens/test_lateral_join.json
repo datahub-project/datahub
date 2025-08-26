@@ -1,7 +1,7 @@
 {
     "query_type": "SELECT",
     "query_type_props": {},
-    "query_fingerprint": "a701db982032b649c3e41a6de6ea61254190045506184330c93b9a5692f34e4d",
+    "query_fingerprint": "d457d6532b272edf46642c957759af928c388e3bd9bc711245dff7ff6666332f",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)"
@@ -23,6 +23,10 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)",
                     "column": "id"
+                },
+                {
+                  "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)",
+                  "column": "value"
                 }
             ],
             "logic": {
@@ -63,10 +67,6 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)",
                     "column": "id"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)",
-                    "column": "value"
                 }
             ],
             "logic": {
@@ -75,22 +75,22 @@
             }
         }
     ],
-    "joins": [
-        {
-            "join_type": "LATERAL JOIN",
-            "left_tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)"
-            ],
-            "right_tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)"
-            ],
-            "on_clause": null,
-            "columns_involved": []
-        }
-    ],
-    "debug_info": {
+  "joins": [
+    {
+      "join_type": "LATERAL JOIN",
+      "left_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)"
+      ],
+      "right_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)"
+      ],
+      "on_clause": null,
+      "columns_involved": []
+    }
+  ],
+  "debug_info": {
         "confidence": 0.9,
-        "generalized_statement": "SELECT t1.id, t1.name, t2.value FROM my_table1 AS t1, LATERAL (SELECT value FROM my_table2 WHERE t1.id = my_table2.id LIMIT ?) AS t2"
+        "generalized_statement": "SELECT t1.id, t1.name, t2.value FROM my_table1 AS t1, LATERAL (SELECT value FROM my_table2 WHERE t1.id = my_table2.id LIMIT %s) AS t2"
     }
 }

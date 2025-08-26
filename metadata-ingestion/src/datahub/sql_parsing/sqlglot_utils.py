@@ -114,6 +114,7 @@ def _expression_to_string(
         return expression
     return expression.sql(dialect=get_dialect(platform))
 
+PLACEHOLDER_NORMALIZATION_REGEXP = re.compile(r"(%s|\$\d|\?)")
 
 _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
@@ -130,7 +131,7 @@ _BASIC_NORMALIZATION_RULES = {
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
     # The r" ?" makes it more robust to uneven spacing.
-    re.compile(r"\b(IN|VALUES)\s*\( ?\?(?:, ?\?)* ?\)", re.IGNORECASE): r"\1 (?)",
+    re.compile(r"\b(IN|VALUES)\s*\( ?(?:%s|\$\d|\?)(?:, ?(?:%s|\$\d|\?))* ?\)", re.IGNORECASE): r"\1 (?)",
     # Normalize parenthesis spacing.
     re.compile(r"\( "): "(",
     re.compile(r" \)"): ")",
@@ -139,6 +140,9 @@ _BASIC_NORMALIZATION_RULES = {
     # e.g. "col1,col2" -> "col1, col2"
     re.compile(r"\b ,"): ",",
     re.compile(r"\b,\b"): ", ",
+    # MAKE SURE THAT THIS IS AFTER THE ABOVE REPLACEMENT
+    # Replace all versions of placeholders with generic ? placeholder.
+    PLACEHOLDER_NORMALIZATION_REGEXP: "?",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).

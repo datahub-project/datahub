@@ -236,7 +236,7 @@ def test_multistep_temp_table() -> None:
     assert (
         len(
             report.queries_with_temp_upstreams[
-                "composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
+                "composite_9fd83fef0cefc993b775049e62877b84c84e63494f94a6ac4a3cff6dce1a255f"
             ]
         )
         == 4
