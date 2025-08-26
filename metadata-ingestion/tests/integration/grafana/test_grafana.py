@@ -8,6 +8,7 @@ import requests
 from freezegun import freeze_time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import tenacity as tenacity
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -45,67 +46,45 @@ class GrafanaClient:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(5),
+        wait=tenacity.wait_exponential(multiplier=1, min=1, max=30),
+        retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException),
+        reraise=True,
+    )
     def create_service_account(self, name, role, max_retries=5):
         service_account_payload = {"name": name, "role": role, "isDisabled": False}
 
-        for attempt in range(max_retries):
-            try:
-                response = self.session.post(
-                    f"{self.url}/api/serviceaccounts",
-                    headers=self.headers,
-                    json=service_account_payload,
-                    timeout=15,
-                )
-                response.raise_for_status()
-                service_account = response.json()
-                logging.info(
-                    f"Successfully created service account '{name}' on attempt {attempt + 1}"
-                )
-                return service_account
-            except requests.exceptions.RequestException as e:
-                if attempt < max_retries - 1:
-                    wait_time = 2**attempt  # Exponential backoff
-                    logging.warning(
-                        f"Attempt {attempt + 1} failed to create service account: {e}. Retrying in {wait_time}s..."
-                    )
-                    time.sleep(wait_time)
-                else:
-                    logging.error(
-                        f"Failed to create service account after {max_retries} attempts: {e}"
-                    )
-                    return None
-        return None
+        response = self.session.post(
+            f"{self.url}/api/serviceaccounts",
+            headers=self.headers,
+            json=service_account_payload,
+            timeout=15,
+        )
+        response.raise_for_status()
+        service_account = response.json()
+        logging.info(f"Successfully created service account '{name}'")
+        return service_account
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(5),
+        wait=tenacity.wait_exponential(multiplier=1, min=1, max=30),
+        retry=tenacity.retry_if_exception_type(requests.exceptions.RequestException),
+        reraise=True,
+    )
     def create_api_key(self, service_account_id, key_name, role, max_retries=5):
         api_key_payload = {"name": key_name, "role": role}
 
-        for attempt in range(max_retries):
-            try:
-                response = self.session.post(
-                    f"{self.url}/api/serviceaccounts/{service_account_id}/tokens",
-                    headers=self.headers,
-                    json=api_key_payload,
-                    timeout=15,
-                )
-                response.raise_for_status()
-                api_key = response.json()
-                logging.info(
-                    f"Successfully created API key '{key_name}' on attempt {attempt + 1}"
-                )
-                return api_key["key"]
-            except requests.exceptions.RequestException as e:
-                if attempt < max_retries - 1:
-                    wait_time = 2**attempt  # Exponential backoff
-                    logging.warning(
-                        f"Attempt {attempt + 1} failed to create API key: {e}. Retrying in {wait_time}s..."
-                    )
-                    time.sleep(wait_time)
-                else:
-                    logging.error(
-                        f"Failed to create API key after {max_retries} attempts: {e}"
-                    )
-                    return None
-        return None
+        response = self.session.post(
+            f"{self.url}/api/serviceaccounts/{service_account_id}/tokens",
+            headers=self.headers,
+            json=api_key_payload,
+            timeout=15,
+        )
+        response.raise_for_status()
+        api_key = response.json()
+        logging.info(f"Successfully created API key '{key_name}'")
+        return api_key["key"]
 
 
 @pytest.fixture(scope="module")
@@ -190,50 +169,32 @@ def verify_grafana_api_ready(docker_services: pytest_docker.plugin.Services) -> 
     # Configure requests session with retries
     session = requests.Session()
     retry_strategy = Retry(
-        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504]
+        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
     )
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
 
     # Wait for API endpoints to be fully ready (health check might pass but API still initializing)
-    max_attempts = 60
-    for attempt in range(max_attempts):
-        try:
-            # Test both basic API access and service account creation capability
+    for attempt in tenacity.Retrying(
+        stop=tenacity.stop_after_attempt(60), wait=tenacity.wait_fixed(3), reraise=True
+    ):
+        with attempt:
             api_url = f"{base_url}/api/search"
             resp = session.get(api_url, auth=("admin", "admin"), timeout=15)
+            if resp.status_code != 200:
+                raise AssertionError(f"Basic API not ready yet: {resp.status_code}")
 
-            if resp.status_code == 200:
-                # Also verify service account API is ready (needed for test_api_key fixture)
-                sa_url = f"{base_url}/api/serviceaccounts"
-                sa_resp = session.get(sa_url, auth=("admin", "admin"), timeout=15)
-
-                if sa_resp.status_code == 200:
-                    logging.info(
-                        f"Grafana API endpoints fully ready with service accounts (attempt {attempt + 1})"
-                    )
-                    return
-                elif sa_resp.status_code == 404:
-                    # Service accounts API not available - this is okay for older Grafana versions
-                    logging.info(
-                        f"Grafana API ready, service accounts not available (attempt {attempt + 1})"
-                    )
-                    return
-                else:
-                    logging.debug(
-                        f"Service account API not ready yet: {sa_resp.status_code}"
-                    )
-            else:
-                logging.debug(f"Basic API not ready yet: {resp.status_code}")
-
-        except Exception as e:
-            logging.debug(f"API readiness check failed (attempt {attempt + 1}): {e}")
-
-        if attempt < max_attempts - 1:
-            time.sleep(3)
-
-    logging.warning(f"Grafana API may not be fully ready after {max_attempts} attempts")
-    # Don't fail here - let the test proceed and provide better error info if needed
+            sa_url = f"{base_url}/api/serviceaccounts"
+            sa_resp = session.get(sa_url, auth=("admin", "admin"), timeout=15)
+            if sa_resp.status_code == 200:
+                logging.info("Grafana API endpoints fully ready with service accounts")
+                return
+            if sa_resp.status_code == 404:
+                logging.info("Grafana API ready, service accounts not available")
+                return
+            raise AssertionError(
+                f"Service account API not ready yet: {sa_resp.status_code}"
+            )
 
 
 def verify_grafana_fully_ready(
@@ -244,42 +205,29 @@ def verify_grafana_fully_ready(
 
     session = requests.Session()
     retry_strategy = Retry(
-        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504]
+        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
     )
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
-
-    end_time = time.time() + timeout
-
-    while time.time() < end_time:
-        try:
-            # Test multiple endpoints to ensure full readiness
+    for attempt in tenacity.Retrying(
+        stop=tenacity.stop_after_delay(timeout), wait=tenacity.wait_fixed(2), reraise=True
+    ):
+        with attempt:
             endpoints_to_check = [
                 f"{base_url}/api/health",
                 f"{base_url}/api/org",
                 f"{base_url}/api/serviceaccounts",
             ]
 
-            all_ready = True
             for endpoint in endpoints_to_check:
                 resp = session.get(endpoint, auth=("admin", "admin"), timeout=10)
-                if resp.status_code not in [
-                    200,
-                    404,
-                ]:  # 404 is OK for service accounts in older versions
-                    all_ready = False
-                    break
+                if resp.status_code not in [200, 404]:
+                    raise AssertionError(
+                        f"Endpoint not ready: {endpoint} -> {resp.status_code}"
+                    )
 
-            if all_ready:
-                logging.info("Grafana is fully ready for operations")
-                return
-
-        except Exception as e:
-            logging.debug(f"Grafana readiness check failed: {e}")
-
-        time.sleep(2)
-
-    logging.warning(f"Grafana may not be fully ready after {timeout}s timeout")
+            logging.info("Grafana is fully ready for operations")
+            return
 
 
 def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
@@ -292,39 +240,27 @@ def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
 
     session = requests.Session()
     retry_strategy = Retry(
-        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504]
+        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
     )
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
 
-    end_time = time.time() + timeout
-
-    while time.time() < end_time:
-        try:
-            # Check if the expected dashboards exist
+    for attempt in tenacity.Retrying(
+        stop=tenacity.stop_after_delay(timeout), wait=tenacity.wait_fixed(3), reraise=True
+    ):
+        with attempt:
             dashboards_url = f"{base_url}/api/search"
             resp = session.get(dashboards_url, auth=("admin", "admin"), timeout=15)
+            resp.raise_for_status()
 
-            if resp.status_code == 200:
-                dashboards = resp.json()
-                found_dashboards = {dashboard.get("title") for dashboard in dashboards}
+            dashboards = [d for d in resp.json() if d.get("type") == "dash-db"]
+            found_titles = {d.get("title") for d in dashboards}
+            missing = EXPECTED_DASHBOARDS - found_titles
+            if missing:
+                raise AssertionError(f"Missing dashboards: {missing}")
 
-                if found_dashboards == EXPECTED_DASHBOARDS:
-                    logging.info(
-                        f"All expected dashboards provisioned: {EXPECTED_DASHBOARDS}"
-                    )
-                    return
-
-                logging.debug(
-                    f"Expected dashboards: {EXPECTED_DASHBOARDS}, Found: {found_dashboards}"
-                )
-
-        except Exception as e:
-            logging.debug(f"Entity provisioning check failed: {e}")
-
-        time.sleep(3)
-
-    logging.warning(f"Entity provisioning may not be complete after {timeout}s timeout")
+            logging.info(f"All expected dashboards provisioned: {EXPECTED_DASHBOARDS}")
+            return
 
 
 @freeze_time(FROZEN_TIME)
