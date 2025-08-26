@@ -126,12 +126,12 @@ const mergeStructuredProperties = (destinationArray, sourceArray, _options) => {
 };
 
 export const mergeOwners = (destinationArray, sourceArray, _options) => {
-    console.log("HERE", { destinationArray, sourceArray})
-    return uniqWith(
-        [...destinationArray, ...sourceArray],
-        (ownerA, ownerB) =>
-            ownerA.owner.urn === ownerB.owner.urn && ownerA.ownershipType?.urn === ownerB.ownershipType?.urn,
-    );
+    return uniqWith([...destinationArray, ...sourceArray], (ownerA, ownerB) => {
+        if (!ownerA.ownershipType?.urn && !ownerB.ownershipType?.urn) {
+            return ownerA.owner?.urn === ownerB.owner?.urn && ownerA.type === ownerB.type;
+        }
+        return ownerA.owner?.urn === ownerB.owner?.urn && ownerA.ownershipType?.urn === ownerB.ownershipType?.urn;
+    });
 };
 
 const mergeFields = (destinationArray, sourceArray, _options) => {

@@ -6,7 +6,7 @@ import {
 } from '@app/entity/shared/siblingUtils';
 import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '@src/Mocks';
 
-import { EntityType, SchemaFieldDataType } from '@types';
+import { EntityType, OwnershipType, SchemaFieldDataType } from '@types';
 
 const usageStats = {
     buckets: [
@@ -599,6 +599,30 @@ describe('siblingUtils', () => {
             expect(result).toHaveLength(2);
             expect(result[0].ownershipType).toBeUndefined();
             expect(result[1].ownershipType?.urn).toBe('urn:li:ownershipType:__system__technical_owner');
+        });
+
+        it('should handle owners with missing ownershipTypes and the same deprecated types', () => {
+            const destinationArray = [{ ...createOwner('urn:li:corpGroup:bfoo'), type: OwnershipType.BusinessOwner }];
+            const sourceArray = [{ ...createOwner('urn:li:corpGroup:bfoo'), type: OwnershipType.BusinessOwner }];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(1);
+            expect(result[0].owner.urn).toBe('urn:li:corpGroup:bfoo');
+            expect(result[0].type).toBe(OwnershipType.BusinessOwner);
+        });
+
+        it('should handle owners with missing ownershipTypes and different deprecated types', () => {
+            const destinationArray = [{ ...createOwner('urn:li:corpGroup:bfoo'), type: OwnershipType.TechnicalOwner }];
+            const sourceArray = [{ ...createOwner('urn:li:corpGroup:bfoo'), type: OwnershipType.BusinessOwner }];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(2);
+            expect(result[0].owner.urn).toBe('urn:li:corpGroup:bfoo');
+            expect(result[0].type).toBe(OwnershipType.TechnicalOwner);
+            expect(result[1].owner.urn).toBe('urn:li:corpGroup:bfoo');
+            expect(result[1].type).toBe(OwnershipType.BusinessOwner);
         });
 
         it('should deduplicate owners that both have undefined ownershipType', () => {
