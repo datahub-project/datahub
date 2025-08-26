@@ -416,6 +416,18 @@ else:
         else:
             return value
 
+    def _parse_and_like_filter(value: Any) -> Any:
+        if (
+            isinstance(value, dict)
+            and not set(value.keys()).intersection(
+                {"and", "or", "not", "field", "condition", "direct_descendants_only"}
+            )
+            and len(value) > 1
+        ):
+            return {"and": [{k: v} for k, v in value.items()]}
+
+        return value
+
     # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
     # That way we'd be able to attach methods to the Filter type.
     # e.g. replace load_filters(...) with Filter.load(...)
@@ -445,6 +457,7 @@ else:
             ],
             Discriminator(_filter_discriminator),
         ],
+        pydantic.BeforeValidator(_parse_and_like_filter),
         pydantic.BeforeValidator(_parse_json_from_string),
     ]
 
