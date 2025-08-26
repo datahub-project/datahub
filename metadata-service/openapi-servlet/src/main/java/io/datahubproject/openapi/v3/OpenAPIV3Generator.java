@@ -1392,7 +1392,7 @@ public class OpenAPIV3Generator {
     // Criterion schema
     Schema criterion =
         newSchema()
-            .type("object")
+            .type(TYPE_OBJECT)
             .description("A single field condition.")
             .addProperties(
                 "field", newSchema().type(TYPE_STRING).description("The name of the field"))
