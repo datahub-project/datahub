@@ -1376,15 +1376,10 @@ public class OpenAPIV3Generator {
 
     // Sort (top-level)
     return newSchema()
-        .type(TYPE_OBJECT)
-        .description("Sort specification made up of one or more SortCriterion in evaluation order.")
-        .addProperties(
-            "sortCriteria",
-            newSchema()
-                .type(TYPE_ARRAY)
-                .description("List of sort criteria; applied in order.")
-                .items(sortCriterion)
-                .minItems(1))
+        .type(TYPE_ARRAY)
+        .description("List of sort criteria; applied in order.")
+        .items(sortCriterion)
+        .minItems(1)
         .addRequiredItem("sortCriteria");
   }
 
