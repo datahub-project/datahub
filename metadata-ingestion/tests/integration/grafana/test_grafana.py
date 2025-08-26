@@ -1,5 +1,6 @@
 import logging
 from base64 import b64encode
+from typing import List, Optional
 
 import pytest
 import pytest_docker.plugin
@@ -32,7 +33,7 @@ BASE_URL = "http://localhost:3000"
 def build_retry_session(
     total: int = 3,
     backoff_factor: float = 1,
-    status_forcelist: list[int] | None = None,
+    status_forcelist: Optional[List[int]] = None,
 ) -> requests.Session:
     """Create a requests.Session pre-configured with retry behavior."""
     if status_forcelist is None:
