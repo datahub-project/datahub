@@ -114,13 +114,6 @@ def test_resources_dir(pytestconfig):
 
 
 @pytest.fixture(scope="module")
-def grafana_provisioning_complete(loaded_grafana):
-    """Ensure all Grafana entities are provisioned before running tests"""
-    verify_grafana_entities_provisioned(timeout=180)
-    return True
-
-
-@pytest.fixture(scope="module")
 def test_api_key(loaded_grafana):
     # Get the actual mapped port from Docker services
 
@@ -180,6 +173,10 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
 
         # Additional verification that Grafana API is fully accessible
         verify_grafana_api_ready(docker_services)
+
+        # Ensure all expected entities are provisioned before tests run
+        verify_grafana_entities_provisioned(timeout=180)
+
         yield docker_services
 
     cleanup_image("grafana/grafana")
@@ -332,12 +329,7 @@ def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
 
 @freeze_time(FROZEN_TIME)
 def test_grafana_basic_ingest(
-    loaded_grafana,
-    pytestconfig,
-    tmp_path,
-    test_resources_dir,
-    test_api_key,
-    grafana_provisioning_complete,
+    loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
     """Test ingestion with lineage enabled"""
 
@@ -376,12 +368,7 @@ def test_grafana_basic_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_grafana_ingest(
-    loaded_grafana,
-    pytestconfig,
-    tmp_path,
-    test_resources_dir,
-    test_api_key,
-    grafana_provisioning_complete,
+    loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
     """Test ingestion with lineage enabled"""
 
