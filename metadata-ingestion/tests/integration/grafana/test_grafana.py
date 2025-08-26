@@ -1,14 +1,13 @@
 import logging
-import time
 from base64 import b64encode
 
 import pytest
 import pytest_docker.plugin
 import requests
+import tenacity
 from freezegun import freeze_time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import tenacity
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -40,7 +39,9 @@ def build_retry_session(
         status_forcelist = [500, 502, 503, 504, 429]
 
     session = requests.Session()
-    retry_strategy = Retry(total=total, backoff_factor=backoff_factor, status_forcelist=status_forcelist)
+    retry_strategy = Retry(
+        total=total, backoff_factor=backoff_factor, status_forcelist=status_forcelist
+    )
     adapter = HTTPAdapter(max_retries=retry_strategy)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
@@ -55,7 +56,9 @@ class GrafanaClient:
             "Authorization": f"Basic {b64encode(f'{admin_user}:{admin_password}'.encode()).decode()}",
             "Content-Type": "application/json",
         }
-        self.session = build_retry_session(total=5, backoff_factor=2, status_forcelist=[500, 502, 503, 504, 429])
+        self.session = build_retry_session(
+            total=5, backoff_factor=2, status_forcelist=[500, 502, 503, 504, 429]
+        )
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(5),
@@ -176,7 +179,9 @@ def verify_grafana_api_ready(docker_services: pytest_docker.plugin.Services) -> 
     """Robust verification that Grafana API is fully accessible after health check passes"""
 
     # Configure requests session with retries
-    session = build_retry_session(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429])
+    session = build_retry_session(
+        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
+    )
 
     # Wait for API endpoints to be fully ready (health check might pass but API still initializing)
     for attempt in tenacity.Retrying(
@@ -205,9 +210,13 @@ def verify_grafana_fully_ready(
     docker_services: pytest_docker.plugin.Services, timeout: int = 120
 ) -> None:
     """Extended verification that Grafana is fully ready for service account operations"""
-    session = build_retry_session(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429])
+    session = build_retry_session(
+        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
+    )
     for attempt in tenacity.Retrying(
-        stop=tenacity.stop_after_delay(timeout), wait=tenacity.wait_fixed(2), reraise=True
+        stop=tenacity.stop_after_delay(timeout),
+        wait=tenacity.wait_fixed(2),
+        reraise=True,
     ):
         with attempt:
             endpoints_to_check = [
@@ -233,10 +242,14 @@ def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
     This function can be extended in the future to validate other entity types
     like data sources, folders, etc.
     """
-    session = build_retry_session(total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429])
+    session = build_retry_session(
+        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504, 429]
+    )
 
     for attempt in tenacity.Retrying(
-        stop=tenacity.stop_after_delay(timeout), wait=tenacity.wait_fixed(3), reraise=True
+        stop=tenacity.stop_after_delay(timeout),
+        wait=tenacity.wait_fixed(3),
+        reraise=True,
     ):
         with attempt:
             dashboards_url = f"{BASE_URL}/api/search"
