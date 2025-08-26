@@ -1,6 +1,7 @@
 import React from 'react';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { getEntityDisplayName } from '@app/permissions/utils/entityDisplayUtils';
 import { CustomAvatar } from '@app/shared/avatar';
 import { SpacedAvatarGroup } from '@app/shared/avatar/SpaceAvatarGroup';
 
@@ -17,9 +18,10 @@ type Props = {
 };
 
 /**
- * Component used for displaying the users and groups in policies table
+ * Displays avatars for users, groups, policies, and roles in a compact group format.
+ * Used in policies table and other permission-related components.
+ * Handles entity resolution and avatar display with proper fallbacks.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function AvatarsGroup({ users, groups, policies, roles, entityRegistry, maxCount = 6, size }: Props) {
     return (
         <SpacedAvatarGroup maxCount={maxCount}>
@@ -30,11 +32,9 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
                     <div data-testid={`avatar-tag-${user?.urn}`} key={`${user?.urn}-${key}`}>
                         <CustomAvatar
                             size={size}
-                            name={entityRegistry.getDisplayName(EntityType.CorpUser, user)}
+                            name={getEntityDisplayName(user, entityRegistry, EntityType.CorpUser)}
                             url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user?.urn}`}
-                            photoUrl={
-                                user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
-                            }
+                            photoUrl={user?.editableProperties?.pictureLink || undefined}
                         />
                     </div>
                 ))}
@@ -45,7 +45,7 @@ export default function AvatarsGroup({ users, groups, policies, roles, entityReg
                     <div data-testid={`avatar-tag-${group.urn}`} key={`${group.urn}-${key}`}>
                         <CustomAvatar
                             size={size}
-                            name={entityRegistry.getDisplayName(EntityType.CorpGroup, group)}
+                            name={getEntityDisplayName(group, entityRegistry, EntityType.CorpGroup)}
                             url={`/${entityRegistry.getPathName(EntityType.CorpGroup)}/${group.urn}`}
                             isGroup
                         />

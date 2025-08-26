@@ -322,4 +322,72 @@ describe('PolicyActorForm', () => {
         // Check that avatar is rendered (CustomAvatar component should be in DOM)
         expect(screen.getByText('Test User')).toBeInTheDocument();
     });
+
+    it('handles display name fallback logic correctly', () => {
+        const actorsWithFallbacks: ActorFilter = {
+            ...defaultProps.actors,
+            users: ['urn:li:corpuser:user1', 'urn:li:corpuser:user2'],
+            groups: ['urn:li:corpGroup:group1'],
+            resolvedUsers: [
+                // User with missing type (should use fallback)
+                {
+                    urn: 'urn:li:corpuser:user1',
+                    username: 'user1',
+                    properties: { displayName: 'User From Properties', active: true },
+                } as any,
+                // User with only username (should fallback to username)
+                {
+                    urn: 'urn:li:corpuser:user2',
+                    username: 'user2username',
+                } as any,
+            ],
+            resolvedGroups: [
+                // Group with missing type but has name
+                {
+                    urn: 'urn:li:corpGroup:group1',
+                    name: 'Group From Name',
+                } as any,
+            ],
+        };
+
+        render(
+            <BrowserRouter>
+                <PolicyActorForm {...defaultProps} actors={actorsWithFallbacks} />
+            </BrowserRouter>,
+        );
+
+        // Should display fallback names
+        expect(screen.getByText('User From Properties')).toBeInTheDocument();
+        expect(screen.getByText('user2username')).toBeInTheDocument();
+        expect(screen.getByText('Group From Name')).toBeInTheDocument();
+    });
+
+    it('extracts user avatars correctly from editableProperties', () => {
+        const actorsWithAvatars: ActorFilter = {
+            ...defaultProps.actors,
+            users: ['urn:li:corpuser:user1'],
+            resolvedUsers: [
+                {
+                    urn: 'urn:li:corpuser:user1',
+                    type: EntityType.CorpUser,
+                    username: 'user1',
+                    properties: { displayName: 'User With Avatar', active: true },
+                    editableProperties: { pictureLink: 'https://example.com/avatar.jpg' },
+                } as any,
+            ],
+        };
+
+        render(
+            <BrowserRouter>
+                <PolicyActorForm {...defaultProps} actors={actorsWithAvatars} />
+            </BrowserRouter>,
+        );
+
+        // Should display user name
+        expect(screen.getByText('User With Avatar')).toBeInTheDocument();
+
+        // Avatar should be rendered (CustomAvatar component creates img elements)
+        const avatarImages = screen.getAllByRole('img');
+        expect(avatarImages.length).toBeGreaterThan(0);
+    });
 });

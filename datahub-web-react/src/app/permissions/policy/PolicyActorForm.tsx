@@ -3,6 +3,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { getEntityDisplayName } from '@app/permissions/utils/entityDisplayUtils';
 import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -273,6 +274,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
     const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
 
+    /**
+     * Custom tag renderer for user/group selection dropdown.
+     * Displays resolved entity names with avatars, or fallback to URNs.
+     */
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
         const { label, closable, onClose, value } = props;
@@ -281,7 +286,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             event.stopPropagation();
         };
 
-        // For 'All' values, just use the label
+        // Handle special "All" selections (All Users, All Groups)
         if (value === 'All') {
             return (
                 <Tag
@@ -301,10 +306,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             );
         }
 
-        // Resolve entity URN to display name and avatar
+        // Resolve entity URN to display name and extract avatar
         const resolvedEntity = resolvedEntities.get(value);
-        const displayName = resolvedEntity ? entityRegistry.getDisplayName(resolvedEntity.type, resolvedEntity) : value;
+        const displayName = resolvedEntity ? getEntityDisplayName(resolvedEntity, entityRegistry) || value : value;
 
+        // Extract user avatar URL (only for CorpUser entities)
         const avatarUrl =
             resolvedEntity?.type === EntityType.CorpUser
                 ? (resolvedEntity as CorpUser).editableProperties?.pictureLink || undefined
