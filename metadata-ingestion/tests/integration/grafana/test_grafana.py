@@ -8,7 +8,7 @@ import requests
 from freezegun import freeze_time
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import tenacity as tenacity
+import tenacity
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
