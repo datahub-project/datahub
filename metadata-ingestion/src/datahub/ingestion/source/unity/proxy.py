@@ -4,6 +4,8 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 
 import dataclasses
 import logging
+import os
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
@@ -60,11 +62,143 @@ from datahub.ingestion.source.unity.proxy_types import (
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
 
+PROXY_VARS = ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 # It is enough to keep the cache size to 1, since we only process one catalog at a time
 # We need to change this if we want to support parallel processing of multiple catalogs
 _MAX_CONCURRENT_CATALOGS = 1
+
+
+# Apply databricks-sql < 3.0 proxy authentication fix at module import time
+# This implements the same fix as Databricks PR #354 to resolve
+# "407 Proxy Authentication Required" errors that occur even when
+# all proxy environment variables are correctly set.
+# https://github.com/databricks/databricks-sql-python/pull/354
+def _apply_databricks_proxy_fix():
+    """Apply the databricks-sql < 3.0 proxy authentication fix at module import time."""
+    logger.info("Applying databricks-sql proxy authentication fix...")
+    try:
+        import databricks.sql.auth.thrift_http_client as thrift_http
+        from urllib3.poolmanager import ProxyManager
+
+        # Store original method
+        if not getattr(thrift_http.THttpClient, "open", None):
+            logger.warning("Could not find THttpClient.open method to patch")
+            return
+
+        def patched_open(self):
+            """Patched version of THttpClient.open following databricks-sql >= 3.0 structure.
+
+            This is largely copied from the >= 3.0 implementation:
+            https://github.com/databricks/databricks-sql-python/pull/354/files
+            """
+            try:
+                # Code structure reused from https://github.com/databricks/databricks-sql-python/pull/354
+                # Determine pool class based on scheme
+                if self.scheme == "http":
+                    from urllib3 import HTTPConnectionPool
+
+                    pool_class = HTTPConnectionPool
+                elif self.scheme == "https":
+                    from urllib3 import HTTPSConnectionPool
+
+                    pool_class = HTTPSConnectionPool
+
+                _pool_kwargs = {"maxsize": self.max_connections}
+
+                if self.using_proxy():
+                    # Compute proxy authentication headers properly (the bug fix!)
+                    # Don't rely on self.proxy_auth which is likely None in < 3.0
+                    proxy_headers = None
+                    for env_var in [
+                        "HTTPS_PROXY",
+                        "https_proxy",
+                        "HTTP_PROXY",
+                        "http_proxy",
+                    ]:
+                        proxy_url = os.environ.get(env_var)
+                        if proxy_url:
+                            auth_info = _basic_proxy_auth_header(proxy_url)
+                            if auth_info:
+                                proxy_headers = auth_info["proxy_headers"]
+                                break
+
+                    proxy_manager = ProxyManager(
+                        self.proxy_uri,
+                        num_pools=1,
+                        proxy_headers=proxy_headers,  # Use our computed headers!
+                    )
+
+                    # In Python, private attributes like self.__pool are automatically name-mangled
+                    # to self._THttpClient__pool to prevent accidental access. Our patched method
+                    # needs to set self._THttpClient__pool to match how the original THttpClient class accesses it.
+                    self._THttpClient__pool = proxy_manager.connection_from_host(
+                        host=self.realhost,
+                        port=self.realport,
+                        scheme=self.scheme,
+                        pool_kwargs=_pool_kwargs,  # type: ignore
+                    )
+                else:
+                    self._THttpClient__pool = pool_class(
+                        self.host, self.port, **_pool_kwargs
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    f"Error in proxy auth patch: {e}, falling back to original"
+                )
+
+        # Apply the patch permanently
+        thrift_http.THttpClient.open = patched_open
+        logger.info("Applied databricks-sql proxy authentication fix")
+
+    except ImportError as e:
+        logger.debug(f"Could not import databricks-sql internals for proxy patch: {e}")
+    except Exception as e:
+        logger.debug(f"Failed to apply databricks-sql proxy patch: {e}")
+
+
+# Apply the fix when the module is imported
+_apply_databricks_proxy_fix()
+
+
+def _basic_proxy_auth_header(proxy_url: str) -> Optional[Dict[str, str]]:
+    """Create proxy authentication header using the same method as Databricks >= 3.0.
+
+    Based on the basic_proxy_auth_header method from databricks-sql-connector >= 3.0:
+    https://github.com/databricks/databricks-sql-python/pull/354
+    """
+    try:
+        from urllib3.util import make_headers
+
+        parsed = urllib.parse.urlparse(proxy_url)
+        if parsed.username and parsed.password:
+            # Code reused from https://github.com/databricks/databricks-sql-python/pull/354
+            # URL decode the username and password (same as Databricks method)
+            username = urllib.parse.unquote(parsed.username)
+            password = urllib.parse.unquote(parsed.password)
+            auth_string = f"{username}:{password}"
+
+            # Create proxy URL without credentials
+            proxy_host_port = f"{parsed.scheme}://{parsed.hostname}"
+            if parsed.port:
+                proxy_host_port += f":{parsed.port}"
+
+            # Code reused from https://github.com/databricks/databricks-sql-python/pull/354
+            # Use make_headers like the newer Databricks version does
+            proxy_headers = make_headers(proxy_basic_auth=auth_string)
+
+            return {
+                "proxy_url": proxy_host_port,
+                "proxy_headers": proxy_headers,
+                "auth_string": auth_string,  # Keep for backward compatibility with tests
+            }
+    except Exception as e:
+        logger.debug(f"Failed to create proxy auth header from URL {proxy_url}: {e}")
+
+    return None
 
 
 @dataclasses.dataclass
@@ -905,7 +1039,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 return cursor.fetchall()
 
         except Exception as e:
-            logger.warning(f"Failed to execute SQL query: {e}")
+            logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
             return []
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
