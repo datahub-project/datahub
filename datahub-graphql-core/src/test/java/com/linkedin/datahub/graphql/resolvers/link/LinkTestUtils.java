@@ -32,8 +32,7 @@ import org.testng.Assert;
 
 public class LinkTestUtils {
 
-  public static InstitutionalMemoryMetadata createLink(
-      String url, String label, Boolean showInAssetPreview) throws Exception {
+  public static InstitutionalMemoryMetadata createLink(String url, String label) throws Exception {
     InstitutionalMemoryMetadata link = new InstitutionalMemoryMetadata();
 
     link.setUrl(new Url(url));

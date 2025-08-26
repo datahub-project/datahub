@@ -29,9 +29,9 @@ public class RemoveLinkResolverTest {
   public void testGetSuccessWhenRemovingExistingLinkByUrlAndLabel() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadata originalLink =
-        LinkTestUtils.createLink("https://original-url.com", "Original label", true);
+        LinkTestUtils.createLink("https://original-url.com", "Original label");
     InstitutionalMemoryMetadata originalLinkWithAnotherLabel =
-        LinkTestUtils.createLink("https://original-url.com", "Another label", true);
+        LinkTestUtils.createLink("https://original-url.com", "Another label");
     InstitutionalMemoryMetadataArray elements =
         new InstitutionalMemoryMetadataArray(originalLink, originalLinkWithAnotherLabel);
     originalAspect.setElements(elements);
@@ -55,7 +55,7 @@ public class RemoveLinkResolverTest {
   public void testGetSuccessWhenRemovingExistingLinkByUrl() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadata originalLink =
-        LinkTestUtils.createLink("https://original-url.com", "Original label", true);
+        LinkTestUtils.createLink("https://original-url.com", "Original label");
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray(originalLink);
     originalAspect.setElements(elements);
 

@@ -11,7 +11,6 @@ import com.linkedin.common.url.Url;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddLinkInput;
-import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -24,8 +23,7 @@ public class AddLinkResolverTest {
   private static final String ASSET_URN = "urn:li:dataset:(test1,test2,test3)";
   private static final String TEST_URL = "https://www.github.com";
   private static final String TEST_LABEL = "Test Label";
-  private static final AddLinkInput TEST_INPUT =
-      new AddLinkInput(TEST_URL, TEST_LABEL, ASSET_URN, new LinkSettingsInput(true));
+  private static final AddLinkInput TEST_INPUT = new AddLinkInput(TEST_URL, TEST_LABEL, ASSET_URN);
 
   private void setupTest(DataFetchingEnvironment mockEnv) {
     QueryContext mockContext = getMockAllowContext();
@@ -61,7 +59,7 @@ public class AddLinkResolverTest {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
     InstitutionalMemoryMetadata link =
-        LinkTestUtils.createLink("https://www.google.com", "Original Label", false);
+        LinkTestUtils.createLink("https://www.google.com", "Original Label");
     elements.add(link);
     originalAspect.setElements(elements);
 
@@ -71,7 +69,7 @@ public class AddLinkResolverTest {
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL);
     // make sure to include existing link
     newElements.add(link);
     newElements.add(newLink);
@@ -120,7 +118,7 @@ public class AddLinkResolverTest {
   public void testShouldNotAddLinkWithTheSameUrlAndLabel() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata link = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, false);
+    InstitutionalMemoryMetadata link = LinkTestUtils.createLink(TEST_URL, TEST_LABEL);
     elements.add(link);
     originalAspect.setElements(elements);
 
@@ -130,7 +128,7 @@ public class AddLinkResolverTest {
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL);
     // should include only already existing link
     newElements.add(link);
     expectedAspect.setElements(newElements);
@@ -147,7 +145,7 @@ public class AddLinkResolverTest {
   public void testGetSuccessWhenLinkWithTheSameUrlAndDifferentLabelAdded() throws Exception {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata link = LinkTestUtils.createLink(TEST_URL, "Another label", false);
+    InstitutionalMemoryMetadata link = LinkTestUtils.createLink(TEST_URL, "Another label");
 
     elements.add(link);
     originalAspect.setElements(elements);
@@ -158,7 +156,7 @@ public class AddLinkResolverTest {
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL);
     // make sure to include existing link
     newElements.add(link);
     newElements.add(newLink);
@@ -177,7 +175,7 @@ public class AddLinkResolverTest {
     InstitutionalMemory originalAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
     InstitutionalMemoryMetadata link =
-        LinkTestUtils.createLink("https://another-url.com", TEST_LABEL, false);
+        LinkTestUtils.createLink("https://another-url.com", TEST_LABEL);
     elements.add(link);
     originalAspect.setElements(elements);
 
@@ -187,7 +185,7 @@ public class AddLinkResolverTest {
 
     InstitutionalMemory expectedAspect = new InstitutionalMemory();
     InstitutionalMemoryMetadataArray newElements = new InstitutionalMemoryMetadataArray();
-    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL, true);
+    InstitutionalMemoryMetadata newLink = LinkTestUtils.createLink(TEST_URL, TEST_LABEL);
     // make sure to include existing link
     newElements.add(link);
     newElements.add(newLink);
