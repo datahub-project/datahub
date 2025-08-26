@@ -17,9 +17,9 @@ The following environment variables can be used to customize DataHub's connectio
 each of which requires a connection to Kafka:
 
 - `metadata-service` (datahub-gms container)
+- `system-update` (dathub-system-update container if setting up topics via datahub)
 - (Advanced - if standalone consumers are deployed) `mce-consumer-job` (datahub-mce-consumer container)
 - (Advanced - if standalone consumers are deployed) `mae-consumer-job` (datahub-mae-consumer container)
-- (Advanced - if product analytics are enabled) datahub-frontend
 
 ### Connection Configuration
 
@@ -72,9 +72,10 @@ How Metadata Events relate to these topics is discussed at more length in [Metad
 
 We've included environment variables to customize the name each of these topics, for cases where an organization has naming rules for your topics.
 
-### Metadata Service (datahub-gms)
+### Metadata Service (datahub-gms) and System Update (datahub-system-update)
 
-The following are environment variables you can use to configure topic names used in the Metadata Service container:
+The following are environment variables you can use to configure topic names used in the Metadata Service container and
+the System Update container for topic setup:
 
 - `METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted by the ingestion framework.
 - `FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted when MCPs fail processing.
@@ -100,11 +101,6 @@ The following are environment variables you can use to configure topic names use
 - `PLATFORM_EVENT_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
 - `DATAHUB_USAGE_EVENT_NAME`: The name of the topic for product analytics events.
 - (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the deprecated metadata audit event topic.
-
-### DataHub Frontend (datahub-frontend-react)
-
-- `DATAHUB_TRACKING_TOPIC`: The name of the topic used for storing DataHub usage events.
-  It should contain the same value as `DATAHUB_USAGE_EVENT_NAME` in the Metadata Service container.
 
 Please ensure that these environment variables are set consistently throughout your ecosystem. DataHub has a few different applications running which communicate with Kafka (see above).
 
@@ -263,6 +259,23 @@ Client.
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
 
 > Other errors: `Failed to start bean 'org.springframework.kafka.config.internalKafkaListenerEndpointRegistry'; nested exception is org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [DataHubUsageEvent_v1]`. Please check ranger permissions or kafka broker logs.
+
+### Additional Kafka Topic level configuration
+
+For additional [Kafka topic level config properties](https://kafka.apache.org/documentation/#topicconfigs), either add them to application.yaml under `kafka.topics.<topicName>.configProperties` or `kafka.topicDefaults.configProperties` or define env vars in the following form (standard Spring conventions applied to application.yaml)
+These env vars are required in datahub-system-update contained.
+
+Examples:
+
+1. To configure `max.message.bytes` on topic used for `metadataChangeLogVersioned`, set
+   `KAFKA_TOPICS_metadataChangeLogVersioned_CONFIGPROPERTIES_max_message_bytes=10000`
+2. To configure `max.message.bytes` for all topics that don't explicitly define one, set the `topicDefaults` via
+   `KAFKA_TOPICDEFAULTS_CONFIGPROPERTIES_max_message_bytes=10000`
+
+Configurations specified in `topicDefaults` are applied to all topics by merging them with any configs defined per topic, with the per-topic config taking precedence over those specified in `topicDefault`.
+
+If you intend to create and configure the topics yourself and not have datahub create them, the kafka setup process of
+datahub-system-update can be turned off by setting env var DATAHUB_PRECREATE_TOPICS to false
 
 ## Debugging Kafka
 
