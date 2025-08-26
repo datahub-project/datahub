@@ -1,5 +1,5 @@
-import { Modal, Tag, message } from 'antd';
-import React from 'react';
+import { Tag, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -9,6 +9,7 @@ import OwnerContent from '@app/entityV2/shared/components/styled/ExpandedOwner/O
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { StyledLink } from '@src/app/previewV2/EntityHeader';
 
@@ -42,6 +43,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const { entityType } = useEntityData();
     const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
+    const [showRemoveOwnerModal, setShowRemoveOwnerModal] = useState(false);
     const { setReloadHomepageModules } = usePageTemplateContext();
     const { user } = useUserContext();
 
@@ -91,19 +93,10 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         }
         refetch?.();
     };
+
     const onClose = (e) => {
         e.preventDefault();
-        Modal.confirm({
-            title: `Do you want to remove ${name}?`,
-            content: `Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`,
-            onOk() {
-                onDelete();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        setShowRemoveOwnerModal(true);
     };
 
     return (
@@ -123,6 +116,13 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                     />
                 </StyledLink>
             )}
+            <ConfirmationModal
+                isOpen={showRemoveOwnerModal}
+                handleClose={() => setShowRemoveOwnerModal(false)}
+                handleConfirm={onDelete}
+                modalTitle={`Do you want to remove ${name}?`}
+                modalText={`Are you sure you want to remove ${name} as an ${ownershipTypeName} type owner?`}
+            />
         </OwnerTag>
     );
 };
