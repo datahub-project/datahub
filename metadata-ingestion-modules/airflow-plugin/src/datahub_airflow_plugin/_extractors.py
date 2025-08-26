@@ -11,6 +11,8 @@ from airflow.providers.openlineage.extractors.bash import BaseExtractor
 from airflow.providers.openlineage.extractors.manager import ExtractorManager
 from airflow.providers.openlineage.extractors.python import PythonExtractor
 from airflow.providers.openlineage.utils.utils import try_import_from_string
+from airflow.utils.state import TaskInstanceState
+from airflow.providers.openlineage.sqlparser import SQLParser
 
 # from openlineage.airflow.extractors import (
 #     BaseExtractor as OLBaseExtractor,
@@ -110,15 +112,14 @@ class ExtractorManager(ExtractorManager):
         self,
         dagrun: "DagRun",
         task: "Operator",
-        complete: bool = False,
-        task_instance: Optional["TaskInstance"] = None,
+        task_instance_state: Optional["TaskInstanceState"] = None,
         task_uuid: Optional[str] = None,
         graph: Optional["DataHubGraph"] = None,
     ) -> OperatorLineage:
         self._graph = graph
         with self._patch_extractors():
             return super().extract_metadata(
-                dagrun, task, complete, task_instance, task_uuid
+                dagrun, task, complete, task_instance_state, task_uuid
             )
 
     def _get_extractor(self, task: "Operator") -> Optional[OLBaseExtractor]:
@@ -139,7 +140,7 @@ class ExtractorManager(ExtractorManager):
         return extractor
 
 
-class GenericSqlExtractor(OLSqlExtractor):
+class GenericSqlExtractor(SQLParser):
     # Note that the extract() method is patched elsewhere.
 
     @property
