@@ -317,6 +317,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             warehouse=self.warehouse,
             authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
             application=_APPLICATION_NAME,
+            host=f"{self.account_id}.{self.snowflake_domain}",
             **connect_args,
         )
 
@@ -330,6 +331,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             role=self.role,
             authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
             application=_APPLICATION_NAME,
+            host=f"{self.account_id}.{self.snowflake_domain}",
             **connect_args,
         )
 
@@ -343,6 +345,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,
+                host=f"{self.account_id}.{self.snowflake_domain}",
                 **connect_args,
             )
         elif self.authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
@@ -354,6 +357,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,
+                host=f"{self.account_id}.{self.snowflake_domain}",
                 **connect_args,
             )
         elif self.authentication_type == "OAUTH_AUTHENTICATOR":
@@ -369,6 +373,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 role=self.role,
                 authenticator=_VALID_AUTH_TYPES.get(self.authentication_type),
                 application=_APPLICATION_NAME,
+                host=f"{self.account_id}.{self.snowflake_domain}",
                 **connect_args,
             )
         else:
