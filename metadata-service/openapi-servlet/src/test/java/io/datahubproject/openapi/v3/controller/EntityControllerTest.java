@@ -57,6 +57,7 @@ import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -539,9 +540,16 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // Construct expected filter.
     ConjunctiveCriterionArray criteria = new ConjunctiveCriterionArray();
     ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
-    Criterion criterion1 = new Criterion().setField("name").setValues(new StringArray("foo"));
+    Criterion criterion1 =
+        new Criterion()
+            .setField("name")
+            .setValues(new StringArray("foo"))
+            .setCondition(Condition.EQUAL);
     Criterion criterion2 =
-        new Criterion().setField("anotherName").setValues(new StringArray("bar"));
+        new Criterion()
+            .setField("anotherName")
+            .setValues(new StringArray("bar"))
+            .setCondition(Condition.EQUAL);
     conjunctiveCriterion.setAnd(new CriterionArray(criterion1, criterion2));
     criteria.add(conjunctiveCriterion);
     Filter expectedFilter = new Filter().setOr(criteria);
