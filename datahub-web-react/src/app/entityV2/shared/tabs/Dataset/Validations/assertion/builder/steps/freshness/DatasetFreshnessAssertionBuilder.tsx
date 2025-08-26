@@ -156,7 +156,12 @@ export const DatasetFreshnessAssertionBuilder = ({ state, updateState, disabled,
             </Section>
 
             {isAiInferenceSelected && (
-                <FreshnessInfrenceAdjuster state={state} updateState={updateState} disabled={disabled} />
+                <FreshnessInfrenceAdjuster
+                    state={state}
+                    updateState={updateState}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                />
             )}
         </div>
     );

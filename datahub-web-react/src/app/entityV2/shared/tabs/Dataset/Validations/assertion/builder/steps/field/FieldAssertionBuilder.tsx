@@ -20,11 +20,13 @@ import {
 import { nullsToUndefined } from '@src/app/entityV2/shared/utils';
 
 import {
+    Assertion,
     AssertionType,
     CronSchedule,
     DatasetFieldAssertionSourceType,
     DatasetFilter,
     FieldAssertionType,
+    Monitor,
 } from '@types';
 
 const Section = styled.div`
@@ -41,6 +43,8 @@ type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    assertion?: Assertion;
+    monitor?: Monitor;
 } & (
     | {
           isEditMode: true;
@@ -55,7 +59,15 @@ type Props = {
 /**
  * Step for defining the Dataset Field assertion
  */
-export const FieldAssertionBuilder = ({ state, updateState, disabled, isEditMode, onCloseDrawer }: Props) => {
+export const FieldAssertionBuilder = ({
+    state,
+    updateState,
+    disabled,
+    isEditMode,
+    onCloseDrawer,
+    monitor,
+    assertion,
+}: Props) => {
     const fieldAssertion = state.assertion?.fieldAssertion;
     const parameters = state.parameters?.datasetFieldParameters;
     const isFieldValuesAssertion = fieldAssertion?.type === FieldAssertionType.FieldValues;
@@ -132,7 +144,14 @@ export const FieldAssertionBuilder = ({ state, updateState, disabled, isEditMode
             </Section>
 
             {isAIInferred ? (
-                <FieldMetricInferenceAdjuster state={state} updateState={updateState} disabled={disabled} />
+                <FieldMetricInferenceAdjuster
+                    state={state}
+                    updateState={updateState}
+                    disabled={disabled}
+                    isEditMode={isEditMode}
+                    monitor={monitor}
+                    assertion={assertion}
+                />
             ) : (
                 <EvaluationScheduleBuilder
                     value={state.schedule}

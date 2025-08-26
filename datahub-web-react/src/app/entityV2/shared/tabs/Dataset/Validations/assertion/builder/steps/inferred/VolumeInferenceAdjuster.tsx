@@ -1,18 +1,21 @@
-import { Collapse, Typography } from 'antd';
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import { Button, Text, colors } from '@components';
+import { Sparkle } from '@phosphor-icons/react';
+import { Collapse, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
 import { ExclusionWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster';
-import { FuturePredictionsList } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/FuturePredictionsList';
 import { InferenceSensitivityAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/InferenceSensitivityAdjuster';
 import { LookBackWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/LookBackWindowAdjuster';
 import {
     AssertionMonitorBuilderExclusionWindow,
     AssertionMonitorBuilderState,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
+import { TuneSmartAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneSmartAssertionModal';
 import { useAppConfig } from '@src/app/useAppConfig';
-import { AssertionType, CronSchedule } from '@src/types.generated';
+
+import { Assertion, AssertionType, CronSchedule, Monitor } from '@types';
 
 const Row = styled.div`
     display: flex;
@@ -27,85 +30,109 @@ const Row = styled.div`
     padding-top: 24px;
 `;
 
+const TitleWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+`;
+
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
-    onSave?: () => void;
+    isEditMode?: boolean;
     collapsable?: boolean;
+    monitor?: Monitor;
+    assertion?: Assertion;
 };
 
-export interface VolumeInferenceAdjusterHandle {
-    triggerRegeneration: () => void;
-}
+export const VolumeInferenceAdjuster = (props: Props) => {
+    const { state, updateState, disabled, collapsable, isEditMode, monitor, assertion } = props;
 
-export const VolumeInferenceAdjuster = forwardRef<VolumeInferenceAdjusterHandle, Props>((props, ref) => {
-    const { state, updateState, disabled, collapsable } = props;
-    const futurePredictionsRef = useRef<VolumeInferenceAdjusterHandle>(null);
+    const [isTunePredictionsModalOpen, setIsTunePredictionsModalOpen] = useState(false);
 
     const { inferenceSettings, schedule } = state;
     const { sensitivity, trainingDataLookbackWindowDays, exclusionWindows } = inferenceSettings || {};
 
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
 
-    // Forward the ref to the FuturePredictionsList
-    useImperativeHandle(ref, () => ({
-        triggerRegeneration: () => {
-            if (futurePredictionsRef.current) {
-                futurePredictionsRef.current.triggerRegeneration();
-            }
-        },
-    }));
-
     if (!onlineSmartAssertionsEnabled) return null;
 
     const inferenceContent = (
         <>
             {/* Title - only show if not collapsable since Collapse will have its own title */}
-            {!collapsable && <Typography.Title level={5}>AI Model Tuning</Typography.Title>}
 
-            {/* Sensitivity */}
-            <InferenceSensitivityAdjuster
-                sensitivity={sensitivity?.level}
-                disabled={disabled}
-                onChange={(value) => {
-                    updateState({
-                        ...state,
-                        inferenceSettings: { ...inferenceSettings, sensitivity: { level: value } },
-                    });
-                }}
-            />
+            {!collapsable && (
+                <TitleWrapper>
+                    <Typography.Title level={5}>AI Model Tuning</Typography.Title>
+                    {!isEditMode && (
+                        <Typography.Text style={{ color: colors.gray[400] }}>
+                            Consider tuning this after the assertion is up and running.
+                        </Typography.Text>
+                    )}
+                </TitleWrapper>
+            )}
 
-            {/* Exclusion windows */}
-            <ExclusionWindowAdjuster
-                exclusionWindows={exclusionWindows || []}
-                disabled={disabled}
-                onChange={(value: AssertionMonitorBuilderExclusionWindow) => {
-                    updateState({ ...state, inferenceSettings: { ...inferenceSettings, exclusionWindows: value } });
-                }}
-            />
+            {isEditMode && monitor && assertion ? (
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={() => {
+                        if (!monitor) {
+                            message.error('Could not find the monitor for this assertion.');
+                        } else {
+                            setIsTunePredictionsModalOpen(true);
+                        }
+                    }}
+                >
+                    <Sparkle weight="fill" size={12} />
+                    <Text>Tune Predictions</Text>
+                </Button>
+            ) : (
+                <>
+                    {/* Sensitivity */}
+                    <InferenceSensitivityAdjuster
+                        sensitivity={sensitivity?.level}
+                        disabled={disabled}
+                        onChange={(value) => {
+                            updateState({
+                                ...state,
+                                inferenceSettings: { ...inferenceSettings, sensitivity: { level: value } },
+                            });
+                        }}
+                    />
 
-            {/* Training data lookback window days */}
-            <LookBackWindowAdjuster
-                trainingDataLookbackWindowDays={trainingDataLookbackWindowDays}
-                disabled={disabled}
-                onChange={(value) => {
-                    updateState({
-                        ...state,
-                        inferenceSettings: { ...inferenceSettings, trainingDataLookbackWindowDays: value },
-                    });
-                }}
-            />
+                    {/* Exclusion windows */}
+                    <ExclusionWindowAdjuster
+                        exclusionWindows={exclusionWindows || []}
+                        disabled={disabled}
+                        onChange={(value: AssertionMonitorBuilderExclusionWindow) => {
+                            updateState({
+                                ...state,
+                                inferenceSettings: { ...inferenceSettings, exclusionWindows: value },
+                            });
+                        }}
+                    />
+
+                    {/* Training data lookback window days */}
+                    <LookBackWindowAdjuster
+                        trainingDataLookbackWindowDays={trainingDataLookbackWindowDays}
+                        disabled={disabled}
+                        onChange={(value) => {
+                            updateState({
+                                ...state,
+                                inferenceSettings: { ...inferenceSettings, trainingDataLookbackWindowDays: value },
+                            });
+                        }}
+                    />
+                </>
+            )}
         </>
     );
 
     return (
         <Row style={collapsable ? { marginBottom: 0, marginTop: 0 } : {}}>
-            {/* Future Predictions - Only show in edit mode, always outside the accordion */}
-            {state.assertion?.urn && (
-                <FuturePredictionsList state={state} ref={futurePredictionsRef} onSave={props.onSave} />
-            )}
-
             {collapsable ? (
                 <Collapse>
                     <Collapse.Panel header="AI Model Tuning" key="ai-model-tuning">
@@ -128,6 +155,14 @@ export const VolumeInferenceAdjuster = forwardRef<VolumeInferenceAdjusterHandle,
                 }}
                 disabled={disabled}
             />
+
+            {isEditMode && monitor && assertion && isTunePredictionsModalOpen ? (
+                <TuneSmartAssertionModal
+                    onClose={() => setIsTunePredictionsModalOpen(false)}
+                    monitor={monitor}
+                    assertion={assertion}
+                />
+            ) : null}
         </Row>
     );
-});
+};

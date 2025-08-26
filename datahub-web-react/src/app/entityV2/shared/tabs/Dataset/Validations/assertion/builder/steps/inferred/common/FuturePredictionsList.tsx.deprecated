@@ -1,3 +1,5 @@
+// @Deprecated
+
 import { Button, Card, Icon, Loader, Text, Tooltip } from '@components';
 import { Typography } from 'antd';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';

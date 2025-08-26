@@ -1,3 +1,4 @@
+import { colors } from '@components';
 import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -25,15 +26,22 @@ const Row = styled.div`
     padding-bottom: 16px;
 `;
 
+const TitleWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+`;
+
 type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
     collapsable?: boolean;
+    isEditMode?: boolean;
 };
 
 export const FreshnessInfrenceAdjuster = (props: Props) => {
-    const { state, updateState, disabled, collapsable } = props;
+    const { state, updateState, disabled, collapsable, isEditMode } = props;
 
     const { inferenceSettings } = state;
     const { sensitivity, exclusionWindows, trainingDataLookbackWindowDays } = inferenceSettings || {};
@@ -44,7 +52,16 @@ export const FreshnessInfrenceAdjuster = (props: Props) => {
     const inferenceContent = (
         <>
             {/* Title - only show if not collapsable since Collapse will have its own title */}
-            {!collapsable && <Typography.Title level={5}>AI Model Tuning</Typography.Title>}
+            {!collapsable && (
+                <TitleWrapper>
+                    <Typography.Title level={5}>AI Model Tuning</Typography.Title>
+                    {!isEditMode && (
+                        <Typography.Text style={{ color: colors.gray[400] }}>
+                            Consider tuning this after the assertion is up and running.
+                        </Typography.Text>
+                    )}
+                </TitleWrapper>
+            )}
 
             {/* Sensitivity */}
             <InferenceSensitivityAdjuster

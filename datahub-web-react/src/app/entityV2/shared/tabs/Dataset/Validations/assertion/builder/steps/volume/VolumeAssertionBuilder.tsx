@@ -7,10 +7,7 @@ import {
     AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
 import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
-import {
-    VolumeInferenceAdjuster,
-    VolumeInferenceAdjusterHandle,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/VolumeInferenceAdjuster';
+import { VolumeInferenceAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/VolumeInferenceAdjuster';
 import { VolumeFilterBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeFilterBuilder';
 import { VolumeParametersBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeParametersBuilder';
 import { VolumeSourceTypeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeSourceTypeBuilder';
@@ -22,7 +19,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import QualityTabRowCountGraph from '@app/entityV2/shared/tabs/Dataset/Validations/shared/QualityTabRowCountGraph';
 
-import { AssertionType, CronSchedule, DatasetVolumeSourceType } from '@types';
+import { Assertion, AssertionType, CronSchedule, DatasetVolumeSourceType, Monitor } from '@types';
 
 const Section = styled.div`
     display: flex;
@@ -36,8 +33,8 @@ type Props = {
     updateState: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
     isEditMode?: boolean;
-    onSave?: () => void;
-    inferenceAdjusterRef?: React.Ref<VolumeInferenceAdjusterHandle>;
+    monitor?: Monitor;
+    assertion?: Assertion;
 };
 
 export const VolumeAssertionBuilder = ({
@@ -45,8 +42,8 @@ export const VolumeAssertionBuilder = ({
     updateState,
     disabled,
     isEditMode,
-    onSave,
-    inferenceAdjusterRef,
+    monitor,
+    assertion: originalAssertion,
 }: Props) => {
     const assertion = state?.assertion;
     const schedule: CronSchedule | undefined | null = state?.schedule;
@@ -187,11 +184,12 @@ export const VolumeAssertionBuilder = ({
             </Section>
             {isAiInferenceSelected ? (
                 <VolumeInferenceAdjuster
-                    ref={inferenceAdjusterRef}
+                    isEditMode={isEditMode}
+                    monitor={monitor}
+                    assertion={originalAssertion}
                     state={state}
                     updateState={updateState}
                     disabled={disabled}
-                    onSave={onSave}
                 />
             ) : (
                 <EvaluationScheduleBuilder
