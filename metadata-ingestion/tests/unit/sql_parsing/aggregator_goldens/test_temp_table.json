@@ -18,7 +18,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1"
+                    "query": "urn:li:query:2f461b9a852d9162c201d2d7e0ca3907ce23400ab96046edfad0af2ca9ce17eb"
                 }
             ],
             "fineGrainedLineages": [
@@ -33,7 +33,7 @@
                     ],
                     "transformOperation": "COPY: \"bar\".\"a\" AS \"a\"",
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1"
+                    "query": "urn:li:query:2f461b9a852d9162c201d2d7e0ca3907ce23400ab96046edfad0af2ca9ce17eb"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -46,7 +46,7 @@
                     ],
                     "transformOperation": "SQL: 2 * \"bar\".\"b\" AS \"b\"",
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1"
+                    "query": "urn:li:query:2f461b9a852d9162c201d2d7e0ca3907ce23400ab96046edfad0af2ca9ce17eb"
                 }
             ]
         }
@@ -54,7 +54,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1",
+    "entityUrn": "urn:li:query:2f461b9a852d9162c201d2d7e0ca3907ce23400ab96046edfad0af2ca9ce17eb",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -78,7 +78,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1",
+    "entityUrn": "urn:li:query:2f461b9a852d9162c201d2d7e0ca3907ce23400ab96046edfad0af2ca9ce17eb",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -108,7 +108,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:8b3a079997d562bdb1b14eb500e6123c4b00bb0263565dcaa0b66170e72602a1",
+    "entityUrn": "urn:li:query:2f461b9a852d9162c201d2d7e0ca3907ce23400ab96046edfad0af2ca9ce17eb",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

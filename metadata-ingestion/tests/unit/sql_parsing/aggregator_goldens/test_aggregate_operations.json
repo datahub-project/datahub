@@ -103,14 +103,14 @@
             "sourceType": "DATA_PLATFORM",
             "lastUpdatedTimestamp": 26000,
             "queries": [
-                "urn:li:query:7fd78ed5f3d60f7f91206f5e0fea6851a2afe940944455fd292267613b7ee1e6"
+                "urn:li:query:89f7cea2536894517890997e84933eb947d5ed7816ba3d299573e6a74269847f"
             ]
         }
     }
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:7fd78ed5f3d60f7f91206f5e0fea6851a2afe940944455fd292267613b7ee1e6",
+    "entityUrn": "urn:li:query:89f7cea2536894517890997e84933eb947d5ed7816ba3d299573e6a74269847f",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -134,7 +134,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:7fd78ed5f3d60f7f91206f5e0fea6851a2afe940944455fd292267613b7ee1e6",
+    "entityUrn": "urn:li:query:89f7cea2536894517890997e84933eb947d5ed7816ba3d299573e6a74269847f",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -164,7 +164,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:7fd78ed5f3d60f7f91206f5e0fea6851a2afe940944455fd292267613b7ee1e6",
+    "entityUrn": "urn:li:query:89f7cea2536894517890997e84933eb947d5ed7816ba3d299573e6a74269847f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
