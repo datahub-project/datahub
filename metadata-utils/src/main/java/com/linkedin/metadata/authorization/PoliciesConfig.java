@@ -111,7 +111,7 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "MANAGE_GLOBAL_ANNOUNCEMENTS",
-          "Manage Home Page Posts",
+          "Manage All Home Page Posts",
           "Create and delete home page posts");
 
   public static final Privilege VIEW_TESTS_PRIVILEGE =
@@ -151,7 +151,7 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_GLOBAL_VIEWS =
       Privilege.of(
           "MANAGE_GLOBAL_VIEWS",
-          "Manage Public Views",
+          "Manage All Public Views",
           "Create, update, and delete any Public (shared) Views.");
 
   public static final Privilege MANAGE_GLOBAL_OWNERSHIP_TYPES =
@@ -905,6 +905,18 @@ public class PoliciesConfig {
               DATA_MANAGE_NAMESPACES_PRIVILEGE,
               DATA_LIST_ENTITIES_PRIVILEGE));
 
+  // DataHub View Privileges
+  public static final ResourcePrivileges DATA_HUB_VIEW_PRIVILEGES =
+      ResourcePrivileges.of(
+          "dataHubView",
+          "DataHub Views",
+          "DataHub Views created on DataHub",
+          COMMON_ENTITY_PRIVILEGES);
+
+  // Post Privileges
+  public static final ResourcePrivileges POST_PRIVILEGES =
+      ResourcePrivileges.of("post", "Posts", "Posts created on DataHub", COMMON_ENTITY_PRIVILEGES);
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -927,7 +939,9 @@ public class PoliciesConfig {
           INGESTION_SOURCE_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
-          APPLICATION_PRIVILEGES);
+          APPLICATION_PRIVILEGES,
+          DATA_HUB_VIEW_PRIVILEGES,
+          POST_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

@@ -1,14 +1,15 @@
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
+import { ActorFilter, CorpUser, Entity, EntityType, PolicyType, SearchResult } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -50,9 +51,30 @@ const OwnershipWrapper = styled.div`
 export default function PolicyActorForm({ policyType, actors, setActors }: Props) {
     const entityRegistry = useEntityRegistry();
 
+    // State for resolved entities - initialize with already resolved entities from actors
+    const [resolvedEntities, setResolvedEntities] = useState<Map<string, Entity>>(() => {
+        const initialMap = new Map<string, Entity>();
+        // Add resolved users
+        actors.resolvedUsers?.forEach((user) => {
+            if (user) {
+                initialMap.set(user.urn, user as Entity);
+            }
+        });
+        // Add resolved groups
+        actors.resolvedGroups?.forEach((group) => {
+            if (group) {
+                initialMap.set(group.urn, group as Entity);
+            }
+        });
+        return initialMap;
+    });
+
     // Search for actors while building policy.
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
+
+    // Hook to resolve entities by URN
+    const [getEntities, { data: entitiesData }] = useGetEntitiesLazyQuery();
     const { data: ownershipData } = useListOwnershipTypesQuery({
         variables: {
             input: {},
@@ -62,6 +84,48 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         ownershipData?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
     const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
+
+    // Update resolved entities when actors prop changes (e.g., when editing different policies)
+    useEffect(() => {
+        const newResolvedEntities = new Map<string, Entity>();
+        // Add resolved users
+        actors.resolvedUsers?.forEach((user) => {
+            if (user) {
+                newResolvedEntities.set(user.urn, user as Entity);
+            }
+        });
+        // Add resolved groups
+        actors.resolvedGroups?.forEach((group) => {
+            if (group) {
+                newResolvedEntities.set(group.urn, group as Entity);
+            }
+        });
+        setResolvedEntities(newResolvedEntities);
+    }, [actors.resolvedUsers, actors.resolvedGroups]);
+
+    // Resolve entity URNs to display names for any missing entities
+    const allUrns = useMemo(() => [...(actors.users || []), ...(actors.groups || [])], [actors.users, actors.groups]);
+
+    useEffect(() => {
+        const unresolvedUrns = allUrns.filter((urn) => !resolvedEntities.has(urn));
+        if (unresolvedUrns.length > 0) {
+            getEntities({ variables: { urns: unresolvedUrns } });
+        }
+    }, [allUrns, getEntities, resolvedEntities]);
+
+    useEffect(() => {
+        if (entitiesData?.entities) {
+            setResolvedEntities((prevResolvedEntities) => {
+                const newResolvedEntities = new Map(prevResolvedEntities);
+                entitiesData.entities?.forEach((entity) => {
+                    if (entity) {
+                        newResolvedEntities.set(entity.urn, entity);
+                    }
+                });
+                return newResolvedEntities;
+            });
+        }
+    }, [entitiesData]);
     // Toggle the "Owners" switch
     const onToggleAppliesToOwners = (value: boolean) => {
         setActors({
@@ -216,20 +280,59 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             event.preventDefault();
             event.stopPropagation();
         };
+
+        // For 'All' values, just use the label
+        if (value === 'All') {
+            return (
+                <Tag
+                    onMouseDown={onPreventMouseDown}
+                    closable={closable}
+                    onClose={onClose}
+                    style={{
+                        padding: '0px 7px 0px 7px',
+                        marginRight: 3,
+                        display: 'flex',
+                        justifyContent: 'start',
+                        alignItems: 'center',
+                    }}
+                >
+                    {label}
+                </Tag>
+            );
+        }
+
+        // Resolve entity URN to display name and avatar
+        const resolvedEntity = resolvedEntities.get(value);
+        const displayName = resolvedEntity ? entityRegistry.getDisplayName(resolvedEntity.type, resolvedEntity) : value;
+
+        const avatarUrl =
+            resolvedEntity?.type === EntityType.CorpUser
+                ? (resolvedEntity as CorpUser).editableProperties?.pictureLink || undefined
+                : undefined;
+
         return (
             <Tag
                 onMouseDown={onPreventMouseDown}
                 closable={closable}
                 onClose={onClose}
                 style={{
-                    padding: value === 'All' ? '0px 7px 0px 7px' : '0px 7px 0px 0px',
+                    padding: resolvedEntity ? '0px 7px 0px 0px' : '0px 7px 0px 7px',
                     marginRight: 3,
                     display: 'flex',
                     justifyContent: 'start',
                     alignItems: 'center',
                 }}
             >
-                {label}
+                {resolvedEntity && (
+                    <CustomAvatar
+                        size={16}
+                        name={displayName}
+                        photoUrl={avatarUrl}
+                        isGroup={resolvedEntity.type === EntityType.CorpGroup}
+                        style={{ marginRight: 6 }}
+                    />
+                )}
+                {displayName}
             </Tag>
         );
     };
