@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Dict, List, TypedDict, Union
+from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_cloud
-from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceReport,
@@ -658,3 +658,158 @@ def test_drop_duplicate_sources() -> None:
     # Verify report counters
     assert source.report.duplicate_sources_dropped == 1
     assert source.report.duplicate_sources_references_updated == 1
+
+
+def test_dbt_sibling_aspects_creation():
+    """Test that sibling patches are created correctly based on configuration."""
+    ctx = PipelineContext(run_id="test-run-id")
+    base_config = create_base_dbt_config()
+
+    # Create source with dbt as primary (default behavior)
+    config_dbt_primary = DBTCoreConfig(**base_config)
+    source_dbt_primary = DBTCoreSource(config_dbt_primary, ctx)
+
+    # Manually set the config value for testing since the field might not be parsed yet
+    source_dbt_primary.config.dbt_is_primary_sibling = True
+
+    model_node = DBTNode(
+        name="test_model",
+        database="test_db",
+        schema="test_schema",
+        alias=None,
+        comment="",
+        description="Test model",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="model.package.test_model",
+        dbt_file_path=None,
+        dbt_package_name="package",
+        node_type="model",
+        materialization="table",
+        max_loaded_at=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=None,
+    )
+    # Note: exists_in_target_platform is a property that returns True for non-ephemeral, non-test nodes
+    # Our node_type="model" and materialization="table" will make this property return True
+
+    # For models when dbt is primary - should not create sibling patches
+    should_create_siblings = source_dbt_primary._should_create_sibling_relationships(
+        model_node
+    )
+    assert should_create_siblings is False
+
+    # Test with target platform as primary - should create sibling patches
+    config_target_primary = DBTCoreConfig(**base_config)
+    source_target_primary = DBTCoreSource(config_target_primary, ctx)
+
+    # Manually set the config value for testing
+    source_target_primary.config.dbt_is_primary_sibling = False
+
+    # For models when target platform is primary - should create sibling patches
+    should_create_siblings = source_target_primary._should_create_sibling_relationships(
+        model_node
+    )
+    assert should_create_siblings is True
+
+
+def test_dbt_cloud_source_description_precedence() -> None:
+    """
+    Test that dbt Cloud source prioritizes table-level description over schema-level sourceDescription.
+    """
+
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    source_node_data: Dict[str, Any] = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "This is the table-level description for my_table",
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    assert parsed_node.description == "This is the table-level description for my_table"
+    assert (
+        parsed_node.description != "This is the schema-level description for my_schema"
+    )
+    assert parsed_node.name == "my_table"
+    assert parsed_node.node_type == "source"
+
+
+def test_dbt_cloud_source_description_fallback() -> None:
+    """
+    Test that dbt Cloud source falls back to sourceDescription when table description is empty.
+    """
+
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    source_node_data: Dict[str, Any] = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "",  # Empty table description
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    assert (
+        parsed_node.description == "This is the schema-level description for my_schema"
+    )

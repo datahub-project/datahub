@@ -17,6 +17,9 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { FetchedEntity } from '@app/lineage/types';
 
 import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
@@ -56,10 +59,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         return (
             <BookmarksSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -88,26 +88,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 useEntityQuery={useGetGlossaryNodeQuery}
                 getOverrideProperties={this.getOverridePropertiesFromEntity}
                 isNameEditable
-                tabs={[
-                    {
-                        name: 'Contents',
-                        component: ChildrenTab,
-                        icon: AppstoreOutlined,
-                    },
-                    {
-                        name: 'Documentation',
-                        component: DocumentationTab,
-                        icon: FileOutlined,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        name: 'Properties',
-                        component: PropertiesTab,
-                        icon: UnorderedListOutlined,
-                    },
-                ]}
+                tabs={this.getProfileTabs()}
                 sidebarSections={this.getSidebarSections()}
                 // NOTE: Hiding this for now as we've moved the actions to the content of ChildrenTab.tsx
                 // The buttons are too big and causes other actions to overflow.
@@ -144,6 +125,43 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: StatusSection,
         },
     ];
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            ...(showSummaryTab
+                ? [
+                      {
+                          name: 'Summary',
+                          component: SummaryTab,
+                      },
+                  ]
+                : []),
+            {
+                name: 'Contents',
+                component: ChildrenTab,
+                icon: AppstoreOutlined,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                          properties: {
+                              hideLinksButton: true,
+                          },
+                      },
+                  ]
+                : []),
+            {
+                name: 'Properties',
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
 
     getSidebarTabs = () => [
         {

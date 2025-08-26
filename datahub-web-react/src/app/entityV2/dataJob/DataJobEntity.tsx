@@ -30,7 +30,7 @@ import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab'
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { SidebarTitleActionType, getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { EntityAndType } from '@app/lineage/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
@@ -73,10 +73,7 @@ export class DataJobEntity implements Entity<DataJob> {
         return (
             <ConsoleSqlOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -209,7 +206,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 urn={data.urn}
                 data={genericProperties}
                 name={data.properties?.name || ''}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={getPlatformForDataJob(data)?.properties?.logoUrl || ''}
@@ -233,7 +230,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 urn={data.urn}
                 data={genericProperties}
                 name={data.properties?.name || ''}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={getDataJobPlatformName(data)}
                 platformLogo={getPlatformForDataJob(data)?.properties?.logoUrl || ''}

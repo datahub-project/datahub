@@ -9,11 +9,13 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -61,7 +63,11 @@ public abstract class GenericRelationshipController {
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
-          Boolean includeSoftDelete) {
+          Boolean includeSoftDelete,
+      @RequestParam(value = "sliceId", required = false) Integer sliceId,
+      @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepAlive) {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -76,7 +82,14 @@ public abstract class GenericRelationshipController {
                 authorizationChain,
                 authentication,
                 true)
-            .withSearchFlags(f -> f.setIncludeSoftDeleted(includeSoftDelete));
+            .withSearchFlags(
+                f ->
+                    f.setIncludeSoftDeleted(includeSoftDelete)
+                        .setSliceOptions(
+                            sliceId != null && sliceMax != null
+                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                : null,
+                            SetMode.IGNORE_NULL));
 
     if (!AuthUtil.isAPIAuthorized(opContext, RELATIONSHIP, READ)) {
       throw new UnauthorizedException(
@@ -98,6 +111,7 @@ public abstract class GenericRelationshipController {
             new RelationshipFilter().setDirection(RelationshipDirection.UNDIRECTED),
             Edge.EDGE_SORT_CRITERION,
             scrollId,
+            pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count,
             null,
             null);
@@ -149,7 +163,11 @@ public abstract class GenericRelationshipController {
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
-          Boolean includeSoftDelete) {
+          Boolean includeSoftDelete,
+      @RequestParam(value = "sliceId", required = false) Integer sliceId,
+      @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepAlive) {
 
     final RelatedEntitiesScrollResult result;
 
@@ -166,7 +184,14 @@ public abstract class GenericRelationshipController {
                 authorizationChain,
                 authentication,
                 true)
-            .withSearchFlags(f -> f.setIncludeSoftDeleted(includeSoftDelete));
+            .withSearchFlags(
+                f ->
+                    f.setIncludeSoftDeleted(includeSoftDelete)
+                        .setSliceOptions(
+                            sliceId != null && sliceMax != null
+                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                : null,
+                            SetMode.IGNORE_NULL));
 
     if (!AuthUtil.isAPIAuthorizedUrns(
         opContext, RELATIONSHIP, READ, List.of(UrnUtils.getUrn(entityUrn)))) {
@@ -194,6 +219,7 @@ public abstract class GenericRelationshipController {
                   .setOr(QueryUtils.newFilter("destination.urn", entityUrn).getOr()),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
+              pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
               count,
               null,
               null);
@@ -212,6 +238,7 @@ public abstract class GenericRelationshipController {
                   .setOr(QueryUtils.newFilter("source.urn", entityUrn).getOr()),
               Edge.EDGE_SORT_CRITERION,
               scrollId,
+              pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
               count,
               null,
               null);

@@ -24,6 +24,7 @@ const Container = styled.div<{
     flex-direction: row;
     justify-content: space-between;
     padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
+    gap: 8px;
 
     ${(props) =>
         !props.$navigateOnlyOnNameClick &&
@@ -90,6 +91,7 @@ const IconContainer = styled.div<{ $variant?: EntityItemVariant }>`
 const TypeContainer = styled.div`
     display: flex;
     align-items: center;
+    white-space: nowrap;
 `;
 
 const Icons = styled.div`
