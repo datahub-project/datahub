@@ -7,6 +7,7 @@ import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
+import { useListRolesQuery } from '@graphql/role.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
 
@@ -53,6 +54,17 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Search for actors while building policy.
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
+
+    // Fetch available roles
+    const { data: rolesData } = useListRolesQuery({
+        variables: {
+            input: {
+                start: 0,
+                count: 100, // Get first 100 roles
+            },
+        },
+        fetchPolicy: 'cache-and-network',
+    });
     const { data: ownershipData } = useListOwnershipTypesQuery({
         variables: {
             input: {},
@@ -149,6 +161,24 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 groups: newGroupActors,
             });
         }
+    };
+
+    // When a role is selected, add the urn to the ActorFilter
+    const onSelectRoleActor = (newRole: string) => {
+        const newRoleActors = [...(actors.roles || []), newRole];
+        setActors({
+            ...actors,
+            roles: newRoleActors,
+        });
+    };
+
+    // When a role is deselected, remove the urn from the ActorFilter
+    const onDeselectRoleActor = (role: string) => {
+        const newRoleActors = actors.roles?.filter((r) => r !== role);
+        setActors({
+            ...actors,
+            roles: newRoleActors,
+        });
     };
 
     // Invokes the search API as the user types
@@ -322,6 +352,41 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
                     <Select.Option value="All">All Groups</Select.Option>
+                </Select>
+            </Form.Item>
+            <Form.Item label={<Typography.Text strong>Roles</Typography.Text>}>
+                <Typography.Paragraph>
+                    Select specific roles that this policy should apply to. Users assigned to these roles will inherit
+                    the policy privileges.
+                </Typography.Paragraph>
+                <Select
+                    data-testid="roles"
+                    value={actors.roles}
+                    mode="multiple"
+                    placeholder="Select roles..."
+                    onSelect={(asset: any) => onSelectRoleActor(asset)}
+                    onDeselect={(asset: any) => onDeselectRoleActor(asset)}
+                    filterOption={(input, option) =>
+                        typeof option?.label === 'string'
+                            ? option.label.toLowerCase().includes(input.toLowerCase())
+                            : false
+                    }
+                    allowClear
+                    showSearch
+                >
+                    {rolesData?.listRoles?.roles?.map((role) => (
+                        <Select.Option key={role.urn} value={role.urn}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <CustomAvatar size={24} name={role.name} isRole />
+                                <span style={{ marginLeft: 8 }}>{role.name}</span>
+                                {role.description && (
+                                    <span style={{ marginLeft: 8, color: '#666', fontSize: '12px' }}>
+                                        - {role.description}
+                                    </span>
+                                )}
+                            </div>
+                        </Select.Option>
+                    ))}
                 </Select>
             </Form.Item>
         </ActorForm>

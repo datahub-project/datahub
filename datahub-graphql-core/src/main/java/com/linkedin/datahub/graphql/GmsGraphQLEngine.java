@@ -190,10 +190,14 @@ import com.linkedin.datahub.graphql.resolvers.query.ListQueriesResolver;
 import com.linkedin.datahub.graphql.resolvers.query.UpdateQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.AcceptRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.AssignMultipleRolesResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.CreateInviteTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.role.CreateRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.DeleteRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.role.GetInviteTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.role.ListRolesResolver;
+import com.linkedin.datahub.graphql.resolvers.role.UpdateRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AggregateAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteForMultipleResolver;
 import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
@@ -1301,10 +1305,14 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
               .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+              .dataFetcher("assignMultipleRoles", new AssignMultipleRolesResolver(this.roleService))
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
                   "acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
+              .dataFetcher("createRole", new CreateRoleResolver(this.entityClient))
+              .dataFetcher("updateRole", new UpdateRoleResolver(this.entityClient))
+              .dataFetcher("deleteRole", new DeleteRoleResolver(this.entityClient))
               .dataFetcher("createPost", new CreatePostResolver(this.postService))
               .dataFetcher("deletePost", new DeletePostResolver(this.postService))
               .dataFetcher("updatePost", new UpdatePostResolver(this.postService))

@@ -1,5 +1,6 @@
-import { Button, Tooltip } from '@components';
-import { Avatar, Empty, Pagination, Typography, message } from 'antd';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Avatar, Button, Empty, Pagination, Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -15,12 +16,16 @@ import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import { CreateRoleModal } from '@app/permissions/roles/CreateRoleModal';
+import { EditRoleModal } from '@app/permissions/roles/EditRoleModal';
+import { RoleActorsModal } from '@app/permissions/roles/RoleActorsModal';
 import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
+import DeleteRoleConfirmation from '@app/permissions/roles/DeleteRoleConfirmation';
 import { SearchBar } from '@app/search/SearchBar';
 import { Message } from '@app/shared/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
+import { useBatchAssignRoleMutation, useDeleteRoleMutation } from '@graphql/mutations.generated';
 import { useListRolesQuery } from '@graphql/role.generated';
 import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
 
@@ -40,17 +45,24 @@ const RoleName = styled.span`
     font-weight: 700;
 `;
 
+const ActionsContainer = styled.div`
+    display: flex;
+    justify-content: right;
+`;
+
+const EditRoleButton = styled(Button)`
+    margin-right: 16px;
+`;
+
+const ManageActorsButton = styled(Button)`
+    margin-right: 16px;
+`;
+
 const PageContainer = styled.span`
     width: 100%;
     display: flex;
     flex-direction: column;
     overflow: auto;
-`;
-
-const ActionsContainer = styled.div`
-    width: 100%;
-    display: flex;
-    justify-content: right;
 `;
 
 const AddUsersButton = styled(Button)`
@@ -69,6 +81,13 @@ export const ManageRoles = () => {
     const [isBatchAddRolesModalVisible, setIsBatchAddRolesModalVisible] = useState(false);
     const [focusRole, setFocusRole] = useState<DataHubRole>();
     const [showViewRoleModal, setShowViewRoleModal] = useState(false);
+    const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
+    const [showEditRoleModal, setShowEditRoleModal] = useState(false);
+    const [roleToEdit, setRoleToEdit] = useState<DataHubRole | null>(null);
+    const [showActorsModal, setShowActorsModal] = useState(false);
+    const [roleForActors, setRoleForActors] = useState<DataHubRole | null>(null);
+    const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+    const [roleToDelete, setRoleToDelete] = useState<DataHubRole | null>(null);
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     // Role list paging.
@@ -90,6 +109,8 @@ export const ManageRoles = () => {
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
+        pollInterval: 5000, // Poll every 5 seconds for automatic refresh
+        errorPolicy: 'all', // Continue polling even if there are errors
     });
 
     const totalRoles = rolesData?.listRoles?.total || 0;
@@ -101,19 +122,26 @@ export const ManageRoles = () => {
     const resetRoleState = () => {
         setIsBatchAddRolesModalVisible(false);
         setShowViewRoleModal(false);
+        setShowCreateRoleModal(false);
+        setShowEditRoleModal(false);
+        setShowActorsModal(false);
+        setShowDeleteConfirmation(false);
         setFocusRole(undefined);
+        setRoleToEdit(null);
+        setRoleToDelete(null);
+        setRoleForActors(null);
     };
 
     const [batchAssignRoleMutation, { client }] = useBatchAssignRoleMutation();
-    // eslint-disable-next-line
+    const [deleteRole] = useDeleteRoleMutation();
+    /** Assigns actors to the currently focused role */
     const batchAssignRole = (actorUrns: Array<string>) => {
-        if (!focusRole || !focusRole.urn) {
-            return;
-        }
+        if (!focusRole?.urn) return;
+
         batchAssignRoleMutation({
             variables: {
                 input: {
-                    roleUrn: focusRole?.urn,
+                    roleUrn: focusRole.urn,
                     actors: actorUrns,
                 },
             },
@@ -122,22 +150,28 @@ export const ManageRoles = () => {
                 if (!errors) {
                     analytics.event({
                         type: EventType.BatchSelectUserRoleEvent,
-                        roleUrn: focusRole?.urn,
+                        roleUrn: focusRole.urn,
                         userUrns: actorUrns,
                     });
+                    
                     message.success({
-                        content: `Assigned Role to users!`,
+                        content: `Successfully assigned role to ${actorUrns.length} actor(s)!`,
                         duration: 2,
                     });
+                    
+                    // Refresh data after successful assignment
                     setTimeout(() => {
                         rolesRefetch();
                         clearUserListCache(client);
                     }, 3000);
                 }
             })
-            .catch((e) => {
+            .catch((error) => {
                 message.destroy();
-                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
+                message.error({ 
+                    content: `Failed to assign role: ${error.message || ''}`, 
+                    duration: 3 
+                });
             })
             .finally(() => {
                 resetRoleState();
@@ -146,6 +180,60 @@ export const ManageRoles = () => {
 
     const onChangePage = (newPage: number) => {
         setPage(newPage);
+    };
+
+    const handleCreateRole = () => {
+        setShowCreateRoleModal(true);
+    };
+
+    const handleEditRole = (role: DataHubRole) => {
+        setRoleToEdit(role);
+        setShowEditRoleModal(true);
+    };
+
+    /**
+     * Opens delete confirmation modal for custom roles
+     */
+    const handleDeleteRole = (role: DataHubRole) => {
+        // Check if this is a bootstrap role that shouldn't be deleted
+        const bootstrapRoles = ['Admin', 'Editor', 'Reader']; // Common bootstrap role names
+        const isBootstrapRole = bootstrapRoles.includes(role.name) || role.urn.includes('datahub');
+
+        if (isBootstrapRole) {
+            message.error(`Cannot delete system role "${role.name}". Bootstrap roles are protected.`);
+            return;
+        }
+
+        setRoleToDelete(role);
+        setShowDeleteConfirmation(true);
+    };
+
+    /**
+     * Handles successful role deletion from confirmation modal
+     */
+    const handleDeleteSuccess = () => {
+        rolesRefetch(); // Refresh the roles list
+        clearUserListCache(client); // Clear user cache
+    };
+
+    const handleRoleSuccess = () => {
+        rolesRefetch();
+    };
+
+    /**
+     * Opens the actors management modal for a role
+     */
+    const handleViewActors = (role: DataHubRole) => {
+        setRoleForActors(role);
+        setShowActorsModal(true);
+    };
+
+    /**
+     * Handles successful actor management operations
+     */
+    const handleActorsSuccess = () => {
+        rolesRefetch(); // Refresh roles data
+        clearUserListCache(client); // Clear user cache
     };
 
     const tableColumns = [
@@ -173,71 +261,97 @@ export const ManageRoles = () => {
             render: (description: string) => description || '',
         },
         {
-            title: 'Users',
+            title: 'Actors',
             dataIndex: 'users',
             key: 'users',
             render: (_: any, record: any) => {
                 const numberOfUsers = record?.totalUsers || 0;
                 return (
-                    <>
-                        {(!!numberOfUsers && (
-                            <>
-                                <AvatarsGroup
-                                    users={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
-                                        .slice(0, 5)}
-                                    groups={record?.users
-                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
-                                        .slice(0, 5)}
-                                    entityRegistry={entityRegistry}
-                                    maxCount={5}
-                                    size={28}
-                                />
-                                {numberOfUsers > 5 && (
-                                    // Keeping the color same as the avatar component indicator
-                                    <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
-                                        +{numberOfUsers - 5}
-                                    </Avatar>
-                                )}
-                            </>
-                        )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
-                    </>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                            {(!!numberOfUsers && (
+                                <>
+                                    <AvatarsGroup
+                                        users={record?.users
+                                            ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
+                                            .slice(0, 5)}
+                                        groups={record?.users
+                                            ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
+                                            .slice(0, 5)}
+                                        entityRegistry={entityRegistry}
+                                        maxCount={5}
+                                        size={28}
+                                    />
+                                    {numberOfUsers > 5 && (
+                                        <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
+                                            +{numberOfUsers - 5}
+                                        </Avatar>
+                                    )}
+                                </>
+                            )) || <Typography.Text type="secondary">No assigned actors</Typography.Text>}
+                        </div>
+                    </div>
                 );
             },
         },
         {
+            title: '',
             dataIndex: 'actions',
             key: 'actions',
             render: (_: any, record: any) => {
+                const isCustomRole = record?.editable;
                 return (
                     <ActionsContainer>
-                        <Tooltip title={`Assign the ${record.name} role to users`}>
+                        <Tooltip title={`Assign the ${record.name} role to users and groups`}>
                             <AddUsersButton
-                                variant="text"
                                 onClick={() => {
                                     setIsBatchAddRolesModalVisible(true);
                                     setFocusRole(record.role);
                                 }}
                             >
-                                Add Users
+                                ADD ACTORS
                             </AddUsersButton>
                         </Tooltip>
+                        <Tooltip title={`Manage users and groups assigned to the ${record.name} role`}>
+                            <ManageActorsButton onClick={() => handleViewActors(record.role)}>
+                                MANAGE ACTORS
+                            </ManageActorsButton>
+                        </Tooltip>
+                        <EditRoleButton disabled={!isCustomRole} onClick={() => handleEditRole(record.role)}>
+                            EDIT
+                        </EditRoleButton>
+                        <Button
+                            disabled={!isCustomRole}
+                            onClick={() => handleDeleteRole(record.role)}
+                            type="text"
+                            shape="circle"
+                            danger
+                        >
+                            <DeleteOutlined />
+                        </Button>
                     </ActionsContainer>
                 );
             },
         },
     ];
 
-    const tableData = roles?.map((role) => ({
-        role,
-        urn: role?.urn,
-        type: role?.type,
-        description: role?.description,
-        name: role?.name,
-        users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
-        totalUsers: role?.users?.total,
-        policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
-    }));
+    const tableData = roles?.map((role) => {
+        // Determine if role is editable (not a bootstrap role)
+        const bootstrapRoles = ['Admin', 'Editor', 'Reader'];
+        const isEditable = !bootstrapRoles.includes(role.name) && !role.urn.includes('datahub');
+
+        return {
+            role,
+            urn: role?.urn,
+            type: role?.type,
+            description: role?.description,
+            name: role?.name,
+            editable: isEditable,
+            users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
+            totalUsers: role?.users?.total,
+            policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
+        };
+    });
 
     return (
         <PageContainer>
@@ -248,7 +362,11 @@ export const ManageRoles = () => {
             {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
             <SourceContainer>
                 <TabToolbar>
-                    <div />
+                    <div>
+                        <Button type="text" onClick={handleCreateRole} data-testid="add-role-button">
+                            <PlusOutlined /> Create new role
+                        </Button>
+                    </div>
                     <SearchBar
                         initialQuery={query || ''}
                         placeholderText="Search roles..."
@@ -271,7 +389,7 @@ export const ManageRoles = () => {
                     />
                     {isBatchAddRolesModalVisible && (
                         <SearchSelectModal
-                            titleText={`Assign ${focusRole?.name} Role to Users`}
+                            titleText={`Assign ${focusRole?.name} Role to Users & Groups`}
                             continueText="Add"
                             onContinue={batchAssignRole}
                             onCancel={resetRoleState}
@@ -303,6 +421,29 @@ export const ManageRoles = () => {
                 />
             </PaginationContainer>
             <RoleDetailsModal role={focusRole as DataHubRole} open={showViewRoleModal} onClose={resetRoleState} />
+            <CreateRoleModal
+                visible={showCreateRoleModal}
+                onClose={() => setShowCreateRoleModal(false)}
+                onSuccess={handleRoleSuccess}
+            />
+            <EditRoleModal
+                visible={showEditRoleModal}
+                role={roleToEdit}
+                onClose={() => setShowEditRoleModal(false)}
+                onSuccess={handleRoleSuccess}
+            />
+            <RoleActorsModal
+                visible={showActorsModal}
+                role={roleForActors}
+                onClose={() => setShowActorsModal(false)}
+                onSuccess={handleActorsSuccess}
+            />
+            <DeleteRoleConfirmation
+                open={showDeleteConfirmation}
+                role={roleToDelete}
+                onClose={() => setShowDeleteConfirmation(false)}
+                onConfirm={handleDeleteSuccess}
+            />
         </PageContainer>
     );
 };

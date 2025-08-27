@@ -815,6 +815,11 @@ type Mutation {
   batchAssignRole(input: BatchAssignRoleInput!): Boolean
 
   """
+  Assign multiple roles to a single actor (user or group)
+  """
+  assignMultipleRoles(input: AssignMultipleRolesInput!): Boolean
+
+  """
   Accept role using invite token
   """
   acceptRole(input: AcceptRoleInput!): Boolean
@@ -823,6 +828,21 @@ type Mutation {
   Create invite token
   """
   createInviteToken(input: CreateInviteTokenInput!): InviteToken
+
+  """
+  Create a new DataHub Role
+  """
+  createRole(input: CreateRoleInput!): String
+
+  """
+  Update an existing DataHub Role
+  """
+  updateRole(urn: String!, input: UpdateRoleInput!): String
+
+  """
+  Delete a DataHub Role
+  """
+  deleteRole(urn: String!): Boolean
 
   """
   Create a post
@@ -11891,6 +11911,21 @@ input BatchAssignRoleInput {
 }
 
 """
+Input provided when assigning multiple roles to a single actor
+"""
+input AssignMultipleRolesInput {
+  """
+  The urn of the actor (user or group) to assign roles to
+  """
+  actorUrn: String!
+
+  """
+  The urns of the roles to assign to the actor. If empty, will remove all roles.
+  """
+  roleUrns: [String!]!
+}
+
+"""
 Input provided when listing existing roles
 """
 input ListRolesInput {
@@ -11999,6 +12034,46 @@ input AcceptRoleInput {
   The token needed to accept the role
   """
   inviteToken: String!
+}
+
+"""
+Input provided when creating a new DataHub Role
+"""
+input CreateRoleInput {
+  """
+  The name of the role
+  """
+  name: String!
+
+  """
+  The description of the role (optional)
+  """
+  description: String
+
+  """
+  The list of policy URNs to associate with this role
+  """
+  policyUrns: [String!]
+}
+
+"""
+Input provided when updating an existing DataHub Role
+"""
+input UpdateRoleInput {
+  """
+  The name of the role
+  """
+  name: String
+
+  """
+  The description of the role
+  """
+  description: String
+
+  """
+  The list of policy URNs to associate with this role
+  """
+  policyUrns: [String!]
 }
 
 """

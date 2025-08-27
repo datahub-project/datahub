@@ -39,7 +39,7 @@ query listRoles($input: ListRolesInput!) {
                 }
             }
             policies: relationships(
-                input: { types: ["IsAssociatedWithRole"], direction: INCOMING, start: 0, count: 10 }
+                input: { types: ["IsAssociatedWithRole"], direction: INCOMING, start: 0, count: 100 }
             ) {
                 start
                 count
@@ -50,6 +50,10 @@ query listRoles($input: ListRolesInput!) {
                             urn
                             type
                             name
+                            description
+                            state
+                            editable
+                            privileges
                             relationships(input: { types: ["IsAssociatedWithRole"], direction: OUTGOING }) {
                                 start
                                 count

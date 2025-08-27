@@ -118,6 +118,10 @@ mutation batchAssignRole($input: BatchAssignRoleInput!) {
     batchAssignRole(input: $input)
 }
 
+mutation assignMultipleRoles($input: AssignMultipleRolesInput!) {
+    assignMultipleRoles(input: $input)
+}
+
 mutation createInviteToken($input: CreateInviteTokenInput!) {
     createInviteToken(input: $input) {
         inviteToken
@@ -154,4 +158,16 @@ mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
 
 mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {
     updateDisplayProperties(urn: $urn, input: $input)
+}
+
+mutation createRole($input: CreateRoleInput!) {
+    createRole(input: $input)
+}
+
+mutation updateRole($urn: String!, $input: UpdateRoleInput!) {
+    updateRole(urn: $urn, input: $input)
+}
+
+mutation deleteRole($urn: String!) {
+    deleteRole(urn: $urn)
 }

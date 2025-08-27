@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import EntityDropdown from '@app/entity/shared/EntityDropdown';
 import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
-import SelectRoleGroup from '@app/identity/group/SelectRoleGroup';
+import MultiSelectRoleGroup from '@app/identity/group/MultiSelectRoleGroup';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -45,11 +45,11 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
     const isExternalGroup: boolean = group.origin?.type === OriginType.External;
     const externalGroupType: string = group.origin?.externalType || 'outside DataHub';
-    const castedCorpUser = group as any;
-    const groupRelationships = castedCorpUser?.roles?.relationships;
-    const userRole =
-        groupRelationships && groupRelationships.length > 0 && (groupRelationships[0]?.entity as DataHubRole);
-    const groupRoleUrn = userRole && userRole.urn;
+    const castedCorpGroup = group as any;
+    const groupRelationships = castedCorpGroup?.roles?.relationships;
+    // Support multiple roles
+    const groupRoles = groupRelationships ? groupRelationships.map((rel) => rel.entity as DataHubRole) : [];
+    const groupRoleUrns = groupRoles.map((role) => role.urn);
 
     return (
         <List.Item>
@@ -80,9 +80,9 @@ export default function GroupListItem({ group, onDelete, selectRoleOptions, refe
                             <LockOutlined />
                         </Tooltip>
                     )}
-                    <SelectRoleGroup
+                    <MultiSelectRoleGroup
                         group={group}
-                        groupRoleUrn={groupRoleUrn || ''}
+                        groupRoleUrns={groupRoleUrns}
                         selectRoleOptions={selectRoleOptions}
                         refetch={refetch}
                     />

@@ -7,7 +7,7 @@ import styled from 'styled-components/macro';
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
-import SelectRole from '@app/identity/user/SelectRole';
+import MultiSelectRole from '@app/identity/user/MultiSelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
@@ -60,8 +60,9 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
     const castedCorpUser = user as any;
     const userRelationships = castedCorpUser?.roles?.relationships;
-    const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as DataHubRole);
-    const userRoleUrn = userRole && userRole.urn;
+    // Support multiple roles
+    const userRoles = userRelationships ? userRelationships.map((rel) => rel.entity as DataHubRole) : [];
+    const userRoleUrns = userRoles.map((role) => role.urn);
 
     const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete, false, true);
 
@@ -137,9 +138,9 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                 </Link>
             </UserItemContainer>
             <ButtonGroup id={USERS_ASSIGN_ROLE_ID}>
-                <SelectRole
+                <MultiSelectRole
                     user={user}
-                    userRoleUrn={userRoleUrn || ''}
+                    userRoleUrns={userRoleUrns}
                     selectRoleOptions={selectRoleOptions}
                     refetch={refetch}
                 />

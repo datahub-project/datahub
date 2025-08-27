@@ -45,6 +45,32 @@ public class RoleService {
         });
   }
 
+  /** Assign multiple roles to a single actor */
+  public void assignRolesToActor(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String actor,
+      @Nonnull final List<Urn> roleUrns)
+      throws URISyntaxException, RemoteInvocationException {
+    final Urn actorUrn = Urn.createFromString(actor);
+    if (!_entityClient.exists(opContext, actorUrn)) {
+      log.warn(
+          String.format(
+              "Failed to assign roles to actor %s, actor does not exist. Skipping actor assignment",
+              actor));
+      return;
+    }
+
+    final RoleMembership roleMembership = new RoleMembership();
+    roleMembership.setRoles(new UrnArray(roleUrns));
+
+    // Ingest new RoleMembership aspect
+    final MetadataChangeProposal proposal =
+        buildMetadataChangeProposal(actorUrn, ROLE_MEMBERSHIP_ASPECT_NAME, roleMembership);
+    _entityClient.ingestProposal(opContext, proposal, false);
+
+    log.info("Successfully assigned {} roles to actor {}", roleUrns.size(), actor);
+  }
+
   private void assignRoleToActor(
       @Nonnull OperationContext opContext, @Nonnull final String actor, @Nullable final Urn roleUrn)
       throws URISyntaxException, RemoteInvocationException {
