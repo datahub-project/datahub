@@ -89,8 +89,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   frontend-debug-postgres:
     <<: *datahub-frontend-service-dev
     profiles:
