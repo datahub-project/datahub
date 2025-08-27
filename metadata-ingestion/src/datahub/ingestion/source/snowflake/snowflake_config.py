@@ -135,12 +135,10 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             and match_fully_qualified_names is not None
             and not match_fully_qualified_names
         ):
-            raise ValueError(
-                "`match_fully_qualified_names: False` is no longer supported. "
-                "Please set `match_fully_qualified_names: True` and update your `schema_pattern` "
-                "to match against fully qualified schema names `<catalog_name>.<schema_name>`. "
-                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will assume `match_fully_qualified_names: True`."
-                "match_fully_qualified_names False was there to maintain backward compatibility."
+            logger.warning(
+                "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
@@ -216,6 +214,16 @@ class SnowflakeV2Config(
     include_view_definitions: bool = Field(
         default=True,
         description="If enabled, populates the ingested views' definitions.",
+    )
+
+    fetch_views_from_information_schema: bool = Field(
+        default=False,
+        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
+        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
+        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
+        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
+        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
+        "to populate the missing definitions.",
     )
 
     include_technical_schema: bool = Field(

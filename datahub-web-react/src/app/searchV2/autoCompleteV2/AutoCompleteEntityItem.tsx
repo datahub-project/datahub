@@ -12,6 +12,7 @@ import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/Ent
 import { VARIANT_STYLES } from '@app/searchV2/autoCompleteV2/constants';
 import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
+import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
@@ -24,6 +25,7 @@ const Container = styled.div<{
     flex-direction: row;
     justify-content: space-between;
     padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
+    gap: 8px;
 
     ${(props) =>
         !props.$navigateOnlyOnNameClick &&
@@ -90,6 +92,7 @@ const IconContainer = styled.div<{ $variant?: EntityItemVariant }>`
 const TypeContainer = styled.div`
     display: flex;
     align-items: center;
+    white-space: nowrap;
 `;
 
 const Icons = styled.div`
@@ -129,6 +132,8 @@ export default function AutoCompleteEntityItem({
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
+    const linkProps = useGetModalLinkProps();
+
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
     const variantProps = VARIANT_STYLES.get(variant ?? 'default');
@@ -138,7 +143,7 @@ export default function AutoCompleteEntityItem({
         : DisplayNameHoverFromContainer;
 
     const displayNameContent = variantProps?.nameCanBeHovered ? (
-        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
+        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)} {...linkProps}>
             <DisplayNameHoverComponent
                 displayName={displayName}
                 highlight={query}

@@ -30,8 +30,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- #13852 `snowflake` connector has `match_fully_qualified_names` which has been present for backward compatibility. If you are using `schema_pattern` but have not set `match_fully_qualified_names: true` please change it to `match_fully_qualified_names: true` and update your `schema_pattern` to match against fully qualified schema names `<catalog_name>.<schema_name>`. We were printing warnings earlier for this. We are making this backward incompatible breaking change to make this consistent with all other sources.
-
 ### Known Issues
 
 ### Potential Downtime
@@ -60,6 +58,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #13601: The `use_queries_v2` flag is now enabled by default for Snowflake and BigQuery ingestion. This improves the quality of lineage and quantity of queries extracted.
 
 ### Known Issues
+
+- Internal Schema Registry - The internal schema registry does not supply a compatible schema for older MCP messages. The short term recommendation is to process all MCPs before upgrading to this release.
 
 ### Potential Downtime
 

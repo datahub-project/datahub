@@ -1,5 +1,9 @@
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
-import { convertLogicalPredicateToOrFilters, isLogicalPredicate } from '@app/sharedV2/queryBuilder/builder/utils';
+import {
+    convertLogicalPredicateToOrFilters,
+    isEmptyLogicalPredicate,
+    isLogicalPredicate,
+} from '@app/sharedV2/queryBuilder/builder/utils';
 
 import { AndFilterInput, FilterOperator } from '@types';
 
@@ -233,6 +237,10 @@ describe('utils', () => {
     ];
 
     const EMPTY_LOGICAL_PREDICATE: LogicalPredicate = {} as any;
+    const LOGICAL_PREDICATE_WITH_EMPTY_OPERANDS = {
+        operator: LogicalOperatorType.AND,
+        operands: [],
+    };
 
     const LOGICAL_PREDICATE_WITH_UNKNOWN_OPERATION: LogicalPredicate = {
         type: 'logical',
@@ -262,6 +270,18 @@ describe('utils', () => {
         });
         it('should ignore logical predicate with unknown operator', () => {
             expect(convertLogicalPredicateToOrFilters(LOGICAL_PREDICATE_WITH_UNKNOWN_OPERATION)).toEqual(undefined);
+        });
+    });
+
+    describe('isEmptyLogicalPredicate', () => {
+        it('should handle not empty logical predicate', () => {
+            expect(isEmptyLogicalPredicate(BASIC_AND_LOGICAL_PREDICATE)).toBeFalsy();
+        });
+        it('should handle empty logical predicate', () => {
+            expect(isEmptyLogicalPredicate(EMPTY_LOGICAL_PREDICATE as LogicalPredicate)).toBeTruthy();
+        });
+        it('should handle logical predicate with empty', () => {
+            expect(isEmptyLogicalPredicate(LOGICAL_PREDICATE_WITH_EMPTY_OPERANDS)).toBeTruthy();
         });
     });
 });

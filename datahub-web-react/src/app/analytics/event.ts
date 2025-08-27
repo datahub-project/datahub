@@ -116,6 +116,8 @@ export enum EventType {
     SearchLineageColumnsEvent,
     FilterLineageColumnsEvent,
     DrillDownLineageEvent,
+    NavBarExpandCollapse,
+    NavBarItemClick,
     LinkAssetVersionEvent,
     UnlinkAssetVersionEvent,
     ShowAllVersionsEvent,
@@ -934,6 +936,16 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
+export interface NavBarExpandCollapseEvent extends BaseEvent {
+    type: EventType.NavBarExpandCollapse;
+    isExpanding: boolean; // whether this action is expanding or collapsing the nav bar
+}
+
+export interface NavBarItemClickEvent extends BaseEvent {
+    type: EventType.NavBarItemClick;
+    label: string; // the label of the item that is clicks from the nav sidebar
+}
+
 export interface FilterStatsPageEvent extends BaseEvent {
     type: EventType.FilterStatsPage;
     platform: string | null;
@@ -1174,6 +1186,8 @@ export type Event =
     | LinkAssetVersionEvent
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
+    | NavBarExpandCollapseEvent
+    | NavBarItemClickEvent
     | HomePageClickEvent
     | SearchBarFilterEvent
     | FilterStatsPageEvent

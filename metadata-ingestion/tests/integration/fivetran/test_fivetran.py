@@ -12,11 +12,13 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.fivetran.config import (
     BigQueryDestinationConfig,
+    FivetranLogConfig,
     FivetranSourceConfig,
     PlatformDetail,
     SnowflakeDestinationConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
+from datahub.ingestion.source.fivetran.fivetran_log_api import FivetranLogAPI
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 from datahub.testing import mce_helpers
 
@@ -159,6 +161,102 @@ def default_query_results(
         ]
     # Unreachable code
     raise Exception(f"Unknown query {query}")
+
+
+def test_quoted_query_transpilation():
+    """Test different schema strings and their transpilation to Bigquery"""
+    # Ref: https://github.com/datahub-project/datahub/issues/14210
+
+    fivetran_log_query = FivetranLogQuery()
+    fivetran_log_query.use_database("test_database")
+
+    # Test cases with different schema names that might cause issues
+    schema_name_test_cases = [
+        "fivetran_logs",  # Normal case
+        "fivetran-logs",  # Hyphen
+        "fivetran_logs_123",  # Underscore and numbers
+        "fivetran.logs",  # Dot
+        "fivetran logs",  # Space
+        "fivetran'logs",  # Single quote
+        'fivetran"logs',  # Double quote
+        "fivetran`logs",  # Backtick
+        "fivetran-logs-123",  # Multiple hyphens
+        "fivetran_logs-123",  # Mixed underscore and hyphen
+        "fivetran-logs_123",  # Mixed hyphen and underscore
+        "fivetran.logs-123",  # Mixed dot and hyphen
+        "fivetran logs 123",  # Multiple spaces
+        "fivetran'logs'123",  # Multiple quotes
+        'fivetran"logs"123',  # Multiple double quotes
+        "fivetran`logs`123",  # Multiple backticks
+    ]
+
+    with mock.patch(
+        "datahub.ingestion.source.fivetran.fivetran_log_api.create_engine"
+    ) as mock_create_engine:
+        connection_magic_mock = MagicMock()
+        connection_magic_mock.execute.fetchone.side_effect = ["test-project-id"]
+
+        mock_create_engine.return_value = connection_magic_mock
+
+        snowflake_dest_config = FivetranLogConfig(
+            destination_platform="snowflake",
+            snowflake_destination_config=SnowflakeDestinationConfig(
+                account_id="TESTID",
+                warehouse="TEST_WH",
+                username="test",
+                password="test@123",
+                database="TEST_DATABASE",
+                role="TESTROLE",
+                log_schema="TEST_SCHEMA",
+            ),
+        )
+
+        bigquery_dest_config = FivetranLogConfig(
+            destination_platform="bigquery",
+            bigquery_destination_config=BigQueryDestinationConfig(
+                credential=GCPCredential(
+                    private_key_id="testprivatekey",
+                    project_id="test-project",
+                    client_email="fivetran-connector@test-project.iam.gserviceaccount.com",
+                    client_id="1234567",
+                    private_key="private-key",
+                ),
+                dataset="test_dataset",
+            ),
+        )
+
+        # Create FivetranLogAPI instance
+        snowflake_fivetran_log_api = FivetranLogAPI(snowflake_dest_config)
+        bigquery_fivetran_log_api = FivetranLogAPI(bigquery_dest_config)
+
+        for schema in schema_name_test_cases:
+            fivetran_log_query.set_schema(schema)
+
+            # Make sure the schema_clause is wrapped in double quotes and ends with "."
+            # Example: "fivetran".
+            assert fivetran_log_query.schema_clause[0] == '"', (
+                "Missing double quote at the beginning of schema_clause"
+            )
+            assert fivetran_log_query.schema_clause[-2] == '"', (
+                "Missing double quote at the end of schema_clause"
+            )
+            assert fivetran_log_query.schema_clause[-1] == ".", (
+                "Missing dot at the end of schema_clause"
+            )
+
+            # If the schema has quotes in the string, then schema_clause should have double the number of quotes + 2
+            num_quotes_in_schema = schema.count('"')
+            num_quotes_in_clause = fivetran_log_query.schema_clause.count('"')
+            if num_quotes_in_schema > 0:
+                # Each quote in schema is escaped as two quotes in clause, plus two for the wrapping quotes
+                assert num_quotes_in_clause == num_quotes_in_schema * 2 + 2, (
+                    f"For schema {schema!r}, expected {num_quotes_in_schema * 2 + 2} quotes in schema_clause, "
+                    f"but got {num_quotes_in_clause}: {fivetran_log_query.schema_clause!r}"
+                )
+
+            # Make sure transpilation works for both snowflake and bigquery
+            snowflake_fivetran_log_api._query(fivetran_log_query.get_connectors_query())
+            bigquery_fivetran_log_api._query(fivetran_log_query.get_connectors_query())
 
 
 @freeze_time(FROZEN_TIME)
