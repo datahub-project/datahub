@@ -10,16 +10,13 @@ interface Props {
 }
 
 export default function AssetPropertiesProvider({ children, editable }: React.PropsWithChildren<Props>) {
-    const { entityType, urn: entityUrn } = useEntityContext();
+    const { urn: entityUrn } = useEntityContext();
 
     const [isPropertiesInitialized, setIsPropertiesInitialized] = useState<boolean>(false);
 
     const [properties, setProperties] = useState<AssetProperty[]>([]);
 
-    const { properties: initialProperties, loading: propertiesLoading } = useInitialAssetProperties(
-        entityUrn,
-        entityType,
-    );
+    const { properties: initialProperties, loading: propertiesLoading } = useInitialAssetProperties(entityUrn);
 
     useEffect(() => {
         if (!isPropertiesInitialized && !propertiesLoading) {

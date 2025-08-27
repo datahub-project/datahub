@@ -4,8 +4,8 @@ export enum PropertyType {
     Tags = 'tags',
     Terms = 'terms',
     Created = 'created',
-    LastUpdated = 'last_updated',
-    VerificationStatus = 'verification_status',
+    LastUpdated = 'lastUpdated',
+    VerificationStatus = 'verificationStatus',
     StructuredProperty = 'structuredProperty',
 }
 
