@@ -40,6 +40,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.powerbi.config import (
     Constant,
@@ -1229,6 +1230,10 @@ class Mapper:
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.POWERBI_WORKSPACE,
+        SourceCapabilityModifier.POWERBI_DATASET,
+    ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
