@@ -967,97 +967,233 @@ class TestFullConnectorConfigValidation:
             )
 
     def _simulate_lineage_extraction(self, connector, parser):
-        """Simulate lineage extraction without Java dependencies."""
-        import re
+        """Simulate lineage extraction using the same logic as our Cloud validation tests."""
 
+        source_platform = parser.source_platform
+        database_name = parser.database_name
+        topic_prefix = parser.topic_prefix
+        transforms = parser.transforms
+        table_name_tuples = connector.get_table_names()
+
+        # Check if we should use pipeline transforms
+        if self._should_use_pipeline(transforms):
+            return self._extract_with_pipeline(
+                transforms,
+                table_name_tuples,
+                topic_prefix,
+                connector,
+                database_name,
+                source_platform,
+            )
+
+        # Handle single RegexRouter transform (legacy logic)
+        if self._is_single_regex_transform(transforms):
+            return self._extract_with_single_regex(
+                transforms[0],
+                table_name_tuples,
+                topic_prefix,
+                connector,
+                database_name,
+                source_platform,
+            )
+
+        # Default: No transform or non-RegexRouter transform
+        return self._extract_without_transforms(
+            table_name_tuples, topic_prefix, connector, database_name, source_platform
+        )
+
+    def _should_use_pipeline(self, transforms):
+        """Check if we should use the transform pipeline."""
+        return len(transforms) >= 1 and any(
+            t.get("type")
+            in [
+                "io.debezium.transforms.outbox.EventRouter",
+                "org.apache.kafka.connect.transforms.RegexRouter",
+                "io.confluent.connect.cloud.transforms.TopicRegexRouter",
+            ]
+            for t in transforms
+        )
+
+    def _is_single_regex_transform(self, transforms):
+        """Check if this is a single RegexRouter transform."""
+        return (
+            len(transforms) == 1
+            and transforms[0].get("type")
+            == "org.apache.kafka.connect.transforms.RegexRouter"
+        )
+
+    def _extract_with_pipeline(
+        self,
+        transforms,
+        table_name_tuples,
+        topic_prefix,
+        connector,
+        database_name,
+        source_platform,
+    ):
+        """Extract lineages using transform pipeline."""
+        from datahub.ingestion.source.kafka_connect.common import (
+            KafkaConnectLineage,
+            get_dataset_name,
+            has_three_level_hierarchy,
+        )
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        try:
+            pipeline = TransformPipeline(transforms)
+            results = pipeline.apply_transforms(
+                table_name_tuples,
+                topic_prefix,
+                list(connector.connector_manifest.topic_names),
+            )
+
+            lineages = []
+            for result in results:
+                # Build source dataset name
+                if result.schema and has_three_level_hierarchy(source_platform):
+                    source_table_name = f"{result.schema}.{result.source_table}"
+                else:
+                    source_table_name = result.source_table
+
+                source_dataset = get_dataset_name(database_name, source_table_name)
+
+                # Create lineages for all final topics
+                for final_topic in result.final_topics:
+                    lineage = KafkaConnectLineage(
+                        source_dataset=source_dataset,
+                        source_platform=source_platform,
+                        target_dataset=final_topic,
+                        target_platform="kafka",
+                    )
+                    lineages.append(lineage)
+
+            return lineages
+
+        except Exception as e:
+            print(f"Pipeline simulation failed: {e}")
+            return []
+
+    def _extract_with_single_regex(
+        self,
+        transform_config,
+        table_name_tuples,
+        topic_prefix,
+        connector,
+        database_name,
+        source_platform,
+    ):
+        """Extract lineages with single RegexRouter transform."""
         from datahub.ingestion.source.kafka_connect.common import (
             KafkaConnectLineage,
             get_dataset_name,
             has_three_level_hierarchy,
         )
 
+        transform_regex = transform_config["regex"]
+        transform_replacement = transform_config["replacement"]
         lineages = []
-        source_platform = parser.source_platform
-        database_name = parser.database_name
-        topic_prefix = parser.topic_prefix
-        transforms = parser.transforms
 
-        table_name_tuples = connector.get_table_names()
+        for table in table_name_tuples:
+            source_table = table[-1]
 
-        # Handle RegexRouter transform if present
-        if (
-            len(transforms) == 1
-            and transforms[0].get("type")
-            == "org.apache.kafka.connect.transforms.RegexRouter"
-        ):
-            transform_regex = transforms[0]["regex"]
-            transform_replacement = transforms[0]["replacement"]
+            # Build original topic name (before transform)
+            if topic_prefix:
+                if has_three_level_hierarchy(source_platform) and len(table) > 1:
+                    original_topic = f"{topic_prefix}.{table[-2]}.{table[-1]}"
+                else:
+                    original_topic = f"{topic_prefix}.{table[-1]}"
+            else:
+                original_topic = table[-1]
 
-            for table in table_name_tuples:
-                source_table = table[-1]
-                topic = topic_prefix + source_table if topic_prefix else source_table
+            # Apply regex transformation
+            try:
+                from java.util.regex import Pattern
 
-                # Apply regex transformation (Python equivalent of Java Pattern.compile)
-                try:
-                    transformed_topic = re.sub(
-                        transform_regex, transform_replacement, topic
-                    )
-                except Exception:
-                    transformed_topic = topic  # Fallback if regex fails
+                pattern = Pattern.compile(transform_regex)
+                matcher = pattern.matcher(original_topic)
 
-                # Check if transformed topic is in the expected topic names
-                if transformed_topic in connector.connector_manifest.topic_names:
-                    # Include schema name for three-level hierarchies
-                    if has_three_level_hierarchy(source_platform) and len(table) > 1:
-                        source_table_name = f"{table[-2]}.{table[-1]}"
-                    else:
-                        source_table_name = source_table
+                if matcher.matches():
+                    transformed_topic = str(matcher.replaceFirst(transform_replacement))
+                else:
+                    transformed_topic = original_topic
+            except Exception:
+                transformed_topic = original_topic
 
-                    dataset_name = get_dataset_name(database_name, source_table_name)
+            # Create lineage if topic matches
+            if transformed_topic in connector.connector_manifest.topic_names:
+                if has_three_level_hierarchy(source_platform) and len(table) > 1:
+                    source_table_name = f"{table[-2]}.{table[-1]}"
+                else:
+                    source_table_name = source_table
 
-                    lineage = KafkaConnectLineage(
-                        source_dataset=dataset_name,
-                        source_platform=source_platform,
-                        target_dataset=transformed_topic,
-                        target_platform="kafka",
-                    )
-                    lineages.append(lineage)
-        else:
-            # No transform or non-RegexRouter transform
-            for topic in connector.connector_manifest.topic_names:
-                source_table = (
-                    topic[len(topic_prefix) :]
-                    if topic_prefix and topic.startswith(topic_prefix)
-                    else topic
+                dataset_name = get_dataset_name(database_name, source_table_name)
+                lineage = KafkaConnectLineage(
+                    source_dataset=dataset_name,
+                    source_platform=source_platform,
+                    target_dataset=transformed_topic,
+                    target_platform="kafka",
                 )
-
-                # Find matching table
-                matching_table = None
-                for table in table_name_tuples:
-                    if table[-1] == source_table:
-                        matching_table = table
-                        break
-
-                if matching_table:
-                    if (
-                        has_three_level_hierarchy(source_platform)
-                        and len(matching_table) > 1
-                    ):
-                        source_table_name = f"{matching_table[-2]}.{matching_table[-1]}"
-                    else:
-                        source_table_name = source_table
-
-                    dataset_name = get_dataset_name(database_name, source_table_name)
-
-                    lineage = KafkaConnectLineage(
-                        source_dataset=dataset_name,
-                        source_platform=source_platform,
-                        target_dataset=topic,
-                        target_platform="kafka",
-                    )
-                    lineages.append(lineage)
+                lineages.append(lineage)
 
         return lineages
+
+    def _extract_without_transforms(
+        self, table_name_tuples, topic_prefix, connector, database_name, source_platform
+    ):
+        """Extract lineages without transforms."""
+        from datahub.ingestion.source.kafka_connect.common import (
+            KafkaConnectLineage,
+            get_dataset_name,
+        )
+
+        lineages = []
+
+        for topic in connector.connector_manifest.topic_names:
+            # Remove topic prefix to get table name
+            if topic_prefix and topic.startswith(topic_prefix):
+                remaining = topic[len(topic_prefix) :]
+                if remaining.startswith("."):
+                    remaining = remaining[1:]
+                source_table_suffix = remaining
+            else:
+                source_table_suffix = topic
+
+            # Find matching table by suffix
+            matching_table = self._find_matching_table(
+                table_name_tuples, source_table_suffix
+            )
+
+            if matching_table:
+                # For MySQL (2-tier) and PostgreSQL (3-tier), always use schema.table when available
+                if len(matching_table) > 1:
+                    source_table_name = f"{matching_table[-2]}.{matching_table[-1]}"
+                else:
+                    source_table_name = matching_table[-1]
+
+                dataset_name = get_dataset_name(database_name, source_table_name)
+                lineage = KafkaConnectLineage(
+                    source_dataset=dataset_name,
+                    source_platform=source_platform,
+                    target_dataset=topic,
+                    target_platform="kafka",
+                )
+                lineages.append(lineage)
+
+        return lineages
+
+    def _find_matching_table(self, table_name_tuples, source_table_suffix):
+        """Find table that matches the given suffix."""
+        for table in table_name_tuples:
+            table_name = table[-1]
+            possible_suffixes = [table_name]
+            if len(table) > 1:
+                possible_suffixes.append(f"{table[-2]}.{table[-1]}")
+
+            if source_table_suffix in possible_suffixes:
+                return table
+        return None
 
     def test_cloud_postgres_cdc_with_regex_transform(self) -> None:
         """Test Confluent Cloud PostgreSQL CDC connector with RegexRouter transform."""
@@ -1071,7 +1207,7 @@ class TestFullConnectorConfigValidation:
             "database.dbname": "testdb",
             "table.include.list": "public.users,public.orders,inventory.products",
             "transforms": "Transform",
-            "transforms.Transform.regex": r"(.*)\.(.*)\\.(.*)",
+            "transforms.Transform.regex": r"(.*)\.(.*)\.(.*)",
             "transforms.Transform.replacement": r"$2.$3",
             "transforms.Transform.type": "org.apache.kafka.connect.transforms.RegexRouter",
         }

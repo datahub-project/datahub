@@ -46,48 +46,60 @@ class BaseTransform:
 
 
 class EventRouterTransform(BaseTransform):
-    """Debezium EventRouter transform (Outbox pattern)."""
+    """Debezium EventRouter transform (Outbox pattern) - Simplified safe implementation."""
 
     def apply(self, current_topics: List[str], manifest_topics: List[str]) -> List[str]:
         """
-        Apply EventRouter transform (Outbox pattern).
+        Apply EventRouter transform based on documented behavior:
+        https://debezium.io/documentation/reference/stable/transformations/outbox-event-router.html
 
-        EventRouter extracts events from an outbox table and routes them
-        to different topics based on event type. Since we can't predict
-        the exact event types without data, we work backwards from the
-        manifest topics to determine which topics come from this source.
+        EventRouter transforms outbox table topics to outbox.event.{aggregatetype} format.
+        This is an intermediate transformation step - the final topics may be further transformed.
         """
-        # For outbox pattern, we need to map one source table to multiple event topics
-        # Strategy: Find all manifest topics that could have come from this outbox source
+        # Look for outbox tables in current topics
+        outbox_topics = [t for t in current_topics if "outbox" in t.lower()]
 
+        if not outbox_topics:
+            logger.warning(
+                "EventRouter transform applied but no outbox table found in source topics. "
+                "This may result in incomplete lineage."
+            )
+            return current_topics
+
+        # EventRouter produces outbox.event.{aggregatetype} format as documented
+        # This is a predictable transformation regardless of manifest topics
+        # since it's based on the event types extracted from the outbox table
+
+        # For the pipeline, we generate standard EventRouter output topics
+        # The actual event types will be determined by downstream RegexRouter or manifest topics
+
+        # Check if manifest contains EventRouter-style topics or further transformed topics
         event_topics = []
 
-        # Look for topics that match expected EventRouter output patterns
-        for topic in manifest_topics:
-            # Common EventRouter patterns:
-            # 1. outbox.event.{event_type}
-            # 2. {database}.event.{event_type}
-            # 3. Custom routing based on route.by.field
+        # First, check for direct outbox.event.* pattern in manifest
+        direct_event_topics = [
+            t for t in manifest_topics if t.startswith("outbox.event.")
+        ]
 
-            if (
-                "outbox" in topic.lower()
-                or "event" in topic
-                or any(
-                    source_topic in topic
-                    for source_topic in current_topics
-                    if "outbox" in source_topic.lower()
-                )
-            ):
-                event_topics.append(topic)
-
-        # If no obvious matches, assume all manifest topics could come from outbox
-        # This is a conservative approach for the outbox pattern
-        if not event_topics and any(
-            "outbox" in topic.lower() for topic in current_topics
-        ):
+        if direct_event_topics:
+            event_topics = direct_event_topics
+        else:
+            # EventRouter with further transforms - this is complex and error-prone to guess
+            # The documented EventRouter behavior only guarantees outbox.event.* intermediate format
+            # Any further transforms are connector-specific and not predictable
+            logger.warning(
+                "EventRouter detected but no 'outbox.event.*' topics found in manifest. "
+                "This suggests EventRouter output is further transformed by other transforms. "
+                "For accurate lineage mapping with complex transform chains, "
+                "please use 'generic_connectors' config to specify explicit source-to-topic mappings."
+            )
+            # Return manifest topics as-is - don't attempt to guess transform patterns
             event_topics = list(manifest_topics)
 
-        return event_topics if event_topics else current_topics
+        logger.info(
+            f"EventRouter mapping: {len(outbox_topics)} outbox tables -> {len(event_topics)} event topics"
+        )
+        return event_topics
 
 
 class RegexRouterTransform(BaseTransform):
@@ -121,7 +133,10 @@ class RegexRouterTransform(BaseTransform):
                     logger.debug(f"RegexRouter: {topic} (no match)")
 
             except Exception as e:
-                logger.warning(f"RegexRouter failed for topic {topic}: {e}")
+                logger.warning(
+                    f"RegexRouter failed for topic '{topic}' with pattern '{regex_pattern}' "
+                    f"and replacement '{replacement}': {e}"
+                )
                 transformed_topics.append(topic)  # Keep original on error
 
         return transformed_topics
@@ -923,11 +938,23 @@ class DebeziumSourceConnector(BaseConnector):
 @dataclass
 class ConfigDrivenSourceConnector(BaseConnector):
     def extract_lineages(self) -> List[KafkaConnectLineage]:
-        lineages = []
+        lineages: List[KafkaConnectLineage] = []
+        target_connector = None
+
+        # Find matching generic connector configuration
         for connector in self.config.generic_connectors:
             if connector.connector_name == self.connector_manifest.name:
                 target_connector = connector
                 break
+
+        if target_connector is None:
+            logger.error(
+                f"No generic connector configuration found for '{self.connector_manifest.name}'. "
+                "Please add this connector to the 'generic_connectors' config list."
+            )
+            return lineages
+
+        # Create lineages for all topics
         for topic in self.connector_manifest.topic_names:
             lineage = KafkaConnectLineage(
                 source_dataset=target_connector.source_dataset,
