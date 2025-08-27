@@ -90,6 +90,10 @@ class DremioSourceMapEntry:
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DREMIO_SPACE,
+        SourceCapabilityModifier.DREMIO_SOURCE,
+    ],
 )
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")

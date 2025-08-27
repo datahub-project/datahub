@@ -344,8 +344,69 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
+  # Kafka Setup Configuration - replaces kafka-setup container functionality
+  setup:
+    preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
+    useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
+
+    #    readinessCheck:
+    #      timeoutSeconds: 300 # HARDCODED: 60 attempts * 5 seconds = 300s total
+    #      intervalSeconds: 5 # HARDCODED: kafka-ready.sh sleep 5s
+    #      maxAttempts: 60 # HARDCODED: kafka-ready.sh for i in {1..60}
+
+  #    # EXISTING KAFKA_PROPERTIES_* environment variable mapping
+  #    properties:
+  #      securityProtocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT} # EXISTING
+  #      # All KAFKA_PROPERTIES_* environment variables will be automatically mapped
+
+  # Topic defaults applied when individual topic configuration is missing
+  topicDefaults:
+    partitions: ${PARTITIONS:1}
+    replicationFactor: ${REPLICATION_FACTOR:1}
+    configProperties:
+      max.message.bytes: ${MAX_MESSAGE_BYTES:5242880}
+
   topics:
-    dataHubUsage: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
+    # Topic Dictionary Configuration - merged directly into topics section
+    # Each topic can be created by iterating through this dictionary  
+    # The key name matches the programmatic identifier used in code
+    metadataChangeProposal:
+      name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}
+
+    failedMetadataChangeProposal:
+      name: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:FailedMetadataChangeProposal_v1}
+
+    metadataChangeLogVersioned:
+      name: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:MetadataChangeLog_Versioned_v1}
+
+    metadataChangeLogTimeseries:
+      name: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:MetadataChangeLog_Timeseries_v1}
+      configProperties:
+        retention.ms: 7776000000
+
+    platformEvent:
+      name: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
+
+    datahubUpgradeHistory:
+      name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
+      partitions: 1
+      configProperties:
+        retention.ms: -1
+
+    datahubUsageEvent:
+      name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
+      enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+
+    # Deprecated Topics (maintained for backward compatibility)
+    metadataAuditEvent:
+      name: ${METADATA_AUDIT_EVENT_NAME:MetadataAuditEvent_v4}
+
+    metadataChangeEvent:
+      name: ${METADATA_CHANGE_EVENT_NAME:MetadataChangeEvent_v4}
+
+    failedMetadataChangeEvent:
+      name: ${FAILED_METADATA_CHANGE_EVENT_NAME:FailedMetadataChangeEvent_v4}
+
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
@@ -405,6 +466,7 @@ kafka:
     registry:
       security:
         protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
+
 
 # Only required if GraphService type is neo4j
 neo4j:
