@@ -4844,6 +4844,11 @@ type Owner {
   Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -4964,6 +4969,16 @@ type TagAssociation {
   Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this tag is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -5013,6 +5028,16 @@ type GlossaryTermAssociation {
   Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this term is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """

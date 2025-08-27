@@ -11,11 +11,12 @@ import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMark
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import { Tooltip } from '@src/alchemy-components';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
-import { StringMapEntry } from '@types';
+import { MetadataAttribution } from '@types';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -112,7 +113,7 @@ type Props = {
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
-    sourceDetail?: StringMapEntry[] | null;
+    attribution?: MetadataAttribution | null;
 };
 
 export default function DescriptionField({
@@ -124,7 +125,7 @@ export default function DescriptionField({
     original,
     isReadOnly,
     isPropagated,
-    sourceDetail,
+    attribution,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
 
@@ -207,17 +208,19 @@ export default function DescriptionField({
                         suffix={EditButton}
                         shouldWrap
                     > */}
-                        <DescriptionWrapper>
-                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
-                            &nbsp;
-                            <CompactMarkdownViewer
-                                content={description}
-                                lineLimit={1}
-                                fixedLineHeight
-                                customStyle={{ fontSize: '12px' }}
-                                scrollableY={false}
-                            />
-                        </DescriptionWrapper>
+                        <Tooltip
+                            title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
+                        >
+                            <DescriptionWrapper>
+                                <CompactMarkdownViewer
+                                    content={description}
+                                    lineLimit={1}
+                                    fixedLineHeight
+                                    customStyle={{ fontSize: '12px' }}
+                                    scrollableY={false}
+                                />
+                            </DescriptionWrapper>
+                        </Tooltip>
                         {/* </StripMarkdownText> */}
                     </>
                 )
