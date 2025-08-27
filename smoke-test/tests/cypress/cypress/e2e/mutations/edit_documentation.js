@@ -65,8 +65,9 @@ describe("edit documentation and link to dataset", () => {
     cy.loginWithCredentials();
     cy.visit("/domain/urn:li:domain:marketing/Entities");
     cy.waitTextVisible("SampleCypressKafkaDataset");
-    cy.clickOptionWithTestId("add-link-button").wait(1000);
-    cy.enterTextInTestId("add-link-modal-url", wrong_url);
+    cy.wait(2000); // wait until the correct link button loads after documentation loads
+    cy.clickOptionWithTestId("add-link-button").wait(2000);
+    cy.enterTextInTestId("link-form-modal-url", wrong_url);
     cy.waitTextVisible("This field must be a valid url.");
     cy.focused().clear();
     cy.waitTextVisible("A URL is required.");
