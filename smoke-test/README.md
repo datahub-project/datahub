@@ -73,6 +73,7 @@ If you don't have access to 1Password or prefer to set up manually:
 3. The tests will automatically load these environment variables.
 
 Note: The `.env` file is ignored by git, so your secrets won't be committed to the repository.
+
 # DataHub Smoke Tests
 
 This directory contains end-to-end smoke tests for DataHub functionality. These tests can be run locally for faster development and debugging compared to the full CI pipeline.

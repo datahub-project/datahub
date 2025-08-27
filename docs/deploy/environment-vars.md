@@ -480,6 +480,7 @@ Reference Links:
 | `ACTON_WORKFLOWS_ENABLED`                        | `false` | boolean   | [`GMS`]                                 | Enables the action workflows feature to enabled, allowing users to create and review requests.                              |
 
 Reference Links:
+
 - **Access Management**: [Access Management Feature](../features/feature-guides/access-roles.md)
 - **Structured Properties**: [Structured Properties Overview](../features/feature-guides/properties/overview.md)
 - **Lineage Features**: [Data Lineage](../features/feature-guides/lineage.md), [UI Lineage Management](../features/feature-guides/ui-lineage.md)
