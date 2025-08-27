@@ -111,7 +111,7 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "MANAGE_GLOBAL_ANNOUNCEMENTS",
-          "Manage All Home Page Posts",
+          "Manage Home Page Posts",
           "Create and delete home page posts");
 
   public static final Privilege VIEW_TESTS_PRIVILEGE =
@@ -151,7 +151,7 @@ public class PoliciesConfig {
   public static final Privilege MANAGE_GLOBAL_VIEWS =
       Privilege.of(
           "MANAGE_GLOBAL_VIEWS",
-          "Manage All Public Views",
+          "Manage Public Views",
           "Create, update, and delete any Public (shared) Views.");
 
   public static final Privilege MANAGE_GLOBAL_OWNERSHIP_TYPES =

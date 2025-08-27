@@ -59,7 +59,7 @@ A Metadata Policy can be broken down into 3 parts:
 
 - You need system-wide administrative capabilities
 - You're managing global platform features and settings
-- Examples: "Manage All Home Page Posts", "Manage All Public Views", "Manage Users & Groups"
+- Examples: "Manage Home Page Posts", "Manage Public Views", "Manage Users & Groups"
 
 **Use Metadata Policies when:**
 
@@ -69,8 +69,8 @@ A Metadata Policy can be broken down into 3 parts:
 
 **Key Difference for Posts and Views:**
 
-- **Platform Policy**: "Manage All Home Page Posts" = system-wide capability to create/delete any post
-- **Metadata Policy**: Select "Posts" resource + specific privileges = manage only posts that match your filters (tags, domains, etc.)
+- **Platform Policy**: "Manage Home Page Posts" privilege = system-wide capability to create/delete posts (scope determined by policy configuration)
+- **Metadata Policy**: Select "Posts" resource + specific privileges = manage only posts that match your resource filters (tags, domains, specific URNs, etc.)
 
 #### Resources
 
@@ -203,25 +203,25 @@ These privileges are for DataHub operators to access & manage the administrative
 
 #### Product Features
 
-| Platform Privileges             | Description                                                                                                               |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Manage All Home Page Posts      | Allow actor to create and delete home page posts. This corresponds to the 'post' resource type.                           |
-| Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                                  |
-| Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                        |
-| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources.                                                     |
-| Manage Features                 | Umbrella privilege to manage all features.                                                                                |
-| View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                                      |
-| Manage All Public Views         | Allow actor to create, update, and delete any Public (shared) Views. This corresponds to the 'dataHubView' resource type. |
-| Manage Ownership Types          | Allow actor to create, update and delete Ownership Types.                                                                 |
-| Create Business Attribute       | Allow actor to create new Business Attribute.                                                                             |
-| Manage Structured Properties    | Manage structured properties in your instance.                                                                            |
-| View Tests                      | View Asset Tests.                                                                                                         |
-| Manage Tests[^1]                | Allow actor to create and remove Asset Tests.                                                                             |
-| View Metadata Proposals[^1]     | Allow actor to view the requests tab for viewing metadata proposals.                                                      |
-| Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                               |
-| Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                                |
-| Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.        |
-| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                             |
+| Platform Privileges             | Description                                                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Manage Home Page Posts          | Allow actor to create and delete home page posts. This corresponds to the 'post' resource type.                       |
+| Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                              |
+| Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                    |
+| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources.                                                 |
+| Manage Features                 | Umbrella privilege to manage all features.                                                                            |
+| View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                                  |
+| Manage Public Views             | Allow actor to create, update, and delete Public (shared) Views. This corresponds to the 'dataHubView' resource type. |
+| Manage Ownership Types          | Allow actor to create, update and delete Ownership Types.                                                             |
+| Create Business Attribute       | Allow actor to create new Business Attribute.                                                                         |
+| Manage Structured Properties    | Manage structured properties in your instance.                                                                        |
+| View Tests                      | View Asset Tests.                                                                                                     |
+| Manage Tests[^1]                | Allow actor to create and remove Asset Tests.                                                                         |
+| View Metadata Proposals[^1]     | Allow actor to view the requests tab for viewing metadata proposals.                                                  |
+| Create metadata constraints[^2] | Allow actor to create metadata constraints.                                                                           |
+| Manage Platform Settings[^1]    | Allow actor to view and change platform-level settings, like integrations & notifications.                            |
+| Manage Monitors[^1]             | Allow actor to create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.    |
+| View Manage Tags                | Allow the actor to view the Manage Tags page.                                                                         |
 
 #### Entity Management
 
