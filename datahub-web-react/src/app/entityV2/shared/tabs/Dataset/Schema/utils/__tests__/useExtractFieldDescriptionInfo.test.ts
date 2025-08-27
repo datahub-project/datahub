@@ -106,7 +106,6 @@ describe('useExtractFieldDescriptionInfo', () => {
                 schemaFieldEntity: mockSchemaFieldWithEntity.schemaFieldEntity,
                 editableFieldInfo: mockEditableSchemaMetadata.editableSchemaFieldInfo![0],
                 defaultDescription: 'Parameter description',
-                enableInferredDescriptions: true,
             });
         });
 
@@ -128,7 +127,6 @@ describe('useExtractFieldDescriptionInfo', () => {
                 displayedDescription: 'Displayed description',
                 sanitizedDescription: 'sanitized: Displayed description',
                 isPropagated: false,
-                isInferred: false,
                 sourceDetail: [{ key: 'test', value: 'value' }],
                 attribution: { actor: { urn: 'test' }, time: 100 },
             });
@@ -248,28 +246,6 @@ describe('useExtractFieldDescriptionInfo', () => {
                     defaultDescription: undefined,
                 }),
             );
-        });
-    });
-
-    describe('inferred descriptions setting', () => {
-        it('should use enableInferredDescriptions from hook', () => {
-            mockUseIsDocumentationInferenceEnabled.mockReturnValue(false);
-
-            const { result } = renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
-
-            result.current(mockSchemaField);
-
-            expect(mockGetFieldDescriptionDetails).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    enableInferredDescriptions: false,
-                }),
-            );
-        });
-
-        it('should call useIsDocumentationInferenceEnabled hook', () => {
-            renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
-
-            expect(mockUseIsDocumentationInferenceEnabled).toHaveBeenCalled();
         });
     });
 
@@ -434,7 +410,6 @@ describe('useExtractFieldDescriptionInfo', () => {
                 displayedDescription: 'Complex description with <em>formatting</em>',
                 sanitizedDescription: 'Complex description with formatting',
                 isPropagated: true,
-                isInferred: true,
                 sourceDetail: [
                     { key: 'propagated', value: 'true' },
                     { key: 'inferred', value: 'true' },
@@ -450,7 +425,6 @@ describe('useExtractFieldDescriptionInfo', () => {
                 schemaFieldEntity: mockSchemaFieldWithEntity.schemaFieldEntity,
                 editableFieldInfo: mockEditableSchemaMetadata.editableSchemaFieldInfo![0],
                 defaultDescription: 'Override description',
-                enableInferredDescriptions: true,
             });
         });
     });
