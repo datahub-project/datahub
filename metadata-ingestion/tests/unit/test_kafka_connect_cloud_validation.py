@@ -390,7 +390,10 @@ class TestConnectorConfigValidation:
         }
 
         # Topics without transforms (server.schema.table format)
-        topic_names = ["test_mysql_server.schema_a.table_x", "test_mysql_server.schema_b.table_y"]
+        topic_names = [
+            "test_mysql_server.schema_a.table_x",
+            "test_mysql_server.schema_b.table_y",
+        ]
 
         expected_lineages = [
             {
@@ -551,11 +554,11 @@ class TestConnectorConfigValidation:
         # 2. After EventRouter: outbox.event.{event_type} (extracts events from outbox table)
         # 3. After RegexRouter: test.events.{event_type}
 
-        # Expected final topics (after both transforms)
+        # Expected final topics (after both transforms) - in alphabetical order for consistency
         topic_names = [
-            "test.events.entity_created",  # Example event types
-            "test.events.entity_updated", 
+            "test.events.entity_created",  # Example event types (sorted)
             "test.events.entity_deleted",
+            "test.events.entity_updated",
         ]
 
         expected_lineages = [
@@ -568,13 +571,13 @@ class TestConnectorConfigValidation:
             {
                 "source_dataset": "test_database.outbox_table",
                 "source_platform": "mysql",
-                "target_dataset": "test.events.entity_updated",
+                "target_dataset": "test.events.entity_deleted",
                 "target_platform": "kafka",
             },
             {
                 "source_dataset": "test_database.outbox_table",
                 "source_platform": "mysql",
-                "target_dataset": "test.events.entity_deleted",
+                "target_dataset": "test.events.entity_updated",
                 "target_platform": "kafka",
             },
         ]
