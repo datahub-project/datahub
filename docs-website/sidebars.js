@@ -1148,7 +1148,6 @@ module.exports = {
     // - "docker/datahub-ingestion/README",
     // - "docker/elasticsearch-setup/README",
     // - "docker/ingestion/README",
-    // - "docker/kafka-setup/README",
     // - "docker/mariadb/README",
     // - "docker/mysql/README",
     // - "docker/neo4j/README",
