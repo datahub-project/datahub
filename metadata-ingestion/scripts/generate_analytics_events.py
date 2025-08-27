@@ -12,38 +12,47 @@ from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
+    BrowsePathEntryClass,
     BrowsePathsClass,
+    BrowsePathsV2Class,
     DatasetPropertiesClass,
     EnumTypeClass,
     GlobalTagsClass,
     NumberTypeClass,
     OtherSchemaClass,
-    RecordTypeClass,
     SchemaFieldClass as SchemaField,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
-    BrowsePathsV2Class,
-    BrowsePathEntryClass,
 )
 
 logger = logging.getLogger(__name__)
 
+
 def is_field_doc(line: str):
     return line.startswith("/**") and line.endswith("*/")
+
 
 def get_field_doc(line: str):
     return line.replace("/** ", "").replace("*/", "").replace("\n", "")
 
+
 def is_field(line: str):
     return ":" in line and line.endswith(";")
+
 
 def create_schema_field(line: str, field_description: str, is_base_field: bool):
     is_nullable = "?" in line
     line = line.split(";")[0]
-    line = line.replace("?", "").replace(";", "").replace("\n", "").replace(" ", "").strip()
+    line = (
+        line.replace("?", "")
+        .replace(";", "")
+        .replace("\n", "")
+        .replace(" ", "")
+        .strip()
+    )
     [field, type] = line.split(":")
 
     schema_field_type = StringTypeClass()
@@ -53,27 +62,35 @@ def create_schema_field(line: str, field_description: str, is_base_field: bool):
         schema_field_type = BooleanTypeClass()
     elif type == "number":
         schema_field_type = NumberTypeClass()
-    elif "Array" in type:
-        schema_field_type = ArrayTypeClass()
-    elif "[]" in type:
+    elif "Array" in type or "[]" in type:
         schema_field_type = ArrayTypeClass()
     else:
         schema_field_type = EnumTypeClass()
 
-    description = f"Base field (in all events): {field_description}" if is_base_field else field_description
+    description = (
+        f"Base field (in all events): {field_description}"
+        if is_base_field
+        else field_description
+    )
     field = SchemaField(
         fieldPath=field,
         type=SchemaFieldDataTypeClass(type=schema_field_type),
         nativeDataType=type,
         nullable=is_nullable,
         isPartOfKey=False,
-        description=description
+        description=description,
     )
 
     return field
 
+
 def get_event_name(line: str):
-    return line.replace("export interface ", "").replace(" extends BaseEvent {", "").replace("\n", "")
+    return (
+        line.replace("export interface ", "")
+        .replace(" extends BaseEvent {", "")
+        .replace("\n", "")
+    )
+
 
 def create_event_mcps(event_name: str, base_fields, fields, event_doc: str):
     dataset_urn = make_dataset_urn(
@@ -93,7 +110,10 @@ def create_event_mcps(event_name: str, base_fields, fields, event_doc: str):
                 foreignKeys=None,
             ),
             GlobalTagsClass(
-                tags=[TagAssociationClass(tag="urn:li:tag:Entity"), TagAssociationClass(tag="urn:li:tag:AnalyticsEvent")]
+                tags=[
+                    TagAssociationClass(tag="urn:li:tag:Entity"),
+                    TagAssociationClass(tag="urn:li:tag:AnalyticsEvent"),
+                ]
             ),
             BrowsePathsClass([f"/prod/datahub/events/{event_name}"]),
             BrowsePathsV2Class(
@@ -102,12 +122,11 @@ def create_event_mcps(event_name: str, base_fields, fields, event_doc: str):
                     BrowsePathEntryClass(id=event_name),
                 ]
             ),
-            DatasetPropertiesClass(
-                description=event_doc
-            ),
+            DatasetPropertiesClass(description=event_doc),
             SubTypesClass(typeNames=["Analytics Event"]),
         ],
     )
+
 
 @click.command()
 @click.option("--events-file", type=click.Path(exists=True), required=True)
@@ -131,7 +150,7 @@ def generate(
         field_description = ""
         base_fields = []
         fields = []
-        
+
         for line in typescript_file:
             line = line.strip().replace("\n", "")
             # handle scraping the base event to get all of the generic fields for every event
@@ -151,7 +170,7 @@ def generate(
                     base_fields.append(base_field)
                     field_description = ""
                     continue
-            # we're starting a doc for an event if we don't have 
+            # we're starting a doc for an event if we don't have
             if event_name == "" and "/**" in line:
                 is_doc = True
                 continue
@@ -181,7 +200,6 @@ def generate(
                     fields.append(field)
                     field_description = ""
 
-        
         Path(mces_file).parent.mkdir(parents=True, exist_ok=True)
         fileSink = FileSink(
             PipelineContext(run_id="generated-events"),
@@ -210,7 +228,6 @@ def generate(
         with open(pipeline_file, "w") as f:
             json.dump(pipeline_config, f, indent=2)
             logger.info(f"Wrote pipeline to {pipeline_file}")
-
 
 
 if __name__ == "__main__":
