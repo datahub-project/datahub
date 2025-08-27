@@ -205,6 +205,33 @@ query listUsers($input: ListUsersInput!) {
                 skills
             }
             status
+            groups: relationships(
+                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 10 }
+            ) {
+                start
+                count
+                total
+                relationships {
+                    entity {
+                        ... on CorpGroup {
+                            urn
+                            type
+                            name
+                            info {
+                                displayName
+                                description
+                                email
+                            }
+                            properties {
+                                displayName
+                                description
+                                email
+                                slack
+                            }
+                        }
+                    }
+                }
+            }
             roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
                 start
                 count
