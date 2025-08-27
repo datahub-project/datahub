@@ -1340,9 +1340,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         Returns:
             GlobalTagsClass with user-defined tags, or None if no tags
         """
-        if not raw_tags:
-            return None
-
         user_tags = [
             tag.get("name", "")
             for tag in raw_tags
