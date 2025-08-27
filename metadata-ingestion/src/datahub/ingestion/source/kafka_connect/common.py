@@ -25,6 +25,35 @@ SOURCE = "source"
 SINK = "sink"
 CONNECTOR_CLASS = "connector.class"
 
+# Confluent Cloud connector class names
+# References:
+# - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source.html
+# - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source-v2.html
+# - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-sink.html
+# - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-sink.html
+POSTGRES_CDC_SOURCE_CLOUD = "PostgresCdcSource"
+POSTGRES_CDC_SOURCE_V2_CLOUD = "PostgresCdcSourceV2"
+POSTGRES_SINK_CLOUD = "PostgresSink"
+SNOWFLAKE_SINK_CLOUD = "SnowflakeSink"
+MYSQL_SOURCE_CLOUD = "MySqlSource"
+MYSQL_CDC_SOURCE_CLOUD = "MySqlCdcSource"
+MYSQL_SINK_CLOUD = "MySqlSink"
+
+# Cloud JDBC source connector classes
+CLOUD_JDBC_SOURCE_CLASSES = [
+    POSTGRES_CDC_SOURCE_CLOUD,
+    POSTGRES_CDC_SOURCE_V2_CLOUD,
+    MYSQL_SOURCE_CLOUD,
+    MYSQL_CDC_SOURCE_CLOUD,
+]
+
+# Cloud sink connector classes
+CLOUD_SINK_CLASSES = [
+    POSTGRES_SINK_CLOUD,
+    SNOWFLAKE_SINK_CLOUD,
+    MYSQL_SINK_CLOUD,
+]
+
 
 class ProvidedConfig(ConfigModel):
     provider: str
@@ -178,6 +207,43 @@ def transform_connector_config(
         for key, value in lookupsByProvider.items():
             if key in v:
                 connector_config[k] = connector_config[k].replace(key, value)
+
+
+def get_platform_from_connector_class(connector_class: str) -> str:
+    """Determine source platform from connector class name
+
+    References:
+    - Cloud connectors: https://docs.confluent.io/cloud/current/connectors/
+    - Platform connectors: https://docs.confluent.io/platform/current/connect/
+    """
+    # Cloud connector exact matches
+    if (
+        connector_class
+        in [
+            POSTGRES_CDC_SOURCE_CLOUD,
+            POSTGRES_CDC_SOURCE_V2_CLOUD,
+            POSTGRES_SINK_CLOUD,
+        ]
+        or "postgres" in connector_class.lower()
+    ):
+        return "postgres"
+    elif (
+        connector_class
+        in [
+            MYSQL_SOURCE_CLOUD,
+            MYSQL_CDC_SOURCE_CLOUD,
+            MYSQL_SINK_CLOUD,
+        ]
+        or "mysql" in connector_class.lower()
+    ):
+        return "mysql"
+    elif (
+        connector_class in [SNOWFLAKE_SINK_CLOUD]
+        or "snowflake" in connector_class.lower()
+    ):
+        return "snowflake"
+    else:
+        return "unknown"
 
 
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.

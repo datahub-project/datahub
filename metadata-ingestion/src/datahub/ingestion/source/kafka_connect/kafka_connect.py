@@ -20,6 +20,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
+    CLOUD_JDBC_SOURCE_CLASSES,
     CONNECTOR_CLASS,
     SINK,
     SOURCE,
@@ -134,8 +135,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             if connector_manifest.type == SOURCE:
                 connector_manifest.tasks = self._get_connector_tasks(connector_name)
 
-                # JDBC source connector lineages
-                if connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS:
+                # JDBC source connector lineages (both Platform and Cloud)
+                if (
+                    connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS
+                    or connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
+                ):
                     class_type = ConfluentJDBCSourceConnector
                 elif connector_class_value.startswith(DEBEZIUM_SOURCE_CONNECTOR_PREFIX):
                     class_type = DebeziumSourceConnector
@@ -337,6 +341,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             and (
                 "JdbcSourceConnector" in connector_class
                 or connector_class.startswith("io.debezium.connector")
+                or connector_class in CLOUD_JDBC_SOURCE_CLASSES
             )
             and lineage.source_dataset
             and config.connect_to_platform_map
