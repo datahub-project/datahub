@@ -8,6 +8,7 @@ import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.avroutil1.compatibility.shaded.org.apache.commons.lang3.NotImplementedException;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -57,7 +58,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.NotImplementedException;
 
 /** This serves as a base class for MAE-based notification generators. */
 @Slf4j

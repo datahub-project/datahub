@@ -12,7 +12,6 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;

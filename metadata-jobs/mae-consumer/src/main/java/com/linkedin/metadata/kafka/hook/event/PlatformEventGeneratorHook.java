@@ -114,6 +114,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   private final Boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
   private final List<String> entityExclusions;
+  private final List<String> fineGrainedLineageNotAllowedForPlatforms;
 
   @Autowired
   public PlatformEventGeneratorHook(
@@ -124,7 +125,9 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${entityChangeEvents.consumerGroupSuffix}") String consumerGroupSuffix,
       @Nonnull @Value("#{'${entityChangeEvents.entityExclusions}'.split(',')}")
-          List<String> entityExclusions) {
+          List<String> entityExclusions,
+      @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
+          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
     this.systemOperationContext = systemOperationContext;
     this.entityChangeEventGeneratorRegistry =
         Objects.requireNonNull(entityChangeEventGeneratorRegistry);
@@ -132,6 +135,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
     this.entityExclusions = entityExclusions;
+    this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
   }
 
   @VisibleForTesting
@@ -146,6 +150,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         entityClient,
         isEnabled,
         "",
+        Collections.emptyList(),
         Collections.emptyList());
   }
 
@@ -341,7 +346,9 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
               aspectSpec,
               oldAspect,
               logEvent,
-              false);
+              false,
+              fineGrainedLineageNotAllowedForPlatforms,
+              systemOperationContext.getEntityRegistry());
     }
 
     final List<Edge> oldEdges =
@@ -350,7 +357,14 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
             : Collections.emptyList();
 
     EdgeDiff edgeDiff =
-        computeAspectEdgeDiff(logEvent.getEntityUrn(), aspectSpec, oldAspect, newAspect, logEvent);
+        computeAspectEdgeDiff(
+            logEvent.getEntityUrn(),
+            aspectSpec,
+            oldAspect,
+            newAspect,
+            logEvent,
+            fineGrainedLineageNotAllowedForPlatforms,
+            systemOperationContext.getEntityRegistry());
 
     List<RelationshipChangeEvent> relationshipChangeEvents = new ArrayList<>();
 

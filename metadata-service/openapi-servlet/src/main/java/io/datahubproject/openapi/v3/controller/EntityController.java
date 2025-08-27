@@ -41,7 +41,6 @@ import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFields;
@@ -12,9 +14,13 @@ import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -32,11 +38,12 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 
 @Slf4j
 public class GraphIndexUtils {
   private static final String DOWNSTREAM_OF = "DownstreamOf";
-  private final String FINE_GRAINED_LINEAGE_PATH = "/fineGrainedLineages/*/upstreams/*";
+  private static final String FINE_GRAINED_LINEAGE_PATH = "/fineGrainedLineages/*/upstreams/*";
 
   private GraphIndexUtils() {}
 
@@ -281,7 +288,8 @@ public class GraphIndexUtils {
 
             // restrict the creation of schemafield nodes and their relationships
             // especially for platforms like hdfs
-            if (isFineGrainedLineageNotAllowedForPlatforms(downstream, upstream, fineGrainedLineageNotAllowedForPlatforms, entityRegistry)) {
+            if (isFineGrainedLineageNotAllowedForPlatforms(
+                downstream, upstream, fineGrainedLineageNotAllowedForPlatforms, entityRegistry)) {
               log.debug(
                   "Skipping fine grained lineage for downstream {} and upstream {}",
                   downstream,
@@ -344,7 +352,7 @@ public class GraphIndexUtils {
     }
   }
 
-  private void removeFineGrainedLineageForNotAllowedPlatforms(
+  private static void removeFineGrainedLineageForNotAllowedPlatforms(
       Map<RelationshipFieldSpec, List<Object>> extractedFields,
       AspectSpec aspectSpec,
       List<String> fineGrainedLineageNotAllowedForPlatforms,
@@ -360,14 +368,20 @@ public class GraphIndexUtils {
           if (fineGrainedLineageUrn instanceof Urn) {
             Urn upstreamSchemaFieldUrn = (Urn) fineGrainedLineageUrn;
             return isFineGrainedLineageNotAllowedForPlatforms(
-                null, upstreamSchemaFieldUrn, fineGrainedLineageNotAllowedForPlatforms, entityRegistry);
+                null,
+                upstreamSchemaFieldUrn,
+                fineGrainedLineageNotAllowedForPlatforms,
+                entityRegistry);
           }
           return false;
         });
   }
 
-  private boolean isFineGrainedLineageNotAllowedForPlatforms(
-      Urn downstream, Urn upstream, List<String> fineGrainedLineageNotAllowedForPlatforms, EntityRegistry entityRegistry) {
+  private static boolean isFineGrainedLineageNotAllowedForPlatforms(
+      Urn downstream,
+      Urn upstream,
+      List<String> fineGrainedLineageNotAllowedForPlatforms,
+      EntityRegistry entityRegistry) {
     return !CollectionUtils.isEmpty(fineGrainedLineageNotAllowedForPlatforms)
         && ((Objects.nonNull(downstream)
                 && downstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
@@ -379,7 +393,7 @@ public class GraphIndexUtils {
                     getDatasetPlatformName(entityRegistry, upstream.getIdAsUrn()))));
   }
 
-  private String getDatasetPlatformName(EntityRegistry entityRegistry, Urn datasetUrn) {
+  private static String getDatasetPlatformName(EntityRegistry entityRegistry, Urn datasetUrn) {
     DatasetKey dsKey =
         (DatasetKey)
             EntityKeyUtils.convertUrnToEntityKey(
@@ -414,17 +428,27 @@ public class GraphIndexUtils {
       return Pair.of(edges, urnToRelationshipTypes);
     }
 
-    if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
+    if (aspectSpec.getName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
       updateFineGrainedEdgesAndRelationships(
-          urn, upstreamLineage.getFineGrainedLineages(), edges, urnToRelationshipTypes);
+          urn,
+          upstreamLineage.getFineGrainedLineages(),
+          edges,
+          urnToRelationshipTypes,
+          fineGrainedLineageNotAllowedForPlatforms,
+          entityRegistry);
     } else if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
       final InputFields inputFields = new InputFields(aspect.data());
       updateInputFieldEdgesAndRelationships(urn, inputFields, edges, urnToRelationshipTypes);
     } else if (aspectSpec.getName().equals(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
       DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(aspect.data());
       updateFineGrainedEdgesAndRelationships(
-          urn, dataJobInputOutput.getFineGrainedLineages(), edges, urnToRelationshipTypes);
+          urn,
+          dataJobInputOutput.getFineGrainedLineages(),
+          edges,
+          urnToRelationshipTypes,
+          fineGrainedLineageNotAllowedForPlatforms,
+          entityRegistry);
     }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
@@ -432,7 +456,8 @@ public class GraphIndexUtils {
 
     // restrict the creation of schema field nodes and their relationships especially for
     // platforms like hdfs
-    removeFineGrainedLineageForNotAllowedPlatforms(extractedFields, aspectSpec, fineGrainedLineageNotAllowedForPlatforms, entityRegistry);
+    removeFineGrainedLineageForNotAllowedPlatforms(
+        extractedFields, aspectSpec, fineGrainedLineageNotAllowedForPlatforms, entityRegistry);
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
       Set<String> relationshipTypes = urnToRelationshipTypes.getOrDefault(urn, new HashSet<>());
@@ -467,7 +492,13 @@ public class GraphIndexUtils {
     if (oldAspect != null) {
       oldEdgeAndRelationTypes =
           GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
-              urn, aspectSpec, oldAspect, event, false, fineGrainedLineageNotAllowedForPlatforms, entityRegistry);
+              urn,
+              aspectSpec,
+              oldAspect,
+              event,
+              false,
+              fineGrainedLineageNotAllowedForPlatforms,
+              entityRegistry);
     }
 
     final List<Edge> oldEdges =
@@ -478,7 +509,13 @@ public class GraphIndexUtils {
 
     Pair<List<Edge>, HashMap<Urn, Set<String>>> newEdgeAndRelationTypes =
         GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
-            urn, aspectSpec, newAspect, event, true, fineGrainedLineageNotAllowedForPlatforms, entityRegistry);
+            urn,
+            aspectSpec,
+            newAspect,
+            event,
+            true,
+            fineGrainedLineageNotAllowedForPlatforms,
+            entityRegistry);
 
     final List<Edge> newEdges = newEdgeAndRelationTypes.getFirst();
     final Set<Edge> newEdgeSet = new HashSet<>(newEdges);

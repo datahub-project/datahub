@@ -168,11 +168,17 @@ public class SystemUpdateConfig {
       final SystemMetadataService systemMetadataService,
       final SearchDocumentTransformer searchDocumentTransformer,
       final EntityService<?> entityService,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
+          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
-            new UpdateGraphIndicesService(graphService, graphDiffMode, graphStatusEnabled),
+            new UpdateGraphIndicesService(
+                graphService,
+                graphDiffMode,
+                graphStatusEnabled,
+                fineGrainedLineageNotAllowedForPlatforms),
             elasticSearchService,
             timeseriesAspectService,
             systemMetadataService,
