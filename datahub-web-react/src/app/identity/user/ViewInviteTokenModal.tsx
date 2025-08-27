@@ -214,7 +214,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
 
                 {/* <UserRecommendationsSection recommendedUsers={recommendedUsers} inviteLink={inviteLink} /> */}
 
-                {isSsoConfigured ? (
+                {!isSsoConfigured && (
                     <>
                         <Divider />
                         <Text size="lg" weight="semiBold">
@@ -228,7 +228,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                             <Button variant="secondary">Configure SSO</Button>
                         </Link>
                     </>
-                ) : null}
+                )}
             </ModalSection>
         </Modal>
     );
