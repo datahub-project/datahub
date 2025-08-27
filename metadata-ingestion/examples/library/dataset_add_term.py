@@ -7,4 +7,8 @@ dataset = client.entities.get(
 )
 dataset.add_term(GlossaryTermUrn("Classification.HighlyConfidential"))
 
+# Or, if you know the term name but not the term urn:
+term_urn = client.resolve.term(name="PII")
+dataset.add_term(term_urn)
+
 client.entities.update(dataset)
