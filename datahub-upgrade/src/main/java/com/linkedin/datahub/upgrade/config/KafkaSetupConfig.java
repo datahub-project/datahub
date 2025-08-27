@@ -17,7 +17,7 @@ public class KafkaSetupConfig {
 
   @Autowired private OperationContext opContext;
 
-  @Order(1) // This ensures it runs before BuildIndices (@Order(1))
+  @Order(1) // This ensures it runs before BuildIndices (@Order(2))
   @Bean(name = "kafkaSetup")
   public BlockingSystemUpgrade kafkaSetup(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
