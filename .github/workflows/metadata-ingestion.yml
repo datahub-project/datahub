@@ -51,10 +51,6 @@ jobs:
             "testIntegrationBatch4",
             "testIntegrationBatch5",
           ]
-        include:
-          # Version compatibility tests.
-          - python-version: "3.9"
-            command: "testQuick"
       fail-fast: false
     steps:
       - name: Free up disk space
