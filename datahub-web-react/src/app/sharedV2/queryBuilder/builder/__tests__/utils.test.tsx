@@ -238,7 +238,8 @@ describe('utils', () => {
     ];
 
     const EMPTY_LOGICAL_PREDICATE: LogicalPredicate = {} as any;
-    const LOGICAL_PREDICATE_WITH_EMPTY_OPERANDS = {
+    const LOGICAL_PREDICATE_WITH_EMPTY_OPERANDS: LogicalPredicate = {
+        type: 'logical',
         operator: LogicalOperatorType.AND,
         operands: [],
     };
