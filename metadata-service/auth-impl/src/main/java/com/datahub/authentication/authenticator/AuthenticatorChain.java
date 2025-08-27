@@ -50,6 +50,7 @@ public class AuthenticatorChain {
       @Nonnull final AuthenticationRequest context, boolean logExceptions)
       throws AuthenticationException {
     Objects.requireNonNull(context);
+
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     List<Pair<String, Exception>> authenticationFailures = new ArrayList<>();
     for (final Authenticator authenticator : this.authenticators) {

@@ -70,6 +70,29 @@ fragment ListDomain on Domain {
     }
 }
 
+fragment ListDomain on Domain {
+    urn
+    id
+    type
+    properties {
+        name
+        description
+    }
+    parentDomains {
+        ...parentDomainsFields
+    }
+    ownership {
+        ...ownershipFields
+    }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    ...domainEntitiesFields
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+}
+
 query listDomains($input: ListDomainsInput!) {
     listDomains(input: $input) {
         start

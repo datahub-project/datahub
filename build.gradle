@@ -10,8 +10,7 @@ buildscript {
   ext.jdkVersion = { p ->
     // If Spring 6 is present, hard dependency on jdk17
     if (p.configurations.any { it.getDependencies().any{
-      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
-      || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
+      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6.")) || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
     }} || springModules.contains(p.name)) {
       return 17
     } else {
@@ -35,10 +34,10 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.65.7'
+  ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.5'
+  ext.springVersion = '6.2.10'
   ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.6'
   ext.openTelemetryVersion = '1.49.0'
@@ -62,7 +61,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.25.0'
+  ext.openLineageVersion = '1.33.0'
   ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.15.1'
@@ -143,7 +142,7 @@ project.ext.externalDependency = [
     'commonsIo': 'commons-io:commons-io:2.17.0',
     'commonsLang': 'commons-lang:commons-lang:2.6',
     'commonsLang3': 'org.apache.commons:commons-lang3:3.17.0',
-    'commonsText': 'org.apache.commons:commons-text:1.12.0',
+    'commonsText': 'org.apache.commons:commons-text:1.14.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
@@ -417,7 +416,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.glassfish', module: 'jakarta.json'
 exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
-
+    exclude group: 'com.typesafe.play', module: 'shaded-oauth'
+    exclude group: 'commons-httpclient', module: 'commons-httpclient'
+    exclude group: 'commons-collections', module: 'commons-collections'
+    exclude group: 'commons-lang', module: 'commons-lang'
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
     exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
@@ -426,6 +428,9 @@ exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
+    resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
+    resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
+    resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"
@@ -504,7 +509,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.118.Final')
+        implementation('io.netty:netty-all:4.1.124.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')

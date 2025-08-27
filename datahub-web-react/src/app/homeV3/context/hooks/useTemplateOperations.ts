@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import useShowToast from '@app/homeV3/toast/useShowToast';
 
 import {
     PageModuleFragment,
@@ -56,6 +57,8 @@ export function useTemplateOperations(
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
     const [deletePageTemplate] = useDeletePageTemplateMutation();
+
+    const { showToast } = useShowToast();
 
     // Helper function to update template state with a new module
     const updateTemplateWithModule = useCallback(
@@ -201,10 +204,14 @@ export function useTemplateOperations(
                     // set personal template in state after successful creation of new personal template with correct urn
                     setPersonalTemplate(data.upsertPageTemplate);
                     updateUserHomePageSettings({ variables: { input: { pageTemplate: data.upsertPageTemplate.urn } } });
+                    showToast(
+                        'You’ve edited your home page',
+                        `To reset your home page click "Reset to Organization Default"`,
+                    );
                 }
             });
         },
-        [upsertPageTemplateMutation, updateUserHomePageSettings, setPersonalTemplate],
+        [upsertPageTemplateMutation, updateUserHomePageSettings, setPersonalTemplate, showToast],
     );
 
     const resetTemplateToDefault = () => {

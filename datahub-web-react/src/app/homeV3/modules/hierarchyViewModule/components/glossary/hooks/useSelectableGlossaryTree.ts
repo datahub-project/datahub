@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 
 import useGlossaryNodesAndTermsByUrns from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryNodesAndTermsByUrns';
+import useGlossaryTreeNodesSorter from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryTreeNodesSorter';
 import useRootGlossaryNodesAndTerms from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useRootGlossaryNodesAndTerms';
 import useTreeNodesFromFlatGlossaryNodesAndTerms from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useTreeNodesFromFlatGlossaryNodesAndTerms';
 import useTreeNodesFromGlossaryNodesAndTerms from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useTreeNodesFromGlossaryNodesAndTerms';
 import useTree from '@app/homeV3/modules/hierarchyViewModule/treeView/useTree';
 
 export default function useSelectableGlossaryTree(initialSelectedGlossaryNodesAndTermsUrns: string[]) {
-    const tree = useTree();
+    const nodesSorter = useGlossaryTreeNodesSorter();
+    const tree = useTree(undefined, nodesSorter);
 
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const [selectedValues, setSelectedValues] = useState<string[]>(initialSelectedGlossaryNodesAndTermsUrns ?? []);

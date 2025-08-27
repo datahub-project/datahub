@@ -1,0 +1,14 @@
+source:
+  type: sql-queries
+  config:
+    query_file: input/patch-lineage.jsonl
+    platform: snowflake
+    incremental_lineage: true
+
+sink:
+  type: file
+  config:
+    filename: ./output.json
+
+datahub_api:
+  server: http://localhost:8080

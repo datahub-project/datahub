@@ -22,6 +22,7 @@ const SelectedAssetsContainer = styled.div`
 const ResultsContainer = styled.div`
     margin: 0 -12px 0 -8px;
     overflow-y: auto;
+    scrollbar-gutter: stable;
 `;
 
 type Props = {

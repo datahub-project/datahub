@@ -48,6 +48,7 @@ import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
     getDataProduct,
+    getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { LOOKER_URN, MODE, MODE_URN } from '@app/ingest/source/builder/constants';
@@ -96,10 +97,7 @@ export class ChartEntity implements Entity<Chart> {
         return (
             <LineChartOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -303,7 +301,7 @@ export class ChartEntity implements Entity<Chart> {
                 domain={data.domain?.domain}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 parentContainers={data.parentContainers}
-                subType={data.subTypes?.typeNames?.[0]}
+                subType={getFirstSubType(data)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
                     isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
@@ -327,7 +325,7 @@ export class ChartEntity implements Entity<Chart> {
             <ChartPreview
                 urn={data.urn}
                 data={genericProperties}
-                subType={data.subTypes?.typeNames?.[0]}
+                subType={getFirstSubType(data)}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
@@ -382,7 +380,7 @@ export class ChartEntity implements Entity<Chart> {
             type: EntityType.Chart,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
             deprecation: entity?.deprecation,
         };
     };

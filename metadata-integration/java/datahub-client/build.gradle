@@ -244,6 +244,7 @@ publishing {
     maven {
       def releasesRepoUrl = "https://acryl-795586375822.d.codeartifact.us-west-2.amazonaws.com/maven/acryl-datahub-client/"
       def snapshotsRepoUrl = "https://acryl-795586375822.d.codeartifact.us-west-2.amazonaws.com/maven/acryl-datahub-client/"
+
       credentials {
         username "aws"
         password System.getenv('CODEARTIFACT_AUTH_TOKEN')

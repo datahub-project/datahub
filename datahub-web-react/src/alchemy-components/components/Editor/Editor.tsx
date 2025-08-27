@@ -9,6 +9,7 @@ import {
     CodeBlockExtension,
     CodeExtension,
     DropCursorExtension,
+    FontSizeExtension,
     HardBreakExtension,
     HeadingExtension,
     HistoryExtension,
@@ -42,10 +43,12 @@ type EditorProps = {
     className?: string;
     doNotFocus?: boolean;
     placeholder?: string;
+    hideHighlightToolbar?: boolean;
+    toolbarStyles?: React.CSSProperties;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder } = props;
+    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -68,6 +71,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new UnderlineExtension(),
             new StrikeExtension(),
             new TableExtension({ resizable: false }),
+            new FontSizeExtension({}),
             ...(readOnly ? [] : [new HistoryExtension({})]),
         ],
         content,
@@ -100,9 +104,9 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar />
+                            <Toolbar styles={toolbarStyles} />
                             <CodeBlockToolbar />
-                            <FloatingToolbar />
+                            {!hideHighlightToolbar && <FloatingToolbar />}
                             <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
                             <MentionsComponent />
                             {onChange && <OnChangeMarkdown onChange={onChange} />}

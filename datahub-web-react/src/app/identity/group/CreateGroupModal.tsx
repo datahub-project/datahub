@@ -109,6 +109,40 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                             });
                         }
                     }
+                    // Add the current user as an owner and member of the group
+                    if (currentUserUrn && data?.createGroup) {
+                        // Add the current user as an owner of the group
+                        addOwnerMutation({
+                            variables: {
+                                input: {
+                                    ownerUrn: currentUserUrn,
+                                    resourceUrn: data.createGroup,
+                                    ownerEntityType: OwnerEntityType.CorpUser,
+                                    ownershipTypeUrn: 'urn:li:ownershipType:__system__none',
+                                },
+                            },
+                        }).catch((e) => {
+                            console.error(e);
+                            message.error({
+                                content: `Failed to automatically add you as an owner of the group. Please add yourself as an owner manually.`,
+                                duration: 5,
+                            });
+                        });
+
+                        // Add the current user as a member of the group
+                        addGroupMembersMutation({
+                            variables: {
+                                groupUrn: data.createGroup,
+                                userUrns: [currentUserUrn],
+                            },
+                        }).catch((e) => {
+                            console.error(e);
+                            message.error({
+                                content: `Failed to automatically add you as a member of the group. Please add yourself as a member manually.`,
+                                duration: 5,
+                            });
+                        });
+                    }
                 })
                 .catch((e) => {
                     message.destroy();

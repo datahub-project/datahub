@@ -1,5 +1,6 @@
 package com.datahub.gms.servlet;
 
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -7,6 +8,10 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -18,6 +23,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
+import java.util.Collections;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -26,6 +32,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.web.context.WebApplicationContext;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -71,6 +78,12 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     // Create servlet and set context
     configServlet = new Config();
     when(request.getServletContext()).thenReturn(servletContext);
+  }
+
+  @AfterMethod
+  public void cleanup() {
+    // Always clean up authentication context after each test
+    AuthenticationContext.remove();
   }
 
   @Test
@@ -123,5 +136,219 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     } catch (Exception e) {
       fail("Should not throw an exception", e);
     }
+  }
+
+  // =================================
+  // Progressive Disclosure Tests (NEW)
+  // =================================
+
+  @Test
+  public void testProgressiveDisclosure_AuthenticatedUser() throws Exception {
+    // Setup authenticated user context
+    Actor actor = new Actor(ActorType.USER, "testuser");
+    Authentication authentication =
+        new Authentication(actor, "credentials", Collections.emptyMap());
+    AuthenticationContext.setAuthentication(authentication);
+
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
+
+    // Execute request
+    configServlet.doGet(request, response);
+
+    // Verify response
+    verify(response).setContentType("application/json");
+    verify(response).setStatus(HttpServletResponse.SC_OK);
+
+    // Parse response and check userType
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    assertEquals(
+        config.path("userType").asText(), "user", "Authenticated user should have userType 'user'");
+  }
+
+  @Test
+  public void testProgressiveDisclosure_AnonymousUser() throws Exception {
+    // Setup anonymous user context
+    Actor anonymousActor = new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID);
+    Authentication anonymousAuth = new Authentication(anonymousActor, "", Collections.emptyMap());
+    AuthenticationContext.setAuthentication(anonymousAuth);
+
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
+
+    // Execute request
+    configServlet.doGet(request, response);
+
+    // Verify response
+    verify(response).setContentType("application/json");
+    verify(response).setStatus(HttpServletResponse.SC_OK);
+
+    // Parse response and check userType
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    assertEquals(
+        config.path("userType").asText(),
+        "anonymous",
+        "Anonymous user should have userType 'anonymous'");
+  }
+
+  @Test
+  public void testProgressiveDisclosure_NoAuthenticationContext() throws Exception {
+    // No authentication context set (null)
+    // AuthenticationContext.getAuthentication() will return null
+
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
+
+    // Execute request
+    configServlet.doGet(request, response);
+
+    // Verify response
+    verify(response).setContentType("application/json");
+    verify(response).setStatus(HttpServletResponse.SC_OK);
+
+    // Parse response and check userType
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    assertEquals(
+        config.path("userType").asText(),
+        "anonymous",
+        "No authentication context should default to userType 'anonymous'");
+  }
+
+  @Test
+  public void testProgressiveDisclosure_ConfigContainsUserType() throws Exception {
+    // Test that the userType property is present in verbose response
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
+
+    configServlet.doGet(request, response);
+
+    // Parse response
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    assertTrue(config.has("userType"), "Verbose response should contain 'userType' property");
+    assertNotNull(config.path("userType"), "userType should not be null");
+    assertTrue(config.path("userType").isTextual(), "userType should be a string");
+  }
+
+  @Test
+  public void testBackwardCompatibility_NoUserTypeWithoutVerbose() throws Exception {
+    // Test that userType is NOT included without verbose parameter (backward compatibility)
+    // Don't mock verbose parameter - it should return null by default
+
+    configServlet.doGet(request, response);
+
+    // Parse response
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    // Verify userType is NOT present without verbose=true
+    assertTrue(
+        !config.has("userType"),
+        "Response should NOT contain 'userType' without verbose=true (backward compatibility)");
+
+    // Verify other config fields are still present
+    assertTrue(config.path("noCode").asBoolean());
+    assertTrue(config.path("retention").asBoolean());
+    assertTrue(config.path("statefulIngestionCapable").asBoolean());
+    assertTrue(config.path("patchCapable").asBoolean());
+  }
+
+  // =================================
+  // Cache Behavior Tests
+  // =================================
+
+  @Test
+  public void testCacheBehavior_SecondRequestUsesCache() throws Exception {
+    // First request
+    configServlet.doGet(request, response);
+    String firstResponse = responseWriter.toString();
+
+    // Reset response writer for second request
+    responseWriter = new StringWriter();
+    PrintWriter printWriter = new PrintWriter(responseWriter);
+    when(response.getWriter()).thenReturn(printWriter);
+
+    // Second request immediately after (should use cache)
+    configServlet.doGet(request, response);
+    String secondResponse = responseWriter.toString();
+
+    // Both responses should be identical (using cached config)
+    assertEquals(
+        firstResponse,
+        secondResponse,
+        "Second request should return identical response from cache");
+  }
+
+  // =================================
+  // Configuration Content Tests
+  // =================================
+
+  @Test
+  public void testDoGet_ConfigurationStructure() throws Exception {
+    // Mock verbose parameter to include userType
+    when(request.getParameter("verbose")).thenReturn("true");
+
+    configServlet.doGet(request, response);
+
+    // Parse response JSON
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    // Validate complete configuration structure
+    assertNotNull(config);
+
+    // Base config properties
+    assertTrue(config.path("noCode").asBoolean());
+    assertTrue(config.path("retention").asBoolean());
+    assertTrue(config.path("statefulIngestionCapable").asBoolean());
+    assertTrue(config.path("patchCapable").asBoolean());
+    assertNotNull(config.path("timeZone").asText());
+
+    // Progressive disclosure
+    assertTrue(config.has("userType"));
+
+    // Datahub section
+    assertTrue(config.has("datahub"));
+    JsonNode datahubConfig = config.path("datahub");
+    assertEquals(datahubConfig.path("serverType").asText(), "prod");
+    assertNotNull(datahubConfig.path("serverEnv"));
+
+    // Telemetry section
+    assertTrue(config.has("telemetry"));
+    JsonNode telemetryConfig = config.path("telemetry");
+    assertTrue(telemetryConfig.has("enabledCli"));
+    assertTrue(telemetryConfig.has("enabledIngestion"));
+
+    // Managed ingestion section
+    assertTrue(config.has("managedIngestion"));
+    JsonNode ingestionConfig = config.path("managedIngestion");
+    assertTrue(ingestionConfig.has("enabled"));
+    assertTrue(ingestionConfig.has("defaultCliVersion"));
+
+    // Versions section
+    assertTrue(config.has("versions"));
+    JsonNode versionsConfig = config.path("versions");
+    assertTrue(versionsConfig.has("acryldata/datahub"));
+
+    // Models section (plugin models)
+    assertTrue(config.has("models"));
+
+    // Impact analysis support
+    assertTrue(config.has("supportsImpactAnalysis"));
+
+    // Dataset URN name casing
+    assertTrue(config.has("datasetUrnNameCasing"));
   }
 }

@@ -131,7 +131,7 @@ class SerializedResourceValue(BaseModel):
         elif isinstance(object, BaseModel):
             return SerializedResourceValue(
                 content_type=models.SerializedValueContentTypeClass.JSON,
-                blob=json.dumps(object.dict()).encode("utf-8"),
+                blob=json.dumps(object.dict(), sort_keys=True).encode("utf-8"),
                 schema_type=models.SerializedValueSchemaTypeClass.JSON,
                 schema_ref=object.__class__.__name__,
             )

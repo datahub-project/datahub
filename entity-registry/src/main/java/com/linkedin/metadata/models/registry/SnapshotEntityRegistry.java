@@ -16,6 +16,7 @@ import com.linkedin.metadata.aspect.patch.template.common.DomainsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.OwnershipTemplate;
+import com.linkedin.metadata.aspect.patch.template.common.SiblingsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.StructuredPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.VersionPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.container.EditableContainerPropertiesTemplate;
@@ -65,7 +66,8 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**
- * Implementation of {@link EntityRegistry} that builds {@link DefaultEntitySpec} objects from the a
+ * Implementation of {@link EntityRegistry} that builds
+ * {@link DefaultEntitySpec} objects from the a
  * {@link Snapshot} Record Template present on the classpath
  */
 public class SnapshotEntityRegistry implements EntityRegistry {
@@ -75,16 +77,16 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   private final AspectTemplateEngine _aspectTemplateEngine;
   private final Map<String, AspectSpec> _aspectNameToSpec;
 
-  @Getter @Nullable
+  @Getter
+  @Nullable
   private BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider;
 
   private static final SnapshotEntityRegistry INSTANCE = new SnapshotEntityRegistry();
 
   public SnapshotEntityRegistry() {
-    entityNameToSpec =
-        new EntitySpecBuilder()
-            .buildEntitySpecs(new Snapshot().schema()).stream()
-                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec = new EntitySpecBuilder()
+        .buildEntitySpecs(new Snapshot().schema()).stream()
+        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
@@ -93,10 +95,9 @@ public class SnapshotEntityRegistry implements EntityRegistry {
 
   public SnapshotEntityRegistry(
       BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory> pluginFactoryProvider) {
-    entityNameToSpec =
-        new EntitySpecBuilder()
-            .buildEntitySpecs(new Snapshot().schema()).stream()
-                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec = new EntitySpecBuilder()
+        .buildEntitySpecs(new Snapshot().schema()).stream()
+        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
@@ -104,17 +105,17 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   }
 
   public SnapshotEntityRegistry(UnionTemplate snapshot) {
-    entityNameToSpec =
-        new EntitySpecBuilder()
-            .buildEntitySpecs(snapshot.schema()).stream()
-                .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
+    entityNameToSpec = new EntitySpecBuilder()
+        .buildEntitySpecs(snapshot.schema()).stream()
+        .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
   }
 
   private AspectTemplateEngine populateTemplateEngine(Map<String, AspectSpec> aspectSpecs) {
-    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in aspect spec map
+    // TODO: This should be more dynamic ideally, "hardcoding" for now, passing in
+    // aspect spec map
     // preemptively
 
     Map<String, Template<? extends RecordTemplate>> aspectSpecTemplateMap = new HashMap<>();
@@ -170,6 +171,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DOMAINS_ASPECT_NAME, new DomainsTemplate());
     aspectSpecTemplateMap.put(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, new EditableDatasetPropertiesTemplate());
+    aspectSpecTemplateMap.put(SIBLINGS_ASPECT_NAME, new SiblingsTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 

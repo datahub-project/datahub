@@ -13,6 +13,7 @@
                 <exclude name="com.linkedin.metadata.graph.neo4j.*" />
                 <exclude name="com.linkedin.metadata.test.batch.opensearch.*" />
             </package>
+            <package name="io.datahubproject.test.aspect.*"/>
         </packages>
 
         <!-- Explicitly exclude the specific test class -->

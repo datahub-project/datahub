@@ -78,6 +78,7 @@ Note:
 
 1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level.
 2. For string meta properties we support regex matching.
+3. **List support**: YAML lists are now supported in meta properties. Each item in the list that matches the regex pattern will be processed.
 
 With regex matching, you can also use the matched value to customize how you populate the tag, term or owner fields. Here are a few advanced examples:
 
@@ -174,6 +175,29 @@ meta_mapping:
 ```
 
 In the examples above, we show two ways of writing the matching regexes. In the first one, `^@(.*)` the first matching group (a.k.a. match.group(1)) is automatically inferred. In the second example, `^@(?P<owner>(.*))`, we use a named matching group (called owner, since we are matching an owner) to capture the string we want to provide to the ownership urn.
+
+#### Working with Lists
+
+YAML lists are fully supported in dbt meta properties. Each item in the list is evaluated against the match pattern, and only matching items are processed.
+
+```yaml
+meta:
+  owners:
+    - alice@company.com
+    - bob@company.com
+    - contractor@external.com
+```
+
+```yaml
+meta_mapping:
+  owners:
+    match: ".*@company.com"
+    operation: "add_owner"
+    config:
+      owner_type: user
+```
+
+This will add `alice@company.com` and `bob@company.com` as owners (matching `.*@company.com`) but skip `contractor@external.com` (doesn't match the pattern).
 
 ### dbt query_tag automated mappings
 

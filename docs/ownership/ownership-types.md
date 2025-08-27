@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
 
 **🤝 Version compatibility**
 
-> DataHub Core: **0.10.4** | DataHug Cloud: **0.2.8**
+> DataHub Core: **0.10.4** | DataHub Cloud: **0.2.8**
 
 ## What are Custom Ownership Types?
 

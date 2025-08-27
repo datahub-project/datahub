@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "PlatformEventHeader",
+  "namespace" : "com.linkedin.pegasus2avro.mxe",
+  "doc" : "A header included with each DataHub platform event.",
+  "fields" : [ {
+    "name" : "timestampMillis",
+    "type" : "long",
+    "doc" : "The event timestamp field as epoch at UTC in milli seconds."
+  } ]
+}

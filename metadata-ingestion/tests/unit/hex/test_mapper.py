@@ -884,3 +884,64 @@ class TestMapper(unittest.TestCase):
         assert dataset_urn1.urn() in edge_urns
         assert dataset_urn2.urn() in edge_urns
         assert schema_field_urn.urn() not in edge_urns  # Should be filtered out
+
+    def test_external_urls(self):
+        mapper = Mapper(
+            workspace_name=self.workspace_name,
+            patch_metadata=False,
+        )
+
+        cases = [
+            # unpublished projects and components are at: {workspace}/hex/{id}
+            (
+                "https://app.hex.tech/test-workspace/hex/uuid1",
+                Project(
+                    id="uuid1",
+                    title="",
+                    description="",
+                ),
+            ),
+            (
+                "https://app.hex.tech/test-workspace/hex/uuid2",
+                Component(
+                    id="uuid2",
+                    title="",
+                    description="",
+                ),
+            ),
+            # but published projects and components are at: {workspace}/app/{id}
+            (
+                "https://app.hex.tech/test-workspace/app/uuid3",
+                Project(
+                    id="uuid3",
+                    title="",
+                    description="",
+                    last_published_at=self.last_edited_at,
+                ),
+            ),
+            (
+                "https://app.hex.tech/test-workspace/app/uuid4",
+                Component(
+                    id="uuid4",
+                    title="",
+                    description="",
+                    last_published_at=self.last_edited_at,
+                ),
+            ),
+        ]
+
+        for expected_external_url, project_or_component in cases:
+            if isinstance(project_or_component, Project):
+                work_units = list(mapper.map_project(project_or_component))
+            elif isinstance(project_or_component, Component):
+                work_units = list(mapper.map_component(project_or_component))
+            else:
+                raise AssertionError()
+            dashboard_info_aspects = [
+                wu.get_aspect_of_type(DashboardInfoClass)
+                for wu in work_units
+                if wu.get_aspect_of_type(DashboardInfoClass)
+            ]
+            assert len(dashboard_info_aspects) == 1
+            assert dashboard_info_aspects[0]
+            assert dashboard_info_aspects[0].externalUrl == expected_external_url

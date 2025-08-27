@@ -1,18 +1,11 @@
-from datahub.metadata.urns import TagUrn
-from datahub.sdk import DataFlow, DataHubClient
+from datahub.sdk import DataFlowUrn, DataHubClient
 
 client = DataHubClient.from_env()
 
-dataflow = DataFlow(
-    name="example_dataflow",
-    platform="airflow",
-    description="airflow pipeline for production",
-    tags=[TagUrn(name="production"), TagUrn(name="data_engineering")],
-)
+# Or get this from the UI (share -> copy urn) and use DataFlowUrn.from_string(...)
+dataflow_urn = DataFlowUrn("airflow", "example_dataflow_id")
 
-client.entities.upsert(dataflow)
-
-dataflow_entity = client.entities.get(dataflow.urn)
+dataflow_entity = client.entities.get(dataflow_urn)
 print("DataFlow name:", dataflow_entity.name)
 print("DataFlow platform:", dataflow_entity.platform)
 print("DataFlow description:", dataflow_entity.description)

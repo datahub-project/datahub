@@ -9,6 +9,7 @@ from datahub.metadata.schema_classes import (
     CorpUserInfoClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
+    DomainPropertiesClass,
     GlossaryTermInfoClass,
     SubTypesClass,
     TagPropertiesClass,
@@ -238,6 +239,21 @@ class DashboardNameResolver(DefaultNameResolver):
         return super().get_entity_name(entity_urn, datahub_graph)
 
 
+class DomainNameResolver(DefaultNameResolver):
+    def get_entity_name(
+        self, entity_urn: Urn, datahub_graph: Optional[DataHubGraph]
+    ) -> str:
+        if datahub_graph:
+            domain_properties: Optional[DomainPropertiesClass] = (
+                datahub_graph.get_aspect(str(entity_urn), DomainPropertiesClass)
+            )
+            if domain_properties and domain_properties.name:
+                return domain_properties.name
+
+        # fall-through to default
+        return super().get_entity_name(entity_urn, datahub_graph)
+
+
 class NameResolverRegistry:
     def __init__(self):
         self.registry = {
@@ -250,6 +266,7 @@ class NameResolverRegistry:
             "container": ContainerNameResolver(),
             "dataJob": DataJobNameResolver(),
             "dataFlow": DataFlowNameResolver(),
+            "domain": DomainNameResolver(),
         }
         self.default_resolver = DefaultNameResolver()
 

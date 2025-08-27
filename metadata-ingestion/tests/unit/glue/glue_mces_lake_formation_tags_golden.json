@@ -1,18 +1,18 @@
 [
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
+    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
     "changeType": "UPSERT",
     "aspectName": "platformResourceInfo",
     "aspect": {
         "json": {
             "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Environment:Production",
+            "primaryKey": "123412341234.Environment:Production",
             "secondaryKeys": [
                 "urn:li:tag:Environment:Production"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"Environment\", \"tag_value\": \"Production\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -27,7 +27,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
+    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -43,7 +43,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
+    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -59,18 +59,18 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
+    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
     "changeType": "UPSERT",
     "aspectName": "platformResourceInfo",
     "aspect": {
         "json": {
             "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Environment:Test",
+            "primaryKey": "123412341234.Environment:Test",
             "secondaryKeys": [
                 "urn:li:tag:Environment:Test"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"Environment\", \"tag_value\": \"Test\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -85,7 +85,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
+    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -101,7 +101,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
+    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -117,18 +117,18 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
+    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
     "changeType": "UPSERT",
     "aspectName": "platformResourceInfo",
     "aspect": {
         "json": {
             "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Owner:DataTeam",
+            "primaryKey": "123412341234.Owner:DataTeam",
             "secondaryKeys": [
                 "urn:li:tag:Owner:DataTeam"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"Owner\", \"tag_value\": \"DataTeam\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -143,7 +143,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
+    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -159,7 +159,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
+    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -293,180 +293,6 @@
     }
 },
 {
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Environment:Production",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Production"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Environment:Test",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Test"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Owner:DataTeam",
-            "secondaryKeys": [
-                "urn:li:tag:Owner:DataTeam"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
     "changeType": "UPSERT",
@@ -574,180 +400,6 @@
     "aspect": {
         "json": {
             "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Environment:Production",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Production"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:1d46304f5450edddc3b2208fdf442136",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Environment:Test",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Test"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:25417c4f65df9f764d936705e2c95c0d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "Owner:DataTeam",
-            "secondaryKeys": [
-                "urn:li:tag:Owner:DataTeam"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:7afa98a893b156f801a5e02146f24db4",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {
@@ -874,18 +526,18 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:2ef8f1035573e7cb66b2063296be56bf",
+    "entityUrn": "urn:li:platformResource:a8bd83f07806fbe4495337fdf27831c7",
     "changeType": "UPSERT",
     "aspectName": "platformResourceInfo",
     "aspect": {
         "json": {
             "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "DataClassification:Sensitive",
+            "primaryKey": "123412341234.DataClassification:Sensitive",
             "secondaryKeys": [
                 "urn:li:tag:DataClassification:Sensitive"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:DataClassification:Sensitive\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:DataClassification:Sensitive\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"DataClassification\", \"tag_value\": \"Sensitive\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -900,7 +552,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:2ef8f1035573e7cb66b2063296be56bf",
+    "entityUrn": "urn:li:platformResource:a8bd83f07806fbe4495337fdf27831c7",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -916,7 +568,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:2ef8f1035573e7cb66b2063296be56bf",
+    "entityUrn": "urn:li:platformResource:a8bd83f07806fbe4495337fdf27831c7",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -932,18 +584,18 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:683431632ff6ebbfa42920f8cec9df34",
+    "entityUrn": "urn:li:platformResource:3bdfff6730064bb49dcb275be445d1a6",
     "changeType": "UPSERT",
     "aspectName": "platformResourceInfo",
     "aspect": {
         "json": {
             "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "BusinessUnit:Finance",
+            "primaryKey": "123412341234.BusinessUnit:Finance",
             "secondaryKeys": [
                 "urn:li:tag:BusinessUnit:Finance"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:BusinessUnit:Finance\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"\", \"tag_value\": \"\", \"platform_instance\": null, \"catalog\": null, \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:BusinessUnit:Finance\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"BusinessUnit\", \"tag_value\": \"Finance\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -958,7 +610,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:683431632ff6ebbfa42920f8cec9df34",
+    "entityUrn": "urn:li:platformResource:3bdfff6730064bb49dcb275be445d1a6",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -974,7 +626,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:683431632ff6ebbfa42920f8cec9df34",
+    "entityUrn": "urn:li:platformResource:3bdfff6730064bb49dcb275be445d1a6",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

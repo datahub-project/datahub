@@ -2,21 +2,21 @@ import { SizeOptions } from '@components/theme/config';
 
 const sliderSize = {
     sm: '14px',
-    md: '16px',
+    md: '18px',
     lg: '18px',
     xl: '20px',
 };
 
 const inputSize = {
     sm: '35px',
-    md: '40px',
+    md: '32px',
     lg: '45px',
     xl: '50px',
 };
 
 const translateSize = {
     sm: '22px',
-    md: '24px',
+    md: '14px',
     lg: '26px',
     xl: '28px',
 };
@@ -27,8 +27,8 @@ const iconTransformPositionLeft = {
         unchecked: '-16.5px',
     },
     md: {
-        checked: '5px',
-        unchecked: '-19px',
+        checked: '.5px',
+        unchecked: '-14px',
     },
     lg: {
         checked: '4.5px',

@@ -32,5 +32,16 @@ export const DetailsContainer = styled.div`
 export const ScrollableDetailsContainer = styled(DetailsContainer)`
     pre {
         max-height: 300px;
+        overflow-y: scroll;
+    }
+
+    pre::-webkit-scrollbar-track {
+        background: rgba(193, 196, 208, 0.3) !important;
+        border-radius: 10px;
+    }
+
+    pre::-webkit-scrollbar-thumb {
+        background: rgba(193, 196, 208, 0.8) !important;
+        border-radius: 10px;
     }
 `;

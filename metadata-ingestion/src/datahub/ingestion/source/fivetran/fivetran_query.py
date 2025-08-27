@@ -18,7 +18,14 @@ class FivetranLogQuery:
         return f"use database {db_name}"
 
     def set_schema(self, schema_name: str) -> None:
-        self.schema_clause = f"{schema_name}."
+        """
+        Using Snowflake quoted identifiers convention
+
+        Add double quotes around an identifier
+        Use two quotes to use the double quote character inside a quoted identifier
+        """
+        schema_name = schema_name.replace('"', '""')
+        self.schema_clause = f'"{schema_name}".'
 
     def get_connectors_query(self) -> str:
         return f"""\

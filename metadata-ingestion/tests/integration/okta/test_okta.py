@@ -4,7 +4,6 @@ from functools import partial
 from unittest.mock import Mock, patch
 
 import jsonpickle
-import pytest
 from freezegun import freeze_time
 from okta.models import Group, User
 
@@ -173,7 +172,6 @@ def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_pa
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.asyncio
 def test_okta_source_include_deprovisioned_suspended_users(
     pytestconfig, mock_datahub_graph, tmp_path
 ):
@@ -202,7 +200,6 @@ def test_okta_source_include_deprovisioned_suspended_users(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.asyncio
 def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
@@ -253,10 +250,6 @@ def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_time, mock_datahub
     checkpoint1 = get_current_checkpoint_from_pipeline(pipeline1)
     assert checkpoint1
     assert checkpoint1.state
-
-    # Create new event loop as last one is closed because of previous ingestion run
-    event_loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(event_loop)
 
     pipeline2 = run_ingest(
         mock_datahub_graph=mock_datahub_graph,
@@ -327,7 +320,7 @@ def _init_mock_okta_client(
     # Mock Client List response.
     users_resp_mock = Mock()
     users_resp_mock.has_next.side_effect = [True, False]
-    users_next_future = asyncio.Future()  # type: asyncio.Future
+    users_next_future: asyncio.Future = asyncio.Future()
     users_next_future.set_result(
         # users, err
         ([users[-1]], None)
@@ -335,7 +328,7 @@ def _init_mock_okta_client(
     users_resp_mock.next.return_value = users_next_future
 
     # users, resp, err
-    list_users_future = asyncio.Future()  # type: asyncio.Future
+    list_users_future: asyncio.Future = asyncio.Future()
     list_users_future.set_result(
         # users, resp, err
         (users[0:-1], users_resp_mock, None)
@@ -345,7 +338,7 @@ def _init_mock_okta_client(
     # Mock Client Init
     groups_resp_mock = Mock()
     groups_resp_mock.has_next.side_effect = [True, False]
-    groups_next_future = asyncio.Future()  # type: asyncio.Future
+    groups_next_future: asyncio.Future = asyncio.Future()
     groups_next_future.set_result(
         # groups, err
         ([groups[-1]], None)
@@ -353,7 +346,7 @@ def _init_mock_okta_client(
     groups_resp_mock.next.return_value = groups_next_future
 
     # groups, resp, err
-    list_groups_future = asyncio.Future()  # type: asyncio.Future
+    list_groups_future: asyncio.Future = asyncio.Future()
     list_groups_future.set_result((groups[0:-1], groups_resp_mock, None))
     MockClient().list_groups.return_value = list_groups_future
 
@@ -363,14 +356,14 @@ def _init_mock_okta_client(
         # Mock Get Group Membership
         group_users_resp_mock = Mock()
         group_users_resp_mock.has_next.side_effect = [True, False]
-        group_users_next_future = asyncio.Future()  # type: asyncio.Future
+        group_users_next_future: asyncio.Future = asyncio.Future()
         group_users_next_future.set_result(
             # users, err
             ([users[-1]], None)
         )
         group_users_resp_mock.next.return_value = group_users_next_future
         # users, resp, err
-        list_group_users_future = asyncio.Future()  # type: asyncio.Future
+        list_group_users_future: asyncio.Future = asyncio.Future()
         # Exclude last user from being in any groups
         filtered_users = [user for user in users if user.id != USER_ID_NOT_IN_GROUPS]
         list_group_users_future.set_result(

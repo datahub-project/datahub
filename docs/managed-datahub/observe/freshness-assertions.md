@@ -145,6 +145,8 @@ Freshness Assertions also have an off switch: they can be started or stopped at 
 
 Once these are in place, you're ready to create your Freshness Assertions!
 
+You can also **Bulk Create Smart Assertions** via the [Data Health Page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions)
+
 ### Steps
 
 1. Navigate to the Table that to monitor for freshness
@@ -186,14 +188,14 @@ _Check whether the table has changed in a specific window of time_
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
 </p>
 
-- **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period.
-- **Information Schema**: Check the Data Platform system metadata tables to determine whether the table changed within the evaluation period.
+- **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period. This will filter out No-Ops (e.g. `INSERT 0`). However, the Audit Log can be delayed by several hours depending on the Data Platform. This is also a little more costly on the warehouse than Information Schema.
+- **Information Schema**: Check the Data Platform system metadata tables to determine whether the table changed within the evaluation period. This is the optimal balance between cost and accuracy for most Data Platforms.
 - **Last Modified Column**: Check for the presence of rows using a "Last Modified Time" column, which should reflect the time at which a given row was last changed in the table, to
-  determine whether the table changed within the evaluation period.
+  determine whether the table changed within the evaluation period. This issues a query to the table, which can be more expensive than Information Schema.
 - **High Watermark Column**: Monitor changes to a continuously-increasing "high watermark" column value to determine whether a table
   has been changed. This option is particularly useful for tables that grow consistently with time, for example fact or event (e.g. click-stream) tables. It is not available
-  when using a fixed lookback period.
-- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period.
+  when using a fixed lookback period. This issues a query to the table, which can be more expensive than Information Schema.
+- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period. This is the cheapest option, but requires that Operations are reported to DataHub. By default, Ingestion will report Operations to DataHub, which can be and infrequent. You can report Operations via the DataHub APIs for more frequent and reliable data.
 
 8. Configure actions that should be taken when the Freshness Assertion passes or fails
 

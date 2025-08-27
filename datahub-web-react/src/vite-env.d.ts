@@ -10,6 +10,7 @@ declare global {
                 _loaded?: string;
                 _version?: string;
             };
+            appConfig?: AppConfig;
         };
     }
 }

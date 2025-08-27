@@ -8,6 +8,7 @@ import {
     StructuredReportLogEntry,
     StructuredReport as StructuredReportType,
 } from '@app/ingestV2/executions/components/reporting/types';
+import { ShowMoreSection } from '@app/shared/ShowMoreSection';
 
 const Container = styled(Card)`
     display: flex;
@@ -131,6 +132,7 @@ export function distributeVisibleItems(
         visibleErrors: errors.slice(0, visibleErrors),
         visibleWarnings: warnings.slice(0, visibleWarnings),
         visibleInfos: infos.slice(0, visibleInfos),
+        totalVisible: visibleErrors + visibleWarnings + visibleInfos,
     };
 }
 
@@ -167,7 +169,7 @@ export function StructuredReport({ report }: Props) {
     const itemsToShow = isExpanded ? totalItems : visibleCount;
 
     // Distribute items based on priority and items to show
-    const { visibleErrors, visibleWarnings, visibleInfos } = distributeVisibleItems(
+    const { visibleErrors, visibleWarnings, visibleInfos, totalVisible } = distributeVisibleItems(
         errors,
         warnings,
         infos,
@@ -175,12 +177,21 @@ export function StructuredReport({ report }: Props) {
     );
 
     const toggleExpanded = () => {
-        if (isExpanded) {
-            setIsExpanded(false);
-            setVisibleCount(defaultVisibleCount);
-        } else {
-            setIsExpanded(true);
+        setIsExpanded(!isExpanded);
+        if (!isExpanded) {
+            // When expanding, set visible count to total so "Show more" disappears
             setVisibleCount(totalItems);
+        } else {
+            // When collapsing, reset to initial page size
+            setVisibleCount(defaultVisibleCount);
+        }
+    };
+
+    // Auto-switch chevron to expanded when "Show more" reaches full expansion
+    const handleSetVisibleCount = (newCount: number) => {
+        setVisibleCount(newCount);
+        if (newCount >= totalItems && !isExpanded) {
+            setIsExpanded(true);
         }
     };
 
@@ -218,6 +229,17 @@ export function StructuredReport({ report }: Props) {
                     />
                 ) : null}
             </Container>
+<<<<<<< HEAD
+=======
+            {totalItems > totalVisible && !isExpanded ? (
+                <ShowMoreSection
+                    totalCount={totalItems}
+                    visibleCount={totalVisible}
+                    setVisibleCount={handleSetVisibleCount}
+                    pageSize={3}
+                />
+            ) : null}
+>>>>>>> upstream/master
         </>
     );
 }

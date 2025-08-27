@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import useDomainTreeNodesSorter from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useDomainTreeNodesSorter';
 import useInitialDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useInitialDomains';
 import useLoadMoreRootDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useLoadMoreRootDomains';
 import useRootDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useRootDomains';
@@ -17,7 +18,8 @@ export default function useSelectableDomainTree(
 ) {
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const [selectedValues, setSelectedValues] = useState<string[]>(initialSelectedDomainUrns ?? []);
-    const tree = useTree();
+    const nodesSorter = useDomainTreeNodesSorter();
+    const tree = useTree(undefined, nodesSorter);
 
     // FYI: We get and extract parents from initially selected domains
     // to have possibility to detect if some node has any selected nested nodes
@@ -29,7 +31,7 @@ export default function useSelectableDomainTree(
         loading: rootDomainsLoading,
         total: rootDomainsTotal,
     } = useRootDomains(loadBatchSize);
-    const rootTreeNodes = useTreeNodesFromDomains(rootDomains);
+    const rootTreeNodes = useTreeNodesFromDomains(rootDomains, false);
 
     const { loadMoreRootDomains, loading: rootDomainsMoreLoading } = useLoadMoreRootDomains();
 

@@ -1,5 +1,6 @@
 import React, { memo, useMemo } from 'react';
 
+import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProps } from '@app/homeV3/module/types';
 import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
 import WorkflowsModule from '@app/homeV3/modules/WorkflowsModule';
@@ -32,7 +33,11 @@ function Module(props: ModuleProps) {
         return SampleLargeModule;
     }, [module.properties.type]);
 
-    return <Component {...props} />;
+    return (
+        <ModuleErrorBoundary {...props}>
+            <Component {...props} />
+        </ModuleErrorBoundary>
+    );
 }
 
 // Export memoized component to prevent unnecessary re-renders

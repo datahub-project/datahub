@@ -186,7 +186,12 @@ export const WelcomeToDataHubModal = () => {
     }
 
     return (
-        <Modal title={WELCOME_TO_DATAHUB_MODAL_TITLE} width={MODAL_WIDTH} onCancel={() => closeTour('close_button')}>
+        <Modal
+            title={WELCOME_TO_DATAHUB_MODAL_TITLE}
+            width={MODAL_WIDTH}
+            onCancel={() => closeTour('close_button')}
+            buttons={[]}
+        >
             <Carousel
                 ref={carouselRef}
                 autoplay

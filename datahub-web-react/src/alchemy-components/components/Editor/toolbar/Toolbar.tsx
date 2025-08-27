@@ -17,6 +17,7 @@ import styled from 'styled-components';
 import { AddImageButton } from '@components/components/Editor/toolbar/AddImageButton';
 import { AddLinkButton } from '@components/components/Editor/toolbar/AddLinkButton';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSelect';
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 
 import colors from '@src/alchemy-components/theme/foundations/colors';
@@ -43,12 +44,17 @@ const CustomDivider = styled(Divider)`
     margin: 0 6px;
 `;
 
-export const Toolbar = () => {
+interface Props {
+    styles?: React.CSSProperties;
+}
+
+export const Toolbar = ({ styles }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
 
     return (
-        <Container>
+        <Container style={styles}>
+            <FontSizeSelect />
             <HeadingMenu />
             <CustomDivider type="vertical" />
             <CommandButton

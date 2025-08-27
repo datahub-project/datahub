@@ -48,6 +48,17 @@ DataHub is a **schema-first, event-driven metadata platform** with three core la
 - `metadata-ingestion/`: Python ingestion framework and CLI
 - `datahub-graphql-core/`: GraphQL schema and resolvers
 
+Most of the non-frontend modules are written in Java. The modules written in Python are:
+
+- `metadata-ingestion/`
+- `datahub-actions/`
+- `metadata-ingestion-modules/airflow-plugin/`
+- `metadata-ingestion-modules/gx-plugin/`
+- `metadata-ingestion-modules/dagster-plugin/`
+- `metadata-ingestion-modules/prefect-plugin/`
+
+Each Python module has a gradle setup similar to `metadata-ingestion/` (documented above)
+
 ### Metadata Model Concepts
 
 - **Entities**: Core objects (Dataset, Dashboard, Chart, CorpUser, etc.)
@@ -88,6 +99,16 @@ DataHub is a **schema-first, event-driven metadata platform** with three core la
 - Java: Tests alongside source in `src/test/`
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
 - Smoke tests go in the `smoke-test/` directory
+
+#### Security Testing: Configuration Property Classification
+
+**Critical test**: `metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java`
+
+This test prevents sensitive data leaks by requiring explicit classification of all configuration properties as either sensitive (redacted) or non-sensitive (visible in system info).
+
+**When adding new configuration properties**: The test will fail with clear instructions on which classification list to add your property to. Refer to the test file's comprehensive documentation for template syntax and examples.
+
+This is a mandatory security guardrail - never disable or skip this test.
 
 ### Commits
 

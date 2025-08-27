@@ -46,6 +46,7 @@ class Project:
     title: str
     description: Optional[str]
     last_edited_at: Optional[datetime] = None
+    last_published_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     status: Optional[Status] = None
     categories: Optional[List[Category]] = None  # TODO: emit category description!
@@ -67,6 +68,7 @@ class Component:
     title: str
     description: Optional[str]
     last_edited_at: Optional[datetime] = None
+    last_published_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     status: Optional[Status] = None
     categories: Optional[List[Category]] = None

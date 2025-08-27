@@ -134,6 +134,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         viewIngestionSourcePrivilegesEnabled: false,
         actionWorkflowsEnabled: false,
         showHomePageRedesign: false,
+        assetSummaryPageV1: false,
     },
     chromeExtensionConfig: {
         enabled: false,

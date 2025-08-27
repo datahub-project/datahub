@@ -39,7 +39,7 @@ jobs:
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
     steps:
       - name: Checkout
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Compute Tag
         id: tag
         env:
@@ -78,7 +78,7 @@ jobs:
     if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Update versions
         run: |
           python .github/scripts/docker_helper/version_updater.py --version "9999"  --init "./metadata-ingestion/src/datahub/_version.py"

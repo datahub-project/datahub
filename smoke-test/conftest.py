@@ -49,6 +49,7 @@ def openapi_graph_client(auth_session) -> DataHubGraph:
     return build_graph_client(auth_session, openapi_ingestion=True)
 
 
+
 def pytest_sessionfinish(session, exitstatus):
     """whole test run finishes."""
     send_message(exitstatus)

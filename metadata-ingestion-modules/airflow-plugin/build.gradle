@@ -37,7 +37,7 @@ task environmentSetup(type: Exec) {
     "touch ${sentinel_file}"
 }
 
-task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
+task install(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
@@ -46,8 +46,6 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
     "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_constraints} &&" +
     "touch ${sentinel_file}"
 }
-
-task install(dependsOn: [installPackage])
 
 task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
@@ -71,12 +69,7 @@ task installTest(type: Exec, dependsOn: [installDev]) {
 }
 
 task lint(type: Exec, dependsOn: installDev) {
-  /*
-    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
-   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
-   */
   commandLine 'bash', '-c',
-    "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     venv_activate_command +
     "ruff check src/ tests/ && " +
     "ruff format --check src/ tests/ && " +

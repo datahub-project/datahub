@@ -10,7 +10,7 @@ jobs:
   actionlint:
     runs-on: depot-ubuntu-22.04-small
     steps:
-      - uses: acryldata/sane-checkout-action@v3
+      - uses: acryldata/sane-checkout-action@v4
       - uses: reviewdog/action-actionlint@v1
         with:
           reporter: github-pr-review

@@ -4,6 +4,7 @@ import styled from 'styled-components/macro';
 
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getPlatformName } from '@app/entity/shared/utils';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 import AutoCompleteEntityIcon from '@app/searchV2/autoComplete/AutoCompleteEntityIcon';
 import AutoCompletePlatformNames from '@app/searchV2/autoComplete/AutoCompletePlatformNames';
 import { SuggestionText } from '@app/searchV2/autoComplete/styledComponents';
@@ -84,7 +85,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
 
     const parentContainers = genericEntityProps?.parentContainers?.containers || [];
 
-    const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
+    const subtype = getFirstSubType(genericEntityProps);
 
     // Parent entities are either a) containers or b) entity-type specific parents (glossary nodes, domains, etc)
     const parentEntities = (parentContainers?.length && parentContainers) || getParentEntities(entity) || [];

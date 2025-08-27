@@ -4584,3 +4584,25 @@ export const mockActionRequests: ActionRequest[] = [
         urn: 'urn:example:domain:1',
     },
 ];
+
+export const useEntityDataFunc = () => {
+    const value = {
+        entityData: {
+            parentContainers: {
+                containers: [
+                    {
+                        properties: {
+                            name: 'name1',
+                        },
+                    },
+                    {
+                        properties: {
+                            name: 'name2',
+                        },
+                    },
+                ],
+            },
+        },
+    };
+    return value;
+};

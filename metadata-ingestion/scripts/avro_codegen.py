@@ -4,7 +4,7 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union, Set
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import avro.schema
 import click

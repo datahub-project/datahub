@@ -33,7 +33,6 @@ dependencies {
     runtimeOnly externalDependency.logbackJackson
     runtimeOnly externalDependency.logbackJsonClassic
     compileOnly externalDependency.lombok
-    implementation externalDependency.commonsCollections
     implementation externalDependency.javatuples
     implementation externalDependency.javaxValidation
     implementation externalDependency.opentelemetryAnnotations

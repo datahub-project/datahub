@@ -21,7 +21,7 @@ export default function ShowRelatedEntitiesSwitch({ isChecked, onChange }: Props
     return (
         <Wrapper>
             <LabelContainer>
-                <Text weight="bold" lineHeight="sm">
+                <Text weight="bold" color="gray" lineHeight="sm">
                     Show Related Entities
                 </Text>
                 <Text color="gray" lineHeight="sm">

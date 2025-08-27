@@ -42,7 +42,6 @@ dependencies {
   runtimeOnly externalDependency.logbackJsonClassic
   compileOnly externalDependency.lombok
   compileOnly externalDependency.hazelcast
-  implementation externalDependency.commonsCollections
   api externalDependency.datastaxOssNativeProtocol
   api(externalDependency.datastaxOssCore) {
     exclude group: 'com.fasterxml.jackson.core'

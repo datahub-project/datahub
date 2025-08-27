@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import OwnerContent from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerContent';
 import {
@@ -11,6 +12,7 @@ import {
 } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import ProposedIcon from '@app/entityV2/shared/sidebarSection/ProposedIcon';
 import ProposalModal from '@app/shared/tags/ProposalModal';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
@@ -53,6 +55,8 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const [removeOwnerMutation] = useRemoveOwnerMutation();
 
     const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
+    const { setReloadHomepageModules } = usePageTemplateContext();
+    const { user } = useUserContext();
 
     let name = '';
     let ownershipTypeName = '';
@@ -90,6 +94,8 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                 entityType,
                 entityUrn,
             });
+            const isCurrentUserRemoved = user?.urn === owner.owner.urn;
+            if (isCurrentUserRemoved) setReloadHomepageModules(true);
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

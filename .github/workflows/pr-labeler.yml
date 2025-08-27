@@ -58,7 +58,8 @@ jobs:
           "ksrinath",
           "bryanprosser-acryl",
           "Alex23Hub",
-          "alexsku"
+          "alexsku",
+          "benjiaming"
           ]'),
           github.actor
           )

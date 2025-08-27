@@ -165,7 +165,7 @@ signing {
 }
 
 nexusStaging {
-    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+    serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/" //required only for projects registered in Sonatype after 2021-02-24
     username = System.getenv("NEXUS_USERNAME")
     password = System.getenv("NEXUS_PASSWORD")
 }

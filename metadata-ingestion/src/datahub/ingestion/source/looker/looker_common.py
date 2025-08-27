@@ -379,6 +379,14 @@ class ExploreUpstreamViewField:
                 : -(len(self.field.field_group_variant.lower()) + 1)
             ]
 
+        # Validate that field_name is not empty to prevent invalid schema field URNs
+        if not field_name or not field_name.strip():
+            logger.warning(
+                f"Empty field name detected for field '{self.field.name}' in explore '{self.explore.name}'. "
+                f"Skipping field to prevent invalid schema field URN generation."
+            )
+            return None
+
         assert view_name  # for lint false positive
 
         project_include: ProjectInclude = ProjectInclude(
@@ -1351,7 +1359,25 @@ class LookerExplore:
             fine_grained_lineages = []
             if config.extract_column_level_lineage:
                 for field in self.fields or []:
+                    # Skip creating fine-grained lineage for empty field names to prevent invalid schema field URNs
+                    if not field.name or not field.name.strip():
+                        logger.warning(
+                            f"Skipping fine-grained lineage for field with empty name in explore '{self.name}'"
+                        )
+                        continue
+
                     for upstream_column_ref in field.upstream_fields:
+                        # Skip creating fine-grained lineage for empty column names to prevent invalid schema field URNs
+                        if (
+                            not upstream_column_ref.column
+                            or not upstream_column_ref.column.strip()
+                        ):
+                            logger.warning(
+                                f"Skipping some fine-grained lineage for field '{field.name}' in explore '{self.name}' "
+                                f"due to empty upstream column name in table '{upstream_column_ref.table}'"
+                            )
+                            continue
+
                         fine_grained_lineages.append(
                             FineGrainedLineageClass(
                                 upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,

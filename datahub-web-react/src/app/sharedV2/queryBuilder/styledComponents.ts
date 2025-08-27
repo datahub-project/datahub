@@ -92,6 +92,8 @@ export const CardIcons = styled.div`
     display: flex;
     justify-content: end;
     gap: 12px;
+    min-width: 28px;
+    min-height: 28px;
 
     div {
         border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};

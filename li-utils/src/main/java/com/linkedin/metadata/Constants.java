@@ -25,6 +25,13 @@ public class Constants {
   public static final String SYSTEM_ACTOR_NAME = "DataHub System";
   public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
   public static final String METATDATA_TEST_ACTOR = "urn:li:corpuser:metadatatest";
+  // Actor ID for unauthenticated requests
+  public static final String ANONYMOUS_ACTOR_ID = "__anonymous";
+  // Unauthenticated requests (no valid credentials provided).
+  public static final String ANONYMOUS_ACTOR = "urn:li:corpuser:" + ANONYMOUS_ACTOR_ID;
+  // Unknown principal (identity exists but cannot be determined).
+  public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
+  public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
@@ -455,6 +462,7 @@ public class Constants {
   // Timeseries
   public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
 
+<<<<<<< HEAD
   /* SaaS-Only */
 
   // Datasets
@@ -477,6 +485,8 @@ public class Constants {
   public static final String ACTION_REQUEST_STATUS_ASPECT_NAME = "actionRequestStatus";
   public static final String ACTION_WORKFLOW_INFO_ASPECT_NAME = "actionWorkflowInfo";
 
+=======
+>>>>>>> upstream/master
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
   public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";

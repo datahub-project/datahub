@@ -52,6 +52,7 @@ import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
     getDataProduct,
+    getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
@@ -99,14 +100,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             );
         }
 
-        return (
-            <DashboardOutlined
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
-            />
-        );
+        return <DashboardOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
     };
 
     isSearchEnabled = () => true;
@@ -307,7 +301,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={getDashboardLastUpdatedMs(data.properties)}
                 createdMs={this.createdTime(data)}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 tier={
                     isValuePresent(data?.statsSummary?.viewCountPercentileLast30Days) &&
                     isValuePresent(data?.statsSummary?.uniqueUserPercentileLast30Days)
@@ -357,7 +351,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                         matchSuffix="on a contained chart"
                     />
                 }
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
@@ -391,7 +385,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.properties?.name || entity.urn,
             type: EntityType.Dashboard,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             deprecation: entity?.deprecation,

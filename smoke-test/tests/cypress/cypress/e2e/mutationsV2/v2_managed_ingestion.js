@@ -1,7 +1,21 @@
-import { hasOperationName } from "../utils";
+function clearMonacoEditor() {
+  const selectAllKey = Cypress.platform === "darwin" ? "{cmd}a" : "{ctrl}a";
+  return cy
+    .get(".monaco-scrollable-element")
+    .first()
+    .click()
+    .focused()
+    .type(selectAllKey)
+    .type("{backspace}");
+}
 
-function readyToTypeEditor() {
-  return cy.get(".monaco-scrollable-element").first().click().focused();
+function typeInMonacoEditor(text) {
+  return cy
+    .get(".monaco-scrollable-element")
+    .first()
+    .click()
+    .focused()
+    .type(text);
 }
 
 describe("run managed ingestion", () => {
@@ -94,18 +108,20 @@ describe("run managed ingestion", () => {
     cy.login();
     cy.goToIngestionPage();
     cy.contains("Loading ingestion sources...").should("not.exist");
-    // cy.clickOptionWithText("Create new source");
     cy.clickOptionWithTestId("create-ingestion-source-button");
     cy.get('[placeholder="Search data sources..."]').type("other");
     cy.clickOptionWithTextToScrollintoView("Other");
 
     cy.waitTextVisible("source-type");
-    readyToTypeEditor().type("{ctrl}a").clear();
-    readyToTypeEditor().type("source:{enter}");
-    readyToTypeEditor().type("    type: demo-data");
-    readyToTypeEditor().type("{enter}");
-    // no space because the editor starts new line at same indentation
-    readyToTypeEditor().type("config: {}");
+
+    // Clear the editor first
+    clearMonacoEditor();
+
+    // Type your content
+    typeInMonacoEditor("source:{enter}");
+    typeInMonacoEditor("    type: demo-data{enter}");
+    typeInMonacoEditor("config: {}");
+
     cy.clickOptionWithText("Next");
     cy.clickOptionWithText("Next");
 

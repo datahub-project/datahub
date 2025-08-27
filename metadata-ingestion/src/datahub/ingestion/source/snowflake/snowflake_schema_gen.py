@@ -45,6 +45,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeColumn,
     SnowflakeDatabase,
     SnowflakeDataDictionary,
+    SnowflakeDynamicTable,
     SnowflakeFK,
     SnowflakePK,
     SnowflakeSchema,
@@ -165,8 +166,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def __init__(
         self,
-        config: SnowflakeV2Config,
-        report: SnowflakeV2Report,
+        config: SnowflakeV2Config,  # FIXME: SnowflakeSummary is passing here SnowflakeSummaryConfig
+        report: SnowflakeV2Report,  # FIXME: SnowflakeSummary is passing here SnowflakeSummaryReport
         connection: SnowflakeConnection,
         filters: SnowflakeFilter,
         identifiers: SnowflakeIdentifierBuilder,
@@ -174,6 +175,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
+        fetch_views_from_information_schema: bool = False,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -182,7 +184,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.identifiers: SnowflakeIdentifierBuilder = identifiers
 
         self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
-            connection=self.connection
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=fetch_views_from_information_schema,
         )
         self.report.data_dictionary_cache = self.data_dictionary
 
@@ -495,6 +499,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()
             for table in tables:
+                # Handle dynamic table definitions for lineage
+                if (
+                    isinstance(table, SnowflakeDynamicTable)
+                    and table.definition
+                    and self.aggregator
+                ):
+                    table_identifier = self.identifiers.get_dataset_identifier(
+                        table.name, schema_name, db_name
+                    )
+                    self.aggregator.add_view_definition(
+                        view_urn=self.identifiers.gen_dataset_urn(table_identifier),
+                        view_definition=table.definition,
+                        default_db=db_name,
+                        default_schema=schema_name,
+                    )
+
                 table_wu_generator = self._process_table(
                     table, snowflake_schema, db_name
                 )
@@ -935,6 +955,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 }
             )
 
+            if isinstance(table, SnowflakeDynamicTable):
+                if table.target_lag:
+                    custom_properties["TARGET_LAG"] = table.target_lag
+
         if isinstance(table, SnowflakeView) and table.is_secure:
             custom_properties["IS_SECURE"] = "true"
 
@@ -980,7 +1004,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     schema_name,
                     db_name,
                     (
-                        SnowflakeObjectDomain.TABLE
+                        SnowflakeObjectDomain.DYNAMIC_TABLE
+                        if isinstance(table, SnowflakeTable) and table.is_dynamic
+                        else SnowflakeObjectDomain.TABLE
                         if isinstance(table, SnowflakeTable)
                         else SnowflakeObjectDomain.VIEW
                     ),
@@ -1218,7 +1244,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # falling back to get tables for schema
         if tables is None:
             self.report.num_get_tables_for_schema_queries += 1
-            return self.data_dictionary.get_tables_for_schema(schema_name, db_name)
+            return self.data_dictionary.get_tables_for_schema(
+                db_name=db_name,
+                schema_name=schema_name,
+            )
 
         # Some schema may not have any table
         return tables.get(schema_name, [])
@@ -1228,8 +1257,17 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
 
-        # Some schema may not have any table
-        return views.get(schema_name, [])
+        if views is not None:
+            # Some schemas may not have any views
+            return views.get(schema_name, [])
+
+        # Usually this fails when there are too many views in the schema.
+        # Fall back to per-schema queries.
+        self.report.num_get_views_for_schema_queries += 1
+        return self.data_dictionary.get_views_for_schema_using_information_schema(
+            db_name=db_name,
+            schema_name=schema_name,
+        )
 
     def get_columns_for_table(
         self, table_name: str, snowflake_schema: SnowflakeSchema, db_name: str

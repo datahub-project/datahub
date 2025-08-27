@@ -45,7 +45,8 @@ public class QueryUtils {
 
   public static final Filter EMPTY_FILTER = new Filter().setOr(new ConjunctiveCriterionArray());
 
-  private QueryUtils() {}
+  private QueryUtils() {
+  }
 
   // Creates new Criterion with field and value, using EQUAL condition.
   @Nullable
@@ -67,18 +68,18 @@ public class QueryUtils {
         .setCondition(condition);
   }
 
-  // Creates new Filter from a map of Criteria by removing null-valued Criteria and using EQUAL
+  // Creates new Filter from a map of Criteria by removing null-valued Criteria
+  // and using EQUAL
   // condition (default).
   @Nonnull
   public static Filter newFilter(@Nullable Map<String, String> params) {
     if (params == null) {
       return EMPTY_FILTER;
     }
-    CriterionArray criteria =
-        params.entrySet().stream()
-            .filter(e -> Objects.nonNull(e.getValue()))
-            .map(e -> buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
-            .collect(Collectors.toCollection(CriterionArray::new));
+    CriterionArray criteria = params.entrySet().stream()
+        .filter(e -> Objects.nonNull(e.getValue()))
+        .map(e -> buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
+        .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
@@ -91,12 +92,11 @@ public class QueryUtils {
     if (params == null) {
       return EMPTY_FILTER;
     }
-    CriterionArray criteria =
-        params.entrySet().stream()
-            .filter(e -> Objects.nonNull(e.getValue()))
-            .map(e -> CriterionUtils.buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
-            .filter(Objects::nonNull)
-            .collect(Collectors.toCollection(CriterionArray::new));
+    CriterionArray criteria = params.entrySet().stream()
+        .filter(e -> Objects.nonNull(e.getValue()))
+        .map(e -> CriterionUtils.buildCriterion(e.getKey(), Condition.EQUAL, e.getValue()))
+        .filter(Objects::nonNull)
+        .collect(Collectors.toCollection(CriterionArray::new));
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
@@ -126,9 +126,8 @@ public class QueryUtils {
         .setOr(
             Arrays.stream(orCriterion)
                 .map(
-                    criterion ->
-                        new ConjunctiveCriterion()
-                            .setAnd(new CriterionArray(ImmutableList.of(criterion))))
+                    criterion -> new ConjunctiveCriterion()
+                        .setAnd(new CriterionArray(ImmutableList.of(criterion))))
                 .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
   }
 
@@ -161,7 +160,8 @@ public class QueryUtils {
   }
 
   /**
-   * Converts a set of aspect classes to a set of {@link AspectVersion} with the version all set to
+   * Converts a set of aspect classes to a set of {@link AspectVersion} with the
+   * version all set to
    * latest.
    */
   @Nonnull
@@ -169,19 +169,20 @@ public class QueryUtils {
       @Nonnull Set<Class<? extends RecordTemplate>> aspectClasses) {
     return aspectClasses.stream()
         .map(
-            aspectClass ->
-                new AspectVersion()
-                    .setAspect(ModelUtils.getAspectName(aspectClass))
-                    .setVersion(LATEST_VERSION))
+            aspectClass -> new AspectVersion()
+                .setAspect(ModelUtils.getAspectName(aspectClass))
+                .setVersion(LATEST_VERSION))
         .collect(Collectors.toSet());
   }
 
   /**
-   * Create {@link RelationshipFilter} using filter conditions and relationship direction.
+   * Create {@link RelationshipFilter} using filter conditions and relationship
+   * direction.
    *
-   * @param field field to create a filter on
-   * @param value field value to be filtered
-   * @param relationshipDirection {@link RelationshipDirection} relationship direction
+   * @param field                 field to create a filter on
+   * @param value                 field value to be filtered
+   * @param relationshipDirection {@link RelationshipDirection} relationship
+   *                              direction
    * @return RelationshipFilter
    */
   @Nonnull
@@ -195,8 +196,9 @@ public class QueryUtils {
   /**
    * Create {@link RelationshipFilter} using filter and relationship direction.
    *
-   * @param filter {@link Filter} filter
-   * @param relationshipDirection {@link RelationshipDirection} relationship direction
+   * @param filter                {@link Filter} filter
+   * @param relationshipDirection {@link RelationshipDirection} relationship
+   *                              direction
    * @return RelationshipFilter
    */
   @Nonnull
@@ -215,7 +217,7 @@ public class QueryUtils {
    * Calculates the total page count.
    *
    * @param totalCount total count
-   * @param size page size
+   * @param size       page size
    * @return total page count
    */
   public static int getTotalPageCount(int totalCount, int size) {
@@ -228,8 +230,8 @@ public class QueryUtils {
   /**
    * Calculates whether there is more results.
    *
-   * @param from offset from the first result you want to fetch
-   * @param size page size
+   * @param from           offset from the first result you want to fetch
+   * @param size           page size
    * @param totalPageCount total page count
    * @return whether there's more results
    */
@@ -253,15 +255,13 @@ public class QueryUtils {
     return excludeIngestionSourceEntitySpec(
         entityRegistry.getEntitySpecs().values().stream()
             .map(
-                spec ->
-                    Pair.of(
-                        spec,
-                        spec.getSearchableFieldSpecs().stream()
-                            .map(SearchableFieldSpec::getSearchableAnnotation)
-                            .collect(Collectors.toList())))
+                spec -> Pair.of(
+                    spec,
+                    spec.getSearchableFieldSpecs().stream()
+                        .map(SearchableFieldSpec::getSearchableAnnotation)
+                        .collect(Collectors.toList())))
             .filter(
-                specPair ->
-                    specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
+                specPair -> specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
             .map(Pair::getFirst)
             .collect(Collectors.toList()));
   }
@@ -281,14 +281,12 @@ public class QueryUtils {
       return items;
     }
 
-    List<T> filtered =
-        items.stream()
-            .filter(
-                item ->
-                    !nameExtractor
-                        .apply(item)
-                        .equalsIgnoreCase(Constants.INGESTION_SOURCE_ENTITY_NAME))
-            .collect(Collectors.toList());
+    List<T> filtered = items.stream()
+        .filter(
+            item -> !nameExtractor
+                .apply(item)
+                .equalsIgnoreCase(Constants.INGESTION_SOURCE_ENTITY_NAME))
+        .collect(Collectors.toList());
 
     if (filtered.size() < items.size()) {
       log.warn(
@@ -304,7 +302,7 @@ public class QueryUtils {
   /**
    * Build a filter with URNs and an optional existing filter
    *
-   * @param urns urns to limit returns
+   * @param urns         urns to limit returns
    * @param inputFilters optional existing filter
    * @return filter with additional URN criterion
    */
@@ -313,33 +311,29 @@ public class QueryUtils {
       @Nonnull Set<Urn> urns,
       @Nullable Filter inputFilters) {
     // Determine which field is used for urn selection based on config
-    boolean schemaFieldEnabled =
-        appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().isEnabled();
+    boolean schemaFieldEnabled = appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().isEnabled();
 
-    // Prevent increasing the query size by avoiding querying multiple fields with the
+    // Prevent increasing the query size by avoiding querying multiple fields with
+    // the
     // same URNs
-    Criterion urnMatchCriterion =
-        buildCriterion(
-            "urn",
-            Condition.EQUAL,
-            urns.stream()
-                .filter(
-                    urn ->
-                        !schemaFieldEnabled
-                            || !urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
-                .map(Object::toString)
-                .collect(Collectors.toList()));
+    Criterion urnMatchCriterion = buildCriterion(
+        "urn",
+        Condition.EQUAL,
+        urns.stream()
+            .filter(
+                urn -> !schemaFieldEnabled
+                    || !urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
+            .map(Object::toString)
+            .collect(Collectors.toList()));
 
-    Criterion schemaUrnAliasCriterion =
-        buildCriterion(
-            String.format("%s.keyword", SCHEMA_FIELD_ALIASES_ASPECT),
-            Condition.EQUAL,
-            urns.stream()
-                .filter(
-                    urn ->
-                        schemaFieldEnabled && urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
-                .map(Object::toString)
-                .collect(Collectors.toList()));
+    Criterion schemaUrnAliasCriterion = buildCriterion(
+        String.format("%s.keyword", SCHEMA_FIELD_ALIASES_ASPECT),
+        Condition.EQUAL,
+        urns.stream()
+            .filter(
+                urn -> schemaFieldEnabled && urn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME))
+            .map(Object::toString)
+            .collect(Collectors.toList()));
 
     if (inputFilters == null || CollectionUtils.isEmpty(inputFilters.getOr())) {
       return QueryUtils.newDisjunctiveFilter(urnMatchCriterion, schemaUrnAliasCriterion);

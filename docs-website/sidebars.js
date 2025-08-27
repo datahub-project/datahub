@@ -28,8 +28,8 @@ module.exports = {
         },
         {
           type: "link",
-          label: "Adoption Stories",
-          href: "https://datahub.com/adoption-stories/",
+          label: "Customer Stories",
+          href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
       ],
     },
@@ -49,6 +49,11 @@ module.exports = {
           type: "category",
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
           items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertions",
+            },
             {
               label: "Column Assertions",
               type: "doc",
@@ -92,6 +97,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Adding Notes to Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-notes",
+              className: "saasOnly",
+            },
+            {
               label: "Open Assertions Specification",
               type: "category",
               link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
@@ -106,9 +117,19 @@ module.exports = {
           ],
         },
         {
-          label: "Access Management",
+          label: "Data Access Workflows",
           type: "doc",
-          id: "docs/features/feature-guides/access-management",
+          id: "docs/managed-datahub/workflows/access-workflows",
+        },
+        {
+          label: "Data Access Roles",
+          type: "doc",
+          id: "docs/features/feature-guides/access-roles",
+        },
+        {
+          label: "Applications",
+          type: "doc",
+          id: "docs/features/feature-guides/applications",
         },
         {
           label: "Automations",
@@ -190,6 +211,11 @@ module.exports = {
               className: "saasOnly",
             },
           ],
+        },
+        {
+          label: "Custom Home Page",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-home-page",
         },
         {
           label: "Data Contract",
@@ -411,7 +437,7 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "docs/managed-datahub/approval-workflows",
+      id: "docs/managed-datahub/change-proposals",
       className: "saasOnly",
     },
     {
@@ -425,6 +451,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
         "docs/managed-datahub/release-notes/v_0_3_11",
         "docs/managed-datahub/release-notes/v_0_3_10",
@@ -886,6 +913,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/applications",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",
@@ -898,6 +926,7 @@ module.exports = {
         },
         "docs/api/tutorials/owners",
         "docs/api/tutorials/structured-properties",
+        "docs/api/tutorials/subscriptions",
         "docs/api/tutorials/tags",
         "docs/api/tutorials/terms",
         {

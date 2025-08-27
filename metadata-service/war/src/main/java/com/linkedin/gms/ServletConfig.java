@@ -4,10 +4,10 @@ import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LE
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 import static io.acryl.admin.grafana.GrafanaConfiguration.GRAFANA_SERVLET_NAME;
 
-import com.datahub.auth.authentication.filter.AuthenticationFilter;
+import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
+import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
-import com.datahub.gms.servlet.HealthCheck;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -71,26 +71,33 @@ public class ServletConfig implements WebMvcConfigurer {
   private long asyncTimeoutMilliseconds;
 
   @Bean
-  public FilterRegistrationBean<AuthenticationFilter> authFilter(AuthenticationFilter filter) {
-    FilterRegistrationBean<AuthenticationFilter> registration = new FilterRegistrationBean<>();
+  public FilterRegistrationBean<AuthenticationExtractionFilter> authExtractionFilter(
+      AuthenticationExtractionFilter filter) {
+    FilterRegistrationBean<AuthenticationExtractionFilter> registration =
+        new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE); // Run FIRST to extract authentication info
     registration.setAsyncSupported(true);
 
-    // Register filter for all paths - exclusions are handled by shouldNotFilter()
+    // Register for all paths - this filter ALWAYS runs to extract auth info
     registration.addUrlPatterns("/*");
 
     return registration;
   }
 
   @Bean
-  public ServletRegistrationBean<HealthCheck> healthCheckServlet() {
-    ServletRegistrationBean<HealthCheck> registration =
-        new ServletRegistrationBean<>(new HealthCheck());
-    registration.setName("healthCheck");
-    registration.addUrlMappings("/health");
-    registration.setLoadOnStartup(15);
+  public FilterRegistrationBean<AuthenticationEnforcementFilter> authFilter(
+      AuthenticationEnforcementFilter filter) {
+    FilterRegistrationBean<AuthenticationEnforcementFilter> registration =
+        new FilterRegistrationBean<>();
+    registration.setFilter(filter);
+    registration.setOrder(
+        Ordered.HIGHEST_PRECEDENCE + 1); // Run SECOND after AuthenticationExtractionFilter
     registration.setAsyncSupported(true);
+
+    // Register filter for all paths - exclusions are handled by shouldNotFilter()
+    registration.addUrlPatterns("/*");
+
     return registration;
   }
 

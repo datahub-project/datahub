@@ -10,8 +10,10 @@
 # Tag search using the workspace search UI is supported only for tables, views, and table columns.
 # Tag search requires exact term matching.
 # https://learn.microsoft.com/en-us/azure/databricks/database-objects/tags#constraint
-from typing import Any, Dict, Optional, Set, Union
+from typing import Any, Dict, Optional, Set
 
+# Import validator for Pydantic v1 (always needed since we removed conditional logic)
+from pydantic import validator
 from typing_extensions import ClassVar
 
 from datahub.api.entities.external.external_tag import ExternalTag
@@ -21,9 +23,9 @@ from datahub.api.entities.external.restricted_text import RestrictedText
 class UnityCatalogTagKeyText(RestrictedText):
     """RestrictedText configured for Unity Catalog tag keys."""
 
-    _default_max_length: ClassVar[int] = 255
-    # Unity Catalog tag keys: alphanumeric, hyphens, underscores, periods only
-    _default_forbidden_chars: ClassVar[Set[str]] = {
+    DEFAULT_MAX_LENGTH: ClassVar[int] = 255
+    # Unity Catalog tag keys: forbidden characters based on constraints
+    DEFAULT_FORBIDDEN_CHARS: ClassVar[Set[str]] = {
         "\t",
         "\n",
         "\r",
@@ -34,18 +36,18 @@ class UnityCatalogTagKeyText(RestrictedText):
         "/",
         ":",
     }
-    _default_replacement_char: ClassVar[str] = "_"
-    _default_truncation_suffix: ClassVar[str] = ""  # No suffix for clean identifiers
+    DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = "_"
+    DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = ""  # No suffix for clean identifiers
 
 
 class UnityCatalogTagValueText(RestrictedText):
     """RestrictedText configured for Unity Catalog tag values."""
 
-    _default_max_length: ClassVar[int] = 1000
+    DEFAULT_MAX_LENGTH: ClassVar[int] = 1000
     # Unity Catalog tag values are more permissive but still have some restrictions
-    _default_forbidden_chars: ClassVar[Set[str]] = {"\t", "\n", "\r"}
-    _default_replacement_char: ClassVar[str] = " "
-    _default_truncation_suffix: ClassVar[str] = "..."
+    DEFAULT_FORBIDDEN_CHARS: ClassVar[Set[str]] = {"\t", "\n", "\r"}
+    DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = " "
+    DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = "..."
 
 
 class UnityCatalogTag(ExternalTag):
@@ -60,46 +62,43 @@ class UnityCatalogTag(ExternalTag):
     key: UnityCatalogTagKeyText
     value: Optional[UnityCatalogTagValueText] = None
 
-    def __init__(
-        self,
-        key: Optional[Union[str, UnityCatalogTagKeyText]] = None,
-        value: Optional[Union[str, UnityCatalogTagValueText]] = None,
-        **data: Any,
-    ) -> None:
-        """
-        Initialize UnityCatalogTag from either a DataHub Tag URN or explicit key/value.
+    # Pydantic v1 validators
+    @validator("key", pre=True)
+    @classmethod
+    def _validate_key(cls, v: Any) -> UnityCatalogTagKeyText:
+        """Validate and convert key field for Pydantic v1."""
+        if isinstance(v, UnityCatalogTagKeyText):
+            return v
 
-        Args:
-            key: Explicit key value (optional for Pydantic initialization)
-            value: Explicit value (optional)
-            **data: Additional Pydantic data
-        """
-        if key is not None:
-            # Direct initialization with key/value
-            processed_key = (
-                UnityCatalogTagKeyText(key)
-                if not isinstance(key, UnityCatalogTagKeyText)
-                else key
-            )
-            processed_value = None
-            if value is not None:
-                processed_value = (
-                    UnityCatalogTagValueText(value)
-                    if not isinstance(value, UnityCatalogTagValueText)
-                    else value
-                )
-            # If value is an empty string, set it to None to not generater empty value in DataHub tag which results in key: tags
-            if not str(value):
-                processed_value = None
+        # If we get a RestrictedText object from parent class validation, use its raw_text value
+        if hasattr(v, "raw_text"):
+            return UnityCatalogTagKeyText(raw_text=v.raw_text)
 
-            super().__init__(
-                key=processed_key,
-                value=processed_value,
-                **data,
-            )
-        else:
-            # Standard pydantic initialization
-            super().__init__(**data)
+        return UnityCatalogTagKeyText(raw_text=v)
+
+    @validator("value", pre=True)
+    @classmethod
+    def _validate_value(cls, v: Any) -> Optional[UnityCatalogTagValueText]:
+        """Validate and convert value field for Pydantic v1."""
+        if v is None:
+            return None
+
+        if isinstance(v, UnityCatalogTagValueText):
+            return v
+
+        # If we get a RestrictedText object from parent class validation, use its raw_text value
+        if hasattr(v, "raw_text"):
+            text_value = v.raw_text
+            # If value is an empty string, set it to None to not generate empty value in DataHub tag
+            if not str(text_value):
+                return None
+            return UnityCatalogTagValueText(raw_text=text_value)
+
+        # If value is an empty string, set it to None to not generate empty value in DataHub tag
+        if not str(v):
+            return None
+
+        return UnityCatalogTagValueText(raw_text=v)
 
     def __eq__(self, other: object) -> bool:
         """Check equality based on key and value."""
@@ -124,7 +123,7 @@ class UnityCatalogTag(ExternalTag):
         Returns:
             UnityCatalogTag instance
         """
-        return cls(key=tag_dict["key"], value=tag_dict.get("value"))
+        return cls(**tag_dict)
 
     @classmethod
     def from_key_value(cls, key: str, value: Optional[str] = None) -> "UnityCatalogTag":
@@ -149,9 +148,9 @@ class UnityCatalogTag(ExternalTag):
         Returns:
             Dictionary with 'key' and optionally 'value'
         """
-        result: Dict[str, str] = {"key": self.key.original}
+        result: Dict[str, str] = {"key": self.key.raw_text}
         if self.value is not None:
-            result["value"] = self.value.original
+            result["value"] = self.value.raw_text
         return result
 
     def to_display_dict(self) -> Dict[str, str]:

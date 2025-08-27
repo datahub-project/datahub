@@ -9,7 +9,6 @@ apply from: "../gradle/coverage/java-coverage.gradle"
 
 dependencies {
     api spec.product.pegasus.data
-    implementation externalDependency.commonsLang
     implementation(externalDependency.reflections) {
         exclude group: 'com.google.guava', module: 'guava'
     }

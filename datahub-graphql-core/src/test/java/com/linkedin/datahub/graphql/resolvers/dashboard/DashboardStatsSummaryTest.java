@@ -116,13 +116,14 @@ public class DashboardStatsSummaryTest {
                             .setUserEmail("test2@gmail.com")
                             .setCount(30)))));
 
-    UsageStatsJavaClient mockClient = mock(UsageStatsJavaClient.class);
-    when(mockClient.getUsageStats(
-            any(OperationContext.class),
-            Mockito.eq(TEST_DASHBOARD_URN),
-            Mockito.eq(UsageTimeRange.MONTH),
-            Mockito.eq(null),
-            Mockito.eq(null)))
+    UsageStatsJavaClient mockClient = Mockito.mock(UsageStatsJavaClient.class);
+    Mockito.when(
+            mockClient.getUsageStats(
+                any(OperationContext.class),
+                Mockito.eq(TEST_DASHBOARD_URN),
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenThrow(RuntimeException.class);
 
     // Execute resolver

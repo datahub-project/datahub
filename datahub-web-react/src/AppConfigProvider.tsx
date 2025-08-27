@@ -46,7 +46,7 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
 
             // Expose feature flags to window object for debugging and external access
             if (!window.datahub) {
-                window.datahub = {};
+                window.datahub = { appConfig: appConfigData.appConfig };
             }
             window.datahub.features = {
                 ...appConfigData.appConfig.featureFlags,

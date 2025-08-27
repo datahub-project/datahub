@@ -267,6 +267,15 @@ class DbtTestConfig:
                 # "entities_enabled": {"sources": "NO"},
             },
         ),
+        DbtTestConfig(
+            "dbt-test-target-platform-primary-siblings",
+            "dbt_test_target_platform_primary_siblings.json",
+            "dbt_test_target_platform_primary_siblings_golden.json",
+            source_config_modifiers={
+                "dbt_is_primary_sibling": False,
+                "enable_meta_mapping": False,
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )

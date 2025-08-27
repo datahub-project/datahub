@@ -77,7 +77,9 @@ export const StatsSectionsContextProvider = ({ children }: Props) => {
     const [dataInfo, setDataInfo] = useState<DataInfo>(defaultDataInfo);
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const [statsEntityUrn, setStatsEntityUrn] = useState(baseEntity && getSiblingEntityWithStats(baseEntity));
+    const [statsEntityUrn, setStatsEntityUrn] = useState<string | undefined | null>(
+        baseEntity && getSiblingEntityWithStats(baseEntity),
+    );
     const [areSectionsOrdered, setAreSectionsOrdered] = useState<boolean>(false);
 
     const statsEntity: any =

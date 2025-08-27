@@ -1573,6 +1573,11 @@ type FeatureFlagsConfig {
   showLineageExpandMore: Boolean!
 
   """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -1636,6 +1641,11 @@ type FeatureFlagsConfig {
   If enabled, the new V2 glossary term propagation automation will be available instead of the original V1 version
   """
   termPropagationV2Enabled: Boolean!
+
+  """
+  Enables displaying the asset summary page
+  """
+  assetSummaryPageV1: Boolean!
 }
 
 """

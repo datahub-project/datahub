@@ -316,6 +316,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowIntroducePage(_featureFlags.isShowIntroducePage())
             .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
+            .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
@@ -330,6 +331,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setActionWorkflowsEnabled(_featureFlags.isActionWorkflowsEnabled())
             .setTagPropagationV2Enabled(_featureFlags.isTagPropagationV2Enabled())
             .setTermPropagationV2Enabled(_featureFlags.isTermPropagationV2Enabled())
+            .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -39,6 +39,8 @@ dependencies {
     testImplementation externalDependency.logbackClassic
     testImplementation externalDependency.logbackJackson
     testImplementation externalDependency.logbackJsonClassic
+    testImplementation externalDependency.lombok
+    testAnnotationProcessor externalDependency.lombok
     testImplementation externalDependency.jacksonCore
     testImplementation externalDependency.jacksonDataBind
     testImplementation externalDependency.springBootStarterWeb

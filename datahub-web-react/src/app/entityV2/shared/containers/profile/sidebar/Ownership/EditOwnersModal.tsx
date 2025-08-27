@@ -5,9 +5,11 @@ import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { useUserContext } from '@app/context/useUserContext';
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -88,6 +90,8 @@ export const EditOwnersModal = ({
     const mutationUrn = useMutationUrn();
     const { refetch: entityRefetch } = useEntityContext();
     const { isInFormContext } = useEntityFormContext();
+    const { setReloadHomepageModules } = usePageTemplateContext();
+    const { user } = useUserContext();
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Entity) => {
@@ -409,6 +413,8 @@ export const EditOwnersModal = ({
         } else {
             batchRemoveOwners(inputs);
         }
+        const isCurrentUserUpdated = user?.urn && inputs.map((input) => input.ownerUrn).includes(user?.urn);
+        if (isCurrentUserUpdated) setReloadHomepageModules(true);
     };
 
     function handleBlur() {

@@ -10,7 +10,7 @@ export default function useDomainsByUrns(urns: string[]) {
             urns,
             checkForExistence: true,
         },
-        fetchPolicy: 'cache-and-network',
+        fetchPolicy: 'cache-first',
         skip: urns.length === 0,
     });
 

@@ -90,7 +90,7 @@ class EnsureAspectSizeProcessor:
         on GMS side and failure of the entire ingestion. This processor will attempt to trim suspected aspects.
         """
         for wu in stream:
-            logger.debug(f"Ensuring size of workunit: {wu.id}")
+            # logger.debug(f"Ensuring size of workunit: {wu.id}")
 
             if schema := wu.get_aspect_of_type(SchemaMetadataClass):
                 self.ensure_schema_metadata_size(wu.get_urn(), schema)

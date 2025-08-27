@@ -27,7 +27,7 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
+import { getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -65,10 +65,7 @@ export class ContainerEntity implements Entity<Container> {
         return (
             <FolderOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -262,7 +259,7 @@ export class ContainerEntity implements Entity<Container> {
             type: this.type,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
         };
     }
 

@@ -7,6 +7,7 @@ import {
     Heartbeat,
     Lightning,
     ListChecks,
+    HardDrives,
     Plugs,
     Question,
     SignOut,
@@ -36,7 +37,7 @@ import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -98,8 +99,8 @@ export const NavSidebar = () => {
     const userContext = useUserContext();
     const me = useUserContext();
     const isHomePage = useIsHomePage();
-    const showHomepageRedesign = useShowHomePageRedesign();
     const location = useLocation();
+    const showHomepageRedesign = useShowHomePageRedesign();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
@@ -114,6 +115,7 @@ export const NavSidebar = () => {
     const showManageTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     /* SaaS Only */
     const { helpLinkState, globalSettings } = useGlobalSettingsContext();
@@ -213,6 +215,15 @@ export const NavSidebar = () => {
                         selectedIcon: <Tag weight="fill" />,
                         link: PageRoutes.MANAGE_TAGS,
                         isHidden: !showManageTags,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Business Attributes',
+                        key: 'businessAttributes',
+                        icon: <HardDrives />,
+                        selectedIcon: <HardDrives weight="fill" />,
+                        link: PageRoutes.BUSINESS_ATTRIBUTE,
+                        isHidden: !businessAttributesFlag,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

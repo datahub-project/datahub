@@ -9,6 +9,7 @@ import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -46,10 +47,16 @@ public class UpdateIndicesServiceFactory {
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
+          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
 
     return new UpdateIndicesService(
-        new UpdateGraphIndicesService(graphService, graphDiffMode, graphStatusEnabled),
+        new UpdateGraphIndicesService(
+            graphService,
+            graphDiffMode,
+            graphStatusEnabled,
+            fineGrainedLineageNotAllowedForPlatforms),
         entitySearchService,
         timeseriesAspectService,
         systemMetadataService,
@@ -69,11 +76,17 @@ public class UpdateIndicesServiceFactory {
       final SystemMetadataService systemMetadataService,
       final SearchDocumentTransformer searchDocumentTransformer,
       final EntityService<?> entityService,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
+          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
-            new UpdateGraphIndicesService(graphService, graphDiffMode, graphStatusEnabled),
+            new UpdateGraphIndicesService(
+                graphService,
+                graphDiffMode,
+                graphStatusEnabled,
+                fineGrainedLineageNotAllowedForPlatforms),
             entitySearchService,
             timeseriesAspectService,
             systemMetadataService,

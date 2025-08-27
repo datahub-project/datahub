@@ -13,9 +13,16 @@ const Wrapper = styled.div`
     width: 100%;
 `;
 
+const InlineBlockWrapper = styled.div<{ $hasExpanded: boolean }>`
+    display: inline-block;
+    min-width: calc(100% - 20px);
+    ${(props) => !props.$hasExpanded && 'width: calc(100% - 20px);'}
+`;
+
 export default function TreeNodesRenderer() {
     const {
         nodes,
+        hasAnyExpanded,
         loadBatchSize: numberOfChildrenToLoad,
         loadRootNodes,
         rootNodesLength,
@@ -27,23 +34,25 @@ export default function TreeNodesRenderer() {
     const renderNode = useCallback((node: TreeNode) => <TreeNodeRenderer node={node} depth={0} key={node.value} />, []);
 
     return (
-        <Wrapper>
-            {loadRootNodes ? (
-                <NodesLoaderWrapper
-                    trigger={loadingTriggerType}
-                    total={rootNodesTotal}
-                    current={rootNodesLength}
-                    enabled={!rootNodesLoading}
-                    depth={0}
-                    onLoad={loadRootNodes}
-                    pageSize={numberOfChildrenToLoad}
-                >
-                    {nodes.map(renderNode)}
-                </NodesLoaderWrapper>
-            ) : (
-                nodes.map(renderNode)
-            )}
-            {rootNodesLoading && <TreeNodesViewLoader depth={0} />}
-        </Wrapper>
+        <InlineBlockWrapper $hasExpanded={hasAnyExpanded}>
+            <Wrapper>
+                {loadRootNodes ? (
+                    <NodesLoaderWrapper
+                        trigger={loadingTriggerType}
+                        total={rootNodesTotal}
+                        current={rootNodesLength}
+                        enabled={!rootNodesLoading}
+                        depth={0}
+                        onLoad={loadRootNodes}
+                        pageSize={numberOfChildrenToLoad}
+                    >
+                        {nodes.map(renderNode)}
+                    </NodesLoaderWrapper>
+                ) : (
+                    nodes.map(renderNode)
+                )}
+                {rootNodesLoading && <TreeNodesViewLoader depth={0} />}
+            </Wrapper>
+        </InlineBlockWrapper>
     );
 }

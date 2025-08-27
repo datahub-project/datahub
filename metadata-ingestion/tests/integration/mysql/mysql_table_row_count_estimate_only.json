@@ -17,7 +17,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -33,7 +33,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -49,7 +49,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -67,7 +67,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -83,7 +83,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -99,7 +99,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -220,7 +220,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -238,7 +238,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -259,7 +259,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -275,7 +275,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -372,7 +372,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -390,7 +390,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -411,7 +411,177 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "northwind.northwind.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Procedures Container"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "AddCustomer",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:7b677d9de1e980494659f0959b716bae"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "BEGIN\n    INSERT INTO customers (id, last_name, first_name, email_address, priority)\n    VALUES (id, in_last_name, in_first_name, in_email_address, in_priority);\nEND",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7b677d9de1e980494659f0959b716bae",
+                    "urn": "urn:li:container:7b677d9de1e980494659f0959b716bae"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -472,7 +642,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -512,7 +682,39 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "mysql-2020_04_14-07_00_00",
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-2020_04_14-07_00_00-sv24q7",
         "lastRunId": "no-run-id-provided"
     }
 }

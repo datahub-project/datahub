@@ -157,6 +157,10 @@ Then select individual assertions you'd like to subscribe to:
   <img width="70%" alt="7" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-resub-1.jpg" />
 </p>
 
+## Programatically Managing Subscriptions
+
+You can create and remove subscriptions programatically using the [GraphQL APIs](/docs/api/graphql/overview.md) or the [Python Subscriptions SDK](/docs/api/tutorials/subscriptions.md).
+
 ## FAQ
 
 <details>

@@ -17,6 +17,7 @@ import { DataPlatformInstanceEntity } from '@app/entity/dataPlatformInstance/Dat
 import { DataProductEntity } from '@app/entity/dataProduct/DataProductEntity';
 import { DatasetEntity } from '@app/entity/dataset/DatasetEntity';
 import { DomainEntity } from '@app/entity/domain/DomainEntity';
+import GlossaryNodeEntity from '@app/entity/glossaryNode/GlossaryNodeEntity';
 import { GlossaryTermEntity } from '@app/entity/glossaryTerm/GlossaryTermEntity';
 import { GroupEntity } from '@app/entity/group/Group';
 import { MLFeatureTableEntity } from '@app/entity/mlFeatureTable/MLFeatureTableEntity';
@@ -48,6 +49,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new TagEntity());
     entityRegistry.register(new DataFlowEntity());
     entityRegistry.register(new DataJobEntity());
+    entityRegistry.register(new GlossaryNodeEntity());
     entityRegistry.register(new GlossaryTermEntity());
     entityRegistry.register(new MLFeatureTableEntity());
     entityRegistry.register(new MLModelEntity());

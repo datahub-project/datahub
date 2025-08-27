@@ -19,6 +19,7 @@ class UnityCatalogConnectionTest:
             self.config.token,
             self.config.profiling.warehouse_id,
             report=self.report,
+            databricks_api_page_size=self.config.databricks_api_page_size,
         )
 
     def get_connection_test(self) -> TestConnectionReport:

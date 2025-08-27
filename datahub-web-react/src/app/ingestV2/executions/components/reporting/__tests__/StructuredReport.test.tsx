@@ -15,6 +15,15 @@ import {
     StructuredReportLogEntry,
 } from '@app/ingestV2/executions/components/reporting/types';
 
+// Mock the ShowMoreSection component
+vi.mock('@app/shared/ShowMoreSection', () => ({
+    ShowMoreSection: ({ totalCount, visibleCount, setVisibleCount }: any) => (
+        <button type="button" onClick={() => setVisibleCount(visibleCount + 3)} data-testid="show-more-button">
+            Show {totalCount - visibleCount} more
+        </button>
+    ),
+}));
+
 // Mock the StructuredReportItemList component
 vi.mock('../StructuredReportItemList', () => ({
     StructuredReportItemList: ({ items, color, textColor, icon }: any) => (
@@ -127,6 +136,7 @@ describe('StructuredReport Utility Functions', () => {
             expect(result.visibleErrors).toHaveLength(2);
             expect(result.visibleWarnings).toHaveLength(0);
             expect(result.visibleInfos).toHaveLength(0);
+            expect(result.totalVisible).toBe(2);
         });
 
         it('should show warnings after errors are exhausted', () => {
@@ -134,6 +144,7 @@ describe('StructuredReport Utility Functions', () => {
             expect(result.visibleErrors).toHaveLength(2);
             expect(result.visibleWarnings).toHaveLength(2);
             expect(result.visibleInfos).toHaveLength(0);
+            expect(result.totalVisible).toBe(4);
         });
 
         it('should show infos after errors and warnings are exhausted', () => {
@@ -141,6 +152,7 @@ describe('StructuredReport Utility Functions', () => {
             expect(result.visibleErrors).toHaveLength(2);
             expect(result.visibleWarnings).toHaveLength(2);
             expect(result.visibleInfos).toHaveLength(1);
+            expect(result.totalVisible).toBe(5);
         });
 
         it('should handle visibleCount larger than total items', () => {
@@ -148,6 +160,7 @@ describe('StructuredReport Utility Functions', () => {
             expect(result.visibleErrors).toHaveLength(2);
             expect(result.visibleWarnings).toHaveLength(2);
             expect(result.visibleInfos).toHaveLength(1);
+            expect(result.totalVisible).toBe(5);
         });
 
         it('should handle empty arrays', () => {
@@ -155,6 +168,7 @@ describe('StructuredReport Utility Functions', () => {
             expect(result.visibleErrors).toHaveLength(0);
             expect(result.visibleWarnings).toHaveLength(0);
             expect(result.visibleInfos).toHaveLength(0);
+            expect(result.totalVisible).toBe(0);
         });
     });
 
@@ -237,6 +251,99 @@ describe('StructuredReport Component', () => {
         expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
     });
 
+    it('should show 0 items by default when only warnings and infos exist', () => {
+        const warningsAndInfosReport = {
+            items: [
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 1', 'First warning'),
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 2', 'Second warning'),
+                createMockItem(StructuredReportItemLevel.INFO, 'Info 1', 'First info'),
+            ],
+            infoCount: 1,
+            errorCount: 0,
+            warnCount: 2,
+        };
+
+        render(<StructuredReport report={warningsAndInfosReport} />);
+
+        // Should not show any item lists initially
+        expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-WarningCircle')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
+
+        // Should show "Show 3 more" button
+        expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
+        expect(screen.getByText('Show 3 more')).toBeInTheDocument();
+    });
+
+    it('should show 0 items by default when only warnings exist', () => {
+        const warningsOnlyReport = {
+            items: [
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 1', 'First warning'),
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 2', 'Second warning'),
+            ],
+            infoCount: 0,
+            errorCount: 0,
+            warnCount: 2,
+        };
+
+        render(<StructuredReport report={warningsOnlyReport} />);
+
+        // Should not show any item lists initially
+        expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-WarningCircle')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
+
+        // Should show "Show 2 more" button
+        expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
+        expect(screen.getByText('Show 2 more')).toBeInTheDocument();
+    });
+
+    it('should show 0 items by default when only infos exist', () => {
+        const infosOnlyReport = {
+            items: [
+                createMockItem(StructuredReportItemLevel.INFO, 'Info 1', 'First info'),
+                createMockItem(StructuredReportItemLevel.INFO, 'Info 2', 'Second info'),
+            ],
+            infoCount: 2,
+            errorCount: 0,
+            warnCount: 0,
+        };
+
+        render(<StructuredReport report={infosOnlyReport} />);
+
+        // Should not show any item lists initially
+        expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-WarningCircle')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
+
+        // Should show "Show 2 more" button
+        expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
+        expect(screen.getByText('Show 2 more')).toBeInTheDocument();
+    });
+
+    it('should show "Show X more" button when there are more items', () => {
+        render(<StructuredReport report={mockReport} />);
+        expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
+        expect(screen.getByText('Show 2 more')).toBeInTheDocument();
+    });
+
+    it('should expand to show more items when "Show more" is clicked', async () => {
+        const user = userEvent.setup();
+        render(<StructuredReport report={mockReport} />);
+
+        const showMoreButton = screen.getByTestId('show-more-button');
+        await user.click(showMoreButton);
+
+        // Should now show all items
+        expect(screen.getByTestId('item-list-WarningDiamond').children).toHaveLength(2);
+        expect(screen.getByTestId('item-list-WarningCircle').children).toHaveLength(2);
+        expect(screen.getByTestId('item-list-Info')).toBeInTheDocument();
+        expect(screen.getByTestId('item-list-Info').children).toHaveLength(1);
+
+        // Show more button should be gone
+        expect(screen.queryByTestId('show-more-button')).not.toBeInTheDocument();
+    });
+
     it('should use correct colors for each item type', () => {
         render(<StructuredReport report={mockReport} />);
 
@@ -260,6 +367,29 @@ describe('StructuredReport Component', () => {
             // Check for caret down icon (collapsed state)
             const caretIcon = screen.getByTestId('icon-CaretDown');
             expect(caretIcon).toBeInTheDocument();
+        });
+
+        it('should auto-switch chevron to expanded when "Show more" reaches full expansion', async () => {
+            const user = userEvent.setup();
+            render(<StructuredReport report={mockReport} />);
+
+            // Initially chevron should be down (collapsed)
+            expect(screen.getByTestId('icon-CaretDown')).toBeInTheDocument();
+
+            // Click "Show more" to reach full expansion
+            const showMoreButton = screen.getByTestId('show-more-button');
+            await user.click(showMoreButton);
+
+            // Chevron should auto-switch to expanded (up)
+            expect(screen.getByTestId('icon-CaretUp')).toBeInTheDocument();
+
+            // Show more button should be gone
+            expect(screen.queryByTestId('show-more-button')).not.toBeInTheDocument();
+
+            // All items should be visible
+            expect(screen.getByTestId('item-list-WarningDiamond').children).toHaveLength(2);
+            expect(screen.getByTestId('item-list-WarningCircle').children).toHaveLength(2);
+            expect(screen.getByTestId('item-list-Info')).toBeInTheDocument();
         });
 
         it('should maintain pill count as total regardless of expansion state', async () => {

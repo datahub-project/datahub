@@ -1,7 +1,9 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
@@ -19,11 +21,18 @@ import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.graph.EdgeDiff;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.RelationshipFieldSpec;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -32,18 +41,21 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 
 @Slf4j
 public class UpdateGraphIndicesService implements SearchIndicesService {
   private static final String GRAPH_DIFF_MODE_REMOVE_METRIC = "diff_remove_edge";
   private static final String GRAPH_DIFF_MODE_ADD_METRIC = "diff_add_edge";
   private static final String GRAPH_DIFF_MODE_UPDATE_METRIC = "diff_update_edge";
+  private List<String> fineGrainedLineageNotAllowedForPlatforms;
 
   public static UpdateGraphIndicesService withService(GraphService graphService) {
     return new UpdateGraphIndicesService(graphService);
@@ -55,6 +67,11 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
 
   @Getter @Setter @VisibleForTesting private boolean graphDiffMode;
 
+  @VisibleForTesting
+  public void setFineGrainedLineageNotAllowedForPlatforms(List<String> platforms) {
+    this.fineGrainedLineageNotAllowedForPlatforms = platforms;
+  }
+
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
           ChangeType.CREATE,
@@ -64,14 +81,18 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
           ChangeType.PATCH);
 
   public UpdateGraphIndicesService(GraphService graphService) {
-    this(graphService, true, true);
+    this(graphService, true, true, Collections.emptyList());
   }
 
   public UpdateGraphIndicesService(
-      GraphService graphService, boolean graphDiffMode, boolean graphStatusEnabled) {
+      GraphService graphService,
+      boolean graphDiffMode,
+      boolean graphStatusEnabled,
+      List<String> fineGrainedLineageNotAllowedForPlatforms) {
     this.graphService = graphService;
     this.graphDiffMode = graphDiffMode;
     this.graphStatusEnabled = graphStatusEnabled;
+    this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
   }
 
   @Override
@@ -184,7 +205,6 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
           opContext, urn, aspectSpec, aspect, isDeletingKey, event.getMetadataChangeLog());
     }
   }
-
   /** Process snapshot and update graph index */
   private void updateGraphService(
       @Nonnull final OperationContext opContext,
@@ -194,7 +214,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       @Nonnull final MetadataChangeLog event) {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
         GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
-            urn, aspectSpec, aspect, event, true);
+            urn, aspectSpec, aspect, event, true, fineGrainedLineageNotAllowedForPlatforms, opContext.getEntityRegistry());
 
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded =
@@ -222,9 +242,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       @Nullable final RecordTemplate oldAspect,
       @Nonnull final RecordTemplate newAspect,
       @Nonnull final MetadataChangeLog event) {
-
     EdgeDiff edgeDiff =
-        GraphIndexUtils.computeAspectEdgeDiff(urn, aspectSpec, oldAspect, newAspect, event);
+        GraphIndexUtils.computeAspectEdgeDiff(urn, aspectSpec, oldAspect, newAspect, event, fineGrainedLineageNotAllowedForPlatforms, opContext.getEntityRegistry());
 
     // Edges to add
     final List<Edge> additiveDifference = edgeDiff.getEdgesToAdd();
@@ -289,7 +308,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     if (aspect != null) {
       Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
           GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
-              urn, aspectSpec, aspect, event, true);
+              urn, aspectSpec, aspect, event, true, fineGrainedLineageNotAllowedForPlatforms, opContext.getEntityRegistry());
 
       final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingRemoved =
           edgeAndRelationTypes.getSecond();

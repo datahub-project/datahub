@@ -15,6 +15,7 @@ const DEFAULT_TREE_VIEW_CONTEXT: TreeViewContextType = {
 
     getIsExpandable: () => false,
     getIsExpanded: () => false,
+    hasAnyExpanded: false,
     expand: () => {},
     collapse: () => {},
     toggleExpanded: () => {},

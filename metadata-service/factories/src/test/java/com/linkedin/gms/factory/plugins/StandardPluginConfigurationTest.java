@@ -3,11 +3,15 @@ package com.linkedin.gms.factory.plugins;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.actionrequest.validation.ActionRequestWorkflowRequestValidator;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
+import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.*;
+import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -18,9 +22,15 @@ import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.service.ActionWorkflowService;
+import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
+import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
+import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import io.datahubproject.metadata.context.OperationContext;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator;
+import java.util.List;
+import org.mockito.Answers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,7 +38,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = SpringStandardPluginConfiguration.class)
@@ -53,6 +65,14 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   @Primary
   public OperationContext systemOperationContext() {
     return Mockito.mock(OperationContext.class);
+  }
+
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
+  private ConfigurationProvider configurationProvider;
+
+  @BeforeClass
+  private void setup() {
+    Mockito.when(configurationProvider.getDatahub()).thenReturn(new DataHubConfiguration());
   }
 
   @Test
@@ -227,5 +247,134 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   public void testExtendedModelStructuredPropertyMutatorNotCreatedWhenDisabled() {
     // Extensions are disabled in our test properties
     assertFalse(context.containsBean("extendedModelStructuredPropertyMutator"));
+  }
+
+  public void testCreateIfNotExistsValidatorBeanCreation() {
+    assertTrue(context.containsBean("createIfNotExistsValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("createIfNotExistsValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof CreateIfNotExistsValidator);
+
+    // Verify configuration
+    assertNotNull(validator.getConfig());
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(validator.getConfig().getClassName(), CreateIfNotExistsValidator.class.getName());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(), List.of("CREATE", "CREATE_ENTITY"));
+  }
+
+  @Test
+  public void testConditionalWriteValidatorBeanCreation() {
+    assertTrue(context.containsBean("conditionalWriteValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("conditionalWriteValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof ConditionalWriteValidator);
+
+    // Verify configuration
+    assertNotNull(validator.getConfig());
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(validator.getConfig().getClassName(), ConditionalWriteValidator.class.getName());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "CREATE_ENTITY", "DELETE", "UPSERT", "UPDATE", "PATCH"));
+  }
+
+  @Test
+  public void testFieldPathMutatorBeanCreation() {
+    assertTrue(context.containsBean("fieldPathMutator"));
+    MutationHook mutator = context.getBean("fieldPathMutator", MutationHook.class);
+    assertNotNull(mutator);
+    assertTrue(mutator instanceof FieldPathMutator);
+
+    // Verify configuration
+    assertNotNull(mutator.getConfig());
+    assertTrue(mutator.getConfig().isEnabled());
+    assertEquals(mutator.getConfig().getClassName(), FieldPathMutator.class.getName());
+    assertEquals(
+        mutator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "UPSERT", "UPDATE", "RESTATE", "PATCH"));
+  }
+
+  @Test
+  public void testOwnershipOwnerTypesBeanCreation() {
+    assertTrue(context.containsBean("ownershipOwnerTypes"));
+    MutationHook mutator = context.getBean("ownershipOwnerTypes", MutationHook.class);
+    assertNotNull(mutator);
+    assertTrue(mutator instanceof OwnershipOwnerTypes);
+
+    // Verify configuration
+    assertNotNull(mutator.getConfig());
+    assertTrue(mutator.getConfig().isEnabled());
+    assertEquals(mutator.getConfig().getClassName(), OwnershipOwnerTypes.class.getName());
+    assertEquals(
+        mutator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "UPSERT", "UPDATE", "RESTATE", "PATCH"));
+  }
+
+  @Test
+  public void testStructuredPropertiesSoftDeleteBeanCreation() {
+    assertTrue(context.containsBean("structuredPropertiesSoftDelete"));
+    MutationHook mutator = context.getBean("structuredPropertiesSoftDelete", MutationHook.class);
+    assertNotNull(mutator);
+    assertTrue(mutator instanceof StructuredPropertiesSoftDelete);
+
+    // Verify configuration
+    assertNotNull(mutator.getConfig());
+    assertTrue(mutator.getConfig().isEnabled());
+    assertEquals(
+        mutator.getConfig().getClassName(), StructuredPropertiesSoftDelete.class.getName());
+    // Note: This plugin doesn't define supportedOperations, only supportedEntityAspectNames
+  }
+
+  @Test
+  public void testPropertyDefinitionValidatorBeanCreation() {
+    assertTrue(context.containsBean("propertyDefinitionValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("propertyDefinitionValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof PropertyDefinitionValidator);
+
+    // Verify configuration
+    assertNotNull(validator.getConfig());
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(validator.getConfig().getClassName(), PropertyDefinitionValidator.class.getName());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "CREATE_ENTITY", "UPSERT"));
+  }
+
+  @Test
+  public void testStructuredPropertiesValidatorBeanCreation() {
+    assertTrue(context.containsBean("structuredPropertiesValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("structuredPropertiesValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof StructuredPropertiesValidator);
+
+    // Verify configuration
+    assertNotNull(validator.getConfig());
+    assertTrue(validator.getConfig().isEnabled());
+    assertEquals(
+        validator.getConfig().getClassName(), StructuredPropertiesValidator.class.getName());
+    assertEquals(
+        validator.getConfig().getSupportedOperations(), List.of("CREATE", "UPSERT", "DELETE"));
+  }
+
+  @Test
+  public void testPropertyDefinitionDeleteSideEffectBeanCreation() {
+    assertTrue(context.containsBean("propertyDefinitionDeleteSideEffect"));
+    MCPSideEffect sideEffect =
+        context.getBean("propertyDefinitionDeleteSideEffect", MCPSideEffect.class);
+    assertNotNull(sideEffect);
+    assertTrue(sideEffect instanceof PropertyDefinitionDeleteSideEffect);
+
+    // Verify configuration
+    assertNotNull(sideEffect.getConfig());
+    assertTrue(sideEffect.getConfig().isEnabled());
+    assertEquals(
+        sideEffect.getConfig().getClassName(), PropertyDefinitionDeleteSideEffect.class.getName());
+    assertEquals(sideEffect.getConfig().getSupportedOperations(), List.of("DELETE"));
   }
 }

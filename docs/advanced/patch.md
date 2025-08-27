@@ -11,16 +11,16 @@ To support these scenarios, DataHub supports `PATCH` operations to perform targe
 
 :::note
 
-Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained [here](https://github.com/datahub-project/datahub/blob/9588440549f3d99965085e97b214a7dabc181ed2/entity-registry/src/main/java/com/linkedin/metadata/models/registry/template/AspectTemplateEngine.java#L24).
+PATCH support is now supported generically via [OpenAPI](../api/openapi/openapi-usage-guide.md#generic-patching). Traditional PATCH support is only available for a selected set of aspects. The complete list of Aspects that are supported are maintained by the `SUPPORTED_TEMPLATES` constant [here](https://github.com/datahub-project/datahub/blob/master/entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/template/AspectTemplateEngine.java#L23).
 
 :::
 
 ## How To Use Patches
 
-Here's how to find the appropriate classes for the language for your choice.
+The Patch builders are available in both Python and Java SDKs:
 
-<Tabs>
-<TabItem value="Python" label="Python SDK" default>
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 The Python Patch builders are entity-oriented and located in the [metadata-ingestion](https://github.com/datahub-project/datahub/tree/9588440549f3d99965085e97b214a7dabc181ed2/metadata-ingestion/src/datahub/specific) module and located in the `datahub.specific` module.
 Patch builder helper classes exist for
@@ -33,17 +33,35 @@ Patch builder helper classes exist for
 
 And we are gladly accepting contributions for Containers, Data Flows (Pipelines), Tags, Glossary Terms, Domains, and ML Models.
 
+</TabItem>
+<TabItem value="java" label="Java SDK">
+
+The Java Patch builders are aspect-oriented and located in the [datahub-client](https://github.com/datahub-project/datahub/tree/master/metadata-integration/java/datahub-client/src/main/java/datahub/client/patch) module under the `datahub.client.patch` namespace.
+
+</TabItem>
+</Tabs>
+
 ### Add & Remove Owners for Dataset
 
 To add & remove specific owners for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_owner_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Tags for Dataset
 
 To add & remove specific tags for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_tag_patch.py show_path_as_comment }}
@@ -55,9 +73,16 @@ And for a specific schema field within the Dataset:
 {{ inline /metadata-ingestion/examples/library/dataset_field_add_tag_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Glossary Terms for Dataset
 
 To add & remove specific glossary terms for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_glossary_term_patch.py show_path_as_comment }}
@@ -69,42 +94,71 @@ And for a specific schema field within the Dataset:
 {{ inline /metadata-ingestion/examples/library/dataset_field_add_glossary_term_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+</Tabs>
+
 ### Add & Remove Structured Properties for Dataset
 
 To add & remove structured properties for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_structured_properties_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Upstream Lineage for Dataset
 
 To add & remove a lineage edge connecting a dataset to it's upstream or input at both the dataset and schema field level:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_upstream_lineage_patch.py show_path_as_comment }}
 ```
 
+</TabItem>
+
+</Tabs>
+
 ### Add & Remove Read-Only Custom Properties for Dataset
 
 To add & remove specific custom properties for a dataset:
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_remove_custom_properties_patch.py show_path_as_comment }}
 ```
 
 </TabItem>
-<TabItem value="Java" label="Java SDK">
-
-The Java Patch builders are aspect-oriented and located in the [datahub-client](https://github.com/datahub-project/datahub/tree/master/metadata-integration/java/datahub-client/src/main/java/datahub/client/patch) module under the `datahub.client.patch` namespace.
-
-### Add & Remove Read-Only Custom Properties
+<TabItem value="java" label="Java SDK">
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java show_path_as_comment }}
 ```
 
-### Add Data Job Lineage
+</TabItem>
+</Tabs>
+
+### Add & Remove Data Job Lineage
+
+<Tabs groupId="sdk-language">
+<TabItem value="python" label="Python SDK" default>
+
+```python
+{{ inline /metadata-ingestion/examples/library/datajob_add_lineage_patch.py show_path_as_comment }}
+```
+
+</TabItem>
+<TabItem value="java" label="Java SDK">
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DataJobLineageAdd.java show_path_as_comment }}

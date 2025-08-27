@@ -20,6 +20,8 @@ import org.springframework.context.annotation.Configuration;
       "com.linkedin.gms.factory.timeline",
       "com.linkedin.gms.factory.event",
       "org.springdoc",
+      "com.linkedin.gms.factory.system_info",
+      // SaaS Only
       "io.datahubproject.openapi.tests"
     })
 @Configuration

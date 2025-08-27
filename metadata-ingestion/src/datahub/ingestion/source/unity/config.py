@@ -8,7 +8,7 @@ import pydantic
 from pydantic import Field
 from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -34,6 +34,12 @@ from datahub.ingestion.source_config.operation_config import (
 from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
+
+
+class LineageDataSource(ConfigEnum):
+    AUTO = "AUTO"
+    SYSTEM_TABLES = "SYSTEM_TABLES"
+    API = "API"
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
@@ -243,6 +249,21 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
+    lineage_data_source: LineageDataSource = pydantic.Field(
+        default=LineageDataSource.AUTO,
+        description=(
+            "Source for lineage data extraction. Options: "
+            f"'{LineageDataSource.AUTO.value}' - Use system tables when SQL warehouse is available, fallback to API; "
+            f"'{LineageDataSource.SYSTEM_TABLES.value}' - Force use of system.access.table_lineage and system.access.column_lineage tables (requires SQL warehouse); "
+            f"'{LineageDataSource.API.value}' - Force use of REST API endpoints for lineage data"
+        ),
+    )
+
+    ignore_start_time_lineage: bool = pydantic.Field(
+        default=False,
+        description="Option to ignore the start_time and retrieve all available lineage. When enabled, the start_time filter will be set to zero to extract all lineage events regardless of the configured time window.",
+    )
+
     column_lineage_column_limit: int = pydantic.Field(
         default=300,
         description="Limit the number of columns to get column level lineage. ",
@@ -252,6 +273,17 @@ class UnityCatalogSourceConfig(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for column lineage thread pool executor. Set to 1 to disable.",
         hidden_from_docs=True,
+    )
+
+    databricks_api_page_size: int = pydantic.Field(
+        default=0,
+        ge=0,
+        description=(
+            "Page size for Databricks API calls when listing resources (catalogs, schemas, tables, etc.). "
+            "When set to 0 (default), uses server-side configured page length (recommended). "
+            "When set to a positive value, the page length is the minimum of this value and the server configured value. "
+            "Must be a non-negative integer."
+        ),
     )
 
     include_usage_statistics: bool = Field(
@@ -359,6 +391,20 @@ class UnityCatalogSourceConfig(
 
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
+
+        return values
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_lineage_data_source_with_warehouse(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        lineage_data_source = values.get("lineage_data_source", LineageDataSource.AUTO)
+        warehouse_id = values.get("warehouse_id")
+
+        if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
+            raise ValueError(
+                f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
+            )
 
         return values
 

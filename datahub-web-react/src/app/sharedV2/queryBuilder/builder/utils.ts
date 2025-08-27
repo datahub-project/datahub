@@ -109,3 +109,7 @@ export const convertToLogicalPredicate = (predicate: LogicalPredicate | Property
     // Already is a logical predicate.
     return predicate as LogicalPredicate;
 };
+
+export function isEmptyLogicalPredicate(predicate: LogicalPredicate | null | undefined) {
+    return !predicate?.operands?.length;
+}

@@ -1,5 +1,7 @@
 package datahub.spark;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkAppContext;
@@ -12,8 +14,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 @Slf4j
 public class HdfsPathDatasetTest {
@@ -39,7 +40,7 @@ public class HdfsPathDatasetTest {
         HdfsPathDataset.create(
             new URI("s3://my-bucket/foo/tests/bar.avro"),
             sparkLineageConfBuilder.build().getOpenLineageConf());
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)",
         dataset.urn().toString());
   }
@@ -71,7 +72,7 @@ public class HdfsPathDatasetTest {
         HdfsPathDataset.create(
             new URI("s3a://my-bucket/foo/tests/bar.avro"),
             sparkLineageConfBuilder.build().getOpenLineageConf());
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)",
         dataset.urn().toString());
   }
@@ -98,7 +99,7 @@ public class HdfsPathDatasetTest {
         HdfsPathDataset.create(
             new URI("s3://bucket-a/kafka_backup/my-table/year=2022/month=10/day=11/my-file.tx"),
             datahubConfig);
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-a/kafka_backup/my-table,PROD)",
         dataset.urn().toString());
 
@@ -106,7 +107,7 @@ public class HdfsPathDatasetTest {
         HdfsPathDataset.create(
             new URI("s3://bucket-b/kafka_backup/my-table/year=2023/month=11/day=23/my-file.tx"),
             datahubConfig);
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-b/kafka_backup/my-table,PROD)",
         dataset.urn().toString());
 
@@ -115,14 +116,14 @@ public class HdfsPathDatasetTest {
             new URI(
                 "s3://bucket-c/my-backup/my-other-folder/my-table/year=2023/month=11/day=23/my-file.tx"),
             datahubConfig);
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-c/my-backup/my-other-folder/my-table,PROD)",
         dataset.urn().toString());
 
     dataset =
         HdfsPathDataset.create(
             new URI("s3://bucket-d/kafka_backup/my-table/non-partitioned/"), datahubConfig);
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-d/kafka_backup/my-table/non-partitioned,PROD)",
         dataset.urn().toString());
   }
@@ -149,7 +150,7 @@ public class HdfsPathDatasetTest {
     DatahubOpenlineageConfig datahubConfig = sparkLineageConfBuilder.build().getOpenLineageConf();
 
     SparkDataset dataset = HdfsPathDataset.create(new URI(gcsPath), datahubConfig);
-    Assert.assertEquals(expectedUrn, dataset.urn().toString());
+    assertEquals(expectedUrn, dataset.urn().toString());
   }
 
   @Test
@@ -174,7 +175,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(
             new URI("s3a://my-bucket/foo/tests/bar.avro"), sparkLineageConf.getOpenLineageConf());
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)",
         dataset.urn().toString());
   }
@@ -204,7 +205,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(
             new URI("s3a://my-bucket/foo/tests/bar.avro"), sparkLineageConf.getOpenLineageConf());
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)",
         dataset.urn().toString());
   }
@@ -232,7 +233,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(
             new URI("s3a://my-bucket/foo/tests/bar.avro"), sparkLineageConf.getOpenLineageConf());
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo,PROD)", dataset.urn().toString());
   }
 
@@ -255,7 +256,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(
             new URI("gs://my-bucket/foo/tests/bar.avro"), sparkLineageConf.getOpenLineageConf());
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests/bar.avro,PROD)",
         dataset.urn().toString());
   }
@@ -284,7 +285,7 @@ public class HdfsPathDatasetTest {
     SparkDataset dataset =
         HdfsPathDataset.create(
             new URI("gs://my-bucket/foo/tests/bar.avro"), sparkLineageConf.getOpenLineageConf());
-    Assert.assertEquals(
+    assertEquals(
         "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo/tests,PROD)",
         dataset.urn().toString());
   }

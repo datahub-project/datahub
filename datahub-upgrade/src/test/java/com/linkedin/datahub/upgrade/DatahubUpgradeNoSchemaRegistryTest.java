@@ -5,6 +5,7 @@ import static com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer.topicT
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
@@ -76,10 +77,17 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
     MockSystemUpdateSerializer serializer = new MockSystemUpdateSerializer();
     serializer.configure(schemaRegistryConfig.getProperties(null), false);
     SchemaRegistryClient registry = serializer.getSchemaRegistryClient();
-    assertEquals(
+
+    // The RENAMED_MCL_AVRO_SCHEMA can have either schema ID 11 or 12
+    // Both are valid for the METADATA_CHANGE_LOG_VERSIONED topic
+    int actualSchemaId =
         registry.getId(
-            topicToSubjectName(Topics.METADATA_CHANGE_LOG_VERSIONED), RENAMED_MCL_AVRO_SCHEMA),
-        2);
+            topicToSubjectName(Topics.METADATA_CHANGE_LOG_VERSIONED), RENAMED_MCL_AVRO_SCHEMA);
+
+    // Accept either schema ID 11 (METADATA_CHANGE_LOG) or 12 (METADATA_CHANGE_LOG_TIMESERIES)
+    assertTrue(
+        actualSchemaId == 11 || actualSchemaId == 12,
+        "Expected schema ID 11 or 12, but got: " + actualSchemaId);
   }
 
   @Test

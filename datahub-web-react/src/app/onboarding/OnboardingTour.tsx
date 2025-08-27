@@ -26,9 +26,30 @@ export const OnboardingTour = ({ stepIds }: Props) => {
     const location = useLocation();
     const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
 
+<<<<<<< HEAD
     // Don't show OnboardingTour on homepage - WelcomeToDataHubModal is used there instead
     const isHomepage = location.pathname === '/';
 
+=======
+    useEffect(() => {
+        function handleKeyDown(e) {
+            // Allow reshow if Cmnd + Ctrl + T is pressed
+            if (e.metaKey && e.ctrlKey && e.key === 't') {
+                setTourReshow(true);
+                setIsTourOpen(true);
+            }
+            if (e.metaKey && e.ctrlKey && e.key === 'h') {
+                setTourReshow(false);
+                setIsTourOpen(false);
+            }
+        }
+        document.addEventListener('keydown', handleKeyDown);
+    }, [setTourReshow, setIsTourOpen]);
+
+    // Don't show OnboardingTour on homepage - WelcomeToDataHubModal is used there instead
+    const isHomepage = location.pathname === '/';
+
+>>>>>>> upstream/master
     const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', tourReshow);
     const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
     const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];

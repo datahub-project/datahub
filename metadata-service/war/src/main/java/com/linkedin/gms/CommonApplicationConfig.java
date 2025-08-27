@@ -60,6 +60,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.telemetry",
       "com.linkedin.gms.factory.trace",
       "com.linkedin.gms.factory.kafka.trace",
+      "com.linkedin.gms.factory.system_info",
     })
 @Slf4j
 @Configuration

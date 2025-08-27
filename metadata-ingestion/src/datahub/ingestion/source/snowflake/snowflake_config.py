@@ -216,6 +216,16 @@ class SnowflakeV2Config(
         description="If enabled, populates the ingested views' definitions.",
     )
 
+    fetch_views_from_information_schema: bool = Field(
+        default=False,
+        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
+        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
+        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
+        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
+        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
+        "to populate the missing definitions.",
+    )
+
     include_technical_schema: bool = Field(
         default=True,
         description="If enabled, populates the snowflake technical schema and descriptions.",
@@ -356,9 +366,16 @@ class SnowflakeV2Config(
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
-        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'SERVICE_%', '%_PROD', 'TEST_USER') which will NOT be considered for lineage/usage/queries extraction. "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'ANALYST_%', '%_USER', 'MAIN_ACCOUNT') which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
     )
 
     push_down_database_pattern_access_history: bool = Field(

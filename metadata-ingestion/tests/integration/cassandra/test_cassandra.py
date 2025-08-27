@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 _resources_dir = pathlib.Path(__file__).parent
 
+pytestmark = pytest.mark.integration_batch_4
+
 
 @pytest.mark.integration
 def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeypatch):

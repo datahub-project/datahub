@@ -769,4 +769,27 @@ def default_query_results(  # noqa: C901
                 "COMMENT": "This is a test procedure 2",
             },
         ]
+    elif query == SnowflakeQuery.get_dynamic_table_graph_history("TEST_DB"):
+        # Return empty result for dynamic table graph history in test environment
+        return []
+    elif query == SnowflakeQuery.show_dynamic_tables_for_database("TEST_DB"):
+        # Return dynamic table definitions for TABLE_2 which should be a dynamic table
+        return [
+            {
+                "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "name": "TABLE_2",
+                "database_name": "TEST_DB",
+                "schema_name": "TEST_SCHEMA",
+                "owner": "ACCOUNTADMIN",
+                "comment": "Comment for Table",
+                "text": "CREATE DYNAMIC TABLE TEST_DB.TEST_SCHEMA.TABLE_2 TARGET_LAG = '1 HOUR' AS SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_1",
+                "target_lag": "1 HOUR",
+                "warehouse": "TEST_WAREHOUSE",
+                "refresh_mode": "AUTO",
+                "refresh_mode_reason": "DYNAMIC_TABLE_CONFIG",
+                "data_timestamp": datetime(2021, 6, 8, 0, 0, 0, 0),
+                "scheduling_state": "RUNNING",
+                "owner_role_type": "ROLE",
+            }
+        ]
     raise ValueError(f"Unexpected query: {query}")

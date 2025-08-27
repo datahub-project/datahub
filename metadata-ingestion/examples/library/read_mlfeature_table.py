@@ -1,13 +1,13 @@
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.sdk import DataHubClient, MLFeatureTableUrn
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import MLFeatureTablePropertiesClass
+client = DataHubClient.from_env()
 
-# First we get the current owners
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
+# Or get this from the UI (share -> copy urn) and use MLFeatureTableUrn.from_string(...)
+mlfeature_table_urn = MLFeatureTableUrn(
+    "feast", "test_feature_table_all_feature_dtypes"
+)
 
-urn = "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table_all_feature_dtypes)"
-result = graph.get_aspect(entity_urn=urn, aspect_type=MLFeatureTablePropertiesClass)
-
-print(result)
+mlfeature_table_entity = client.entities.get(mlfeature_table_urn)
+print("MLFeature Table name:", mlfeature_table_entity.name)
+print("MLFeature Table platform:", mlfeature_table_entity.platform)
+print("MLFeature Table description:", mlfeature_table_entity.description)

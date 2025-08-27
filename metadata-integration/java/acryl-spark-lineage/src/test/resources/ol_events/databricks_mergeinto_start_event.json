@@ -1,0 +1,446 @@
+{
+  "eventTime": "2025-07-10T12:24:34.186Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "START",
+  "run": {
+    "runId": "0197f44b-7231-7dcb-8d0c-349ce8b0f2c2",
+    "facets": {
+      "parent": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/ParentRunFacet.json#/$defs/ParentRunFacet",
+        "run": {
+          "runId": "0197f44a-aaaa-7d9f-a2c1-96ebf920205d"
+        },
+        "job": {
+          "namespace": "default",
+          "name": "databricks_shell"
+        },
+        "root": {
+          "run": {
+            "runId": "0197f44a-aaaa-bbbb-a2c1-96ebf920205d"
+          },
+          "job": {
+            "namespace": "default",
+            "name": "Databricks Shell"
+          }
+        }
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.5.0",
+        "name": "spark",
+        "openlineageAdapterVersion": "0.2.18-rc7"
+      },
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "spark://127.0.0.1:7077",
+          "spark.app.name": "Databricks Shell"
+        }
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "my-docuemnt-merge-job",
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "processingType": "BATCH",
+        "integration": "SPARK",
+        "jobType": "SQL_JOB"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "namespace": "dbfs",
+      "name": "/demo-warehouse/document",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "dbfs",
+          "uri": "dbfs"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "DocYear",
+              "type": "integer"
+            },
+            {
+              "name": "DocSystem",
+              "type": "string"
+            },
+            {
+              "name": "DocNumber",
+              "type": "long"
+            },
+            {
+              "name": "DocName",
+              "type": "string"
+            },
+            {
+              "name": "DocLongName",
+              "type": "string"
+            },
+            {
+              "name": "DocType",
+              "type": "string"
+            },
+            {
+              "name": "FilePath",
+              "type": "string"
+            },
+            {
+              "name": "FileName",
+              "type": "string"
+            },
+            {
+              "name": "FileSize",
+              "type": "long"
+            },
+            {
+              "name": "FileModificationTime",
+              "type": "timestamp"
+            },
+            {
+              "name": "RecordInsertDateTime",
+              "type": "timestamp"
+            },
+            {
+              "name": "RecordUpdateDateTime",
+              "type": "timestamp"
+            },
+            {
+              "name": "BatchID",
+              "type": "long"
+            }
+          ]
+        },
+        "symlinks": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json#/$defs/SymlinksDatasetFacet",
+          "identifiers": [
+            {
+              "namespace": "dbfs:/demo-warehouse/document",
+              "name": "documentraw.document",
+              "type": "TABLE"
+            }
+          ]
+        }
+      },
+      "inputFacets": {}
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "dbfs",
+      "name": "/demo-warehouse/document",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "dbfs",
+          "uri": "dbfs"
+        },
+        "columnLineage": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+          "fields": {
+            "DocYear": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/document",
+                  "field": "DocYear",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                },
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "DocYear",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "DocSystem": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/document",
+                  "field": "DocSystem",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "DocNumber": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "DocNumber",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                },
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/document",
+                  "field": "DocNumber",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "DocName": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "DocName",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "DocLongName": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "DocLongName",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "DocType": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "DocType",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "FilePath": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "FilePath",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "FileName": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "FileName",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "FileSize": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "FileSize",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "FileModificationTime": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/documentstage",
+                  "field": "FileModificationTime",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "RecordInsertDateTime": {
+              "inputFields": [
+                {
+                  "namespace": "dbfs",
+                  "name": "/demo-warehouse/document",
+                  "field": "RecordInsertDateTime",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "DocYear",
+              "type": "integer"
+            },
+            {
+              "name": "DocSystem",
+              "type": "string"
+            },
+            {
+              "name": "DocNumber",
+              "type": "long"
+            },
+            {
+              "name": "DocName",
+              "type": "string"
+            },
+            {
+              "name": "DocLongName",
+              "type": "string"
+            },
+            {
+              "name": "DocType",
+              "type": "string"
+            },
+            {
+              "name": "FilePath",
+              "type": "string"
+            },
+            {
+              "name": "FileName",
+              "type": "string"
+            },
+            {
+              "name": "FileSize",
+              "type": "long"
+            },
+            {
+              "name": "FileModificationTime",
+              "type": "timestamp"
+            },
+            {
+              "name": "RecordInsertDateTime",
+              "type": "timestamp"
+            },
+            {
+              "name": "RecordUpdateDateTime",
+              "type": "timestamp"
+            },
+            {
+              "name": "BatchID",
+              "type": "long"
+            }
+          ]
+        },
+        "symlinks": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.33.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json#/$defs/SymlinksDatasetFacet",
+          "identifiers": [
+            {
+              "namespace": "dbfs:/demo-warehouse/document",
+              "name": "documentraw.document",
+              "type": "TABLE"
+            }
+          ]
+        }
+      },
+      "outputFacets": {}
+    }
+  ]
+}

@@ -139,6 +139,7 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showStatsTabRedesign
             showHomePageRedesign
             showFormAnalytics
             showStatsTabRedesign
@@ -156,6 +157,7 @@ query appConfig {
             lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
+            assetSummaryPageV1
             viewIngestionSourcePrivilegesEnabled
             actionWorkflowsEnabled
         }

@@ -1,26 +1,14 @@
 from datahub.metadata.urns import MlModelGroupUrn
 from datahub.sdk import DataHubClient
-from datahub.sdk.mlmodelgroup import MLModelGroup
 
 client = DataHubClient.from_env()
 
-mlmodel_group = MLModelGroup(
-    id="my-recommendations-model-group",
-    name="My Recommendations Model Group",
-    description="A group for recommendations models",
-    platform="mlflow",
-    custom_properties={
-        "owner": "John Doe",
-        "team": "recommendations",
-        "domain": "marketing",
-    },
+# Or get this from the UI (share -> copy urn) and use MlModelGroupUrn.from_string(...)
+mlmodel_group_urn = MlModelGroupUrn(
+    platform="mlflow", name="my-recommendations-model-group"
 )
 
-client.entities.upsert(mlmodel_group)
-mlmodel_group = client.entities.get(
-    MlModelGroupUrn(platform="mlflow", name="my-recommendations-model-group")
-)
-
-print("Model Group Name: ", mlmodel_group.name)
-print("Model Group Description: ", mlmodel_group.description)
-print("Model Group Custom Properties: ", mlmodel_group.custom_properties)
+mlmodel_group_entity = client.entities.get(mlmodel_group_urn)
+print("Model Group Name: ", mlmodel_group_entity.name)
+print("Model Group Description: ", mlmodel_group_entity.description)
+print("Model Group Custom Properties: ", mlmodel_group_entity.custom_properties)

@@ -3,13 +3,14 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { FontColorLevelOptions, FontColorOptions, FontSizeOptions, FontWeightOptions } from '@components/theme/config';
+import { getColor } from '@components/theme/utils';
 
 import useMeasureIfTrancated from '@app/shared/useMeasureIfTruncated';
 
-const EntityTitleContainer = styled.div`
+const EntityTitleContainer = styled.div<{ $color?: FontColorOptions; $colorLevel?: FontColorLevelOptions }>`
     text-overflow: ellipsis;
     overflow: hidden;
-    max-width: 400px;
+    color: ${(props) => getColor(props.$color, props.$colorLevel, props.theme)};
 `;
 
 const PopoverWrapper = styled.div`
@@ -49,7 +50,7 @@ export default function DisplayName({
                 ) : undefined
             }
         >
-            <EntityTitleContainer ref={measuredRef} className={className}>
+            <EntityTitleContainer ref={measuredRef} className={className} $color={color} $colorLevel={colorLevel}>
                 <MatchText
                     type="span"
                     color={color}
