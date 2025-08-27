@@ -605,6 +605,11 @@ type Mutation {
   addLink(input: AddLinkInput!): Boolean
 
   """
+  Update a link, or institutional memory, from a particular Entity
+  """
+  updateLink(input: UpdateLinkInput!): Boolean
+
+  """
   Remove a link, or institutional memory, from a particular Entity
   """
   removeLink(input: RemoveLinkInput!): Boolean
@@ -3290,6 +3295,11 @@ type InstitutionalMemoryMetadata {
   An AuditStamp corresponding to the creation of this resource
   """
   created: AuditStamp!
+
+  """
+  An AuditStamp corresponding to the updating of this resource
+  """
+  updated: AuditStamp
 
   """
   Deprecated, use label instead
@@ -9147,13 +9157,48 @@ input AddLinkInput {
 }
 
 """
+Input provided when updating the association between a Metadata Entity and a Link
+"""
+input UpdateLinkInput {
+  """
+  Current url of the link
+  """
+  currentUrl: String!
+
+  """
+  Current label of the link
+  """
+  currentLabel: String!
+
+  """
+  The new url of the link
+  """
+  linkUrl: String!
+
+  """
+  The new label of the link
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+}
+
+"""
 Input provided when removing the association between a Metadata Entity and a Link
 """
 input RemoveLinkInput {
   """
-  The url of the link to add or remove, which uniquely identifies the Link
+  The url of the link to remove, which uniquely identifies the Link
   """
   linkUrl: String!
+
+  """
+  The label of the link to remove, which uniquely identifies the Link
+  """
+  label: String
 
   """
   The urn of the resource or entity to attach the link to, for example a dataset urn

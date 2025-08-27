@@ -1152,6 +1152,11 @@
             "name" : "createStamp",
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with creation of this record"
+          }, {
+            "name" : "updateStamp",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp associated with updation of this record",
+            "optional" : true
           } ]
         }
       },
