@@ -122,7 +122,12 @@ public class PropertiesCollector {
                 key,
                 k -> {
                   Object rawValue = enumerable.getProperty(k);
-                  String resolvedValue = springEnvironment.getProperty(k);
+                  String resolvedValue;
+                  try {
+                    resolvedValue = springEnvironment.getProperty(k);
+                  } catch (Exception e) {
+                    resolvedValue = "";
+                  }
 
                   // Check if this is an allowed property
                   if (isAllowedProperty(k, resolvedValue)) {

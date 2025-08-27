@@ -76,8 +76,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
-          "PWD" // Current directory may contain sensitive info
-          );
+          "PWD", // Current directory may contain sensitive info
+
+          // SaaS Only
+          "telemetry.mixpanel.token");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -90,7 +92,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingKey",
           "authentication.tokenService.salt",
           "authentication.authenticators[*].configs.signingKey",
-          "authentication.authenticators[*].configs.salt");
+          "authentication.authenticators[*].configs.salt",
+
+          // SaaS Only
+          "notifications.sinks[*].configs.botToken");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -119,7 +124,17 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // IAM authentication flags
           "*.postgresUseIamAuth",
-          "*.opensearchUseAwsIamAuth");
+          "*.opensearchUseAwsIamAuth",
+
+          // Bulk rules
+          "featureFlags.*",
+          "*.*nabled",
+          "*.*.*nabled",
+          "*.*.*.*nabled",
+          "*.*.*.*.*nabled",
+          "*.consumerGroupSuffix",
+          "*.*.consumerGroupSuffix",
+          "*.*.*.consumerGroupSuffix");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -420,55 +435,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.plugin.retention.path",
           "datahub.serverEnv",
           "datahub.serverType",
-
-          // Feature flags
-          "featureFlags.alwaysEmitChangeLog",
-          "featureFlags.alternateMCPValidation",
-          "featureFlags.assetSummaryPageV1",
-          "featureFlags.businessAttributeEntityEnabled",
-          "featureFlags.dataContractsEnabled",
-          "featureFlags.editableDatasetNameEnabled",
-          "featureFlags.entityVersioning",
-          "featureFlags.erModelRelationshipFeatureEnabled",
-          "featureFlags.fineGrainedLineageNotAllowedForPlatforms",
-          "featureFlags.graphServiceDiffModeEnabled",
-          "featureFlags.hideDbtSourceInLineage",
-          "featureFlags.lineageGraphV2",
-          "featureFlags.lineageGraphV3",
-          "featureFlags.lineageSearchCacheEnabled",
-          "featureFlags.logicalModelsEnabled",
-          "featureFlags.nestedDomainsEnabled",
-          "featureFlags.platformBrowseV2",
-          "featureFlags.pointInTimeCreationEnabled",
-          "featureFlags.preProcessHooks.reprocessEnabled",
-          "featureFlags.preProcessHooks.uiEnabled",
-          "featureFlags.readOnlyModeEnabled",
-          "featureFlags.schemaFieldCLLEnabled",
-          "featureFlags.schemaFieldEntityFetchEnabled",
-          "featureFlags.schemaFieldLineageIgnoreStatus",
-          "featureFlags.searchServiceDiffModeEnabled",
-          "featureFlags.showAccessManagement",
-          "featureFlags.showAcrylInfo",
-          "featureFlags.showAutoCompleteResults",
-          "featureFlags.showBrowseV2",
-          "featureFlags.showHasSiblingsFilter",
-          "featureFlags.showHomePageRedesign",
-          "featureFlags.showHomepageUserRole",
-          "featureFlags.showIngestionPageRedesign",
-          "featureFlags.showIntroducePage",
-          "featureFlags.showLineageExpandMore",
-          "featureFlags.showManageStructuredProperties",
-          "featureFlags.showManageTags",
-          "featureFlags.showNavBarRedesign",
-          "featureFlags.showProductUpdates",
-          "featureFlags.showStatsTabRedesign",
-          "featureFlags.showSearchBarAutocompleteRedesign",
-          "featureFlags.showSearchFiltersV2",
-          "featureFlags.showSeparateSiblings",
-          "featureFlags.showSimplifiedHomepageByDefault",
-          "featureFlags.themeV2Default",
-          "featureFlags.themeV2Enabled",
-          "featureFlags.themeV2Toggleable",
 
           // Database configuration (non-sensitive settings)
           "cassandra.datacenter",
@@ -795,7 +761,87 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
-          "datahub.policies.systemPolicyUrnList"
+          "datahub.policies.systemPolicyUrnList",
+
+          // SaaS properties
+          "assertionMonitors.resolveIngestionSourceForAspects",
+          "aws.eventBridge.assumeRoleArn",
+          "aws.eventBridge.auditEventExport.aspectTypes",
+          "aws.eventBridge.auditEventExport.usageEventTypes",
+          "aws.eventBridge.auditEventExport.userFilters",
+          "aws.eventBridge.eventBus",
+          "aws.eventBridge.externalId",
+          "aws.eventBridge.flushIntervalSeconds",
+          "aws.eventBridge.maxBatchSize",
+          "aws.eventBridge.maxRetries",
+          "aws.eventBridge.region",
+          "cache.search.lineage.evictionPolicy",
+          "cache.search.lineage.maxSize",
+          "classificationConfig.automations.aiTermClassification",
+          "classificationConfig.automations.snowflake",
+          "datahub.plugin.openApiClient.backOffMillis",
+          "datahub.plugin.openApiClient.maxRetries",
+          "elasticsearch.scroll.timeout",
+          "entityService.applyMclSyncForSources.reportingExecutor",
+          "entityService.applyMclSyncForSources.ui",
+          "eventSinks.entityChangeEvent.sinks[0].configs.assumeRoleArn",
+          "eventSinks.entityChangeEvent.sinks[0].configs.eventBus",
+          "eventSinks.entityChangeEvent.sinks[0].configs.externalId",
+          "eventSinks.entityChangeEvent.sinks[0].configs.region",
+          "eventSinks.entityChangeEvent.sinks[0].type",
+          "executors.backendRevision",
+          "executors.cloudLoggingS3Bucket",
+          "executors.cloudLoggingS3Prefix",
+          "executors.executorCustomerId",
+          "executors.executorPoolHook.messageRetentionPeriod",
+          "executors.executorPoolHook.policyTemplate",
+          "executors.executorPoolHook.sqsBaseDelayMs",
+          "executors.executorPoolHook.sqsMaxRetries",
+          "executors.executorPoolHook.visibilityTimeout",
+          "executors.executorRoleArn",
+          "integrationsService.host",
+          "integrationsService.port",
+          "integrationsService.useSsl",
+          "metadataChangeProposal.validation.extensions.configFile",
+          "metadataTests.actions.concurrency",
+          "metadataTests.actions.queueSize",
+          "metadataTests.actions.threadKeepAlive",
+          "metadataTests.bootstrap.activeDefaults",
+          "metadataTests.cacheRefreshDelayIntervalSecs",
+          "metadataTests.cacheRefreshIntervalSecs",
+          "metadataTests.forwardingAction.recipe",
+          "metadataTests.futuresBatchSize",
+          "metadataTests.hook.hookExecutionLimit.defaultExecutor",
+          "metadataTests.hook.hookExecutionLimit.elasticSearchExecutor",
+          "metadataTests.hook.onEntityChange",
+          "metadataTests.hook.onTestChange",
+          "monitorService.host",
+          "monitorService.port",
+          "monitorService.useSsl",
+          "notifications.sinks[0].configs.defaultChannel",
+          "notifications.sinks[0].configs.maxNumRetries",
+          "notifications.sinks[0].configs.proxyUrl",
+          "notifications.sinks[0].type",
+          "notifications.sinks[1].type",
+          "notifications.sinks[2].type",
+          "recommendationService.mostPopular.offline",
+          "recommendationService.topTags.offline",
+          "recommendationService.topTerms.offline",
+          "searchService.ranker.type",
+          "sentry.debug",
+          "sentry.dsn",
+          "sentry.env",
+          "systemUpdate.assertionInfo.delayMs",
+          "systemUpdate.assertionInfo.limit",
+          "systemUpdate.executorPools.customerId",
+          "systemUpdate.migrateProcessInstanceEdges.inputPlatforms",
+          "systemUpdate.migrateProcessInstanceEdges.outputPlatforms",
+          "systemUpdate.migrateProcessInstanceEdges.parentPlatforms",
+          "systemUpdate.postInfo.delayMs",
+          "systemUpdate.postInfo.limit",
+          "telemetry.googleAnalytics.measurementId",
+          "telemetry.mixpanel.disableObfuscation",
+          "telemetry.mixpanel.useStandardEndpoints"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to
