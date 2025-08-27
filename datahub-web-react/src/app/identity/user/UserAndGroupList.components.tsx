@@ -54,9 +54,31 @@ const StyledActionsButton = styled(Button)`
 export const UserContainer = styled.div`
     display: flex;
     flex-direction: column;
+    margin-top: 16px;
 `;
 
-export const TableContainer = styled.div``;
+export const TableContainer = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: calc(100vh - 300px); /* Constrain to page height minus header/filters space */
+    overflow: auto;
+
+    /* Make table header sticky */
+    .ant-table-thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: white;
+    }
+
+    /* Ensure header cells have proper background */
+    .ant-table-thead > tr > th {
+        background: white !important;
+        border-bottom: 1px solid #f0f0f0;
+    }
+`;
 
 export const FiltersHeader = styled.div`
     display: flex;
@@ -257,7 +279,11 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
 
     return (
         <Dropdown trigger={['click']} menu={{ items }}>
-            <StyledActionsButton variant="text" icon={{ icon: 'DotsThreeVertical', source: 'phosphor' }} isCircle />
+            <StyledActionsButton
+                variant="text"
+                icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
+                isCircle
+            />
         </Dropdown>
     );
 };

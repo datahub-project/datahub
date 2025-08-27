@@ -7,11 +7,11 @@ import { colors } from '@src/alchemy-components/theme';
 export const PageContainer = styled.div`
     padding: 16px 20px;
     width: 100%;
-    overflow: auto;
     flex: 1;
     display: flex;
     gap: 20px;
     flex-direction: column;
+    overflow: hidden;
 `;
 
 export const PageHeaderContainer = styled.div`
@@ -33,8 +33,11 @@ export const Content = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
-    overflow: auto;
     color: ${colors.gray[600]};
+
+    &&& .ant-tabs-nav {
+        margin-bottom: 0;
+    }
 `;
 
 const TabTitle = styled.div`

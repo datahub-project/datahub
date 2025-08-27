@@ -313,7 +313,14 @@ export const UserAndGroupList = () => {
                             handleSortColumnChange={handleSortColumnChange}
                         />
                         {!isFiltering && (
-                            <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                            <div
+                                style={{
+                                    paddingTop: '0',
+                                    paddingBottom: '16px',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                }}
+                            >
                                 <Pagination
                                     currentPage={page}
                                     itemsPerPage={pageSize}
