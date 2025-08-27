@@ -1,6 +1,7 @@
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import {
     convertLogicalPredicateToOrFilters,
+    convertToLogicalPredicate,
     isEmptyLogicalPredicate,
     isLogicalPredicate,
 } from '@app/sharedV2/queryBuilder/builder/utils';
@@ -282,6 +283,115 @@ describe('utils', () => {
         });
         it('should handle logical predicate with empty', () => {
             expect(isEmptyLogicalPredicate(LOGICAL_PREDICATE_WITH_EMPTY_OPERANDS)).toBeTruthy();
+        });
+    });
+
+    describe('convertToLogicalPredicate', () => {
+        const SAMPLE_PROPERTY_PREDICATE: PropertyPredicate = {
+            type: 'property',
+            property: 'dataset.description',
+            operator: 'equals',
+            values: ['test value'],
+        };
+
+        const SAMPLE_LOGICAL_PREDICATE: LogicalPredicate = {
+            type: 'logical',
+            operator: LogicalOperatorType.OR,
+            operands: [
+                {
+                    type: 'property',
+                    property: 'name',
+                    operator: 'contains',
+                    values: ['example'],
+                },
+                {
+                    type: 'property',
+                    property: 'description',
+                    operator: 'exists',
+                    values: [],
+                },
+            ],
+        };
+
+        it('should convert PropertyPredicate to LogicalPredicate with AND operator', () => {
+            const result = convertToLogicalPredicate(SAMPLE_PROPERTY_PREDICATE);
+
+            expect(result).toEqual({
+                type: 'logical',
+                operator: LogicalOperatorType.AND,
+                operands: [SAMPLE_PROPERTY_PREDICATE],
+            });
+        });
+
+        it('should return the same LogicalPredicate when input is already a LogicalPredicate', () => {
+            const result = convertToLogicalPredicate(SAMPLE_LOGICAL_PREDICATE);
+
+            expect(result).toEqual(SAMPLE_LOGICAL_PREDICATE);
+            expect(result).toBe(SAMPLE_LOGICAL_PREDICATE); // Should be the same reference
+        });
+
+        it('should handle PropertyPredicate with minimal properties', () => {
+            const minimalPropertyPredicate: PropertyPredicate = {
+                type: 'property',
+                property: 'title',
+            };
+
+            const result = convertToLogicalPredicate(minimalPropertyPredicate);
+
+            expect(result).toEqual({
+                type: 'logical',
+                operator: LogicalOperatorType.AND,
+                operands: [minimalPropertyPredicate],
+            });
+        });
+
+        it('should handle PropertyPredicate with empty values array', () => {
+            const propertyPredicateWithEmptyValues: PropertyPredicate = {
+                type: 'property',
+                property: 'status',
+                operator: 'exists',
+                values: [],
+            };
+
+            const result = convertToLogicalPredicate(propertyPredicateWithEmptyValues);
+
+            expect(result).toEqual({
+                type: 'logical',
+                operator: LogicalOperatorType.AND,
+                operands: [propertyPredicateWithEmptyValues],
+            });
+        });
+
+        it('should handle complex nested LogicalPredicate', () => {
+            const complexLogicalPredicate: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.AND,
+                operands: [
+                    {
+                        type: 'property',
+                        property: 'name',
+                        operator: 'equals',
+                        values: ['test'],
+                    },
+                    {
+                        type: 'logical',
+                        operator: LogicalOperatorType.OR,
+                        operands: [
+                            {
+                                type: 'property',
+                                property: 'type',
+                                operator: 'in',
+                                values: ['dataset', 'dashboard'],
+                            },
+                        ],
+                    },
+                ],
+            };
+
+            const result = convertToLogicalPredicate(complexLogicalPredicate);
+
+            expect(result).toEqual(complexLogicalPredicate);
+            expect(result).toBe(complexLogicalPredicate); // Should be the same reference
         });
     });
 });
