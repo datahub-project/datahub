@@ -8,7 +8,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
+import { ActorFilter, CorpGroup, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -104,9 +104,18 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             });
         } else {
             const newUserActors = [...(actors.users || []), newUser];
+
+            // Find the selected user entity from search results and add it to resolved users
+            const selectedUserEntity = userSearchResults?.find((result) => result.entity.urn === newUser)
+                ?.entity as CorpUser;
+            const newResolvedUsers = selectedUserEntity
+                ? [...(actors.resolvedUsers || []), selectedUserEntity]
+                : actors.resolvedUsers;
+
             setActors({
                 ...actors,
                 users: newUserActors,
+                resolvedUsers: newResolvedUsers,
             });
         }
     };
@@ -136,9 +145,18 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             });
         } else {
             const newGroupActors = [...(actors.groups || []), newGroup];
+
+            // Find the selected group entity from search results and add it to resolved groups
+            const selectedGroupEntity = groupSearchResults?.find((result) => result.entity.urn === newGroup)
+                ?.entity as CorpGroup;
+            const newResolvedGroups = selectedGroupEntity
+                ? [...(actors.resolvedGroups || []), selectedGroupEntity]
+                : actors.resolvedGroups;
+
             setActors({
                 ...actors,
                 groups: newGroupActors,
+                resolvedGroups: newResolvedGroups,
             });
         }
     };
@@ -286,6 +304,15 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onSearch={handleUserSearch}
                     tagRender={(tagProps) => {
                         const { closable, onClose, value } = tagProps;
+
+                        if (value === 'All') {
+                            return (
+                                <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                    All Users
+                                </StyledTag>
+                            );
+                        }
+
                         const selectedItem = usersSelectValues?.find((u) => u?.urn === value) || {};
                         return (
                             <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
@@ -316,7 +343,16 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     filterOption={false}
                     tagRender={(tagProps) => {
                         const { closable, onClose, value } = tagProps;
-                        const selectedItem = groupsSelectValues?.find((u) => u?.urn === value) || {};
+
+                        if (value === 'All') {
+                            return (
+                                <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                    All Groups
+                                </StyledTag>
+                            );
+                        }
+
+                        const selectedItem = groupsSelectValues?.find((g) => g?.urn === value) || {};
                         return (
                             <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
                                 {entityRegistry.getDisplayName(EntityType.CorpGroup, selectedItem)}
