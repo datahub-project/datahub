@@ -45,7 +45,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     TableRename,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
-from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -90,30 +89,6 @@ class LineageItem:
         else:
             self.dataset_lineage_type = DatasetLineageTypeClass.TRANSFORMED
 
-    def merge_lineage(
-        self,
-        upstreams: Set[LineageDataset],
-        cll: Optional[List[sqlglot_l.ColumnLineageInfo]],
-    ) -> None:
-        self.upstreams = self.upstreams.union(upstreams)
-
-        # Merge CLL using the output column name as the merge key.
-        self.cll = self.cll or []
-        existing_cll: Dict[str, sqlglot_l.ColumnLineageInfo] = {
-            c.downstream.column: c for c in self.cll
-        }
-        for c in cll or []:
-            if c.downstream.column in existing_cll:
-                # Merge using upstream + column name as the merge key.
-                existing_cll[c.downstream.column].upstreams = deduplicate_list(
-                    [*existing_cll[c.downstream.column].upstreams, *c.upstreams]
-                )
-            else:
-                # New output column, just add it as is.
-                self.cll.append(c)
-
-        self.cll = self.cll or None
-
 
 def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str, str]:
     """
@@ -130,15 +105,6 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     schema = parsed_query.this.db or default_schema
 
     return schema, prev_name, new_name
-
-
-def split_qualified_table_name(urn: str) -> Tuple[str, str, str]:
-    qualified_table_name = DatasetUrn.from_string(urn).name
-
-    # -3 because platform instance is optional and that can cause the split to have more than 3 elements
-    db, schema, table = qualified_table_name.split(".")[-3:]
-
-    return db, schema, table
 
 
 class RedshiftSqlLineageV2(Closeable):

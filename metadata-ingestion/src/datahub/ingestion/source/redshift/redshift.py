@@ -52,7 +52,6 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelper
 from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
-from datahub.ingestion.source.redshift.lineage import RedshiftLineageExtractor
 from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_data_reader import RedshiftDataReader
@@ -1021,7 +1020,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         return True
 
     def generate_lineage(
-        self, database: str, lineage_extractor: RedshiftLineageExtractor
+        self, database: str, lineage_extractor: RedshiftSqlLineageV2
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {database}")
         for schema in deduplicate_list(
