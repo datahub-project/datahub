@@ -412,6 +412,10 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 
 ## Changelog
 
+### Next
+- _Changes_:
+    - Map jdbc sqlserver dialect to mssql platform otherwise OpenLineage fails to parse the sql
+
 ### Version 0.2.18
 
 - _Changes_:
