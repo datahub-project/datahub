@@ -9,12 +9,8 @@ import {
     getDefaultFreshnessSourceOption,
     getFreshnessSourceOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/utils';
-import {
-    BulkCreateDatasetAssertionsSpec,
-    MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT,
-    ProgressTracker,
-} from '@app/observe/shared/bulkCreate/constants';
-import { convertLogicalPredicateToOrFilters } from '@app/tests/builder/steps/definition/builder/utils';
+import { BulkCreateDatasetAssertionsSpec, ProgressTracker } from '@app/observe/shared/bulkCreate/constants';
+import { SearchFunction, performBatchedSearchWithUrnSorting } from '@app/observe/shared/bulkCreate/searchUtils';
 
 import {
     UpsertDatasetFreshnessAssertionMonitorMutationFn,
@@ -33,18 +29,31 @@ import {
     DatasetFreshnessSourceType,
     DatasetVolumeAssertionParametersInput,
     DatasetVolumeSourceType,
-    EntityType,
     MonitorMode,
     VolumeAssertionType,
 } from '@types';
 
-const BULK_CREATE_DATASET_ASSERTIONS_BATCH_SIZE = MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT;
-
 const DEFAULT_PROGRESS_TRACKER: ProgressTracker = {
+    hasFetched: false,
     total: 0,
     completed: 0,
     successful: [],
     errored: [],
+};
+
+const CHUNK_SIZE = 100;
+
+/**
+ * Divides an array of datasets into chunks of the specified size.
+ * @param datasets - The array of datasets to chunk.
+ * @returns An array of dataset chunks.
+ */
+const buildDatasetChunks = (datasets: Dataset[]): Dataset[][] => {
+    const chunks: Dataset[][] = [];
+    for (let i = 0; i < datasets.length; i += CHUNK_SIZE) {
+        chunks.push(datasets.slice(i, i + CHUNK_SIZE));
+    }
+    return chunks;
 };
 
 /**
@@ -293,6 +302,7 @@ export const buildCreateAssertionsForDataset =
 
         // Update the progress tracker
         setProgress((currentProgress) => ({
+            hasFetched: currentProgress.hasFetched,
             total: currentProgress.total,
             completed: currentProgress.completed + 1,
             successful: [...currentProgress.successful, ...successes],
@@ -335,37 +345,47 @@ export const useBulkCreateDatasetAssertions = () => {
             bulkCreateDatasetAssertionsSpec;
         const { filters } = assetSelector;
         setProgress({
+            hasFetched: false,
             total: 0,
             completed: 0,
             successful: [],
             errored: [],
         });
 
-        // 1. Get the datasets
-        const results = await refetchSearchResults?.({
-            input: {
-                query: '*',
-                orFilters: convertLogicalPredicateToOrFilters(filters),
-                count: BULK_CREATE_DATASET_ASSERTIONS_BATCH_SIZE,
-                start: 0,
-            },
-        });
+        // 1. Get the datasets using batched search with URN sorting
+        const searchFunction: SearchFunction = async (params) => {
+            return (await refetchSearchResults?.(params)) ?? { data: undefined };
+        };
 
-        if (!results?.data?.searchAcrossEntities) {
+        let searchResult;
+        try {
+            searchResult = await performBatchedSearchWithUrnSorting(searchFunction, {
+                filters,
+                query: '*',
+            });
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error ? error.message : 'Unknown error occurred while searching for datasets.';
+
             try {
                 analytics.event({
                     type: EventType.BulkCreateAssertionSubmissionFailedEvent,
                     surface: 'dataset-health',
-                    error: 'No datasets found matching the provided filters.',
+                    error: errorMessage,
                 });
-            } catch (error) {
-                console.error('Error sending bulk create assertion submission failed event', error);
+            } catch (analyticsError) {
+                console.error('Error sending bulk create assertion submission failed event', analyticsError);
             }
-            throw new Error('No datasets found matching the provided filters.');
+
+            // Re-throw the original error with its detailed message so the UI can display it to the user
+            throw error instanceof Error ? error : new Error(errorMessage);
         }
 
+        const { datasets, total } = searchResult;
+
         setProgress({
-            total: results.data.searchAcrossEntities.total,
+            hasFetched: true,
+            total,
             completed: 0,
             successful: [],
             errored: [],
@@ -375,7 +395,7 @@ export const useBulkCreateDatasetAssertions = () => {
             analytics.event({
                 type: EventType.BulkCreateAssertionSubmissionEvent,
                 surface: 'dataset-health',
-                entityCount: results.data.searchAcrossEntities.total,
+                entityCount: total,
                 hasFreshnessAssertion: !!freshnessAssertionSpec,
                 hasFieldMetricAssertion: false,
                 hasVolumeAssertion: !!volumeAssertionSpec,
@@ -385,23 +405,25 @@ export const useBulkCreateDatasetAssertions = () => {
             console.error('Error sending bulk create assertion submission event', error);
         }
 
-        // 1.2 Iterate over the datasets, and create the assertions
-        const datasets: Dataset[] = results.data.searchAcrossEntities.searchResults
-            .filter((result) => result.entity.type === EntityType.Dataset && result.entity.__typename === 'Dataset')
-            .map((result) => result.entity as Dataset);
+        // Process datasets in chunks to avoid overwhelming the API
+        const chunks = buildDatasetChunks(datasets);
 
-        await Promise.allSettled(
-            datasets.map(async (dataset) =>
-                createAssertionsForDataset(dataset, freshnessAssertionSpec, volumeAssertionSpec, subscriptionSpecs),
-            ),
-        );
+        // Process each chunk sequentially using reduce to avoid for...of loop
+        await chunks.reduce(async (previousChunk, currentChunk) => {
+            await previousChunk; // Wait for the previous chunk to complete
+            await Promise.allSettled(
+                currentChunk.map(async (dataset) =>
+                    createAssertionsForDataset(dataset, freshnessAssertionSpec, volumeAssertionSpec, subscriptionSpecs),
+                ),
+            );
+        }, Promise.resolve());
 
         // 2. Send the completed event
         try {
             analytics.event({
                 type: EventType.BulkCreateAssertionCompletedEvent,
                 surface: 'dataset-health',
-                entityCount: results.data.searchAcrossEntities.total,
+                entityCount: total,
                 failedAssertionCount: progressRef.current.errored.filter((assertion) => assertion.type === 'assertion')
                     .length,
                 successAssertionCount: progressRef.current.successful.filter(

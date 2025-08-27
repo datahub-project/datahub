@@ -186,6 +186,7 @@ type ProgressTrackerErroredItem = ProgressTrackerErrorItemBase &
     );
 
 export type ProgressTracker = {
+    hasFetched: boolean;
     total: number;
     completed: number;
     successful: ProgressTrackerSuccessItem[];

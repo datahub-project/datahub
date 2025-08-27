@@ -1481,6 +1481,7 @@ describe('buildCreateAssertionsForDataset', () => {
     });
 
     const createMockProgress = (): ProgressTracker => ({
+        hasFetched: true,
         total: 10,
         completed: 5,
         successful: [],
@@ -1536,6 +1537,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const updatedProgress = progressUpdaterFn!(currentProgress);
 
             expect(updatedProgress).toEqual({
+                hasFetched: true,
                 total: 10,
                 completed: 6,
                 successful: [
@@ -1600,6 +1602,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const currentProgress = createMockProgress();
             const updatedProgress = progressUpdaterFn!(currentProgress);
 
+            expect(updatedProgress.hasFetched).toBe(true);
             expect(updatedProgress.successful).toHaveLength(1);
             expect(updatedProgress.successful[0]).toEqual({
                 dataset: dataset.urn,
@@ -1654,6 +1657,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const currentProgress = createMockProgress();
             const updatedProgress = progressUpdaterFn!(currentProgress);
 
+            expect(updatedProgress.hasFetched).toBe(true);
             expect(updatedProgress.successful).toHaveLength(1);
             expect(updatedProgress.successful[0]).toEqual({
                 dataset: dataset.urn,
@@ -1707,6 +1711,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const currentProgress = createMockProgress();
             const updatedProgress = progressUpdaterFn!(currentProgress);
 
+            expect(updatedProgress.hasFetched).toBe(true);
             expect(updatedProgress.successful).toHaveLength(0);
             expect(updatedProgress.errored).toHaveLength(0);
             expect(updatedProgress.completed).toBe(6); // Should still increment completed
@@ -1762,6 +1767,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const currentProgress = createMockProgress();
             const updatedProgress = progressUpdaterFn!(currentProgress);
 
+            expect(updatedProgress.hasFetched).toBe(true);
             expect(updatedProgress.successful).toHaveLength(1);
             expect(updatedProgress.successful[0]).toEqual({
                 dataset: dataset.urn,
@@ -2010,6 +2016,7 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(progressUpdaterFn).toBeDefined();
 
             const currentProgress: ProgressTracker = {
+                hasFetched: true,
                 total: 100,
                 completed: 50,
                 successful: [{ dataset: 'other:dataset', type: 'assertion', assertionType: AssertionType.Freshness }],
@@ -2026,6 +2033,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const updatedProgress = progressUpdaterFn!(currentProgress);
 
             expect(updatedProgress).toEqual({
+                hasFetched: true,
                 total: 100, // Should preserve total
                 completed: 51, // Should increment by 1
                 successful: [
@@ -2082,6 +2090,7 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(progressUpdaterFn).toBeDefined();
 
             const currentProgress: ProgressTracker = {
+                hasFetched: true,
                 total: 100,
                 completed: 75,
                 successful: [{ dataset: 'existing:success', type: 'assertion', assertionType: AssertionType.Volume }],

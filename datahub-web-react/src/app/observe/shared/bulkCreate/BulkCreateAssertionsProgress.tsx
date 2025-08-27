@@ -180,7 +180,7 @@ const getItemLabel = (item: any) => {
 };
 
 export default function BulkCreateAssertionsProgress({ progress, onDone }: Props) {
-    const { total, completed, successful, errored } = progress;
+    const { hasFetched, total, completed, successful, errored } = progress;
 
     const progressPercentage = total > 0 ? (completed / total) * 100 : 0;
     const isCompleted = completed === total && total > 0;
@@ -214,6 +214,9 @@ export default function BulkCreateAssertionsProgress({ progress, onDone }: Props
         }
         if (subscriptionCount > 0) {
             return `Creating Subscriptions... ${completed}/${total}`;
+        }
+        if (!hasFetched) {
+            return 'Fetching data... This can take a few minutes.';
         }
         return `Creating... ${completed}/${total}`;
     };
