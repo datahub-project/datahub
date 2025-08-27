@@ -21,7 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class PageTemplateMapper implements ModelMapper<EntityResponse, DataHubPageTemplate> {
 
   public static final PageTemplateMapper INSTANCE = new PageTemplateMapper();
@@ -41,6 +43,13 @@ public class PageTemplateMapper implements ModelMapper<EntityResponse, DataHubPa
     result.setType(EntityType.DATAHUB_PAGE_TEMPLATE);
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+
+    // Handle getting deleted template by broken reference (check if required aspect was fetched)
+    if (aspectMap.get(DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME) == null) {
+      log.warn("Page Template {} doesn't have required aspects", entityUrn);
+      return null;
+    }
+
     MappingHelper<DataHubPageTemplate> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME,
