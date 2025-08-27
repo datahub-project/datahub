@@ -1,8 +1,9 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import RoleActorsModal from '@app/permissions/roles/RoleActorsModal';
+
 import { CorpGroup, CorpUser, DataHubRole, EntityType } from '@types';
 
 // Mock the GraphQL hooks
@@ -29,10 +30,11 @@ vi.mock('styled-components', () => {
 const mockUser: CorpUser = {
     urn: 'urn:li:corpuser:testuser',
     username: 'testuser',
-    type: 'CORP_USER',
+    type: EntityType.CorpUser,
     info: {
         displayName: 'Test User',
         email: 'test@example.com',
+        active: true,
     },
     editableProperties: {
         pictureLink: 'https://example.com/avatar.jpg',
@@ -42,7 +44,7 @@ const mockUser: CorpUser = {
 const mockGroup: CorpGroup = {
     urn: 'urn:li:corpGroup:testgroup',
     name: 'testgroup',
-    type: 'CORP_GROUP',
+    type: EntityType.CorpGroup,
     info: {
         displayName: 'Test Group',
         description: 'Test group description',
@@ -97,7 +99,7 @@ describe('RoleActorsModal', () => {
     });
 
     it('handles null role gracefully', () => {
-        render(<RoleActorsModal {...defaultProps} role={null} />);
+        render(<RoleActorsModal {...defaultProps} role={mockRole} />);
 
         expect(screen.queryByText(/manage actors/i)).not.toBeInTheDocument();
     });
@@ -230,7 +232,7 @@ describe('RoleActorsModal', () => {
                         entity: {
                             urn: 'urn:li:corpGroup:incomplete',
                             name: 'incomplete',
-                            type: 'CORP_GROUP',
+                            type: EntityType.CorpGroup,
                         },
                     },
                 ],

@@ -17,15 +17,15 @@ import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
 import { CreateRoleModal } from '@app/permissions/roles/CreateRoleModal';
-import { EditRoleModal } from '@app/permissions/roles/EditRoleModal';
-import { RoleActorsModal } from '@app/permissions/roles/RoleActorsModal';
-import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
 import DeleteRoleConfirmation from '@app/permissions/roles/DeleteRoleConfirmation';
+import { EditRoleModal } from '@app/permissions/roles/EditRoleModal';
+import RoleActorsModal from '@app/permissions/roles/RoleActorsModal';
+import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
 import { SearchBar } from '@app/search/SearchBar';
 import { Message } from '@app/shared/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useBatchAssignRoleMutation, useDeleteRoleMutation } from '@graphql/mutations.generated';
+import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
 import { useListRolesQuery } from '@graphql/role.generated';
 import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
 
@@ -133,7 +133,6 @@ export const ManageRoles = () => {
     };
 
     const [batchAssignRoleMutation, { client }] = useBatchAssignRoleMutation();
-    const [deleteRole] = useDeleteRoleMutation();
     /** Assigns actors to the currently focused role */
     const batchAssignRole = (actorUrns: Array<string>) => {
         if (!focusRole?.urn) return;
@@ -153,12 +152,12 @@ export const ManageRoles = () => {
                         roleUrn: focusRole.urn,
                         userUrns: actorUrns,
                     });
-                    
+
                     message.success({
                         content: `Successfully assigned role to ${actorUrns.length} actor(s)!`,
                         duration: 2,
                     });
-                    
+
                     // Refresh data after successful assignment
                     setTimeout(() => {
                         rolesRefetch();
@@ -168,9 +167,9 @@ export const ManageRoles = () => {
             })
             .catch((error) => {
                 message.destroy();
-                message.error({ 
-                    content: `Failed to assign role: ${error.message || ''}`, 
-                    duration: 3 
+                message.error({
+                    content: `Failed to assign role: ${error.message || ''}`,
+                    duration: 3,
                 });
             })
             .finally(() => {

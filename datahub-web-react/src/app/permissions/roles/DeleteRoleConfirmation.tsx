@@ -33,15 +33,18 @@ export default function DeleteRoleConfirmation({ open, role, onClose, onConfirm 
         }
     };
 
-    const title = role ? `Delete role "${role.name}"?` : 'Delete role?';
-    const description = role?.description 
-        ? `This will permanently delete "${role.name}" (${role.description}) and remove all associated permissions from users.`
-        : `This will permanently delete "${role?.name}" and remove all associated permissions from users.`;
+    let title: string;
+    if (role?.description) {
+        title = `Delete role "${role.name}"? This will permanently delete "${role.name}" (${role.description}) and remove all associated permissions from users.`;
+    } else if (role) {
+        title = `Delete role "${role.name}"? This will permanently delete "${role.name}" and remove all associated permissions from users.`;
+    } else {
+        title = 'Delete role? This will permanently delete the role and remove all associated permissions from users.';
+    }
 
     return (
         <Popconfirm
             title={title}
-            description={description}
             open={open}
             onConfirm={handleDelete}
             onCancel={onClose}

@@ -3,7 +3,7 @@ import React from 'react';
 
 import analytics, { EventType } from '@app/analytics';
 
-import { useBatchAssignRoleMutation, useAssignMultipleRolesMutation } from '@graphql/mutations.generated';
+import { useAssignMultipleRolesMutation, useBatchAssignRoleMutation } from '@graphql/mutations.generated';
 import { DataHubRole } from '@types';
 
 type Props = {
@@ -35,21 +35,19 @@ export default function AssignRoleConfirmation({
     // eslint-disable-next-line
     const batchAssignRole = async () => {
         try {
-
-            
             // Handle multi-role changes if provided
             if (multiRoleChanges) {
                 const { rolesToAdd, rolesToRemove, currentRoles } = multiRoleChanges;
-                
+
                 // Calculate final role state
-                const finalRoleUrns = new Set(currentRoles.map(role => role.urn));
-                
+                const finalRoleUrns = new Set(currentRoles.map((role) => role.urn));
+
                 // Remove roles that should be removed
-                rolesToRemove.forEach(role => finalRoleUrns.delete(role.urn));
-                
+                rolesToRemove.forEach((role) => finalRoleUrns.delete(role.urn));
+
                 // Add roles that should be added
-                rolesToAdd.forEach(role => finalRoleUrns.add(role.urn));
-                
+                rolesToAdd.forEach((role) => finalRoleUrns.add(role.urn));
+
                 // Use the new assignMultipleRoles mutation for atomic multi-role assignment
                 await assignMultipleRolesMutation({
                     variables: {

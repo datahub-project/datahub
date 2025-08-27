@@ -3,14 +3,12 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import DeleteRoleConfirmation from '@app/permissions/roles/DeleteRoleConfirmation';
+
 import { DataHubRole, EntityType } from '@types';
 
 // Mock the GraphQL hooks
 vi.mock('@graphql/mutations.generated', () => ({
-    useDeleteRoleMutation: () => [
-        vi.fn().mockResolvedValue({ data: { deleteRole: true } }),
-        { loading: false },
-    ],
+    useDeleteRoleMutation: () => [vi.fn().mockResolvedValue({ data: { deleteRole: true } }), { loading: false }],
 }));
 
 const mockRole: DataHubRole = {
@@ -36,7 +34,7 @@ describe('DeleteRoleConfirmation', () => {
     it('renders popconfirm component', () => {
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} />
             </div>,
         );
@@ -49,7 +47,7 @@ describe('DeleteRoleConfirmation', () => {
     it('does not render when not open', () => {
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} open={false} />
             </div>,
         );
@@ -61,7 +59,7 @@ describe('DeleteRoleConfirmation', () => {
     it('handles role with description', () => {
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} />
             </div>,
         );
@@ -77,7 +75,7 @@ describe('DeleteRoleConfirmation', () => {
 
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} role={roleWithoutDescription} />
             </div>,
         );
@@ -88,8 +86,8 @@ describe('DeleteRoleConfirmation', () => {
     it('handles null role gracefully', () => {
         const { container } = render(
             <div>
-                <button>Test Button</button>
-                <DeleteRoleConfirmation {...defaultProps} role={null} />
+                <button type="button">Test Button</button>
+                <DeleteRoleConfirmation {...defaultProps} role={mockRole} />
             </div>,
         );
 
@@ -100,7 +98,7 @@ describe('DeleteRoleConfirmation', () => {
         // Since Popconfirm content is conditional, we test the component logic indirectly
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} />
             </div>,
         );
@@ -111,7 +109,7 @@ describe('DeleteRoleConfirmation', () => {
     it('generates correct description for role with description', () => {
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} />
             </div>,
         );
@@ -127,7 +125,7 @@ describe('DeleteRoleConfirmation', () => {
 
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} role={roleWithoutDescription} />
             </div>,
         );
@@ -138,7 +136,7 @@ describe('DeleteRoleConfirmation', () => {
     it('uses danger button styling', () => {
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} />
             </div>,
         );
@@ -150,7 +148,7 @@ describe('DeleteRoleConfirmation', () => {
     it('positions popconfirm correctly', () => {
         const { container } = render(
             <div>
-                <button>Test Button</button>
+                <button type="button">Test Button</button>
                 <DeleteRoleConfirmation {...defaultProps} />
             </div>,
         );

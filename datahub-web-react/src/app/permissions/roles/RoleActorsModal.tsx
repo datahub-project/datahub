@@ -153,7 +153,7 @@ export default function RoleActorsModal({ visible, role, onClose, onSuccess }: P
 
     return (
         <StyledModal
-            title={<Title level={4}>Manage Actors for "{role.name}"</Title>}
+            title={<Title level={4}>Manage Actors for &quot;{role.name}&quot;</Title>}
             open={visible}
             onCancel={onClose}
             footer={[

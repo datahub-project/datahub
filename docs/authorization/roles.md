@@ -10,7 +10,7 @@ DataHub provides the ability to use **Roles** to manage permissions.
 
 ## Roles Setup, Prerequisites, and Permissions
 
-The out-of-the-box Roles represent the most common types of DataHub users. Currently, the supported Roles are **Admin**, **Editor** and **Reader**.
+DataHub comes with three out-of-the-box Roles that represent the most common types of DataHub users: **Admin**, **Editor** and **Reader**. Additionally, you can create **Custom Roles** with specific sets of policies tailored to your organization's needs.
 
 | Role Name | Description                                                                             |
 | --------- | --------------------------------------------------------------------------------------- |
@@ -31,9 +31,35 @@ it, like which users have that Role, and which Policies correspond to that Role.
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/view-roles-list.png" />
 </p>
 
+### Creating Custom Roles
+
+In addition to the built-in roles, DataHub allows you to create custom roles with specific permissions tailored to your organization's needs.
+
+#### Creating a New Role
+
+1. Navigate to **Settings > Permissions > Roles**
+2. Click the **Create new role** button
+3. Provide a **Role Name** (required) and optional **Description**
+4. Select which **Policies** to associate with the role (optional)
+   - You can choose from existing editable policies
+   - System policies cannot be associated with custom roles
+5. Click **Create Role** to save
+
+<p align="center">
+ <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/create-role-modal.png" />
+</p>
+
+#### Managing Custom Roles
+
+- **Edit Role**: Click the edit button next to any custom role to modify its name, description, or associated policies
+- **Delete Role**: Custom roles can be deleted using the delete button. This will remove the role from all assigned users
+- **Manage Actors**: Use the "Manage Actors" button to view and remove users/groups assigned to a specific role
+
+:::note Only **custom roles** can be edited or deleted. The built-in Admin, Editor, and Reader roles cannot be modified.
+
 ### Assigning Roles
 
-Roles can be assigned in two different ways.
+Roles can be assigned in several different ways.
 
 #### Assigning a New Role to a Single User
 
@@ -44,7 +70,7 @@ assigned to, including if they don't have a Role.
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/user-list-roles.png" />
 </p>
 
-You can simply assign a new Role to a user by clicking on the drop-down that appears on their row and selecting the desired Role.
+You can assign one or more Roles to a user by clicking on the drop-down that appears on their row and selecting the desired Roles. Users can have multiple roles assigned simultaneously.
 
 <p align="center">
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/user-list-select-role.png" />
@@ -52,8 +78,8 @@ You can simply assign a new Role to a user by clicking on the drop-down that app
 
 #### Batch Assigning a Role
 
-When viewing the full list of roles at **Settings > Permissions > Roles**, you will notice that each role has an `Add Users` button next to it. Clicking this button will
-lead you to a search box where you can search through your users, and select which users you would like to assign this role to.
+When viewing the full list of roles at **Settings > Permissions > Roles**, you will notice that each role has an `Add Actors` button next to it. Clicking this button will
+lead you to a search box where you can search through your users and groups, and select which actors you would like to assign this role to.
 
 <p align="center">
  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/roles/batch-assign-role.png" />
@@ -61,9 +87,11 @@ lead you to a search box where you can search through your users, and select whi
 
 ### How do Roles interact with Policies?
 
-Roles actually use Policies under-the-hood, and come prepackaged with corresponding policies to control what a Role can do, which you can view in the
-Policies tab. Note that these Role-specific policies **cannot** be changed. You can find the full list of policies corresponding to each Role at the bottom of this
-[file](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/policies.json).
+Roles use Policies under-the-hood to control what a Role can do:
+
+- **Built-in Roles** (Admin, Editor, Reader) come prepackaged with corresponding system policies that **cannot** be changed. You can find the full list of policies corresponding to each built-in role at the bottom of this [file](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/policies.json).
+
+- **Custom Roles** can be associated with any combination of editable policies. When creating or editing a custom role, you can select which policies to include. System policies cannot be associated with custom roles for security reasons.
 
 If you would like to have finer control over what a user on your DataHub instance can do, the Roles system interfaces cleanly
 with the Policies system. For example, if you would like to give a user a **Reader** role, but also allow them to edit metadata
@@ -187,16 +215,31 @@ These privileges are only relevant to DataHub Cloud.
 
 ### GraphQL
 
+**Queries:**
+
+- [listRoles](../../graphql/queries.md#listroles)
+
+**Mutations:**
+
 - [acceptRole](../../graphql/mutations.md#acceptrole)
 - [batchAssignRole](../../graphql/mutations.md#batchassignrole)
-- [listRoles](../../graphql/queries.md#listroles)
+- [createRole](../../graphql/mutations.md#createrole)
+- [updateRole](../../graphql/mutations.md#updaterole)
+- [deleteRole](../../graphql/mutations.md#deleterole)
+- [assignMultipleRoles](../../graphql/mutations.md#assignmultipleroles)
 
 ## FAQ and Troubleshooting
 
 ## What updates are planned for Roles?
 
-In the future, the DataHub team is looking into adding the following features to Roles.
+The DataHub team continues to enhance the Roles system. Recent additions include:
+
+- **Custom Roles**: Create custom roles with specific sets of policies
+- **Multiple Role Assignment**: Assign multiple roles to users and groups
+- **Role Management UI**: Comprehensive interface for creating, editing, and managing roles
+
+Future planned features include:
 
 - Defining a role mapping from OIDC identity providers to DataHub that will grant users a DataHub role based on their IdP role
 - Allowing Admins to set a default role on DataHub so all users are assigned a role
-- Building custom roles
+- Advanced role templates and inheritance

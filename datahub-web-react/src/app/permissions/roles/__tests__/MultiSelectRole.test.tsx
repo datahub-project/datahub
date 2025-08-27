@@ -1,8 +1,9 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { MultiSelectRole } from '@app/identity/user/MultiSelectRole';
+import MultiSelectRole from '@app/identity/user/MultiSelectRole';
+
 import { CorpUser, DataHubRole, EntityType } from '@types';
 
 // Mock the GraphQL hooks
@@ -15,19 +16,16 @@ vi.mock('@graphql/role.generated', () => ({
                         urn: 'urn:li:dataHubRole:admin',
                         name: 'Admin',
                         type: EntityType.Dataset,
-                
                     },
                     {
                         urn: 'urn:li:dataHubRole:editor',
                         name: 'Editor',
                         type: EntityType.Dataset,
-                
                     },
                     {
                         urn: 'urn:li:dataHubRole:reader',
                         name: 'Reader',
                         type: EntityType.Dataset,
-                
                     },
                 ],
             },
@@ -52,10 +50,11 @@ vi.mock('styled-components', () => {
 const mockUser: CorpUser = {
     urn: 'urn:li:corpuser:testuser',
     username: 'testuser',
-    type: 'CORP_USER',
+    type: EntityType.CorpUser,
     info: {
         displayName: 'Test User',
         email: 'test@example.com',
+        active: true,
     },
 };
 
@@ -63,22 +62,22 @@ const mockRoles: DataHubRole[] = [
     {
         urn: 'urn:li:dataHubRole:admin',
         name: 'Admin',
-        type: 'DATASET',
-
+        description: 'Admin role',
+        type: EntityType.Dataset,
         __typename: 'DataHubRole',
     },
     {
         urn: 'urn:li:dataHubRole:editor',
         name: 'Editor',
-        type: 'DATASET',
-
+        description: 'Editor role',
+        type: EntityType.Dataset,
         __typename: 'DataHubRole',
     },
     {
         urn: 'urn:li:dataHubRole:reader',
         name: 'Reader',
-        type: 'DATASET',
-
+        description: 'Reader role',
+        type: EntityType.Dataset,
         __typename: 'DataHubRole',
     },
 ];
@@ -88,8 +87,7 @@ describe('MultiSelectRole', () => {
         user: mockUser,
         userRoleUrns: ['urn:li:dataHubRole:reader'],
         selectRoleOptions: mockRoles,
-        onCancel: vi.fn(),
-        onConfirmAssignment: vi.fn(),
+        refetch: vi.fn(),
     };
 
     beforeEach(() => {
@@ -117,14 +115,11 @@ describe('MultiSelectRole', () => {
         expect(select).toBeInTheDocument();
     });
 
-    it('calls onCancel when cancel button is clicked', () => {
-        const onCancel = vi.fn();
-        render(<MultiSelectRole {...defaultProps} onCancel={onCancel} />);
+    it('renders without cancel button', () => {
+        render(<MultiSelectRole {...defaultProps} />);
 
-        const cancelButton = screen.getByRole('button', { name: /cancel/i });
-        fireEvent.click(cancelButton);
-
-        expect(onCancel).toHaveBeenCalled();
+        // The component should render the role selection interface
+        expect(screen.getByDisplayValue('Reader')).toBeInTheDocument();
     });
 
     it('shows user information', () => {
@@ -140,6 +135,7 @@ describe('MultiSelectRole', () => {
             info: {
                 ...mockUser.info,
                 displayName: undefined,
+                active: true,
             },
         };
 

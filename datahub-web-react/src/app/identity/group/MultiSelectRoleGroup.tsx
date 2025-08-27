@@ -1,6 +1,6 @@
 import { TeamOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
-import { Select, Tag, message } from 'antd';
+import { Select, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -162,7 +162,7 @@ export default function MultiSelectRoleGroup({ group, groupRoleUrns, selectRoleO
                 multiRoleChanges={{
                     rolesToAdd: roleChangeInfo.rolesToAdd,
                     rolesToRemove: roleChangeInfo.rolesToRemove,
-                    currentRoles: selectRoleOptions.filter(role => groupRoleUrns.includes(role.urn)),
+                    currentRoles: selectRoleOptions.filter((role) => groupRoleUrns.includes(role.urn)),
                 }}
             />
         </>

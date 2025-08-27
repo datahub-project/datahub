@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { useCreateRoleMutation } from '@graphql/mutations.generated';
 import { useListPoliciesQuery } from '@graphql/policy.generated';
-import { PolicyType } from '@types';
 
 const { TextArea } = Input;
 const { Title } = Typography;
@@ -85,7 +84,7 @@ export const CreateRoleModal = ({ visible, onClose, onSuccess }: Props) => {
         try {
             const values = await form.validateFields();
 
-            const result = await createRole({
+            await createRole({
                 variables: {
                     input: {
                         name: values.name.trim(),
@@ -174,8 +173,8 @@ export const CreateRoleModal = ({ visible, onClose, onSuccess }: Props) => {
                                     ?.filter((policy) => policy.state !== 'INACTIVE')
                                     ?.map((policy) => {
                                         const isImmutable = policy.editable === false;
-                                        const isPlatformPolicy = 
-                                            (policy.type as string)?.toUpperCase() === 'PLATFORM' || 
+                                        const isPlatformPolicy =
+                                            (policy.type as string)?.toUpperCase() === 'PLATFORM' ||
                                             policy.name?.toLowerCase().includes('platform');
                                         const policyTypeLabel = isPlatformPolicy ? 'Platform' : 'Metadata';
 

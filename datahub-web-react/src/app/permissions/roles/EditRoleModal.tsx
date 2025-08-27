@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { useUpdateRoleMutation } from '@graphql/mutations.generated';
 import { useListPoliciesQuery } from '@graphql/policy.generated';
-import { DataHubRole, DataHubPolicy, PolicyType } from '@types';
+import { DataHubPolicy, DataHubRole } from '@types';
 
 const { TextArea } = Input;
 const { Title } = Typography;
@@ -87,8 +87,10 @@ export const EditRoleModal = ({ visible, role, onClose, onSuccess }: Props) => {
         if (visible && role) {
             // Extract policy URNs from role relationships (using same approach as RoleDetailsModal)
             const castedRole = role as any;
-            const policies = castedRole?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy);
-            const associatedPolicyUrns = policies?.map(policy => policy.urn).filter(Boolean) || [];
+            const policies = castedRole?.policies?.relationships?.map(
+                (relationship) => relationship.entity as DataHubPolicy,
+            );
+            const associatedPolicyUrns = policies?.map((policy) => policy.urn).filter(Boolean) || [];
 
             form.setFieldsValue({
                 name: role.name || '',
@@ -107,7 +109,7 @@ export const EditRoleModal = ({ visible, role, onClose, onSuccess }: Props) => {
         try {
             const values = await form.validateFields();
 
-            const result = await updateRole({
+            await updateRole({
                 variables: {
                     urn: role.urn,
                     input: {
@@ -199,8 +201,8 @@ export const EditRoleModal = ({ visible, role, onClose, onSuccess }: Props) => {
                                     ?.filter((policy) => policy.state !== 'INACTIVE')
                                     ?.map((policy) => {
                                         const isImmutable = policy.editable === false;
-                                        const isPlatformPolicy = 
-                                            (policy.type as string)?.toUpperCase() === 'PLATFORM' || 
+                                        const isPlatformPolicy =
+                                            (policy.type as string)?.toUpperCase() === 'PLATFORM' ||
                                             policy.name?.toLowerCase().includes('platform');
                                         const policyTypeLabel = isPlatformPolicy ? 'Platform' : 'Metadata';
 
@@ -220,7 +222,8 @@ export const EditRoleModal = ({ visible, role, onClose, onSuccess }: Props) => {
                             type="secondary"
                             style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}
                         >
-                            Users assigned to this role will inherit privileges from these policies. Only editable policies can be associated with custom roles.
+                            Users assigned to this role will inherit privileges from these policies. Only editable
+                            policies can be associated with custom roles.
                         </Typography.Text>
                     </Form.Item>
                 </Form>

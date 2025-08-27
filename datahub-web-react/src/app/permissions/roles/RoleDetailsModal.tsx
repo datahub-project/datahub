@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { CorpUser, DataHubPolicy, DataHubRole, PolicyType } from '@types';
+import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
 
 /**
  * Converts technical permission names to user-friendly names
@@ -183,8 +183,6 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
     const users = castedRole?.users?.relationships?.map((relationship) => relationship.entity as CorpUser);
     const policies = castedRole?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy);
 
-
-
     return (
         <Modal title={role?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
@@ -205,12 +203,10 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
                         policies.map((policy) => {
                             const isExpanded = expandedPolicies.has(policy.urn);
                             // Enhanced type checking - check both type field and policy name
-                            const isPlatformPolicy = 
-                                (policy.type as string)?.toUpperCase() === 'PLATFORM' || 
+                            const isPlatformPolicy =
+                                (policy.type as string)?.toUpperCase() === 'PLATFORM' ||
                                 policy.name?.toLowerCase().includes('platform');
                             const policyType = isPlatformPolicy ? 'Platform' : 'Metadata';
-
-
 
                             return (
                                 <PolicyItem key={policy.urn}>
