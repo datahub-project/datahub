@@ -731,7 +731,9 @@ class TestConfluentCloudConnectors:
 
         parser = connector.get_parser(manifest)
         # Should prefer Cloud field names when both are present
-        assert parser.topic_prefix == "platform_prefix"  # topic.prefix takes precedence
+        assert (
+            parser.topic_prefix == "cloud_server"
+        )  # database.server.name takes precedence for Cloud connectors
 
         table_names = connector.get_table_names()
         assert len(table_names) == 1

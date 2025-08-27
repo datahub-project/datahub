@@ -438,14 +438,43 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             source_table: str = (
                 remove_prefix(topic, topic_prefix) if topic_prefix else topic
             )
+            # Clean up leading dot from prefix removal
+            if source_table.startswith("."):
+                source_table = source_table[1:]
+
             # include schema name for three-level hierarchies
             if has_three_level_hierarchy(source_platform):
-                table_name_tuple: Tuple = next(
-                    iter([t for t in table_name_tuples if t and t[-1] == source_table]),
-                    (),
-                )
+                # For schema.table format, find matching table tuple
+                if "." in source_table:
+                    # source_table is already in schema.table format
+                    schema_part, table_part = source_table.rsplit(".", 1)
+                    table_name_tuple = next(
+                        iter(
+                            [
+                                t
+                                for t in table_name_tuples
+                                if len(t) > 1
+                                and t[-2] == schema_part
+                                and t[-1] == table_part
+                            ]
+                        ),
+                        (),
+                    )
+                else:
+                    # source_table is just table name, look for matching table
+                    table_name_tuple = next(
+                        iter(
+                            [
+                                t
+                                for t in table_name_tuples
+                                if t and t[-1] == source_table
+                            ]
+                        ),
+                        (),
+                    )
+
                 if len(table_name_tuple) > 1:
-                    source_table = f"{table_name_tuple[-2]}.{source_table}"
+                    source_table = f"{table_name_tuple[-2]}.{table_name_tuple[-1]}"
                 else:
                     include_source_dataset = False
                     self.report.warning(
@@ -473,7 +502,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 ",".join(
                     [
                         task["config"].get("tables")
-                        for task in self.connector_manifest.tasks
+                        for task in self.connector_manifest.tasks.values()
                     ]
                 )
             ).split(",")
