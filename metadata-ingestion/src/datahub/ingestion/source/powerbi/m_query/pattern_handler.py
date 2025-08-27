@@ -218,13 +218,9 @@ class AbstractLineage(ABC):
         query = native_sql_parser.remove_special_characters(query)
         try:
             expression = sqlglot.parse_one(query)
-            if isinstance(expression, exp.Select):
-                return True
-            else:
-                return False
-        except ParseError:
-            return False
-        except Exception:
+            return isinstance(expression, exp.Select)
+        except (ParseError, Exception):
+            logger.debug(f"Failed to parse query as SQL: {query}")
             return False
 
     def parse_custom_sql(
