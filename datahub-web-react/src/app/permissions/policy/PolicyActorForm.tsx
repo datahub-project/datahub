@@ -95,6 +95,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
+    // User and group dropdown search results!
+    const userSearchResults = userSearchData?.search?.searchResults;
+    const groupSearchResults = groupSearchData?.search?.searchResults;
+
     // When a user search result is selected, add the urn to the ActorFilter
     const onSelectUserActor = (newUser: string) => {
         if (newUser === 'All') {
@@ -225,10 +229,6 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     // Whether to show "owners" switch.
     const showAppliesToOwners = policyType === PolicyType.Metadata;
-
-    // User and group dropdown search results!
-    const userSearchResults = userSearchData?.search?.searchResults;
-    const groupSearchResults = groupSearchData?.search?.searchResults;
 
     // Select dropdown values.
     const usersSelectUrns = actors.allUsers ? ['All'] : actors.users || [];
