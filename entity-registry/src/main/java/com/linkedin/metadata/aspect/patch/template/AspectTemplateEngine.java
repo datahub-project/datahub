@@ -15,56 +15,56 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Holds connection between aspect specs and their templates and drives the
- * generation from
+ * Holds connection between aspect specs and their templates and drives the generation from
  * templates
  */
 public class AspectTemplateEngine {
 
-  public static final Set<String> SUPPORTED_TEMPLATES = Stream.of(
-      ASSERTIONS_SUMMARY_ASPECT_NAME,
-      ASSERTION_RUN_SUMMARY_ASPECT_NAME,
-      ASSERTION_INFERENCE_DETAILS_ASPECT_NAME,
-      INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME,
-      MONITOR_INFO_ASPECT_NAME,
-      TEST_RESULTS_ASPECT_NAME,
-      USAGE_FEATURES_ASPECT_NAME,
-      // Saas aspects before this line
-      CHART_INFO_ASPECT_NAME,
-      CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
-      DASHBOARD_INFO_ASPECT_NAME,
-      DATASET_PROPERTIES_ASPECT_NAME,
-      DATA_FLOW_INFO_ASPECT_NAME,
-      DATA_JOB_INFO_ASPECT_NAME,
-      DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
-      DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
-      DOMAIN_PROPERTIES_ASPECT_NAME,
-      EDITABLE_CHART_PROPERTIES_ASPECT_NAME,
-      EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME,
-      EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME,
-      EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME,
-      EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-      FORMS_ASPECT_NAME,
-      FORM_INFO_ASPECT_NAME,
-      GLOBAL_TAGS_ASPECT_NAME,
-      GLOSSARY_NODE_INFO_ASPECT_NAME,
-      GLOSSARY_TERMS_ASPECT_NAME,
-      GLOSSARY_TERM_INFO_ASPECT_NAME,
-      ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME,
-      ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME,
-      ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME,
-      ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
-      ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME,
-      OWNERSHIP_ASPECT_NAME,
-      STRUCTURED_PROPERTIES_ASPECT_NAME,
-      STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-      FORM_INFO_ASPECT_NAME,
-      UPSTREAM_LINEAGE_ASPECT_NAME,
-      VERSION_PROPERTIES_ASPECT_NAME,
-      DOMAINS_ASPECT_NAME,
-      EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
-      SIBLINGS_ASPECT_NAME)
-      .collect(Collectors.toSet());
+  public static final Set<String> SUPPORTED_TEMPLATES =
+      Stream.of(
+              ASSERTIONS_SUMMARY_ASPECT_NAME,
+              ASSERTION_RUN_SUMMARY_ASPECT_NAME,
+              ASSERTION_INFERENCE_DETAILS_ASPECT_NAME,
+              INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME,
+              MONITOR_INFO_ASPECT_NAME,
+              TEST_RESULTS_ASPECT_NAME,
+              USAGE_FEATURES_ASPECT_NAME,
+              // Saas aspects before this line
+              CHART_INFO_ASPECT_NAME,
+              CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
+              DASHBOARD_INFO_ASPECT_NAME,
+              DATASET_PROPERTIES_ASPECT_NAME,
+              DATA_FLOW_INFO_ASPECT_NAME,
+              DATA_JOB_INFO_ASPECT_NAME,
+              DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+              DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+              DOMAIN_PROPERTIES_ASPECT_NAME,
+              EDITABLE_CHART_PROPERTIES_ASPECT_NAME,
+              EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME,
+              EDITABLE_DATA_FLOW_PROPERTIES_ASPECT_NAME,
+              EDITABLE_DATA_JOB_PROPERTIES_ASPECT_NAME,
+              EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+              FORMS_ASPECT_NAME,
+              FORM_INFO_ASPECT_NAME,
+              GLOBAL_TAGS_ASPECT_NAME,
+              GLOSSARY_NODE_INFO_ASPECT_NAME,
+              GLOSSARY_TERMS_ASPECT_NAME,
+              GLOSSARY_TERM_INFO_ASPECT_NAME,
+              ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_FEATURE_TABLE_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
+              ML_PRIMARY_KEY_EDITABLE_PROPERTIES_ASPECT_NAME,
+              OWNERSHIP_ASPECT_NAME,
+              STRUCTURED_PROPERTIES_ASPECT_NAME,
+              STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+              FORM_INFO_ASPECT_NAME,
+              UPSTREAM_LINEAGE_ASPECT_NAME,
+              VERSION_PROPERTIES_ASPECT_NAME,
+              DOMAINS_ASPECT_NAME,
+              EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+              SIBLINGS_ASPECT_NAME)
+          .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;
 
@@ -84,15 +84,13 @@ public class AspectTemplateEngine {
   }
 
   /**
-   * Applies a json patch to a record, optionally merging array fields as
-   * necessary
+   * Applies a json patch to a record, optionally merging array fields as necessary
    *
    * @param recordTemplate original template to be updated
-   * @param jsonPatch      patch to apply
-   * @param aspectSpec     aspectSpec of the template
+   * @param jsonPatch patch to apply
+   * @param aspectSpec aspectSpec of the template
    * @return a {@link RecordTemplate} with the patch applied
-   * @throws JsonProcessingException if there is an issue with processing the
-   *                                 record template's json
+   * @throws JsonProcessingException if there is an issue with processing the record template's json
    */
   @Nonnull
   public <T extends RecordTemplate> RecordTemplate applyPatch(

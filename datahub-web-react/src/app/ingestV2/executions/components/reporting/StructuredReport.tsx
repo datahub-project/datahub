@@ -229,8 +229,6 @@ export function StructuredReport({ report }: Props) {
                     />
                 ) : null}
             </Container>
-<<<<<<< HEAD
-=======
             {totalItems > totalVisible && !isExpanded ? (
                 <ShowMoreSection
                     totalCount={totalItems}
@@ -239,7 +237,6 @@ export function StructuredReport({ report }: Props) {
                     pageSize={3}
                 />
             ) : null}
->>>>>>> upstream/master
         </>
     );
 }
