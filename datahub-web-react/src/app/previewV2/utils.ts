@@ -59,7 +59,7 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
             onOk() {
                 handleRemoveDomain(urnToRemoveFrom);
             },
-            onCancel() { },
+            onCancel() {},
             okText: 'Yes',
             maskClosable: true,
             closable: true,
@@ -105,7 +105,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
             onOk() {
                 handleRemoveTerm(previewData, termUrn);
             },
-            onCancel() { },
+            onCancel() {},
             okText: 'Yes',
             maskClosable: true,
             closable: true,
@@ -144,7 +144,7 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
             onOk() {
                 handleDataProduct(urn);
             },
-            onCancel() { },
+            onCancel() {},
             okText: 'Yes',
             maskClosable: true,
             closable: true,

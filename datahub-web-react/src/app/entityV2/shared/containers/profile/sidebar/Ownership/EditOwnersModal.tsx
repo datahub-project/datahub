@@ -4,8 +4,8 @@ import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { useUserContext } from '@app/context/useUserContext';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';

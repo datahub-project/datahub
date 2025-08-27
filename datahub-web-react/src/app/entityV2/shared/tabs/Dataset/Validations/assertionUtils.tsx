@@ -6,7 +6,6 @@ import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@componen
 
 // TODO
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { colors } from '@src/alchemy-components';
 
 import {
     AssertionResult,

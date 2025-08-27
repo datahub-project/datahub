@@ -1,8 +1,9 @@
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 
-import { TestResult, TestResultType } from '@src/types.generated';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
+
+import { TestResult, TestResultType } from '@src/types.generated';
 
 /**
  * Returns the display text assoociated with an Test Result Type

@@ -9,8 +9,8 @@ import {
     ExtendedOwner,
     getNameFromType,
 } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
-import ProposalModal from '@app/shared/tags/ProposalModal';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import ProposalModal from '@app/shared/tags/ProposalModal';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

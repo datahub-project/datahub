@@ -1289,14 +1289,14 @@ export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAsset
 export interface InferDocsClickEvent extends BaseEvent {
     type: EventType.InferDocsClickEvent;
     surface:
-    | 'schema-table'
-    | 'schema-profile'
-    | 'schema-docs-editor'
-    | 'entity-sidebar'
-    | 'entity-docs-tab'
-    | 'entity-docs-editor'
-    | 'query-viewer-modal'
-    | 'query-builder-form';
+        | 'schema-table'
+        | 'schema-profile'
+        | 'schema-docs-editor'
+        | 'entity-sidebar'
+        | 'entity-docs-tab'
+        | 'entity-docs-editor'
+        | 'query-viewer-modal'
+        | 'query-builder-form';
 }
 
 export interface AcceptInferredDocsEvent extends BaseEvent {
@@ -1346,16 +1346,6 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
-export interface NavBarExpandCollapseEvent extends BaseEvent {
-    type: EventType.NavBarExpandCollapse;
-    isExpanding: boolean; // whether this action is expanding or collapsing the nav bar
-}
-
-export interface NavBarItemClickEvent extends BaseEvent {
-    type: EventType.NavBarItemClick;
-    label: string; // the label of the item that is clicks from the nav sidebar
-}
-
 export interface FormByEntityNavigateEvent extends BaseEvent {
     type: EventType.FormByEntityNavigate;
     direction: 'forward' | 'backward';
@@ -1379,17 +1369,6 @@ export interface FormAnalyticsDownloadCsvEvent extends BaseEvent {
 export interface FormAnalyticsTabFilterEvent extends BaseEvent {
     type: EventType.FormAnalyticsTabFilter;
     selectedTab: string;
-}
-
-export interface FilterStatsPageEvent extends BaseEvent {
-    type: EventType.FilterStatsPage;
-    platform: string | null;
-}
-
-export interface FilterStatsChartLookBackEvent extends BaseEvent {
-    type: EventType.FilterStatsChartLookBack;
-    lookBackValue: string;
-    chartName: string;
 }
 
 export interface ClickCreateAssertionEvent extends BaseEvent {
@@ -1505,12 +1484,12 @@ export interface DatasetHealthFilterEvent extends BaseEvent {
     filterType: 'search' | 'filter' | 'timeRange';
     filterSubType?: string;
     content:
-    | {
-        filterValues: string[];
-    }
-    | {
-        filterValue: string;
-    };
+        | {
+              filterValues: string[];
+          }
+        | {
+              filterValue: string;
+          };
 }
 
 export interface DatasetHealthClickEvent extends BaseEvent {
@@ -1519,33 +1498,6 @@ export interface DatasetHealthClickEvent extends BaseEvent {
     target: 'asset_assertions' | 'asset_incidents' | 'assertion' | 'incident';
     subTarget?: string;
     targetUrn?: string;
-}
-
-export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalViewEvent;
-}
-
-export interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalInteractEvent;
-    currentSlide: number;
-    totalSlides: number;
-}
-
-export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalExitEvent;
-    currentSlide: number;
-    totalSlides: number;
-    exitMethod: 'close_button' | 'get_started_button' | 'outside_click' | 'escape_key';
-}
-
-export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
-    url: string;
-}
-
-export interface ProductTourButtonClickEvent extends BaseEvent {
-    type: EventType.ProductTourButtonClickEvent;
-    originPage: string; // Page where the button was clicked
 }
 
 export interface NavBarExpandCollapseEvent extends BaseEvent {
@@ -1858,8 +1810,6 @@ export type Event =
     | HomePageTemplateModuleViewAllClickEvent
     | HomePageTemplateModuleLinkClickEvent
     | HomePageTemplateModuleAnnouncementDismissEvent
-    | NavBarExpandCollapseEvent
-    | NavBarItemClickEvent
     | FormByEntityNavigateEvent
     | FormViewToggleEvent
     | FormAnalyticsTabSelectEvent
