@@ -12,6 +12,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
     KafkaConnectLineage,
     get_dataset_name,
+    get_platform_from_connector_class,
     has_three_level_hierarchy,
     remove_prefix,
     unquote,
@@ -21,6 +22,206 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TransformResult:
+    """Result of applying a transform pipeline to a source table."""
+
+    source_table: str
+    schema: str
+    final_topics: List[str]
+    original_topic: str
+
+
+class BaseTransform:
+    """Base class for Kafka Connect transforms."""
+
+    def __init__(self, config: Dict[str, str]):
+        self.config = config
+
+    def apply(self, current_topics: List[str], manifest_topics: List[str]) -> List[str]:
+        """Apply the transform to the current topics."""
+        raise NotImplementedError("Subclasses must implement apply method")
+
+
+class EventRouterTransform(BaseTransform):
+    """Debezium EventRouter transform (Outbox pattern)."""
+
+    def apply(self, current_topics: List[str], manifest_topics: List[str]) -> List[str]:
+        """
+        Apply EventRouter transform (Outbox pattern).
+
+        EventRouter extracts events from an outbox table and routes them
+        to different topics based on event type. Since we can't predict
+        the exact event types without data, we work backwards from the
+        manifest topics to determine which topics come from this source.
+        """
+        # For outbox pattern, we need to map one source table to multiple event topics
+        # Strategy: Find all manifest topics that could have come from this outbox source
+
+        event_topics = []
+
+        # Look for topics that match expected EventRouter output patterns
+        for topic in manifest_topics:
+            # Common EventRouter patterns:
+            # 1. outbox.event.{event_type}
+            # 2. {database}.event.{event_type}
+            # 3. Custom routing based on route.by.field
+
+            if (
+                "outbox" in topic.lower()
+                or "event" in topic
+                or any(
+                    source_topic in topic
+                    for source_topic in current_topics
+                    if "outbox" in source_topic.lower()
+                )
+            ):
+                event_topics.append(topic)
+
+        # If no obvious matches, assume all manifest topics could come from outbox
+        # This is a conservative approach for the outbox pattern
+        if not event_topics and any(
+            "outbox" in topic.lower() for topic in current_topics
+        ):
+            event_topics = list(manifest_topics)
+
+        return event_topics if event_topics else current_topics
+
+
+class RegexRouterTransform(BaseTransform):
+    """Kafka Connect RegexRouter transform."""
+
+    def apply(self, current_topics: List[str], manifest_topics: List[str]) -> List[str]:
+        """Apply RegexRouter transform to rename topics."""
+        regex_pattern = self.config.get("regex", "")
+        replacement = self.config.get("replacement", "")
+
+        if not regex_pattern or not replacement:
+            logger.warning("RegexRouter missing regex or replacement pattern")
+            return current_topics
+
+        transformed_topics = []
+
+        for topic in current_topics:
+            try:
+                # Use Java regex for consistency with existing Kafka Connect implementation
+                from java.util.regex import Pattern
+
+                transform_regex = Pattern.compile(regex_pattern)
+                matcher = transform_regex.matcher(topic)
+
+                if matcher.matches():
+                    transformed_topic = str(matcher.replaceFirst(replacement))
+                    transformed_topics.append(transformed_topic)
+                    logger.debug(f"RegexRouter: {topic} -> {transformed_topic}")
+                else:
+                    transformed_topics.append(topic)
+                    logger.debug(f"RegexRouter: {topic} (no match)")
+
+            except Exception as e:
+                logger.warning(f"RegexRouter failed for topic {topic}: {e}")
+                transformed_topics.append(topic)  # Keep original on error
+
+        return transformed_topics
+
+
+class TransformPipeline:
+    """Handles multiple Kafka Connect transforms in sequence."""
+
+    # Known transform types
+    TRANSFORM_CLASSES = {
+        "io.debezium.transforms.outbox.EventRouter": EventRouterTransform,
+        "org.apache.kafka.connect.transforms.RegexRouter": RegexRouterTransform,
+        "io.confluent.connect.cloud.transforms.TopicRegexRouter": RegexRouterTransform,
+    }
+
+    def __init__(self, transform_configs: List[Dict[str, str]]):
+        """Initialize pipeline with transform configurations."""
+        self.transforms = []
+
+        for config in transform_configs:
+            transform_type = config.get("type", "")
+            transform_class = self.TRANSFORM_CLASSES.get(transform_type)
+
+            if transform_class:
+                self.transforms.append(transform_class(config))
+            else:
+                logger.warning(f"Unknown transform type: {transform_type}")
+
+    def apply_transforms(
+        self,
+        tables: List[Tuple[str, str]],
+        topic_prefix: str,
+        manifest_topics: List[str],
+    ) -> List[TransformResult]:
+        """
+        Apply transform pipeline to generate lineage mappings.
+
+        Args:
+            tables: List of (schema, table) tuples from source
+            topic_prefix: Topic prefix from connector config
+            manifest_topics: Actual topic names from connector manifest
+
+        Returns:
+            List of TransformResult objects mapping sources to final topics
+        """
+        results = []
+
+        for table_tuple in tables:
+            # Extract table information
+            if len(table_tuple) >= 2:
+                schema, table_name = table_tuple[-2], table_tuple[-1]
+            else:
+                schema, table_name = "", table_tuple[-1]
+
+            # Generate original topic name (before transforms)
+            original_topic = self._generate_original_topic(
+                schema, table_name, topic_prefix
+            )
+
+            # Apply transform pipeline
+            final_topics = self._apply_pipeline([original_topic], manifest_topics)
+
+            # Create result if we have matching topics
+            if final_topics:
+                results.append(
+                    TransformResult(
+                        source_table=table_name,
+                        schema=schema,
+                        final_topics=final_topics,
+                        original_topic=original_topic,
+                    )
+                )
+
+        return results
+
+    def _generate_original_topic(
+        self, schema: str, table_name: str, topic_prefix: str
+    ) -> str:
+        """Generate the original topic name before any transforms."""
+        if topic_prefix:
+            if schema:
+                return f"{topic_prefix}.{schema}.{table_name}"
+            else:
+                return f"{topic_prefix}.{table_name}"
+        else:
+            if schema:
+                return f"{schema}.{table_name}"
+            else:
+                return table_name
+
+    def _apply_pipeline(
+        self, current_topics: List[str], manifest_topics: List[str]
+    ) -> List[str]:
+        """Apply all transforms in sequence."""
+        topics = current_topics[:]
+
+        for transform in self.transforms:
+            topics = transform.apply(topics, manifest_topics)
+
+        return topics
 
 
 @dataclass
@@ -100,6 +301,15 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         self,
         connector_manifest: ConnectorManifest,
     ) -> JdbcParser:
+        """Main parser factory - delegates to JDBC URL or Cloud JDBC field parsers"""
+        if "connection.url" in connector_manifest.config:
+            return self._get_jdbc_url_parser(connector_manifest)
+        else:
+            return self._get_cloud_jdbc_fields_parser(connector_manifest)
+
+    def _get_jdbc_url_parser(self, connector_manifest: ConnectorManifest) -> JdbcParser:
+        """Parse traditional JDBC connector configuration using connection.url"""
+        # Reference: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#connection-url
         url = remove_prefix(
             str(connector_manifest.config.get("connection.url")), "jdbc:"
         )
@@ -109,13 +319,71 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         assert database_name
         db_connection_url = f"{url_instance.drivername}://{url_instance.host}:{url_instance.port}/{database_name}"
 
-        topic_prefix = self.connector_manifest.config.get("topic.prefix") or ""
+        # Platform uses topic.prefix
+        topic_prefix = connector_manifest.config.get("topic.prefix", "")
 
-        query = self.connector_manifest.config.get("query") or ""
+        return self._create_parser(
+            connector_manifest,
+            db_connection_url,
+            source_platform,
+            database_name,
+            topic_prefix,
+        )
 
+    def _get_cloud_jdbc_fields_parser(
+        self, connector_manifest: ConnectorManifest
+    ) -> JdbcParser:
+        """Parse Confluent Cloud JDBC connector configuration using individual database fields"""
+        # References:
+        # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source.html#connection-details
+        # - https://docs.confluent.io/cloud/current/connectors/cc-mysql-source.html#connection-details
+        connector_class = connector_manifest.config.get(CONNECTOR_CLASS, "")
+        source_platform = get_platform_from_connector_class(connector_class)
+
+        hostname = connector_manifest.config.get("database.hostname")
+        port = connector_manifest.config.get("database.port")
+        database_name = connector_manifest.config.get("database.dbname")
+
+        if not hostname or not port or not database_name:
+            raise ValueError(
+                f"Missing required Cloud connector config: "
+                f"hostname={hostname}, port={port}, database_name={database_name}"
+            )
+
+        # Construct connection URL from individual fields with proper URI schemes
+        if source_platform == "postgres":
+            db_connection_url = f"postgresql://{hostname}:{port}/{database_name}"
+        elif source_platform == "mysql":
+            db_connection_url = f"mysql://{hostname}:{port}/{database_name}"
+        else:
+            db_connection_url = f"{source_platform}://{hostname}:{port}/{database_name}"
+
+        # Cloud uses database.server.name as topic prefix
+        topic_prefix = connector_manifest.config.get("database.server.name", "")
+
+        return self._create_parser(
+            connector_manifest,
+            db_connection_url,
+            source_platform,
+            database_name,
+            topic_prefix,
+        )
+
+    def _create_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+        db_connection_url: str,
+        source_platform: str,
+        database_name: str,
+        topic_prefix: str,
+    ) -> JdbcParser:
+        """Common parser creation logic for both Platform and Cloud connectors"""
+        query = connector_manifest.config.get("query", "")
+
+        # Parse transforms (common to both Platform and Cloud)
         transform_names = (
-            self.connector_manifest.config.get("transforms", "").split(",")
-            if self.connector_manifest.config.get("transforms")
+            connector_manifest.config.get("transforms", "").split(",")
+            if connector_manifest.config.get("transforms")
             else []
         )
 
@@ -123,10 +391,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         for name in transform_names:
             transform = {"name": name}
             transforms.append(transform)
-            for key in self.connector_manifest.config:
+            for key in connector_manifest.config:
                 if key.startswith(f"transforms.{name}."):
                     transform[key.replace(f"transforms.{name}.", "")] = (
-                        self.connector_manifest.config[key]
+                        connector_manifest.config[key]
                     )
 
         return self.JdbcParser(
@@ -206,8 +474,16 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                 leading_quote_char = table_ids[0][0]
                 trailing_quote_char = table_ids[-1][-1]
                 # This will only work for single character quotes
-        elif self.connector_manifest.config.get("table.whitelist"):
-            table_ids = self.connector_manifest.config.get("table.whitelist").split(",")  # type: ignore
+        else:
+            # Handle both field names for table discovery
+            # Platform: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#table-whitelist
+            # Cloud: https://docs.confluent.io/cloud/current/connectors/cc-postgresql-cdc-source.html#table-include-list
+            table_config = self.connector_manifest.config.get(
+                "table.include.list"
+            ) or self.connector_manifest.config.get("table.whitelist")
+
+            if table_config:
+                table_ids = table_config.split(",")
 
         # List of Tuple containing (schema, table)
         tables: List[Tuple] = [
@@ -241,137 +517,183 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         return flow_property_bag
 
-    def extract_lineages(self) -> List[KafkaConnectLineage]:
-        lineages: List[KafkaConnectLineage] = list()
-        parser = self.get_parser(self.connector_manifest)
-        source_platform = parser.source_platform
-        database_name = parser.database_name
-        query = parser.query
-        topic_prefix = parser.topic_prefix
-        transforms = parser.transforms
+    def _extract_lineages_with_pipeline(
+        self,
+        transforms: List[Dict[str, str]],
+        database_name: str,
+        source_platform: str,
+        topic_prefix: str,
+    ) -> List[KafkaConnectLineage]:
+        """Extract lineages using the new transform pipeline for complex scenarios."""
+        lineages: List[KafkaConnectLineage] = []
 
-        logging.debug(
-            f"Extracting source platform: {source_platform} and database name: {database_name} from connection url "
-        )
+        try:
+            # Get source tables
+            tables = self.get_table_names()
 
-        if not self.connector_manifest.topic_names:
+            # Create transform pipeline
+            pipeline = TransformPipeline(transforms)
+
+            # Apply pipeline to generate transform results
+            results = pipeline.apply_transforms(
+                tables, topic_prefix, list(self.connector_manifest.topic_names)
+            )
+
+            # Convert results to lineages
+            for result in results:
+                # Build source dataset name
+                if result.schema and has_three_level_hierarchy(source_platform):
+                    source_table_name = f"{result.schema}.{result.source_table}"
+                else:
+                    source_table_name = result.source_table
+
+                source_dataset = get_dataset_name(database_name, source_table_name)
+
+                # Create lineages for all final topics
+                for final_topic in result.final_topics:
+                    lineage = KafkaConnectLineage(
+                        source_dataset=source_dataset,
+                        source_platform=source_platform,
+                        target_dataset=final_topic,
+                        target_platform=KAFKA,
+                    )
+                    lineages.append(lineage)
+
+                    logger.debug(
+                        f"Pipeline lineage: {source_dataset} -> {final_topic} "
+                        f"(via {result.original_topic})"
+                    )
+
             return lineages
 
-        if query:
-            # Lineage source_table can be extracted by parsing query
-            for topic in self.connector_manifest.topic_names:
-                # default method - as per earlier implementation
-                dataset_name: str = get_dataset_name(database_name, topic)
-
-                lineage = KafkaConnectLineage(
-                    source_dataset=None,
-                    source_platform=source_platform,
-                    target_dataset=topic,
-                    target_platform=KAFKA,
-                )
-                lineages.append(lineage)
-                self.report.warning(
-                    "Could not find input dataset, the connector has query configuration set",
-                    self.connector_manifest.name,
-                )
-                return lineages
-
-        SINGLE_TRANSFORM = len(transforms) == 1
-        NO_TRANSFORM = len(transforms) == 0
-        UNKNOWN_TRANSFORM = any(
-            [
-                transform["type"]
-                not in self.KNOWN_TOPICROUTING_TRANSFORMS
-                + self.KNOWN_NONTOPICROUTING_TRANSFORMS
-                for transform in transforms
-            ]
-        )
-        ALL_TRANSFORMS_NON_TOPICROUTING = all(
-            [
-                transform["type"] in self.KNOWN_NONTOPICROUTING_TRANSFORMS
-                for transform in transforms
-            ]
-        )
-
-        if NO_TRANSFORM or ALL_TRANSFORMS_NON_TOPICROUTING:
+        except Exception as e:
+            logger.warning(f"Transform pipeline failed: {e}")
+            # Fallback to default lineage generation
             return self.default_get_lineages(
                 database_name=database_name,
                 source_platform=source_platform,
                 topic_prefix=topic_prefix,
+                include_source_dataset=False,
             )
 
-        if SINGLE_TRANSFORM and transforms[0]["type"] == self.REGEXROUTER:
-            tables = self.get_table_names()
-            topic_names = list(self.connector_manifest.topic_names)
+    def extract_lineages(self) -> List[KafkaConnectLineage]:
+        """Extract lineage mappings from connector configuration to Kafka topics."""
+        parser = self.get_parser(self.connector_manifest)
 
-            from java.util.regex import Pattern
+        logging.debug(
+            f"Extracting lineages for platform: {parser.source_platform}, "
+            f"database: {parser.database_name}"
+        )
 
-            for table in tables:
-                source_table: str = table[-1]
-                topic = topic_prefix + source_table if topic_prefix else source_table
+        # Early return if no topics
+        if not self.connector_manifest.topic_names:
+            return []
 
-                transform_regex = Pattern.compile(transforms[0]["regex"])
-                transform_replacement = transforms[0]["replacement"]
+        # Handle query-based connectors (can't determine source tables)
+        if parser.query:
+            return self._handle_query_based_connector(parser)
 
-                matcher = transform_regex.matcher(topic)
-                if matcher.matches():
-                    topic = str(matcher.replaceFirst(transform_replacement))
+        # Route to appropriate lineage extraction method based on transforms
+        if not parser.transforms:
+            # No transforms - simple direct mapping
+            return self._extract_simple_lineages(parser)
 
-                # Additional check to confirm that the topic present
-                # in connector topics
+        elif self._should_use_transform_pipeline(parser.transforms):
+            # Use transform pipeline for supported transforms
+            return self._extract_lineages_with_pipeline(
+                parser.transforms,
+                parser.database_name,
+                parser.source_platform,
+                parser.topic_prefix,
+            )
 
-                if topic in self.connector_manifest.topic_names:
-                    # include schema name for three-level hierarchies
-                    if has_three_level_hierarchy(source_platform) and len(table) > 1:
-                        source_table = f"{table[-2]}.{table[-1]}"
-
-                    dataset_name = get_dataset_name(database_name, source_table)
-
-                    lineage = KafkaConnectLineage(
-                        source_dataset=dataset_name,
-                        source_platform=source_platform,
-                        target_dataset=topic,
-                        target_platform=KAFKA,
-                    )
-                    topic_names.remove(topic)
-                    lineages.append(lineage)
-
-            if topic_names:
-                lineages.extend(
-                    self.default_get_lineages(
-                        database_name=database_name,
-                        source_platform=source_platform,
-                        topic_prefix=topic_prefix,
-                        topic_names=topic_names,
-                        include_source_dataset=False,
-                    )
-                )
-                self.report.warning(
-                    "Could not find input dataset for connector topics",
-                    f"{self.connector_manifest.name} : {topic_names}",
-                )
-            return lineages
         else:
-            include_source_dataset = True
-            if SINGLE_TRANSFORM and UNKNOWN_TRANSFORM:
+            # Unknown or unsupported transforms
+            return self._handle_unknown_transforms(parser)
+
+    def _handle_query_based_connector(
+        self, parser: JdbcParser
+    ) -> List[KafkaConnectLineage]:
+        """Handle connectors with custom queries (can't determine source tables)."""
+        lineages = []
+        for topic in self.connector_manifest.topic_names:
+            lineage = KafkaConnectLineage(
+                source_dataset=None,
+                source_platform=parser.source_platform,
+                target_dataset=topic,
+                target_platform=KAFKA,
+            )
+            lineages.append(lineage)
+
+        self.report.warning(
+            "Could not find input dataset, the connector has query configuration set",
+            self.connector_manifest.name,
+        )
+        return lineages
+
+    def _extract_simple_lineages(self, parser: JdbcParser) -> List[KafkaConnectLineage]:
+        """Extract lineages for connectors with no transforms."""
+        return self.default_get_lineages(
+            database_name=parser.database_name,
+            source_platform=parser.source_platform,
+            topic_prefix=parser.topic_prefix,
+        )
+
+    def _should_use_transform_pipeline(self, transforms: List[Dict[str, str]]) -> bool:
+        """Check if we should use the new transform pipeline."""
+        if not transforms:
+            return False
+
+        # Use pipeline for any supported transforms (single or multiple)
+        has_supported_transforms = any(
+            transform["type"]
+            in list(TransformPipeline.TRANSFORM_CLASSES.keys()) + [self.REGEXROUTER]
+            for transform in transforms
+        )
+
+        # Use pipeline for transforms that are only non-topic-routing
+        all_non_topic_routing = all(
+            transform["type"] in self.KNOWN_NONTOPICROUTING_TRANSFORMS
+            for transform in transforms
+        )
+
+        return has_supported_transforms or all_non_topic_routing
+
+    def _handle_unknown_transforms(
+        self, parser: JdbcParser
+    ) -> List[KafkaConnectLineage]:
+        """Handle connectors with unknown or unsupported transforms."""
+        # Check what kind of unknown transforms we have
+        unknown_transform_types = [
+            transform["type"]
+            for transform in parser.transforms
+            if transform["type"]
+            not in (
+                self.KNOWN_TOPICROUTING_TRANSFORMS
+                + self.KNOWN_NONTOPICROUTING_TRANSFORMS
+            )
+        ]
+
+        include_source_dataset = True
+        if unknown_transform_types:
+            if len(parser.transforms) == 1:
                 self.report.warning(
                     "Could not find input dataset, connector has unknown transform",
-                    f"{self.connector_manifest.name} : {transforms[0]['type']}",
+                    f"{self.connector_manifest.name} : {unknown_transform_types[0]}",
                 )
-                include_source_dataset = False
-            if not SINGLE_TRANSFORM and UNKNOWN_TRANSFORM:
+            else:
                 self.report.warning(
                     "Could not find input dataset, connector has one or more unknown transforms",
                     self.connector_manifest.name,
                 )
-                include_source_dataset = False
-            lineages = self.default_get_lineages(
-                database_name=database_name,
-                source_platform=source_platform,
-                topic_prefix=topic_prefix,
-                include_source_dataset=include_source_dataset,
-            )
-            return lineages
+            include_source_dataset = False
+
+        return self.default_get_lineages(
+            database_name=parser.database_name,
+            source_platform=parser.source_platform,
+            topic_prefix=parser.topic_prefix,
+            include_source_dataset=include_source_dataset,
+        )
 
 
 @dataclass
