@@ -19,7 +19,7 @@ export function getFieldDescriptionDetails({ schemaFieldEntity, editableFieldInf
         !!attribution?.sourceDetail?.find((mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true');
 
     const displayedDescription =
-        editableFieldInfo?.description || defaultDescription || documentation?.documentation || '';
+        editableFieldInfo?.description ?? (defaultDescription || documentation?.documentation || '');
 
     const sourceDetail = attribution?.sourceDetail;
     const propagatedDescription = isPropagated ? documentation?.documentation : undefined;

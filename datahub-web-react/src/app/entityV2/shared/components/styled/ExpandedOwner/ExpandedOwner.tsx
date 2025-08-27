@@ -96,9 +96,8 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
             <OwnerWrapper>
                 <ActorPill
                     actor={owner.owner}
-                    isProposed={owner.isProposed}
                     onClose={!readOnly ? onClose : undefined}
-                    hideLink={readOnly || owner.isProposed}
+                    hideLink={readOnly}
                     propagationDetails={propagationDetails}
                 />
             </OwnerWrapper>

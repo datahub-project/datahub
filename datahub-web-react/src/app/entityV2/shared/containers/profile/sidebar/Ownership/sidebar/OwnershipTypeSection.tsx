@@ -31,6 +31,7 @@ const OwnersContainer = styled.div`
     flex-wrap: wrap;
     margin-top: 8px;
     max-width: inherit;
+    gap: 8px;
 `;
 
 interface Props {

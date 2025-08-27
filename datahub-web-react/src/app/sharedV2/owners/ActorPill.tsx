@@ -3,7 +3,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import ProposedIcon from '@app/entityV2/shared/sidebarSection/ProposedIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { CustomAvatar } from '@app/shared/avatar';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -52,7 +51,6 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                     <Text color="gray" size="sm">
                         {name}
                     </Text>
-                    {isProposed && <ProposedIcon propertyName="Owner" />}
                     {!isProposed && onClose && (
                         <StyledIcon
                             onClick={onClose}
