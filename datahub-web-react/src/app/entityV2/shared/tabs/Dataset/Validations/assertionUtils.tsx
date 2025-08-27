@@ -60,9 +60,6 @@ export const getResultText = (result: AssertionResultType, isSmartAssertion?: bo
 /**
  * Returns the display color associated with an AssertionResultType
  */
-const SUCCESS_COLOR_HEX = '#4db31b';
-const FAILURE_COLOR_HEX = '#F5222D';
-const ERROR_COLOR_HEX = '#FAAD14';
 const INIT_COLOR_HEX = '#2F54EB';
 const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
 

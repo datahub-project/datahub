@@ -14,7 +14,8 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
-  // Use on specific MCP to request an synchronous index update avoid the kafka lag.
+  // Use on specific MCP to request an synchronous index update avoid the kafka
+  // lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
@@ -388,7 +389,8 @@ public class Constants {
   public static final String EXECUTION_REQUEST_SOURCE_CLI_INGESTION_SOURCE = "CLI_INGESTION_SOURCE";
   public static final String DEFAULT_EXECUTOR_ID = "default";
 
-  // We use an executorId that maps to no executor since some requests are to be handled by the
+  // We use an executorId that maps to no executor since some requests are to be
+  // handled by the
   // mae-consumer
   public static final String NONE_EXECUTOR_ID =
       String.join(":", "NONE_EXECUTOR", UUID.randomUUID().toString());
@@ -462,7 +464,6 @@ public class Constants {
   // Timeseries
   public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
 
-<<<<<<< HEAD
   /* SaaS-Only */
 
   // Datasets
@@ -485,8 +486,6 @@ public class Constants {
   public static final String ACTION_REQUEST_STATUS_ASPECT_NAME = "actionRequestStatus";
   public static final String ACTION_WORKFLOW_INFO_ASPECT_NAME = "actionWorkflowInfo";
 
-=======
->>>>>>> upstream/master
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
   public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
@@ -585,9 +584,12 @@ public class Constants {
       "dataHubStepStateProperties";
 
   // Authorization
-  // Do not use this env var directly to determine if REST API Auth is to be enabled. Instead, use
-  // the  spring property "authorization.restApiAuthorization" from application.yaml for
-  // consistency. The spring property can be initialized by this env var (among other methods).
+  // Do not use this env var directly to determine if REST API Auth is to be
+  // enabled. Instead, use
+  // the spring property "authorization.restApiAuthorization" from
+  // application.yaml for
+  // consistency. The spring property can be initialized by this env var (among
+  // other methods).
   public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
 
   // Metadata Change Event Parameter Names
@@ -639,7 +641,8 @@ public class Constants {
   public static final String NOTIFICATIONS_SEARCH_CALL_COUNT = "notifications_search_call_count";
 
   // Search Config
-  // we use this to make sure we filter for editable & non-editable fields. Also expands out
+  // we use this to make sure we filter for editable & non-editable fields. Also
+  // expands out
   // top-level properties to field level properties
   public static final Map<String, List<String>> FIELDS_TO_EXPANDED_FIELDS_LIST =
       new HashMap<String, List<String>>() {
@@ -672,7 +675,8 @@ public class Constants {
 
   public static final String RESTLI_SUCCESS = "success";
 
-  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues
+  // with
   // EntityPrivilegesResolver
   public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
 
