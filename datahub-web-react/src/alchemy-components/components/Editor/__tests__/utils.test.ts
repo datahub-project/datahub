@@ -87,8 +87,6 @@ describe('Editor Utils', () => {
 
         it('should handle complex nested HTML with attributes', () => {
             const input = '<div class="test" onclick="alert()">Content <b>bold</b></div>';
-            const encodedInput =
-                '&lt;div class="test" onclick="alert()"&gt;Content &lt;b&gt;bold&lt;/b&gt;&lt;/div&gt;';
 
             // Simulate DOMPurify removing malicious attributes but keeping safe ones
             const sanitizedEncoded = '&lt;div class="test"&gt;Content &lt;b&gt;bold&lt;/b&gt;&lt;/div&gt;';
