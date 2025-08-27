@@ -44,6 +44,8 @@ argon2-cffi==23.1.0
     #   notebook
 argon2-cffi-bindings==21.2.0
     # via argon2-cffi
+arrow==1.3.0
+    # via isoduration
 asn1crypto==1.5.1
     # via
     #   oscrypto
@@ -256,6 +258,8 @@ filelock==3.16.1
     # via snowflake-connector-python
 fonttools==4.56.0
     # via matplotlib
+fqdn==1.5.1
+    # via jsonschema
 frozenlist==1.5.0
     # via
     #   aiohttp
@@ -342,6 +346,7 @@ humanfriendly==10.0
 idna==3.10
     # via
     #   anyio
+    #   jsonschema
     #   requests
     #   snowflake-connector-python
     #   yarl
@@ -375,6 +380,8 @@ ipywidgets==8.1.5
     # via acryl-great-expectations
 isodate==0.7.2
     # via tableschema
+isoduration==20.11.0
+    # via jsonschema
 jedi==0.19.2
     # via ipython
 jinja2==3.1.4
@@ -399,7 +406,9 @@ jsonlines==4.0.0
 jsonpatch==1.33
     # via acryl-great-expectations
 jsonpointer==3.0.0
-    # via jsonpatch
+    # via
+    #   jsonpatch
+    #   jsonschema
 jsonref==1.1.0
     # via acryl-datahub
 jsonschema==4.23.0
@@ -407,6 +416,7 @@ jsonschema==4.23.0
     #   acryl-datahub
     #   acryl-great-expectations
     #   altair
+    #   jupyter-events
     #   nbformat
     #   tableschema
 jsonschema-specifications==2024.10.1
@@ -424,8 +434,14 @@ jupyter-core==4.12.0
     #   nbconvert
     #   nbformat
     #   notebook
-jupyter-server==1.16.0
-    # via notebook-shim
+jupyter-events==0.12.0
+    # via jupyter-server
+jupyter-server==2.17.0
+    # via
+    #   acryl-datahub
+    #   notebook-shim
+jupyter-server-terminals==0.5.3
+    # via jupyter-server
 jupyterlab-pygments==0.3.0
     # via nbconvert
 jupyterlab-widgets==3.0.13
@@ -562,6 +578,8 @@ openpyxl==3.1.5
     #   dataflows-tabulator
 oscrypto @ git+https://github.com/wbond/oscrypto.git@1547f535001ba568b239b8797465536759c742a3
     # via acryl-datahub-executor
+overrides==7.7.0 ; python_full_version < '3.12'
+    # via jupyter-server
 packaging==24.2
     # via
     #   acryl-datahub
@@ -570,6 +588,7 @@ packaging==24.2
     #   geoalchemy2
     #   google-cloud-bigquery
     #   ipykernel
+    #   jupyter-events
     #   jupyter-server
     #   marshmallow
     #   matplotlib
@@ -727,6 +746,7 @@ python-dateutil==2.9.0.post0
     #   acryl-datahub
     #   acryl-datahub-actions
     #   acryl-great-expectations
+    #   arrow
     #   botocore
     #   celery
     #   croniter
@@ -739,6 +759,8 @@ python-dateutil==2.9.0.post0
     #   tableschema
 python-dotenv==1.0.1
     # via uvicorn
+python-json-logger==3.3.0
+    # via jupyter-events
 python-stdnum==1.20
     # via acryl-datahub-classify
 python-utils==3.9.1
@@ -758,11 +780,13 @@ pywin32==308 ; sys_platform == 'win32'
 pywinpty==2.0.15 ; os_name == 'nt'
     # via
     #   jupyter-server
+    #   jupyter-server-terminals
     #   terminado
 pyyaml==6.0.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   jupyter-events
     #   moto
     #   responses
     #   uvicorn
@@ -784,6 +808,7 @@ referencing==0.35.1
     # via
     #   jsonschema
     #   jsonschema-specifications
+    #   jupyter-events
 requests==2.32.3
     # via
     #   acryl-datahub
@@ -810,8 +835,16 @@ requests-file==2.1.0
     # via acryl-datahub
 responses==0.25.3
     # via moto
+rfc3339-validator==0.1.4
+    # via
+    #   jsonschema
+    #   jupyter-events
 rfc3986==2.0.0
     # via tableschema
+rfc3986-validator==0.1.1
+    # via
+    #   jsonschema
+    #   jupyter-events
 rich==13.9.4
     # via typer
 rpds-py==0.22.3
@@ -867,6 +900,7 @@ six==1.17.0
     #   linear-tsv
     #   mixpanel
     #   python-dateutil
+    #   rfc3339-validator
     #   tableschema
     #   thrift
 smart-open==7.0.5
@@ -939,6 +973,7 @@ tenacity==8.5.0
 terminado==0.18.1
     # via
     #   jupyter-server
+    #   jupyter-server-terminals
     #   notebook
 thinc==8.2.5
     # via spacy
@@ -971,7 +1006,7 @@ tqdm==4.67.1
     #   cmdstanpy
     #   prophet
     #   spacy
-traitlets==5.2.1.post0
+traitlets==5.14.3
     # via
     #   acryl-datahub
     #   comm
@@ -980,6 +1015,7 @@ traitlets==5.2.1.post0
     #   ipywidgets
     #   jupyter-client
     #   jupyter-core
+    #   jupyter-events
     #   jupyter-server
     #   matplotlib-inline
     #   nbclient
@@ -992,6 +1028,8 @@ typer==0.15.1
     #   weasel
 types-croniter==1.4.0.1
     # via acryl-datahub-executor
+types-python-dateutil==2.9.0.20250822
+    # via arrow
 typing-extensions==4.12.2
     # via
     #   acryl-datahub
@@ -1032,6 +1070,8 @@ unicodecsv==0.14.1
     # via
     #   dataflows-tabulator
     #   tableschema
+uri-template==1.3.0
+    # via jsonschema
 urllib3==1.26.20
     # via
     #   acryl-great-expectations
@@ -1070,6 +1110,8 @@ wcwidth==0.2.13
     # via prompt-toolkit
 weasel==0.4.1
     # via spacy
+webcolors==24.11.1
+    # via jsonschema
 webencodings==0.5.1
     # via
     #   bleach

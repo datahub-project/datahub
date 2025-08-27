@@ -80,6 +80,10 @@ argon2-cffi-bindings==21.2.0
     # via
     #   -r requirements.txt
     #   argon2-cffi
+arrow==1.3.0
+    # via
+    #   -r requirements.txt
+    #   isoduration
 asn1crypto==1.5.1
     # via
     #   -r requirements.txt
@@ -407,6 +411,10 @@ fonttools==4.56.0
     # via
     #   -r requirements.txt
     #   matplotlib
+fqdn==1.5.1
+    # via
+    #   -r requirements.txt
+    #   jsonschema
 frozenlist==1.5.0
     # via
     #   -r requirements.txt
@@ -535,6 +543,7 @@ idna==3.10
     # via
     #   -r requirements.txt
     #   anyio
+    #   jsonschema
     #   requests
     #   snowflake-connector-python
     #   yarl
@@ -583,6 +592,10 @@ isodate==0.7.2
     # via
     #   -r requirements.txt
     #   tableschema
+isoduration==20.11.0
+    # via
+    #   -r requirements.txt
+    #   jsonschema
 jedi==0.19.2
     # via
     #   -r requirements.txt
@@ -621,6 +634,7 @@ jsonpointer==3.0.0
     # via
     #   -r requirements.txt
     #   jsonpatch
+    #   jsonschema
 jsonref==1.1.0
     # via
     #   -r requirements.txt
@@ -631,6 +645,7 @@ jsonschema==4.23.0
     #   acryl-datahub
     #   acryl-great-expectations
     #   altair
+    #   jupyter-events
     #   nbformat
     #   tableschema
 jsonschema-specifications==2024.10.1
@@ -652,10 +667,19 @@ jupyter-core==4.12.0
     #   nbconvert
     #   nbformat
     #   notebook
-jupyter-server==1.16.0
+jupyter-events==0.12.0
     # via
     #   -r requirements.txt
+    #   jupyter-server
+jupyter-server==2.17.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
     #   notebook-shim
+jupyter-server-terminals==0.5.3
+    # via
+    #   -r requirements.txt
+    #   jupyter-server
 jupyterlab-pygments==0.3.0
     # via
     #   -r requirements.txt
@@ -867,6 +891,10 @@ oscrypto @ git+https://github.com/wbond/oscrypto.git@1547f535001ba568b239b879746
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+overrides==7.7.0 ; python_full_version < '3.12'
+    # via
+    #   -r requirements.txt
+    #   jupyter-server
 packaging==24.2
     # via
     #   -r requirements.txt
@@ -876,6 +904,7 @@ packaging==24.2
     #   geoalchemy2
     #   google-cloud-bigquery
     #   ipykernel
+    #   jupyter-events
     #   jupyter-server
     #   marshmallow
     #   matplotlib
@@ -1119,6 +1148,7 @@ python-dateutil==2.9.0.post0
     #   acryl-datahub
     #   acryl-datahub-actions
     #   acryl-great-expectations
+    #   arrow
     #   botocore
     #   celery
     #   croniter
@@ -1134,6 +1164,10 @@ python-dotenv==1.0.1
     # via
     #   -r requirements.txt
     #   uvicorn
+python-json-logger==3.3.0
+    # via
+    #   -r requirements.txt
+    #   jupyter-events
 python-stdnum==1.20
     # via
     #   -r requirements.txt
@@ -1161,12 +1195,14 @@ pywinpty==2.0.15 ; os_name == 'nt'
     # via
     #   -r requirements.txt
     #   jupyter-server
+    #   jupyter-server-terminals
     #   terminado
 pyyaml==6.0.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   jupyter-events
     #   moto
     #   responses
     #   uvicorn
@@ -1196,6 +1232,7 @@ referencing==0.35.1
     #   -r requirements.txt
     #   jsonschema
     #   jsonschema-specifications
+    #   jupyter-events
 requests==2.32.3
     # via
     #   -r requirements.txt
@@ -1228,10 +1265,20 @@ responses==0.25.3
     # via
     #   -r requirements.txt
     #   moto
+rfc3339-validator==0.1.4
+    # via
+    #   -r requirements.txt
+    #   jsonschema
+    #   jupyter-events
 rfc3986==2.0.0
     # via
     #   -r requirements.txt
     #   tableschema
+rfc3986-validator==0.1.1
+    # via
+    #   -r requirements.txt
+    #   jsonschema
+    #   jupyter-events
 rich==13.9.4
     # via
     #   -r requirements.txt
@@ -1313,6 +1360,7 @@ six==1.17.0
     #   linear-tsv
     #   mixpanel
     #   python-dateutil
+    #   rfc3339-validator
     #   tableschema
     #   thrift
 smart-open==7.0.5
@@ -1440,6 +1488,7 @@ terminado==0.18.1
     # via
     #   -r requirements.txt
     #   jupyter-server
+    #   jupyter-server-terminals
     #   notebook
 thinc==8.2.5
     # via
@@ -1493,7 +1542,7 @@ tqdm==4.67.1
     #   cmdstanpy
     #   prophet
     #   spacy
-traitlets==5.2.1.post0
+traitlets==5.14.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -1503,6 +1552,7 @@ traitlets==5.2.1.post0
     #   ipywidgets
     #   jupyter-client
     #   jupyter-core
+    #   jupyter-events
     #   jupyter-server
     #   matplotlib-inline
     #   nbclient
@@ -1521,6 +1571,10 @@ types-croniter==1.4.0.1
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+types-python-dateutil==2.9.0.20250822
+    # via
+    #   -r requirements.txt
+    #   arrow
 types-pytz==2024.2.0.20241003
     # via acryl-datahub-executor (pyproject.toml)
 types-pyyaml==6.0.12.20240917
@@ -1580,6 +1634,10 @@ unicodecsv==0.14.1
     #   -r requirements.txt
     #   dataflows-tabulator
     #   tableschema
+uri-template==1.3.0
+    # via
+    #   -r requirements.txt
+    #   jsonschema
 urllib3==1.26.20
     # via
     #   -r requirements.txt
@@ -1640,6 +1698,10 @@ weasel==0.4.1
     # via
     #   -r requirements.txt
     #   spacy
+webcolors==24.11.1
+    # via
+    #   -r requirements.txt
+    #   jsonschema
 webencodings==0.5.1
     # via
     #   -r requirements.txt
