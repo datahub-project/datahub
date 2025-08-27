@@ -168,6 +168,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDisplayPropertiesResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.UpdateLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateUserSettingResolver;
@@ -1205,6 +1206,7 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "batchRemoveOwners", new BatchRemoveOwnersResolver(entityService, entityClient))
               .dataFetcher("addLink", new AddLinkResolver(entityService, this.entityClient))
+              .dataFetcher("updateLink", new UpdateLinkResolver(entityService, this.entityClient))
               .dataFetcher("removeLink", new RemoveLinkResolver(entityService, entityClient))
               .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))
               .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
