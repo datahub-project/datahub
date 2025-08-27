@@ -126,7 +126,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * A class specifying create, update, and read operations against metadata entities and aspects by

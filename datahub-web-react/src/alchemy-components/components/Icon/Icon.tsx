@@ -1,3 +1,4 @@
+import { Tooltip } from '@components';
 import React from 'react';
 
 import { IconWrapper } from '@components/components/Icon/components';
@@ -5,12 +6,15 @@ import { IconProps, IconPropsDefaults } from '@components/components/Icon/types'
 import { getIconComponent, getIconNames } from '@components/components/Icon/utils';
 import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
 
+import { useCustomTheme } from '@src/customThemeContext';
+
 export const iconDefaults: IconPropsDefaults = {
     source: 'material',
     variant: 'outline',
     size: '4xl',
     color: 'inherit',
     rotate: '0',
+    tooltipText: '',
 };
 
 export const Icon = ({
@@ -22,9 +26,11 @@ export const Icon = ({
     colorLevel,
     rotate = iconDefaults.rotate,
     weight,
+    tooltipText,
     ...props
 }: IconProps) => {
     const { filled, outlined } = getIconNames();
+    const { theme } = useCustomTheme();
 
     // Return early if no icon is provided
     if (!icon) return null;
@@ -53,14 +59,16 @@ export const Icon = ({
 
     return (
         <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
-            <IconComponent
-                sx={{
-                    fontSize: getFontSize(size),
-                    color: getColor(color, colorLevel),
-                }}
-                style={{ color: getColor(color, colorLevel) }}
-                weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
-            />
+            <Tooltip title={tooltipText}>
+                <IconComponent
+                    sx={{
+                        fontSize: getFontSize(size),
+                        color: getColor(color, colorLevel, theme),
+                    }}
+                    style={{ color: getColor(color, colorLevel, theme) }}
+                    weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
+                />
+            </Tooltip>
         </IconWrapper>
     );
 };

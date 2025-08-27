@@ -242,17 +242,6 @@ The script will test both scenarios:
 - Verify entity type is "dataset" (case-sensitive)
 - Check GMS logs for validation exceptions
 
-### Debug Mode
-
-Enable debug logging in GMS configuration:
-
-```yaml
-# application.yml
-logging:
-  level:
-    com.linkedin.metadata.aspect.plugins.validation.DatasetGovernanceValidator: DEBUG
-```
-
 ## Architecture
 
 ### Validation Flow

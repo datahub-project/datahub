@@ -45,6 +45,7 @@ export default function useRelatedEntitiesLoader({
                 orFilters,
                 start: numberOfAlreadyLoadedRelatedEntities,
                 count: numberOfRelatedEntitiesToLoad,
+                searchFlags: { skipCache: true },
             },
         },
         skip: !shouldLoadRelatedEntities || dependenciesIsLoading,

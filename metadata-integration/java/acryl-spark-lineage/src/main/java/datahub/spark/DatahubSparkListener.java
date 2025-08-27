@@ -266,6 +266,9 @@ public class DatahubSparkListener extends SparkListener {
           && datahubConf.getBoolean("capture_spark_plan")) {
         sparkEnv.conf().set("spark.openlineage.facets.spark.logicalPlan.disabled", "false");
       }
+      if (!isCaptureColumnLevelLineage(datahubConf)) {
+        sparkEnv.conf().set("spark.openlineage.facets.columnLineage.disabled", "true");
+      }
     }
 
     if (properties != null) {

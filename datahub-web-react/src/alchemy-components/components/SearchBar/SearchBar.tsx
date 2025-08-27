@@ -23,22 +23,30 @@ export const SearchBar = forwardRef<InputRef, SearchBarProps & Omit<InputProps, 
             height = searchBarDefaults.height,
             allowClear = searchBarDefaults.allowClear,
             clearIcon,
+            forceUncontrolled = false,
+            onCompositionStart,
+            onCompositionEnd,
             onChange,
             ...props
         },
         ref,
     ) => {
+        // Override value handling when forceUncontrolled is true
+        const inputValue = forceUncontrolled ? undefined : value;
+
         return (
             <StyledSearchBar
                 placeholder={placeholder}
                 onChange={(e) => onChange?.(e.target.value, e)}
-                value={value}
+                value={inputValue}
                 prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
                 allowClear={clearIcon ? allowClear && { clearIcon } : allowClear}
                 $width={width}
                 $height={height}
                 data-testid="search-bar-input"
                 ref={ref}
+                onCompositionStart={onCompositionStart}
+                onCompositionEnd={onCompositionEnd}
                 {...props}
             />
         );

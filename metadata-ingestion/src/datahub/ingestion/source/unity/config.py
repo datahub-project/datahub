@@ -275,6 +275,17 @@ class UnityCatalogSourceConfig(
         hidden_from_docs=True,
     )
 
+    databricks_api_page_size: int = pydantic.Field(
+        default=0,
+        ge=0,
+        description=(
+            "Page size for Databricks API calls when listing resources (catalogs, schemas, tables, etc.). "
+            "When set to 0 (default), uses server-side configured page length (recommended). "
+            "When set to a positive value, the page length is the minimum of this value and the server configured value. "
+            "Must be a non-negative integer."
+        ),
+    )
+
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistics.",

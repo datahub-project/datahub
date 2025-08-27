@@ -64,10 +64,10 @@ export default function GlossarySelectableTreeView() {
                 <TreeView
                     selectable
                     explicitlySelectParent
+                    expandParentNodesOfInitialSelectedValues
                     loading={loading}
                     nodes={tree.nodes}
                     selectedValues={selectedValues}
-                    expandedValues={initialSelectedValues}
                     updateSelectedValues={updateSelectedValues}
                     loadChildren={startLoadingOfChildren}
                     renderNodeLabel={(nodeProps) => <GlossaryTreeNodeRenderer {...nodeProps} />}

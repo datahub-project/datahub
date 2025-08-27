@@ -226,6 +226,7 @@ class TestAwsCommon:
 
         session = config.get_session()
         creds = session.get_credentials()
+        assert creds is not None
         assert creds.token == "test-token"
 
     @mock_sts

@@ -1,8 +1,10 @@
+import { ApolloQueryResult, NetworkStatus } from '@apollo/client';
 import { act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useInitialDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useInitialDomains';
+import useLoadMoreRootDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useLoadMoreRootDomains';
 import useRootDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useRootDomains';
 import useSelectableDomainTree from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useSelectableDomainTree';
 import useTreeNodesFromFlatDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useTreeNodesFromFlatDomains';
@@ -10,11 +12,13 @@ import useTreeNodesFromDomains from '@app/homeV3/modules/hierarchyViewModule/com
 import useTree from '@app/homeV3/modules/hierarchyViewModule/treeView/useTree';
 import { mergeTrees } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
 
-import { EntityType } from '@types';
+import { GetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { Domain, EntityType } from '@types';
 
 // Mock all the dependent hooks
 vi.mock('@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useInitialDomains');
 vi.mock('@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useRootDomains');
+vi.mock('@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useLoadMoreRootDomains');
 vi.mock('@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useTreeNodesFromFlatDomains');
 vi.mock('@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useTreeNodesFromListDomains');
 vi.mock('@app/homeV3/modules/hierarchyViewModule/treeView/useTree');
@@ -22,10 +26,17 @@ vi.mock('@app/homeV3/modules/hierarchyViewModule/treeView/utils');
 
 const mockUseInitialDomains = vi.mocked(useInitialDomains);
 const mockUseRootDomains = vi.mocked(useRootDomains);
+const mockUseLoadMoreRootDomains = vi.mocked(useLoadMoreRootDomains);
 const mockUseTreeNodesFromFlatDomains = vi.mocked(useTreeNodesFromFlatDomains);
 const mockUseTreeNodesFromDomains = vi.mocked(useTreeNodesFromDomains);
 const mockUseTree = vi.mocked(useTree);
 const mockMergeTrees = vi.mocked(mergeTrees);
+
+const mockRefetch = (): Promise<ApolloQueryResult<GetSearchResultsForMultipleQuery>> => {
+    return new Promise<ApolloQueryResult<GetSearchResultsForMultipleQuery>>((resolve) => {
+        resolve({ data: { searchAcrossEntities: undefined }, networkStatus: NetworkStatus.refetch, loading: false });
+    });
+};
 
 // Mock tree object with dynamic nodes
 const mockTreeMethods = {
@@ -75,7 +86,20 @@ describe('useSelectableDomainTree hook', () => {
 
         // Setup default mock implementations
         mockUseInitialDomains.mockReturnValue({ data: undefined, domains: [], loading: false });
-        mockUseRootDomains.mockReturnValue({ data: undefined, domains: [], total: 0, loading: false });
+        mockUseRootDomains.mockReturnValue({
+            data: undefined,
+            domains: [],
+            total: 0,
+            loading: false,
+            refetch: mockRefetch,
+        });
+        mockUseLoadMoreRootDomains.mockReturnValue({
+            loading: false,
+            loadMoreRootDomains: () =>
+                new Promise<Domain[]>((resolve) => {
+                    resolve([]);
+                }),
+        });
         mockUseTreeNodesFromFlatDomains.mockReturnValue(undefined);
         mockUseTreeNodesFromDomains.mockReturnValue(undefined);
         mockUseTree.mockReturnValue(mockTreeMethods);
@@ -115,7 +139,13 @@ describe('useSelectableDomainTree hook', () => {
 
     describe('tree initialization', () => {
         it('should not initialize tree when root domains are loading', () => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [], total: 0, loading: true });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [],
+                total: 0,
+                loading: true,
+                refetch: mockRefetch,
+            });
 
             renderHook(() => useSelectableDomainTree([]));
 
@@ -123,7 +153,13 @@ describe('useSelectableDomainTree hook', () => {
         });
 
         it('should not initialize tree when root tree nodes are undefined', () => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue(undefined);
 
             renderHook(() => useSelectableDomainTree([]));
@@ -132,7 +168,13 @@ describe('useSelectableDomainTree hook', () => {
         });
 
         it('should not initialize tree when initial selected tree nodes are undefined', () => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue([mockTreeNode1]);
             mockUseTreeNodesFromFlatDomains.mockReturnValue(undefined);
 
@@ -146,21 +188,33 @@ describe('useSelectableDomainTree hook', () => {
             const initialSelectedTreeNodes = [mockTreeNode2];
             const mergedTreeNodes = [mockTreeNode1, mockTreeNode2];
 
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue(rootTreeNodes);
             mockUseTreeNodesFromFlatDomains.mockReturnValue(initialSelectedTreeNodes);
             mockMergeTrees.mockReturnValue(mergedTreeNodes);
 
             renderHook(() => useSelectableDomainTree([]));
 
-            expect(mockMergeTrees).toHaveBeenCalledWith(rootTreeNodes, initialSelectedTreeNodes);
+            expect(mockMergeTrees).toHaveBeenCalledWith(rootTreeNodes, []);
             expect(mockTreeMethods.replace).toHaveBeenCalledWith(mergedTreeNodes);
         });
     });
 
     describe('selectedValues management', () => {
         beforeEach(() => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue([mockTreeNode1]);
             mockUseTreeNodesFromFlatDomains.mockReturnValue([mockTreeNode2]);
         });
@@ -185,7 +239,13 @@ describe('useSelectableDomainTree hook', () => {
         });
 
         it('should handle loading state correctly when root domains are loading', () => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [], total: 0, loading: true });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [],
+                total: 0,
+                loading: true,
+                refetch: mockRefetch,
+            });
 
             const { result } = renderHook(() => useSelectableDomainTree([]));
 
@@ -193,7 +253,13 @@ describe('useSelectableDomainTree hook', () => {
         });
 
         it('should handle ready state when all data is loaded', () => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue([mockTreeNode1]);
 
             const { result } = renderHook(() => useSelectableDomainTree([]));
@@ -204,7 +270,13 @@ describe('useSelectableDomainTree hook', () => {
 
     describe('tree method delegation', () => {
         beforeEach(() => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue([mockTreeNode1]);
             mockUseTreeNodesFromFlatDomains.mockReturnValue([mockTreeNode2]);
         });
@@ -254,7 +326,13 @@ describe('useSelectableDomainTree hook', () => {
         it('should use domains from root domains hook', () => {
             const rootDomains = [mockDomain1];
 
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: rootDomains, total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: rootDomains,
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
 
             renderHook(() => useSelectableDomainTree([]));
 
@@ -262,14 +340,20 @@ describe('useSelectableDomainTree hook', () => {
         });
 
         it('should handle mixed states correctly', () => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue([mockTreeNode1]);
             mockUseTreeNodesFromFlatDomains.mockReturnValue([mockTreeNode2]);
 
             const { result } = renderHook(() => useSelectableDomainTree([]));
 
             expect(result.current.loading).toBe(false);
-            expect(mockMergeTrees).toHaveBeenCalledWith([mockTreeNode1], [mockTreeNode2]);
+            expect(mockMergeTrees).toHaveBeenCalledWith([mockTreeNode1], []);
         });
 
         it('should handle empty initial domains', () => {
@@ -281,7 +365,13 @@ describe('useSelectableDomainTree hook', () => {
         });
 
         it('should handle empty root domains', () => {
-            mockUseRootDomains.mockReturnValue({ data: undefined, domains: [mockDomain1], total: 1, loading: false });
+            mockUseRootDomains.mockReturnValue({
+                data: undefined,
+                domains: [mockDomain1],
+                total: 1,
+                loading: false,
+                refetch: mockRefetch,
+            });
             mockUseTreeNodesFromDomains.mockReturnValue([mockTreeNode1]);
             mockUseTreeNodesFromFlatDomains.mockReturnValue([mockTreeNode2]);
 

@@ -52,7 +52,7 @@ function MoveDomainModal(props: Props) {
             .then(() => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 const newParentToUpdate = selectedParentUrn || undefined;
-                handleMoveDomainComplete(domainUrn, newParentToUpdate);
+                handleMoveDomainComplete(newParentToUpdate);
                 setTimeout(() => {
                     message.success({
                         content: `Moved ${entityRegistry.getEntityName(EntityType.Domain)}!`,

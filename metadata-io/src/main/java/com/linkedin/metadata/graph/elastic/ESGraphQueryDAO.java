@@ -63,7 +63,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -86,6 +86,8 @@ import org.opensearch.search.sort.SortOrder;
 public class ESGraphQueryDAO {
 
   private final RestHighLevelClient client;
+  private final boolean pointInTimeCreationEnabled;
+  private final String elasticSearchImpl;
   private final LineageRegistry lineageRegistry;
   private final IndexConvention indexConvention;
   @Getter private final GraphServiceConfiguration graphServiceConfig;
@@ -1240,12 +1242,14 @@ public class ESGraphQueryDAO {
       @Nonnull final GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count) {
 
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
 
-    return executeScrollSearchQuery(opContext, finalQuery, sortCriteria, scrollId, count);
+    return executeScrollSearchQuery(
+        opContext, finalQuery, sortCriteria, scrollId, keepAlive, count);
   }
 
   private SearchResponse executeScrollSearchQuery(
@@ -1253,13 +1257,16 @@ public class ESGraphQueryDAO {
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count) {
 
-    Object[] sort = null;
-    if (scrollId != null) {
-      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
-      sort = searchAfterWrapper.getSort();
-    }
+    boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
+    boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
+    String pitId =
+        usePIT
+            ? ESUtils.computePointInTime(scrollId, keepAlive, elasticSearchImpl, client, INDEX_NAME)
+            : null;
+    Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
     SearchRequest searchRequest = new SearchRequest();
 
@@ -1268,8 +1275,10 @@ public class ESGraphQueryDAO {
     searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
     searchSourceBuilder.query(query);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    ESUtils.setSliceOptions(
+        searchSourceBuilder, opContext.getSearchContext().getSearchFlags().getSliceOptions());
     searchRequest.source(searchSourceBuilder);
-    ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 

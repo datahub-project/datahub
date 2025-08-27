@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { TYPE_ICON_CLASS_NAME, getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 
 import { Container } from '@types';
 
@@ -30,6 +31,6 @@ export default function ContainerIcon({ container }: Props): JSX.Element {
 }
 
 export function ContainerIconBase({ container }: Props): JSX.Element {
-    const subtype = container?.subTypes?.typeNames?.[0].toLowerCase();
+    const subtype = getFirstSubType(container)?.toLowerCase();
     return (subtype && getSubTypeIcon(subtype)) || <DefaultIcon />;
 }

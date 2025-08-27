@@ -1,12 +1,11 @@
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.sdk import DataHubClient, MLPrimaryKeyUrn
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import MLPrimaryKeyPropertiesClass
+client = DataHubClient.from_env()
 
-# First we get the current owners
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
+# Or get this from the UI (share -> copy urn) and use MLPrimaryKeyUrn.from_string(...)
+mlprimarykey_urn = MLPrimaryKeyUrn("user_features", "user_id")
 
-urn = "urn:li:mlPrimaryKey:(user_features,user_id)"
-result = graph.get_aspect(entity_urn=urn, aspect_type=MLPrimaryKeyPropertiesClass)
-print(result)
+mlprimarykey_entity = client.entities.get(mlprimarykey_urn)
+print("MLPrimaryKey name:", mlprimarykey_entity.name)
+print("MLPrimaryKey feature table:", mlprimarykey_entity.feature_table_urn)
+print("MLPrimaryKey description:", mlprimarykey_entity.description)

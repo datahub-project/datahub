@@ -29,7 +29,9 @@ export default function useShowToast() {
             placement: 'bottomRight',
             duration: 0,
             icon: <Icon icon="Info" weight="fill" source="phosphor" color="blue" />,
-            closeIcon: <Icon icon="X" source="phosphor" color="blue" size="lg" />,
+            closeIcon: (
+                <Icon icon="X" source="phosphor" color="blue" size="lg" data-testid="toast-notification-close-icon" />
+            ),
             style: notificationStyles,
         });
     }

@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 
 import colors from '@components/theme/foundations/colors';
 
+import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
@@ -54,6 +55,7 @@ function EntityName(props: Props) {
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { setUpdatedDomain } = useDomainsContext();
     const { urn, entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
@@ -86,6 +88,17 @@ function EntityName(props: Props) {
                 if (isInGlossaryContext) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
                     updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                }
+                if (setUpdatedDomain !== undefined) {
+                    const updatedDomain = {
+                        urn,
+                        type: EntityType.Domain,
+                        id: urn,
+                        properties: {
+                            name,
+                        },
+                    };
+                    setUpdatedDomain(updatedDomain);
                 }
             })
             .catch((e: unknown) => {

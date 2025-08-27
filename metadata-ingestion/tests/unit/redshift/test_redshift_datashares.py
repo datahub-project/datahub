@@ -403,6 +403,7 @@ class TestDatasharesHelper:
                 "source_database": "db1",
                 "share_name": "share1",
             },
+            sort_keys=True,
         ).encode("utf-8")
 
         # Check the content of the first MetadataChangeProposalWrapper
@@ -430,6 +431,7 @@ class TestDatasharesHelper:
                 "source_database": "db2",
                 "share_name": "share2",
             },
+            sort_keys=True,
         ).encode("utf-8")
 
     def test_to_platform_resource_edge_case_single_share(self):

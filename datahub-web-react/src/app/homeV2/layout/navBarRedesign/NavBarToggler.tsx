@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import { colors } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 
 const Toggler = styled.button<{ $isCollapsed?: boolean }>`
     cursor: pointer;
@@ -28,10 +29,15 @@ const Toggler = styled.button<{ $isCollapsed?: boolean }>`
 `;
 
 export default function NavBarToggler() {
-    const { toggle } = useNavBarContext();
+    const { toggle, isCollapsed } = useNavBarContext();
+
+    function handleToggle() {
+        analytics.event({ type: EventType.NavBarExpandCollapse, isExpanding: isCollapsed });
+        toggle();
+    }
 
     return (
-        <Toggler onClick={toggle} aria-label="Navbar toggler">
+        <Toggler onClick={handleToggle} aria-label="Navbar toggler">
             <Sidebar />
         </Toggler>
     );

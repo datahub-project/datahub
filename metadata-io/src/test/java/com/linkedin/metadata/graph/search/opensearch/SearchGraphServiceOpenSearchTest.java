@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.search.opensearch;
 
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
 import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.metadata.graph.search.SearchGraphServiceTestBase;
@@ -36,6 +37,12 @@ public class SearchGraphServiceOpenSearchTest extends SearchGraphServiceTestBase
   @Override
   protected ESIndexBuilder getIndexBuilder() {
     return _esIndexBuilder;
+  }
+
+  @NotNull
+  @Override
+  protected String getElasticSearchImplementation() {
+    return ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
   }
 
   @Test

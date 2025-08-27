@@ -325,13 +325,15 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
 
     count = ConfigUtils.applyLimit(getGraphServiceConfig(), count);
     SearchResponse response =
-        graphReadDAO.getSearchResponse(opContext, graphFilters, sortCriteria, scrollId, count);
+        graphReadDAO.getSearchResponse(
+            opContext, graphFilters, sortCriteria, scrollId, keepAlive, count);
 
     if (response == null) {
       return new RelatedEntitiesScrollResult(0, 0, null, ImmutableList.of());

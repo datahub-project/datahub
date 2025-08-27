@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from pydantic import Field
 
@@ -14,6 +14,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport, StructuredLogCategory
+from datahub.ingestion.api.source_helpers import AutoSystemMetadata, auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
@@ -31,6 +32,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.sdk.entity import Entity
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -165,6 +167,14 @@ class DataHubMockDataSource(Source):
         self.report = DataHubMockDataReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        workunit_processors = [AutoSystemMetadata(self.ctx).stamp]
+        return self._apply_workunit_processors(
+            workunit_processors, auto_workunit(self.get_workunits_internal())
+        )
+
+    def get_workunits_internal(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
         # We don't want any implicit aspects to be produced
         # so we are not using get_workunits_internal
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, overload
+from typing import TYPE_CHECKING, Optional, overload
 
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
@@ -8,6 +8,9 @@ from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.search_client import SearchClient
+
+if TYPE_CHECKING:
+    from datahub.sdk.resolver_client import ResolverClient
 
 
 class DataHubClient:
@@ -104,13 +107,14 @@ class DataHubClient:
         return EntityClient(self)
 
     @property
-    def resolve(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
+    def resolve(self) -> "ResolverClient":
         try:
             from acryl_datahub_cloud.sdk import (  # type: ignore[import-not-found]
                 ResolverClient,
             )
         except ImportError:
-            from datahub.sdk.resolver_client import (  # type: ignore[assignment]  # If the client is not installed, use the one from the SDK
+            # If the client is not installed, use the one from the SDK.
+            from datahub.sdk.resolver_client import (  # type: ignore[assignment]
                 ResolverClient,
             )
         return ResolverClient(self)

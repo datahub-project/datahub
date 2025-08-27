@@ -77,13 +77,13 @@ function Render({ buttons, buttonExamples, content, ...props }: ModalWithExample
         buttonExamples?.map((text) => {
             switch (text) {
                 case 'Cancel':
-                    return { text, variant: 'text', onClick: () => setIsOpen(false) };
+                    return { text, variant: 'text', onClick: () => setIsOpen(false), key: 'cancel' };
                 case 'Propose':
                     // TODO: Replace with secondary variant once it's supported
-                    return { text, variant: 'outline', onClick: () => setIsOpen(false) };
+                    return { text, variant: 'outline', onClick: () => setIsOpen(false), key: 'propose' };
                 case 'Submit':
                 default:
-                    return { text, variant: 'filled', onClick: () => setIsOpen(false) };
+                    return { text, variant: 'filled', onClick: () => setIsOpen(false), key: 'submit' };
             }
         }) || [];
 
@@ -91,7 +91,7 @@ function Render({ buttons, buttonExamples, content, ...props }: ModalWithExample
         <>
             <Button onClick={() => setIsOpen(true)}>Open Modal</Button>
             {isOpen && (
-                <Modal {...props} buttons={[...buttons, ...exampleButtons]} onCancel={() => setIsOpen(false)}>
+                <Modal {...props} buttons={[...(buttons || []), ...exampleButtons]} onCancel={() => setIsOpen(false)}>
                     {content && <Text color="gray">{content}</Text>}
                 </Modal>
             )}

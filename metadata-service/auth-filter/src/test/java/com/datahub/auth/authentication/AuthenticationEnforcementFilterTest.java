@@ -76,6 +76,9 @@ public class AuthenticationEnforcementFilterTest extends AbstractTestNGSpringCon
     HttpServletRequest exactPathRequest = mock(HttpServletRequest.class);
     when(exactPathRequest.getServletPath()).thenReturn("/health");
 
+    HttpServletRequest livenessPathRequest = mock(HttpServletRequest.class);
+    when(livenessPathRequest.getServletPath()).thenReturn("/health/live");
+
     HttpServletRequest wildcardPathRequest = mock(HttpServletRequest.class);
     when(wildcardPathRequest.getServletPath()).thenReturn("/schema-registry/api/config");
 
@@ -86,12 +89,17 @@ public class AuthenticationEnforcementFilterTest extends AbstractTestNGSpringCon
     ReflectionTestUtils.setField(
         authenticationEnforcementFilter,
         "excludedPathPatterns",
-        new HashSet<>(Arrays.asList("/health", "/schema-registry/*")));
+        new HashSet<>(Arrays.asList("/health", "/health/live", "/schema-registry/*")));
 
     // Verify exact path match
     assertTrue(
         authenticationEnforcementFilter.shouldNotFilter(exactPathRequest),
         "Exact path match should be excluded from filtering");
+
+    // Verify liveness endpoint is excluded
+    assertTrue(
+        authenticationEnforcementFilter.shouldNotFilter(livenessPathRequest),
+        "Liveness endpoint should be excluded from filtering");
 
     // Verify wildcard path match
     assertTrue(
@@ -178,7 +186,7 @@ public class AuthenticationEnforcementFilterTest extends AbstractTestNGSpringCon
     ReflectionTestUtils.setField(
         authenticationEnforcementFilter,
         "excludedPathPatterns",
-        new HashSet<>(Arrays.asList("/health", "/schema-registry/*")));
+        new HashSet<>(Arrays.asList("/health", "/health/live", "/schema-registry/*")));
 
     // No authentication context set (simulating anonymous request to excluded path)
     // AuthenticationContext.getAuthentication() will return null

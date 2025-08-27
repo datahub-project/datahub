@@ -62,9 +62,17 @@ const ViewAllButton = styled(Button)`
 interface Props extends ModuleProps {
     loading?: boolean;
     onClickViewAll?: () => void;
+    dataTestId?: string;
 }
 
-function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
+function LargeModule({
+    children,
+    module,
+    position,
+    loading,
+    onClickViewAll,
+    dataTestId,
+}: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -87,9 +95,14 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
     }, [onClickViewAll, module.properties.type]);
 
     return (
-        <ModuleContainer $height="316px" ref={setNodeRef}>
+        <ModuleContainer $height="316px" ref={setNodeRef} data-testId={dataTestId}>
             <ModuleHeader>
-                <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
+                <DragHandle
+                    {...listeners}
+                    {...attributes}
+                    $isDragging={isDragging}
+                    data-testid="large-module-drag-handle"
+                >
                     <DragIcon
                         {...listeners}
                         size="lg"

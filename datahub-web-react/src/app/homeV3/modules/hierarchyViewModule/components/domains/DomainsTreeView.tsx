@@ -70,6 +70,7 @@ export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities, 
                     nodes={tree.nodes}
                     loadChildren={startLoadingOfChildren}
                     onExpand={onExpand}
+                    shouldExpandSingleRootNode
                     renderNodeLabel={(nodeProps) => (
                         <EntityItem
                             entity={nodeProps.node.entity}

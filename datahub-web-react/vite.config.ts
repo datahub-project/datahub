@@ -134,7 +134,7 @@ export default defineConfig(async ({ mode }) => {
                 enabled: true,
                 provider: 'v8',
                 reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],
+                include: ['src/**/*.ts'],
                 reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],
             },

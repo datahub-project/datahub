@@ -16,9 +16,10 @@ interface DropdownSearchBarProps {
     value?: string;
     size?: SelectSizeOptions;
     onChange?: (value: string) => void;
+    onClear?: () => void;
 }
 
-export default function DropdownSearchBar({ placeholder, value, size, onChange }: DropdownSearchBarProps) {
+export default function DropdownSearchBar({ placeholder, value, size, onChange, onClear }: DropdownSearchBarProps) {
     return (
         <SearchInputContainer>
             <Input
@@ -30,6 +31,7 @@ export default function DropdownSearchBar({ placeholder, value, size, onChange }
                 onChange={(e) => onChange?.(e.target.value)}
                 style={{ fontSize: size || 'md' }}
                 data-testid="dropdown-search-bar"
+                onClear={onClear}
             />
         </SearchInputContainer>
     );

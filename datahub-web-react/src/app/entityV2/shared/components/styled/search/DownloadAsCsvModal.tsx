@@ -74,13 +74,17 @@ export default function DownloadAsCsvModal({
     );
     const entityRegistry = useEntityRegistry();
     const openNotification = (currentCount = 0, estimatedTimeRemaining?: number) => {
-        let description =
-            totalResults && currentCount < totalResults
-                ? `Downloading ${currentCount} of ${totalResults} entities...`
-                : 'Creating CSV to download';
+        // Scroll Across Entities gives max 10k as total but results can go further than that
+        const hasMoreThanLimit = totalResults === 10000;
+        let description = totalResults
+            ? `Downloading ${currentCount} of ${hasMoreThanLimit ? '10,000+' : totalResults} entities...`
+            : 'Creating CSV to download';
 
         if (estimatedTimeRemaining !== undefined) {
-            description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+            // Show estimate only if the count is less than 10k entities
+            if (!hasMoreThanLimit) {
+                description += `\nEstimated time remaining: ${formatTime(estimatedTimeRemaining)}`;
+            }
         }
 
         notification.info({

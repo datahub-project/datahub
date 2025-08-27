@@ -82,6 +82,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     graphQueryDAO =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             graphServiceConfig,
@@ -586,6 +588,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     ESGraphQueryDAO daoWithMultiPath =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -620,6 +624,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     ESGraphQueryDAO daoWithSinglePath =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
     EMPTY_POLICY,

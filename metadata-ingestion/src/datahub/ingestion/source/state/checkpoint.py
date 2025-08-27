@@ -1,10 +1,8 @@
 import base64
 import bz2
-import contextlib
 import functools
 import json
 import logging
-import pickle
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Generic, Optional, Type, TypeVar
@@ -117,10 +115,9 @@ class Checkpoint(Generic[StateType]):
                         checkpoint_aspect, state_class
                     )
                 elif checkpoint_aspect.state.serde == "base85":
-                    state_obj = Checkpoint._from_base85_bytes(
-                        checkpoint_aspect,
-                        functools.partial(bz2.decompress),
-                        state_class,
+                    raise ValueError(
+                        "The base85 encoding for stateful ingestion has been removed for security reasons. "
+                        "You may need to temporarily set `ignore_previous_checkpoint` to true to ignore the outdated checkpoint object."
                     )
                 elif checkpoint_aspect.state.serde == "base85-bz2-json":
                     state_obj = Checkpoint._from_base85_json_bytes(
@@ -163,28 +160,6 @@ class Checkpoint(Generic[StateType]):
         state_as_dict["version"] = checkpoint_aspect.state.formatVersion
         state_as_dict["serde"] = checkpoint_aspect.state.serde
         return state_class.parse_obj(state_as_dict)
-
-    @staticmethod
-    def _from_base85_bytes(
-        checkpoint_aspect: DatahubIngestionCheckpointClass,
-        decompressor: Callable[[bytes], bytes],
-        state_class: Type[StateType],
-    ) -> StateType:
-        state: StateType = pickle.loads(
-            decompressor(base64.b85decode(checkpoint_aspect.state.payload))  # type: ignore
-        )
-
-        with contextlib.suppress(Exception):
-            # When loading from pickle, the pydantic validators don't run.
-            # By re-serializing and re-parsing, we ensure that the state is valid.
-            # However, we also suppress any exceptions to make sure this doesn't blow up.
-            state = state_class.parse_obj(state.dict())
-
-        # Because the base85 method is deprecated in favor of base85-bz2-json,
-        # we will automatically switch the serde.
-        state.serde = "base85-bz2-json"
-
-        return state
 
     @staticmethod
     def _from_base85_json_bytes(

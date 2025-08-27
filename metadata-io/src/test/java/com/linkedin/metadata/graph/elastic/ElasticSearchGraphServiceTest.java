@@ -131,6 +131,7 @@ public class ElasticSearchGraphServiceTest {
     List<SortCriterion> mockSortCriteria = Collections.emptyList();
 
     String scrollId = "test-scroll-id";
+    String keepAlive = "1m";
     int count = 10;
 
     // Create mock search response
@@ -149,19 +150,31 @@ public class ElasticSearchGraphServiceTest {
     when(mockHits.getHits()).thenReturn(searchHits);
 
     // Mock read DAO behavior
-    when(mockReadDAO.getSearchResponse(any(), any(), any(), any(), anyInt()))
+    when(mockReadDAO.getSearchResponse(any(), any(), any(), any(), any(), anyInt()))
         .thenReturn(mockResponse);
     when(mockReadDAO.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
 
     // Call the method under test
     RelatedEntitiesScrollResult result =
         test.scrollRelatedEntities(
-            mockOpContext, mockGraphFilters, mockSortCriteria, scrollId, count, null, null);
+            mockOpContext,
+            mockGraphFilters,
+            mockSortCriteria,
+            scrollId,
+            keepAlive,
+            count,
+            null,
+            null);
 
     // Verify the DAO was called correctly
     verify(mockReadDAO)
         .getSearchResponse(
-            eq(mockOpContext), eq(mockGraphFilters), eq(mockSortCriteria), eq(scrollId), eq(count));
+            eq(mockOpContext),
+            eq(mockGraphFilters),
+            eq(mockSortCriteria),
+            eq(scrollId),
+            eq(keepAlive),
+            eq(count));
 
     // Verify result contains expected values
     assertEquals(result.getNumResults(), 15);

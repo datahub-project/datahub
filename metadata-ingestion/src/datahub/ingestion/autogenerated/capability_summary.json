@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-31T12:54:30.557618+00:00",
+  "generated_at": "2025-08-26T04:27:09.672087+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -646,7 +646,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Dremio Space",
+            "Dremio Source"
+          ],
           "supported": true
         },
         {
@@ -1245,7 +1248,8 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Catalog"
+            "Catalog",
+            "Schema"
           ],
           "supported": true
         },
@@ -2230,7 +2234,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Workspace",
+            "Semantic Model"
+          ],
           "supported": true
         },
         {
@@ -2427,7 +2434,8 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Catalog"
+            "Catalog",
+            "Schema"
           ],
           "supported": true
         },

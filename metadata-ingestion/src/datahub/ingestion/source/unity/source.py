@@ -4,7 +4,6 @@ import time
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
-from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
     UNKNOWN_USER,
@@ -76,6 +75,9 @@ from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
+)
+from datahub.ingestion.source.unity.platform_resource_repository import (
+    UnityCatalogPlatformResourceRepository,
 )
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
@@ -187,7 +189,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: Optional[SchemaResolver] = None
-    platform_resource_repository: Optional[PlatformResourceRepository] = None
+    platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
+        None
+    )
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -207,6 +211,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
+            databricks_api_page_size=config.databricks_api_page_size,
         )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
@@ -239,9 +244,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
         if self.ctx.graph:
-            self.platform_resource_repository = PlatformResourceRepository(
-                self.ctx.graph
+            self.platform_resource_repository = UnityCatalogPlatformResourceRepository(
+                self.ctx.graph, platform_instance=self.platform_instance_name
             )
+        else:
+            self.platform_resource_repository = None
+
+        # Include platform resource repository in report for automatic cache statistics
+        if self.config.include_tags and self.platform_resource_repository:
+            self.report.tag_urn_resolver_cache = self.platform_resource_repository
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -1079,25 +1090,49 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
         )
 
+    def get_or_create_from_unity_tag(
+        self,
+        unity_tag: UnityCatalogTag,
+        platform_instance: Optional[str],
+        managed_by_datahub: bool = False,
+    ) -> UnityCatalogTagPlatformResource:
+        """
+        Optimized helper to get or create a Unity Catalog tag platform resource.
+        This eliminates the duplicate search by skipping the from_tag method which was
+        doing a redundant search before get_from_datahub.
+        """
+        # Create the platform resource ID directly without the from_tag search
+        platform_resource_id = UnityCatalogTagPlatformResourceId(
+            tag_key=unity_tag.key.raw_text,
+            tag_value=unity_tag.value.raw_text if unity_tag.value is not None else None,
+            platform_instance=platform_instance,
+            exists_in_unity_catalog=True,  # We got it from Unity Catalog
+            persisted=False,
+        )
+
+        # Use the repository's get_entity_from_datahub method which handles
+        # searching and caching internally - this is the ONLY search we need
+        if self.platform_resource_repository is None:
+            raise ValueError("Platform resource repository not initialized")
+        return self.platform_resource_repository.get_entity_from_datahub(
+            platform_resource_id,
+            managed_by_datahub,
+        )
+
     def gen_platform_resources(
         self, tags: List[UnityCatalogTag]
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
             for tag in tags:
                 try:
-                    platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
-                        platform_instance=self.platform_instance_name,
-                        platform_resource_repository=self.platform_resource_repository,
-                        tag=tag,
+                    # Use optimized helper method that combines ID creation and entity retrieval
+                    unity_catalog_tag = self.get_or_create_from_unity_tag(
+                        tag,
+                        self.platform_instance_name,
+                        managed_by_datahub=False,
                     )
-                    logger.debug(f"Created platform resource {platform_resource_id}")
-
-                    unity_catalog_tag = (
-                        UnityCatalogTagPlatformResource.get_from_datahub(
-                            platform_resource_id,
-                            self.platform_resource_repository,
-                            False,
-                        )
+                    logger.debug(
+                        f"Retrieved/created platform resource for tag {tag.key.raw_text}"
                     )
                     if (
                         tag.to_datahub_tag_urn().urn()

@@ -1,7 +1,7 @@
 import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -43,7 +43,23 @@ const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     font-size: 14px;
     font-weight: 600;
     color: ${colors.gray[600]};
-    line-height: normal;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    white-space: normal;
+    text-overflow: unset;
+
+    &.ant-typography {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: normal;
+    }
+
     ${(props) =>
         props.$shouldUnderline &&
         `
@@ -82,6 +98,31 @@ interface NameColumnProps {
 export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
+    const textRef = useRef<HTMLDivElement>(null);
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    useEffect(() => {
+        const element = textRef.current;
+        if (element) {
+            const isOverflowing = element.scrollHeight > element.clientHeight;
+            setShowTooltip(isOverflowing);
+        }
+    }, [record.name]);
+
+    const textElement = (
+        <SourceNameText
+            ref={textRef}
+            onClick={(e) => {
+                if (onNameClick) {
+                    e.stopPropagation();
+                    onNameClick();
+                }
+            }}
+            $shouldUnderline={!!onNameClick}
+        >
+            {record.name || ''}
+        </SourceNameText>
+    );
 
     return (
         <NameContainer>
@@ -93,25 +134,18 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
             )}
             <DisplayNameContainer>
-                <SourceNameText
-                    ellipsis={{
-                        tooltip: {
-                            title: record.name,
-                            color: 'white',
-                            overlayInnerStyle: { color: colors.gray[1700] },
-                            showArrow: false,
-                        },
-                    }}
-                    onClick={(e) => {
-                        if (onNameClick) {
-                            e.stopPropagation();
-                            onNameClick();
-                        }
-                    }}
-                    $shouldUnderline={!!onNameClick}
-                >
-                    {record.name || ''}
-                </SourceNameText>
+                {showTooltip ? (
+                    <Tooltip
+                        title={record.name}
+                        color="white"
+                        overlayInnerStyle={{ color: colors.gray[1700] }}
+                        showArrow={false}
+                    >
+                        {textElement}
+                    </Tooltip>
+                ) : (
+                    textElement
+                )}
                 {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
             </DisplayNameContainer>
             {record.cliIngestion && (
@@ -337,6 +371,7 @@ export function ActionsColumn({
                         e.stopPropagation();
                         onCancel(record.lastExecUrn, record.urn);
                     }}
+                    tooltipText="Stop Execution"
                 />
             );
         }
@@ -350,6 +385,7 @@ export function ActionsColumn({
                     e.stopPropagation();
                     onExecute(record.urn);
                 }}
+                tooltipText="Execute"
             />
         );
     };

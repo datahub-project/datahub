@@ -93,9 +93,20 @@ class SnowsightUrlBuilder:
         table_name: str,
         schema_name: str,
         db_name: str,
-        domain: Literal[SnowflakeObjectDomain.TABLE, SnowflakeObjectDomain.VIEW],
+        domain: Literal[
+            SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.DYNAMIC_TABLE,
+        ],
     ) -> Optional[str]:
-        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        # For dynamic tables, use the dynamic-table domain in the URL path
+        # Ensure only explicitly dynamic tables use dynamic-table URL path
+        url_domain = (
+            "dynamic-table"
+            if domain == SnowflakeObjectDomain.DYNAMIC_TABLE
+            else str(domain)
+        )
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{url_domain}/{table_name}/"
 
     def get_external_url_for_schema(
         self, schema_name: str, db_name: str
@@ -129,6 +140,7 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
             SnowflakeObjectDomain.STREAM,
+            SnowflakeObjectDomain.DYNAMIC_TABLE,
         ):
             return False
         if _is_sys_table(dataset_name):
@@ -160,7 +172,8 @@ class SnowflakeFilter:
             return False
 
         if dataset_type.lower() in {
-            SnowflakeObjectDomain.TABLE
+            SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.DYNAMIC_TABLE,
         } and not self.filter_config.table_pattern.allowed(
             _cleanup_qualified_name(dataset_name, self.structured_reporter)
         ):

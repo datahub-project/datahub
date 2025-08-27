@@ -84,6 +84,8 @@ public class SparkConfigParser {
   public static final String ENABLE_ENHANCED_MERGE_INTO_EXTRACTION =
       "metadata.dataset.enableEnhancedMergeIntoExtraction";
 
+  public static final String CAPTURE_COLUMN_LEVEL_LINEAGE = "captureColumnLevelLineage";
+
   public static final String TAGS_KEY = "tags";
 
   public static final String DOMAINS_KEY = "domains";
@@ -180,6 +182,7 @@ public class SparkConfigParser {
     builder.removeLegacyLineage(SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
+    builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
     builder.enhancedMergeIntoExtraction(
         SparkConfigParser.isEnhancedMergeIntoExtractionEnabled(sparkConfig));
     try {
@@ -403,5 +406,13 @@ public class SparkConfigParser {
   public static boolean isEnhancedMergeIntoExtractionEnabled(Config datahubConfig) {
     return datahubConfig.hasPath(ENABLE_ENHANCED_MERGE_INTO_EXTRACTION)
         && datahubConfig.getBoolean(ENABLE_ENHANCED_MERGE_INTO_EXTRACTION);
+  }
+
+  public static boolean isCaptureColumnLevelLineage(Config datahubConfig) {
+    if (datahubConfig.hasPath(CAPTURE_COLUMN_LEVEL_LINEAGE)) {
+      return datahubConfig.getBoolean(CAPTURE_COLUMN_LEVEL_LINEAGE);
+    }
+
+    return true;
   }
 }

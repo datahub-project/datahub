@@ -25,9 +25,6 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
-from datahub.api.entities.external.external_entities import (
-    PlatformResourceRepository,
-)
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
@@ -63,13 +60,15 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.platform_resource_repository import (
+    GluePlatformResourceRepository,
+)
 from datahub.ingestion.source.aws.s3_util import (
     is_s3_uri,
     make_s3_urn,
     make_s3_urn_for_lineage,
 )
 from datahub.ingestion.source.aws.tag_entities import (
-    LakeFormationTagPlatformResource,
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.subtypes import (
@@ -357,10 +356,14 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
-        self.platform_resource_repository: Optional[PlatformResourceRepository] = None
+        self.platform_resource_repository: Optional[
+            "GluePlatformResourceRepository"
+        ] = None
         if self.ctx.graph:
-            self.platform_resource_repository = PlatformResourceRepository(
-                self.ctx.graph
+            self.platform_resource_repository = GluePlatformResourceRepository(
+                self.ctx.graph,
+                platform_instance=self.source_config.platform_instance,
+                catalog=self.source_config.catalog_id,
             )
 
     def get_database_lf_tags(
@@ -1179,16 +1182,17 @@ class GlueSource(StatefulIngestionSourceBase):
         self, tag: LakeFormationTag
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
-            platform_resource_id = LakeFormationTagPlatformResourceId.from_tag(
-                platform_instance=self.source_config.platform_instance,
-                platform_resource_repository=self.platform_resource_repository,
-                catalog=tag.catalog,
-                tag=tag,
+            platform_resource_id = (
+                LakeFormationTagPlatformResourceId.get_or_create_from_tag(
+                    tag=tag,
+                    platform_resource_repository=self.platform_resource_repository,
+                    catalog_id=tag.catalog,
+                )
             )
             logger.info(f"Created platform resource {platform_resource_id}")
 
-            lf_tag = LakeFormationTagPlatformResource.get_from_datahub(
-                platform_resource_id, self.platform_resource_repository, False
+            lf_tag = self.platform_resource_repository.get_entity_from_datahub(
+                platform_resource_id, False
             )
             if (
                 tag.to_datahub_tag_urn().urn()

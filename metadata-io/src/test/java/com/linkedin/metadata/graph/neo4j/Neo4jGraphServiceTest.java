@@ -799,7 +799,14 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     var result =
         getGraphService()
             .scrollRelatedEntities(
-                operationContext, graphFilters, Collections.emptyList(), null, null, null, null);
+                operationContext,
+                graphFilters,
+                Collections.emptyList(),
+                null,
+                null,
+                null,
+                null,
+                null);
 
     // Verify the pageSize is set appropriately
     assertTrue(result.getPageSize() <= 50, "Page size should be limited to max 50");
@@ -818,7 +825,14 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     var result =
         getGraphService()
             .scrollRelatedEntities(
-                operationContext, graphFilters, Collections.emptyList(), null, 20, null, null);
+                operationContext,
+                graphFilters,
+                Collections.emptyList(),
+                null,
+                null,
+                20,
+                null,
+                null);
 
     // Verify the requested pageSize is respected (or less if there's not enough data)
     assertTrue(result.getPageSize() <= 20, "Page size should be at most 20");
@@ -837,7 +851,14 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     var result =
         getGraphService()
             .scrollRelatedEntities(
-                operationContext, graphFilters, Collections.emptyList(), null, 150, null, null);
+                operationContext,
+                graphFilters,
+                Collections.emptyList(),
+                null,
+                null,
+                150,
+                null,
+                null);
 
     // Verify the pageSize is capped at the default limit
     assertTrue(result.getPageSize() <= 50, "Page size should be capped at 50");
