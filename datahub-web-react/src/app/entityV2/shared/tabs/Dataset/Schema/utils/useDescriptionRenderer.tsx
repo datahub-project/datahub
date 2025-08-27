@@ -37,7 +37,7 @@ export default function useDescriptionRenderer(
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { schemaFieldEntity } = record;
-        const { displayedDescription, sanitizedDescription, isPropagated, isInferred, sourceDetail } =
+        const { displayedDescription, sanitizedDescription, isPropagated, isInferred, attribution } =
             extractFieldDescription(record, description);
         const original = record.description ? sanitizeRichText(record.description) : undefined;
 
@@ -84,7 +84,7 @@ export default function useDescriptionRenderer(
                 enableInferenceButton
                 isPropagated={isPropagated}
                 isInferred={isInferred}
-                sourceDetail={sourceDetail}
+                attribution={attribution}
             />
         );
     };

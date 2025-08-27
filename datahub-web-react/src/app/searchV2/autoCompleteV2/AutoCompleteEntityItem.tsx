@@ -110,6 +110,7 @@ interface EntityAutocompleteItemProps {
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
+    hideType?: boolean;
     hideMatches?: boolean;
     padding?: string;
     onClick?: () => void;
@@ -125,6 +126,7 @@ export default function AutoCompleteEntityItem({
     navigateOnlyOnNameClick,
     dragIconRenderer,
     hideSubtitle,
+    hideType,
     hideMatches,
     padding,
     onClick,
@@ -208,15 +210,17 @@ export default function AutoCompleteEntityItem({
                 </DescriptionContainer>
             </ContentContainer>
 
-            <TypeContainer>
-                {customDetailsRenderer ? (
-                    customDetailsRenderer(entity)
-                ) : (
-                    <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
-                        {displayType}
-                    </Text>
-                )}
-            </TypeContainer>
+            {!hideType && (
+                <TypeContainer>
+                    {customDetailsRenderer ? (
+                        customDetailsRenderer(entity)
+                    ) : (
+                        <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
+                            {displayType}
+                        </Text>
+                    )}
+                </TypeContainer>
+            )}
         </Container>
     );
 }

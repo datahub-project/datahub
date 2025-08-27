@@ -288,6 +288,59 @@
                     },
                     "doc" : "Source information for the ownership",
                     "optional" : true
+                  }, {
+                    "name" : "attribution",
+                    "type" : {
+                      "type" : "record",
+                      "name" : "MetadataAttribution",
+                      "doc" : "Information about who, why, and how this metadata was applied",
+                      "fields" : [ {
+                        "name" : "time",
+                        "type" : {
+                          "type" : "typeref",
+                          "name" : "Time",
+                          "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+                          "ref" : "long"
+                        },
+                        "doc" : "When this metadata was updated."
+                      }, {
+                        "name" : "actor",
+                        "type" : "Urn",
+                        "doc" : "The entity (e.g. a member URN) responsible for applying the assocated metadata. This can\neither be a user (in case of UI edits) or the datahub system for automation."
+                      }, {
+                        "name" : "source",
+                        "type" : "Urn",
+                        "doc" : "The DataHub source responsible for applying the associated metadata. This will only be filled out\nwhen a DataHub source is responsible. This includes the specific metadata test urn, the automation urn.",
+                        "optional" : true
+                      }, {
+                        "name" : "sourceDetail",
+                        "type" : {
+                          "type" : "map",
+                          "values" : "string"
+                        },
+                        "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.\nAlso can include flags like 'propagated'=true or 'inferred'=true.",
+                        "default" : { }
+                      } ]
+                    },
+                    "doc" : "Information about who, why, and how this metadata was applied",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/actor" : {
+                        "fieldName" : "ownerAttributionActors",
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
+                      },
+                      "/source" : {
+                        "fieldName" : "ownerAttributionSources",
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
+                      },
+                      "/time" : {
+                        "fieldName" : "ownerAttributionDates",
+                        "fieldType" : "DATETIME",
+                        "queryByDefault" : false
+                      }
+                    }
                   } ]
                 }
               },
@@ -345,12 +398,7 @@
                       "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
                       "fields" : [ {
                         "name" : "time",
-                        "type" : {
-                          "type" : "typeref",
-                          "name" : "Time",
-                          "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
-                          "ref" : "long"
-                        },
+                        "type" : "Time",
                         "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
                       }, {
                         "name" : "actor",
@@ -375,6 +423,28 @@
                     "type" : "com.linkedin.common.AuditStamp",
                     "doc" : "Audit stamp containing who last modified this relationship edge and when",
                     "optional" : true
+                  }, {
+                    "name" : "attribution",
+                    "type" : "com.linkedin.common.MetadataAttribution",
+                    "doc" : "Information about who, why, and how this metadata was applied",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/actor" : {
+                        "fieldName" : "structuredPropertyAttributionActors",
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
+                      },
+                      "/source" : {
+                        "fieldName" : "structuredPropertyAttributionSources",
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
+                      },
+                      "/time" : {
+                        "fieldName" : "structuredPropertyAttributionDates",
+                        "fieldType" : "DATETIME",
+                        "queryByDefault" : false
+                      }
+                    }
                   } ]
                 }
               },
@@ -1630,33 +1700,7 @@
             "optional" : true
           }, {
             "name" : "attribution",
-            "type" : {
-              "type" : "record",
-              "name" : "MetadataAttribution",
-              "doc" : "Information about who, why, and how this metadata was applied",
-              "fields" : [ {
-                "name" : "time",
-                "type" : "Time",
-                "doc" : "When this metadata was updated."
-              }, {
-                "name" : "actor",
-                "type" : "Urn",
-                "doc" : "The entity (e.g. a member URN) responsible for applying the assocated metadata. This can\neither be a user (in case of UI edits) or the datahub system for automation."
-              }, {
-                "name" : "source",
-                "type" : "Urn",
-                "doc" : "The DataHub source responsible for applying the associated metadata. This will only be filled out\nwhen a DataHub source is responsible. This includes the specific metadata test urn, the automation urn.",
-                "optional" : true
-              }, {
-                "name" : "sourceDetail",
-                "type" : {
-                  "type" : "map",
-                  "values" : "string"
-                },
-                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.\nAlso can include flags like 'propagated'=true or 'inferred'=true.",
-                "default" : { }
-              } ]
-            },
+            "type" : "MetadataAttribution",
             "doc" : "Information about who, why, and how this metadata was applied",
             "optional" : true,
             "Searchable" : {

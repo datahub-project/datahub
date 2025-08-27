@@ -54,6 +54,7 @@ export default function ValuesColumn({ propertyRow, filterText, hydratedEntityMa
                                 filterText={filterText}
                                 hydratedEntityMap={hydratedEntityMap}
                                 isProposed={isProposed}
+                                attribution={propertyRow.attribution}
                             />
                         </ValueContainer>
                     ))

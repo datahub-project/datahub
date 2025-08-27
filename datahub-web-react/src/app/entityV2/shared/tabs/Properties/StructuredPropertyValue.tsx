@@ -9,11 +9,12 @@ import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ProposedIcon from '@app/entityV2/shared/sidebarSection/ProposedIcon';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
+import { Tooltip, colors } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
-import { Entity, EntityType } from '@src/types.generated';
+import { Entity, EntityType, MetadataAttribution } from '@src/types.generated';
 
 import ExternalLink from '@images/link-out.svg?react';
 
@@ -118,6 +119,7 @@ interface Props {
     size?: number;
     hydratedEntityMap?: Record<string, Entity>;
     isProposed?: boolean;
+    attribution?: MetadataAttribution | null;
 }
 
 export default function StructuredPropertyValue({
@@ -129,6 +131,7 @@ export default function StructuredPropertyValue({
     size = 12,
     hydratedEntityMap,
     isProposed,
+    attribution,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -166,39 +169,43 @@ export default function StructuredPropertyValue({
     }
 
     return (
-        <ValueText size={size} $isProposed={isProposed}>
-            {value.entity ? (
-                valueEntityRender
-            ) : (
-                <BorderedContainer $isProposed={isProposed} $isStraightBorder={isRichText && !isFieldColumn}>
-                    {isRichText ? (
-                        <Container>
-                            <ViewerContainer>
-                                <CompactMarkdownViewer
-                                    content={value.value?.toString() ?? ''}
-                                    lineLimit={isFieldColumn ? 1 : undefined}
-                                    hideShowMore={isFieldColumn}
-                                    scrollableY={!isFieldColumn}
-                                />
-                            </ViewerContainer>
-                            {isProposed && <ProposedIcon propertyName="property value" />}
-                        </Container>
-                    ) : (
-                        <>
-                            {truncateText ? (
-                                <Typography.Text ellipsis={{ tooltip: true }}>
-                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                                </Typography.Text>
-                            ) : (
-                                <StyledHighlight search={filterText} truncateText={truncateText}>
-                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                                </StyledHighlight>
-                            )}
-                            {isProposed && <ProposedIcon propertyName="property value" />}
-                        </>
-                    )}
-                </BorderedContainer>
-            )}
-        </ValueText>
+        <Tooltip title={attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}>
+            <ValueText size={size} $isProposed={isProposed}>
+                {value.entity ? (
+                    valueEntityRender
+                ) : (
+                    <BorderedContainer $isProposed={isProposed} $isStraightBorder={isRichText && !isFieldColumn}>
+                        {isRichText ? (
+                            <Container>
+                                <ViewerContainer>
+                                    <CompactMarkdownViewer
+                                        content={value.value?.toString() ?? ''}
+                                        lineLimit={isFieldColumn ? 1 : undefined}
+                                        hideShowMore={isFieldColumn}
+                                        scrollableY={!isFieldColumn}
+                                    />
+                                </ViewerContainer>
+                                {isProposed && <ProposedIcon propertyName="property value" />}
+                            </Container>
+                        ) : (
+                            <>
+                                {truncateText ? (
+                                    <Typography.Text
+                                        ellipsis={{ tooltip: attribution ? { placement: 'bottom' } : true }}
+                                    >
+                                        {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                    </Typography.Text>
+                                ) : (
+                                    <StyledHighlight search={filterText} truncateText={truncateText}>
+                                        {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                    </StyledHighlight>
+                                )}
+                                {isProposed && <ProposedIcon propertyName="property value" />}
+                            </>
+                        )}
+                    </BorderedContainer>
+                )}
+            </ValueText>
+        </Tooltip>
     );
 }

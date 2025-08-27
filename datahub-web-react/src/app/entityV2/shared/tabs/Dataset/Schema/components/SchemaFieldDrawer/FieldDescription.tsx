@@ -1,4 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { message } from 'antd';
 import React, { useState } from 'react';
@@ -17,7 +18,7 @@ import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Sc
 import { PROPOSAL_ENTITY_TYPES } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import InferDocsButton from '@src/app/entityV2/shared/components/inferredDocs/InferDocsButton';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
@@ -127,7 +128,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     };
 
     const { schemaFieldEntity, description } = expandedField;
-    const { displayedDescription, isPropagated, isInferred, sourceDetail, propagatedDescription, inferredDescription } =
+    const { displayedDescription, isPropagated, isInferred, propagatedDescription, inferredDescription, attribution } =
         getFieldDescriptionDetails({
             schemaFieldEntity,
             editableFieldInfo,
@@ -176,11 +177,16 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                                 ),
                             ]}
                         {!!displayedDescription && (
-                            <DescriptionWrapper>
-                                {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
-                                {isInferred && <InferenceDetailsIndicator />}
-                                <DescriptionSection description={displayedDescription} isExpandable />
-                            </DescriptionWrapper>
+                            <Tooltip
+                                title={
+                                    isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+                                }
+                            >
+                                <DescriptionWrapper>
+                                    {isInferred && <InferenceDetailsIndicator />}
+                                    <DescriptionSection description={displayedDescription} isExpandable />
+                                </DescriptionWrapper>
+                            </Tooltip>
                         )}
                     </>
                 }

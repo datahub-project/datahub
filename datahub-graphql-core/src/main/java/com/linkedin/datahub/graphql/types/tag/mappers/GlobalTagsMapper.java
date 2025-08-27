@@ -7,6 +7,7 @@ import com.linkedin.common.TagAssociation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -51,6 +52,9 @@ public class GlobalTagsMapper {
       }
       if (input.getContext() != null) {
         result.setContext(input.getContext());
+      }
+      if (input.getAttribution() != null) {
+        result.setAttribution(MetadataAttributionMapper.map(context, input.getAttribution()));
       }
       return Optional.of(result);
     }

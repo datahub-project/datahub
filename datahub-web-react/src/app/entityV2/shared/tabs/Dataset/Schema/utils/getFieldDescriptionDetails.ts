@@ -25,19 +25,26 @@ export function getFieldDescriptionDetails({
         ?.sort((doc1, doc2) => (doc2.attribution?.time || 0) - (doc1.attribution?.time || 0));
     const documentation = sortedDocumentations?.[0];
     const isUsingDocumentationAspect = !editableFieldInfo?.description && !defaultDescription && !!documentation;
+    const attribution = documentation?.attribution;
     const isPropagated =
         isUsingDocumentationAspect &&
-        !!documentation?.attribution?.sourceDetail?.find(
-            (mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true',
-        );
+        !!attribution?.sourceDetail?.find((mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true');
     const isInferred = isUsingDocumentationAspect && checkIsInferredDocumentation(documentation);
 
     const displayedDescription =
         editableFieldInfo?.description ?? (defaultDescription || documentation?.documentation || '');
 
-    const sourceDetail = documentation?.attribution?.sourceDetail;
+    const sourceDetail = attribution?.sourceDetail;
     const propagatedDescription = isPropagated ? documentation?.documentation : undefined;
     const inferredDescription = isInferred ? documentation.documentation : undefined;
 
-    return { displayedDescription, isPropagated, isInferred, sourceDetail, propagatedDescription, inferredDescription };
+    return {
+        displayedDescription,
+        isPropagated,
+        isInferred,
+        sourceDetail,
+        propagatedDescription,
+        inferredDescription,
+        attribution,
+    };
 }

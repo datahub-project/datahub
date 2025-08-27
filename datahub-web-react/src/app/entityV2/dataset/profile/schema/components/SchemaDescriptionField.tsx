@@ -12,14 +12,14 @@ import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMark
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
-import { colors } from '@src/alchemy-components';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import { Tooltip, colors } from '@src/alchemy-components';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import InferenceDetailsIndicator from '@src/app/sharedV2/inferred/InferenceDetailsIndicator';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
-import { StringMapEntry } from '@types';
+import { MetadataAttribution } from '@types';
 
 const EditIcon = styled(EditOutlined)`
     cursor: pointer;
@@ -154,7 +154,7 @@ type Props = {
     isPropagated?: boolean;
     isInferred?: boolean;
     enableInferenceButton?: boolean;
-    sourceDetail?: StringMapEntry[] | null;
+    attribution?: MetadataAttribution | null;
 };
 
 export default function DescriptionField({
@@ -171,7 +171,7 @@ export default function DescriptionField({
     isPropagated,
     isInferred,
     enableInferenceButton,
-    sourceDetail,
+    attribution,
 }: Props) {
     const [showAddModal, setShowAddModal] = useState(false);
     const [inferWhenAddModalMounts, setInferWhenAddModalMounts] = useState(false);
@@ -273,18 +273,21 @@ export default function DescriptionField({
                         suffix={EditButton}
                         shouldWrap
                     > */}
-                        <DescriptionWrapper>
-                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
-                            {isInferred && <InferenceDetailsIndicator />}
-                            &nbsp;
-                            <CompactMarkdownViewer
-                                content={description}
-                                lineLimit={1}
-                                fixedLineHeight
-                                customStyle={{ fontSize: '12px' }}
-                                scrollableY={false}
-                            />
-                        </DescriptionWrapper>
+                        <Tooltip
+                            title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
+                        >
+                            <DescriptionWrapper>
+                                {isInferred && <InferenceDetailsIndicator />}
+                                &nbsp;
+                                <CompactMarkdownViewer
+                                    content={description}
+                                    lineLimit={1}
+                                    fixedLineHeight
+                                    customStyle={{ fontSize: '12px' }}
+                                    scrollableY={false}
+                                />
+                            </DescriptionWrapper>
+                        </Tooltip>
                         {/* </StripMarkdownText> */}
                     </>
                 )

@@ -7,7 +7,6 @@ import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
-import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
@@ -87,6 +86,7 @@ export default function Tag({
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
     const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
+    const previewContext = { propagationDetails: { context, attribution: tag.attribution } };
 
     const showTagProfileDrawer = (urn: string) => {
         if (!readOnly) {
@@ -138,7 +138,7 @@ export default function Tag({
 
     return (
         <>
-            <HoverEntityTooltip entity={tag.tag} width={250}>
+            <HoverEntityTooltip entity={tag.tag} width={250} previewContext={previewContext}>
                 <TagLink
                     data-testid={`tag-${displayName}`}
                     $showOneAndCount={showOneAndCount}
@@ -179,7 +179,6 @@ export default function Tag({
                                 </DisplayNameContainer>
                             )}
                         </Highlight>
-                        <LabelPropagationDetails entityType={EntityType.Tag} context={context} />
                     </StyledTag>
                 </TagLink>
             </HoverEntityTooltip>

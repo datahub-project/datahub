@@ -1,9 +1,11 @@
+import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { getOwnershipTypeDescription } from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerUtils';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     ExtendedOwner,
@@ -45,9 +47,12 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
     const mutationUrn = useMutationUrn();
     const refetch = useRefetch();
     const ownershipTypeName = getOwnershipTypeName(ownershipType);
+    const ownershipTypeDescription = getOwnershipTypeDescription(ownershipType);
     return (
         <OwnershipTypeContainer>
-            <OwnershipTypeNameText>{ownershipTypeName}</OwnershipTypeNameText>
+            <Tooltip title={ownershipTypeDescription}>
+                <OwnershipTypeNameText>{ownershipTypeName}</OwnershipTypeNameText>
+            </Tooltip>
             <OwnersContainer>
                 {owners.map((owner) => (
                     <ExpandedOwner
@@ -56,7 +61,6 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
                         owner={owner}
                         refetch={refetch}
                         readOnly={readOnly}
-                        hidePopOver={owner.isProposed}
                     />
                 ))}
             </OwnersContainer>

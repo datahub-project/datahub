@@ -42,7 +42,7 @@ const removeOwner = (owner, elementId) => {
     "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
     "SampleCypressHiveDataset",
   );
-  cy.get(elementId).next().click();
+  cy.get(elementId).click();
   cy.clickOptionWithText("Yes");
   cy.waitTextVisible("Owner Removed");
   cy.ensureTextNotPresent(owner);
@@ -78,7 +78,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       username,
       "Business Owner",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpuser:example${test_id}@example.com"]`,
     );
   });
 
@@ -86,7 +86,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       username,
       "Data Steward",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpuser:example${test_id}@example.com"]`,
     );
   });
 
@@ -94,7 +94,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       username,
       "None",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpuser:example${test_id}@example.com"]`,
     );
   });
 
@@ -102,7 +102,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       username,
       "Technical Owner",
-      `[href="/user/urn:li:corpuser:example${test_id}@example.com/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpuser:example${test_id}@example.com"]`,
     );
   });
 
@@ -110,7 +110,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       group_name,
       "Business Owner",
-      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpGroup:${test_id}"]`,
     );
   });
 
@@ -118,7 +118,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       group_name,
       "Data Steward",
-      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpGroup:${test_id}"]`,
     );
   });
 
@@ -126,7 +126,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       group_name,
       "None",
-      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpGroup:${test_id}"]`,
     );
   });
 
@@ -134,7 +134,7 @@ describe("add, remove ownership for dataset", () => {
     addAndRemoveOwnerOnDataset(
       group_name,
       "Technical Owner",
-      `[href="/group/urn:li:corpGroup:${test_id}/owner of"]`,
+      `[data-testid="remove-owner-urn:li:corpGroup:${test_id}"]`,
     );
   });
 });

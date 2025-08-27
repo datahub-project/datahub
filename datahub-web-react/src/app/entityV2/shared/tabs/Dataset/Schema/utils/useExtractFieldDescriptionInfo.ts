@@ -13,12 +13,13 @@ export default function useExtractFieldDescriptionInfo(
         const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const { displayedDescription, isPropagated, isInferred, sourceDetail } = getFieldDescriptionDetails({
-            schemaFieldEntity: record.schemaFieldEntity,
-            editableFieldInfo: editableFieldInfoB,
-            defaultDescription: description || record?.description,
-            enableInferredDescriptions,
-        });
+        const { displayedDescription, isPropagated, isInferred, sourceDetail, attribution } =
+            getFieldDescriptionDetails({
+                schemaFieldEntity: record.schemaFieldEntity,
+                editableFieldInfo: editableFieldInfoB,
+                defaultDescription: description || record?.description,
+                enableInferredDescriptions,
+            });
 
         const sanitizedDescription = sanitizeRichText(displayedDescription);
 
@@ -28,6 +29,7 @@ export default function useExtractFieldDescriptionInfo(
             isPropagated,
             isInferred,
             sourceDetail,
+            attribution,
         };
     };
 }

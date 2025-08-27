@@ -45,6 +45,7 @@ export function mapStructuredPropertyToPropertyRow(
                 : undefined,
         associatedUrn: structuredPropertiesEntry.associatedUrn,
         isProposed,
+        attribution: structuredPropertiesEntry.attribution,
     };
 }
 

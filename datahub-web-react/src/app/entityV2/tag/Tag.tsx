@@ -2,7 +2,7 @@ import { TagFilled, TagOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import styled from 'styled-components';
 
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { urlEncodeUrn } from '@app/entityV2/shared/utils';
@@ -56,7 +56,7 @@ export class TagEntity implements Entity<Tag> {
 
     renderProfile: (urn: string) => JSX.Element = (urn) => <TagProfile urn={urn} />;
 
-    renderPreview = (previewType: PreviewType, data: Tag) => {
+    renderPreview = (previewType: PreviewType, data: Tag, _actions, extraContext?: PreviewContext) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <DefaultPreviewCard
@@ -69,12 +69,13 @@ export class TagEntity implements Entity<Tag> {
                 entityType={EntityType.Tag}
                 typeIcon={this.icon(14, IconStyleType.ACCENT)}
                 previewType={previewType}
+                propagationDetails={extraContext?.propagationDetails}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as Tag);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as Tag, undefined, undefined);
     };
 
     displayName = (data: Tag) => {

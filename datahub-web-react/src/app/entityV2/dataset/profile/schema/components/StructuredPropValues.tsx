@@ -82,6 +82,7 @@ const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
                                     truncateText
                                     isFieldColumn
                                     hydratedEntityMap={hydratedEntityMap}
+                                    attribution={propRow?.attribution}
                                 />
                             </ValuesContainer>
                         );

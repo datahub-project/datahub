@@ -10,7 +10,14 @@ import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/u
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
 import usePrevious from '@src/app/shared/usePrevious';
 
-import { EditableSchemaFieldInfo, FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '@types';
+import {
+    EditableSchemaFieldInfo,
+    EditableSchemaMetadata,
+    FormPrompt,
+    FormPromptType,
+    SchemaField,
+    SubmitFormPromptInput,
+} from '@types';
 
 interface Props {
     prompt: FormPrompt;
@@ -35,9 +42,11 @@ export default function useDocumentationPrompt({ prompt, submitResponse, field }
 
     const enableInferredDescriptions = useShouldShowInferDocumentationButton(entityType);
 
-    const editableFieldInfo = entityWithSchema?.editableSchemaMetadata?.editableSchemaFieldInfo?.find(
-        (info) => info.fieldPath === field?.fieldPath || undefined,
-    ) as EditableSchemaFieldInfo | undefined;
+    const editableFieldInfo = (
+        entityWithSchema?.editableSchemaMetadata as EditableSchemaMetadata | undefined
+    )?.editableSchemaFieldInfo?.find((info) => info.fieldPath === field?.fieldPath) as
+        | EditableSchemaFieldInfo
+        | undefined;
 
     const initialValue = useMemo(
         () =>
