@@ -363,18 +363,20 @@ public class GraphIndexUtils {
     RelationshipFieldSpec fineGrainedLineageFieldSpec =
         aspectSpec.getRelationshipFieldSpecMap().get(FINE_GRAINED_LINEAGE_PATH);
     List<Object> fineGrainedLineageUrnsList = extractedFields.get(fineGrainedLineageFieldSpec);
-    fineGrainedLineageUrnsList.removeIf(
-        fineGrainedLineageUrn -> {
-          if (fineGrainedLineageUrn instanceof Urn) {
-            Urn upstreamSchemaFieldUrn = (Urn) fineGrainedLineageUrn;
-            return isFineGrainedLineageNotAllowedForPlatforms(
-                null,
-                upstreamSchemaFieldUrn,
-                fineGrainedLineageNotAllowedForPlatforms,
-                entityRegistry);
-          }
-          return false;
-        });
+    if (fineGrainedLineageUrnsList != null) {
+      fineGrainedLineageUrnsList.removeIf(
+          fineGrainedLineageUrn -> {
+            if (fineGrainedLineageUrn instanceof Urn) {
+              Urn upstreamSchemaFieldUrn = (Urn) fineGrainedLineageUrn;
+              return isFineGrainedLineageNotAllowedForPlatforms(
+                  null,
+                  upstreamSchemaFieldUrn,
+                  fineGrainedLineageNotAllowedForPlatforms,
+                  entityRegistry);
+            }
+            return false;
+          });
+    }
   }
 
   private static boolean isFineGrainedLineageNotAllowedForPlatforms(
