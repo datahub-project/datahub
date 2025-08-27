@@ -136,6 +136,66 @@
     "request": {
       "url": "/openapi/v3/entity/scroll",
       "params": {
+        "count": "10"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "sortCriteria": [
+          {
+            "field": "name",
+            "order": "ASCENDING"
+          }
+        ],
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["openapi"],
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:OpenApi",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "OpenApi"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "openapi",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "OpenAPI",
+                "logoUrl": "/assets/platforms/openapilogo.png"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
         "pitKeepAlive": "1m",
         "count": "1",
         "query": "qualifiedName:entities\\.datasetSingle*",
