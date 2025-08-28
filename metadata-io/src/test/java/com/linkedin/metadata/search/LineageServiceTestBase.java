@@ -42,6 +42,7 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -121,6 +122,9 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
 
+  // Constants for LineageGraphFilters
+  private LineageGraphFilters DOWNSTREAM_FILTERS;
+
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
     operationContext =
@@ -139,6 +143,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     elasticSearchService.reindexAll(Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
     graphService = mock(GraphService.class);
+    DOWNSTREAM_FILTERS =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(),
+            TEST_URN.getEntityType(),
+            LineageDirection.DOWNSTREAM);
     resetService(true, false);
   }
 
@@ -246,13 +255,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @Test
   public void testSearchService() throws Exception {
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     LineageSearchResult searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -260,13 +267,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache(false);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -290,26 +295,22 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         getOperationContext(), ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     searchResult = searchAcrossLineage(null, TEST1);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache(false);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -351,13 +352,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertNull(capturedRequest.source().highlighter());
     clearCache(false);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -372,13 +371,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
 
     // Case 1: Use the maxHops in the cache.
-    when(graphService.getLineage(
-            eq(getOperationContext()),
-            eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+    when(graphService.getImpactLineage(
+            eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -399,13 +393,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
-        .getLineage(
-            eq(getOperationContext()),
-            eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+        .getImpactLineage(
+            eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt());
 
     // Hit the cache on second attempt
     searchResult =
@@ -422,23 +411,16 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
-        .getLineage(
-            eq(getOperationContext()),
-            eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+        .getImpactLineage(
+            eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt());
 
     // Case 2: Use the start and end time in the cache.
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(
                 getOperationContext()
                     .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             eq(1000)))
         .thenReturn(
             mockResult(
@@ -461,15 +443,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
-        .getLineage(
+        .getImpactLineage(
             eq(
                 getOperationContext()
                     .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+            eq(DOWNSTREAM_FILTERS),
+            anyInt());
 
     // Hit the cache on second attempt
     searchResult =
@@ -487,15 +467,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     Mockito.verify(graphService, times(1))
-        .getLineage(
+        .getImpactLineage(
             eq(
                 getOperationContext()
                     .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+            eq(DOWNSTREAM_FILTERS),
+            anyInt());
 
     clearCache(false);
 
@@ -504,13 +482,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -522,13 +498,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @Test
   public void testScrollAcrossLineage() throws Exception {
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     LineageScrollResult scrollResult = scrollAcrossLineage(null, TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
@@ -538,13 +512,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertNull(scrollResult.getScrollId());
     clearCache(false);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -570,13 +542,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         operationContext, ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     scrollResult = scrollAcrossLineage(null, TEST1);
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
@@ -584,13 +554,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertNull(scrollResult.getScrollId());
     clearCache(false);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -617,13 +585,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -644,24 +610,20 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Enable lightning
     resetService(true, true);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     LineageSearchResult searchResult = searchAcrossLineage(null, testStar);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     clearCache(true);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             anyInt()))
         .thenReturn(
             mockResult(
@@ -681,12 +643,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         getOperationContext(), ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             anyInt()))
         .thenReturn(mockResult(Collections.emptyList()));
     searchResult = searchAcrossLineage(null, testStar);
@@ -694,12 +654,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     assertEquals(searchResult.getEntities().size(), 0);
     clearCache(true);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             anyInt()))
         .thenReturn(
             mockResult(
@@ -743,12 +701,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     clearCache(true);
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             anyInt()))
         .thenReturn(
             mockResult(
@@ -767,13 +723,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
 
     // Case 1: Use the maxHops in the cache.
-    when(graphService.getLineage(
-            eq(getOperationContext()),
-            eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+    when(graphService.getImpactLineage(
+            eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -794,13 +745,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     verify(graphService, times(1))
-        .getLineage(
-            eq(getOperationContext()),
-            eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+        .getImpactLineage(
+            eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt());
     verify(lineageSearchService, times(1))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
@@ -819,26 +765,19 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     verify(graphService, times(1))
-        .getLineage(
-            eq(getOperationContext()),
-            eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+        .getImpactLineage(
+            eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), anyInt());
     verify(lineageSearchService, times(2))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
     // Case 2: Use the start and end time in the cache.
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(
                 getOperationContext()
                     .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class)))
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
         .thenReturn(
             mockResult(
                 ImmutableList.of(
@@ -862,15 +801,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     String invocations = mockingDetails(graphService).printInvocations();
     System.out.println(invocations);
     verify(graphService, times(1))
-        .getLineage(
+        .getImpactLineage(
             eq(
                 getOperationContext()
                     .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+            eq(DOWNSTREAM_FILTERS),
+            anyInt());
     verify(lineageSearchService, times(3))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
@@ -890,15 +827,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     verify(graphService, times(1))
-        .getLineage(
+        .getImpactLineage(
             eq(
                 getOperationContext()
                     .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+            eq(DOWNSTREAM_FILTERS),
+            anyInt());
     verify(lineageSearchService, times(4))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
 
@@ -940,15 +875,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             0,
             10);
     Mockito.verify(graphService, times(1))
-        .getLineage(
+        .getImpactLineage(
             eq(
                 operationContext.withLineageFlags(
                     f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            nullable(Integer.class));
+            eq(DOWNSTREAM_FILTERS),
+            anyInt());
     verify(lineageSearchService, times(2))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -996,13 +929,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             0,
             10);
     verify(graphService, times(1))
-        .getLineage(
-            eq(getOperationContext()),
-            eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
-            eq(1000));
+        .getImpactLineage(
+            eq(getOperationContext()), eq(TEST_URN), eq(DOWNSTREAM_FILTERS), eq(1000));
     verify(lineageSearchService, times(4))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
     assertEquals(searchResult.getNumEntities().intValue(), 0);
@@ -1042,14 +970,12 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             0,
             10);
     verify(graphService, times(1))
-        .getLineage(
+        .getImpactLineage(
             eq(
                 getOperationContext()
                     .withLineageFlags(f -> f.setStartTimeMillis(0L).setEndTimeMillis(1L))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             eq(1000));
     verify(lineageSearchService, times(6))
         .getLightningSearchResult(any(), any(), anyInt(), anyInt(), anySet());
@@ -1063,12 +989,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     elasticSearchService.deleteDocument(getOperationContext(), ENTITY_NAME, urn2.toString());
     syncAfterWrite(getBulkProcessor());
 
-    when(graphService.getLineage(
+    when(graphService.getImpactLineage(
             eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
             eq(TEST_URN),
-            eq(LineageDirection.DOWNSTREAM),
-            anyInt(),
-            anyInt(),
+            eq(DOWNSTREAM_FILTERS),
             anyInt()))
         .thenReturn(
             mockResult(
