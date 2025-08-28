@@ -7,6 +7,7 @@ import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import UrlButton from '@app/entityV2/shared/UrlButton';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '@types';
@@ -22,6 +23,7 @@ export const Preview = ({
     previewType,
     domain,
     headerDropdownItems,
+    propagationDetails,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -33,6 +35,7 @@ export const Preview = ({
     previewType: PreviewType;
     domain?: Domain | undefined;
     headerDropdownItems?: Set<EntityMenuItems>;
+    propagationDetails?: AttributionDetails;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -54,6 +57,7 @@ export const Preview = ({
                 <UrlButton href={getRelatedAssetsUrl(entityRegistry, urn)}>View Related Assets</UrlButton>
             }
             headerDropdownItems={headerDropdownItems}
+            propagationDetails={propagationDetails}
         />
     );
 };
