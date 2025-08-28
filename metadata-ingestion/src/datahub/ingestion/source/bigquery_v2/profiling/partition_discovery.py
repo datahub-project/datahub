@@ -628,18 +628,22 @@ SELECT val, record_count FROM PartitionStats"""
     def _is_date_like_column(self, col_name: str) -> bool:
         """
         Check if a column name suggests it contains date/time data.
+        Note: 'day' is excluded as it typically refers to day number (1-31) in partition contexts.
         """
         return col_name.lower() in {
             "date",
-            "day",
             "dt",
             "partition_date",
             "date_partition",
+            "event_date",
+            "created_date",
+            "updated_date",
             "timestamp",
             "datetime",
             "time",
             "created_at",
             "modified_at",
+            "updated_at",
             "event_time",
         }
 
