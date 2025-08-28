@@ -58,11 +58,12 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
         ),
     }));
 
-    const testId = isDataStillLoading
-        ? 'create-incident-btn-loading'
-        : isSiblingMode
-          ? 'create-incident-btn-main-with-siblings'
-          : 'create-incident-btn-main';
+    let testId = 'create-incident-btn-main';
+    if (isDataStillLoading) {
+        testId = 'create-incident-btn-loading';
+    } else if (isSiblingMode) {
+        testId = 'create-incident-btn-main-with-siblings';
+    }
 
     return (
         <>
