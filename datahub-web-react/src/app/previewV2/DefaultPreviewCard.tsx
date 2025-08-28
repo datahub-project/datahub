@@ -26,6 +26,8 @@ import EntityHeader from '@app/previewV2/EntityHeader';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
@@ -179,6 +181,7 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
+    propagationDetails?: AttributionDetails;
 }
 
 export default function DefaultPreviewCard({
@@ -225,6 +228,7 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
+    propagationDetails,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -345,6 +349,9 @@ export default function DefaultPreviewCard({
                         <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
                             <DataProcessInstanceInfo {...lastRunEvent} />
                         </RowContainer>
+                    )}
+                    {previewType === PreviewType.HOVER_CARD && (
+                        <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                     )}
                 </>
             ) : (
