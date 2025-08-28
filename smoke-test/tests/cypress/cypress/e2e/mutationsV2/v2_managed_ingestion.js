@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 function clearMonacoEditor() {
   const selectAllKey = Cypress.platform === "darwin" ? "{cmd}a" : "{ctrl}a";
   return cy

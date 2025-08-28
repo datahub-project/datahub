@@ -11,13 +11,16 @@ import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 
 export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEntity }: CreateIncidentButtonProps) => {
-    const { entityData, urn: entityUrn, entityType: dataEntityType } = useEntityData();
+    const { entityData, urn: entityUrn, entityType: dataEntityType, loading } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const isSiblingMode = !!entityData?.siblingsSearch?.total && !isHideSiblingMode;
 
     const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, entityUrn, dataEntityType) ?? [];
+
+    // Consider data still loading if entityData is loading or if we're in sibling mode but don't have sibling options yet
+    const isDataStillLoading = loading || (isSiblingMode && siblingOptionsToAuthorOn.length <= 1);
 
     const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
 
@@ -55,15 +58,17 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
         ),
     }));
 
+    const testId = isDataStillLoading
+        ? 'create-incident-btn-loading'
+        : isSiblingMode
+          ? 'create-incident-btn-main-with-siblings'
+          : 'create-incident-btn-main';
+
     return (
         <>
             {isSiblingMode ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
-                    <CreateButton
-                        disabled={!canEditIncidents}
-                        data-testid="create-incident-btn-main"
-                        className="create-incident-button"
-                    >
+                    <CreateButton disabled={!canEditIncidents} data-testid={testId} className="create-incident-button">
                         <PlusOutlined /> Create
                     </CreateButton>
                 </Dropdown>
@@ -72,7 +77,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                     <CreateButton
                         onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}
-                        data-testid="create-incident-btn-main"
+                        data-testid={testId}
                         className="create-incident-button"
                     >
                         <PlusOutlined /> Create

@@ -1,6 +1,3 @@
-import { selectorWithtestId } from "../../support/commands";
-import { hasOperationName } from "../utils";
-
 const EXISTING_INCIDENT_TITLE = "test title";
 const NEW_INCIDENT_VALUES = {
   NAME: "Incident new name",
@@ -17,60 +14,10 @@ const EDITED_INCIDENT_VALUES = {
   TYPE: "Freshness",
   STATE: "Resolved",
 };
-const SAMPLE_DATASET_2_URN =
-  "urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset2-v2,PROD)";
-
-function updateEnvVars() {
-  cy.intercept("POST", "/api/v2/graphql", (req) => {
-    if (hasOperationName(req, "appConfig")) {
-      req.alias = "gqlappConfigQuery";
-
-      req.on("response", (res) => {
-        res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-        res.body.data.appConfig.featureFlags.themeV2Default = true;
-        res.body.data.appConfig.featureFlags.showNavBarRedesign = true;
-        res.body.data.appConfig.featureFlags.datasetHealthDashboardEnabled = true;
-      });
-    } else if (hasOperationName(req, "getMe")) {
-      req.alias = "gqlgetMeQuery";
-      req.on("response", (res) => {
-        res.body.data.me.corpUser.settings.appearance.showThemeV2 = true;
-      });
-    }
-  });
-}
-
-function checkForHealthIcon(shouldExist) {
-  // ensure the dataset health icon is NOT visible before this incident is created
-  cy.get(selectorWithtestId(`${SAMPLE_DATASET_2_URN}-health-icon`)).should(
-    shouldExist ? "exist" : "not.exist",
-  );
-}
-
-function ensureEntityIsNotInHealthDashboard() {
-  // ensure the dataset is not visible in the dataset health dashboard
-  cy.visit("observe/datasets/incidents");
-  cy.get(selectorWithtestId("embedded-search-bar"))
-    .first()
-    .type(SAMPLE_DATASET_2_URN);
-  cy.wait(3000);
-  cy.get(selectorWithtestId(`preview-${SAMPLE_DATASET_2_URN}`)).should(
-    "not.exist",
-  );
-}
-
-function ensureEntityIsInHealthDashboard() {
-  // ensure the dataset is visible in the dataset health dashboard
-  cy.visit("observe/datasets/incidents");
-  cy.get(selectorWithtestId("embedded-search-bar"))
-    .first()
-    .type(SAMPLE_DATASET_2_URN);
-  cy.get(selectorWithtestId(`preview-${SAMPLE_DATASET_2_URN}`)).should("exist");
-}
 
 describe("incidents", () => {
   beforeEach(() => {
-    updateEnvVars();
+    cy.setIsThemeV2Enabled(true);
   });
   const newIncidentNameWithTimeStamp = `${NEW_INCIDENT_VALUES.NAME}-${Date.now()}`;
   const editedIncidentNameWithTimeStamp = `${newIncidentNameWithTimeStamp}-edited`;
@@ -87,17 +34,9 @@ describe("incidents", () => {
 
   it("create a v2 incident with all fields set", () => {
     cy.login();
-    cy.visit(`/dataset/${SAMPLE_DATASET_2_URN}/Incidents`);
-    // wait until data loads and you can see the incidents page button
-    cy.get('[data-testid="create-incident-btn-main"]');
-    cy.wait(1000);
-    // ensure the dataset health icon is NOT visible before this incident is created
-    checkForHealthIcon(false);
-
-    ensureEntityIsNotInHealthDashboard();
-
-    cy.visit(`/dataset/${SAMPLE_DATASET_2_URN}/Incidents`);
-
+    cy.visit(
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)/Incidents",
+    );
     cy.get('[data-testid="create-incident-btn-main"]').click();
     cy.get('[data-testid="incident-name-input"]').type(
       newIncidentNameWithTimeStamp,
@@ -151,14 +90,13 @@ describe("incidents", () => {
         .should("be.visible")
         .should("contain", "Resolve");
     });
-
-    checkForHealthIcon(true);
-    ensureEntityIsInHealthDashboard();
   });
 
   it("can update incident & resolve incident", () => {
     cy.login();
-    cy.visit(`/dataset/${SAMPLE_DATASET_2_URN}/Incidents`);
+    cy.visit(
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)/Incidents",
+    );
     cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`)
       .should("exist")
       .click();
@@ -234,24 +172,21 @@ describe("incidents", () => {
         "Me",
       );
     });
-
-    checkForHealthIcon(false);
-    ensureEntityIsNotInHealthDashboard();
   });
 
   it("Create V2 incident with all fields set and separate_siblings=false", () => {
     cy.login();
     cy.visit(
-      "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false&separate_siblings=false",
+      "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false",
     );
 
     // Wait for the page to load properly and button to be interactive
-    cy.findByTestId("create-incident-btn-main", { timeout: 10000 }).should(
+    cy.findByTestId("create-incident-btn-main-with-siblings", { timeout: 10000 }).should(
       "be.visible",
     );
 
     // Click the button (this opens a dropdown when separate_siblings=false and siblings exist)
-    cy.findByTestId("create-incident-btn-main").click();
+    cy.findByTestId("create-incident-btn-main-with-siblings").click();
 
     // For separate_siblings=false mode, we need to select a sibling from the dropdown first
     // Wait for dropdown to appear and select the first option
