@@ -384,6 +384,21 @@ def _filter_discriminator(v: Any) -> Optional[str]:
     return None
 
 
+def _parse_and_like_filter(value: Any) -> Any:
+    # Do not parse if filter is already of type and/or/not or a custom condition
+    # also do not parse container filter if direct_descendants_only is specified
+    if (
+        isinstance(value, dict)
+        and not set(value.keys()).intersection(
+            {"and", "or", "not", "field", "condition", "direct_descendants_only"}
+        )
+        and len(value) > 1
+    ):
+        return {"and": [{k: v} for k, v in value.items()]}
+
+    return value
+
+
 if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
     # The `not TYPE_CHECKING` bit is required to make the linter happy,
     # since we currently only run mypy with pydantic v1.
@@ -415,18 +430,6 @@ else:
                 return value
         else:
             return value
-
-    def _parse_and_like_filter(value: Any) -> Any:
-        if (
-            isinstance(value, dict)
-            and not set(value.keys()).intersection(
-                {"and", "or", "not", "field", "condition", "direct_descendants_only"}
-            )
-            and len(value) > 1
-        ):
-            return {"and": [{k: v} for k, v in value.items()]}
-
-        return value
 
     # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
     # That way we'd be able to attach methods to the Filter type.
