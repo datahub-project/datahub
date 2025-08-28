@@ -14,7 +14,7 @@ except Exception as e:
     print(f"JPype initialization failed: {e}")
 
 from typing import Dict, List
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
@@ -421,23 +421,8 @@ class TestConnectorConfigValidation:
             connector_config, topic_names, expected_lineages, "mysql_cloud"
         )
 
-    @patch("datahub.ingestion.source.kafka_connect.source_connectors.make_url")
-    @patch(
-        "datahub.ingestion.source.kafka_connect.source_connectors.get_platform_from_sqlalchemy_uri"
-    )
-    def test_platform_jdbc_connector_with_topic_prefix(
-        self, mock_platform: Mock, mock_url: Mock
-    ) -> None:
+    def test_platform_jdbc_connector_with_topic_prefix(self) -> None:
         """Test traditional Platform JDBC connector with topic prefix."""
-        # Mock the sqlalchemy URL parsing for Platform connectors
-        mock_url_obj = Mock()
-        mock_url_obj.drivername = "postgresql"
-        mock_url_obj.host = "localhost"
-        mock_url_obj.port = 5432
-        mock_url_obj.database = "testdb"
-        mock_url.return_value = mock_url_obj
-        mock_platform.return_value = "postgres"
-
         connector_config = {
             "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
             "connection.url": "jdbc:postgresql://localhost:5432/testdb?user=analyst&password=secret",
