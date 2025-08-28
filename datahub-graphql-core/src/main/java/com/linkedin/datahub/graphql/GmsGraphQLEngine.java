@@ -205,6 +205,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
@@ -778,6 +779,7 @@ public class GmsGraphQLEngine {
     configureVersionSetResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
     configurePageTemplateRowResolvers(builder);
+    configureAssetSettingsResolver(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -838,7 +840,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE))
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1397,7 +1400,9 @@ public class GmsGraphQLEngine {
                   new UpdateDocPropagationSettingsResolver(this.settingsService))
               .dataFetcher(
                   "updateApplicationsSettings",
-                  new UpdateApplicationsSettingsResolver(this.settingsService));
+                  new UpdateApplicationsSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
@@ -3579,6 +3584,35 @@ public class GmsGraphQLEngine {
                             .getModules().stream()
                                 .map(DataHubPageModule::getUrn)
                                 .collect(Collectors.toList()))));
+
+    builder.type(
+        "DataHubPageModule",
+        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
+  }
+
+  private void configureAssetSettingsResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "AssetSummarySettingsTemplate",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "template",
+                new LoadableTypeResolver<>(
+                    dataHubPageTemplateType,
+                    (env) -> {
+                      final AssetSummarySettingsTemplate assetSummarySettingsTemplate =
+                          env.getSource();
+                      System.out.println("~~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~");
+                      System.out.println(assetSummarySettingsTemplate);
+                      System.out.println(assetSummarySettingsTemplate.getTemplate());
+                      System.out.println(assetSummarySettingsTemplate.getTemplate().getUrn());
+                      System.out.println("~~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~");
+                      if (assetSummarySettingsTemplate != null) {
+                        return assetSummarySettingsTemplate.getTemplate() != null
+                            ? assetSummarySettingsTemplate.getTemplate().getUrn()
+                            : null;
+                      }
+                      return null;
+                    })));
 
     builder.type(
         "DataHubPageModule",
