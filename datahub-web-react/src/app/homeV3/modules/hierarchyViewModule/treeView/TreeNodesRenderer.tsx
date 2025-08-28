@@ -35,7 +35,7 @@ export default function TreeNodesRenderer() {
 
     return (
         <InlineBlockWrapper $hasExpanded={hasAnyExpanded}>
-            <Wrapper>
+            <Wrapper data-testid="hierarchy-module-nodes">
                 {loadRootNodes ? (
                     <NodesLoaderWrapper
                         trigger={loadingTriggerType}
