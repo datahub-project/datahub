@@ -100,6 +100,30 @@ limit 100
     assert extractor.report.num_queries_meta_extracted["hex"] == 1
 
 
+def test_extract_hex_metadata_single_line_at_end() -> None:
+    """Test that single line queries with hex metadata at the end are detected."""
+    extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
+    hex_query = 'SELECT * FROM "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" LIMIT 100 -- Hex query metadata: {"user": "alice@mail.com"}'
+
+    entry = PreparsedQuery(
+        query_id=None,
+        query_text=hex_query,
+        upstreams=[],
+        downstream=None,
+        column_lineage=None,
+        column_usage=None,
+        inferred_schema=None,
+        user=CorpUserUrn("hexuser"),
+        timestamp=parse_absolute_time("2021-08-01T01:02:03Z"),
+    )
+
+    assert extractor.extract_bi_metadata(entry)
+    assert isinstance(
+        entry.origin, DataPlatformUrn
+    ) and entry.origin == Urn.from_string("urn:li:dataPlatform:hex")
+    assert extractor.report.num_queries_meta_extracted["hex"] == 1
+
+
 def test_extract_hex_metadata_in_middle() -> None:
     """Test that hex queries with metadata in the middle of query are detected."""
     extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
