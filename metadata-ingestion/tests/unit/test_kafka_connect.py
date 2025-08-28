@@ -1340,3 +1340,173 @@ class TestFullConnectorConfigValidation:
             self.validate_lineage_fields(
                 connector_config, topic_names, expected_lineages
             )
+
+
+class TestTopicGeneration:
+    """Test original topic generation behavior to prevent regressions like the integration test failure."""
+
+    def test_generate_original_topic_without_prefix_two_tier_mysql(self) -> None:
+        """Test MySQL (2-tier) topic generation without topic prefix - should use table name only."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        pipeline = TransformPipeline([])
+
+        # MySQL scenario: database=librarydb, table=member, no topic prefix
+        result = pipeline._generate_original_topic(
+            schema="librarydb", table_name="member", topic_prefix=""
+        )
+
+        # Critical: Should be just table name, not database.table
+        assert result == "member", f"Expected 'member', got '{result}'"
+
+    def test_generate_original_topic_without_prefix_three_tier_postgres(self) -> None:
+        """Test PostgreSQL (3-tier) topic generation without topic prefix - should use table name only."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        pipeline = TransformPipeline([])
+
+        # PostgreSQL scenario: schema=public, table=users, no topic prefix
+        result = pipeline._generate_original_topic(
+            schema="public", table_name="users", topic_prefix=""
+        )
+
+        # Critical: Should be just table name, not schema.table
+        assert result == "users", f"Expected 'users', got '{result}'"
+
+    def test_generate_original_topic_with_prefix_preserves_hierarchy(self) -> None:
+        """Test that WITH topic prefix, we preserve the full hierarchy as before."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        pipeline = TransformPipeline([])
+
+        # MySQL with prefix - should include database
+        result_mysql = pipeline._generate_original_topic(
+            schema="librarydb", table_name="member", topic_prefix="mysql-"
+        )
+        assert result_mysql == "mysql-.librarydb.member"
+
+        # PostgreSQL with prefix - should include schema
+        result_postgres = pipeline._generate_original_topic(
+            schema="public", table_name="users", topic_prefix="pg-"
+        )
+        assert result_postgres == "pg-.public.users"
+
+        # No schema, with prefix
+        result_no_schema = pipeline._generate_original_topic(
+            schema="", table_name="table1", topic_prefix="prefix-"
+        )
+        assert result_no_schema == "prefix-.table1"
+
+    def test_generate_original_topic_cloud_connectors(self) -> None:
+        """Test Cloud connector scenarios with database.server.name as topic prefix."""
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        pipeline = TransformPipeline([])
+
+        # Cloud MySQL with server name
+        result_cloud_mysql = pipeline._generate_original_topic(
+            schema="testdb", table_name="orders", topic_prefix="mysql-server"
+        )
+        assert result_cloud_mysql == "mysql-server.testdb.orders"
+
+        # Cloud PostgreSQL with server name
+        result_cloud_postgres = pipeline._generate_original_topic(
+            schema="public", table_name="events", topic_prefix="pg-server"
+        )
+        assert result_cloud_postgres == "pg-server.public.events"
+
+    def test_integration_test_regression_scenario(self) -> None:
+        """
+        Test the specific scenario that caused the integration test failure.
+
+        This test reproduces the mysql_source2 connector scenario:
+        - MySQL database: librarydb
+        - Tables: member, MixedCaseTable
+        - No topic.prefix configured
+        - Expected: topic names should be just table names, not database.table
+        """
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        pipeline = TransformPipeline([])
+
+        # Scenario that was failing: MySQL tables without topic prefix
+        test_cases = [
+            ("librarydb", "member"),
+            ("librarydb", "MixedCaseTable"),
+            ("librarydb", "book"),
+        ]
+
+        for schema, table in test_cases:
+            result = pipeline._generate_original_topic(
+                schema=schema,
+                table_name=table,
+                topic_prefix="",  # Key: no topic prefix
+            )
+
+            # Critical assertion: should be just table name
+            assert result == table, (
+                f"Integration test regression: {schema}.{table} without topic prefix "
+                f"should generate '{table}', but got '{result}'"
+            )
+
+    def test_kafka_connect_documentation_compliance(self) -> None:
+        """
+        Test compliance with official Kafka Connect JDBC Source documentation.
+
+        According to: https://docs.confluent.io/kafka-connectors/jdbc/current/source-connector/source_config_options.html#topic-prefix
+        - topic.prefix: "Prefix to prepend to table names to generate topic names"
+        - When empty: topic name = table name
+        - When set: topic name = prefix + table (possibly with schema)
+        """
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        pipeline = TransformPipeline([])
+
+        # Documentation compliance test cases
+        test_scenarios = [
+            # (schema, table, prefix, expected_result, description)
+            (
+                "",
+                "simple_table",
+                "",
+                "simple_table",
+                "No schema, no prefix -> table name",
+            ),
+            ("db", "table1", "", "table1", "With schema, no prefix -> table name only"),
+            (
+                "",
+                "table1",
+                "prefix-",
+                "prefix-.table1",
+                "No schema, with prefix -> prefix.table",
+            ),
+            (
+                "schema",
+                "table1",
+                "prefix-",
+                "prefix-.schema.table1",
+                "With schema and prefix -> prefix.schema.table",
+            ),
+        ]
+
+        for schema, table, prefix, expected, description in test_scenarios:
+            result = pipeline._generate_original_topic(
+                schema=schema, table_name=table, topic_prefix=prefix
+            )
+
+            assert result == expected, (
+                f"Kafka Connect documentation compliance failed: {description} "
+                f"Expected '{expected}', got '{result}'"
+            )
