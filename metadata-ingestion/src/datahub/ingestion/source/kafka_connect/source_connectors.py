@@ -540,7 +540,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         lineages: List[KafkaConnectLineage] = []
         if not topic_names:
             topic_names = self.connector_manifest.topic_names
-        table_name_tuples: List[TableId] = self.get_table_names()
+        table_ids: List[TableId] = self.get_table_names()
         for topic in topic_names:
             # All good for NO_TRANSFORM or (SINGLE_TRANSFORM and KNOWN_NONTOPICROUTING_TRANSFORM) or (not SINGLE_TRANSFORM and all(KNOWN_NONTOPICROUTING_TRANSFORM))
             source_table: str = (
@@ -552,35 +552,24 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
             # include schema name for three-level hierarchies
             if has_three_level_hierarchy(source_platform):
-                # For schema.table format, find matching table tuple
+                # Handle both cases: source_table might be just 'table' or 'schema.table'
+                table_id = None
                 if "." in source_table:
                     # source_table is already in schema.table format
                     schema_part, table_part = source_table.rsplit(".", 1)
-                    table_name_tuple = next(
-                        iter(
-                            [
-                                t
-                                for t in table_name_tuples
-                                if t.schema == schema_part and t.table == table_part
-                            ]
-                        ),
-                        None,
-                    )
+                    for t in table_ids:
+                        if t and t.table == table_part and t.schema == schema_part:
+                            table_id = t
+                            break
                 else:
-                    # source_table is just table name, look for matching table
-                    table_name_tuple = next(
-                        iter(
-                            [
-                                t
-                                for t in table_name_tuples
-                                if t and t.table == source_table
-                            ]
-                        ),
-                        None,
-                    )
+                    # source_table is just table name
+                    for t in table_ids:
+                        if t and t.table == source_table:
+                            table_id = t
+                            break
 
-                if table_name_tuple and table_name_tuple.schema:
-                    source_table = f"{table_name_tuple.schema}.{table_name_tuple.table}"
+                if table_id and table_id.schema:
+                    source_table = f"{table_id.schema}.{table_id.table}"
                 else:
                     include_source_dataset = False
                     self.report.warning(
