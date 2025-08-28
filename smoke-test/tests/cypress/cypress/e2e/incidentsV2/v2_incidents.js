@@ -181,9 +181,9 @@ describe("incidents", () => {
     );
 
     // Wait for the page to load properly and button to be interactive
-    cy.findByTestId("create-incident-btn-main-with-siblings", { timeout: 10000 }).should(
-      "be.visible",
-    );
+    cy.findByTestId("create-incident-btn-main-with-siblings", {
+      timeout: 10000,
+    }).should("be.visible");
 
     // Click the button (this opens a dropdown when separate_siblings=false and siblings exist)
     cy.findByTestId("create-incident-btn-main-with-siblings").click();
