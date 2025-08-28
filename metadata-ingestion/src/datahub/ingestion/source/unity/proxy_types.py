@@ -337,3 +337,25 @@ class Notebook:
                 "upstreams": frozenset([*notebook.upstreams, upstream]),
             }
         )
+
+
+@dataclass
+class Model:
+    id: str
+    name: str
+    description: Optional[str]
+    schema_name: str
+    catalog_name: str
+    created_at: datetime
+    updated_at: datetime
+    # tags: Optional[List[str]]
+
+
+@dataclass
+class ModelVersion:
+    id: str
+    model: Model
+    version: str
+    aliases: List[str]
+    description: Optional[str]
+    # tags: Optional[List[str]]
