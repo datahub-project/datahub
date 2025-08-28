@@ -158,15 +158,19 @@ class TestExcelFile(unittest.TestCase):
         mock_wb.__getitem__.return_value = mock_sheet
         mock_wb.properties = self.mock_properties
 
-        with patch(
-            "datahub.ingestion.source.excel.excel_file.ExcelFile.find_header_row",
-            return_value=0,
-        ), patch(
-            "datahub.ingestion.source.excel.excel_file.ExcelFile.find_footer_start",
-            return_value=2,
-        ), patch(
-            "datahub.ingestion.source.excel.excel_file.ExcelFile.extract_metadata",
-            return_value={},
+        with (
+            patch(
+                "datahub.ingestion.source.excel.excel_file.ExcelFile.find_header_row",
+                return_value=0,
+            ),
+            patch(
+                "datahub.ingestion.source.excel.excel_file.ExcelFile.find_footer_start",
+                return_value=2,
+            ),
+            patch(
+                "datahub.ingestion.source.excel.excel_file.ExcelFile.extract_metadata",
+                return_value={},
+            ),
         ):
             excel_file = ExcelFile(self.filename, self.bytes_data, self.report)
             excel_file.wb = mock_wb

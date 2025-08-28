@@ -87,13 +87,16 @@ def test_excel_abs(
     test_resources_dir = pytestconfig.rootpath / "tests/integration/excel"
     mock_blob_service_client = mock_azure_blob_setup["mock_blob_service_client"]
 
-    with patch(
-        "azure.storage.blob.BlobServiceClient.__init__", return_value=None
-    ), patch(
-        "azure.storage.blob.BlobServiceClient", return_value=mock_blob_service_client
-    ), patch(
-        "datahub.ingestion.source.azure.azure_common.AzureConnectionConfig.get_blob_service_client",
-        return_value=mock_blob_service_client,
+    with (
+        patch("azure.storage.blob.BlobServiceClient.__init__", return_value=None),
+        patch(
+            "azure.storage.blob.BlobServiceClient",
+            return_value=mock_blob_service_client,
+        ),
+        patch(
+            "datahub.ingestion.source.azure.azure_common.AzureConnectionConfig.get_blob_service_client",
+            return_value=mock_blob_service_client,
+        ),
     ):
         pipeline = Pipeline.create(
             {
