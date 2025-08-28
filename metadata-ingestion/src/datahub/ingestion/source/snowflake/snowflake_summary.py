@@ -86,6 +86,7 @@ class SnowflakeSummarySource(Source):
                 filter_config=self.config,
                 structured_reporter=self.report,
             ),
+            fetch_views_from_information_schema=False,  # we haven't enabled this config for SnowflakeSummarySource
         )
 
         # Databases.

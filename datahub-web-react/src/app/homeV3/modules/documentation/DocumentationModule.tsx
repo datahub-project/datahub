@@ -18,7 +18,7 @@ const StyledEditor = styled(Editor)`
 const DocumentationModule = (props: ModuleProps) => {
     const content = props.module.properties.params.richTextParams?.content;
     return (
-        <LargeModule {...props}>
+        <LargeModule {...props} dataTestId="documentation-module">
             <StyledEditor content={content} readOnly />
         </LargeModule>
     );

@@ -91,6 +91,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SiblingsClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -98,6 +99,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingDebugInfo,
@@ -372,6 +374,14 @@ class DBTCommonConfig(
         default=True,
         description="Whether to add database name to the table urn. "
         "Set to False to skip it for engines like AWS Athena where it's not required.",
+    )
+
+    dbt_is_primary_sibling: bool = Field(
+        default=True,
+        description="Experimental: Controls sibling relationship primary designation between dbt entities and target platform entities. "
+        "When True (default), dbt entities are primary and target platform entities are secondary. "
+        "When False, target platform entities are primary and dbt entities are secondary. "
+        "Uses aspect patches for precise control. Requires DataHub server 1.3.0+.",
     )
 
     drop_duplicate_sources: bool = Field(
@@ -1476,6 +1486,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
+                # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
+                if self._should_create_sibling_relationships(node):
+                    # Get the target platform URN
+                    target_platform_urn = node.get_urn(
+                        self.config.target_platform,
+                        self.config.env,
+                        self.config.target_platform_instance,
+                    )
+
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=SiblingsClass(
+                            siblings=[target_platform_urn],
+                            primary=self.config.dbt_is_primary_sibling,
+                        ),
+                    ).as_workunit()
+
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
@@ -1578,6 +1605,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # We are creating empty node for platform and only add lineage/keyaspect.
             if not node.exists_in_target_platform:
                 continue
+
+            # Emit sibling patch for target platform entity BEFORE any other aspects.
+            # This ensures the hook can detect explicit primary settings when processing later aspects.
+            if self._should_create_sibling_relationships(node):
+                # Get the dbt platform URN
+                dbt_platform_urn = node.get_urn(
+                    DBT_PLATFORM,
+                    self.config.env,
+                    self.config.platform_instance,
+                )
+
+                # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
+                target_patch = DatasetPatchBuilder(node_datahub_urn)
+                target_patch.add_sibling(
+                    dbt_platform_urn, primary=not self.config.dbt_is_primary_sibling
+                )
+
+                yield from auto_workunit(
+                    MetadataWorkUnit(
+                        id=MetadataWorkUnit.generate_workunit_id(mcp),
+                        mcp_raw=mcp,
+                        is_primary_source=False,  # Not authoritative over warehouse metadata
+                    )
+                    for mcp in target_patch.build()
+                )
 
             # This code block is run when we are generating entities of platform type.
             # We will not link the platform not to the dbt node for type "source" because
@@ -2133,6 +2185,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for existing_term in existing_terms_class.terms:
                     term_id_set.add(existing_term.urn)
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
+
+    def _should_create_sibling_relationships(self, node: DBTNode) -> bool:
+        """
+        Determines whether to emit sibling relationships for a dbt node.
+
+        Sibling relationships (both dbt entity's aspect and target entity's patch) are only
+        emitted when dbt_is_primary_sibling=False to establish explicit primary/secondary
+        relationships. When dbt_is_primary_sibling=True,
+        the SiblingAssociationHook handles sibling creation automatically.
+
+        Args:
+            node: The dbt node to evaluate
+
+        Returns:
+            True if sibling patches should be emitted for this node
+        """
+        # Only create siblings for entities that exist in target platform
+        if not node.exists_in_target_platform:
+            return False
+
+        # Only emit patches when explicit primary/secondary control is needed
+        return self.config.dbt_is_primary_sibling is False
 
     def get_report(self):
         return self.report

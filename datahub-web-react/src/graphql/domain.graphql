@@ -6,6 +6,9 @@ query getDomain($urn: String!) {
         properties {
             name
             description
+            createdOn {
+                time
+            }
         }
         parentDomains {
             ...parentDomainsFields
@@ -48,29 +51,51 @@ query getDomain($urn: String!) {
     }
 }
 
+fragment ListDomain on Domain {
+    urn
+    id
+    type
+    properties {
+        name
+        description
+    }
+    parentDomains {
+        ...parentDomainsFields
+    }
+    ownership {
+        ...ownershipFields
+    }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    ...domainEntitiesFields
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+}
+
 query listDomains($input: ListDomainsInput!) {
     listDomains(input: $input) {
         start
         count
         total
         domains {
-            urn
-            id
-            type
-            properties {
-                name
-                description
+            ...ListDomain
+        }
+    }
+}
+
+query scrollAcrossDomains($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        nextScrollId
+        count
+        total
+        searchResults {
+            entity {
+                ... on Domain {
+                    ...ListDomain
+                }
             }
-            parentDomains {
-                ...parentDomainsFields
-            }
-            ownership {
-                ...ownershipFields
-            }
-            displayProperties {
-                ...displayPropertiesFields
-            }
-            ...domainEntitiesFields
         }
     }
 }

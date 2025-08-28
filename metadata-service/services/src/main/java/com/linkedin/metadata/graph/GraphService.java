@@ -219,6 +219,7 @@ public interface GraphService {
    * @param relationshipFilter
    * @param sortCriteria
    * @param scrollId
+   * @param keepAlive
    * @param count
    * @param startTimeMillis
    * @param endTimeMillis
@@ -235,6 +236,7 @@ public interface GraphService {
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
@@ -249,6 +251,7 @@ public interface GraphService {
             relationshipFilter),
         sortCriteria,
         scrollId,
+        keepAlive,
         count,
         startTimeMillis,
         endTimeMillis);
@@ -260,6 +263,7 @@ public interface GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);

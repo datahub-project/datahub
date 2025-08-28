@@ -174,6 +174,7 @@ class HiveMetastore(BasicSQLAlchemyConfig):
     "Enabled by default",
     subtype_modifier=[
         SourceCapabilityModifier.CATALOG,
+        SourceCapabilityModifier.SCHEMA,
     ],
 )
 class HiveMetastoreSource(SQLAlchemySource):

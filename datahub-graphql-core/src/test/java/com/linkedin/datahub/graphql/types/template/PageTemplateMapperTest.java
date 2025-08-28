@@ -113,4 +113,20 @@ public class PageTemplateMapperTest {
         result.getProperties().getLastModified().getActor().getUrn(),
         lastModified.getActor().toString());
   }
+
+  @Test
+  public void testPageTemplateMapperWithoutRequiredAspect() {
+    // Create test entity response
+    Urn templateUrn = UrnUtils.getUrn("urn:li:dataHubPageTemplate:test-template");
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(templateUrn);
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    entityResponse.setAspects(aspectMap);
+
+    // Test mapping
+    DataHubPageTemplate result = PageTemplateMapper.map(null, entityResponse);
+
+    // Verify result
+    assertNull(result);
+  }
 }

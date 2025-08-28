@@ -250,6 +250,11 @@ type StructuredPropertiesEntry {
   The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
