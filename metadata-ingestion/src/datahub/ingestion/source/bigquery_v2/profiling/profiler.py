@@ -3,9 +3,7 @@
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, cast
-
-from google.cloud.bigquery import QueryJobConfig, Row
+from typing import Dict, Iterable, List, Optional, Tuple, cast
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
@@ -14,8 +12,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Repor
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery import (
     PartitionDiscovery,
-    PartitionInfo,
-    PartitionResult,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
 
@@ -165,18 +161,7 @@ WHERE {partition_where}"""
             )
             return None
 
-        partition_filters = self.partition_discovery.get_required_partition_filters(
-            bq_table, db_name, schema_name, self.query_executor.execute_query_safely
-        )
-
-        if partition_filters is None:
-            self.report.report_warning(
-                title="Profile skipped for partitioned table",
-                message="Could not construct partition filters - required for partition elimination",
-                context=profile_request.pretty_name,
-            )
-            return None
-
+        # Check if partition profiling is enabled (applies to both regular and external tables)
         if not self.config.profiling.partition_profiling_enabled:
             logger.debug(
                 f"{profile_request.pretty_name} is skipped because profiling.partition_profiling_enabled property is disabled"
@@ -186,32 +171,54 @@ WHERE {partition_where}"""
             )
             return None
 
-        if partition_filters:
-            validated_filters = validate_and_filter_expressions(
-                partition_filters, "profile request"
+        # For external tables, defer expensive partition discovery to parallel phase
+        if bq_table.external:
+            # Store info needed for deferred partition discovery
+            profile_request.needs_partition_discovery = True  # type: ignore[attr-defined]
+            profile_request.bq_table = bq_table  # type: ignore[attr-defined]
+            profile_request.db_name = db_name  # type: ignore[attr-defined]
+            profile_request.schema_name = schema_name  # type: ignore[attr-defined]
+        else:
+            # For regular tables, do partition discovery now (usually fast)
+            partition_filters = self.partition_discovery.get_required_partition_filters(
+                bq_table, db_name, schema_name, self.query_executor.execute_query_safely
             )
 
-            if validated_filters:
-                # Apply partition date windowing if configured
-                windowed_filters = self._apply_partition_date_windowing(
-                    validated_filters, bq_table
+            if partition_filters is None:
+                self.report.report_warning(
+                    title="Profile skipped for partitioned table",
+                    message="Could not construct partition filters - required for partition elimination",
+                    context=profile_request.pretty_name,
+                )
+                return None
+
+            # Apply partition filters and windowing for regular tables
+            if partition_filters:
+                validated_filters = validate_and_filter_expressions(
+                    partition_filters, "profile request"
                 )
 
-                partition_where = " AND ".join(windowed_filters)
-                safe_table_ref = build_safe_table_reference(
-                    db_name, schema_name, bq_table.name
-                )
+                if validated_filters:
+                    # Apply partition date windowing if configured
+                    windowed_filters = self._apply_partition_date_windowing(
+                        validated_filters, bq_table
+                    )
 
-                custom_sql = f"""SELECT * 
+                    partition_where = " AND ".join(windowed_filters)
+                    safe_table_ref = build_safe_table_reference(
+                        db_name, schema_name, bq_table.name
+                    )
+
+                    custom_sql = f"""SELECT * 
 FROM {safe_table_ref}
 WHERE {partition_where}"""
 
-                logger.debug(
-                    f"Using partition filters (with windowing): {partition_where}"
-                )
-                profile_request.batch_kwargs.update(
-                    dict(custom_sql=custom_sql, partition_handling="true")
-                )
+                    logger.debug(
+                        f"Using partition filters (with windowing): {partition_where}"
+                    )
+                    profile_request.batch_kwargs.update(
+                        dict(custom_sql=custom_sql, partition_handling="true")
+                    )
 
         return profile_request
 
@@ -248,227 +255,148 @@ WHERE {partition_where}"""
         if len(profile_requests) == 0:
             return
 
-        yield from self.generate_profile_workunits(
+        yield from self.generate_profile_workunits_with_deferred_partitions(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         )
 
+    def generate_profile_workunits_with_deferred_partitions(
+        self,
+        profile_requests: List[TableProfilerRequest],
+        max_workers: int,
+        platform: str,
+        profiler_args: Dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate profile workunits with deferred partition discovery for external tables."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def process_external_table_request(
+            request: TableProfilerRequest,
+        ) -> Optional[TableProfilerRequest]:
+            """Process a single external table request with partition discovery in parallel."""
+            if not hasattr(request, "needs_partition_discovery") or not getattr(
+                request, "needs_partition_discovery", False
+            ):
+                return request
+
+            try:
+                # Do the expensive partition discovery in this parallel thread
+                bq_table = request.bq_table  # type: ignore[attr-defined]
+                db_name = request.db_name  # type: ignore[attr-defined]
+                schema_name = request.schema_name  # type: ignore[attr-defined]
+
+                partition_filters = (
+                    self.partition_discovery.get_required_partition_filters(
+                        bq_table,
+                        db_name,
+                        schema_name,
+                        self.query_executor.execute_query_safely,
+                    )
+                )
+
+                if partition_filters is None:
+                    logger.warning(
+                        f"Could not construct partition filters for external table {request.pretty_name} - skipping profiling"
+                    )
+                    return None
+
+                # Apply partition filters and windowing for external tables
+                if partition_filters:
+                    validated_filters = validate_and_filter_expressions(
+                        partition_filters, "external table profile request"
+                    )
+
+                    if validated_filters:
+                        # Apply partition date windowing if configured
+                        windowed_filters = self._apply_partition_date_windowing(
+                            validated_filters, bq_table
+                        )
+
+                        partition_where = " AND ".join(windowed_filters)
+                        safe_table_ref = build_safe_table_reference(
+                            db_name, schema_name, bq_table.name
+                        )
+
+                        custom_sql = f"""SELECT * 
+FROM {safe_table_ref}
+WHERE {partition_where}"""
+
+                        logger.debug(
+                            f"Using partition filters for external table (with windowing): {partition_where}"
+                        )
+                        request.batch_kwargs.update(
+                            dict(custom_sql=custom_sql, partition_handling="true")
+                        )
+
+                # Clean up temporary attributes
+                delattr(request, "needs_partition_discovery")
+                delattr(request, "bq_table")
+                delattr(request, "db_name")
+                delattr(request, "schema_name")
+
+                return request
+
+            except Exception as e:
+                logger.error(
+                    f"Error processing partition discovery for external table {request.pretty_name}: {e}"
+                )
+                return None
+
+        # Separate external table requests that need parallel processing
+        external_requests = [
+            req for req in profile_requests if hasattr(req, "needs_partition_discovery")
+        ]
+        regular_requests = [
+            req
+            for req in profile_requests
+            if not hasattr(req, "needs_partition_discovery")
+        ]
+
+        processed_requests = list(
+            regular_requests
+        )  # Regular requests are already processed
+
+        if external_requests:
+            logger.info(
+                f"Processing partition discovery for {len(external_requests)} external table(s) in parallel"
+            )
+
+            # Process external table partition discovery in parallel
+            with ThreadPoolExecutor(
+                max_workers=min(max_workers, len(external_requests))
+            ) as executor:
+                future_to_request = {
+                    executor.submit(process_external_table_request, req): req
+                    for req in external_requests
+                }
+
+                for future in as_completed(future_to_request):
+                    result = future.result()
+                    if result is not None:
+                        processed_requests.append(result)
+
+        # Now run the regular profiling with all processed requests
+        if processed_requests:
+            yield from super().generate_profile_workunits(
+                processed_requests,
+                max_workers=max_workers,
+                platform=platform,
+                profiler_args=profiler_args,
+            )
+
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         return BigqueryTableIdentifier(
             project_id=db_name, dataset=schema_name, table=table_name
         ).get_table_name()
 
-    def execute_query(self, query: str) -> List[Row]:
-        return self.query_executor.execute_query(query)
-
-    def execute_query_with_config(
-        self, query: str, job_config: QueryJobConfig
-    ) -> List[Row]:
-        return self.query_executor.execute_query_with_config(query, job_config)
-
-    def _get_most_populated_partitions(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: List[str],
-        max_results: int = 5,
-    ) -> PartitionResult:
-        return self.partition_discovery.get_most_populated_partitions(
-            table,
-            project,
-            schema,
-            partition_columns,
-            self.query_executor.execute_query_safely,
-            max_results,
-        )
-
-    def _get_required_partition_filters(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-    ) -> Optional[List[str]]:
-        return self.partition_discovery.get_required_partition_filters(
-            table, project, schema, self.query_executor.execute_query_safely
-        )
-
-    def _build_safe_table_reference(
-        self, project: str, schema: str, table_name: str
-    ) -> str:
-        return build_safe_table_reference(project, schema, table_name)
-
-    def _extract_partition_info_from_error(self, error_message: str) -> PartitionInfo:
-        return self.partition_discovery._extract_partition_info_from_error(
-            error_message
-        )
-
-    def _validate_and_filter_expressions(
-        self, filters: List[str], context: str = ""
-    ) -> List[str]:
-        """
-        Validate a list of filter expressions and return only safe ones.
-
-        This delegates to our security module.
-
-        Args:
-            filters: List of filter expressions to validate
-            context: Context for logging (optional)
-
-        Returns:
-            List of validated filter expressions
-        """
-        return validate_and_filter_expressions(filters, context)
-
-    def get_effective_timeout(self) -> int:
-        """
-        Get the effective timeout for query operations.
-
-        Returns:
-            Timeout in seconds from configuration
-        """
-        return self.query_executor.get_effective_timeout()
-
-    def test_query_execution(self, query: str, context: str = "") -> bool:
-        """
-        Test if a query can be executed without actually running it.
-
-        This delegates to our QueryExecutor component.
-
-        Args:
-            query: SQL query to test
-            context: Optional context for logging
-
-        Returns:
-            True if query is valid and can be executed, False otherwise
-        """
-        return self.query_executor.test_query_execution(query, context)
-
-    def is_query_too_expensive(
-        self, query: str, max_bytes: int = 1_000_000_000
-    ) -> bool:
-        """
-        Check if a query would process too much data.
-
-        This delegates to our QueryExecutor component.
-
-        Args:
-            query: SQL query to check
-            max_bytes: Maximum allowed bytes to process
-
-        Returns:
-            True if query would exceed the byte limit
-        """
-        return self.query_executor.is_query_too_expensive(query, max_bytes)
-
     def __str__(self) -> str:
         """String representation of the profiler."""
-        return f"BigqueryProfiler(project={getattr(self.config, 'project_id', 'unknown')}, timeout={self.get_effective_timeout()}s)"
+        return f"BigqueryProfiler(project={getattr(self.config, 'project_id', 'unknown')}, timeout={self.query_executor.get_effective_timeout()}s)"
 
     def __repr__(self) -> str:
         return f"BigqueryProfiler(config={self.config.__class__.__name__})"
-
-    # Methods expected by unit tests - delegate to appropriate modules
-    def _get_function_patterns(self) -> List[str]:
-        return self.partition_discovery._get_function_patterns()
-
-    def _extract_simple_column_names(self, partition_clause: str) -> List[str]:
-        return self.partition_discovery._extract_simple_column_names(partition_clause)
-
-    def _extract_function_based_column_names(self, partition_clause: str) -> List[str]:
-        return self.partition_discovery._extract_function_based_column_names(
-            partition_clause
-        )
-
-    def _extract_mixed_column_names(self, partition_clause: str) -> List[str]:
-        return self.partition_discovery._extract_mixed_column_names(partition_clause)
-
-    def _remove_duplicate_columns(self, column_names: List[str]) -> List[str]:
-        return self.partition_discovery._remove_duplicate_columns(column_names)
-
-    def _extract_column_names_from_partition_clause(
-        self, partition_clause: str
-    ) -> List[str]:
-        return self.partition_discovery._extract_column_names_from_partition_clause(
-            partition_clause
-        )
-
-    def _process_time_based_columns(
-        self,
-        time_based_columns: Set[str],
-        current_time: datetime,
-        column_data_types: Dict[str, str],
-    ) -> List[str]:
-        # This method was moved to partition_discovery but with different signature
-        # For now, return empty list - tests should be updated to not call this directly
-        return []
-
-    def _get_fallback_partition_filters(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        required_columns: List[str],
-    ) -> List[str]:
-        return self.partition_discovery._get_fallback_partition_filters(
-            table,
-            project,
-            schema,
-            required_columns,
-        )
-
-    def _get_date_filters_for_query(self, required_columns: List[str]) -> List[str]:
-        # Stub method for tests - actual logic is in partition_discovery
-        now = datetime.now() - timedelta(days=1)  # Use yesterday as default
-        filters = []
-        for col in required_columns:
-            if col.lower() == "year":
-                filters.append(f"`{col}` = '{now.year}'")
-            elif col.lower() == "month":
-                filters.append(f"`{col}` = '{now.month:02d}'")
-            elif col.lower() == "day":
-                filters.append(f"`{col}` = '{now.day:02d}'")
-        return filters
-
-    def _try_date_filters(
-        self,
-        project: str,
-        schema: str,
-        table: Union[BigqueryTable, str],
-        filters: Optional[List[str]] = None,
-    ) -> Tuple[List[str], Dict[str, Union[str, int]], bool]:
-        # Stub method for tests
-        if filters is None:
-            filters = []
-        return filters, {"test": "value"}, True
-
-    def _create_partition_filter_from_value(
-        self, col_name: str, val: Union[str, int, float], data_type: str = "DATE"
-    ) -> str:
-        return self.partition_discovery._create_partition_filter_from_value(
-            col_name, val, data_type
-        )
-
-    def _extract_partition_values_from_filters(
-        self, filters: List[str]
-    ) -> Dict[str, Union[str, int, float]]:
-        # Simple implementation for tests
-        values: Dict[str, Union[str, int, float]] = {}
-        for filter_str in filters:
-            if "=" in filter_str:
-                parts = filter_str.split("=", 1)
-                col_part = parts[0].strip().strip("`")
-                value_part = parts[1].strip().strip("'\"")
-                # Try to convert to appropriate type
-                if value_part.isdigit():
-                    values[col_part] = int(value_part)
-                elif value_part.replace(".", "", 1).isdigit() and "." in value_part:
-                    values[col_part] = float(value_part)
-                else:
-                    values[col_part] = value_part
-        return values
 
     def _should_skip_profiling_due_to_staleness(self, table: BigqueryTable) -> bool:
         """
