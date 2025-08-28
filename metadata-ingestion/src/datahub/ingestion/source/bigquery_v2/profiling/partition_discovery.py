@@ -1197,8 +1197,9 @@ LIMIT @limit_rows"""
                 filters = []
                 for col in required_columns:
                     if self._is_date_like_column(col):
+                        # Use DATE() function for maximum compatibility with different date column types
                         date_str = test_date.strftime("%Y-%m-%d")
-                        filters.append(f"`{col}` = '{date_str}'")
+                        filters.append(f"`{col}` = DATE('{date_str}')")
                     elif col.lower() == "year":
                         filters.append(f"`{col}` = '{test_date.year}'")
                     elif col.lower() == "month":
@@ -1338,25 +1339,29 @@ LIMIT @limit_rows"""
         now = datetime.now(timezone.utc)
         candidates = []
 
-        # 1. Tomorrow (for future-dated or scheduled data)
-        tomorrow = now + timedelta(days=1)
-        candidates.append((tomorrow, "tomorrow (future-dated data)"))
+        # 1. Today (current date - most likely to have data)
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        candidates.append((today, "today (current date)"))
 
-        # 2. Yesterday (most common case)
+        # 2. Yesterday (very common case)
         yesterday = now - timedelta(days=1)
         candidates.append((yesterday, "yesterday"))
 
-        # 3. One week ago (common for weekly ETL processes)
+        # 3. Two days ago (recent data backup)
+        two_days_ago = now - timedelta(days=2)
+        candidates.append((two_days_ago, "2 days ago"))
+
+        # 4. One week ago (common for weekly ETL processes)
         week_ago = now - timedelta(days=7)
         candidates.append((week_ago, "7 days ago"))
 
-        # 4. Last day of previous month (month-end processing)
+        # 5. Last day of previous month (month-end processing)
         # Get first day of current month, then subtract 1 day
         first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         last_day_prev_month = first_of_month - timedelta(days=1)
         candidates.append((last_day_prev_month, "last day of previous month"))
 
-        # 5. One month ago (same day)
+        # 6. One month ago (same day)
         try:
             if now.month == 1:
                 one_month_ago = now.replace(year=now.year - 1, month=12)
@@ -1376,16 +1381,8 @@ LIMIT @limit_rows"""
 
         candidates.append((one_month_ago, "one month ago"))
 
-        # 6. Today (current date - might have partial data)
-        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        candidates.append((today, "today (current date)"))
-
         # 7. First day of current month (monthly processing)
         candidates.append((first_of_month, "first day of current month"))
-
-        # 8. Two days ago (backup for recent data)
-        two_days_ago = now - timedelta(days=2)
-        candidates.append((two_days_ago, "2 days ago"))
 
         logger.debug(
             f"Generated {len(candidates)} strategic date candidates for partition discovery"

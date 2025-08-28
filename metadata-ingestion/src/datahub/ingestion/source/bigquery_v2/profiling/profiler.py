@@ -1,7 +1,8 @@
 """BigQuery profiler with modular security and partition handling."""
 
 import logging
-from datetime import datetime, timedelta
+import re
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 from google.cloud.bigquery import QueryJobConfig, Row
@@ -136,6 +137,10 @@ WHERE {partition_where}"""
 
         bq_table = cast(BigqueryTable, table)
 
+        # Check if profiling should be skipped due to table staleness
+        if self._should_skip_profiling_due_to_staleness(bq_table):
+            return None
+
         if (
             hasattr(bq_table, "partition_info")
             and bq_table.partition_info
@@ -187,7 +192,12 @@ WHERE {partition_where}"""
             )
 
             if validated_filters:
-                partition_where = " AND ".join(validated_filters)
+                # Apply partition date windowing if configured
+                windowed_filters = self._apply_partition_date_windowing(
+                    validated_filters, bq_table
+                )
+
+                partition_where = " AND ".join(windowed_filters)
                 safe_table_ref = build_safe_table_reference(
                     db_name, schema_name, bq_table.name
                 )
@@ -196,7 +206,9 @@ WHERE {partition_where}"""
 FROM {safe_table_ref}
 WHERE {partition_where}"""
 
-                logger.debug(f"Using partition filters: {partition_where}")
+                logger.debug(
+                    f"Using partition filters (with windowing): {partition_where}"
+                )
                 profile_request.batch_kwargs.update(
                     dict(custom_sql=custom_sql, partition_handling="true")
                 )
@@ -457,3 +469,236 @@ WHERE {partition_where}"""
                 else:
                     values[col_part] = value_part
         return values
+
+    def _should_skip_profiling_due_to_staleness(self, table: BigqueryTable) -> bool:
+        """
+        Check if profiling should be skipped due to table staleness.
+
+        Uses last_altered timestamp for both regular and external tables.
+        BigQuery INFORMATION_SCHEMA maps last_modified_time to last_altered for both table types.
+
+        Args:
+            table: The BigQuery table object
+
+        Returns:
+            True if profiling should be skipped, False otherwise
+        """
+        if not self.config.profiling.skip_stale_tables:
+            return False
+
+        now = datetime.now(timezone.utc)
+        threshold_date = now - timedelta(
+            days=self.config.profiling.staleness_threshold_days
+        )
+
+        # Check last modification time
+        last_modified = None
+
+        # For both regular and external tables, BigQuery maps last_modified_time to last_altered
+        # This works for both table types since BigQuery INFORMATION_SCHEMA provides
+        # last_modified_time for both regular and external tables
+        if table.last_altered:
+            last_modified = table.last_altered
+        else:
+            # If no last_altered time available, default to not skipping (conservative approach)
+            table_type = "external table" if table.external else "table"
+            logger.debug(
+                f"{table_type.title()} {table.name} has no last_altered time, will not skip profiling"
+            )
+            return False
+
+        # Convert to timezone-aware datetime if needed
+        if last_modified.tzinfo is None:
+            last_modified = last_modified.replace(tzinfo=timezone.utc)
+
+        is_stale = last_modified < threshold_date
+
+        if is_stale:
+            days_since_modified = (now - last_modified).days
+            logger.info(
+                f"Skipping profiling for stale table {table.name} - "
+                f"last modified {days_since_modified} days ago ({last_modified.strftime('%Y-%m-%d')})"
+            )
+            return True
+
+        logger.debug(
+            f"Table {table.name} is fresh - last modified {last_modified.strftime('%Y-%m-%d')}, "
+            f"will proceed with profiling"
+        )
+        return False
+
+    def _apply_partition_date_windowing(
+        self, partition_filters: List[str], table: BigqueryTable
+    ) -> List[str]:
+        """
+        Apply partition date windowing to limit profiling to recent partitions.
+
+        This adds additional date range filters to focus profiling on recent data,
+        improving performance and relevance of profiling results.
+
+        Args:
+            partition_filters: List of existing partition filter expressions
+            table: The BigQuery table being profiled
+
+        Returns:
+            List of partition filters with date windowing applied
+        """
+        if not self.config.profiling.partition_datetime_window_days:
+            # Date windowing is disabled
+            return partition_filters
+
+        window_days = self.config.profiling.partition_datetime_window_days
+        windowed_filters = partition_filters.copy()
+
+        # Find date-like columns in the partition filters
+        date_columns = self._extract_date_columns_from_filters(partition_filters)
+
+        if not date_columns:
+            # No date columns found, return original filters
+            logger.debug(
+                f"No date columns found in partition filters for {table.name}, skipping date windowing"
+            )
+            return partition_filters
+
+        # Get the reference date from the partition filters or use current date
+        reference_date = self._get_reference_date_from_filters(
+            partition_filters, date_columns
+        )
+        if not reference_date:
+            reference_date = datetime.now(timezone.utc).date()
+
+        # Calculate the date window
+        start_date = reference_date - timedelta(days=window_days)
+
+        # Add date range filters for each date column
+        for col_name in date_columns:
+            # Use flexible date formatting based on column type
+            start_date_str = self._format_date_for_bigquery_column(start_date, col_name)
+            end_date_str = self._format_date_for_bigquery_column(
+                reference_date, col_name
+            )
+
+            # Add range filter to limit the date window
+            range_filter = (
+                f"`{col_name}` >= {start_date_str} AND `{col_name}` <= {end_date_str}"
+            )
+            windowed_filters.append(range_filter)
+
+        logger.debug(
+            f"Applied {window_days}-day partition window for {table.name}: "
+            f"{start_date.strftime('%Y-%m-%d')} to {reference_date.strftime('%Y-%m-%d')}"
+        )
+
+        return windowed_filters
+
+    def _extract_date_columns_from_filters(
+        self, partition_filters: List[str]
+    ) -> List[str]:
+        """Extract date-like column names from partition filter expressions."""
+        date_columns = []
+
+        # Common date column patterns
+        date_column_patterns = [
+            "date",
+            "dt",
+            "partition_date",
+            "date_partition",
+            "event_date",
+            "created_date",
+            "updated_date",
+            "timestamp",
+            "datetime",
+            "time",
+            "created_at",
+            "modified_at",
+            "updated_at",
+            "event_time",
+        ]
+
+        for filter_expr in partition_filters:
+            for pattern in date_column_patterns:
+                if f"`{pattern}`" in filter_expr.lower():
+                    if pattern not in date_columns:
+                        date_columns.append(pattern)
+
+        return date_columns
+
+    def _get_reference_date_from_filters(
+        self, partition_filters: List[str], date_columns: List[str]
+    ) -> Optional[date]:
+        """Extract the reference date from existing partition filters."""
+
+        for filter_expr in partition_filters:
+            for col_name in date_columns:
+                # Look for date patterns like `date` = '2025-08-28'
+                pattern = rf"`{col_name}`\s*=\s*'(\d{{4}}-\d{{2}}-\d{{2}})'"
+                match = re.search(pattern, filter_expr, re.IGNORECASE)
+                if match:
+                    try:
+                        date_str = match.group(1)
+                        return datetime.strptime(date_str, "%Y-%m-%d").date()
+                    except ValueError:
+                        continue
+
+        return None
+
+    def _format_date_for_bigquery_column(self, date_obj: date, col_name: str) -> str:
+        """
+        Format a date for BigQuery based on the likely column type.
+
+        Uses the most compatible format for different BigQuery partition column types:
+        - DATE columns: '2025-08-28'
+        - DATETIME/TIMESTAMP columns: DATE('2025-08-28') function for compatibility
+        - Unknown columns: DATE('2025-08-28') as safest option
+
+        Args:
+            date_obj: Date to format
+            col_name: Column name (used to infer type)
+
+        Returns:
+            Formatted date string suitable for BigQuery queries
+        """
+        date_str = date_obj.strftime("%Y-%m-%d")
+
+        # For most date-like columns, use DATE() function for maximum compatibility
+        # This works for DATE, DATETIME, and TIMESTAMP columns
+        if self._is_likely_timestamp_column(col_name):
+            # For timestamp columns, use TIMESTAMP() function with start/end of day
+            if col_name.endswith("_start") or "start" in col_name.lower():
+                return f"TIMESTAMP('{date_str} 00:00:00')"
+            elif col_name.endswith("_end") or "end" in col_name.lower():
+                return f"TIMESTAMP('{date_str} 23:59:59')"
+            else:
+                # Default to start of day for timestamp comparisons
+                return f"TIMESTAMP('{date_str}')"
+        elif self._is_likely_datetime_column(col_name):
+            # For datetime columns, use DATETIME() function
+            return f"DATETIME('{date_str}')"
+        else:
+            # For DATE columns and unknown types, use DATE() function (safest)
+            return f"DATE('{date_str}')"
+
+    def _is_likely_timestamp_column(self, col_name: str) -> bool:
+        """Check if column name suggests it's a TIMESTAMP type."""
+        timestamp_indicators = [
+            "timestamp",
+            "ts",
+            "created_at",
+            "updated_at",
+            "modified_at",
+            "event_time",
+            "log_time",
+            "ingested_at",
+            "processed_at",
+        ]
+        return any(indicator in col_name.lower() for indicator in timestamp_indicators)
+
+    def _is_likely_datetime_column(self, col_name: str) -> bool:
+        """Check if column name suggests it's a DATETIME type."""
+        datetime_indicators = [
+            "datetime",
+            "date_time",
+            "event_datetime",
+            "log_datetime",
+        ]
+        return any(indicator in col_name.lower() for indicator in datetime_indicators)

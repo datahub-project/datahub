@@ -65,6 +65,27 @@ class BigQueryProfilingConfig(GEProfilingConfig):
         "result in failure to ingest the schema.",
     )
 
+    skip_stale_tables: bool = Field(
+        default=True,
+        description="Skip profiling for tables that haven't been modified in over a year. "
+        "Uses last_altered timestamp (which contains BigQuery's last_modified_time) for both regular and external tables. "
+        "This helps avoid profiling abandoned or archived tables.",
+    )
+
+    staleness_threshold_days: int = Field(
+        default=365,
+        description="Number of days after which a table is considered stale and profiling will be skipped "
+        "if skip_stale_tables is enabled.",
+    )
+
+    partition_datetime_window_days: Optional[int] = Field(
+        default=30,
+        description="Limit profiling to partitions within this many days from the selected partition date. "
+        "For example, if set to 30 and the selected partition is '2025-08-15', only partitions from "
+        "'2025-07-16' to '2025-08-15' will be included in profiling. Set to None to disable date windowing. "
+        "This helps focus profiling on recent data patterns and improves performance.",
+    )
+
 
 class BigQueryBaseConfig(ConfigModel):
     rate_limit: bool = Field(

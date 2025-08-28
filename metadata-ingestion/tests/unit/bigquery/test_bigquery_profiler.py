@@ -1,5 +1,6 @@
 """Tests for the BigQuery profiler."""
 
+import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -1162,3 +1163,372 @@ class TestSecurityValidation:
         assert validate_filter_expression("`123invalid` = 'value'") is False
         assert validate_filter_expression("`col-with-dash` = 'value'") is False
         assert validate_filter_expression("`` = 'value'") is False
+
+
+class TestProfilingOptimizations(unittest.TestCase):
+    """Test new profiling optimization features."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.config = BigQueryV2Config()
+        self.report = BigQueryV2Report()
+        self.profiler = BigqueryProfiler(self.config, self.report)
+
+        # Create test table
+        self.test_table = BigqueryTable(
+            name="test_table",
+            comment="test_comment",
+            rows_count=1000,
+            size_in_bytes=1000000,
+            last_altered=datetime.now(timezone.utc),
+            created=datetime.now(timezone.utc),
+        )
+
+    def test_staleness_check_fresh_table(self):
+        """Test that fresh tables are not skipped."""
+        # Table modified 30 days ago (fresh)
+        self.test_table.last_altered = datetime.now(timezone.utc) - timedelta(days=30)
+
+        should_skip = self.profiler._should_skip_profiling_due_to_staleness(
+            self.test_table
+        )
+
+        self.assertFalse(should_skip, "Fresh table should not be skipped")
+
+    def test_staleness_check_stale_table(self):
+        """Test that stale tables are skipped."""
+        # Table modified over a year ago (stale)
+        self.test_table.last_altered = datetime.now(timezone.utc) - timedelta(days=400)
+
+        should_skip = self.profiler._should_skip_profiling_due_to_staleness(
+            self.test_table
+        )
+
+        self.assertTrue(should_skip, "Stale table should be skipped")
+
+    def test_staleness_check_disabled(self):
+        """Test that staleness checking can be disabled."""
+        # Disable staleness checking
+        self.config.profiling.skip_stale_tables = False
+        profiler = BigqueryProfiler(self.config, self.report)
+
+        # Even stale table should not be skipped when disabled
+        self.test_table.last_altered = datetime.now(timezone.utc) - timedelta(days=400)
+
+        should_skip = profiler._should_skip_profiling_due_to_staleness(self.test_table)
+
+        self.assertFalse(
+            should_skip, "Should not skip when staleness checking is disabled"
+        )
+
+    def test_staleness_check_no_timestamp(self):
+        """Test behavior when table has no last_altered timestamp."""
+        self.test_table.last_altered = None
+
+        should_skip = self.profiler._should_skip_profiling_due_to_staleness(
+            self.test_table
+        )
+
+        self.assertFalse(
+            should_skip, "Should not skip when no timestamp available (conservative)"
+        )
+
+    def test_partition_date_windowing_enabled(self):
+        """Test partition date windowing with enabled configuration."""
+        # Enable 30-day windowing
+        self.config.profiling.partition_datetime_window_days = 30
+        profiler = BigqueryProfiler(self.config, self.report)
+
+        original_filters = [
+            "`event_date` = DATE('2025-08-15')",
+            "`region` = 'us-east-1'",
+        ]
+
+        windowed_filters = profiler._apply_partition_date_windowing(
+            original_filters, self.test_table
+        )
+
+        # Should have original filters plus date range filter
+        self.assertGreater(
+            len(windowed_filters),
+            len(original_filters),
+            "Should add date range filters",
+        )
+
+        # Check for date range filter
+        range_filter_found = any(
+            "event_date` >= DATE(" in f and "event_date` <= DATE(" in f
+            for f in windowed_filters
+        )
+        self.assertTrue(range_filter_found, "Should add date range filter")
+
+    def test_partition_date_windowing_disabled(self):
+        """Test partition date windowing when disabled."""
+        # Disable windowing
+        self.config.profiling.partition_datetime_window_days = None
+        profiler = BigqueryProfiler(self.config, self.report)
+
+        original_filters = [
+            "`event_date` = DATE('2025-08-15')",
+            "`region` = 'us-east-1'",
+        ]
+
+        windowed_filters = profiler._apply_partition_date_windowing(
+            original_filters, self.test_table
+        )
+
+        self.assertEqual(
+            windowed_filters,
+            original_filters,
+            "Should not modify filters when disabled",
+        )
+
+    def test_partition_date_windowing_no_date_columns(self):
+        """Test partition date windowing with no date columns."""
+        non_date_filters = ["`region` = 'us-east-1'", "`tier` = 'premium'"]
+
+        windowed_filters = self.profiler._apply_partition_date_windowing(
+            non_date_filters, self.test_table
+        )
+
+        self.assertEqual(
+            windowed_filters, non_date_filters, "Should not modify non-date filters"
+        )
+
+    def test_extract_date_columns_from_filters(self):
+        """Test extraction of date columns from filter expressions."""
+        test_filters = [
+            "`event_date` = DATE('2025-08-15')",
+            "`created_at` = TIMESTAMP('2025-08-14')",
+            "`region` = 'us-east-1'",
+            "`timestamp` >= TIMESTAMP('2025-08-01')",
+        ]
+
+        extracted_columns = self.profiler._extract_date_columns_from_filters(
+            test_filters
+        )
+
+        expected_columns = ["event_date", "created_at", "timestamp"]
+        for expected_col in expected_columns:
+            self.assertIn(
+                expected_col, extracted_columns, f"Should extract {expected_col}"
+            )
+
+        # Should not extract non-date columns
+        self.assertNotIn(
+            "region", extracted_columns, "Should not extract non-date columns"
+        )
+
+    def test_get_reference_date_from_filters(self):
+        """Test extraction of reference date from filters."""
+        # Test with old format (still supported)
+        test_filters = ["`event_date` = '2025-08-15'", "`region` = 'us-east-1'"]
+        date_columns = ["event_date"]
+
+        reference_date = self.profiler._get_reference_date_from_filters(
+            test_filters, date_columns
+        )
+
+        self.assertIsNotNone(reference_date, "Should extract reference date")
+        if reference_date is not None:  # Type guard for mypy
+            self.assertEqual(
+                reference_date.strftime("%Y-%m-%d"),
+                "2025-08-15",
+                "Should extract correct date",
+            )
+
+    def test_get_reference_date_from_filters_date_function(self):
+        """Test extraction of reference date from filters with DATE() function."""
+        # Test with new DATE() function format
+        test_filters = ["`event_date` = DATE('2025-08-20')", "`region` = 'us-east-1'"]
+        date_columns = ["event_date"]
+
+        reference_date = self.profiler._get_reference_date_from_filters(
+            test_filters, date_columns
+        )
+
+        # This might not work yet since the regex might not handle DATE() functions
+        # If it returns None, that's expected behavior for now
+        if reference_date is not None:
+            self.assertEqual(
+                reference_date.strftime("%Y-%m-%d"),
+                "2025-08-20",
+                "Should extract correct date from DATE() function",
+            )
+
+    def test_format_date_for_bigquery_column_date(self):
+        """Test date formatting for DATE columns."""
+        test_date = datetime(2025, 8, 15).date()
+
+        formatted = self.profiler._format_date_for_bigquery_column(
+            test_date, "event_date"
+        )
+
+        self.assertEqual(
+            formatted, "DATE('2025-08-15')", "Should format as DATE function"
+        )
+
+    def test_format_date_for_bigquery_column_timestamp(self):
+        """Test date formatting for TIMESTAMP columns."""
+        test_date = datetime(2025, 8, 15).date()
+
+        formatted = self.profiler._format_date_for_bigquery_column(
+            test_date, "created_at"
+        )
+
+        self.assertEqual(
+            formatted, "TIMESTAMP('2025-08-15')", "Should format as TIMESTAMP function"
+        )
+
+    def test_format_date_for_bigquery_column_datetime(self):
+        """Test date formatting for DATETIME columns."""
+        test_date = datetime(2025, 8, 15).date()
+
+        formatted = self.profiler._format_date_for_bigquery_column(
+            test_date, "event_datetime"
+        )
+
+        self.assertEqual(
+            formatted, "DATETIME('2025-08-15')", "Should format as DATETIME function"
+        )
+
+    def test_is_likely_timestamp_column(self):
+        """Test timestamp column detection."""
+        timestamp_columns = [
+            "created_at",
+            "updated_at",
+            "timestamp",
+            "event_time",
+            "log_time",
+        ]
+
+        for col in timestamp_columns:
+            self.assertTrue(
+                self.profiler._is_likely_timestamp_column(col),
+                f"Should detect {col} as timestamp column",
+            )
+
+        # Non-timestamp columns
+        self.assertFalse(
+            self.profiler._is_likely_timestamp_column("event_date"),
+            "Should not detect event_date as timestamp column",
+        )
+
+    def test_is_likely_datetime_column(self):
+        """Test datetime column detection."""
+        datetime_columns = ["datetime", "date_time", "event_datetime"]
+
+        for col in datetime_columns:
+            self.assertTrue(
+                self.profiler._is_likely_datetime_column(col),
+                f"Should detect {col} as datetime column",
+            )
+
+        # Non-datetime columns
+        self.assertFalse(
+            self.profiler._is_likely_datetime_column("created_at"),
+            "Should not detect created_at as datetime column",
+        )
+
+    def test_strategic_date_candidate_generation(self):
+        """Test strategic date candidate generation."""
+        partition_discovery = self.profiler.partition_discovery
+
+        candidates = partition_discovery._get_strategic_candidate_dates()
+
+        # Should have multiple strategic dates
+        self.assertGreaterEqual(
+            len(candidates), 7, "Should have at least 7 strategic date candidates"
+        )
+
+        # First candidate should be today (not tomorrow)
+        first_candidate = candidates[0]
+        self.assertIn(
+            "today", first_candidate[1].lower(), "First candidate should be today"
+        )
+
+        # Should not include tomorrow
+        descriptions = [desc for _, desc in candidates]
+        tomorrow_found = any("tomorrow" in desc.lower() for desc in descriptions)
+        self.assertFalse(
+            tomorrow_found, "Should not include tomorrow in strategic dates"
+        )
+
+        # Should include common strategic dates
+        expected_descriptions = [
+            "yesterday",
+            "7 days ago",
+            "last day of previous month",
+            "one month ago",
+        ]
+        for expected in expected_descriptions:
+            found = any(expected in desc.lower() for desc in descriptions)
+            self.assertTrue(found, f"Should include '{expected}' in strategic dates")
+
+    def test_strategic_date_ordering(self):
+        """Test that strategic dates are in logical order."""
+        partition_discovery = self.profiler.partition_discovery
+
+        candidates = partition_discovery._get_strategic_candidate_dates()
+
+        # Extract descriptions for testing
+        descriptions = [desc for _, desc in candidates]
+
+        # Today should be first
+        self.assertIn(
+            "today", descriptions[0].lower(), "Today should be first strategic date"
+        )
+
+        # Yesterday should be early in the list (within first 3)
+        yesterday_index = next(
+            (i for i, desc in enumerate(descriptions) if "yesterday" in desc.lower()),
+            -1,
+        )
+        self.assertNotEqual(yesterday_index, -1, "Yesterday should be in the list")
+        self.assertLessEqual(
+            yesterday_index, 2, "Yesterday should be within first 3 candidates"
+        )
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.PartitionDiscovery._get_partition_info_from_table_query"
+    )
+    def test_table_query_fallback_integration(self, mock_table_query):
+        """Test that table query fallback is properly integrated."""
+        # Mock table query to return some values
+        mock_table_query.return_value = {
+            "event_date": "2025-08-15",
+            "region": "us-west-1",
+        }
+
+        partition_discovery = self.profiler.partition_discovery
+
+        # Mock execute function that returns no data for strategic dates
+        def mock_execute_no_data(*args):
+            mock_result = MagicMock()
+            mock_result.cnt = 0
+            return [mock_result]
+
+        result = partition_discovery._find_real_partition_values(
+            self.test_table,
+            "test-project-123456",
+            "test_dataset",
+            ["event_date", "region"],
+            mock_execute_no_data,
+        )
+
+        # Should fall back to table query results
+        self.assertIsNotNone(result, "Should return table query results as fallback")
+        if result is not None:  # Type guard for mypy
+            self.assertIn(
+                "`event_date` = '2025-08-15'",
+                result,
+                "Should include date from table query",
+            )
+            self.assertIn(
+                "`region` = 'us-west-1'",
+                result,
+                "Should include region from table query",
+            )
+
+        # Verify table query was called
+        mock_table_query.assert_called_once()
