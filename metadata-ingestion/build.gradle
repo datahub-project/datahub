@@ -38,6 +38,7 @@ task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
+    "uv pip uninstall acryl-datahub-cloud && " +  // to clean up old builds
     "uv pip install -e . &&" +
     "touch ${sentinel_file}"
 }
@@ -70,7 +71,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 
-task install(dependsOn: [installPackage, codegen, ':metadata-ingestion-modules:acryl-cloud:install'])
+task install(dependsOn: [installPackage, codegen])
 
 task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
