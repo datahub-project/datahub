@@ -124,23 +124,29 @@ const AssetCollectionModule = (props: ModuleProps) => {
     );
 
     return (
-        <LargeModule {...props} loading={loading}>
-            <InfiniteScrollList<Entity>
-                key={assetUrns.join(',')}
-                fetchData={fetchEntities}
-                renderItem={(entity) => (
-                    <EntityItem entity={entity} key={entity?.urn} moduleType={DataHubPageModuleType.AssetCollection} />
-                )}
-                pageSize={DEFAULT_PAGE_SIZE}
-                emptyState={
-                    <EmptyContent
-                        icon="Stack"
-                        title="No Assets"
-                        description="Edit the module and add assets to see them in this list"
-                    />
-                }
-                totalItemCount={totalForInfiniteScroll}
-            />
+        <LargeModule {...props} loading={loading} dataTestId="asset-collection-module">
+            <div data-testid="asset-collection-entities">
+                <InfiniteScrollList<Entity>
+                    key={assetUrns.join(',')}
+                    fetchData={fetchEntities}
+                    renderItem={(entity) => (
+                        <EntityItem
+                            entity={entity}
+                            key={entity?.urn}
+                            moduleType={DataHubPageModuleType.AssetCollection}
+                        />
+                    )}
+                    pageSize={DEFAULT_PAGE_SIZE}
+                    emptyState={
+                        <EmptyContent
+                            icon="Stack"
+                            title="No Assets"
+                            description="Edit the module and add assets to see them in this list"
+                        />
+                    }
+                    totalItemCount={totalForInfiniteScroll}
+                />
+            </div>
         </LargeModule>
     );
 };

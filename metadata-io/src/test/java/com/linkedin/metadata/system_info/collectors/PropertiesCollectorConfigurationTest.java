@@ -117,6 +117,20 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.*.enabled",
           "systemUpdate.*.batchSize",
 
+          // Kafka topic Configs
+          "kafka.topics.*.name",
+          "kafka.topics.*.partitions",
+          "kafka.topics.*.enabled",
+          "kafka.topics.*.replicationFactor",
+          "kafka.topics.*.configProperties.max.message.bytes",
+          "kafka.topics.*.configProperties.retention.ms",
+          "kafka.topicDefaults.configProperties.max.message.bytes",
+          "kafka.topicDefaults.configProperties.retention.ms",
+          "kafka.topicDefaults.partitions",
+          "kafka.topicDefaults.replicationFactor",
+          "kafka.setup.preCreateTopics",
+          "kafka.setup.useConfluentSchemaRegistry",
+
           // IAM authentication flags
           "*.postgresUseIamAuth",
           "*.opensearchUseAwsIamAuth");
@@ -737,6 +751,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "platformAnalytics.usageExport.usageEventTypes",
           "platformAnalytics.usageExport.userFilters",
           "searchBar.apiVariant",
+          "searchCard.showDescription",
           "searchService.cache.hazelcast.serviceName",
           "searchService.cache.hazelcast.service-dns-timeout",
           "searchService.cache.hazelcast.kubernetes-api-retries",
