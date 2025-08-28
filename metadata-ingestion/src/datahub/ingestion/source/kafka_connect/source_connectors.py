@@ -273,6 +273,10 @@ class TransformPipeline:
         - PostgreSQL CDC: {topic.prefix}.{schemaName}.{tableName}
           Example: "fulfillment.public.users"
 
+        When topic prefix is empty:
+        - MySQL CDC: {databaseName}.{tableName}
+        - PostgreSQL CDC: {schemaName}.{tableName}
+
         TOPIC PREFIX SOURCE:
         - Confluent Cloud: Uses "database.server.name" config as topic prefix
         - Platform/Debezium: Uses "topic.prefix" config as topic prefix
@@ -288,12 +292,18 @@ class TransformPipeline:
             topic_prefix: Topic prefix (from topic.prefix or database.server.name config)
 
         Returns:
-            Topic name: {topic_prefix}.{schema}.{table_name}
+            Topic name: {topic_prefix}.{schema}.{table_name} or {schema}.{table_name} if prefix empty
         """
         if schema:
-            return f"{topic_prefix}.{schema}.{table_name}"
+            if topic_prefix:
+                return f"{topic_prefix}.{schema}.{table_name}"
+            else:
+                return f"{schema}.{table_name}"
         else:
-            return f"{topic_prefix}.{table_name}"
+            if topic_prefix:
+                return f"{topic_prefix}.{table_name}"
+            else:
+                return table_name
 
     def _generate_original_topic(
         self, schema: str, table_name: str, topic_prefix: str, connector_class: str
