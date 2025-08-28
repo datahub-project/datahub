@@ -67,3 +67,27 @@ export function wrapDateTimeColumnWithHover(content: React.ReactNode, record: an
         </Tooltip>
     );
 }
+
+/**
+ * Factory to create a cell wrapper that shows a tooltip with the absolute
+ * date/time for a given timestamp field on the record.
+ */
+export function wrapDateTimeColumnWithHoverFromField(
+    fieldName: string,
+): (content: React.ReactNode, record: any) => React.ReactNode {
+    return (content: React.ReactNode, record: any): React.ReactNode => {
+        const time = record?.[fieldName];
+
+        if (!isPresent(time) || time === 0) {
+            return content;
+        }
+
+        const formattedDateTime = dayjs(time).format(DEFAULT_DATETIME_FORMAT);
+
+        return (
+            <Tooltip title={formattedDateTime}>
+                <DateTimeCellWrapper>{content}</DateTimeCellWrapper>
+            </Tooltip>
+        );
+    };
+}
