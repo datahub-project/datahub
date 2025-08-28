@@ -222,10 +222,8 @@ class TransformPipeline:
             else:
                 return f"{topic_prefix}.{table_name}"
         else:
-            if schema:
-                return f"{schema}.{table_name}"
-            else:
-                return table_name
+            # Without topic prefix, use just table name (traditional JDBC behavior)
+            return table_name
 
     def _apply_pipeline(
         self, current_topics: List[str], manifest_topics: List[str]
