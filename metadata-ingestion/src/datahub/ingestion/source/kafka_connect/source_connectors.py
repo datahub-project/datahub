@@ -836,16 +836,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         include_source_dataset = True
         if unknown_transform_types:
-            if len(parser.transforms) == 1:
-                self.report.warning(
-                    "Could not find input dataset, connector has unknown transform",
-                    f"{self.connector_manifest.name} : {unknown_transform_types[0]}",
-                )
-            else:
-                self.report.warning(
-                    "Could not find input dataset, connector has one or more unknown transforms",
-                    self.connector_manifest.name,
-                )
+            self.report.warning(
+                "Could not find input dataset, connector has unknown transforms",
+                f"{self.connector_manifest.name} : {', '.join(unknown_transform_types)}",
+            )
             include_source_dataset = False
 
         return self.default_get_lineages(
