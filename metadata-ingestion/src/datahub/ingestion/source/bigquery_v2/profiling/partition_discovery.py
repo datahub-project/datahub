@@ -1200,11 +1200,11 @@ LIMIT @limit_rows"""
                         date_str = test_date.strftime("%Y-%m-%d")
                         filters.append(f"`{col}` = '{date_str}'")
                     elif col.lower() == "year":
-                        filters.append(f"`{col}` = {test_date.year}")
+                        filters.append(f"`{col}` = '{test_date.year}'")
                     elif col.lower() == "month":
-                        filters.append(f"`{col}` = {test_date.month}")
+                        filters.append(f"`{col}` = '{test_date.month:02d}'")
                     elif col.lower() == "day":
-                        filters.append(f"`{col}` = {test_date.day}")
+                        filters.append(f"`{col}` = '{test_date.day:02d}'")
                     else:
                         # For other non-date columns, use fallback values from config
                         if col in self.config.profiling.fallback_partition_values:
@@ -1214,7 +1214,8 @@ LIMIT @limit_rows"""
                             if isinstance(fallback_val, str):
                                 filters.append(f"`{col}` = '{fallback_val}'")
                             else:
-                                filters.append(f"`{col}` = {fallback_val}")
+                                # Convert all values to strings to avoid type mismatch issues
+                                filters.append(f"`{col}` = '{fallback_val}'")
                         else:
                             filters.append(f"`{col}` IS NOT NULL")
 
@@ -1250,7 +1251,8 @@ LIMIT @limit_rows"""
                     escaped_val = val.replace("'", "''")
                     actual_filters.append(f"`{col}` = '{escaped_val}'")
                 else:
-                    actual_filters.append(f"`{col}` = {val}")
+                    # Convert all values to strings to avoid type mismatch issues
+                    actual_filters.append(f"`{col}` = '{val}'")
 
             logger.debug(
                 f"Found actual partition values from table query: {actual_filters}"
@@ -1302,7 +1304,8 @@ LIMIT @limit_rows"""
                 escaped_value = fallback_value.replace("'", "''")
                 return f"`{col_name}` = '{escaped_value}'"
             else:
-                return f"`{col_name}` = {fallback_value}"
+                # Convert all values to strings to avoid type mismatch issues
+                return f"`{col_name}` = '{fallback_value}'"
 
         # Use date-based fallbacks for date-like columns
         # Note: If we reach this fallback, it means specific dates failed verification
@@ -1313,11 +1316,11 @@ LIMIT @limit_rows"""
             )
             return f"`{col_name}` IS NOT NULL"
         elif col_name.lower() == "year":
-            return f"`{col_name}` = {fallback_date.year}"
+            return f"`{col_name}` = '{fallback_date.year}'"
         elif col_name.lower() == "month":
-            return f"`{col_name}` = {fallback_date.month}"
+            return f"`{col_name}` = '{fallback_date.month:02d}'"
         elif col_name.lower() == "day":
-            return f"`{col_name}` = {fallback_date.day}"
+            return f"`{col_name}` = '{fallback_date.day:02d}'"
         else:
             # Last resort - use IS NOT NULL
             logger.warning(
