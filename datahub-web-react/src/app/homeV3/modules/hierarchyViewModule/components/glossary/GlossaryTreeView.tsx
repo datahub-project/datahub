@@ -71,6 +71,7 @@ export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities,
                     nodes={tree.nodes}
                     loadChildren={startLoadingOfChildren}
                     onExpand={onExpand}
+                    shouldExpandSingleRootNode
                     renderNodeLabel={(nodeProps) => (
                         <EntityItem
                             entity={nodeProps.node.entity}

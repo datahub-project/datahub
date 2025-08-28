@@ -140,16 +140,16 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format --check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
+    "ruff check scripts/ scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format --check scripts/ scripts/tests/ src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ "
+    "ruff check --fix scripts/ scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
 }
 
 def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed sockets

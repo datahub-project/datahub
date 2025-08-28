@@ -1,4 +1,4 @@
-import React, { ReactNode, createContext, useContext, useMemo } from 'react';
+import React, { ReactNode, createContext, useContext, useMemo, useState } from 'react';
 
 import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
@@ -23,7 +23,7 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
 
     // Template operations
     const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate, resetTemplateToDefault } =
-        useTemplateOperations(setPersonalTemplate);
+        useTemplateOperations(setPersonalTemplate, personalTemplate);
 
     // Modal state
     const moduleModalState = useModuleModalState();
@@ -42,6 +42,9 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
         moduleModalState.initialState,
     );
 
+    // If modules should be reloaded
+    const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
+
     const value = useMemo(
         () => ({
             personalTemplate,
@@ -58,6 +61,8 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
+            reloadHomepageModules,
+            setReloadHomepageModules,
         }),
         [
             personalTemplate,
@@ -74,6 +79,8 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
+            reloadHomepageModules,
+            setReloadHomepageModules,
         ],
     );
 
