@@ -56,7 +56,7 @@ class TestConnectorConfigValidation:
             name=f"{test_name}-connector",
             type="source",
             config=connector_config,
-            tasks={},
+            tasks=[],
             topic_names=topic_names,
         )
 
