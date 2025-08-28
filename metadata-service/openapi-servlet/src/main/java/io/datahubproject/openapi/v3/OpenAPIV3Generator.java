@@ -688,8 +688,6 @@ public class OpenAPIV3Generator {
                         .items(newSchema().type(TYPE_STRING)._default(PROPERTY_URN))),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/SortOrder" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceMax" + MODEL_VERSION));
