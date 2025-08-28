@@ -3,7 +3,6 @@ import { Input } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import analytics, { EventType } from '@app/analytics';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingestV2/source/builder/constants';
@@ -93,10 +92,6 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
             type,
         };
         updateState(newState);
-        analytics.event({
-            type: EventType.IngestionSourceTemplateSelectedEvent,
-            sourceType: type,
-        });
         goTo(IngestionSourceBuilderStep.DEFINE_RECIPE);
     };
 

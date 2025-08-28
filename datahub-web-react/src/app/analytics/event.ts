@@ -75,7 +75,6 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
-    IngestionSourceTemplateSelectedEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
@@ -614,11 +613,6 @@ export interface MoveDomainEvent extends BaseEvent {
 
 // Managed Ingestion Events
 
-export interface IngestionSourceTemplateSelectedEvent extends BaseEvent {
-    type: EventType.IngestionSourceTemplateSelectedEvent;
-    sourceType: string;
-}
-
 export interface IngestionTestConnectionEvent extends BaseEvent {
     type: EventType.IngestionTestConnectionEvent;
     sourceType: string;
@@ -627,22 +621,18 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
 }
 
 export interface IngestionExecutionResultViewedEvent extends BaseEvent {
-    // TODO Actually track
     type: EventType.IngestionExecutionResultViewedEvent;
     executionUrn: string;
-    sourceType: string;
-    sourceUrn: string;
-    executionStatus: 'SUCCESS' | 'FAILURE' | 'CANCELLED' | 'RUNNING';
-    viewedSection: 'summary' | 'recipe' | 'logs' | 'view_all' | 'sample';
+    executionStatus: string;
+    viewedSection: string;
 }
 
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
-    // TODO Actually track
     type: EventType.IngestionSourceConfigurationImpressionEvent;
-    sourceType: string;
-    sourceUrn: string;
     viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
-};
+    sourceType?: string;
+    sourceUrn?: string;
+}
 
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
@@ -1255,7 +1245,6 @@ export type Event =
     | WelcomeToDataHubModalExitEvent
     | WelcomeToDataHubModalClickViewDocumentationEvent
     | ProductTourButtonClickEvent
-    | IngestionSourceTemplateSelectedEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
     | IngestionSourceConfigurationImpressionEvent;

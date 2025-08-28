@@ -55,7 +55,6 @@ public enum DataHubUsageEventType {
   CREATE_GLOSSARY_ENTITY_EVENT("CreateGlossaryEntityEvent"),
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
   MOVE_DOMAIN_EVENT("MoveDomainEvent"),
-  INGESTION_SOURCE_TEMPLATE_SELECTED_EVENT("IngestionSourceTemplateSelectedEvent"),
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
   INGESTION_EXECUTION_RESULT_VIEWED_EVENT("IngestionExecutionResultViewedEvent"),
   INGESTION_SOURCE_CONFIGURATION_IMPRESSION_EVENT("IngestionSourceConfigurationImpressionEvent"),
