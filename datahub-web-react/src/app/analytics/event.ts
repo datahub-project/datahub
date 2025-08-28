@@ -658,8 +658,9 @@ export interface DeleteIngestionSourceEvent extends BaseEvent {
 }
 
 export interface ExecuteIngestionSourceEvent extends BaseEvent {
-    // TODO: Add source type and urn
     type: EventType.ExecuteIngestionSourceEvent;
+    sourceType?: string;
+    sourceUrn?: string;
 }
 
 // TODO: Find a way to use this event
