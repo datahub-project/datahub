@@ -1,5 +1,4 @@
 import functools
-import itertools
 import logging
 from collections import defaultdict
 from typing import Dict, Iterable, List, Optional, Type, Union
@@ -71,7 +70,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
-    gen_lineage,
     gen_schema_container,
     gen_schema_key,
     get_dataplatform_instance_aspect,
@@ -115,7 +113,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.utilities import memory_footprint
-from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -1018,40 +1015,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             return False
 
         return True
-
-    def generate_lineage(
-        self, database: str, lineage_extractor: RedshiftSqlLineageV2
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate lineage for {database}")
-        for schema in deduplicate_list(
-            itertools.chain(self.db_tables[database], self.db_views[database])
-        ):
-            if (
-                database not in self.db_schemas
-                or schema not in self.db_schemas[database]
-            ):
-                logger.warning(
-                    f"Either database {database} or {schema} exists in the lineage but was not discovered earlier. Something went wrong."
-                )
-                continue
-
-            table_or_view: Union[RedshiftTable, RedshiftView]
-            for table_or_view in (
-                []
-                + self.db_tables[database].get(schema, [])
-                + self.db_views[database].get(schema, [])
-            ):
-                datahub_dataset_name = f"{database}.{schema}.{table_or_view.name}"
-                dataset_urn = self.gen_dataset_urn(datahub_dataset_name)
-
-                lineage_info = lineage_extractor.get_lineage(
-                    table_or_view,
-                    dataset_urn,
-                    self.db_schemas[database][schema],
-                )
-                if lineage_info:
-                    # incremental lineage generation is taken care by auto_incremental_lineage
-                    yield from gen_lineage(dataset_urn, lineage_info)
 
     def add_config_to_report(self):
         self.report.stateful_lineage_ingestion_enabled = (

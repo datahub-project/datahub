@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import partial
+from typing import Dict, List, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,6 +15,8 @@ from datahub.ingestion.source.redshift.lineage_v2 import (
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
+    RedshiftTable,
+    RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -404,7 +407,9 @@ def test_build():
     connection: MagicMock = mock_redshift_connection()
 
     # Mock tables and schemas
-    all_tables = {"test": {"public": []}}
+    all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
+        "test": {"public": []}
+    }
 
     db_schemas = {
         "test": {
