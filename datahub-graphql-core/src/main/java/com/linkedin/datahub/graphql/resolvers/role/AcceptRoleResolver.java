@@ -49,6 +49,17 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
                 Collections.singletonList(authentication.getActor().toUrnStr()),
                 roleUrn);
 
+            // Check if this is an individual token and consume it (single-use)
+            if (_inviteTokenService.isIndividualToken(
+                context.getOperationContext(), inviteTokenUrn)) {
+              log.info(
+                  "Consuming individual invite token {} for user {}",
+                  inviteTokenStr,
+                  authentication.getActor().toUrnStr());
+              _inviteTokenService.consumeIndividualToken(
+                  context.getOperationContext(), inviteTokenUrn);
+            }
+
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

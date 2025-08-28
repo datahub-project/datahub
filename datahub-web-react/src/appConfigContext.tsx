@@ -135,6 +135,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         actionWorkflowsEnabled: false,
         showHomePageRedesign: false,
         assetSummaryPageV1: false,
+        inviteUsersEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

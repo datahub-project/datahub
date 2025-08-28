@@ -17,6 +17,12 @@ const createMockUser = (
     ({
         urn,
         username,
+        info: {
+            displayName: `User ${username}`,
+            title: 'Software Engineer',
+            email: `${username}@example.com`,
+            active: true,
+        },
         properties: {
             displayName: `User ${username}`,
             title: 'Software Engineer',
@@ -77,6 +83,7 @@ describe('ViewInviteTokenModal.utils', () => {
             expect(recommendations).toHaveLength(2);
             expect(recommendations[0].username).toBe('user3'); // Sorted by query count desc
             expect(recommendations[1].username).toBe('user1');
+            // user2 with no usage data should be filtered out
         });
 
         it('should filter users with zero query count', () => {
@@ -90,6 +97,7 @@ describe('ViewInviteTokenModal.utils', () => {
 
             expect(recommendations).toHaveLength(2);
             expect(recommendations.map((u) => u.username)).toEqual(['user3', 'user1']);
+            // user2 with zero queries should be filtered out
         });
 
         it('should filter users who already have invitations', () => {

@@ -22,7 +22,9 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -55,6 +57,73 @@ public class InviteTokenService {
     final com.linkedin.identity.InviteToken inviteToken =
         getInviteTokenEntity(opContext, inviteTokenUrn);
     return inviteToken.hasRole() ? inviteToken.getRole() : null;
+  }
+
+  /** Check if a token is an individual token (single-use) */
+  public boolean isIndividualToken(
+      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
+      throws URISyntaxException, RemoteInvocationException {
+    final com.linkedin.identity.InviteToken inviteToken =
+        getInviteTokenEntity(opContext, inviteTokenUrn);
+    return inviteToken.hasTokenType()
+        && com.linkedin.identity.TokenType.INDIVIDUAL.equals(inviteToken.getTokenType());
+  }
+
+  /** Consume an individual token by deleting it (single-use) */
+  public void consumeIndividualToken(
+      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
+      throws RemoteInvocationException {
+    _entityClient.deleteEntity(opContext, inviteTokenUrn);
+  }
+
+  /**
+   * Generate individual tokens for bulk invitations. Each token is single-use.
+   *
+   * @param opContext Operation context
+   * @param count Number of individual tokens to generate
+   * @param roleUrnStr Role URN to associate with tokens (optional)
+   * @return List of generated individual token strings
+   */
+  @Nonnull
+  public List<String> generateIndividualTokens(
+      @Nonnull OperationContext opContext, int count, @Nullable final String roleUrnStr)
+      throws Exception {
+
+    List<String> tokens = new ArrayList<>();
+    List<MetadataChangeProposal> proposals = new ArrayList<>();
+
+    // Generate all tokens and proposals first
+    for (int i = 0; i < count; i++) {
+      String inviteTokenStr = _secretService.generateUrlSafeToken(INVITE_TOKEN_LENGTH);
+      String hashedInviteTokenStr = _secretService.hashString(inviteTokenStr);
+      InviteTokenKey inviteTokenKey = new InviteTokenKey();
+      inviteTokenKey.setId(hashedInviteTokenStr);
+
+      com.linkedin.identity.InviteToken inviteTokenAspect =
+          new com.linkedin.identity.InviteToken()
+              .setToken(_secretService.encrypt(inviteTokenStr))
+              .setTokenType(com.linkedin.identity.TokenType.INDIVIDUAL);
+
+      if (roleUrnStr != null) {
+        Urn roleUrn = Urn.createFromString(roleUrnStr);
+        inviteTokenAspect.setRole(roleUrn);
+      }
+
+      final MetadataChangeProposal proposal =
+          buildMetadataChangeProposal(
+              INVITE_TOKEN_ENTITY_NAME,
+              inviteTokenKey,
+              INVITE_TOKEN_ASPECT_NAME,
+              inviteTokenAspect);
+
+      tokens.add(inviteTokenStr);
+      proposals.add(proposal);
+    }
+
+    // Batch ingest all proposals
+    _entityClient.batchIngestProposals(opContext, proposals, false);
+
+    return tokens;
   }
 
   @Nonnull
@@ -94,7 +163,8 @@ public class InviteTokenService {
             opContext,
             INVITE_TOKEN_ENTITY_NAME,
             inviteTokenUrn,
-            Collections.singleton(INVITE_TOKEN_ASPECT_NAME));
+            Collections.singleton(INVITE_TOKEN_ASPECT_NAME),
+            false);
 
     if (inviteTokenEntity == null) {
       throw new RuntimeException(String.format("Invite token %s does not exist", inviteTokenUrn));
@@ -162,7 +232,7 @@ public class InviteTokenService {
     final MetadataChangeProposal proposal =
         buildMetadataChangeProposal(
             INVITE_TOKEN_ENTITY_NAME, inviteTokenKey, INVITE_TOKEN_ASPECT_NAME, inviteTokenAspect);
-    _entityClient.ingestProposal(opContext, proposal);
+    _entityClient.ingestProposal(opContext, proposal, false);
 
     return inviteTokenStr;
   }

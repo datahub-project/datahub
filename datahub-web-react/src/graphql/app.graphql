@@ -160,6 +160,7 @@ query appConfig {
             assetSummaryPageV1
             viewIngestionSourcePrivilegesEnabled
             actionWorkflowsEnabled
+            inviteUsersEnabled
         }
         chromeExtensionConfig {
             enabled

@@ -20,6 +20,7 @@ from datahub_integrations.notifications.constants import (
     GLOBAL_NOTIFICATIONS_UNSUBSCRIBE_GROUP_ID,
     INGESTION_TEMPLATE,
     SEND_GRID_API_KEY,
+    USER_INVITATION_TEMPLATE,
 )
 
 
@@ -252,6 +253,62 @@ def send_workflow_request_status_change_email(
     send_email(message, recipient_address)
 
 
+def send_user_invitation_to_recipients(
+    recipients: List[NotificationRecipientClass], parameters: Dict[str, str]
+) -> None:
+    for recipient in recipients:
+        send_user_invitation_email(recipient, parameters)
+
+
+def send_user_invitation_email(
+    recipient: NotificationRecipientClass, parameters: Dict[str, str]
+) -> None:
+    # Extract recipient address
+    recipient_address = recipient.id
+    recipient_name = recipient.displayName or DEFAULT_RECIPIENT_NAME
+
+    if recipient_address is None:
+        logger.error(
+            f"Recipient address is None, skipping sending email. Parameters: {parameters}"
+        )
+        return
+
+    # Create new message
+    message = Mail(
+        from_email=Email(FROM_EMAIL_ADDRESS, FROM_EMAIL_TITLE),
+        to_emails=To(recipient_address),
+    )
+
+    # Specify the sendgrid template
+    message.template_id = USER_INVITATION_TEMPLATE
+
+    # Format parameters for USER_INVITATION_TEMPLATE
+    invite_link = parameters.get("inviteLink", "")
+    title = parameters.get("title", "You have been invited to DataHub!")
+    inviter_name = parameters.get("inviterName", "Someone")
+    role_name = parameters.get("roleName", "")
+
+    # Validate required parameters
+    if not invite_link or invite_link == "null" or invite_link.startswith("null/"):
+        logger.error(
+            f"Invalid invite link '{invite_link}' for recipient {recipient_address}. Skipping email."
+        )
+        return
+
+    template_data = {
+        "inviteLink": invite_link,
+        "title": title,
+        "inviterName": inviter_name,
+        "roleName": role_name,
+        "recipientName": recipient_name,
+    }
+
+    # Add dynamic data
+    message.dynamic_template_data = template_data
+
+    send_email(message, recipient_address)
+
+
 def send_email(message: Mail, context: str) -> None:
     try:
         # Add global unsubscribe group to the email
@@ -261,5 +318,7 @@ def send_email(message: Mail, context: str) -> None:
         response = sg.send(message)
         if response.status_code != 202:
             logger.error(f"Failed to send email, context {context}: {response.body}")
+        else:
+            logger.info(f"Successfully sent email to {context}...")
     except Exception as e:
         logger.error(f"Failed to send email, context: {context}: {e}")

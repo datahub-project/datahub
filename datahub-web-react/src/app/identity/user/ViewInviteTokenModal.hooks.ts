@@ -5,17 +5,22 @@ import { generateUserRecommendations } from '@app/identity/user/ViewInviteTokenM
 import { useGetUserRecommendationsQuery } from '@graphql/user.generated';
 import { CorpUser } from '@types';
 
+const MAX_RECOMMENDATIONS = 500;
 /**
  * Hook to fetch and process user recommendations for the invite modal
  */
-export const useUserRecommendations = (modalOpen: boolean, maxRecommendations = 100) => {
+export const useUserRecommendations = (modalOpen: boolean, maxRecommendations = MAX_RECOMMENDATIONS) => {
     // Fetch user recommendations based on usage features
-    const { data: userRecommendationsData, loading } = useGetUserRecommendationsQuery({
+    const {
+        data: userRecommendationsData,
+        loading,
+        error,
+    } = useGetUserRecommendationsQuery({
         skip: !modalOpen,
         variables: {
             input: {
                 start: 0,
-                count: maxRecommendations,
+                count: MAX_RECOMMENDATIONS,
                 query: '', // TODO: only users with usage data not logged in last 30 days
             },
         },
@@ -30,5 +35,6 @@ export const useUserRecommendations = (modalOpen: boolean, maxRecommendations = 
     return {
         recommendedUsers,
         loading,
+        error,
     };
 };

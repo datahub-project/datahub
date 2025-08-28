@@ -23,4 +23,13 @@ record InviteToken {
     "hasValuesFieldName": "hasRole"
   }
   role: optional Urn
+  
+  /**
+   * The type of invite token - shared (admin managed) or individual (single-use)
+   */
+  @Searchable = {
+    "fieldName": "tokenType", 
+    "fieldType": "KEYWORD"
+  }
+  tokenType: optional TokenType = "SHARED"
 }

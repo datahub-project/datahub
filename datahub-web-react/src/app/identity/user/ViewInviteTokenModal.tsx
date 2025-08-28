@@ -8,9 +8,11 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
-// import UserRecommendationsSection from '@app/identity/user/UserRecommendationsSection';
+import UserRecommendationsSection from '@app/identity/user/UserRecommendationsSection';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
+import { useUserRecommendations } from '@app/identity/user/ViewInviteTokenModal.hooks';
 import { checkIsSsoConfigured } from '@app/settingsV2/platform/sso/utils';
+import { useIsInviteUsersEnabled } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
@@ -152,6 +154,9 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
 
     const { data: ssoSettings } = useGetSsoSettingsQuery();
     const isSsoConfigured = checkIsSsoConfigured(ssoSettings?.globalSettings?.ssoSettings);
+    const { recommendedUsers } = useUserRecommendations(open);
+    const isInviteUsersEnabled = useIsInviteUsersEnabled();
+    console.log({ isInviteUsersEnabled });
 
     return (
         <Modal
@@ -212,7 +217,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                     the selected role.
                 </ModalSectionFooter>
 
-                {/* <UserRecommendationsSection recommendedUsers={recommendedUsers} inviteLink={inviteLink} /> */}
+                {isInviteUsersEnabled && <UserRecommendationsSection recommendedUsers={recommendedUsers} />}
 
                 {!isSsoConfigured && (
                     <>

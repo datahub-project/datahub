@@ -121,6 +121,7 @@ public class GmsGraphQLEngineArgs {
   PageModuleService pageModuleService;
   boolean systemTelemetryEnabled;
   MetricUtils metricUtils;
+  String baseUrl;
 
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;

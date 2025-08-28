@@ -20,6 +20,7 @@ from datahub_integrations.notifications.sinks.email.send_email import (
     send_compliance_form_notification_to_recipients,
     send_custom_email_to_recipients,
     send_ingestion_run_notification_to_recipients,
+    send_user_invitation_to_recipients,
     send_workflow_request_assignment_notification_to_recipients,
     send_workflow_request_status_change_notification_to_recipients,
 )
@@ -81,6 +82,11 @@ class EmailNotificationSink(NotificationSink):
         action_map = {
             NotificationTemplateTypeClass.CUSTOM: lambda: self._send_custom_notification(
                 request
+            ),
+            NotificationTemplateTypeClass.INVITATION: lambda: self._send_user_invitation_notification(
+                email_recipients,
+                request.message.parameters or {},
+                RetryMode.ENABLED,
             ),
             NotificationTemplateTypeClass.BROADCAST_NEW_INCIDENT: lambda: self._send_change_notification(
                 email_recipients,
@@ -205,6 +211,33 @@ class EmailNotificationSink(NotificationSink):
         else:
             logger.error(
                 "Custom notification request does not have subject or message. Skipping sending email."
+            )
+
+    def _send_user_invitation_notification(
+        self,
+        recipients: List[NotificationRecipientClass],
+        parameters: Dict[str, str],
+        retry_mode: RetryMode,
+    ) -> None:
+        """Send user invitation emails using the specialized template."""
+        max_attempts = (
+            MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
+        )
+        try:
+            retry_with_backoff(
+                send_user_invitation_to_recipients,
+                max_attempts=max_attempts,
+                backoff_factor=2,
+                initial_backoff=1,
+                recipients=recipients,
+                parameters=parameters,
+            )
+            logger.info(
+                f"Successfully sent user invitation emails to {len(recipients)} recipients"
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to send user invitation emails after {max_attempts} attempts: {e}"
             )
 
     def _send_change_notification(

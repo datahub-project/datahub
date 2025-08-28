@@ -10,24 +10,59 @@ import {
     UserName,
     UserRecommendationCard,
 } from '@app/identity/user/ViewInviteTokenModal.components';
-import { createUserInviteLink, formatNumber } from '@app/identity/user/ViewInviteTokenModal.utils';
+import { formatNumber } from '@app/identity/user/ViewInviteTokenModal.utils';
 import { pluralize } from '@app/shared/textUtil';
 
+import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser } from '@types';
 
 interface Props {
     recommendedUsers: CorpUser[];
-    inviteLink: string;
 }
 
-export default function UserRecommendationsSection({ recommendedUsers, inviteLink }: Props) {
-    const handleCopyInviteLink = (user: CorpUser) => {
+export default function UserRecommendationsSection({ recommendedUsers }: Props) {
+    const [sendUserInvitationsMutation] = useSendUserInvitationsMutation();
+
+    const handleSendInvitationEmail = async (user: CorpUser) => {
         const displayName = user.properties?.displayName || user.username;
-        const userInviteLink = createUserInviteLink(inviteLink, user.username);
-        navigator.clipboard.writeText(userInviteLink);
-        message.success(`Copied invite link for ${displayName}`);
+        const email = user.properties?.email || user.info?.email;
+
+        if (!email) {
+            message.error(`No email address found for ${displayName}`);
+            return;
+        }
+
+        try {
+            // Show loading state
+            const hideLoading = message.loading(`Sending invitation email to ${displayName}...`, 0);
+
+            // Send email using GraphQL mutation
+            const result = await sendUserInvitationsMutation({
+                variables: {
+                    input: {
+                        emails: [email],
+                        roleUrn: 'urn:li:dataHubRole:DataHubAdmin', // TODO: Make this configurable
+                    },
+                },
+            });
+
+            // Hide loading message
+            hideLoading();
+
+            const response = result.data?.sendUserInvitations;
+            if (response?.success && response.invitationsSent > 0) {
+                message.success(`Invitation email sent to ${displayName} (${email})`);
+            } else {
+                const errorMessage = response?.errors?.length ? response.errors.join(', ') : 'Unknown error';
+                message.error(`Failed to send email: ${errorMessage}`);
+            }
+        } catch (error) {
+            message.error(`Failed to send invitation email to ${displayName}`);
+            console.error('Failed to send invitation email:', error);
+        }
     };
 
+    console.log('recommendedUsers', recommendedUsers); // TODO: remove
     if (recommendedUsers.length === 0) {
         return null;
     }
@@ -63,8 +98,8 @@ export default function UserRecommendationsSection({ recommendedUsers, inviteLin
                                     <MetricBadge>{platformCount} platforms</MetricBadge>
                                 </UserMetrics>
                             </UserInfo>
-                            <Button size="sm" onClick={() => handleCopyInviteLink(user)}>
-                                Copy Link
+                            <Button size="sm" onClick={() => handleSendInvitationEmail(user)}>
+                                Send Email
                             </Button>
                         </UserRecommendationCard>
                     );

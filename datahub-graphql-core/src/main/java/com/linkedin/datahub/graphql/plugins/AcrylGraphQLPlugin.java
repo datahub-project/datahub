@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.AcrylConstants.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 import com.datahub.authentication.group.GroupService;
+import com.datahub.authentication.invite.InviteTokenService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
@@ -100,6 +101,8 @@ import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutors
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.SendUserInvitationsResolver;
+import com.linkedin.datahub.graphql.resolvers.role.UserInvitationService;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateHelpLinkResolver;
@@ -191,6 +194,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private EntityService<?> entityService;
   private SecretService secretService;
   private IntegrationsService integrationsService;
+  private UserInvitationService userInvitationService;
   private AssertionService assertionService;
   private DataContractService dataContractService;
   private EntitySearchService entitySearchService;
@@ -205,6 +209,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ActionRequestService actionRequestService;
   private ActionWorkflowService actionWorkflowService;
   private StsClient stsClient;
+  private InviteTokenService inviteTokenService;
+  private String baseUrl;
   private UserService userService;
 
   // Config
@@ -250,7 +256,14 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.formService = args.getFormService();
     this.metadataTestClient = args.getMetadataTestClient();
     this.actionWorkflowService = args.getActionWorkflowService();
+    this.inviteTokenService = args.getInviteTokenService();
+    this.baseUrl = args.getBaseUrl();
     this.userService = args.getUserService();
+
+    // Initialize UserInvitationService after all dependencies are set
+    this.userInvitationService =
+        new UserInvitationService(
+            this.integrationsService, this.inviteTokenService, this.entityService);
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
@@ -519,7 +532,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new UpdateRemoteExecutorPoolResolver(this.entityClient))
                 .dataFetcher(
                     "sendFormNotificationRequest",
-                    new SendFormNotificationRequestResolver(this.entityClient)));
+                    new SendFormNotificationRequestResolver(this.entityClient))
+                .dataFetcher(
+                    "sendUserInvitations",
+                    new SendUserInvitationsResolver(this.userInvitationService)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {

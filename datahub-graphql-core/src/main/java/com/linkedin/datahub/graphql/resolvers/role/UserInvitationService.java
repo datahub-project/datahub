@@ -1,0 +1,205 @@
+package com.linkedin.datahub.graphql.resolvers.role;
+
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.invite.InviteTokenService;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.datahub.graphql.generated.SendUserInvitationsInput;
+import com.linkedin.datahub.graphql.generated.SendUserInvitationsResult;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.event.notification.NotificationMessage;
+import com.linkedin.event.notification.NotificationRecipient;
+import com.linkedin.event.notification.NotificationRecipientArray;
+import com.linkedin.event.notification.NotificationRecipientType;
+import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.template.NotificationTemplateType;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.integration.IntegrationsService;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class UserInvitationService {
+  private final IntegrationsService integrationsService;
+  private final InviteTokenService inviteTokenService;
+  private final EntityService<?> entityService;
+
+  @Value("${baseUrl:http://localhost:9002}")
+  private String baseUrl;
+
+  public SendUserInvitationsResult sendUserInvitations(
+      OperationContext operationContext,
+      SendUserInvitationsInput input,
+      Authentication authentication) {
+
+    final List<String> emails = input.getEmails();
+    final String roleUrn = input.getRoleUrn();
+    final String subject = input.getSubject();
+
+    try {
+      List<String> errors = new ArrayList<>();
+      int successCount = 0;
+
+      // Generate individual tokens for bulk invitations - one unique token per user
+      List<String> individualTokens =
+          inviteTokenService.generateIndividualTokens(operationContext, emails.size(), roleUrn);
+
+      // Validate and fix baseUrl before processing
+      String effectiveBaseUrl = baseUrl;
+      if (baseUrl == null || baseUrl.trim().isEmpty() || "null".equals(baseUrl)) {
+        log.warn(
+            "Invalid baseUrl configuration: '{}'. Using default 'http://localhost:9002'", baseUrl);
+        effectiveBaseUrl = "http://localhost:9002";
+      }
+
+      for (int i = 0; i < emails.size(); i++) {
+        String email = emails.get(i);
+        String inviteToken = individualTokens.get(i); // Get unique token for this email
+        String inviteLink =
+            String.format("%s/signup?invite_token=%s", effectiveBaseUrl, inviteToken);
+
+        // Log for debugging
+        log.debug(
+            "Generated invite link with baseUrl: {}, inviteToken: {}, result: {}",
+            effectiveBaseUrl,
+            inviteToken,
+            inviteLink);
+
+        try {
+          log.info(
+              "Sending invitation to email: {} with role: {} and subject: {} from user: {}",
+              email,
+              roleUrn,
+              subject,
+              authentication.getActor().toUrnStr());
+
+          // Create notification parameters
+          Map<String, String> parametersMap = new HashMap<>();
+          parametersMap.put("recipientEmail", email);
+
+          // Resolve inviter display name from URN
+          Urn inviterUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
+          String inviterDisplayName = resolveUserDisplayName(operationContext, inviterUrn);
+          parametersMap.put("inviterName", inviterDisplayName);
+
+          parametersMap.put("inviteLink", inviteLink);
+          if (subject != null) {
+            parametersMap.put("title", subject);
+          }
+          if (roleUrn != null) {
+            parametersMap.put("roleName", roleUrn);
+          }
+
+          // Create notification message
+          NotificationMessage message = new NotificationMessage();
+          message.setTemplate(NotificationTemplateType.INVITATION);
+          message.setParameters(new StringMap(parametersMap));
+
+          // Create recipient
+          NotificationRecipient recipient = new NotificationRecipient();
+          recipient.setType(NotificationRecipientType.EMAIL);
+          recipient.setId(email);
+          recipient.setDisplayName(email);
+
+          // Build notification request
+          NotificationRequest notificationRequest = new NotificationRequest();
+          notificationRequest.setMessage(message);
+          notificationRequest.setRecipients(new NotificationRecipientArray(List.of(recipient)));
+
+          // Send notification via integrations service
+          integrationsService.sendNotification(notificationRequest);
+
+          successCount++;
+
+          log.info("Successfully sent invitation to email: {}", email);
+        } catch (Exception e) {
+          String errorMsg =
+              String.format("Failed to send invitation to %s: %s", email, e.getMessage());
+          errors.add(errorMsg);
+          log.error(errorMsg, e);
+        }
+      }
+
+      SendUserInvitationsResult result = new SendUserInvitationsResult();
+      result.setSuccess(errors.isEmpty());
+      result.setInvitationsSent(successCount);
+      result.setErrors(errors);
+
+      return result;
+    } catch (Exception e) {
+      log.error("Failed to send user invitations", e);
+      throw new RuntimeException("Failed to send user invitations", e);
+    }
+  }
+
+  /**
+   * Resolves a user URN to get their display name. Falls back to first+last name, then URN ID if
+   * display name is not available.
+   */
+  private String resolveUserDisplayName(OperationContext operationContext, Urn userUrn) {
+    try {
+      Set<String> aspectNames = new HashSet<>();
+      aspectNames.add(Constants.CORP_USER_INFO_ASPECT_NAME);
+
+      Map<Urn, EntityResponse> entityResponses =
+          entityService.getEntitiesV2(operationContext, "corpuser", Set.of(userUrn), aspectNames);
+
+      EntityResponse entityResponse = entityResponses.get(userUrn);
+      if (entityResponse == null) {
+        log.warn("Could not find user entity for URN: {}", userUrn);
+        return userUrn.getId(); // Fallback to URN ID
+      }
+
+      EnvelopedAspect envelopedCorpUserInfo =
+          entityResponse.getAspects().get(Constants.CORP_USER_INFO_ASPECT_NAME);
+
+      if (envelopedCorpUserInfo == null) {
+        log.warn("CorpUserInfo aspect not found for user: {}", userUrn);
+        return userUrn.getId(); // Fallback to URN ID
+      }
+
+      CorpUserInfo corpUserInfo = new CorpUserInfo(envelopedCorpUserInfo.getValue().data());
+
+      // Try display name first
+      if (corpUserInfo.hasDisplayName() && corpUserInfo.getDisplayName() != null) {
+        return corpUserInfo.getDisplayName();
+      }
+
+      // Try first + last name
+      String fullName = getUserFullName(corpUserInfo.getFirstName(), corpUserInfo.getLastName());
+      if (fullName != null) {
+        return fullName;
+      }
+
+      // Fallback to URN ID
+      return userUrn.getId();
+
+    } catch (Exception e) {
+      log.warn("Failed to resolve display name for user: {}", userUrn, e);
+      return userUrn.getId(); // Fallback to URN ID
+    }
+  }
+
+  /** Combines first and last name into a full name. */
+  private String getUserFullName(String firstName, String lastName) {
+    if (firstName != null && lastName != null) {
+      return firstName + " " + lastName;
+    }
+    return null;
+  }
+}

@@ -1,0 +1,16 @@
+namespace com.linkedin.identity
+
+/**
+ * Token types for different invitation workflows
+ */
+enum TokenType {
+  /**
+   * Shared token that admin can copy and share manually. Reusable until admin regenerates.
+   */
+  SHARED
+  
+  /**
+   * Individual token generated for bulk invitations. Single-use, consumed on signup.
+   */
+  INDIVIDUAL
+}

@@ -101,6 +101,10 @@ public enum NotificationTemplateType {
   BROADCAST_ASSERTION_STATUS_CHANGE(
       ImmutableSet.of("assertionUrn", "entityName", "entityPath", "result"),
       Collections.emptySet()),
+  /** User invitation notification */
+  INVITATION(
+      ImmutableSet.of("recipientEmail", "inviterName", "inviteLink"),
+      ImmutableSet.of("title", "message", "roleName")),
   BROADCAST_COMPLIANCE_FORM_PUBLISH(ImmutableSet.of("formName"), Collections.emptySet()),
   /** Broadcast that a new action workflow request has been created or needs review. */
   BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST(

@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.List;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -70,7 +71,11 @@ public class InviteTokenServiceTest {
   @Test
   public void testGetInviteTokenRoleNullEntity() throws Exception {
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+            any(OperationContext.class),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            eq(inviteTokenUrn),
+            any(),
+            any()))
         .thenReturn(null);
 
     assertThrows(() -> _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn));
@@ -81,7 +86,11 @@ public class InviteTokenServiceTest {
     final EntityResponse entityResponse = new EntityResponse().setAspects(new EnvelopedAspectMap());
 
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+            any(OperationContext.class),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            eq(inviteTokenUrn),
+            any(),
+            any()))
         .thenReturn(entityResponse);
 
     assertThrows(() -> _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn));
@@ -98,7 +107,11 @@ public class InviteTokenServiceTest {
     entityResponse.setAspects(aspectMap);
 
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+            any(OperationContext.class),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            eq(inviteTokenUrn),
+            any(),
+            any()))
         .thenReturn(entityResponse);
 
     Urn roleUrn = _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn);
@@ -117,7 +130,11 @@ public class InviteTokenServiceTest {
     entityResponse.setAspects(aspectMap);
 
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+            any(OperationContext.class),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            eq(inviteTokenUrn),
+            any(),
+            any()))
         .thenReturn(entityResponse);
 
     Urn roleUrn = _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn);
@@ -145,7 +162,7 @@ public class InviteTokenServiceTest {
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(opContext, null, true);
-    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
@@ -161,7 +178,7 @@ public class InviteTokenServiceTest {
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
 
     _inviteTokenService.getInviteToken(opContext, null, false);
-    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 
   @Test
@@ -176,7 +193,11 @@ public class InviteTokenServiceTest {
             eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
         .thenReturn(searchResult);
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+            any(OperationContext.class),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            eq(inviteTokenUrn),
+            any(),
+            any()))
         .thenReturn(null);
 
     assertThrows(() -> _inviteTokenService.getInviteToken(opContext, null, false));
@@ -195,7 +216,11 @@ public class InviteTokenServiceTest {
 
     final EntityResponse entityResponse = new EntityResponse().setAspects(new EnvelopedAspectMap());
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+            any(OperationContext.class),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            eq(inviteTokenUrn),
+            any(),
+            any()))
         .thenReturn(entityResponse);
 
     when(_secretService.encrypt(anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
@@ -224,11 +249,70 @@ public class InviteTokenServiceTest {
         new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
     entityResponse.setAspects(aspectMap);
     when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+            any(OperationContext.class),
+            eq(INVITE_TOKEN_ENTITY_NAME),
+            eq(inviteTokenUrn),
+            any(),
+            any()))
         .thenReturn(entityResponse);
 
     when(_secretService.decrypt(eq(ENCRYPTED_INVITE_TOKEN_STRING))).thenReturn(INVITE_TOKEN_STRING);
 
     assertEquals(_inviteTokenService.getInviteToken(opContext, null, false), INVITE_TOKEN_STRING);
+  }
+
+  @Test
+  public void testGenerateIndividualTokensWithoutRole() throws Exception {
+    int count = 3;
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn("token1", "token2", "token3");
+    when(_secretService.hashString(anyString())).thenReturn("hash1", "hash2", "hash3");
+    when(_secretService.encrypt(anyString())).thenReturn("encrypted1", "encrypted2", "encrypted3");
+
+    List<String> tokens = _inviteTokenService.generateIndividualTokens(opContext, count, null);
+
+    assertEquals(tokens.size(), count);
+    assertEquals(tokens.get(0), "token1");
+    assertEquals(tokens.get(1), "token2");
+    assertEquals(tokens.get(2), "token3");
+
+    verify(_entityClient, times(1)).batchIngestProposals(eq(opContext), any(), eq(false));
+    verify(_secretService, times(count)).generateUrlSafeToken(anyInt());
+    verify(_secretService, times(count)).hashString(anyString());
+    verify(_secretService, times(count)).encrypt(anyString());
+  }
+
+  @Test
+  public void testGenerateIndividualTokensWithRole() throws Exception {
+    int count = 2;
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn("token1", "token2");
+    when(_secretService.hashString(anyString())).thenReturn("hash1", "hash2");
+    when(_secretService.encrypt(anyString())).thenReturn("encrypted1", "encrypted2");
+
+    List<String> tokens =
+        _inviteTokenService.generateIndividualTokens(opContext, count, ROLE_URN_STRING);
+
+    assertEquals(tokens.size(), count);
+    assertEquals(tokens.get(0), "token1");
+    assertEquals(tokens.get(1), "token2");
+
+    verify(_entityClient, times(1)).batchIngestProposals(eq(opContext), any(), eq(false));
+    verify(_secretService, times(count)).generateUrlSafeToken(anyInt());
+    verify(_secretService, times(count)).hashString(anyString());
+    verify(_secretService, times(count)).encrypt(anyString());
+  }
+
+  @Test
+  public void testGenerateIndividualTokensSingleToken() throws Exception {
+    int count = 1;
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn("singleToken");
+    when(_secretService.hashString(anyString())).thenReturn("singleHash");
+    when(_secretService.encrypt(anyString())).thenReturn("singleEncrypted");
+
+    List<String> tokens = _inviteTokenService.generateIndividualTokens(opContext, count, null);
+
+    assertEquals(tokens.size(), 1);
+    assertEquals(tokens.get(0), "singleToken");
+
+    verify(_entityClient, times(1)).batchIngestProposals(eq(opContext), any(), eq(false));
   }
 }

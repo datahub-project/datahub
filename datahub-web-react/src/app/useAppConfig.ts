@@ -58,3 +58,8 @@ export function useIsDatasetFeaturesSearchSortEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showDatasetFeaturesSearchSortOptions;
 }
+
+export function useIsInviteUsersEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.inviteUsersEnabled;
+}

@@ -848,6 +848,13 @@ type Mutation {
   createInviteToken(input: CreateInviteTokenInput!): InviteToken
 
   """
+  Send user invitation emails
+  """
+  sendUserInvitations(
+    input: SendUserInvitationsInput!
+  ): SendUserInvitationsResult
+
+  """
   Create a post
   """
   createPost(input: CreatePostInput!): Boolean
@@ -12992,6 +12999,42 @@ input AcceptRoleInput {
   The token needed to accept the role
   """
   inviteToken: String!
+}
+
+"""
+Input for sending user invitation emails
+"""
+input SendUserInvitationsInput {
+  """
+  List of email addresses to send invitations to
+  """
+  emails: [String!]!
+  """
+  The role URN for the invitation
+  """
+  roleUrn: String!
+  """
+  Optional custom subject for the invitation email
+  """
+  subject: String
+}
+
+"""
+Result of sending user invitation emails
+"""
+type SendUserInvitationsResult {
+  """
+  Whether the operation was successful
+  """
+  success: Boolean!
+  """
+  Number of invitations sent successfully
+  """
+  invitationsSent: Int!
+  """
+  List of any errors that occurred
+  """
+  errors: [String!]
 }
 
 """

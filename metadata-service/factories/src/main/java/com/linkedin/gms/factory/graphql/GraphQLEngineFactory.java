@@ -254,6 +254,9 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+  @Value("${baseUrl}")
+  private String baseUrl;
+
   @Autowired
   @Qualifier("businessAttributeService")
   private BusinessAttributeService businessAttributeService;
@@ -371,6 +374,7 @@ public class GraphQLEngineFactory {
     args.setDataContractService(_dataContractService);
     args.setAssertionService(assertionService);
     args.setMetricUtils(metricUtils);
+    args.setBaseUrl(baseUrl);
     args.setMetadataTestClient(metadataTestClient);
     args.setActionRequestService(actionRequestService);
     args.setActionWorkflowService(actionWorkflowService);

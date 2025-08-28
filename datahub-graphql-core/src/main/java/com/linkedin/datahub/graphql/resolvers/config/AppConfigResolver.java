@@ -332,6 +332,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setTagPropagationV2Enabled(_featureFlags.isTagPropagationV2Enabled())
             .setTermPropagationV2Enabled(_featureFlags.isTermPropagationV2Enabled())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
+            .setInviteUsersEnabled(_featureFlags.isInviteUsersEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

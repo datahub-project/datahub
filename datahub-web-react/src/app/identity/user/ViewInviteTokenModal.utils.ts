@@ -16,11 +16,13 @@ export const formatNumber = (num: number): string => {
 export const generateUserRecommendations = (users: CorpUser[], maxRecommendations = 10): CorpUser[] => {
     // Filter users who haven't been invited yet and have usage data
     const eligibleUsers = users.filter((user) => {
-        return (
-            user.usageFeatures?.userUsageTotalPast30Days &&
-            user.usageFeatures.userUsageTotalPast30Days > 0 &&
-            !user.invitationStatus // Not already invited
-        );
+        const hasUsageFeatures =
+            user.usageFeatures?.userUsageTotalPast30Days && user.usageFeatures.userUsageTotalPast30Days > 0;
+        const hasNoInvitation = !user.invitationStatus;
+        const hasEmail = user.info?.email || user.editableProperties?.email;
+
+        // Show users with email addresses and usage data
+        return hasNoInvitation && hasEmail && hasUsageFeatures;
     });
 
     // Sort by query count (most active first)

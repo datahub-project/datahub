@@ -82,4 +82,5 @@ public class FeatureFlags {
   private boolean tagPropagationV2Enabled = false;
   private boolean termPropagationV2Enabled = false;
   private boolean assetSummaryPageV1 = false;
+  private boolean inviteUsersEnabled = false;
 }
