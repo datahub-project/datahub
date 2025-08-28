@@ -625,8 +625,10 @@ class TestConfluentCloudConnectors:
         # Test table names parsing
         table_names = connector.get_table_names()
         assert len(table_names) == 2
-        assert ("public", "users") in table_names
-        assert ("public", "orders") in table_names
+        # Check for TableId with schema='public' and table='users'
+        assert any(t.schema == "public" and t.table == "users" for t in table_names)
+        # Check for TableId with schema='public' and table='orders'
+        assert any(t.schema == "public" and t.table == "orders" for t in table_names)
 
     def test_cloud_postgres_source_connector(self) -> None:
         """Test Confluent Cloud PostgreSQL CDC source connector."""
@@ -666,8 +668,10 @@ class TestConfluentCloudConnectors:
         # Test table names parsing with Cloud field names
         table_names = connector.get_table_names()
         assert len(table_names) == 2
-        assert ("public", "users") in table_names
-        assert ("public", "orders") in table_names
+        # Check for TableId with schema='public' and table='users'
+        assert any(t.schema == "public" and t.table == "users" for t in table_names)
+        # Check for TableId with schema='public' and table='orders'
+        assert any(t.schema == "public" and t.table == "orders" for t in table_names)
 
     def test_cloud_mysql_source_connector(self) -> None:
         """Test Confluent Cloud MySQL source connector."""
@@ -747,10 +751,10 @@ class TestConfluentCloudConnectors:
 
         table_names = connector.get_table_names()
         assert len(table_names) == 1
-        assert (
-            "public",
-            "cloud_table",
-        ) in table_names  # table.include.list takes precedence
+        # Check for TableId with schema='public' and table='cloud_table'
+        assert any(
+            t.schema == "public" and t.table == "cloud_table" for t in table_names
+        )  # table.include.list takes precedence
 
     def test_cloud_connector_missing_required_fields(self) -> None:
         """Test Cloud connector with missing required configuration fields."""
@@ -1060,10 +1064,16 @@ class TestFullConnectorConfigValidation:
 
         try:
             pipeline = TransformPipeline(transforms)
+            # Get connector class for topic generation strategy
+            connector_class = connector.connector_manifest.config.get(
+                "connector.class", ""
+            )
+
             results = pipeline.apply_transforms(
                 table_name_tuples,
                 topic_prefix,
                 list(connector.connector_manifest.topic_names),
+                connector_class,
             )
 
             lineages = []
@@ -1112,17 +1122,19 @@ class TestFullConnectorConfigValidation:
         transform_replacement = transform_config["replacement"]
         lineages = []
 
-        for table in table_name_tuples:
-            source_table = table[-1]
+        for table_id in table_name_tuples:
+            source_table = table_id.table
 
             # Build original topic name (before transform)
             if topic_prefix:
-                if has_three_level_hierarchy(source_platform) and len(table) > 1:
-                    original_topic = f"{topic_prefix}.{table[-2]}.{table[-1]}"
+                if has_three_level_hierarchy(source_platform) and table_id.schema:
+                    original_topic = (
+                        f"{topic_prefix}.{table_id.schema}.{table_id.table}"
+                    )
                 else:
-                    original_topic = f"{topic_prefix}.{table[-1]}"
+                    original_topic = f"{topic_prefix}.{table_id.table}"
             else:
-                original_topic = table[-1]
+                original_topic = table_id.table
 
             # Apply regex transformation
             try:
@@ -1140,8 +1152,8 @@ class TestFullConnectorConfigValidation:
 
             # Create lineage if topic matches
             if transformed_topic in connector.connector_manifest.topic_names:
-                if has_three_level_hierarchy(source_platform) and len(table) > 1:
-                    source_table_name = f"{table[-2]}.{table[-1]}"
+                if has_three_level_hierarchy(source_platform) and table_id.schema:
+                    source_table_name = f"{table_id.schema}.{table_id.table}"
                 else:
                     source_table_name = source_table
 
@@ -1184,10 +1196,12 @@ class TestFullConnectorConfigValidation:
 
             if matching_table:
                 # For MySQL (2-tier) and PostgreSQL (3-tier), always use schema.table when available
-                if len(matching_table) > 1:
-                    source_table_name = f"{matching_table[-2]}.{matching_table[-1]}"
+                if matching_table.schema:
+                    source_table_name = (
+                        f"{matching_table.schema}.{matching_table.table}"
+                    )
                 else:
-                    source_table_name = matching_table[-1]
+                    source_table_name = matching_table.table
 
                 dataset_name = get_dataset_name(database_name, source_table_name)
                 lineage = KafkaConnectLineage(
@@ -1200,16 +1214,16 @@ class TestFullConnectorConfigValidation:
 
         return lineages
 
-    def _find_matching_table(self, table_name_tuples, source_table_suffix):
+    def _find_matching_table(self, table_ids, source_table_suffix):
         """Find table that matches the given suffix."""
-        for table in table_name_tuples:
-            table_name = table[-1]
+        for table_id in table_ids:
+            table_name = table_id.table
             possible_suffixes = [table_name]
-            if len(table) > 1:
-                possible_suffixes.append(f"{table[-2]}.{table[-1]}")
+            if table_id.schema:
+                possible_suffixes.append(f"{table_id.schema}.{table_id.table}")
 
             if source_table_suffix in possible_suffixes:
-                return table
+                return table_id
         return None
 
     def test_cloud_postgres_cdc_with_regex_transform(self) -> None:
@@ -1355,7 +1369,10 @@ class TestTopicGeneration:
 
         # MySQL scenario: database=librarydb, table=member, no topic prefix
         result = pipeline._generate_original_topic(
-            schema="librarydb", table_name="member", topic_prefix=""
+            schema="librarydb",
+            table_name="member",
+            topic_prefix="",
+            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",  # Traditional JDBC
         )
 
         # Critical: Should be just table name, not database.table
@@ -1371,37 +1388,52 @@ class TestTopicGeneration:
 
         # PostgreSQL scenario: schema=public, table=users, no topic prefix
         result = pipeline._generate_original_topic(
-            schema="public", table_name="users", topic_prefix=""
+            schema="public",
+            table_name="users",
+            topic_prefix="",
+            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",  # Traditional JDBC
         )
 
         # Critical: Should be just table name, not schema.table
         assert result == "users", f"Expected 'users', got '{result}'"
 
-    def test_generate_original_topic_with_prefix_preserves_hierarchy(self) -> None:
-        """Test that WITH topic prefix, we preserve the full hierarchy as before."""
+    def test_generate_original_topic_with_prefix_cdc_behavior(self) -> None:
+        """Test CDC/Cloud connector behavior with topic prefix (server name)."""
         from datahub.ingestion.source.kafka_connect.source_connectors import (
             TransformPipeline,
         )
 
         pipeline = TransformPipeline([])
 
-        # MySQL with prefix - should include database
+        # With prefix: CDC/hierarchical behavior for Cloud connectors
+        # This handles Cloud connectors with database.server.name
+
+        # MySQL Cloud CDC connector - hierarchical format
         result_mysql = pipeline._generate_original_topic(
-            schema="librarydb", table_name="member", topic_prefix="mysql-"
+            schema="librarydb",
+            table_name="member",
+            topic_prefix="mysql-server",
+            connector_class="MySqlCdcSource",  # Cloud MySQL CDC
         )
-        assert result_mysql == "mysql-.librarydb.member"
+        assert result_mysql == "mysql-server.librarydb.member"
 
-        # PostgreSQL with prefix - should include schema
+        # PostgreSQL Cloud CDC connector - hierarchical format
         result_postgres = pipeline._generate_original_topic(
-            schema="public", table_name="users", topic_prefix="pg-"
+            schema="public",
+            table_name="users",
+            topic_prefix="pg-server",
+            connector_class="PostgresCdcSource",  # Cloud PostgreSQL CDC
         )
-        assert result_postgres == "pg-.public.users"
+        assert result_postgres == "pg-server.public.users"
 
-        # No schema, with prefix
+        # No schema, with server name - server + table name
         result_no_schema = pipeline._generate_original_topic(
-            schema="", table_name="table1", topic_prefix="prefix-"
+            schema="",
+            table_name="table1",
+            topic_prefix="server",
+            connector_class="MySqlCdcSource",  # Cloud connector
         )
-        assert result_no_schema == "prefix-.table1"
+        assert result_no_schema == "server.table1"
 
     def test_generate_original_topic_cloud_connectors(self) -> None:
         """Test Cloud connector scenarios with database.server.name as topic prefix."""
@@ -1413,13 +1445,19 @@ class TestTopicGeneration:
 
         # Cloud MySQL with server name
         result_cloud_mysql = pipeline._generate_original_topic(
-            schema="testdb", table_name="orders", topic_prefix="mysql-server"
+            schema="testdb",
+            table_name="orders",
+            topic_prefix="mysql-server",
+            connector_class="MySqlCdcSource",  # Cloud MySQL CDC
         )
         assert result_cloud_mysql == "mysql-server.testdb.orders"
 
         # Cloud PostgreSQL with server name
         result_cloud_postgres = pipeline._generate_original_topic(
-            schema="public", table_name="events", topic_prefix="pg-server"
+            schema="public",
+            table_name="events",
+            topic_prefix="pg-server",
+            connector_class="PostgresCdcSource",  # Cloud PostgreSQL CDC
         )
         assert result_cloud_postgres == "pg-server.public.events"
 
@@ -1451,6 +1489,7 @@ class TestTopicGeneration:
                 schema=schema,
                 table_name=table,
                 topic_prefix="",  # Key: no topic prefix
+                connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",  # Traditional JDBC
             )
 
             # Critical assertion: should be just table name
@@ -1458,6 +1497,126 @@ class TestTopicGeneration:
                 f"Integration test regression: {schema}.{table} without topic prefix "
                 f"should generate '{table}', but got '{result}'"
             )
+
+    def test_connector_type_determines_naming_strategy(self) -> None:
+        """
+        Test the architectural fix: connector type determines naming strategy, not topic_prefix.
+
+        This validates that the source (connector class) decides how to generate topic names,
+        addressing the user's feedback that the previous logic was backwards.
+        """
+        from datahub.ingestion.source.kafka_connect.source_connectors import (
+            TransformPipeline,
+        )
+
+        pipeline = TransformPipeline([])
+
+        # Test Cloud connectors always use hierarchical naming (regardless of topic_prefix)
+
+        # Cloud PostgreSQL CDC - should use CDC naming even with empty prefix
+        result = pipeline._generate_original_topic(
+            schema="public",
+            table_name="users",
+            topic_prefix="",  # Empty but Cloud connector
+            connector_class="PostgresCdcSource",
+        )
+        assert result == ".public.users", (
+            f"Cloud connector should use CDC naming even with empty prefix, got: {result}"
+        )
+
+        # Cloud PostgreSQL CDC - with topic prefix (server name)
+        result = pipeline._generate_original_topic(
+            schema="public",
+            table_name="users",
+            topic_prefix="pg-server",
+            connector_class="PostgresCdcSource",
+        )
+        assert result == "pg-server.public.users", (
+            f"Cloud PostgreSQL CDC should use hierarchical naming, got: {result}"
+        )
+
+        # Cloud MySQL CDC - with topic prefix (server name)
+        result = pipeline._generate_original_topic(
+            schema="inventory",
+            table_name="orders",
+            topic_prefix="mysql-server",
+            connector_class="MySqlCdcSource",
+        )
+        assert result == "mysql-server.inventory.orders", (
+            f"Cloud MySQL CDC should use hierarchical naming, got: {result}"
+        )
+
+        # Traditional JDBC connector always uses simple concatenation (regardless of topic_prefix)
+
+        # JDBC with empty prefix
+        result = pipeline._generate_original_topic(
+            schema="librarydb",
+            table_name="member",
+            topic_prefix="",
+            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",
+        )
+        assert result == "member", (
+            f"JDBC connector with empty prefix should use table name, got: {result}"
+        )
+
+        # JDBC with topic prefix
+        result = pipeline._generate_original_topic(
+            schema="librarydb",
+            table_name="member",
+            topic_prefix="jdbc-",
+            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",
+        )
+        assert result == "jdbc-member", (
+            f"JDBC connector should use simple concatenation, got: {result}"
+        )
+
+        # Debezium connectors always use hierarchical naming
+
+        # Debezium MySQL
+        result = pipeline._generate_original_topic(
+            schema="inventory",
+            table_name="products",
+            topic_prefix="debezium-server",
+            connector_class="io.debezium.connector.mysql.MySqlConnector",
+        )
+        assert result == "debezium-server.inventory.products", (
+            f"Debezium MySQL should use hierarchical naming, got: {result}"
+        )
+
+        # Debezium PostgreSQL
+        result = pipeline._generate_original_topic(
+            schema="public",
+            table_name="events",
+            topic_prefix="debezium-pg",
+            connector_class="io.debezium.connector.postgresql.PostgresConnector",
+        )
+        assert result == "debezium-pg.public.events", (
+            f"Debezium PostgreSQL should use hierarchical naming, got: {result}"
+        )
+
+        # Unknown connector - falls back to topic_prefix logic for backward compatibility
+
+        # Unknown connector with empty prefix - uses JDBC naming
+        result = pipeline._generate_original_topic(
+            schema="some_db",
+            table_name="some_table",
+            topic_prefix="",
+            connector_class="com.unknown.SomeConnector",
+        )
+        assert result == "some_table", (
+            f"Unknown connector with empty prefix should use JDBC naming, got: {result}"
+        )
+
+        # Unknown connector with prefix - uses JDBC naming (fallback behavior)
+        result = pipeline._generate_original_topic(
+            schema="some_db",
+            table_name="some_table",
+            topic_prefix="unknown-",
+            connector_class="com.unknown.SomeConnector",
+        )
+        assert result == "unknown-some_table", (
+            f"Unknown connector should use JDBC naming as fallback, got: {result}"
+        )
 
     def test_kafka_connect_documentation_compliance(self) -> None:
         """
@@ -1474,7 +1633,7 @@ class TestTopicGeneration:
 
         pipeline = TransformPipeline([])
 
-        # Documentation compliance test cases
+        # Documentation compliance test cases for JDBC connector specifically
         test_scenarios = [
             # (schema, table, prefix, expected_result, description)
             (
@@ -1489,24 +1648,27 @@ class TestTopicGeneration:
                 "",
                 "table1",
                 "prefix-",
-                "prefix-.table1",
-                "No schema, with prefix -> prefix.table",
+                "prefix-table1",
+                "No schema, with prefix -> prefix + table",
             ),
             (
                 "schema",
                 "table1",
                 "prefix-",
-                "prefix-.schema.table1",
-                "With schema and prefix -> prefix.schema.table",
+                "prefix-table1",
+                "With schema and prefix -> prefix + table (JDBC ignores schema)",
             ),
         ]
 
         for schema, table, prefix, expected, description in test_scenarios:
             result = pipeline._generate_original_topic(
-                schema=schema, table_name=table, topic_prefix=prefix
+                schema=schema,
+                table_name=table,
+                topic_prefix=prefix,
+                connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",
             )
 
             assert result == expected, (
-                f"Kafka Connect documentation compliance failed: {description} "
+                f"Kafka Connect JDBC documentation compliance failed: {description} "
                 f"Expected '{expected}', got '{result}'"
             )
