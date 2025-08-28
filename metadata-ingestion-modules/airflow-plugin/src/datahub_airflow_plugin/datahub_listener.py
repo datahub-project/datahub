@@ -11,8 +11,17 @@ import airflow
 from airflow.models import Variable
 from airflow.models.operator import Operator
 from airflow.models.serialized_dag import SerializedDagModel
-from openlineage.airflow.listener import TaskHolder
-from openlineage.airflow.utils import redact_with_exclusions
+from airflow.providers.openlineage.plugins.listener import get_openlineage_listener
+
+# TODO: to change to Airflow plugin
+# from openlineage.airflow.utils import redact_with_exclusions
+from airflow.providers.openlineage.utils.utils import (
+    AIRFLOW_V_3_0_PLUS,
+    OpenLineageRedactor,
+    is_operator_disabled,
+    is_selective_lineage_enabled,
+)
+from airflow.utils.state import TaskInstanceState
 from openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
@@ -61,7 +70,8 @@ _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
     from airflow.datasets import Dataset
     from airflow.models import DAG, DagRun, TaskInstance
-    from sqlalchemy.orm import Session
+    from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance
+    from airflow.settings import Session
 
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
@@ -121,9 +131,11 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.disable_openlineage_plugin:
             # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
-            from openlineage.airflow.plugin import OpenLineagePlugin
+            from airflow.providers.openlineage.plugins.openlineage import (
+                OpenLineageProviderPlugin,
+            )
 
-            OpenLineagePlugin.listeners = []
+            OpenLineageProviderPlugin.listeners = []
 
     return _airflow_listener
 
@@ -147,7 +159,7 @@ def run_in_thread(f: _F) -> _F:
                 if _RUN_IN_THREAD_TIMEOUT > 0:
                     # If _RUN_IN_THREAD_TIMEOUT is 0, we just kick off the thread and move on.
                     # Because it's a daemon thread, it'll be automatically killed when the main
-                    # thread exists.
+                    # thread exits.
 
                     start_time = time.time()
                     thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
@@ -195,7 +207,8 @@ class DataHubListener:
 
         # See discussion here https://github.com/OpenLineage/OpenLineage/pull/508 for
         # why we need to keep track of tasks ourselves.
-        self._task_holder = TaskHolder()
+        self._open_lineage_listener = get_openlineage_listener()
+        self.redact_with_exclusions = OpenLineageRedactor()
 
         # In our case, we also want to cache the initial datajob object
         # so that we can add to it when the task completes.
@@ -371,12 +384,12 @@ class DataHubListener:
         if task_metadata:
             for k, v in task_metadata.job_facets.items():
                 datajob.properties[f"openlineage_job_facet_{k}"] = Serde.to_json(
-                    redact_with_exclusions(v)
+                    self.redact_with_exclusions._redact(v)
                 )
 
             for k, v in task_metadata.run_facets.items():
                 datajob.properties[f"openlineage_run_facet_{k}"] = Serde.to_json(
-                    redact_with_exclusions(v)
+                    self.redact_with_exclusions._redact(v)
                 )
 
     def check_kill_switch(self):
@@ -385,93 +398,197 @@ class DataHubListener:
             return True
         return False
 
-    @hookimpl
-    @run_in_thread
-    def on_task_instance_running(
-        self,
-        previous_state: None,
-        task_instance: "TaskInstance",
-        session: "Session",  # This will always be QUEUED
-    ) -> None:
-        if self.check_kill_switch():
-            return
-        self._set_log_level()
+    def _should_skip_task(self, task, task_instance):
+        # Mimic OpenLineageListener's operator and selective lineage checks
+        if is_operator_disabled(task):
+            logger.debug(
+                f"Skipping DataHub event emission for operator `{task.task_type}` due to its presence in disabled_for_operators."
+            )
+            return True
+        if not is_selective_lineage_enabled(task):
+            logger.debug(
+                f"Skipping DataHub event emission for task `{task_instance.task_id}` due to lack of explicit lineage enablement for task or DAG while selective_enable is on."
+            )
+            return True
+        return False
 
-        # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
-        if not hasattr(task_instance, "task"):
+    if AIRFLOW_V_3_0_PLUS:
+
+        @hookimpl
+        @run_in_thread
+        def on_task_instance_running(
+            self,
+            previous_state: TaskInstanceState,
+            task_instance: RuntimeTaskInstance,  # This will always be QUEUED
+        ) -> None:
+            if self.check_kill_switch():
+                return
+            self._set_log_level()
+
+            # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
+
+            logger.debug(
+                f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
+            )
+
+            if not self.config.dag_filter_pattern.allowed(task_instance.dag_id):
+                logger.debug(
+                    f"DAG {task_instance.dag_id} is not allowed by the pattern"
+                )
+                return
+
+            if self._should_skip_task(task_instance.task, task_instance):
+                return
+
+            if self.config.render_templates:
+                task_instance = _render_templates(task_instance)
+
             # The type ignore is to placate mypy on Airflow 2.1.x.
-            logger.warning(
-                f"No task set for task_id: {task_instance.task_id} - "  # type: ignore[attr-defined]
-                f"dag_id: {task_instance.dag_id} - run_id {task_instance.run_id}"  # type: ignore[attr-defined]
-            )
-            return
+            dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
+            task = task_instance.task
+            assert task is not None
+            dag: "DAG" = task.dag  # type: ignore[assignment]
 
-        logger.debug(
-            f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
-        )
-
-        if not self.config.dag_filter_pattern.allowed(task_instance.dag_id):
-            logger.debug(f"DAG {task_instance.dag_id} is not allowed by the pattern")
-            return
-
-        if self.config.render_templates:
-            task_instance = _render_templates(task_instance)
-
-        # The type ignore is to placate mypy on Airflow 2.1.x.
-        dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
-        task = task_instance.task
-        assert task is not None
-        dag: "DAG" = task.dag  # type: ignore[assignment]
-
-        self._task_holder.set_task(task_instance)
-
-        # Handle async operators in Airflow 2.3 by skipping deferred state.
-        # Inspired by https://github.com/OpenLineage/OpenLineage/pull/1601
-        if task_instance.next_method is not None:  # type: ignore[attr-defined]
-            return
-
-        datajob = AirflowGenerator.generate_datajob(
-            cluster=self.config.cluster,
-            task=task,
-            dag=dag,
-            capture_tags=self.config.capture_tags_info,
-            capture_owner=self.config.capture_ownership_info,
-            config=self.config,
-        )
-
-        # TODO: Make use of get_task_location to extract github urls.
-
-        # Add lineage info.
-        self._extract_lineage(datajob, dagrun, task, task_instance)
-
-        # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
-
-        for mcp in datajob.generate_mcp(
-            generate_lineage=self.config.enable_datajob_lineage,
-            materialize_iolets=self.config.materialize_iolets,
-        ):
-            self.emitter.emit(mcp, self._make_emit_callback())
-        logger.debug(f"Emitted DataHub Datajob start: {datajob}")
-
-        if self.config.capture_executions:
-            dpi = AirflowGenerator.run_datajob(
-                emitter=self.emitter,
-                config=self.config,
-                ti=task_instance,
+            datajob = AirflowGenerator.generate_datajob(
+                cluster=self.config.cluster,
+                task=task,
                 dag=dag,
-                dag_run=dagrun,
-                datajob=datajob,
-                emit_templates=False,
+                capture_tags=self.config.capture_tags_info,
+                capture_owner=self.config.capture_ownership_info,
+                config=self.config,
             )
-            logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
 
-        self.emitter.flush()
+            # TODO: Make use of get_task_location to extract github urls.
 
-        logger.debug(
-            f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
-        )
+            # Add lineage info.
+            self._extract_lineage(datajob, dagrun, task, task_instance)
 
-        self.materialize_iolets(datajob)
+            # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
+
+            for mcp in datajob.generate_mcp(
+                generate_lineage=self.config.enable_datajob_lineage,
+                materialize_iolets=self.config.materialize_iolets,
+            ):
+                self.emitter.emit(mcp, self._make_emit_callback())
+            logger.debug(f"Emitted DataHub Datajob start: {datajob}")
+
+            if self.config.capture_executions:
+                dpi = AirflowGenerator.run_datajob(
+                    emitter=self.emitter,
+                    config=self.config,
+                    ti=task_instance,
+                    dag=dag,
+                    dag_run=dagrun,
+                    datajob=datajob,
+                    emit_templates=False,
+                )
+                logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
+
+            self.emitter.flush()
+
+            logger.debug(
+                f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
+            )
+
+            self.materialize_iolets(datajob)
+    else:
+
+        @hookimpl
+        @run_in_thread
+        def on_task_instance_running(
+            self,
+            previous_state: None,
+            task_instance: "TaskInstance",
+            session: "Session",  # This will always be QUEUED
+        ) -> None:
+            from airflow.providers.openlineage.utils.utils import (
+                is_ti_scheduled_already,
+            )
+
+            if self.check_kill_switch():
+                return
+            self._set_log_level()
+
+            # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
+            if not hasattr(task_instance, "task"):
+                # The type ignore is to placate mypy on Airflow 2.1.x.
+                logger.warning(
+                    f"No task set for task_id: {task_instance.task_id} - "  # type: ignore[attr-defined]
+                    f"dag_id: {task_instance.dag_id} - run_id {task_instance.run_id}"  # type: ignore[attr-defined]
+                )
+                return
+
+            logger.debug(
+                f"DataHub listener got notification about task instance start for {task_instance.task_id} of dag {task_instance.dag_id}"
+            )
+
+            if not self.config.dag_filter_pattern.allowed(task_instance.dag_id):
+                logger.debug(
+                    f"DAG {task_instance.dag_id} is not allowed by the pattern"
+                )
+                return
+
+            if self._should_skip_task(task_instance.task, task_instance):
+                return
+
+            if self.config.render_templates:
+                task_instance = _render_templates(task_instance)
+
+            # The type ignore is to placate mypy on Airflow 2.1.x.
+            dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
+            task = task_instance.task
+            if TYPE_CHECKING:
+                assert task
+            dag: "DAG" = task.dag  # type: ignore[assignment]
+
+            if is_ti_scheduled_already(task_instance):
+                self.log.debug(
+                    "Skipping this instance of rescheduled task - START event was emitted already"
+                )
+                return
+
+            datajob = AirflowGenerator.generate_datajob(
+                cluster=self.config.cluster,
+                task=task,
+                dag=dag,
+                capture_tags=self.config.capture_tags_info,
+                capture_owner=self.config.capture_ownership_info,
+                config=self.config,
+            )
+
+            # TODO: Make use of get_task_location to extract github urls.
+
+            # Add lineage info.
+            self._extract_lineage(datajob, dagrun, task, task_instance)
+
+            # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
+
+            for mcp in datajob.generate_mcp(
+                generate_lineage=self.config.enable_datajob_lineage,
+                materialize_iolets=self.config.materialize_iolets,
+            ):
+                self.emitter.emit(mcp, self._make_emit_callback())
+            logger.debug(f"Emitted DataHub Datajob start: {datajob}")
+
+            if self.config.capture_executions:
+                dpi = AirflowGenerator.run_datajob(
+                    emitter=self.emitter,
+                    config=self.config,
+                    ti=task_instance,
+                    dag=dag,
+                    dag_run=dagrun,
+                    datajob=datajob,
+                    emit_templates=False,
+                )
+                logger.debug(f"Emitted DataHub DataProcess Instance start: {dpi}")
+
+            self.emitter.flush()
+
+            logger.debug(
+                f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
+            )
+
+            self.materialize_iolets(datajob)
 
     def materialize_iolets(self, datajob: DataJob) -> None:
         if self.config.materialize_iolets:

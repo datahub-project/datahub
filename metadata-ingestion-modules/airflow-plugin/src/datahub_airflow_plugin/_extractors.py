@@ -3,21 +3,30 @@ import logging
 import unittest.mock
 from typing import TYPE_CHECKING, Optional
 
-from airflow.models.operator import Operator
-from openlineage.airflow.extractors import (
-    BaseExtractor,
-    ExtractorManager as OLExtractorManager,
-    TaskMetadata,
+from airflow.providers.openlineage.extractors import (
+    BaseExtractor as BaseExtractor,
+    OperatorLineage as OperatorLineage,
 )
-from openlineage.airflow.extractors.snowflake_extractor import SnowflakeExtractor
-from openlineage.airflow.extractors.sql_extractor import SqlExtractor
-from openlineage.airflow.utils import get_operator_class, try_import_from_string
-from openlineage.client.facet import (
-    ExtractionError,
-    ExtractionErrorRunFacet,
-    SqlJobFacet,
-)
+from airflow.providers.openlineage.extractors.bash import BaseExtractor
+from airflow.providers.openlineage.extractors.manager import ExtractorManager
+from airflow.providers.openlineage.extractors.python import PythonExtractor
+from airflow.providers.openlineage.utils.utils import try_import_from_string
+from airflow.utils.state import TaskInstanceState
+from airflow.providers.openlineage.sqlparser import SQLParser
 
+# from openlineage.airflow.extractors import (
+#     BaseExtractor as OLBaseExtractor,
+#     # ExtractorManager as OLExtractorManager,
+#     TaskMetadata as OLTaskMetadata,
+# )
+# from openlineage.airflow.extractors.snowflake_extractor import OLSnowflakeExtractor
+# from openlineage.airflow.extractors.sql_extractor import OLSqlExtractor
+# from openlineage.airflow.utils import get_operator_class, try_import_from_string
+# from openlineage.client.facet import (
+#     ExtractionError,
+#     ExtractionErrorRunFacet,
+#     SqlJobFacet,
+# )
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -30,6 +39,7 @@ from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance
+    from airflow.models.operator import Operator
 
     from datahub.ingestion.graph.client import DataHubGraph
 
@@ -37,12 +47,13 @@ logger = logging.getLogger(__name__)
 _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"
 SQL_PARSING_RESULT_KEY = "datahub_sql"
 
+def _iter_extractor_types() -> Iterator[type[BaseExtractor]]:
+    if PythonExtractor is not None:
+        yield PythonExtractor
+    if BaseExtractor is not None:
+        yield BaseExtractor
 
-class ExtractorManager(OLExtractorManager):
-    # TODO: On Airflow 2.7, the OLExtractorManager is part of the built-in Airflow API.
-    # When available, we should use that instead. The same goe for most of the OL
-    # extractors.
-
+class ExtractorManager(ExtractorManager):
     def __init__(self):
         super().__init__()
 
@@ -59,11 +70,11 @@ class ExtractorManager(OLExtractorManager):
             "SqliteOperator",
         ]
         for operator in _sql_operator_overrides:
-            self.task_to_extractor.extractors[operator] = GenericSqlExtractor
+            self.extractors[operator_class] = GenericSqlExtractor
 
-        self.task_to_extractor.extractors["AthenaOperator"] = AthenaOperatorExtractor
+        self.extractors["AthenaOperator"] = AthenaOperatorExtractor
 
-        self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (
+        self.extractors["BigQueryInsertJobOperator"] = (
             BigQueryInsertJobOperatorExtractor
         )
 
@@ -75,7 +86,7 @@ class ExtractorManager(OLExtractorManager):
             # Patch the SqlExtractor.extract() method.
             stack.enter_context(
                 unittest.mock.patch.object(
-                    SqlExtractor,
+                    OLSqlExtractor,
                     "extract",
                     _sql_extractor_extract,
                 )
@@ -84,7 +95,7 @@ class ExtractorManager(OLExtractorManager):
             # Patch the SnowflakeExtractor.default_schema property.
             stack.enter_context(
                 unittest.mock.patch.object(
-                    SnowflakeExtractor,
+                    OLSnowflakeExtractor,
                     "default_schema",
                     property(_snowflake_default_schema),
                 )
@@ -101,18 +112,17 @@ class ExtractorManager(OLExtractorManager):
         self,
         dagrun: "DagRun",
         task: "Operator",
-        complete: bool = False,
-        task_instance: Optional["TaskInstance"] = None,
+        task_instance_state: Optional["TaskInstanceState"] = None,
         task_uuid: Optional[str] = None,
         graph: Optional["DataHubGraph"] = None,
-    ) -> TaskMetadata:
+    ) -> OperatorLineage:
         self._graph = graph
         with self._patch_extractors():
             return super().extract_metadata(
-                dagrun, task, complete, task_instance, task_uuid
+                dagrun, task, complete, task_instance_state, task_uuid
             )
 
-    def _get_extractor(self, task: "Operator") -> Optional[BaseExtractor]:
+    def _get_extractor(self, task: "Operator") -> Optional[OLBaseExtractor]:
         # By adding this, we can use the generic extractor as a fallback for
         # any operator that inherits from SQLExecuteQueryOperator.
         clazz = get_operator_class(task)
@@ -130,7 +140,7 @@ class ExtractorManager(OLExtractorManager):
         return extractor
 
 
-class GenericSqlExtractor(SqlExtractor):
+class GenericSqlExtractor(SQLParser):
     # Note that the extract() method is patched elsewhere.
 
     @property
@@ -158,7 +168,7 @@ class GenericSqlExtractor(SqlExtractor):
         return None
 
 
-def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
+def _sql_extractor_extract(self: "OLSqlExtractor") -> OLTaskMetadata:
     # Why not override the OL sql_parse method directly, instead of overriding
     # extract()? A few reasons:
     #
@@ -198,16 +208,16 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
 
 
 def _parse_sql_into_task_metadata(
-    self: "BaseExtractor",
+    self: "OLBaseExtractor",
     sql: str,
     platform: str,
     default_database: Optional[str],
     default_schema: Optional[str],
-) -> TaskMetadata:
+) -> OLTaskMetadata:
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
 
     run_facets = {}
-    job_facets = {"sql": SqlJobFacet(query=SqlExtractor._normalize_sql(sql))}
+    job_facets = {"sql": SqlJobFacet(query=OLSqlExtractor._normalize_sql(sql))}
 
     # Prepare to run the SQL parser.
     graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
@@ -250,7 +260,7 @@ def _parse_sql_into_task_metadata(
     # facet dict in the extractor's processing logic.
     run_facets[SQL_PARSING_RESULT_KEY] = sql_parsing_result  # type: ignore
 
-    return TaskMetadata(
+    return OLTaskMetadata(
         name=task_name,
         inputs=[],
         outputs=[],
@@ -259,8 +269,8 @@ def _parse_sql_into_task_metadata(
     )
 
 
-class BigQueryInsertJobOperatorExtractor(BaseExtractor):
-    def extract(self) -> Optional[TaskMetadata]:
+class BigQueryInsertJobOperatorExtractor(OLBaseExtractor):
+    def extract(self) -> Optional[OLTaskMetadata]:
         from airflow.providers.google.cloud.operators.bigquery import (
             BigQueryInsertJobOperator,  # type: ignore
         )
@@ -303,8 +313,8 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
         return task_metadata
 
 
-class AthenaOperatorExtractor(BaseExtractor):
-    def extract(self) -> Optional[TaskMetadata]:
+class AthenaOperatorExtractor(OLBaseExtractor):
+    def extract(self) -> Optional[OLTaskMetadata]:
         from airflow.providers.amazon.aws.operators.athena import (
             AthenaOperator,  # type: ignore
         )
@@ -324,7 +334,7 @@ class AthenaOperatorExtractor(BaseExtractor):
         )
 
 
-def _snowflake_default_schema(self: "SnowflakeExtractor") -> Optional[str]:
+def _snowflake_default_schema(self: "OLSnowflakeExtractor") -> Optional[str]:
     if hasattr(self.operator, "schema") and self.operator.schema is not None:
         return self.operator.schema
     return (
