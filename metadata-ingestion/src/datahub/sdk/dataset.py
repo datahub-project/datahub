@@ -26,12 +26,14 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasSubtype,
     HasTags,
     HasTerms,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
+    StructuredPropertyInputType,
     TagInputType,
     TagsInputType,
     TermInputType,
@@ -68,6 +70,11 @@ UpstreamLineageInputType: TypeAlias = Union[
     # Combined variant.
     # Map of { upstream_dataset -> { downstream_column -> [upstream_column] } }
     Dict[DatasetUrnOrStr, ColumnLineageMapping],
+]
+
+ViewDefinitionInputType: TypeAlias = Union[
+    str,
+    models.ViewPropertiesClass,
 ]
 
 
@@ -428,6 +435,7 @@ class Dataset(
     HasTags,
     HasTerms,
     HasDomain,
+    HasStructuredProperties,
     Entity,
 ):
     """Represents a dataset in DataHub.
@@ -464,6 +472,7 @@ class Dataset(
         custom_properties: Optional[Dict[str, str]] = None,
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
+        view_definition: Optional[ViewDefinitionInputType] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
@@ -471,12 +480,12 @@ class Dataset(
         links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
-        # TODO structured_properties
         domain: Optional[DomainInputType] = None,
-        extra_aspects: ExtraAspectsType = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
         """Initialize a new Dataset instance.
 
@@ -492,6 +501,7 @@ class Dataset(
             custom_properties: Optional dictionary of custom properties.
             created: Optional creation timestamp.
             last_modified: Optional last modification timestamp.
+            view_definition: Optional view definition for the dataset.
             parent_container: Optional parent container for this dataset.
             subtype: Optional subtype of the dataset.
             owners: Optional list of owners.
@@ -533,6 +543,8 @@ class Dataset(
             self.set_created(created)
         if last_modified is not None:
             self.set_last_modified(last_modified)
+        if view_definition is not None:
+            self.set_view_definition(view_definition)
 
         if parent_container is not unset:
             self._set_container(parent_container)
@@ -548,6 +560,9 @@ class Dataset(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -710,6 +725,41 @@ class Dataset(
 
     def set_last_modified(self, last_modified: datetime) -> None:
         self._ensure_dataset_props().lastModified = make_time_stamp(last_modified)
+
+    @property
+    def view_definition(self) -> Optional[models.ViewPropertiesClass]:
+        """Get the view definition of the dataset.
+
+        Under typical usage, this will be present if the subtype is "View".
+
+        Returns:
+            The view definition if set, None otherwise.
+        """
+        return self._get_aspect(models.ViewPropertiesClass)
+
+    def set_view_definition(self, view_definition: ViewDefinitionInputType) -> None:
+        """Set the view definition of the dataset.
+
+        If you're setting a view definition, subtype should typically be set to "view".
+
+        If a string is provided, it will be treated as a SQL view definition. To set
+        a custom language or other properties, provide a ViewPropertiesClass object.
+
+        Args:
+            view_definition: The view definition to set.
+        """
+        if isinstance(view_definition, models.ViewPropertiesClass):
+            self._set_aspect(view_definition)
+        elif isinstance(view_definition, str):
+            self._set_aspect(
+                models.ViewPropertiesClass(
+                    materialized=False,
+                    viewLogic=view_definition,
+                    viewLanguage="SQL",
+                )
+            )
+        else:
+            assert_never(view_definition)
 
     def _schema_dict(self) -> Dict[str, models.SchemaFieldClass]:
         schema_metadata = self._get_aspect(models.SchemaMetadataClass)

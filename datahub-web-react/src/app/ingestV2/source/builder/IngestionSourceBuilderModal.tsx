@@ -1,4 +1,6 @@
-import { Modal, Steps, Typography } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Modal } from '@components';
+import { Spin, Steps } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -10,19 +12,7 @@ import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateS
 import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 
-const StyledModal = styled(Modal)`
-    && .ant-modal-content {
-        border-radius: 16px;
-        overflow: hidden;
-        min-width: 400px;
-    }
-`;
-
-const TitleContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    border-radius: 12px;
-`;
+import { IngestionSource } from '@types';
 
 const StepsContainer = styled.div`
     margin-right: 20px;
@@ -60,16 +50,25 @@ export enum IngestionSourceBuilderStep {
     NAME_SOURCE = 'NAME_SOURCE',
 }
 
-const modalBodyStyle = { padding: '16px 24px 16px 24px', backgroundColor: '#F6F6F6' };
-
 type Props = {
     initialState?: SourceBuilderState;
     open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
-    onCancel?: () => void;
+    onCancel: () => void;
+    sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
+    loading?: boolean;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel }: Props) => {
+export const IngestionSourceBuilderModal = ({
+    initialState,
+    open,
+    onSubmit,
+    onCancel,
+    sourceRefetch,
+    selectedSource,
+    loading,
+}: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -130,38 +129,30 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
     const StepComponent: React.FC<StepProps> = IngestionSourceBuilderStepComponent[currentStep];
 
     return (
-        <StyledModal
-            width="64%"
-            footer={null}
-            title={
-                <TitleContainer>
-                    <Typography.Text>{titleText}</Typography.Text>
-                </TitleContainer>
-            }
-            style={{ top: 40 }}
-            bodyStyle={modalBodyStyle}
-            open={open}
-            onCancel={onCancel}
-        >
-            {currentStepIndex > 0 ? (
-                <StepsContainer>
-                    <Steps current={currentStepIndex}>
-                        {Object.keys(IngestionSourceBuilderStep).map((item) => (
-                            <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
-                        ))}
-                    </Steps>
-                </StepsContainer>
-            ) : null}
-            <StepComponent
-                state={ingestionBuilderState}
-                updateState={setIngestionBuilderState}
-                isEditing={isEditing}
-                goTo={goTo}
-                prev={stepStack.length > 1 ? prev : undefined}
-                submit={submit}
-                cancel={cancel}
-                ingestionSources={ingestionSources}
-            />
-        </StyledModal>
+        <Modal width="64%" title={titleText} open={open} onCancel={onCancel} buttons={[]}>
+            <Spin spinning={loading} indicator={<LoadingOutlined />}>
+                {currentStepIndex > 0 ? (
+                    <StepsContainer>
+                        <Steps current={currentStepIndex}>
+                            {Object.keys(IngestionSourceBuilderStep).map((item) => (
+                                <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
+                            ))}
+                        </Steps>
+                    </StepsContainer>
+                ) : null}
+                <StepComponent
+                    state={ingestionBuilderState}
+                    updateState={setIngestionBuilderState}
+                    isEditing={isEditing}
+                    goTo={goTo}
+                    prev={stepStack.length > 1 ? prev : undefined}
+                    submit={submit}
+                    cancel={cancel}
+                    ingestionSources={ingestionSources}
+                    sourceRefetch={sourceRefetch}
+                    selectedSource={selectedSource}
+                />
+            </Spin>
+        </Modal>
     );
 };

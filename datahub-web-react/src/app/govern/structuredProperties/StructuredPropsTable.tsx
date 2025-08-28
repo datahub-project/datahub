@@ -3,13 +3,11 @@ import { Icon, Pill, Table, Text, Tooltip } from '@components';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import { Link } from 'react-router-dom';
 
 import EmptyStructuredProperties from '@app/govern/structuredProperties/EmptyStructuredProperties';
 import { removeFromPropertiesList } from '@app/govern/structuredProperties/cacheUtils';
 import {
     CardIcons,
-    CreatedByContainer,
     DataContainer,
     IconContainer,
     MenuItem,
@@ -20,11 +18,10 @@ import {
     PropName,
 } from '@app/govern/structuredProperties/styledComponents';
 import { getDisplayName } from '@app/govern/structuredProperties/utils';
+import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
-import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
-import { CustomAvatar } from '@src/app/shared/avatar';
 import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
@@ -33,7 +30,6 @@ import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated'
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
 import {
-    Entity,
     EntityType,
     SearchAcrossEntitiesInput,
     SearchResult,
@@ -230,30 +226,8 @@ const StructuredPropsTable = ({
             key: 'createdBy',
             render: (record) => {
                 const createdByUser = record.entity.definition?.created?.actor;
-                const name = createdByUser && entityRegistry.getDisplayName(EntityType.CorpUser, createdByUser);
-                const avatarUrl = createdByUser?.editableProperties?.pictureLink || undefined;
 
-                return (
-                    <>
-                        {createdByUser && (
-                            <HoverEntityTooltip entity={createdByUser as Entity}>
-                                <Link
-                                    to={`${entityRegistry.getEntityUrl(
-                                        EntityType.CorpUser,
-                                        (createdByUser as Entity).urn,
-                                    )}`}
-                                >
-                                    <CreatedByContainer>
-                                        <CustomAvatar size={20} name={name} photoUrl={avatarUrl} hideTooltip />
-                                        <Text color="gray" size="sm">
-                                            {name}
-                                        </Text>
-                                    </CreatedByContainer>
-                                </Link>
-                            </HoverEntityTooltip>
-                        )}
-                    </>
-                );
+                return <>{createdByUser && <ActorPill actor={createdByUser} />}</>;
             },
             sorter: (sourceA, sourceB) => {
                 const createdByUserA = sourceA.entity.definition?.created?.actor;
@@ -289,6 +263,18 @@ const StructuredPropsTable = ({
                     },
                     {
                         key: '1',
+                        label: (
+                            <MenuItem
+                                onClick={() => {
+                                    navigator.clipboard.writeText(record.entity.urn);
+                                }}
+                            >
+                                Copy Urn
+                            </MenuItem>
+                        ),
+                    },
+                    {
+                        key: '2',
                         disabled: !canEditProps,
                         label: (
                             <Tooltip
@@ -317,7 +303,7 @@ const StructuredPropsTable = ({
                         ),
                     },
                     {
-                        key: '2',
+                        key: '3',
                         disabled: !canEditProps,
                         label: (
                             <Tooltip

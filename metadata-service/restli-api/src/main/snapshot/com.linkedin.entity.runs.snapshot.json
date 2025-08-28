@@ -577,19 +577,23 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRD" : "Alternative Prod spelling",
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "RVW" : "Designates review fabrics",
       "SANDBOX" : "Designates sandbox fabrics",
+      "SBX" : "Alternative spelling for sandbox",
+      "SIT" : "System Integration Testing",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
+      "TST" : "Alternative Test spelling",
       "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
@@ -867,6 +871,11 @@
             "name" : "createStamp",
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with creation of this record"
+          }, {
+            "name" : "updateStamp",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp associated with updation of this record",
+            "optional" : true
           } ]
         }
       },
@@ -1026,6 +1035,28 @@
       },
       "doc" : "Source information for the ownership",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "ownerAttributionActors",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/source" : {
+          "fieldName" : "ownerAttributionSources",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/time" : {
+          "fieldName" : "ownerAttributionDates",
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
+        }
+      }
     } ]
   }, {
     "type" : "record",
@@ -1667,7 +1698,15 @@
               "items" : "com.linkedin.common.Urn"
             },
             "doc" : "Upstream entities in the lineage",
-            "optional" : true
+            "optional" : true,
+            "Searchable" : {
+              "/*" : {
+                "fieldName" : "fineGrainedUpstreams",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasFineGrainedUpstreams",
+                "queryByDefault" : false
+              }
+            }
           }, {
             "name" : "downstreamType",
             "type" : {
@@ -1878,6 +1917,7 @@
       "Searchable" : {
         "fieldName" : "upstreams",
         "fieldType" : "URN",
+        "hasValuesFieldName" : "hasUpstreams",
         "queryByDefault" : false
       }
     }, {

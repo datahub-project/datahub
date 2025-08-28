@@ -1,15 +1,26 @@
+import {
+    DATE_TYPE_URN,
+    NUMBER_TYPE_URN,
+    RICH_TEXT_TYPE_URN,
+    STRING_TYPE_URN,
+    URN_TYPE_URN,
+} from '@app/shared/constants';
 import EntityRegistry from '@src/app/entity/EntityRegistry';
 import { mapStructuredPropertyToPropertyRow } from '@src/app/entity/shared/tabs/Properties/useStructuredProperties';
 import {
+    DISPLAY_NAME_FILTER_NAME,
     ENTITY_TYPES_FILTER_NAME,
     IS_HIDDEN_PROPERTY_FILTER_NAME,
     SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
     SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
+    VALUE_TYPE_FIELD_NAME,
 } from '@src/app/search/utils/constants';
 import {
     AllowedValue,
+    Entity,
     EntityType,
     FacetFilterInput,
+    FilterOperator,
     Maybe,
     PropertyCardinality,
     SearchResult,
@@ -35,56 +46,56 @@ export type StructuredProp = {
 
 export const valueTypes = [
     {
-        urn: 'urn:li:dataType:datahub.string',
+        urn: STRING_TYPE_URN,
         label: 'Text',
         value: 'string',
         cardinality: PropertyCardinality.Single,
         description: 'A string value',
     },
     {
-        urn: 'urn:li:dataType:datahub.string',
+        urn: STRING_TYPE_URN,
         label: 'Text - List',
         value: 'stringList',
         cardinality: PropertyCardinality.Multiple,
         description: 'A list of string values',
     },
     {
-        urn: 'urn:li:dataType:datahub.number',
+        urn: NUMBER_TYPE_URN,
         label: 'Number',
         value: 'number',
         cardinality: PropertyCardinality.Single,
         description: 'An integer or decimal',
     },
     {
-        urn: 'urn:li:dataType:datahub.number',
+        urn: NUMBER_TYPE_URN,
         label: 'Number - List',
         value: 'numberList',
         cardinality: PropertyCardinality.Multiple,
         description: 'A list of integers or decimals',
     },
     {
-        urn: 'urn:li:dataType:datahub.urn',
+        urn: URN_TYPE_URN,
         label: 'Entity',
         value: 'entity',
         cardinality: PropertyCardinality.Single,
         description: 'A reference to a DataHub asset',
     },
     {
-        urn: 'urn:li:dataType:datahub.urn',
+        urn: URN_TYPE_URN,
         label: 'Entity - List',
         value: 'entityList',
         cardinality: PropertyCardinality.Multiple,
         description: 'A reference to a list of DataHub assets',
     },
     {
-        urn: 'urn:li:dataType:datahub.rich_text',
+        urn: RICH_TEXT_TYPE_URN,
         label: 'Rich Text',
         value: 'richText',
         cardinality: PropertyCardinality.Single,
         description: 'A freeform string of markdown text ',
     },
     {
-        urn: 'urn:li:dataType:datahub.date',
+        urn: DATE_TYPE_URN,
         label: 'Date',
         value: 'date',
         cardinality: PropertyCardinality.Single,
@@ -112,6 +123,7 @@ export const SEARCHABLE_ENTITY_TYPES = [
     EntityType.CorpGroup,
     EntityType.Tag,
     EntityType.Role,
+    EntityType.Application,
 ];
 
 export const APPLIES_TO_ENTITIES = [
@@ -132,6 +144,7 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.DataProduct,
     EntityType.SchemaField,
     EntityType.DataContract,
+    EntityType.Application,
 ];
 
 export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
@@ -249,3 +262,24 @@ export const getEntityTypesPropertyFilter = (
     };
     return entityTypesFilter;
 };
+
+export const getValueTypeFilter = (valueTypeUrns: string[]) => {
+    const valueTypeFilter: FacetFilterInput = {
+        field: VALUE_TYPE_FIELD_NAME,
+        values: valueTypeUrns,
+    };
+    return valueTypeFilter;
+};
+
+export const getDisplayNameFilter = (displayNameQuery: string) => {
+    const displayNameFilter: FacetFilterInput = {
+        field: DISPLAY_NAME_FILTER_NAME,
+        condition: FilterOperator.Contain,
+        values: [displayNameQuery],
+    };
+    return displayNameFilter;
+};
+
+export function isStructuredProperty(entity?: Entity | null | undefined): entity is StructuredPropertyEntity {
+    return !!entity && entity.type === EntityType.StructuredProperty;
+}

@@ -12,7 +12,7 @@ from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
-from datahub.metadata.schema_classes import ChangeTypeClass, SystemMetadataClass
+from datahub.metadata.schema_classes import SystemMetadataClass
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 
 logger = logging.getLogger(__name__)
@@ -104,6 +104,22 @@ class DataHubDatabaseReader:
             ORDER BY mav.urn
         """
 
+    def _get_json_extract_expression(self) -> str:
+        """
+        Returns the appropriate JSON extraction expression based on the database dialect.
+
+        Returns:
+            Database-specific JSON extraction expression
+        """
+        # Return the correct JSON extraction expression for the "removed" field,
+        # depending on the database dialect.
+        if self.engine.dialect.name == "postgresql":
+            # For PostgreSQL, cast the metadata column to JSON and extract the 'removed' key as boolean.
+            return "((metadata::json)->>'removed')::boolean"
+        else:
+            # For other databases (e.g., MySQL), use JSON_EXTRACT.
+            return "JSON_EXTRACT(metadata, '$.removed')"
+
     def query(self, set_structured_properties_filter: bool) -> str:
         """
         Main query that gets data for specified date range with appropriate filters.
@@ -125,7 +141,7 @@ class DataHubDatabaseReader:
             LEFT JOIN (
                 SELECT
                     *,
-                    JSON_EXTRACT(metadata, '$.removed') as removed
+                    {self._get_json_extract_expression()} as removed
                 FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
                 WHERE aspect = 'status'
                 AND version = 0
@@ -241,14 +257,9 @@ class DataHubDatabaseReader:
                     "end_createdon": end_date.strftime(DATETIME_FORMAT),
                     "limit": limit,
                     "offset": offset,
+                    # Always pass exclude_aspects as a tuple, postgres doesn't support lists
+                    "exclude_aspects": tuple(self.config.exclude_aspects),
                 }
-
-                # Add exclude_aspects if needed
-                if (
-                    hasattr(self.config, "exclude_aspects")
-                    and self.config.exclude_aspects
-                ):
-                    params["exclude_aspects"] = tuple(self.config.exclude_aspects)
 
                 logger.info(
                     f"Querying data from {start_date.strftime(DATETIME_FORMAT)} to {end_date.strftime(DATETIME_FORMAT)} "
@@ -374,7 +385,6 @@ class DataHubDatabaseReader:
                 entityUrn=row["urn"],
                 aspect=ASPECT_MAP[row["aspect"]].from_obj(json_aspect),
                 systemMetadata=system_metadata,
-                changeType=ChangeTypeClass.UPSERT,
             )
         except Exception as e:
             logger.warning(

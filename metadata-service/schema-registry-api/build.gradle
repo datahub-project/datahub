@@ -32,7 +32,7 @@ dependencies {
 tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
     it.setInputFile(
         file(
-            "$projectDir/src/main/resources/schema-registry-open-api-v7.4.0.yaml"
+            "$projectDir/src/main/resources/schema-registry-open-api-v7.9.1.yaml"
         )
     )
     it.setOutputDir(file("$projectDir/generated"))

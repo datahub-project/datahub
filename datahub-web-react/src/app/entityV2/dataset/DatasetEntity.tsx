@@ -17,13 +17,16 @@ import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { GOVERNANCE_TAB_NAME, QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
+import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import SidebarDatasetHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -43,13 +46,11 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
-import StatsTab from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTab';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabWrapper';
 import { AcrylValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
-import ColumnTabNameHeader from '@app/entityV2/shared/tabs/Entity/ColumnTabNameHeader';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -57,6 +58,7 @@ import {
     SidebarTitleActionType,
     getDataProduct,
     getDatasetLastUpdatedMs,
+    getFirstSubType,
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
@@ -111,10 +113,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return (
             <ViewComfyOutlinedIcon
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -155,7 +154,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Columns',
                     component: SchemaTab,
                     icon: LayoutOutlined,
-                    getDynamicName: ColumnTabNameHeader,
+                    getCount: useGetColumnTabCount,
                 },
                 {
                     name: 'View Definition',
@@ -202,12 +201,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
-                    getDynamicName: (_, dataset: GetDatasetQuery, loading) => {
+                    getCount: (_, dataset: GetDatasetQuery) => {
                         const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
                         const structuredPropertiesCount =
                             dataset?.dataset?.structuredProperties?.properties?.length || 0;
                         const propertiesCount = customPropertiesCount + structuredPropertiesCount;
-                        return <TabNameWithCount name="Properties" count={propertiesCount} loading={loading} />;
+                        return propertiesCount;
                     },
                 },
                 {
@@ -221,7 +220,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Stats',
-                    component: StatsTab,
+                    component: StatsTabWrapper,
                     icon: FundOutlined,
                     display: {
                         visible: (_, _1) => true,
@@ -233,12 +232,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Quality',
+                    name: QUALITY_TAB_NAME,
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                     icon: CheckCircleOutlined,
                 },
                 {
-                    name: 'Governance',
+                    name: GOVERNANCE_TAB_NAME,
                     icon: () => (
                         <span
                             style={{
@@ -250,6 +249,11 @@ export class DatasetEntity implements Entity<Dataset> {
                         </span>
                     ),
                     component: GovernanceTab,
+                    getCount: (_, dataset) => {
+                        const passingTests = dataset?.dataset?.testResults?.passing || [];
+                        const failingTests = dataset?.dataset?.testResults?.failing || [];
+                        return passingTests.length + failingTests.length;
+                    },
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.
@@ -267,9 +271,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dataset, loading) => {
-                        const activeIncidentCount = dataset?.dataset?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dataset) => {
+                        return dataset?.dataset?.activeIncidents?.total;
                     },
                 },
             ]}
@@ -286,6 +289,7 @@ export class DatasetEntity implements Entity<Dataset> {
         { component: SidebarLineageSection },
         { component: SidebarOwnerSection },
         { component: SidebarDomainSection },
+        { component: SidebarApplicationSection },
         { component: DataProductSection },
         { component: SidebarTagsSection },
         { component: SidebarGlossaryTermsSection },
@@ -386,7 +390,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 data={genericProperties}
                 name={data.properties?.name || data.name}
                 origin={data.origin}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
                     data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
@@ -439,7 +443,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 glossaryTerms={data.glossaryTerms}
-                subtype={data.subTypes?.typeNames?.[0]}
+                subtype={getFirstSubType(data)}
                 container={data.container}
                 parentContainers={data.parentContainers}
                 snippet={<MatchedFieldList customFieldRenderer={matchedFieldPathsRenderer} />}
@@ -476,7 +480,7 @@ export class DatasetEntity implements Entity<Dataset> {
             name: entity?.properties?.name || entity.name,
             expandedName: entity?.properties?.qualifiedName || entity?.properties?.name || entity.name,
             type: EntityType.Dataset,
-            subtype: entity?.subTypes?.typeNames?.[0] || undefined,
+            subtype: getFirstSubType(entity) || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             health: entity?.health || undefined,
@@ -513,6 +517,7 @@ export class DatasetEntity implements Entity<Dataset> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 

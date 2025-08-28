@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Dict, List, Union
+from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_cloud
-from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceReport,
@@ -552,7 +552,7 @@ def test_include_database_name(include_database_name: str, expected: bool) -> No
     assert config.include_database_name is expected
 
 
-def test_extract_dbt_entities():
+def test_extract_dbt_entities() -> None:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     config = DBTCoreConfig(
         manifest_path="tests/unit/dbt/artifacts/manifest.json",
@@ -564,3 +564,252 @@ def test_extract_dbt_entities():
     config.include_database_name = False
     source = DBTCoreSource(config, ctx)
     assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
+
+
+def test_drop_duplicate_sources() -> None:
+    class SharedDBTNodeFields(TypedDict, total=False):
+        database: str
+        schema: str
+        alias: None
+        comment: str
+        raw_code: None
+        dbt_adapter: str
+        dbt_file_path: None
+        dbt_package_name: str
+        max_loaded_at: None
+        catalog_type: None
+        missing_from_catalog: bool
+        owner: None
+        compiled_code: None
+
+    # Create 3 nodes: model, duplicate source, and another model that references the source
+    shared_fields: SharedDBTNodeFields = {
+        "database": "test_db",
+        "schema": "test_schema",
+        "alias": None,
+        "comment": "",
+        "raw_code": None,
+        "dbt_adapter": "postgres",
+        "dbt_file_path": None,
+        "dbt_package_name": "package",
+        "max_loaded_at": None,
+        "catalog_type": None,
+        "missing_from_catalog": False,
+        "owner": None,
+        "compiled_code": None,
+    }
+
+    model_node = DBTNode(
+        **shared_fields,
+        name="shared_table",
+        description="A model",
+        language="sql",
+        dbt_name="model.package.shared_table",
+        node_type="model",
+        materialization="table",
+    )
+
+    duplicate_source = DBTNode(
+        **shared_fields,
+        name="shared_table",  # Same warehouse name as model
+        description="A source with same name as model",
+        language=None,
+        dbt_name="source.package.external_source.shared_table",
+        node_type="source",
+        materialization=None,
+    )
+
+    referencing_model = DBTNode(
+        **shared_fields,
+        name="downstream_table",
+        description="A model that references the source",
+        language="sql",
+        dbt_name="model.package.downstream_table",
+        node_type="model",
+        materialization="table",
+        upstream_nodes=[
+            "source.package.external_source.shared_table"
+        ],  # References the source
+    )
+
+    original_nodes = [model_node, duplicate_source, referencing_model]
+
+    # Test the method
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig.parse_obj(create_base_dbt_config())
+    source: DBTCoreSource = DBTCoreSource(config, ctx)
+
+    result_nodes: List[DBTNode] = source._drop_duplicate_sources(original_nodes)
+
+    # Verify source was dropped (only 2 nodes remain)
+    assert len(result_nodes) == 2
+    node_types = [node.node_type for node in result_nodes]
+    assert "source" not in node_types
+    assert node_types.count("model") == 2
+
+    # Verify reference was updated
+    downstream_node = next(
+        node
+        for node in result_nodes
+        if node.dbt_name == "model.package.downstream_table"
+    )
+    assert downstream_node.upstream_nodes == ["model.package.shared_table"]
+
+    # Verify report counters
+    assert source.report.duplicate_sources_dropped == 1
+    assert source.report.duplicate_sources_references_updated == 1
+
+
+def test_dbt_sibling_aspects_creation():
+    """Test that sibling patches are created correctly based on configuration."""
+    ctx = PipelineContext(run_id="test-run-id")
+    base_config = create_base_dbt_config()
+
+    # Create source with dbt as primary (default behavior)
+    config_dbt_primary = DBTCoreConfig(**base_config)
+    source_dbt_primary = DBTCoreSource(config_dbt_primary, ctx)
+
+    # Manually set the config value for testing since the field might not be parsed yet
+    source_dbt_primary.config.dbt_is_primary_sibling = True
+
+    model_node = DBTNode(
+        name="test_model",
+        database="test_db",
+        schema="test_schema",
+        alias=None,
+        comment="",
+        description="Test model",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="model.package.test_model",
+        dbt_file_path=None,
+        dbt_package_name="package",
+        node_type="model",
+        materialization="table",
+        max_loaded_at=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=None,
+    )
+    # Note: exists_in_target_platform is a property that returns True for non-ephemeral, non-test nodes
+    # Our node_type="model" and materialization="table" will make this property return True
+
+    # For models when dbt is primary - should not create sibling patches
+    should_create_siblings = source_dbt_primary._should_create_sibling_relationships(
+        model_node
+    )
+    assert should_create_siblings is False
+
+    # Test with target platform as primary - should create sibling patches
+    config_target_primary = DBTCoreConfig(**base_config)
+    source_target_primary = DBTCoreSource(config_target_primary, ctx)
+
+    # Manually set the config value for testing
+    source_target_primary.config.dbt_is_primary_sibling = False
+
+    # For models when target platform is primary - should create sibling patches
+    should_create_siblings = source_target_primary._should_create_sibling_relationships(
+        model_node
+    )
+    assert should_create_siblings is True
+
+
+def test_dbt_cloud_source_description_precedence() -> None:
+    """
+    Test that dbt Cloud source prioritizes table-level description over schema-level sourceDescription.
+    """
+
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    source_node_data: Dict[str, Any] = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "This is the table-level description for my_table",
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    assert parsed_node.description == "This is the table-level description for my_table"
+    assert (
+        parsed_node.description != "This is the schema-level description for my_schema"
+    )
+    assert parsed_node.name == "my_table"
+    assert parsed_node.node_type == "source"
+
+
+def test_dbt_cloud_source_description_fallback() -> None:
+    """
+    Test that dbt Cloud source falls back to sourceDescription when table description is empty.
+    """
+
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    source_node_data: Dict[str, Any] = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "",  # Empty table description
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    assert (
+        parsed_node.description == "This is the schema-level description for my_schema"
+    )

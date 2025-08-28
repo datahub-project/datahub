@@ -2,10 +2,11 @@ import { CheckCircleOutlined } from '@ant-design/icons';
 import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
+import { EXECUTION_REQUEST_STATUS_FAILURE, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import TestConnectionModal from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionModal';
 import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
-import { FAILURE, RUNNING, yamlToJson } from '@app/ingestV2/source/utils';
+import { yamlToJson } from '@app/ingestV2/source/utils';
 import { Button } from '@src/alchemy-components';
 
 import {
@@ -61,8 +62,8 @@ function TestConnectionButton(props: Props) {
     useEffect(() => {
         if (!loading && resultData) {
             const result = resultData.executionRequest?.result;
-            if (result && result.status !== RUNNING) {
-                if (result.status === FAILURE) {
+            if (result && result.status !== EXECUTION_REQUEST_STATUS_RUNNING) {
+                if (result.status === EXECUTION_REQUEST_STATUS_FAILURE) {
                     message.error(
                         'Something went wrong with your connection test. Please check your recipe and try again.',
                     );

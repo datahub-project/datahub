@@ -3,6 +3,7 @@ package com.linkedin.metadata.dao.throttle;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MANUAL;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_TIMESERIES_LAG;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_VERSIONED_LAG;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,7 +47,10 @@ public class APIThrottleTest {
   @BeforeMethod
   public void init() {
     mockRequestContext = mock(RequestContext.class);
-    opContext = TestOperationContexts.userContextNoSearchAuthorization(mockRequestContext);
+    RequestContext.RequestContextBuilder builder = mock(RequestContext.RequestContextBuilder.class);
+    when(builder.metricUtils(any())).thenReturn(builder);
+    when(builder.build()).thenReturn(mockRequestContext);
+    opContext = TestOperationContexts.userContextNoSearchAuthorization(builder);
   }
 
   @Test

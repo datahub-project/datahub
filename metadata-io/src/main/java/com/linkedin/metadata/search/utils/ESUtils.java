@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.query.filter.Condition.ANCESTORS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.DESCENDANTS_INCL;
@@ -10,6 +11,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
@@ -17,6 +19,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -25,8 +28,11 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -37,8 +43,13 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -46,6 +57,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.builder.PointInTimeBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.slice.SliceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.ScoreSortBuilder;
 import org.opensearch.search.sort.SortOrder;
@@ -60,7 +72,6 @@ public class ESUtils {
   private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
   public static final String KEYWORD_ANALYZER = "keyword";
   public static final String KEYWORD_SUFFIX = ".keyword";
-  public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
   private static final String REMOVED = "removed";
@@ -548,6 +559,13 @@ public class ESUtils {
     }
   }
 
+  public static void setSliceOptions(
+      SearchSourceBuilder searchSourceBuilder, @Nullable SliceOptions sliceOptions) {
+    if (sliceOptions != null) {
+      searchSourceBuilder.slice(new SliceBuilder(sliceOptions.getId(), sliceOptions.getMax()));
+    }
+  }
+
   @Nonnull
   private static QueryBuilder getQueryBuilderFromCriterionForFieldToExpand(
       @Nonnull final List<String> fields,
@@ -917,5 +935,316 @@ public class ESUtils {
             .getSystemModifiedAtFieldName()
             .or(() -> Optional.of(String.format("%sSystemModifiedAt", fieldName)))
         : Optional.empty();
+  }
+
+  /**
+   * Performs a single optimization pass on the query tree.
+   *
+   * @param query The QueryBuilder to optimize
+   * @param considerScore If true, moves to must() for scoring; if false, moves to filter()
+   * @return true if any optimization was performed, false otherwise
+   */
+  static boolean optimizePass(QueryBuilder query, boolean considerScore) {
+    if (!(query instanceof BoolQueryBuilder)) {
+      return false;
+    }
+
+    BoolQueryBuilder boolQuery = (BoolQueryBuilder) query;
+    boolean changed = false;
+    boolean localChanged;
+
+    // Keep optimizing this level until no more local changes
+    // This ensures that when we move clauses around, they get properly optimized
+    do {
+      localChanged = false;
+
+      // First, recursively optimize all nested queries
+      // Must clauses
+      for (int i = 0; i < boolQuery.must().size(); i++) {
+        localChanged |= optimizePass(boolQuery.must().get(i), considerScore);
+      }
+
+      // Filter clauses - always use considerScore=false for filters
+      for (int i = 0; i < boolQuery.filter().size(); i++) {
+        localChanged |= optimizePass(boolQuery.filter().get(i), false);
+      }
+
+      // Should clauses
+      for (int i = 0; i < boolQuery.should().size(); i++) {
+        localChanged |= optimizePass(boolQuery.should().get(i), considerScore);
+      }
+
+      // MustNot clauses - always use considerScore=false
+      for (int i = 0; i < boolQuery.mustNot().size(); i++) {
+        localChanged |= optimizePass(boolQuery.mustNot().get(i), false);
+      }
+
+      // After optimizing children, check if this query itself can be optimized
+
+      // Optimization 1: Convert single should clause with minimumShouldMatch=1
+      if (isOptimizableShould(boolQuery)) {
+        // Get the should clause
+        QueryBuilder shouldClause = boolQuery.should().get(0);
+
+        // Remove the should clause
+        boolQuery.should().clear();
+
+        // Reset minimumShouldMatch since there are no more should clauses
+        boolQuery.minimumShouldMatch(null);
+
+        // Add to appropriate clause type
+        if (considerScore) {
+          boolQuery.must(shouldClause);
+        } else {
+          boolQuery.filter(shouldClause);
+        }
+
+        localChanged = true;
+      }
+
+      // Optimization 2: Flatten nested bool queries with only filter clauses
+      if (canFlattenFilters(boolQuery)) {
+        localChanged |= flattenFilters(boolQuery);
+      }
+
+      changed |= localChanged;
+    } while (localChanged);
+
+    // Note: We don't handle unwrapping here because it requires replacing the query object
+    // which can't be done in-place. Unwrapping is handled at the top level in queryOptimize.
+
+    return changed;
+  }
+
+  /**
+   * Checks if the BoolQueryBuilder has a single should clause with minimumShouldMatch=1
+   *
+   * @param query The BoolQueryBuilder to check
+   * @return true if the query can be optimized, false otherwise
+   */
+  static boolean isOptimizableShould(BoolQueryBuilder query) {
+    // Check if there's exactly one should clause
+    if (query.should().size() != 1) {
+      return false;
+    }
+
+    // Check if minimumShouldMatch is set to "1"
+    String minShouldMatch = query.minimumShouldMatch();
+    if (minShouldMatch == null) {
+      return false;
+    }
+
+    // Handle different formats of minimumShouldMatch
+    // It could be "1", "1%", or other formats
+    if (minShouldMatch.equals("1") || minShouldMatch.equals("100%")) {
+      return true;
+    }
+
+    // Check if it's a percentage format like "100%"
+    if (minShouldMatch.endsWith("%")) {
+      try {
+        int percentage = Integer.parseInt(minShouldMatch.substring(0, minShouldMatch.length() - 1));
+        // With only 1 should clause, 100% means that 1 clause must match
+        return percentage == 100;
+      } catch (NumberFormatException e) {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Checks if a bool query can have its filter clauses flattened. This is possible when it has
+   * filter clauses containing other bool queries that only have filter clauses.
+   *
+   * @param query The BoolQueryBuilder to check
+   * @return true if filters can be flattened
+   */
+  static boolean canFlattenFilters(BoolQueryBuilder query) {
+    // Check each filter clause
+    for (QueryBuilder filter : query.filter()) {
+      if (filter instanceof BoolQueryBuilder) {
+        BoolQueryBuilder nestedBool = (BoolQueryBuilder) filter;
+        // If the nested bool query has only filter clauses (no must, should, mustNot),
+        // then we can flatten it
+        if (nestedBool.must().isEmpty()
+            && nestedBool.should().isEmpty()
+            && nestedBool.mustNot().isEmpty()
+            && !nestedBool.filter().isEmpty()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Flattens nested filter clauses in a bool query. Extracts filter clauses from nested bool
+   * queries that only contain filters and adds them directly to the parent.
+   *
+   * @param query The BoolQueryBuilder to flatten
+   * @return true if any flattening occurred
+   */
+  private static boolean flattenFilters(BoolQueryBuilder query) {
+    boolean changed = false;
+    List<QueryBuilder> filtersToAdd = new ArrayList<>();
+    List<QueryBuilder> filtersToRemove = new ArrayList<>();
+
+    // Identify filters that can be flattened
+    for (QueryBuilder filter : query.filter()) {
+      if (filter instanceof BoolQueryBuilder) {
+        BoolQueryBuilder nestedBool = (BoolQueryBuilder) filter;
+        // If the nested bool query has only filter clauses, extract them
+        if (nestedBool.must().isEmpty()
+            && nestedBool.should().isEmpty()
+            && nestedBool.mustNot().isEmpty()
+            && !nestedBool.filter().isEmpty()) {
+
+          // Mark for removal
+          filtersToRemove.add(filter);
+
+          // Extract all filters from the nested bool query
+          filtersToAdd.addAll(nestedBool.filter());
+
+          changed = true;
+        }
+      }
+    }
+
+    // Apply the changes
+    if (changed) {
+      // Remove the nested bool queries
+      for (QueryBuilder toRemove : filtersToRemove) {
+        query.filter().remove(toRemove);
+      }
+
+      // Add the extracted filters directly
+      for (QueryBuilder toAdd : filtersToAdd) {
+        query.filter(toAdd);
+      }
+    }
+
+    return changed;
+  }
+
+  /**
+   * Checks if a bool query can be unwrapped (replaced by its single clause). This is possible when
+   * the bool query has exactly one clause total.
+   *
+   * @param query The BoolQueryBuilder to check
+   * @return true if the query can be unwrapped
+   */
+  static boolean canUnwrap(BoolQueryBuilder query) {
+    int totalClauses =
+        query.must().size()
+            + query.filter().size()
+            + query.should().size()
+            + query.mustNot().size();
+
+    // Can unwrap if there's exactly one clause and no minimumShouldMatch constraint
+    return totalClauses == 1 && query.minimumShouldMatch() == null;
+  }
+
+  /**
+   * Fully optimizes a query by running optimization passes until no more changes occur.
+   *
+   * @param query The QueryBuilder to optimize
+   * @param considerScore If true, preserves scoring; if false, optimizes for filtering
+   * @return The optimized query (may be a different instance if unwrapping occurred)
+   */
+  public static QueryBuilder queryOptimize(QueryBuilder query, boolean considerScore) {
+    if (query == null) {
+      return null;
+    }
+
+    // For non-bool queries, return as-is
+    if (!(query instanceof BoolQueryBuilder)) {
+      return query;
+    }
+
+    BoolQueryBuilder boolQuery = (BoolQueryBuilder) query;
+
+    // Keep optimizing until no more changes
+    boolean changed;
+    int iterations = 0;
+    int maxIterations = 100; // Safety limit to prevent infinite loops
+
+    do {
+      changed = optimizePass(boolQuery, considerScore);
+      iterations++;
+
+      if (iterations >= maxIterations) {
+        // Log warning or throw exception in production code
+        break;
+      }
+    } while (changed);
+
+    // After all optimization passes, check if we can unwrap at the top level
+    if (canUnwrap(boolQuery)) {
+      // Return the single clause directly
+      if (!boolQuery.must().isEmpty()) {
+        return queryOptimize(boolQuery.must().get(0), considerScore);
+      } else if (!boolQuery.filter().isEmpty()) {
+        return queryOptimize(boolQuery.filter().get(0), false);
+      } else if (!boolQuery.should().isEmpty()) {
+        return queryOptimize(boolQuery.should().get(0), considerScore);
+      } else if (!boolQuery.mustNot().isEmpty()) {
+        // mustNot can't stand alone, keep it wrapped
+        return boolQuery;
+      }
+    }
+
+    return boolQuery;
+  }
+
+  public static @Nonnull String computePointInTime(
+      String scrollId,
+      String keepAlive,
+      String elasticSearchImpl,
+      RestHighLevelClient client,
+      String... indexArray) {
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
+        return searchAfterWrapper.getPitId();
+      }
+    }
+    if (ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+      return createPointInTimeElasticSearch(client, indexArray, keepAlive);
+    } else if (ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+      return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+    }
+    log.warn("Unsupported elasticsearch implementation: {}", elasticSearchImpl);
+    throw new IllegalStateException("Unsupported elasticsearch implementation.");
+  }
+
+  private static @Nonnull String createPointInTimeElasticSearch(
+      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+    String endPoint = String.join(",", indexArray) + "/_pit";
+    Request request = new Request("POST", endPoint);
+    request.addParameter("keep_alive", keepAlive);
+    try {
+      Response response = client.getLowLevelClient().performRequest(request);
+      Map<String, Object> mappedResponse =
+          OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
+      return (String) mappedResponse.get("id");
+    } catch (IOException e) {
+      log.warn("Failed to generate PointInTime Identifier:", e);
+      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
+    }
+  }
+
+  private static @Nonnull String createPointInTimeOpenSearch(
+      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+    try {
+      CreatePitRequest request =
+          new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
+      CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
+      return response.getId();
+    } catch (IOException e) {
+      log.warn("Failed to generate PointInTime Identifier:", e);
+      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
+    }
   }
 }

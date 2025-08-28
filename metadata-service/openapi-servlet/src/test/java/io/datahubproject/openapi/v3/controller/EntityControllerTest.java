@@ -5,12 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -44,6 +39,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.dataset.DatasetProfile;
@@ -61,7 +57,13 @@ import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -74,7 +76,7 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.openapi.config.SpringWebConfig;
@@ -108,10 +110,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller"})
+@ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller.EntityController"})
 @Import({
   SpringWebConfig.class,
   TracingInterceptor.class,
+  EntityController.class,
   EntityControllerTest.EntityControllerTestConfig.class,
   EntityVersioningServiceFactory.class,
   GlobalControllerExceptionHandler.class, // ensure error responses
@@ -431,7 +434,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     @MockBean public EntityServiceImpl entityService;
     @MockBean public SearchService searchService;
     @MockBean public TimeseriesAspectService timeseriesAspectService;
-    @MockBean public TraceContext traceContext;
+    @MockBean public SystemTelemetryContext systemTelemetryContext;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -533,6 +536,65 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollFilterToRecordTemplate() {
+    // Construct expected filter.
+    ConjunctiveCriterionArray criteria = new ConjunctiveCriterionArray();
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    Criterion criterion1 =
+        new Criterion()
+            .setField("name")
+            .setValues(new StringArray("foo"))
+            .setCondition(Condition.EQUAL);
+    Criterion criterion2 =
+        new Criterion()
+            .setField("anotherName")
+            .setValues(new StringArray("bar"))
+            .setCondition(Condition.EQUAL);
+    conjunctiveCriterion.setAnd(new CriterionArray(criterion1, criterion2));
+    criteria.add(conjunctiveCriterion);
+    Filter expectedFilter = new Filter().setOr(criteria);
+
+    // Construct tested filter.
+    io.datahubproject.openapi.v3.models.ConjunctiveCriterion openapiConjunctiveCriterion =
+        io.datahubproject.openapi.v3.models.ConjunctiveCriterion.builder()
+            .criteria(
+                List.of(
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("name")
+                        .values(List.of("foo"))
+                        .build(),
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("anotherName")
+                        .values(List.of("bar"))
+                        .build()))
+            .build();
+
+    io.datahubproject.openapi.v3.models.Filter openapiFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(List.of(openapiConjunctiveCriterion))
+            .build();
+
+    // Assert they are equal.
+    assertEquals(expectedFilter, openapiFilter.toRecordTemplate());
+  }
+
+  @Test
+  public void testScrollSortCriteriaToRecordTemplate() {
+    // Expected sort criteria.
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("name").setOrder(SortOrder.ASCENDING);
+
+    // Tested sort criteria
+    io.datahubproject.openapi.v3.models.SortCriterion openapiSortCriterion =
+        io.datahubproject.openapi.v3.models.SortCriterion.builder()
+            .field("name")
+            .order(io.datahubproject.openapi.v3.models.SortCriterion.SortOrder.ASCENDING)
+            .build();
+
+    assertEquals(sortCriterion, openapiSortCriterion.toRecordTemplate());
+  }
+
+  @Test
   public void testScrollEntitiesWithMultipleSortFields() throws Exception {
     List<Urn> TEST_URNS =
         List.of(
@@ -621,6 +683,132 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
         .andExpect(MockMvcResultMatchers.jsonPath("$.scrollId").value("test-scroll-id"));
+  }
+
+  @Test
+  public void testScrollEntitiesWithSliceParameters() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity().setEntity(TEST_URNS.get(0)),
+                        new SearchEntity().setEntity(TEST_URNS.get(1)))))
+            .setScrollId("test-scroll-id");
+
+    // Use ArgumentCaptor to capture the OperationContext and verify slice options
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data()))),
+                TEST_URNS.get(1),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("sliceId", "0")
+                .param("sliceMax", "2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.entities[1].urn").value(TEST_URNS.get(1).toString()));
+
+    // Verify that slice options were properly set in the operation context
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+    assertEquals(
+        0,
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+    assertEquals(
+        2,
+        capturedOpContext
+            .getSearchContext()
+            .getSearchFlags()
+            .getSliceOptions()
+            .getMax()
+            .intValue());
+  }
+
+  @Test
+  public void testScrollEntitiesWithOnlyOneSliceParameter() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(
+                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))));
+
+    // Use ArgumentCaptor to capture the OperationContext and verify no slice options
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    // Test with only sliceId - should not set slice options
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("sliceId", "0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify that slice options were not set (both parameters are required)
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
   }
 
   public void testEntityVersioningFeatureFlagDisabled() throws Exception {

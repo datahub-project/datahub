@@ -43,6 +43,7 @@ public class SearchServiceFactory {
             entitySearchService,
             configurationProvider.getCache().getHomepage().getEntityCounts()),
         cachingEntitySearchService,
-        searchRanker);
+        searchRanker,
+        configurationProvider.getSearchService());
   }
 }

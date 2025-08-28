@@ -1,7 +1,7 @@
 # This image has two variants: full and slim.
 # The full variant has additional deps preinstalled, like a JRE and Oracle client.
 ARG APP_ENV=full
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.11
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.
@@ -139,6 +139,18 @@ RUN chmod a+x /start_datahub_actions.sh && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
+# Install a cacheble layer that installs external dependencies and does not get invalidated due to changes in ingestion or actions code
+# Copy just enough to enable pip compile to work. Other code changes wont invalidate this layer.
+COPY --chown=datahub:datahub ./metadata-ingestion/setup.py /metadata-ingestion/
+COPY --chown=datahub:datahub ./metadata-ingestion/src/datahub/_version.py /metadata-ingestion/src/datahub/
+COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
+COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
+COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
+
+USER datahub
+RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+USER 0
+
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 # Add other default configurations into this!
@@ -157,6 +169,47 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
 # really impact image size.
 RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
+
+# =============================================================================
+# PRE-BUILD BUNDLED INGESTION VENVS
+# =============================================================================
+
+USER 0
+
+# Set up bundled venv configuration
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data"
+ARG BUNDLED_CLI_VERSION
+ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+
+# Create venv directory
+RUN mkdir -p $DATAHUB_BUNDLED_VENV_PATH && \
+    chown -R datahub:datahub $DATAHUB_BUNDLED_VENV_PATH
+
+# Copy the self-contained venv build scripts
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+
+# Make scripts executable
+RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
+    chmod +x /tmp/build_bundled_venvs_unified.py
+
+USER datahub
+
+# Build bundled venvs using our self-contained script
+WORKDIR /tmp
+RUN ./build_bundled_venvs_unified.sh
+
+# Remove build scripts to reduce image size
+USER 0
+RUN rm -rf /tmp/build_bundled_venvs_unified.py /tmp/build_bundled_venvs_unified.sh
+
+USER datahub
+
+# =============================================================================
+# END BUNDLED VENVS SECTION
+# =============================================================================
 
 ENTRYPOINT [ ]
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh

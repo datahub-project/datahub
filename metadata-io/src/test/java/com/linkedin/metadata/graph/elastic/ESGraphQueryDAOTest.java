@@ -4,7 +4,10 @@ import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -18,7 +21,9 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
@@ -129,7 +134,14 @@ public class ESGraphQueryDAOTest {
 
     ESGraphQueryDAO graphQueryDAO =
         new ESGraphQueryDAO(
-            null, operationContext.getLineageRegistry(), null, new GraphQueryConfiguration());
+            null,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
+            operationContext.getLineageRegistry(),
+            null,
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            null);
     QueryBuilder limitedBuilder = graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos);
 
     LineageGraphFilters lineageGraphFilters =
@@ -302,9 +314,13 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            new GraphQueryConfiguration());
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Mock the search response
     SearchResponse mockSearchResponse = mock(SearchResponse.class);
@@ -323,6 +339,7 @@ public class ESGraphQueryDAOTest {
 
     String scrollId =
         "eyJzb3J0IjpbInVybjpsaTphc3NlcnRpb246NGU0NmJjYTQ2ZTlmN2I3OTlmN2UzZDQyYmRlYWFmMmMiXSwicGl0SWQiOm51bGwsImV4cGlyYXRpb25UaW1lIjowfQ==";
+    String keepAlive = "1m";
     int count = 10;
 
     // Set up mock behavior
@@ -331,7 +348,8 @@ public class ESGraphQueryDAOTest {
 
     // Call the method
     SearchResponse response =
-        dao.getSearchResponse(operationContext, graphFilters, sortCriteria, scrollId, count);
+        dao.getSearchResponse(
+            operationContext, graphFilters, sortCriteria, scrollId, keepAlive, count);
 
     // Verify the response
     Assert.assertEquals(response, mockSearchResponse);
@@ -361,9 +379,13 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            new GraphQueryConfiguration());
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create a map with mixed entity types for a single entity type key
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -410,9 +432,13 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            new GraphQueryConfiguration());
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create a map with empty URN sets
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -476,9 +502,13 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             mockLineageRegistry,
             operationContext.getSearchContext().getIndexConvention(),
-            new GraphQueryConfiguration());
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
+            null);
 
     // Create a map with dataset URNs
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -589,5 +619,107 @@ public class ESGraphQueryDAOTest {
     Assert.assertTrue(foundOutgoingRelatedTo, "Missing outgoing RelatedTo edge");
     Assert.assertTrue(foundIncomingRelatedTo, "Missing incoming RelatedTo edge");
     Assert.assertTrue(foundDownstreamOf, "Missing DownstreamOf edge");
+  }
+
+  @Test
+  public void testSearchSourceBuilderAppliesResultLimit() throws Exception {
+    // construction
+
+    // Mock dependencies
+    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockResponse);
+
+    // Create a configuration with a specific limit
+    GraphServiceConfiguration testConfig =
+        TEST_GRAPH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(new ResultsLimitConfig().setMax(50).setApiDefault(50))
+                    .build())
+            .build();
+
+    // Create the DAO with our test config
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
+            operationContext.getLineageRegistry(),
+            operationContext.getSearchContext().getIndexConvention(),
+            testConfig,
+            TEST_ES_SEARCH_CONFIG,
+            null);
+
+    // Create test data - requesting more than the limit
+    GraphFilters graphFilters =
+        GraphFilters.outgoingFilter(newFilter("urn", "urn:li:dataset:test"));
+    graphFilters.setRelationshipDirection(RelationshipDirection.OUTGOING);
+
+    // Call method with a count that exceeds the limit
+    int requestedCount = 100; // Exceeds our limit of 50
+    dao.getSearchResponse(operationContext, graphFilters, 0, requestedCount);
+
+    // Verify that search was called with the right parameters
+    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+
+    SearchRequest capturedRequest = requestCaptor.getValue();
+    SearchSourceBuilder sourceBuilder = capturedRequest.source();
+
+    // Verify the size was limited to the max (50)
+    Assert.assertEquals(sourceBuilder.size(), 50);
+  }
+
+  @Test
+  public void testScrollSearchAppliesResultLimit() throws Exception {
+    // Mock dependencies
+    RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockResponse);
+
+    // Create a configuration with a specific limit
+    GraphServiceConfiguration testConfig =
+        TEST_GRAPH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(new ResultsLimitConfig().setMax(25).setApiDefault(25))
+                    .build())
+            .build();
+
+    // Create the DAO with our test config
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
+            operationContext.getLineageRegistry(),
+            operationContext.getSearchContext().getIndexConvention(),
+            testConfig,
+            TEST_ES_SEARCH_CONFIG,
+            null);
+
+    // Create test data
+    GraphFilters graphFilters =
+        GraphFilters.outgoingFilter(newFilter("urn", "urn:li:dataset:test"));
+    graphFilters.setRelationshipDirection(RelationshipDirection.OUTGOING);
+    List<SortCriterion> sortCriteria =
+        ImmutableList.of(new SortCriterion().setField("urn").setOrder(SortOrder.DESCENDING));
+
+    // Call method with a count that exceeds the limit
+    int requestedCount = 50; // Exceeds our limit of 25
+    dao.getSearchResponse(operationContext, graphFilters, sortCriteria, null, null, requestedCount);
+
+    // Verify that search was called with the right parameters
+    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+
+    SearchRequest capturedRequest = requestCaptor.getValue();
+    SearchSourceBuilder sourceBuilder = capturedRequest.source();
+
+    // Verify the size was limited to the max (25)
+    Assert.assertEquals(sourceBuilder.size(), 25);
   }
 }

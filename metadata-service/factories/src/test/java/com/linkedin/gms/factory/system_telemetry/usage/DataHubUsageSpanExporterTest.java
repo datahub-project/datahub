@@ -24,7 +24,7 @@ import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.data.EventData;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.util.*;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.mockito.ArgumentCaptor;

@@ -15,7 +15,9 @@ from datahub.configuration.git import GitReference
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -464,6 +466,7 @@ def load_run_results(
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCoreSource(DBTSourceBase, TestableSource):
     config: DBTCoreConfig
     report: DBTCoreReport
