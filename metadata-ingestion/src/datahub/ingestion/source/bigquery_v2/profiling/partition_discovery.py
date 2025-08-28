@@ -1179,36 +1179,85 @@ LIMIT @limit_rows"""
 
         logger.debug(f"Determining partition values for columns: {required_columns}")
 
-        # Try to find the most recent date partition (common case)
-        if any(self._is_date_like_column(col) for col in required_columns):
-            # Use yesterday as default for date partitions
-            yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        # Strategy 1: For tables with date-like columns or date component columns, try strategic dates first
+        has_date_columns = any(
+            self._is_date_like_column(col) for col in required_columns
+        )
+        has_date_components = any(
+            col.lower() in ["year", "month", "day"] for col in required_columns
+        )
 
-            filters = []
-            for col in required_columns:
-                if self._is_date_like_column(col):
-                    date_str = yesterday.strftime("%Y-%m-%d")
-                    filters.append(f"`{col}` = '{date_str}'")
-                else:
-                    # For non-date columns, use fallback values from config
-                    if col in self.config.profiling.fallback_partition_values:
-                        fallback_val = self.config.profiling.fallback_partition_values[
-                            col
-                        ]
-                        if isinstance(fallback_val, str):
-                            filters.append(f"`{col}` = '{fallback_val}'")
-                        else:
-                            filters.append(f"`{col}` = {fallback_val}")
+        if has_date_columns or has_date_components:
+            logger.debug(
+                "Found date-like columns or date component columns, trying strategic date candidates"
+            )
+            candidate_dates = self._get_strategic_candidate_dates()
+
+            for test_date, description in candidate_dates:
+                filters = []
+                for col in required_columns:
+                    if self._is_date_like_column(col):
+                        date_str = test_date.strftime("%Y-%m-%d")
+                        filters.append(f"`{col}` = '{date_str}'")
+                    elif col.lower() == "year":
+                        filters.append(f"`{col}` = {test_date.year}")
+                    elif col.lower() == "month":
+                        filters.append(f"`{col}` = {test_date.month}")
+                    elif col.lower() == "day":
+                        filters.append(f"`{col}` = {test_date.day}")
                     else:
-                        filters.append(f"`{col}` IS NOT NULL")
+                        # For other non-date columns, use fallback values from config
+                        if col in self.config.profiling.fallback_partition_values:
+                            fallback_val = (
+                                self.config.profiling.fallback_partition_values[col]
+                            )
+                            if isinstance(fallback_val, str):
+                                filters.append(f"`{col}` = '{fallback_val}'")
+                            else:
+                                filters.append(f"`{col}` = {fallback_val}")
+                        else:
+                            filters.append(f"`{col}` IS NOT NULL")
 
-            # Verify these filters work
-            if self._verify_partition_has_data(
-                table, project, schema, filters, execute_query_func
-            ):
-                return filters
+                # Verify these filters work
+                if self._verify_partition_has_data(
+                    table, project, schema, filters, execute_query_func
+                ):
+                    logger.debug(
+                        f"Found valid date partition for {description}: {test_date.strftime('%Y-%m-%d')}"
+                    )
+                    return filters
+                else:
+                    logger.debug(
+                        f"No data found for {description} ({test_date.strftime('%Y-%m-%d')}), trying next candidate..."
+                    )
 
-        # If date approach doesn't work, use fallback
+            logger.debug(
+                f"No data found in any strategic date candidates for table {table.name}"
+            )
+
+        # Strategy 2: ALWAYS try to query the table for actual available partition values
+        # This works for both date and non-date columns and should be tried before generic fallbacks
+        logger.debug("Attempting to find actual partition values by querying the table")
+        actual_partition_values = self._get_partition_info_from_table_query(
+            table, project, schema, required_columns, execute_query_func
+        )
+
+        if actual_partition_values:
+            # Convert the result values to filter strings
+            actual_filters = []
+            for col, val in actual_partition_values.items():
+                if isinstance(val, str):
+                    escaped_val = val.replace("'", "''")
+                    actual_filters.append(f"`{col}` = '{escaped_val}'")
+                else:
+                    actual_filters.append(f"`{col}` = {val}")
+
+            logger.debug(
+                f"Found actual partition values from table query: {actual_filters}"
+            )
+            return actual_filters
+
+        # Strategy 3: Only use generic fallbacks if we can't get actual values from the table
         return self._get_fallback_partition_filters(
             table, project, schema, required_columns
         )
@@ -1256,20 +1305,89 @@ LIMIT @limit_rows"""
                 return f"`{col_name}` = {fallback_value}"
 
         # Use date-based fallbacks for date-like columns
+        # Note: If we reach this fallback, it means specific dates failed verification
         if self._is_date_like_column(col_name):
-            return f"`{col_name}` = '{fallback_date.strftime('%Y-%m-%d')}'"
+            # For date columns, if specific dates don't work, use IS NOT NULL as last resort
+            logger.warning(
+                f"Specific date values failed for column {col_name}, using IS NOT NULL for broader partition coverage"
+            )
+            return f"`{col_name}` IS NOT NULL"
         elif col_name.lower() == "year":
-            return f"`{col_name}` = '{fallback_date.year}'"
+            return f"`{col_name}` = {fallback_date.year}"
         elif col_name.lower() == "month":
-            return f"`{col_name}` = '{fallback_date.month:02d}'"
+            return f"`{col_name}` = {fallback_date.month}"
         elif col_name.lower() == "day":
-            return f"`{col_name}` = '{fallback_date.day:02d}'"
+            return f"`{col_name}` = {fallback_date.day}"
         else:
             # Last resort - use IS NOT NULL
             logger.warning(
                 f"No fallback value for partition column {col_name}, using IS NOT NULL"
             )
             return f"`{col_name}` IS NOT NULL"
+
+    def _get_strategic_candidate_dates(self) -> List[Tuple[datetime, str]]:
+        """
+        Get strategic candidate dates that are most likely to contain data in real-world BigQuery tables.
+
+        Returns:
+            List of (datetime, description) tuples in priority order
+        """
+        now = datetime.now(timezone.utc)
+        candidates = []
+
+        # 1. Tomorrow (for future-dated or scheduled data)
+        tomorrow = now + timedelta(days=1)
+        candidates.append((tomorrow, "tomorrow (future-dated data)"))
+
+        # 2. Yesterday (most common case)
+        yesterday = now - timedelta(days=1)
+        candidates.append((yesterday, "yesterday"))
+
+        # 3. One week ago (common for weekly ETL processes)
+        week_ago = now - timedelta(days=7)
+        candidates.append((week_ago, "7 days ago"))
+
+        # 4. Last day of previous month (month-end processing)
+        # Get first day of current month, then subtract 1 day
+        first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_day_prev_month = first_of_month - timedelta(days=1)
+        candidates.append((last_day_prev_month, "last day of previous month"))
+
+        # 5. One month ago (same day)
+        try:
+            if now.month == 1:
+                one_month_ago = now.replace(year=now.year - 1, month=12)
+            else:
+                one_month_ago = now.replace(month=now.month - 1)
+        except ValueError:
+            # Handle edge case where current day doesn't exist in previous month (e.g., Jan 31 -> Feb 31)
+            # Fall back to last day of previous month
+            if now.month == 1:
+                one_month_ago = datetime(now.year - 1, 12, 31, tzinfo=timezone.utc)
+            else:
+                # Get last day of previous month
+                first_of_prev_month = now.replace(month=now.month - 1, day=1)
+                one_month_ago = (first_of_prev_month + timedelta(days=32)).replace(
+                    day=1
+                ) - timedelta(days=1)
+
+        candidates.append((one_month_ago, "one month ago"))
+
+        # 6. Today (current date - might have partial data)
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        candidates.append((today, "today (current date)"))
+
+        # 7. First day of current month (monthly processing)
+        candidates.append((first_of_month, "first day of current month"))
+
+        # 8. Two days ago (backup for recent data)
+        two_days_ago = now - timedelta(days=2)
+        candidates.append((two_days_ago, "2 days ago"))
+
+        logger.debug(
+            f"Generated {len(candidates)} strategic date candidates for partition discovery"
+        )
+        return candidates
 
     def _extract_partition_info_from_error(self, error_message: str) -> PartitionInfo:
         """Extract partition information from error messages."""
