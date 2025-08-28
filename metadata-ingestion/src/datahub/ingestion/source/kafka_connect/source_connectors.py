@@ -498,11 +498,20 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         table_ids: List[str] = []
         if self.connector_manifest.tasks:
+            # Handle both list and dict formats for tasks
+            if isinstance(self.connector_manifest.tasks, list):
+                # Real Kafka Connect API returns a list of tasks
+                tasks_to_iterate = self.connector_manifest.tasks
+            else:
+                # Test fixtures and some cases use dict format
+                tasks_to_iterate = self.connector_manifest.tasks.values()
+
             table_ids = (
                 ",".join(
                     [
-                        task["config"].get("tables")
-                        for task in self.connector_manifest.tasks.values()
+                        task["config"]["tables"]
+                        for task in tasks_to_iterate
+                        if task and "config" in task and task["config"].get("tables")
                     ]
                 )
             ).split(",")

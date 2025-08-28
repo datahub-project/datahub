@@ -197,7 +197,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector_manifest = ConnectorManifest(**manifest)
         return connector_manifest
 
-    def _get_connector_tasks(self, connector_name: str) -> dict:
+    def _get_connector_tasks(self, connector_name: str) -> List[Dict[str, dict]]:
         try:
             response = self.session.get(
                 f"{self.config.connect_uri}/connectors/{connector_name}/tasks",
@@ -207,7 +207,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             self.report.warning(
                 "Error getting connector tasks", context=connector_name, exc=e
             )
-            return {}
+            return []
 
         return response.json()
 

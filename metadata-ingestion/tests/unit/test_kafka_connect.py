@@ -170,7 +170,7 @@ class TestBigQuerySinkConnector:
             name="test-bigquery-connector",
             type="sink",
             config=config,
-            tasks={},
+            tasks=[],
             topic_names=["source-topic"],
         )
 
@@ -272,7 +272,7 @@ class TestS3SinkConnector:
             name="test-s3-connector",
             type="sink",
             config=config,
-            tasks={},
+            tasks=[],
             topic_names=["user-events"],
         )
 
@@ -314,7 +314,7 @@ class TestBigquerySinkConnector:
             name="test-bigquery-connector",
             type="sink",
             config=config,
-            tasks={},
+            tasks=[],
             topic_names=["my-source-kafka-topic"],
         )
 
@@ -365,7 +365,7 @@ class TestSnowflakeSinkConnector:
             name="test-snowflake-connector",
             type="sink",
             config=config,
-            tasks={},
+            tasks=[],
             topic_names=["app_logs"],
         )
 
@@ -407,7 +407,12 @@ class TestJDBCSourceConnector:
             name="mysql_source2",
             type="source",
             config=config,
-            tasks={"config": {"tables": "library.book"}},
+            tasks=[
+                {
+                    "id": {"task": 0, "connector": "mysql_source2"},
+                    "config": {"tables": "library.book"},
+                }
+            ],
             topic_names=["library-book"],
         )
 
@@ -481,7 +486,7 @@ class TestIntegration:
             name="multi-transform-connector",
             type="sink",
             config=connector_config,
-            tasks={},
+            tasks=[],
             topic_names=["raw_users_data", "raw_orders_data", "other_topic"],
         )
 
@@ -529,7 +534,7 @@ class TestIntegration:
             name="error-test-connector",
             type="sink",
             config=connector_config,
-            tasks={},
+            tasks=[],
             topic_names=["test-topic"],
         )
 
@@ -557,7 +562,12 @@ class TestConfluentCloudConnectors:
             name="test-platform-connector",
             type="source",
             config=config,
-            tasks={"0": {"config": {"tables": "public.users,public.orders"}}},
+            tasks=[
+                {
+                    "id": {"task": 0, "connector": "test-platform-connector"},
+                    "config": {"tables": "public.users,public.orders"},
+                }
+            ],
             topic_names=["users", "orders"],
         )
 
@@ -567,7 +577,7 @@ class TestConfluentCloudConnectors:
             name="test-cloud-connector",
             type="source",
             config=config,
-            tasks={},  # Cloud connectors may not have tasks API
+            tasks=[],  # Cloud connectors may not have tasks API
             topic_names=["server_name.public.users", "server_name.public.orders"],
         )
 
@@ -676,7 +686,7 @@ class TestConfluentCloudConnectors:
             name="mysql-cloud-connector",
             type="source",
             config=connector_config,
-            tasks={},
+            tasks=[],
             topic_names=[
                 "mysql_server.inventory.products",
                 "mysql_server.inventory.categories",
@@ -718,7 +728,7 @@ class TestConfluentCloudConnectors:
             name="mixed-connector",
             type="source",
             config=connector_config,
-            tasks={},
+            tasks=[],
             topic_names=["cloud_server.public.cloud_table"],
         )
 
@@ -754,7 +764,7 @@ class TestConfluentCloudConnectors:
             name="incomplete-connector",
             type="source",
             config=connector_config,
-            tasks={},
+            tasks=[],
             topic_names=[],
         )
 
@@ -797,7 +807,12 @@ class TestConfluentCloudConnectors:
             name="platform-connector",
             type="source",
             config=platform_config,
-            tasks={"0": {"config": {"tables": "public.users"}}},
+            tasks=[
+                {
+                    "id": {"task": 0, "connector": "platform-connector"},
+                    "config": {"tables": "public.users"},
+                }
+            ],
             topic_names=["db-users"],
         )
 
@@ -805,7 +820,7 @@ class TestConfluentCloudConnectors:
             name="cloud-connector",
             type="source",
             config=cloud_config,
-            tasks={},
+            tasks=[],
             topic_names=["db-server.public.users"],
         )
 
@@ -921,7 +936,7 @@ class TestFullConnectorConfigValidation:
             name="test-connector",
             type="source",
             config=connector_config,
-            tasks={},
+            tasks=[],
             topic_names=topic_names,
         )
 
