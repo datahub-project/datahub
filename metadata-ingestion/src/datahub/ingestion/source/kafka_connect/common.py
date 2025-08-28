@@ -140,7 +140,7 @@ class ConnectorManifest:
     name: str
     type: str
     config: Dict[str, str]
-    tasks: Dict
+    tasks: List[Dict[str, dict]]
     url: Optional[str] = None
     flow_property_bag: Optional[Dict[str, str]] = None
     lineages: List[KafkaConnectLineage] = field(default_factory=list)
