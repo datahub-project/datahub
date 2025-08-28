@@ -1072,14 +1072,18 @@ LIMIT @limit_rows"""
 
             if count_verification_results and count_verification_results[0].cnt > 0:
                 logger.debug(
-                    f"Verified partition filters return {count_verification_results[0].cnt} rows: {where_clause}"
+                    f"Verified partition filters for table {project}.{schema}.{table.name} return {count_verification_results[0].cnt} rows: {where_clause}"
                 )
                 return True
             else:
-                logger.warning(f"Partition verification found no data: {where_clause}")
+                logger.warning(
+                    f"Partition verification found no data for table {project}.{schema}.{table.name}: {where_clause}"
+                )
                 return False
         except Exception as e:
-            logger.warning(f"Error verifying partition data: {e}")
+            logger.warning(
+                f"Error verifying partition data for table {project}.{schema}.{table.name}: {e}"
+            )
             return False
 
     def _handle_external_table_partitioning(
@@ -1197,9 +1201,8 @@ LIMIT @limit_rows"""
                 filters = []
                 for col in required_columns:
                     if self._is_date_like_column(col):
-                        # Use DATE() function for maximum compatibility with different date column types
                         date_str = test_date.strftime("%Y-%m-%d")
-                        filters.append(f"`{col}` = DATE('{date_str}')")
+                        filters.append(f"`{col}` = '{date_str}'")
                     elif col.lower() == "year":
                         filters.append(f"`{col}` = '{test_date.year}'")
                     elif col.lower() == "month":
