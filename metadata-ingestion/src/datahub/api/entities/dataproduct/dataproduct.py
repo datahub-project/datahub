@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 from ruamel.yaml import YAML
+from typing_extensions import assert_never
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, LaxStr
@@ -414,7 +415,9 @@ class DataProduct(ConfigModel):
                                 "type": new_owner_type_map[owner_urn],
                             }
                     else:
-                        patches_drop[i] = o
+                        patches_drop[i] = o.model_dump()
+                else:
+                    assert_never(o)
 
         # Figure out what if any are new owners to add
         new_owners_to_add = {o for o in new_owner_type_map} - set(owners_matched)
