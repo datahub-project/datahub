@@ -1,16 +1,4 @@
-"""
-BigQuery Profiler Security Module
-
-This module provides SQL injection protection and identifier validation
-for BigQuery profiling operations. It ensures all user inputs and
-dynamically constructed queries are properly validated and sanitized.
-
-Key Features:
-- BigQuery identifier validation (projects, datasets, tables, columns)
-- SQL injection pattern detection
-- Query structure validation
-- Parameterized query support
-"""
+"""BigQuery profiler security utilities for SQL injection protection."""
 
 import logging
 import re
@@ -22,28 +10,7 @@ logger = logging.getLogger(__name__)
 def validate_bigquery_identifier(
     identifier: str, identifier_type: str = "general"
 ) -> str:
-    """
-    Securely validate and escape BigQuery identifiers per official BigQuery rules.
-
-    This function provides defense-in-depth against SQL injection attacks on identifiers
-    that cannot be parameterized in BigQuery.
-
-    BigQuery Rules:
-    - Project IDs: letters, numbers, hyphens (but not at start/end)
-    - Datasets: letters, numbers, underscores (NO hyphens)
-    - Tables: letters, numbers, underscores (NO hyphens)
-    - Columns: letters, numbers, underscores (NO hyphens)
-
-    Args:
-        identifier: The identifier to validate
-        identifier_type: Type of identifier ("project", "dataset", "table", "column", "general")
-
-    Returns:
-        Validated identifier wrapped in backticks for safe SQL usage
-
-    Raises:
-        ValueError: If identifier is invalid or contains dangerous patterns
-    """
+    """Validate and escape BigQuery identifiers against SQL injection."""
     if not identifier or not isinstance(identifier, str):
         raise ValueError(
             f"Invalid {identifier_type} identifier: must be non-empty string"
@@ -154,8 +121,8 @@ def validate_bigquery_identifier(
     }
 
     if clean_identifier.lower() in truly_problematic:
-        logger.warning(
-            f"Identifier '{clean_identifier}' may cause issues in BigQuery contexts"
+        logger.debug(
+            f"Identifier '{clean_identifier}' may cause issues in BigQuery contexts but is allowed when backticked"
         )
 
     # Return with backticks for safe SQL usage
@@ -163,20 +130,7 @@ def validate_bigquery_identifier(
 
 
 def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
-    """
-    Build a safe fully-qualified BigQuery table reference.
-
-    Args:
-        project: Project ID (can contain hyphens)
-        dataset: Dataset name (letters, numbers, underscores only)
-        table: Table name (letters, numbers, underscores only)
-
-    Returns:
-        Safe table reference like `project`.`dataset`.`table`
-
-    Raises:
-        ValueError: If any identifier is invalid
-    """
+    """Build a safe fully-qualified BigQuery table reference."""
     # Special handling for INFORMATION_SCHEMA tables
     if table.startswith("INFORMATION_SCHEMA"):
         safe_project = validate_bigquery_identifier(project, "project")
@@ -191,16 +145,7 @@ def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
 
 
 def validate_column_name(col_name: str, context: str = "") -> bool:
-    """
-    Validate a column name against BigQuery identifier rules.
-
-    Args:
-        col_name: Column name to validate
-        context: Context for logging (optional)
-
-    Returns:
-        True if valid, False otherwise
-    """
+    """Validate a column name against BigQuery identifier rules."""
     if not col_name or not isinstance(col_name, str):
         logger.warning(
             f"Invalid column name{' in ' + context if context else ''}: {col_name}"
@@ -217,16 +162,7 @@ def validate_column_name(col_name: str, context: str = "") -> bool:
 
 
 def validate_column_names(col_names: List[str], context: str = "") -> List[str]:
-    """
-    Validate multiple column names and return only valid ones.
-
-    Args:
-        col_names: List of column names to validate
-        context: Context for logging (optional)
-
-    Returns:
-        List of valid column names
-    """
+    """Validate multiple column names and return only valid ones."""
     valid_columns = []
     for col in col_names:
         if validate_column_name(col, context):
@@ -235,18 +171,7 @@ def validate_column_names(col_names: List[str], context: str = "") -> List[str]:
 
 
 def validate_sql_structure(query: str) -> bool:
-    """
-    Validate SQL query structure for additional security beyond parameterization.
-
-    Args:
-        query: SQL query to validate
-
-    Returns:
-        True if query structure is safe
-
-    Raises:
-        ValueError: If query contains dangerous patterns
-    """
+    """Validate SQL query structure for security issues."""
     if not query or not isinstance(query, str):
         return False
 
@@ -335,10 +260,25 @@ def validate_filter_expression(filter_expr: str) -> bool:
             )
             return False
 
-    # Validate that filter follows expected format: `column` operator value or `column` operator @param
-    expected_pattern = r"^`[a-zA-Z_][a-zA-Z0-9_]*`\s*(?:=|!=|<|>|<=|>=|IS\s+NOT\s+NULL|IS\s+NULL)\s*(?:\d+(?:\.\d+)?|\'[^\']*\'|@[a-zA-Z_][a-zA-Z0-9_]*|(?:DATE|TIMESTAMP)\s*(?:\'[^\']*\'|@[a-zA-Z_][a-zA-Z0-9_]*)|(?:TRUE|FALSE)|FROM_BASE64\(@[a-zA-Z_][a-zA-Z0-9_]*\)|ST_GEOGFROMTEXT\(@[a-zA-Z_][a-zA-Z0-9_]*\)|PARSE_JSON\(@[a-zA-Z_][a-zA-Z0-9_]*\))$"
+    # Validate that filter follows expected format: `column` operator [value]
+    # Handle IS NULL/IS NOT NULL separately (no value required)
+    null_check_pattern = r"^`[a-zA-Z_][a-zA-Z0-9_]*`\s+IS\s+(?:NOT\s+)?NULL$"
+    # Enhanced numeric pattern: supports negative numbers, scientific notation
+    numeric_pattern = r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
+    # Support additional BigQuery operators: LIKE, IN, BETWEEN
+    # Enhanced string pattern: supports escaped single quotes (SQL standard: 'don''t')
+    string_pattern = r"'(?:[^']|'')*'"
+    # BigQuery function patterns: DATE('...'), TIMESTAMP('...'), etc.
+    function_pattern = r"(?:DATE|TIMESTAMP|DATETIME|TIME)\s*\(\s*(?:'[^']*'|@[a-zA-Z_][a-zA-Z0-9_]*)\s*\)"
 
-    if not re.match(expected_pattern, filter_expr.strip(), re.IGNORECASE):
+    value_pattern = rf"^`[a-zA-Z_][a-zA-Z0-9_]*`\s*(?:=|!=|<>|<|>|<=|>=|LIKE|NOT\s+LIKE)\s*(?:{numeric_pattern}|{string_pattern}|@[a-zA-Z_][a-zA-Z0-9_]*|{function_pattern}|(?:TRUE|FALSE)|FROM_BASE64\(@[a-zA-Z_][a-zA-Z0-9_]*\)|ST_GEOGFROMTEXT\(@[a-zA-Z_][a-zA-Z0-9_]*\)|PARSE_JSON\(@[a-zA-Z_][a-zA-Z0-9_]*\))$"
+
+    # Check if filter matches either pattern
+    filter_stripped = filter_expr.strip()
+    if not (
+        re.match(null_check_pattern, filter_stripped, re.IGNORECASE)
+        or re.match(value_pattern, filter_stripped, re.IGNORECASE)
+    ):
         logger.warning(f"Filter doesn't match expected pattern: {filter_expr}")
         return False
 

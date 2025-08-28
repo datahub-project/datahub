@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 from google.cloud.bigquery import QueryJobConfig, Row
 
@@ -385,7 +385,7 @@ WHERE {partition_where}"""
 
     def _process_time_based_columns(
         self,
-        time_based_columns: set,
+        time_based_columns: Set[str],
         current_time: datetime,
         column_data_types: Dict[str, str],
     ) -> List[str]:

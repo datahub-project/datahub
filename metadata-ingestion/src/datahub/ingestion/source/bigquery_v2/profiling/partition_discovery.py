@@ -1,16 +1,4 @@
-"""
-BigQuery Profiler Partition Discovery Module
-
-This module handles partition discovery and filter generation for BigQuery tables.
-It implements proven partition discovery logic with enhanced security.
-
-Key Features:
-- Partition column detection from INFORMATION_SCHEMA and DDL
-- Smart partition value discovery (prioritizes recent dates)
-- Multiple fallback strategies for robust partition handling
-- Support for external tables and various partition types
-- Parameterized query construction for security
-"""
+"""BigQuery partition discovery and filter generation with enhanced security."""
 
 import logging
 import re
@@ -238,28 +226,11 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         max_results: int = 5,
     ) -> PartitionResult:
-        """
-        Find the most populated partitions for a table.
-
-        Uses INFORMATION_SCHEMA.PARTITIONS for regular tables.
-        Falls back to table queries for external tables.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: BigQuery dataset name
-            partition_columns: List of partition column names
-            execute_query_func: Function to execute queries safely
-            max_results: Maximum number of top partitions to return
-
-        Returns:
-            Dictionary mapping partition column names to their values
-        """
+        """Find the most populated partitions for a table."""
         if not partition_columns:
             return {"partition_values": {}, "row_count": None}
 
-        # For external tables, INFORMATION_SCHEMA.PARTITIONS will be empty
-        # so we need to query the actual table
+        # External tables require direct table queries
         if table.external:
             logger.debug(f"Using table query approach for external table {table.name}")
             return self._get_partition_info_from_table_query(
@@ -459,18 +430,12 @@ AND ({column_filter_clause})"""
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         max_results: int = 100,
     ) -> PartitionResult:
-        """
-        Get partition information from INFORMATION_SCHEMA.PARTITIONS for regular tables.
-        This is more efficient and works with partition filter requirements.
-        """
+        """Get partition information from INFORMATION_SCHEMA.PARTITIONS."""
         if not partition_columns:
             return {"partition_values": {}, "row_count": None}
 
         try:
-            # Query INFORMATION_SCHEMA.PARTITIONS to get partition information
-            safe_max_results = max(
-                1, min(int(max_results), 1000)
-            )  # Clamp between 1 and 1000
+            safe_max_results = max(1, min(int(max_results), 1000))
 
             safe_info_schema_ref = build_safe_table_reference(
                 project, schema, "INFORMATION_SCHEMA.PARTITIONS"
@@ -510,7 +475,6 @@ LIMIT @max_results"""
                 f"Found best partition {partition_id} with {best_partition.total_rows} rows"
             )
 
-            # Parse partition_id to extract values for each partition column
             partition_values: Dict[str, Union[str, int, float]] = {}
             row_count = (
                 best_partition.total_rows
@@ -525,27 +489,22 @@ LIMIT @max_results"""
                     if "=" in part:
                         col, val = part.split("=", 1)
                         if col in partition_columns:
-                            # Try to convert to appropriate type
                             if val.isdigit():
                                 partition_values[col] = int(val)
                             else:
                                 partition_values[col] = val
             else:
-                # Single column partitioning - assume it's a date/time based partition
+                # Single column partitioning
                 if len(partition_columns) == 1:
                     col_name = partition_columns[0]
                     if partition_id.isdigit():
-                        # Handle date partitions like 20231201, 2023120100
-                        if (
-                            len(partition_id) == 8 or len(partition_id) == 10
-                        ):  # YYYYMMDD
+                        if len(partition_id) == 8 or len(partition_id) == 10:
                             partition_values[col_name] = partition_id
                         else:
                             partition_values[col_name] = partition_id
                     else:
                         partition_values[col_name] = partition_id
                 else:
-                    # Multiple columns but single partition_id - try to parse based on common patterns
                     self._parse_single_partition_id_for_multiple_columns(
                         partition_id, partition_columns, partition_values
                     )

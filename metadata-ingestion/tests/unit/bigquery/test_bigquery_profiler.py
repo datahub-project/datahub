@@ -1,6 +1,6 @@
 """Tests for the BigQuery profiler."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,6 +14,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     PartitionInfo,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.security import (
+    validate_column_name,
+    validate_filter_expression,
+)
 
 
 # Tests for DDL parsing helper functions
@@ -934,3 +938,227 @@ def test_get_batch_kwargs(mock_get_filters):
     sql = batch_kwargs["custom_sql"]
     assert "`month` = '02'" in sql  # Should contain month with leading zero
     assert "`day` = '08'" in sql  # Should contain day with leading zero
+
+
+# Security validation tests
+class TestSecurityValidation:
+    """Test security validation for BigQuery profiler."""
+
+    def test_validate_filter_expression_basic_patterns(self):
+        """Test basic filter expression validation patterns."""
+        # Valid patterns
+        assert validate_filter_expression("`col` = 'value'") is True
+        assert validate_filter_expression("`col` = 123") is True
+        assert validate_filter_expression("`col` IS NULL") is True
+        assert validate_filter_expression("`col` IS NOT NULL") is True
+
+        # Invalid patterns
+        assert validate_filter_expression("`col` = value") is False  # Unquoted string
+        assert (
+            validate_filter_expression("col = 'value'") is False
+        )  # Unbackticked column
+        assert validate_filter_expression("") is False  # Empty string
+        # Note: validate_filter_expression expects str, so we test with empty string instead of None
+
+    def test_validate_filter_expression_partition_patterns(self):
+        """Test filter validation for actual partition patterns."""
+        fallback_date = datetime.now(timezone.utc) - timedelta(days=1)
+
+        # Date-based partition filters
+        assert (
+            validate_filter_expression(
+                f"`date_col` = '{fallback_date.strftime('%Y-%m-%d')}'"
+            )
+            is True
+        )
+        assert validate_filter_expression(f"`year` = '{fallback_date.year}'") is True
+        assert (
+            validate_filter_expression(f"`month` = '{fallback_date.month:02d}'") is True
+        )
+        assert validate_filter_expression(f"`day` = '{fallback_date.day:02d}'") is True
+
+        # IS NOT NULL patterns (the original issue that was fixed)
+        assert validate_filter_expression("`year` IS NOT NULL") is True
+        assert validate_filter_expression("`month` IS NOT NULL") is True
+        assert validate_filter_expression("`unknown_col` IS NOT NULL") is True
+
+        # String-based partition values
+        assert validate_filter_expression("`region` = 'us-east-1'") is True
+        assert validate_filter_expression("`environment` = 'production'") is True
+        assert validate_filter_expression("`status` = 'active'") is True
+
+        # Numeric partition values
+        assert validate_filter_expression("`shard_id` = 1") is True
+        assert validate_filter_expression("`partition_num` = 0") is True
+        assert validate_filter_expression("`batch_id` = 12345") is True
+
+    def test_validate_filter_expression_enhanced_numeric_support(self):
+        """Test enhanced numeric format support."""
+        # Negative numbers
+        assert validate_filter_expression("`col` = -123") is True
+        assert validate_filter_expression("`col` = -45.67") is True
+
+        # Scientific notation
+        assert validate_filter_expression("`col` = 1.23e10") is True
+        assert validate_filter_expression("`col` = 5E-3") is True
+        assert validate_filter_expression("`col` = -2.5e+6") is True
+
+        # Decimal variations
+        assert validate_filter_expression("`col` = 3.14159") is True
+        assert validate_filter_expression("`col` = 0.001") is True
+
+    def test_validate_filter_expression_enhanced_operators(self):
+        """Test enhanced operator support."""
+        # Additional comparison operators
+        assert validate_filter_expression("`col` <> 123") is True
+        assert validate_filter_expression("`col` != 'value'") is True
+        assert validate_filter_expression("`col` >= 100") is True
+        assert validate_filter_expression("`col` <= 1000") is True
+
+        # LIKE operators
+        assert validate_filter_expression("`name` LIKE 'test%'") is True
+        assert validate_filter_expression("`name` NOT LIKE '%test'") is True
+
+    def test_validate_filter_expression_string_escaping(self):
+        """Test string escaping support."""
+        # Escaped single quotes (SQL standard)
+        assert validate_filter_expression("`name` = 'test''s data'") is True
+        assert validate_filter_expression("`desc` = 'It''s a test'") is True
+
+        # Complex string values
+        assert validate_filter_expression("`path` = '/data/2023/01/01'") is True
+        assert validate_filter_expression('`json` = \'{"key": "value"}\'') is True
+        assert (
+            validate_filter_expression("`url` = 'https://example.com/path?param=value'")
+            is True
+        )
+        assert validate_filter_expression("`email` = 'user@domain.com'") is True
+
+    def test_validate_filter_expression_bigquery_functions(self):
+        """Test BigQuery function support."""
+        # DATE/TIMESTAMP functions
+        assert (
+            validate_filter_expression("`_PARTITIONTIME` = DATE('2023-12-25')") is True
+        )
+        assert (
+            validate_filter_expression("`ts_col` = TIMESTAMP('2023-01-01 12:00:00')")
+            is True
+        )
+        assert (
+            validate_filter_expression("`dt_col` = DATETIME('2023-01-01 12:00:00')")
+            is True
+        )
+        assert validate_filter_expression("`time_col` = TIME('12:00:00')") is True
+
+        # Parameterized functions
+        assert validate_filter_expression("`date_col` = DATE(@date_param)") is True
+        assert validate_filter_expression("`ts_col` = TIMESTAMP(@ts_param)") is True
+
+    def test_validate_filter_expression_bigquery_pseudo_columns(self):
+        """Test BigQuery pseudo-column support."""
+        # BigQuery pseudo-columns (start with underscore)
+        assert (
+            validate_filter_expression("`_PARTITIONTIME` = DATE('2023-01-01')") is True
+        )
+        assert validate_filter_expression("`_PARTITIONDATE` = '2023-01-01'") is True
+        assert validate_filter_expression("`_TABLE_SUFFIX` = 'events_20231201'") is True
+
+    def test_validate_filter_expression_real_world_scenarios(self):
+        """Test real-world BigQuery partition scenarios."""
+        # Common partition patterns
+        scenarios = [
+            "`event_date` = '2023-12-25'",  # Custom date partition
+            "`created_date` >= '2023-12-01'",  # Date range filter
+            "`created_date` <= '2023-12-31'",  # Date upper bound
+            "`user_id_mod_100` = 42",  # Numeric hash partition
+            "`shard` = 0",  # Zero-based shard
+            "`region` = 'us-central1'",  # GCP region partition
+            "`country_code` = 'US'",  # Country code partition
+            "`tenant_id` = 'org_12345'",  # Multi-tenant partition
+            "`data_source_id` = 'external-api-v2'",  # Complex identifier with dashes
+            "`pipeline_stage` = 'pre_processing'",  # Stage with underscore
+        ]
+
+        for filter_expr in scenarios:
+            assert validate_filter_expression(filter_expr) is True, (
+                f"Failed for: {filter_expr}"
+            )
+
+    def test_validate_filter_expression_security_blocks_dangerous_patterns(self):
+        """Test that dangerous patterns are still blocked."""
+        # SQL injection attempts should be blocked
+        dangerous_patterns = [
+            "`col` = 'val'; DROP TABLE users",
+            "`col` = 'val'; DELETE FROM table",
+            "`col` = 'val'; INSERT INTO table",
+            "`col` = 'val'; UPDATE table SET",
+            "`col` = 'val' UNION SELECT * FROM",
+            "`col` = 'val' -- comment",
+            "`col` = 'val' /* comment */",
+        ]
+
+        for dangerous_filter in dangerous_patterns:
+            assert validate_filter_expression(dangerous_filter) is False, (
+                f"Should block: {dangerous_filter}"
+            )
+
+    def test_validate_column_name_basic_patterns(self):
+        """Test column name validation."""
+        # Valid column names
+        assert validate_column_name("column_name") is True
+        assert validate_column_name("_private") is True
+        assert validate_column_name("col123") is True
+        assert validate_column_name("UPPERCASE") is True
+        assert validate_column_name("MixedCase") is True
+
+        # Invalid column names
+        assert validate_column_name("123col") is False  # Starts with number
+        assert validate_column_name("col-name") is False  # Contains dash
+        assert validate_column_name("col name") is False  # Contains space
+        assert validate_column_name("col.name") is False  # Contains dot
+        assert validate_column_name("") is False  # Empty string
+        # Note: validate_column_name expects str, so we test with empty string instead of None
+
+    def test_validate_column_name_bigquery_pseudo_columns(self):
+        """Test validation of BigQuery pseudo-columns."""
+        # BigQuery pseudo-columns should be valid
+        assert validate_column_name("_PARTITIONTIME") is True
+        assert validate_column_name("_PARTITIONDATE") is True
+        assert validate_column_name("_TABLE_SUFFIX") is True
+        assert validate_column_name("_FILE_NAME") is True
+
+    def test_security_validation_comprehensive_edge_cases(self):
+        """Test comprehensive edge cases for security validation."""
+        # Boolean values
+        assert validate_filter_expression("`is_active` = TRUE") is True
+        assert validate_filter_expression("`is_deleted` = FALSE") is True
+
+        # UUID and hash-like values
+        assert (
+            validate_filter_expression(
+                "`uuid` = '550e8400-e29b-41d4-a716-446655440000'"
+            )
+            is True
+        )
+        assert validate_filter_expression("`hash` = 'a1b2c3d4e5f6'") is True
+
+        # Values with special characters
+        assert validate_filter_expression("`col_name` = 'value with spaces'") is True
+        assert (
+            validate_filter_expression("`col_name` = 'VALUE_WITH_UNDERSCORES'") is True
+        )
+        assert validate_filter_expression("`col_name` = 'value-with-dashes'") is True
+        assert validate_filter_expression("`col_name` = 'value.with.dots'") is True
+
+        # Date/timestamp formats
+        assert validate_filter_expression("`created_at` = '2023-12-25'") is True
+        assert (
+            validate_filter_expression("`timestamp_col` = '2023-12-25 10:30:45'")
+            is True
+        )
+
+        # Edge cases that should still fail
+        assert validate_filter_expression("`col with spaces` = 'value'") is False
+        assert validate_filter_expression("`123invalid` = 'value'") is False
+        assert validate_filter_expression("`col-with-dash` = 'value'") is False
+        assert validate_filter_expression("`` = 'value'") is False

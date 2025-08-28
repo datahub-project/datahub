@@ -1,16 +1,4 @@
-"""
-BigQuery Profiler Query Execution Module
-
-This module provides secure query execution capabilities for BigQuery profiling operations.
-It includes timeout handling, parameterized query support, and comprehensive error handling.
-
-Key Features:
-- Secure query execution with SQL injection protection
-- Configurable timeouts and retry logic
-- Parameterized query support for dynamic values
-- Comprehensive error handling and logging
-- Integration with BigQuery client configuration
-"""
+"""BigQuery query execution with security validation and error handling."""
 
 import logging
 from typing import List, Optional
