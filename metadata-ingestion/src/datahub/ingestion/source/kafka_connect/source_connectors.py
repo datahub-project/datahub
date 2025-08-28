@@ -552,6 +552,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
             # include schema name for three-level hierarchies
             if has_three_level_hierarchy(source_platform):
+                # Enhanced from original to handle Cloud connectors where source_table can be 'schema.table' format after prefix removal
                 # Handle both cases: source_table might be just 'table' or 'schema.table'
                 table_id = None
                 if "." in source_table:
