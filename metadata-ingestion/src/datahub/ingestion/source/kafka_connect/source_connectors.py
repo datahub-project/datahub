@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 from sqlalchemy.engine.url import make_url
 
@@ -22,6 +22,31 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class TableId:
+    """
+    Represents a table identifier with database, schema, and table components.
+
+    Mirrors the Java TableId class from the original Kafka Connect JDBC Source:
+    https://github.com/confluentinc/kafka-connect-jdbc/blob/master/src/main/java/io/confluent/connect/jdbc/util/TableId.java
+
+    """
+
+    database: Optional[str] = None
+    schema: Optional[str] = None
+    table: str = ""
+
+    def __str__(self) -> str:
+        """String representation for debugging."""
+        parts = []
+        if self.database:
+            parts.append(self.database)
+        if self.schema:
+            parts.append(self.schema)
+        parts.append(self.table)
+        return ".".join(parts)
 
 
 @dataclass
@@ -167,33 +192,29 @@ class TransformPipeline:
 
     def apply_transforms(
         self,
-        tables: List[Tuple[str, str]],
+        tables: List[TableId],
         topic_prefix: str,
         manifest_topics: List[str],
+        connector_class: str,
     ) -> List[TransformResult]:
         """
         Apply transform pipeline to generate lineage mappings.
 
         Args:
-            tables: List of (schema, table) tuples from source
+            tables: List of TableId objects from source
             topic_prefix: Topic prefix from connector config
             manifest_topics: Actual topic names from connector manifest
+            connector_class: The connector class name to determine topic naming strategy
 
         Returns:
             List of TransformResult objects mapping sources to final topics
         """
         results = []
 
-        for table_tuple in tables:
-            # Extract table information
-            if len(table_tuple) >= 2:
-                schema, table_name = table_tuple[-2], table_tuple[-1]
-            else:
-                schema, table_name = "", table_tuple[-1]
-
+        for table_id in tables:
             # Generate original topic name (before transforms)
             original_topic = self._generate_original_topic(
-                schema, table_name, topic_prefix
+                table_id.schema or "", table_id.table, topic_prefix, connector_class
             )
 
             # Apply transform pipeline
@@ -203,8 +224,8 @@ class TransformPipeline:
             if final_topics:
                 results.append(
                     TransformResult(
-                        source_table=table_name,
-                        schema=schema,
+                        source_table=table_id.table,
+                        schema=table_id.schema or "",
                         final_topics=final_topics,
                         original_topic=original_topic,
                     )
@@ -212,18 +233,107 @@ class TransformPipeline:
 
         return results
 
-    def _generate_original_topic(
+    def _generate_jdbc_topic_name(self, table_name: str, topic_prefix: str) -> str:
+        """
+        Generate topic name for traditional JDBC Source connectors.
+
+        Based on official Kafka Connect JDBC Source implementation:
+        https://github.com/confluentinc/kafka-connect-jdbc/blob/master/src/main/java/io/confluent/connect/jdbc/source/BulkTableQuerier.java
+
+        ```java
+        // Topic generation logic:
+        String name = tableId.tableName(); // Returns ONLY table name, not schema.table
+        topic = topicPrefix + name;         // Simple concatenation
+        ```
+
+        JDBC Source behavior:
+        - Without topic.prefix: topic = "member" (just table name)
+        - With topic.prefix: topic = "prefix-member" (prefix + table name)
+
+        Args:
+            table_name: Table name (from tableId.tableName())
+            topic_prefix: Topic prefix from connector config (topic.prefix)
+
+        Returns:
+            Topic name following official JDBC Source naming convention
+        """
+        return topic_prefix + table_name
+
+    def _generate_cdc_topic_name(
         self, schema: str, table_name: str, topic_prefix: str
     ) -> str:
-        """Generate the original topic name before any transforms."""
-        if topic_prefix:
-            if schema:
-                return f"{topic_prefix}.{schema}.{table_name}"
-            else:
-                return f"{topic_prefix}.{table_name}"
+        """
+        Generate topic name for CDC connectors (Debezium/Cloud).
+
+        CDC connectors use hierarchical naming with a topic prefix:
+
+        ACTUAL PATTERNS (from official documentation):
+        - MySQL CDC: {topic.prefix}.{databaseName}.{tableName}
+          Example: "fulfillment.inventory.orders"
+        - PostgreSQL CDC: {topic.prefix}.{schemaName}.{tableName}
+          Example: "fulfillment.public.users"
+
+        TOPIC PREFIX SOURCE:
+        - Confluent Cloud: Uses "database.server.name" config as topic prefix
+        - Platform/Debezium: Uses "topic.prefix" config as topic prefix
+
+        References:
+        - Debezium MySQL: https://debezium.io/documentation/reference/stable/connectors/mysql.html#mysql-topic-names
+        - Debezium PostgreSQL: https://debezium.io/documentation/reference/stable/connectors/postgresql.html#postgresql-topic-names
+        - Cloud MySQL CDC: https://docs.confluent.io/cloud/current/connectors/cc-mysql-cdc-source.html
+
+        Args:
+            schema: Database schema (PostgreSQL) or database name (MySQL)
+            table_name: Table name
+            topic_prefix: Topic prefix (from topic.prefix or database.server.name config)
+
+        Returns:
+            Topic name: {topic_prefix}.{schema}.{table_name}
+        """
+        if schema:
+            return f"{topic_prefix}.{schema}.{table_name}"
         else:
-            # Without topic prefix, use just table name (traditional JDBC behavior)
-            return table_name
+            return f"{topic_prefix}.{table_name}"
+
+    def _generate_original_topic(
+        self, schema: str, table_name: str, topic_prefix: str, connector_class: str
+    ) -> str:
+        """
+        Generate the original topic name before any transforms based on connector type.
+
+        Different connector types use different topic naming strategies:
+        - Traditional JDBC: Simple concatenation (topicPrefix + tableName)
+        - CDC/Debezium connectors: Hierarchical naming ({prefix}.{schema}.{table})
+        - Cloud connectors: Hierarchical naming ({database.server.name}.{schema}.{table})
+
+        Args:
+            schema: Database schema or database name
+            table_name: Table name
+            topic_prefix: Topic prefix (topic.prefix or database.server.name)
+            connector_class: The connector class name to determine naming strategy
+
+        Returns:
+            Topic name using appropriate naming convention
+        """
+        # Import constants here to avoid circular imports
+        from datahub.ingestion.source.kafka_connect.common import (
+            CLOUD_JDBC_SOURCE_CLASSES,
+        )
+
+        # Cloud connectors always use hierarchical naming
+        if connector_class in CLOUD_JDBC_SOURCE_CLASSES or connector_class.startswith(
+            "io.debezium."
+        ):
+            return self._generate_cdc_topic_name(schema, table_name, topic_prefix)
+
+        # Traditional JDBC source connector
+        elif connector_class == "io.confluent.connect.jdbc.JdbcSourceConnector":
+            return self._generate_jdbc_topic_name(table_name, topic_prefix)
+
+        else:
+            # Default behavior: use topic_prefix presence as fallback (for unknown connectors)
+            # This preserves backward compatibility for unknown connector types
+            return self._generate_jdbc_topic_name(table_name, topic_prefix)
 
     def _apply_pipeline(
         self, current_topics: List[str], manifest_topics: List[str]
@@ -430,7 +540,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         lineages: List[KafkaConnectLineage] = []
         if not topic_names:
             topic_names = self.connector_manifest.topic_names
-        table_name_tuples: List[Tuple] = self.get_table_names()
+        table_name_tuples: List[TableId] = self.get_table_names()
         for topic in topic_names:
             # All good for NO_TRANSFORM or (SINGLE_TRANSFORM and KNOWN_NONTOPICROUTING_TRANSFORM) or (not SINGLE_TRANSFORM and all(KNOWN_NONTOPICROUTING_TRANSFORM))
             source_table: str = (
@@ -451,12 +561,10 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                             [
                                 t
                                 for t in table_name_tuples
-                                if len(t) > 1
-                                and t[-2] == schema_part
-                                and t[-1] == table_part
+                                if t.schema == schema_part and t.table == table_part
                             ]
                         ),
-                        (),
+                        None,
                     )
                 else:
                     # source_table is just table name, look for matching table
@@ -465,14 +573,14 @@ class ConfluentJDBCSourceConnector(BaseConnector):
                             [
                                 t
                                 for t in table_name_tuples
-                                if t and t[-1] == source_table
+                                if t and t.table == source_table
                             ]
                         ),
-                        (),
+                        None,
                     )
 
-                if len(table_name_tuple) > 1:
-                    source_table = f"{table_name_tuple[-2]}.{table_name_tuple[-1]}"
+                if table_name_tuple and table_name_tuple.schema:
+                    source_table = f"{table_name_tuple.schema}.{table_name_tuple.table}"
                 else:
                     include_source_dataset = False
                     self.report.warning(
@@ -489,7 +597,13 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             lineages.append(lineage)
         return lineages
 
-    def get_table_names(self) -> List[Tuple]:
+    def get_table_names(self) -> List[TableId]:
+        """
+        Extract table names from connector configuration and return as TableId objects.
+
+        Returns:
+            List of TableId objects representing the tables to be processed
+        """
         sep: str = "."
         leading_quote_char: str = '"'
         trailing_quote_char: str = leading_quote_char
@@ -536,22 +650,21 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             if table_config:
                 table_ids = table_config.split(",")
 
-        # List of Tuple containing (schema, table)
-        tables: List[Tuple] = [
-            (
-                (
-                    unquote(
-                        table_id.split(sep)[-2], leading_quote_char, trailing_quote_char
-                    )
-                    if len(table_id.split(sep)) > 1
-                    else ""
-                ),
-                unquote(
-                    table_id.split(sep)[-1], leading_quote_char, trailing_quote_char
-                ),
-            )
-            for table_id in table_ids
-        ]
+        # Create TableId objects from parsed table identifiers
+        tables: List[TableId] = []
+        for table_id in table_ids:
+            parts = table_id.split(sep)
+            if len(parts) > 1:
+                # Has schema: schema.table format
+                schema = unquote(parts[-2], leading_quote_char, trailing_quote_char)
+                table = unquote(parts[-1], leading_quote_char, trailing_quote_char)
+            else:
+                # No schema: just table
+                schema = None
+                table = unquote(parts[-1], leading_quote_char, trailing_quote_char)
+
+            tables.append(TableId(schema=schema, table=table))
+
         return tables
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
@@ -582,12 +695,18 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             # Get source tables
             tables = self.get_table_names()
 
+            # Get connector class for topic generation strategy
+            connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
+
             # Create transform pipeline
             pipeline = TransformPipeline(transforms)
 
             # Apply pipeline to generate transform results
             results = pipeline.apply_transforms(
-                tables, topic_prefix, list(self.connector_manifest.topic_names)
+                tables,
+                topic_prefix,
+                list(self.connector_manifest.topic_names),
+                connector_class,
             )
 
             # Convert results to lineages

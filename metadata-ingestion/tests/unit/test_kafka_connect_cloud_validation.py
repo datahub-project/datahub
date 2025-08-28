@@ -169,11 +169,17 @@ class TestConnectorConfigValidation:
         )
 
         try:
+            # Get connector class for topic generation strategy
+            connector_class = connector.connector_manifest.config.get(
+                "connector.class", ""
+            )
+
             pipeline = TransformPipeline(transforms)
             results = pipeline.apply_transforms(
                 table_name_tuples,
                 topic_prefix,
                 list(connector.connector_manifest.topic_names),
+                connector_class,
             )
 
             lineages = []
@@ -216,17 +222,19 @@ class TestConnectorConfigValidation:
         transform_replacement = transform_config["replacement"]
         lineages = []
 
-        for table in table_name_tuples:
-            source_table = table[-1]
+        for table_id in table_name_tuples:
+            source_table = table_id.table
 
             # Build original topic name (before transform)
             if topic_prefix:
-                if has_three_level_hierarchy(source_platform) and len(table) > 1:
-                    original_topic = f"{topic_prefix}.{table[-2]}.{table[-1]}"
+                if has_three_level_hierarchy(source_platform) and table_id.schema:
+                    original_topic = (
+                        f"{topic_prefix}.{table_id.schema}.{table_id.table}"
+                    )
                 else:
-                    original_topic = f"{topic_prefix}.{table[-1]}"
+                    original_topic = f"{topic_prefix}.{table_id.table}"
             else:
-                original_topic = table[-1]
+                original_topic = table_id.table
 
             # Apply regex transformation
             try:
@@ -244,8 +252,8 @@ class TestConnectorConfigValidation:
 
             # Create lineage if topic matches
             if transformed_topic in connector.connector_manifest.topic_names:
-                if has_three_level_hierarchy(source_platform) and len(table) > 1:
-                    source_table_name = f"{table[-2]}.{table[-1]}"
+                if has_three_level_hierarchy(source_platform) and table_id.schema:
+                    source_table_name = f"{table_id.schema}.{table_id.table}"
                 else:
                     source_table_name = source_table
 
@@ -282,13 +290,12 @@ class TestConnectorConfigValidation:
             )
 
             if matching_table:
-                if (
-                    has_three_level_hierarchy(source_platform)
-                    and len(matching_table) > 1
-                ):
-                    source_table_name = f"{matching_table[-2]}.{matching_table[-1]}"
+                if has_three_level_hierarchy(source_platform) and matching_table.schema:
+                    source_table_name = (
+                        f"{matching_table.schema}.{matching_table.table}"
+                    )
                 else:
-                    source_table_name = matching_table[-1]
+                    source_table_name = matching_table.table
 
                 dataset_name = get_dataset_name(database_name, source_table_name)
                 lineage = KafkaConnectLineage(
@@ -301,16 +308,16 @@ class TestConnectorConfigValidation:
 
         return lineages
 
-    def _find_matching_table(self, table_name_tuples, source_table_suffix):
+    def _find_matching_table(self, table_ids, source_table_suffix):
         """Find table that matches the given suffix."""
-        for table in table_name_tuples:
-            table_name = table[-1]
+        for table_id in table_ids:
+            table_name = table_id.table
             possible_suffixes = [table_name]
-            if len(table) > 1:
-                possible_suffixes.append(f"{table[-2]}.{table[-1]}")
+            if table_id.schema:
+                possible_suffixes.append(f"{table_id.schema}.{table_id.table}")
 
             if source_table_suffix in possible_suffixes:
-                return table
+                return table_id
         return None
 
     def test_user_provided_config(self) -> None:
