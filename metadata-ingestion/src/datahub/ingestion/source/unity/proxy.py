@@ -373,8 +373,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             query = f"""
                 SELECT
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
-                    target_table_full_name, target_type,
+                    source_table_full_name, source_type, source_path,
+                    target_table_full_name, target_type, target_path,
                     max(event_time) as last_updated
                 FROM system.access.table_lineage
                 WHERE
@@ -382,13 +382,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     {additional_where}
                 GROUP BY
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
-                    target_table_full_name, target_type
+                    source_table_full_name, source_type, source_path,
+                    target_table_full_name, target_type, target_path
                 """
             rows = self._execute_sql_query(query, [catalog, catalog])
+            logger.debug(f"Table lineage got {len(rows)} rows")
 
             result_dict: FileBackedDict[TableLineageInfo] = FileBackedDict()
             for row in rows:
+                logger.debug(f"Table lineage result: {row}")
                 entity_type = row["entity_type"]
                 entity_id = row["entity_id"]
                 source_full_name = row["source_table_full_name"]
