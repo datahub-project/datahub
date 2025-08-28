@@ -4,13 +4,17 @@ from unittest.mock import Mock, patch
 
 import jpype
 import jpype.imports
+import pytest
 
 # Import the classes we're testing
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
+    KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+    get_dataset_name,
     get_platform_from_connector_class,
+    has_three_level_hierarchy,
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
     BigQuerySinkConnector,
@@ -20,6 +24,9 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     ConfluentJDBCSourceConnector,
+    RegexRouterTransform as SourceRegexRouterTransform,
+    TableId,
+    TransformPipeline,
 )
 
 logger = logging.getLogger(__name__)
@@ -416,22 +423,8 @@ class TestJDBCSourceConnector:
             topic_names=["library-book"],
         )
 
-    @patch("datahub.ingestion.source.kafka_connect.source_connectors.make_url")
-    @patch(
-        "datahub.ingestion.source.kafka_connect.source_connectors.get_platform_from_sqlalchemy_uri"
-    )
-    def test_mysql_source_with_regex_router(
-        self, mock_platform: Mock, mock_url: Mock
-    ) -> None:
+    def test_mysql_source_with_regex_router(self) -> None:
         """Test the specific MySQL source configuration example."""
-        # Mock the database connection parsing
-        mock_url_obj: Mock = Mock()
-        mock_url_obj.drivername = "mysql+pymysql"
-        mock_url_obj.host = "localhost"
-        mock_url_obj.port = 3306
-        mock_url_obj.database = "library"
-        mock_url.return_value = mock_url_obj
-        mock_platform.return_value = "mysql"
 
         connector_config: Dict[str, str] = {
             "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
@@ -581,23 +574,8 @@ class TestConfluentCloudConnectors:
             topic_names=["server_name.public.users", "server_name.public.orders"],
         )
 
-    @patch("datahub.ingestion.source.kafka_connect.source_connectors.make_url")
-    @patch(
-        "datahub.ingestion.source.kafka_connect.source_connectors.get_platform_from_sqlalchemy_uri"
-    )
-    def test_platform_postgres_source_connector(
-        self, mock_platform: Mock, mock_url: Mock
-    ) -> None:
+    def test_platform_postgres_source_connector(self) -> None:
         """Test Platform PostgreSQL source connector with traditional JDBC config."""
-        # Mock the database connection parsing
-        mock_url_obj: Mock = Mock()
-        mock_url_obj.drivername = "postgresql"
-        mock_url_obj.host = "localhost"
-        mock_url_obj.port = 5432
-        mock_url_obj.database = "testdb"
-        mock_url.return_value = mock_url_obj
-        mock_platform.return_value = "postgres"
-
         connector_config: Dict[str, str] = {
             "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
             "connection.url": "jdbc:postgresql://localhost:5432/testdb?user=testuser&password=testpass",
@@ -1053,14 +1031,6 @@ class TestFullConnectorConfigValidation:
         source_platform,
     ):
         """Extract lineages using transform pipeline."""
-        from datahub.ingestion.source.kafka_connect.common import (
-            KafkaConnectLineage,
-            get_dataset_name,
-            has_three_level_hierarchy,
-        )
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
 
         try:
             pipeline = TransformPipeline(transforms)
@@ -1112,11 +1082,6 @@ class TestFullConnectorConfigValidation:
         source_platform,
     ):
         """Extract lineages with single RegexRouter transform."""
-        from datahub.ingestion.source.kafka_connect.common import (
-            KafkaConnectLineage,
-            get_dataset_name,
-            has_three_level_hierarchy,
-        )
 
         transform_regex = transform_config["regex"]
         transform_replacement = transform_config["replacement"]
@@ -1172,10 +1137,6 @@ class TestFullConnectorConfigValidation:
         self, table_name_tuples, topic_prefix, connector, database_name, source_platform
     ):
         """Extract lineages without transforms."""
-        from datahub.ingestion.source.kafka_connect.common import (
-            KafkaConnectLineage,
-            get_dataset_name,
-        )
 
         lineages = []
 
@@ -1356,110 +1317,229 @@ class TestFullConnectorConfigValidation:
             )
 
 
+class TestTransformPipeline:
+    """Test the TransformPipeline class directly."""
+
+    def test_pipeline_initialization_with_known_transforms(self) -> None:
+        """Test TransformPipeline initialization with known transform types."""
+
+        transform_configs = [
+            {
+                "name": "RegexTransform",
+                "type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "regex": "test-(.*)",
+                "replacement": "processed_$1",
+            },
+            {
+                "name": "CloudRegexTransform",
+                "type": "io.confluent.connect.cloud.transforms.TopicRegexRouter",
+                "regex": "cloud-(.*)",
+                "replacement": "cloud_processed_$1",
+            },
+        ]
+
+        pipeline = TransformPipeline(transform_configs)
+
+        # Should have registered 2 transforms
+        assert len(pipeline.transforms) == 2
+
+        # Both should be RegexRouterTransform instances
+        assert all(
+            isinstance(t, SourceRegexRouterTransform) for t in pipeline.transforms
+        )
+
+    def test_pipeline_initialization_with_unknown_transforms(self) -> None:
+        """Test TransformPipeline handles unknown transform types gracefully."""
+
+        transform_configs = [
+            {
+                "name": "KnownTransform",
+                "type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "regex": "test-(.*)",
+                "replacement": "processed_$1",
+            },
+            {
+                "name": "UnknownTransform",
+                "type": "com.unknown.transforms.SomeTransform",
+                "config": "value",
+            },
+        ]
+
+        # Should not raise an exception
+        pipeline = TransformPipeline(transform_configs)
+
+        # Should only register the known transform
+        assert len(pipeline.transforms) == 1
+
+    def test_pipeline_apply_transforms_single_table(self) -> None:
+        """Test apply_transforms method with a single table."""
+
+        # Single RegexRouter transform
+        transform_configs = [
+            {
+                "name": "PrefixTransform",
+                "type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "regex": "users",
+                "replacement": "processed_users",
+            }
+        ]
+
+        pipeline = TransformPipeline(transform_configs)
+
+        tables = [TableId(schema="public", table="users")]
+        topic_prefix = ""
+        manifest_topics = ["processed_users"]
+        connector_class = "io.confluent.connect.jdbc.JdbcSourceConnector"
+
+        results = pipeline.apply_transforms(
+            tables, topic_prefix, manifest_topics, connector_class
+        )
+
+        # Should have one result
+        assert len(results) == 1
+        result = results[0]
+
+        # Verify result properties
+        assert result.schema == "public"
+        assert result.source_table == "users"
+        assert result.original_topic == "users"  # JDBC connector, no prefix
+        assert "processed_users" in result.final_topics
+
+    def test_pipeline_apply_transforms_multiple_tables_and_transforms(self) -> None:
+        """Test apply_transforms with multiple tables and transforms."""
+
+        # Multiple transforms in sequence
+        transform_configs = [
+            {
+                "name": "FirstTransform",
+                "type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "regex": "(.*)",
+                "replacement": "stage1_$1",
+            },
+            {
+                "name": "SecondTransform",
+                "type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "regex": "stage1_(.*)",
+                "replacement": "final_$1",
+            },
+        ]
+
+        pipeline = TransformPipeline(transform_configs)
+
+        tables = [
+            TableId(schema="public", table="users"),
+            TableId(schema="public", table="orders"),
+        ]
+        topic_prefix = ""
+        manifest_topics = ["final_users", "final_orders"]
+        connector_class = "io.confluent.connect.jdbc.JdbcSourceConnector"
+
+        results = pipeline.apply_transforms(
+            tables, topic_prefix, manifest_topics, connector_class
+        )
+
+        # Should have two results
+        assert len(results) == 2
+
+        # Check users result
+        users_result = next(r for r in results if r.source_table == "users")
+        assert users_result.original_topic == "users"
+        assert "final_users" in users_result.final_topics
+
+        # Check orders result
+        orders_result = next(r for r in results if r.source_table == "orders")
+        assert orders_result.original_topic == "orders"
+        assert "final_orders" in orders_result.final_topics
+
+    def test_pipeline_generate_original_topic_different_connectors(self) -> None:
+        """Test _generate_original_topic works correctly for different connector types."""
+
+        pipeline = TransformPipeline([])  # Empty pipeline for testing topic generation
+
+        # Test JDBC connector (simple concatenation)
+        result = pipeline._generate_original_topic(
+            schema="public",
+            table_name="users",
+            topic_prefix="db-",
+            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",
+        )
+        assert result == "db-users"
+
+        # Test Cloud PostgreSQL CDC (hierarchical naming)
+        result = pipeline._generate_original_topic(
+            schema="public",
+            table_name="users",
+            topic_prefix="server",
+            connector_class="PostgresCdcSource",
+        )
+        assert result == "server.public.users"
+
+        # Test empty prefix with Cloud connector
+        result = pipeline._generate_original_topic(
+            schema="public",
+            table_name="users",
+            topic_prefix="",
+            connector_class="PostgresCdcSource",
+        )
+        assert result == "public.users"  # Should NOT start with dot
+
+    def test_pipeline_empty_transforms(self) -> None:
+        """Test pipeline with no transforms configured."""
+
+        pipeline = TransformPipeline([])  # No transforms
+
+        tables = [TableId(schema="public", table="users")]
+        topic_prefix = "db-"
+        manifest_topics = ["db-users"]
+        connector_class = "io.confluent.connect.jdbc.JdbcSourceConnector"
+
+        results = pipeline.apply_transforms(
+            tables, topic_prefix, manifest_topics, connector_class
+        )
+
+        # Should still work with no transforms
+        assert len(results) == 1
+        result = results[0]
+
+        assert result.original_topic == "db-users"
+        assert (
+            "db-users" in result.final_topics
+        )  # No transform, original topic passes through
+
+    def test_pipeline_no_matching_topics(self) -> None:
+        """Test pipeline when transformed topics don't match manifest topics."""
+
+        transform_configs = [
+            {
+                "name": "Transform",
+                "type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "regex": "users",
+                "replacement": "transformed_users",
+            }
+        ]
+
+        pipeline = TransformPipeline(transform_configs)
+
+        tables = [TableId(schema="public", table="users")]
+        topic_prefix = ""
+        manifest_topics = ["some_other_topic"]  # Transform result won't match this
+        connector_class = "io.confluent.connect.jdbc.JdbcSourceConnector"
+
+        results = pipeline.apply_transforms(
+            tables, topic_prefix, manifest_topics, connector_class
+        )
+
+        # Pipeline creates results with transformed topics, but manifest filtering would happen later
+        # This test verifies the transform pipeline works correctly even with non-matching manifest
+        assert len(results) == 1
+        result = results[0]
+        assert result.original_topic == "users"
+        assert "transformed_users" in result.final_topics
+        # The final filtering against manifest happens in the lineage extraction logic
+
+
 class TestTopicGeneration:
     """Test original topic generation behavior to prevent regressions like the integration test failure."""
-
-    def test_generate_original_topic_without_prefix_two_tier_mysql(self) -> None:
-        """Test MySQL (2-tier) topic generation without topic prefix - should use table name only."""
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
-
-        pipeline = TransformPipeline([])
-
-        # MySQL scenario: database=librarydb, table=member, no topic prefix
-        result = pipeline._generate_original_topic(
-            schema="librarydb",
-            table_name="member",
-            topic_prefix="",
-            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",  # Traditional JDBC
-        )
-
-        # Critical: Should be just table name, not database.table
-        assert result == "member", f"Expected 'member', got '{result}'"
-
-    def test_generate_original_topic_without_prefix_three_tier_postgres(self) -> None:
-        """Test PostgreSQL (3-tier) topic generation without topic prefix - should use table name only."""
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
-
-        pipeline = TransformPipeline([])
-
-        # PostgreSQL scenario: schema=public, table=users, no topic prefix
-        result = pipeline._generate_original_topic(
-            schema="public",
-            table_name="users",
-            topic_prefix="",
-            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",  # Traditional JDBC
-        )
-
-        # Critical: Should be just table name, not schema.table
-        assert result == "users", f"Expected 'users', got '{result}'"
-
-    def test_generate_original_topic_with_prefix_cdc_behavior(self) -> None:
-        """Test CDC/Cloud connector behavior with topic prefix (server name)."""
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
-
-        pipeline = TransformPipeline([])
-
-        # With prefix: CDC/hierarchical behavior for Cloud connectors
-        # This handles Cloud connectors with database.server.name
-
-        # MySQL Cloud CDC connector - hierarchical format
-        result_mysql = pipeline._generate_original_topic(
-            schema="librarydb",
-            table_name="member",
-            topic_prefix="mysql-server",
-            connector_class="MySqlCdcSource",  # Cloud MySQL CDC
-        )
-        assert result_mysql == "mysql-server.librarydb.member"
-
-        # PostgreSQL Cloud CDC connector - hierarchical format
-        result_postgres = pipeline._generate_original_topic(
-            schema="public",
-            table_name="users",
-            topic_prefix="pg-server",
-            connector_class="PostgresCdcSource",  # Cloud PostgreSQL CDC
-        )
-        assert result_postgres == "pg-server.public.users"
-
-        # No schema, with server name - server + table name
-        result_no_schema = pipeline._generate_original_topic(
-            schema="",
-            table_name="table1",
-            topic_prefix="server",
-            connector_class="MySqlCdcSource",  # Cloud connector
-        )
-        assert result_no_schema == "server.table1"
-
-    def test_generate_original_topic_cloud_connectors(self) -> None:
-        """Test Cloud connector scenarios with database.server.name as topic prefix."""
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
-
-        pipeline = TransformPipeline([])
-
-        # Cloud MySQL with server name
-        result_cloud_mysql = pipeline._generate_original_topic(
-            schema="testdb",
-            table_name="orders",
-            topic_prefix="mysql-server",
-            connector_class="MySqlCdcSource",  # Cloud MySQL CDC
-        )
-        assert result_cloud_mysql == "mysql-server.testdb.orders"
-
-        # Cloud PostgreSQL with server name
-        result_cloud_postgres = pipeline._generate_original_topic(
-            schema="public",
-            table_name="events",
-            topic_prefix="pg-server",
-            connector_class="PostgresCdcSource",  # Cloud PostgreSQL CDC
-        )
-        assert result_cloud_postgres == "pg-server.public.events"
 
     def test_integration_test_regression_scenario(self) -> None:
         """
@@ -1471,9 +1551,6 @@ class TestTopicGeneration:
         - No topic.prefix configured
         - Expected: topic names should be just table names, not database.table
         """
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
 
         pipeline = TransformPipeline([])
 
@@ -1498,127 +1575,125 @@ class TestTopicGeneration:
                 f"should generate '{table}', but got '{result}'"
             )
 
-    def test_connector_type_determines_naming_strategy(self) -> None:
+    @pytest.mark.parametrize(
+        "schema,table_name,topic_prefix,connector_class,expected,description",
+        [
+            # Cloud connectors - hierarchical naming (CDC behavior)
+            pytest.param(
+                "public",
+                "users",
+                "",
+                "PostgresCdcSource",
+                "public.users",
+                "Cloud PostgreSQL CDC with empty prefix should use schema.table format",
+                id="cloud_postgres_cdc_empty_prefix",
+            ),
+            pytest.param(
+                "public",
+                "users",
+                "pg-server",
+                "PostgresCdcSource",
+                "pg-server.public.users",
+                "Cloud PostgreSQL CDC should use hierarchical naming",
+                id="cloud_postgres_cdc_with_server",
+            ),
+            pytest.param(
+                "inventory",
+                "orders",
+                "mysql-server",
+                "MySqlCdcSource",
+                "mysql-server.inventory.orders",
+                "Cloud MySQL CDC should use hierarchical naming",
+                id="cloud_mysql_cdc_hierarchical",
+            ),
+            # Traditional JDBC connector - simple concatenation
+            pytest.param(
+                "librarydb",
+                "member",
+                "",
+                "io.confluent.connect.jdbc.JdbcSourceConnector",
+                "member",
+                "JDBC connector with empty prefix should use table name",
+                id="jdbc_empty_prefix",
+            ),
+            pytest.param(
+                "librarydb",
+                "member",
+                "jdbc-",
+                "io.confluent.connect.jdbc.JdbcSourceConnector",
+                "jdbc-member",
+                "JDBC connector should use simple concatenation",
+                id="jdbc_with_prefix",
+            ),
+            # Debezium connectors - hierarchical naming
+            pytest.param(
+                "inventory",
+                "products",
+                "debezium-server",
+                "io.debezium.connector.mysql.MySqlConnector",
+                "debezium-server.inventory.products",
+                "Debezium MySQL should use hierarchical naming",
+                id="debezium_mysql_hierarchical",
+            ),
+            pytest.param(
+                "public",
+                "events",
+                "debezium-pg",
+                "io.debezium.connector.postgresql.PostgresConnector",
+                "debezium-pg.public.events",
+                "Debezium PostgreSQL should use hierarchical naming",
+                id="debezium_postgres_hierarchical",
+            ),
+            # Unknown connector - fallback to JDBC behavior
+            pytest.param(
+                "some_db",
+                "some_table",
+                "",
+                "com.unknown.SomeConnector",
+                "some_table",
+                "Unknown connector with empty prefix should use JDBC naming",
+                id="unknown_connector_empty_prefix",
+            ),
+            pytest.param(
+                "some_db",
+                "some_table",
+                "unknown-",
+                "com.unknown.SomeConnector",
+                "unknown-some_table",
+                "Unknown connector should use JDBC naming as fallback",
+                id="unknown_connector_with_prefix",
+            ),
+        ],
+    )
+    def test_connector_type_determines_naming_strategy(
+        self,
+        schema: str,
+        table_name: str,
+        topic_prefix: str,
+        connector_class: str,
+        expected: str,
+        description: str,
+    ) -> None:
         """
         Test the architectural fix: connector type determines naming strategy, not topic_prefix.
 
         This validates that the source (connector class) decides how to generate topic names,
         addressing the user's feedback that the previous logic was backwards.
         """
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
 
         pipeline = TransformPipeline([])
 
-        # Test Cloud connectors always use hierarchical naming (regardless of topic_prefix)
-
-        # Cloud PostgreSQL CDC - should use CDC naming even with empty prefix
         result = pipeline._generate_original_topic(
-            schema="public",
-            table_name="users",
-            topic_prefix="",  # Empty but Cloud connector
-            connector_class="PostgresCdcSource",
+            schema=schema,
+            table_name=table_name,
+            topic_prefix=topic_prefix,
+            connector_class=connector_class,
         )
-        assert result == ".public.users", (
-            f"Cloud connector should use CDC naming even with empty prefix, got: {result}"
-        )
+        assert result == expected, f"{description}, got: {result}"
 
-        # Cloud PostgreSQL CDC - with topic prefix (server name)
-        result = pipeline._generate_original_topic(
-            schema="public",
-            table_name="users",
-            topic_prefix="pg-server",
-            connector_class="PostgresCdcSource",
-        )
-        assert result == "pg-server.public.users", (
-            f"Cloud PostgreSQL CDC should use hierarchical naming, got: {result}"
-        )
-
-        # Cloud MySQL CDC - with topic prefix (server name)
-        result = pipeline._generate_original_topic(
-            schema="inventory",
-            table_name="orders",
-            topic_prefix="mysql-server",
-            connector_class="MySqlCdcSource",
-        )
-        assert result == "mysql-server.inventory.orders", (
-            f"Cloud MySQL CDC should use hierarchical naming, got: {result}"
-        )
-
-        # Traditional JDBC connector always uses simple concatenation (regardless of topic_prefix)
-
-        # JDBC with empty prefix
-        result = pipeline._generate_original_topic(
-            schema="librarydb",
-            table_name="member",
-            topic_prefix="",
-            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",
-        )
-        assert result == "member", (
-            f"JDBC connector with empty prefix should use table name, got: {result}"
-        )
-
-        # JDBC with topic prefix
-        result = pipeline._generate_original_topic(
-            schema="librarydb",
-            table_name="member",
-            topic_prefix="jdbc-",
-            connector_class="io.confluent.connect.jdbc.JdbcSourceConnector",
-        )
-        assert result == "jdbc-member", (
-            f"JDBC connector should use simple concatenation, got: {result}"
-        )
-
-        # Debezium connectors always use hierarchical naming
-
-        # Debezium MySQL
-        result = pipeline._generate_original_topic(
-            schema="inventory",
-            table_name="products",
-            topic_prefix="debezium-server",
-            connector_class="io.debezium.connector.mysql.MySqlConnector",
-        )
-        assert result == "debezium-server.inventory.products", (
-            f"Debezium MySQL should use hierarchical naming, got: {result}"
-        )
-
-        # Debezium PostgreSQL
-        result = pipeline._generate_original_topic(
-            schema="public",
-            table_name="events",
-            topic_prefix="debezium-pg",
-            connector_class="io.debezium.connector.postgresql.PostgresConnector",
-        )
-        assert result == "debezium-pg.public.events", (
-            f"Debezium PostgreSQL should use hierarchical naming, got: {result}"
-        )
-
-        # Unknown connector - falls back to topic_prefix logic for backward compatibility
-
-        # Unknown connector with empty prefix - uses JDBC naming
-        result = pipeline._generate_original_topic(
-            schema="some_db",
-            table_name="some_table",
-            topic_prefix="",
-            connector_class="com.unknown.SomeConnector",
-        )
-        assert result == "some_table", (
-            f"Unknown connector with empty prefix should use JDBC naming, got: {result}"
-        )
-
-        # Unknown connector with prefix - uses JDBC naming (fallback behavior)
-        result = pipeline._generate_original_topic(
-            schema="some_db",
-            table_name="some_table",
-            topic_prefix="unknown-",
-            connector_class="com.unknown.SomeConnector",
-        )
-        assert result == "unknown-some_table", (
-            f"Unknown connector should use JDBC naming as fallback, got: {result}"
-        )
-
-    def test_kafka_connect_documentation_compliance(self) -> None:
+    def test_jdbc_source_topic_naming_follows_official_confluent_documentation(
+        self,
+    ) -> None:
         """
         Test compliance with official Kafka Connect JDBC Source documentation.
 
@@ -1627,9 +1702,6 @@ class TestTopicGeneration:
         - When empty: topic name = table name
         - When set: topic name = prefix + table (possibly with schema)
         """
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            TransformPipeline,
-        )
 
         pipeline = TransformPipeline([])
 
