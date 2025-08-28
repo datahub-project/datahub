@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.role;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -11,6 +13,8 @@ import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -46,7 +50,8 @@ public class IsAssignedToMeResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getSource()).thenReturn(role);
 
-    IsAssignedToMeResolver resolver = new IsAssignedToMeResolver();
+    GroupService groupService = mockGroupService(TEST_CORP_USER_URN_1, Collections.emptyList());
+    IsAssignedToMeResolver resolver = new IsAssignedToMeResolver(groupService);
     assertTrue(resolver.get(mockEnv).get());
   }
 
@@ -75,7 +80,15 @@ public class IsAssignedToMeResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Mockito.when(mockEnv.getSource()).thenReturn(role);
 
-    IsAssignedToMeResolver resolver = new IsAssignedToMeResolver();
+    GroupService groupService = mockGroupService(TEST_CORP_USER_URN_1, Collections.emptyList());
+    IsAssignedToMeResolver resolver = new IsAssignedToMeResolver(groupService);
     assertFalse(resolver.get(mockEnv).get());
+  }
+
+  private GroupService mockGroupService(final Urn userUrn, final List<Urn> groupUrns)
+      throws Exception {
+    GroupService mockService = Mockito.mock(GroupService.class);
+    Mockito.when(mockService.getGroupsForUser(any(), Mockito.eq(userUrn))).thenReturn(groupUrns);
+    return mockService;
   }
 }

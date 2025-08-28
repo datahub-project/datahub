@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Button, Table } from 'antd';
+import { Button, Table, Tooltip } from 'antd';
 import { SpinProps } from 'antd/es/spin';
 import React from 'react';
 import styled from 'styled-components';
@@ -59,6 +59,20 @@ const AccessButton = styled(Button)`
         border: none;
         font-weight: bold;
     }
+    
+    /* Disabled/greyed out state when user already has access */
+    &:disabled {
+        background-color: #f5f5f5;
+        color: #bfbfbf;
+        cursor: not-allowed;
+        border: 1px solid #d9d9d9;
+        
+        &:hover {
+            background-color: #f5f5f5;
+            color: #bfbfbf;
+            border: 1px solid #d9d9d9;
+        }
+    }
 `;
 
 export default function AccessManagement() {
@@ -69,6 +83,8 @@ export default function AccessManagement() {
         variables: { urn: entityUrn as string },
         skip: !entityUrn,
     });
+
+
 
     const columns = [
         {
@@ -94,20 +110,34 @@ export default function AccessManagement() {
             dataIndex: 'hasAccess',
             key: 'hasAccess',
             render: (hasAccess, record) => {
-                if (hasAccess) {
-                    return <StyledSection>Provisioned</StyledSection>;
-                }
-                if (record?.url) {
-                    return (
+                if (record?.url || hasAccess) {
+                    const button = (
                         <AccessButton
+                            disabled={hasAccess}
                             onClick={(e) => {
-                                e.preventDefault();
-                                window.open(record.url);
+                                if (!hasAccess) {
+                                    e.preventDefault();
+                                    window.open(record.url);
+                                }
                             }}
                         >
-                            Request
+                            {hasAccess ? 'Granted' : 'Request'}
                         </AccessButton>
                     );
+
+                    // Show tooltip when user already has access
+                    if (hasAccess) {
+                        return (
+                            <Tooltip 
+                                title="You already have access to this role"
+                                placement="top"
+                            >
+                                {button}
+                            </Tooltip>
+                        );
+                    }
+
+                    return button;
                 }
                 return <StyledSection />;
             },
