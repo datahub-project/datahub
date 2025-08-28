@@ -491,7 +491,7 @@ async def generate_column_batch_descriptions(
     except Exception as e:
         # As we do not wish to fail entire description generation for single column batch
         # we do not raise error here, instead retry for batch_column_descriptions is None
-        logger.error(f"Error generating column descriptions for batch: {e}")
+        logger.error(f"Error generating column descriptions for batch {i}: {e}")
         batch_failure_reason = str(e)
         batch_column_descriptions = None
     logger.debug(f"Finished batch {i} description generation")

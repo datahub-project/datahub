@@ -136,14 +136,14 @@ def call_bedrock_llm_inner(
     model: BedrockModel | str,
     temperature: float,
 ) -> BedrockResponseBody:
-    start_time = time.time()
     body = prepare_body_for_prompt(prompt, max_tokens, temperature)
     accept = "application/json"
     contentType = "application/json"
-
     modelId = model.value if isinstance(model, BedrockModel) else model
     if _LLM_TRACE:
         logger.info(f"Calling Bedrock LLM with model {modelId} and prompt:\n{prompt}")
+
+    start_time = time.time()
     response = boto3_bedrock.invoke_model(
         body=json.dumps(body),
         modelId=modelId,
@@ -154,16 +154,17 @@ def call_bedrock_llm_inner(
         else "standard",
     )
     response_body = json.loads(response["body"].read())
+    logger.info(f"LLM call took {time.time() - start_time} seconds")
     if _LLM_TRACE:
         logger.info(
             f"LLM response body: {pprint.pformat(response_body, sort_dicts=False, width=120)}"
         )
+
     # If the generation ran out of tokens, log a warning.
     stop_reason = response_body["stop_reason"]
     if stop_reason not in {"end_turn", "tool_use"}:
         logger.warning(f"LLM call stopped early: {stop_reason}")
 
-    logger.info(f"LLM call took {time.time() - start_time} seconds")
     return BedrockResponseBody(
         model=model,
         text=response_body["content"][0]["text"],
