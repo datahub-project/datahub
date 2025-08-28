@@ -6,9 +6,16 @@ import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOper
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 import { PageTemplateContextState } from '@app/homeV3/context/types';
 
+import { PageTemplateSurfaceType } from '@types';
+
 const PageTemplateContext = createContext<PageTemplateContextState | undefined>(undefined);
 
-export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
+interface Props {
+    children: ReactNode;
+    templateType: PageTemplateSurfaceType;
+}
+
+export const PageTemplateProvider = ({ children, templateType }: Props) => {
     // Template state management
     const {
         personalTemplate,
@@ -19,11 +26,11 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
         setPersonalTemplate,
         setGlobalTemplate,
         setTemplate,
-    } = useTemplateState();
+    } = useTemplateState(templateType);
 
     // Template operations
     const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate, resetTemplateToDefault } =
-        useTemplateOperations(setPersonalTemplate, personalTemplate);
+        useTemplateOperations(setPersonalTemplate, personalTemplate, templateType);
 
     // Modal state
     const moduleModalState = useModuleModalState();

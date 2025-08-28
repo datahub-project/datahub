@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import useShowToast from '@app/homeV3/toast/useShowToast';
 
+import { useUpdateAssetSettingsMutation } from '@graphql/settings.generated';
 import {
     PageModuleFragment,
     PageTemplateFragment,
@@ -53,9 +55,12 @@ const isValidRemovalPosition = (template: PageTemplateFragment | null, position:
 export function useTemplateOperations(
     setPersonalTemplate: (template: PageTemplateFragment | null) => void,
     personalTemplate: PageTemplateFragment | null,
+    templateType: PageTemplateSurfaceType,
 ) {
+    const { urn } = useEntityContext();
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
+    const [updateAssetSettings] = useUpdateAssetSettingsMutation();
     const [deletePageTemplate] = useDeletePageTemplateMutation();
 
     const { showToast } = useShowToast();
@@ -194,7 +199,7 @@ export function useTemplateOperations(
                         modules: row.modules?.map((module) => module.urn) || [],
                     })) || [],
                 scope: isPersonal ? PageTemplateScope.Personal : PageTemplateScope.Global,
-                surfaceType: PageTemplateSurfaceType.HomePage,
+                surfaceType: templateType,
             };
 
             return upsertPageTemplateMutation({
@@ -202,12 +207,21 @@ export function useTemplateOperations(
             }).then(({ data }) => {
                 if (isCreatingPersonalTemplate && data?.upsertPageTemplate.urn) {
                     // set personal template in state after successful creation of new personal template with correct urn
-                    setPersonalTemplate(data.upsertPageTemplate);
-                    updateUserHomePageSettings({ variables: { input: { pageTemplate: data.upsertPageTemplate.urn } } });
-                    showToast(
-                        'You’ve edited your home page',
-                        `To reset your home page click "Reset to Organization Default"`,
-                    );
+                    if (templateType === PageTemplateSurfaceType.HomePage) {
+                        setPersonalTemplate(data.upsertPageTemplate);
+                        updateUserHomePageSettings({
+                            variables: { input: { pageTemplate: data.upsertPageTemplate.urn } },
+                        });
+                        showToast(
+                            'You’ve edited your home page',
+                            `To reset your home page click "Reset to Organization Default"`,
+                        );
+                    } else if (templateType === PageTemplateSurfaceType.AssetSummary) {
+                        setPersonalTemplate(data.upsertPageTemplate);
+                        updateAssetSettings({
+                            variables: { input: { urn, summary: { template: data.upsertPageTemplate.urn } } },
+                        });
+                    }
                 }
             });
         },

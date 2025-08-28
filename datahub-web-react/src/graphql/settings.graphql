@@ -1,0 +1,15 @@
+fragment AssetSettingsFields on AssetSettings {
+	assetSummary {
+		templates {
+			template {
+				...PageTemplate
+			}
+		}
+	}
+}
+
+mutation updateAssetSettings($input: UpdateAssetSettingsInput!) {
+    updateAssetSettings(input: $input) {
+		...AssetSettingsFields
+	}
+}
