@@ -19,6 +19,9 @@ fragment glossaryNodeFields on GlossaryNode {
         customProperties {
             ...customPropertiesFields
         }
+        createdOn {
+            time
+        }
     }
     ownership {
         ...ownershipFields

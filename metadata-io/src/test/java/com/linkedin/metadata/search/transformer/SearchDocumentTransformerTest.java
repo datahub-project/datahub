@@ -33,6 +33,11 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -458,6 +463,66 @@ public class SearchDocumentTransformerTest {
     assertTrue(transformed.get().has("description"));
     assertTrue(transformed.get().get("description").isNull());
     assertFalse(transformed.get().get("hasDescription").asBoolean());
+  }
+
+  @Test
+  public void testStructuredPropertiesTransform()
+      throws RemoteInvocationException, URISyntaxException {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
+    String structuredPropertyUrn = "urn:li:structuredProperty:test_property";
+    SearchDocumentTransformer test = new SearchDocumentTransformer(1000, 1000, 1000);
+
+    StructuredProperties structuredProperties = new StructuredProperties();
+    StructuredPropertyValueAssignmentArray valueAssignments =
+        new StructuredPropertyValueAssignmentArray();
+    StructuredPropertyValueAssignment valueAssignment = new StructuredPropertyValueAssignment();
+    PrimitivePropertyValueArray primitivePropertyValues = new PrimitivePropertyValueArray();
+    PrimitivePropertyValue value = new PrimitivePropertyValue();
+    value.setString("testing123");
+    primitivePropertyValues.add(value);
+    valueAssignment.setPropertyUrn(UrnUtils.getUrn(structuredPropertyUrn));
+    valueAssignment.setValues(primitivePropertyValues);
+    valueAssignments.add(valueAssignment);
+    structuredProperties.setProperties(valueAssignments);
+
+    // Mock AspectRetriever and OperationContext
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    OperationContext opContext = Mockito.mock(OperationContext.class);
+
+    // Mock the aspectRetriever to return a structured property definition
+    Map<Urn, Map<String, Aspect>> mockDefinitions = new HashMap<>();
+    Map<String, Aspect> aspectMap = new HashMap<>();
+
+    // Create a mock structured property definition aspect
+    DataMapBuilder propertyDefinitionBuilder = new DataMapBuilder();
+    propertyDefinitionBuilder.addKVPair("qualifiedName", "test_property");
+    propertyDefinitionBuilder.addKVPair("valueType", "urn:li:dataType:datahub.string");
+    Aspect structuredPropertyDefinitionAspect =
+        new Aspect(propertyDefinitionBuilder.convertToDataMap());
+
+    aspectMap.put(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, structuredPropertyDefinitionAspect);
+    mockDefinitions.put(UrnUtils.getUrn(structuredPropertyUrn), aspectMap);
+
+    Mockito.when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    Mockito.when(aspectRetriever.getLatestAspectObjects(any(Set.class), any(Set.class)))
+        .thenReturn(mockDefinitions);
+
+    Optional<ObjectNode> transformed =
+        test.transformAspect(
+            opContext,
+            UrnUtils.getUrn(entityUrn),
+            structuredProperties,
+            ENTITY_REGISTRY
+                .getEntitySpec(DATASET_ENTITY_NAME)
+                .getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME),
+            false,
+            AuditStampUtils.createDefaultAuditStamp());
+
+    assertTrue(transformed.isPresent());
+    assertEquals(transformed.get().get("urn").asText(), entityUrn);
+    assertTrue(transformed.get().has("structuredProperties.test_property"));
+    assertEquals(
+        transformed.get().get("structuredProperties.test_property").get(0).asText(), "testing123");
   }
 
   @Test

@@ -195,12 +195,12 @@ public class SearchDocumentTransformer {
 
     Optional<ObjectNode> result = Optional.empty();
 
+    final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    searchDocument.put("urn", urn.toString());
+
     if (!extractedSearchableFields.isEmpty()
         || !extractedSearchScoreFields.isEmpty()
         || !extractedSearchRefFields.isEmpty()) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
-
       extractedSearchableFields.forEach(
           (key, values) ->
               setSearchableValue(key, values, searchDocument, forDelete, mclCreateAuditStamp));
@@ -211,9 +211,8 @@ public class SearchDocumentTransformer {
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
-    } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
-      final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
-      searchDocument.put("urn", urn.toString());
+    }
+    if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       setStructuredPropertiesSearchValue(
           opContext, new StructuredProperties(aspect.data()), searchDocument, forDelete);
       result = Optional.of(searchDocument);

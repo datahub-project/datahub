@@ -3,7 +3,14 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import DefaultEntity from '@app/entityV2/DefaultEntity';
-import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import {
+    Entity,
+    EntityCapabilityType,
+    EntityMenuActions,
+    IconStyleType,
+    PreviewContext as PreviewContextProps,
+    PreviewType,
+} from '@app/entityV2/Entity';
 import PreviewContext from '@app/entityV2/shared/PreviewContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
@@ -128,12 +135,18 @@ export default class EntityRegistry {
         return entity.renderProfile(urn);
     }
 
-    renderPreview<T>(entityType: EntityType, type: PreviewType, data: T, actions?: EntityMenuActions): JSX.Element {
+    renderPreview<T>(
+        entityType: EntityType,
+        type: PreviewType,
+        data: T,
+        actions?: EntityMenuActions,
+        extraContext?: PreviewContextProps,
+    ): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity, DefaultEntity);
         const genericEntityData = entity.getGenericEntityProperties(data);
         return (
             <PreviewContext.Provider value={genericEntityData}>
-                {entity.renderPreview(type, data, actions)}
+                {entity.renderPreview(type, data, actions, extraContext)}
             </PreviewContext.Provider>
         );
     }

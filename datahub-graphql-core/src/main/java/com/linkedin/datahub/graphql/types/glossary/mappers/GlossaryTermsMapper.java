@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTerms;
+import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -40,13 +41,15 @@ public class GlossaryTermsMapper {
             .filter(
                 association ->
                     context == null || canView(context.getOperationContext(), association.getUrn()))
-            .map(association -> this.mapGlossaryTermAssociation(association, entityUrn))
+            .map(association -> this.mapGlossaryTermAssociation(context, association, entityUrn))
             .collect(Collectors.toList()));
     return result;
   }
 
   private com.linkedin.datahub.graphql.generated.GlossaryTermAssociation mapGlossaryTermAssociation(
-      @Nonnull final GlossaryTermAssociation input, @Nonnull final Urn entityUrn) {
+      @Nonnull final QueryContext context,
+      @Nonnull final GlossaryTermAssociation input,
+      final Urn entityUrn) {
     final com.linkedin.datahub.graphql.generated.GlossaryTermAssociation result =
         new com.linkedin.datahub.graphql.generated.GlossaryTermAssociation();
 
@@ -65,6 +68,12 @@ public class GlossaryTermsMapper {
     }
     if (entityUrn != null) {
       result.setAssociatedUrn(entityUrn.toString());
+    }
+    if (input.getContext() != null) {
+      result.setContext(input.getContext());
+    }
+    if (input.getAttribution() != null) {
+      result.setAttribution(MetadataAttributionMapper.map(context, input.getAttribution()));
     }
 
     return result;

@@ -121,6 +121,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                                     value={val}
                                                     isRichText={isRichText}
                                                     hydratedEntityMap={hydratedEntityMap}
+                                                    attribution={propertyRow.attribution}
                                                 />
                                             ))}
                                         </>
