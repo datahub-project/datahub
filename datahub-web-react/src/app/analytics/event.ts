@@ -630,6 +630,7 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
     type: EventType.IngestionSourceConfigurationImpressionEvent;
     viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
+    // sourceType is missing when we are creating new source
     sourceType?: string;
     sourceUrn?: string;
 }
@@ -657,6 +658,7 @@ export interface DeleteIngestionSourceEvent extends BaseEvent {
 }
 
 export interface ExecuteIngestionSourceEvent extends BaseEvent {
+    // TODO: Add source type and urn
     type: EventType.ExecuteIngestionSourceEvent;
 }
 

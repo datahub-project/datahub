@@ -256,6 +256,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             .then(() => {
                 analytics.event({
                     type: EventType.ExecuteIngestionSourceEvent,
+                    sourceType: focusSource?.type,
+                    sourceUrn: focusSource?.urn,
                 });
                 message.success({
                     content: `Successfully submitted ingestion execution request!`,
