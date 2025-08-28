@@ -378,6 +378,21 @@ def _filter_discriminator(v: Any) -> Optional[str]:
     return None
 
 
+def _parse_and_like_filter(value: Any) -> Any:
+    # Do not parse if filter is already of type and/or/not or a custom condition
+    # also do not parse container filter if direct_descendants_only is specified
+    if (
+        isinstance(value, dict)
+        and not set(value.keys()).intersection(
+            {"and", "or", "not", "field", "condition", "direct_descendants_only"}
+        )
+        and len(value) > 1
+    ):
+        return {"and": [{k: v} for k, v in value.items()]}
+
+    return value
+
+
 if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
     # The `not TYPE_CHECKING` bit is required to make the linter happy,
     # since we currently only run mypy with pydantic v1.
@@ -439,6 +454,7 @@ else:
             ],
             Discriminator(_filter_discriminator),
         ],
+        pydantic.BeforeValidator(_parse_and_like_filter),
         pydantic.BeforeValidator(_parse_json_from_string),
     ]
 

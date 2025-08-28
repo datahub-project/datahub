@@ -9,15 +9,19 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -34,6 +38,11 @@ public class DomainMapper {
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
 
+    // Getting of created timestamp from key aspect as we can't get this data in default way
+    ResolvedAuditStamp createdAuditStampFromKeyAspect =
+        EntityResponseUtils.extractAspectCreatedAuditStamp(
+            entityResponse, Constants.DOMAIN_KEY_ASPECT_NAME);
+
     result.setUrn(entityUrn.toString());
     result.setType(EntityType.DOMAIN);
 
@@ -49,7 +58,9 @@ public class DomainMapper {
         aspects.get(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
     if (envelopedDomainProperties != null) {
       result.setProperties(
-          mapDomainProperties(new DomainProperties(envelopedDomainProperties.getValue().data())));
+          mapDomainProperties(
+              new DomainProperties(envelopedDomainProperties.getValue().data()),
+              createdAuditStampFromKeyAspect));
     }
 
     final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
@@ -100,11 +111,28 @@ public class DomainMapper {
   }
 
   private static com.linkedin.datahub.graphql.generated.DomainProperties mapDomainProperties(
-      final DomainProperties gmsProperties) {
+      final DomainProperties gmsProperties,
+      final ResolvedAuditStamp createdAuditStampFromKeyAspect) {
     final com.linkedin.datahub.graphql.generated.DomainProperties propertiesResult =
         new com.linkedin.datahub.graphql.generated.DomainProperties();
     propertiesResult.setName(gmsProperties.getName());
     propertiesResult.setDescription(gmsProperties.getDescription());
+
+    // Map created audit stamp
+    if (gmsProperties.getCreated() != null) {
+      ResolvedAuditStamp created = new ResolvedAuditStamp();
+      created.setTime(gmsProperties.getCreated().getTime());
+      if (gmsProperties.getCreated().getActor(GetMode.NULL) != null) {
+        final CorpUser emptyCreatedUser = new CorpUser();
+        emptyCreatedUser.setUrn(gmsProperties.getCreated().getActor().toString());
+        created.setActor(emptyCreatedUser);
+      }
+      propertiesResult.setCreatedOn(created);
+    } else {
+      // FYI: sometimes it's empty in data so we have fallback to audit stamp from key aspect
+      propertiesResult.setCreatedOn(createdAuditStampFromKeyAspect);
+    }
+
     return propertiesResult;
   }
 
