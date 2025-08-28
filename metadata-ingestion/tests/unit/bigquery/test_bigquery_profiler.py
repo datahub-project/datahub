@@ -13,7 +13,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
     PartitionInfo,
 )
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 
 
 # Tests for DDL parsing helper functions
@@ -621,7 +621,7 @@ def test_invalid_partition_id():
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.profiler.BigqueryProfiler._process_time_based_columns"
+    "datahub.ingestion.source.bigquery_v2.profiling.profiler.BigqueryProfiler._process_time_based_columns"
 )
 def test_process_time_based_columns(mock_process):
     """Test that time-based columns are correctly formatted with leading zeros when needed."""
@@ -688,7 +688,7 @@ def test_process_time_based_columns(mock_process):
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.profiler.BigqueryProfiler._get_fallback_partition_filters"
+    "datahub.ingestion.source.bigquery_v2.profiling.profiler.BigqueryProfiler._get_fallback_partition_filters"
 )
 def test_get_fallback_partition_filters(mock_get_fallback):
     """Test that fallback partition filters format day and month values with leading zeros."""
@@ -731,7 +731,7 @@ def test_get_fallback_partition_filters(mock_get_fallback):
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.profiler.BigqueryProfiler._get_date_filters_for_query"
+    "datahub.ingestion.source.bigquery_v2.profiling.profiler.BigqueryProfiler._get_date_filters_for_query"
 )
 def test_get_date_filters_for_query(mock_get_date_filters):
     """Test that date filters for queries are correctly formatted with leading zeros."""
@@ -759,7 +759,7 @@ def test_get_date_filters_for_query(mock_get_date_filters):
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.profiler.BigqueryProfiler._try_date_filters"
+    "datahub.ingestion.source.bigquery_v2.profiling.profiler.BigqueryProfiler._try_date_filters"
 )
 def test_try_date_filters(mock_try_date_filters):
     """Test that date filters with leading zeros are generated correctly in try_date_filters."""
@@ -785,7 +785,7 @@ def test_try_date_filters(mock_try_date_filters):
 
     # Call the method
     filters, values, has_data = profiler._try_date_filters(
-        project="test-project", schema="test-dataset", table=test_table
+        project="test-project", schema="test-dataset", table=test_table, filters=[]
     )
 
     # Check the results
@@ -803,7 +803,7 @@ def test_try_date_filters(mock_try_date_filters):
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.profiler.BigqueryProfiler._create_partition_filter_from_value"
+    "datahub.ingestion.source.bigquery_v2.profiling.profiler.BigqueryProfiler._create_partition_filter_from_value"
 )
 def test_create_partition_filter_from_value(mock_create_filter):
     """Test creating filter strings from values with proper formatting."""
@@ -846,7 +846,7 @@ def test_create_partition_filter_from_value(mock_create_filter):
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.profiler.BigqueryProfiler._extract_partition_values_from_filters"
+    "datahub.ingestion.source.bigquery_v2.profiling.profiler.BigqueryProfiler._extract_partition_values_from_filters"
 )
 def test_extract_partition_values_from_filters(mock_extract):
     """Test that partition values are correctly extracted from filter strings."""
@@ -886,35 +886,19 @@ def test_execute_query():
     """Test execute_query method."""
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
 
-    # Mock the BigQuery client
-    mock_client = MagicMock()
-    mock_query_job = MagicMock()
-    mock_client.query.return_value = mock_query_job
-    mock_query_job.result.return_value = ["result1", "result2"]
+    # Mock the query executor's execute_query method
+    with patch.object(profiler.query_executor, "execute_query") as mock_execute:
+        mock_execute.return_value = ["result1", "result2"]
 
-    # Mock the config's get_bigquery_client method
-    profiler.config = MagicMock()
-    profiler.config.get_bigquery_client.return_value = mock_client
+        result = profiler.execute_query("SELECT * FROM table")
 
-    with (
-        patch(
-            "google.cloud.bigquery.QueryJobConfig", autospec=True
-        ) as mock_job_config_class,
-        patch("datahub.ingestion.source.bigquery_v2.profiler.QueryJobConfig"),
-    ):
-        # Configure the mock
-        mock_job_config = MagicMock()
-        mock_job_config_class.return_value = mock_job_config
-
-        profiler.execute_query("SELECT * FROM table")
-
-        # Verify the client was called
-        profiler.config.get_bigquery_client.assert_called_once()
-        mock_client.query.assert_called_once()
+        # Verify the query executor was called
+        mock_execute.assert_called_once_with("SELECT * FROM table")
+        assert result == ["result1", "result2"]
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.profiler.BigqueryProfiler._get_required_partition_filters"
+    "datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.PartitionDiscovery.get_required_partition_filters"
 )
 def test_get_batch_kwargs(mock_get_filters):
     """Test that get_batch_kwargs handles partition filters correctly."""
