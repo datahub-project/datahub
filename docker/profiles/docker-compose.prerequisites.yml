@@ -279,27 +279,6 @@ services:
       timeout: 5s
     volumes:
       - broker:/var/lib/kafka/data/
-  kafka-setup: &kafka-setup
-    profiles: *profiles-quickstart
-    hostname: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
-    env_file: kafka-setup/env/docker.env
-    environment: &kafka-setup-env
-      DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
-      KAFKA_BOOTSTRAP_SERVER: broker:29092
-      USE_CONFLUENT_SCHEMA_REGISTRY: false
-    depends_on:
-      kafka-broker:
-        condition: service_healthy
-    labels:
-      datahub_setup_job: true
-  kafka-setup-dev:
-    <<: *kafka-setup
-    profiles: *profiles-dev
-    environment:
-      <<: *kafka-setup-env
-      DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-debug}
   elasticsearch:
     profiles: *elasticsearch-profiles
     hostname: search

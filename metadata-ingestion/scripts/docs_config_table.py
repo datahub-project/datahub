@@ -229,15 +229,15 @@ class FieldHeader(FieldRow):
 
 
 def get_prefixed_name(field_prefix: Optional[str], field_name: Optional[str]) -> str:
-    assert (
-        field_prefix or field_name
-    ), "One of field_prefix or field_name should be present"
+    assert field_prefix or field_name, (
+        "One of field_prefix or field_name should be present"
+    )
     return (
         f"{field_prefix}.{field_name}"  # type: ignore
         if field_prefix and field_name
-        else field_name
-        if not field_prefix
         else field_prefix
+        if field_prefix
+        else field_name
     )
 
 
@@ -343,21 +343,23 @@ def priority_value(path: str) -> str:
     return "A"
 
 
-def should_hide_field(schema_field, current_source: str, schema_dict: Dict[str, Any]) -> bool:
+def should_hide_field(
+    schema_field, current_source: str, schema_dict: Dict[str, Any]
+) -> bool:
     """Check if field should be hidden for the current source"""
     # Extract field name from the path
-    field_name = schema_field.fieldPath.split('.')[-1]
+    field_name = schema_field.fieldPath.split(".")[-1]
     for ends_with in [
         "pattern.[type=array].allow",
         "pattern.[type=array].allow.[type=string].string",
         "pattern.[type=array].deny",
         "pattern.[type=array].deny.[type=string].string",
-        "pattern.[type=boolean].ignoreCase"
+        "pattern.[type=boolean].ignoreCase",
     ]:
         # We don't want repeated allow/deny/ignoreCase for Allow/Deny patterns in docs
         if schema_field.fieldPath.endswith(ends_with):
             return True
-    
+
     # Look in definitions for the field schema
     definitions = schema_dict.get("definitions", {})
     for _, def_schema in definitions.items():
@@ -366,13 +368,18 @@ def should_hide_field(schema_field, current_source: str, schema_dict: Dict[str, 
             field_schema = properties[field_name]
             schema_extra = field_schema.get("schema_extra", {})
             supported_sources = schema_extra.get("supported_sources")
-            
+
             if supported_sources and current_source:
-                return current_source.lower() not in [s.lower() for s in supported_sources]
-    
+                return current_source.lower() not in [
+                    s.lower() for s in supported_sources
+                ]
+
     return False
 
-def gen_md_table_from_json_schema(schema_dict: Dict[str, Any], current_source: Optional[str] = None) -> str:
+
+def gen_md_table_from_json_schema(
+    schema_dict: Dict[str, Any], current_source: Optional[str] = None
+) -> str:
     # we don't want default field values to be injected into the description of the field
     JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = False
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
@@ -396,13 +403,18 @@ def gen_md_table_from_json_schema(schema_dict: Dict[str, Any], current_source: O
     return "".join(result)
 
 
-def gen_md_table_from_pydantic(model: Type[BaseModel], current_source: Optional[str] = None) -> str:
+def gen_md_table_from_pydantic(
+    model: Type[BaseModel], current_source: Optional[str] = None
+) -> str:
     return gen_md_table_from_json_schema(model.schema(), current_source)
-
 
 
 if __name__ == "__main__":
     # Simple test code.
     from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 
-    print("".join(gen_md_table_from_pydantic(SnowflakeV2Config, current_source="snowflake")))
+    print(
+        "".join(
+            gen_md_table_from_pydantic(SnowflakeV2Config, current_source="snowflake")
+        )
+    )

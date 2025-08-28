@@ -1,4 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
@@ -11,7 +12,7 @@ export function getDisplayedEntityType(
 ) {
     return (
         entityData?.entityTypeOverride ||
-        capitalizeFirstLetterOnly(entityData?.subTypes?.typeNames?.[0]) ||
+        capitalizeFirstLetterOnly(getFirstSubType(entityData)) ||
         entityRegistry.getEntityName(entityType) ||
         ''
     );

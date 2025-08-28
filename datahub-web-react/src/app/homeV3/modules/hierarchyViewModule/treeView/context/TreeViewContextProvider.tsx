@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD } from '@app/homeV3/modules/hierarchyViewModule/treeView/constants';
+import { DEFAULT_LOAD_BATCH_SIZE } from '@app/homeV3/modules/hierarchyViewModule/treeView/constants';
 import TreeViewContext from '@app/homeV3/modules/hierarchyViewModule/treeView/context/TreeViewContext';
 import { TreeNode, TreeViewContextProviderProps } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 import {
@@ -18,8 +18,14 @@ export default function TreeViewContextProvider({
     expandedValues,
     updateExpandedValues,
     onExpand,
+    shouldExpandSingleRootNode,
     selectable,
     updateSelectedValues,
+    expandParentNodesOfInitialSelectedValues,
+    loadingTriggerType = 'button',
+    rootNodesTotal: rootNodesTotalProperty,
+    loadRootNodes,
+    rootNodesLoading,
     loadChildren: loadAsyncChildren,
     renderNodeLabel,
     explicitlySelectChildren,
@@ -27,9 +33,11 @@ export default function TreeViewContextProvider({
     explicitlySelectParent,
     explicitlyUnselectParent,
     enableIntermediateSelectState,
-    numberOfChildrenToLoad = DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD,
+    loadBatchSize = DEFAULT_LOAD_BATCH_SIZE,
 }: React.PropsWithChildren<TreeViewContextProviderProps>) {
     const [internalExpandedValues, setInternalExpandedValues] = useState<string[]>(expandedValues ?? []);
+    const [isExpandedValuesInitialized, setIsExpandedValuesInitialized] = useState<boolean>(false);
+
     const [loadedValues, setLoadedValues] = useState<string[]>([]);
 
     const preprocessedNodes = useMemo(() => {
@@ -47,6 +55,17 @@ export default function TreeViewContextProvider({
         },
         [loadAsyncChildren],
     );
+
+    // Initialize expanded values by initial selected values when `expandParentNodesOfInitialSelectedValues` is enabled
+    useEffect(() => {
+        if (!isExpandedValuesInitialized && expandParentNodesOfInitialSelectedValues) {
+            const parentValues = (selectedValues ?? [])
+                .map((value) => valueToTreeNodeMap[value]?.parentValue)
+                .filter((parentValue): parentValue is string => !!parentValue);
+            setInternalExpandedValues(parentValues);
+            setIsExpandedValuesInitialized(true);
+        }
+    }, [selectedValues, isExpandedValuesInitialized, valueToTreeNodeMap, expandParentNodesOfInitialSelectedValues]);
 
     const initialChildrenLoad = useCallback(
         (node: TreeNode) => {
@@ -77,6 +96,18 @@ export default function TreeViewContextProvider({
         [getHasParentNode, getRootNodes, valueToTreeNodeMap],
     );
 
+    const rootNodesLength = useMemo(() => nodes.length, [nodes]);
+    const rootNodesTotal = useMemo(
+        () => rootNodesTotalProperty ?? rootNodesLength,
+        [rootNodesTotalProperty, rootNodesLength],
+    );
+
+    const getChildrenLength = useCallback((node: TreeNode) => node.children?.length ?? 0, []);
+    const getChildrenTotal = useCallback(
+        (node: TreeNode) => node.totalChildren ?? getChildrenLength(node),
+        [getChildrenLength],
+    );
+
     // Expanding
 
     const getIsExpandable = useCallback((node: TreeNode) => !!node.children?.length || !!node.hasAsyncChildren, []);
@@ -88,6 +119,8 @@ export default function TreeViewContextProvider({
         },
         [internalExpandedValues],
     );
+
+    const hasAnyExpanded = useMemo(() => internalExpandedValues.length > 0, [internalExpandedValues.length]);
 
     const expand = useCallback(
         (node: TreeNode) => {
@@ -132,13 +165,21 @@ export default function TreeViewContextProvider({
         [getAllSiblings, getIsExpandable],
     );
 
+    const [isInitialAutoExpandingDone, setIsInitialAutoExpandingDone] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (!isInitialAutoExpandingDone && preprocessedNodes.length > 0) {
+            if (shouldExpandSingleRootNode && preprocessedNodes.length === 1) {
+                expand(preprocessedNodes[0]);
+            }
+
+            setIsInitialAutoExpandingDone(true);
+        }
+    }, [shouldExpandSingleRootNode, isInitialAutoExpandingDone, preprocessedNodes, expand]);
+
     // Sync internal expanded values
     useEffect(() => {
         if (expandedValues !== undefined) setInternalExpandedValues(expandedValues);
-    }, [expandedValues]);
-
-    useEffect(() => {
-        if (expandedValues) setInternalExpandedValues(expandedValues);
     }, [expandedValues]);
 
     // SELECTING
@@ -201,11 +242,12 @@ export default function TreeViewContextProvider({
             const parentValues = explicitlyUnselectParent
                 ? []
                 : getAllParentValues(valueToTreeNodeMap[node.value], valueToTreeNodeMap);
-            updateSelectedValues?.(
+
+            const newSelectedValues =
                 selectedValues?.filter(
                     (value) => !parentValues.includes(value) && !valuesToToggleSelect.includes(value),
-                ) ?? [],
-            );
+                ) ?? [];
+            updateSelectedValues?.(newSelectedValues);
         },
         [
             valueToTreeNodeMap,
@@ -232,21 +274,23 @@ export default function TreeViewContextProvider({
     // Loading of children
     const getIsChildrenLoading = useCallback((node: TreeNode) => !!node.isChildrenLoading, []);
 
-    const getNumberOfNotLoadedChildren = useCallback(
-        (node: TreeNode) => (node.totalChildren ? node.totalChildren - (node.children?.length ?? 0) : 0),
-        [],
-    );
-
     return (
         <TreeViewContext.Provider
             value={{
                 nodes: preprocessedNodes,
+
+                // Node utils
                 getHasParentNode,
                 getIsRootNode,
+                rootNodesLength,
+                rootNodesTotal,
+                getChildrenLength,
+                getChildrenTotal,
 
                 // Expanding
                 getIsExpandable,
                 getIsExpanded,
+                hasAnyExpanded,
                 expand,
                 collapse,
                 toggleExpanded,
@@ -266,11 +310,13 @@ export default function TreeViewContextProvider({
                 explicitlyUnselectParent,
                 enableIntermediateSelectState,
 
+                loadingTriggerType,
+                loadRootNodes,
+                rootNodesLoading,
                 // Async loading of children
                 getIsChildrenLoading,
-                getNumberOfNotLoadedChildren,
                 loadChildren,
-                numberOfChildrenToLoad,
+                loadBatchSize,
 
                 renderNodeLabel,
             }}
