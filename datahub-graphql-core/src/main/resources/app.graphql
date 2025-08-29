@@ -263,6 +263,11 @@ type PlatformPrivileges {
   Whether the user should be able to view the ingestion page
   """
   canViewIngestionPage: Boolean!
+
+  """
+  Whether the user should be able to create support tickets
+  """
+  createSupportTickets: Boolean!
 }
 
 """
@@ -1646,6 +1651,11 @@ type FeatureFlagsConfig {
   If enabled, shows UserRecommendationsSection in invite modals for user invitations
   """
   inviteUsersEnabled: Boolean!
+
+  """
+  Whether creating support tickets is enabled or not
+  """
+  supportTicketsEnabled: Boolean!
 }
 
 """

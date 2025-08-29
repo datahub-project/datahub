@@ -50,7 +50,8 @@
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
         "PROPOSE_CREATE_GLOSSARY_TERM",
         "PROPOSE_CREATE_GLOSSARY_NODE",
-        "MANAGE_ACTION_WORKFLOWS"
+        "MANAGE_ACTION_WORKFLOWS",
+        "CREATE_SUPPORT_TICKETS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -282,7 +283,8 @@
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
         "PROPOSE_CREATE_GLOSSARY_TERM",
         "PROPOSE_CREATE_GLOSSARY_NODE",
-        "MANAGE_ACTION_WORKFLOWS"
+        "MANAGE_ACTION_WORKFLOWS",
+        "CREATE_SUPPORT_TICKETS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",

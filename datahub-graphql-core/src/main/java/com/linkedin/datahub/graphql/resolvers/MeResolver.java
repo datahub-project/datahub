@@ -117,6 +117,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageOrganizationDisplayPreferences(
                 AuthorizationUtils.canManageOrganizationDisplayPreferences(context));
             platformPrivileges.setCanViewIngestionPage(canViewIngestionPage(context));
+            platformPrivileges.setCreateSupportTickets(canCreateSupportTickets(context));
 
             // Settings not in OSS (yet)
             platformPrivileges.setManageGlobalSettings(
@@ -234,5 +235,11 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
       log.error("Error searching for ingestion sources to determine view ingestion privilege", e);
       return false;
     }
+  }
+
+  /** Returns true if the authenticated user has privileges to create support tickets */
+  private boolean canCreateSupportTickets(final QueryContext context) {
+    return isAuthorized(
+        context.getOperationContext(), PoliciesConfig.CREATE_SUPPORT_TICKETS_PRIVILEGE);
   }
 }

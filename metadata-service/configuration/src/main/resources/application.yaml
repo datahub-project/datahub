@@ -901,6 +901,8 @@ featureFlags:
   # If enabled, the new V2 glossary term propagation automation will be available instead of the original V1 version
   inviteUsersEnabled: ${INVITE_USERS_ENABLED:false}
   # If enabled, the invite users feature will be available in the UI
+  supportTicketsEnabled: ${SUPPORT_TICKETS_ENABLED:false}
+  # If enabled, the support tickets feature will be available in the UI
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

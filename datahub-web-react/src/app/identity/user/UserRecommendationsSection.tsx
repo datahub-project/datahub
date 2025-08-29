@@ -1,110 +1,65 @@
-import { Button, Text } from '@components';
-import { Divider, message } from 'antd';
-import React from 'react';
+import { Divider } from 'antd';
+import React, { useMemo, useState } from 'react';
 
-import {
-    MetricBadge,
-    RecommendationsSection,
-    UserInfo,
-    UserMetrics,
-    UserName,
-    UserRecommendationCard,
-} from '@app/identity/user/ViewInviteTokenModal.components';
-import { formatNumber } from '@app/identity/user/ViewInviteTokenModal.utils';
-import { pluralize } from '@app/shared/textUtil';
+import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
+import RecommendationsHeader from '@app/identity/user/RecommendationsHeader';
+import UserRecommendationCard from '@app/identity/user/UserRecommendationCard';
+import { RecommendationsSection } from '@app/identity/user/ViewInviteTokenModal.components';
 
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
-import { CorpUser } from '@types';
+import { CorpUser, DataHubRole } from '@types';
 
 interface Props {
     recommendedUsers: CorpUser[];
+    selectedRole?: DataHubRole;
 }
 
-export default function UserRecommendationsSection({ recommendedUsers }: Props) {
+export default function UserRecommendationsSection({ recommendedUsers, selectedRole }: Props) {
     const [sendUserInvitationsMutation] = useSendUserInvitationsMutation();
 
-    const handleSendInvitationEmail = async (user: CorpUser) => {
-        const displayName = user.properties?.displayName || user.username;
-        const email = user.properties?.email || user.info?.email;
+    // Local role state for recommendations section
+    const [localSelectedRole, setLocalSelectedRole] = useState<DataHubRole | undefined>(selectedRole);
 
-        if (!email) {
-            message.error(`No email address found for ${displayName}`);
-            return;
-        }
+    // Use local role if set, otherwise fall back to prop
+    const activeRole = localSelectedRole || selectedRole;
 
-        try {
-            // Show loading state
-            const hideLoading = message.loading(`Sending invitation email to ${displayName}...`, 0);
+    // Create service instance
+    const emailService = new EmailInvitationService(sendUserInvitationsMutation);
 
-            // Send email using GraphQL mutation
-            const result = await sendUserInvitationsMutation({
-                variables: {
-                    input: {
-                        emails: [email],
-                        roleUrn: 'urn:li:dataHubRole:DataHubAdmin', // TODO: Make this configurable
-                    },
-                },
-            });
+    // Memoized list of users with valid email addresses
+    const usersWithEmails = useMemo(() => {
+        return recommendedUsers.filter(EmailInvitationService.hasValidEmail);
+    }, [recommendedUsers]);
 
-            // Hide loading message
-            hideLoading();
-
-            const response = result.data?.sendUserInvitations;
-            if (response?.success && response.invitationsSent > 0) {
-                message.success(`Invitation email sent to ${displayName} (${email})`);
-            } else {
-                const errorMessage = response?.errors?.length ? response.errors.join(', ') : 'Unknown error';
-                message.error(`Failed to send email: ${errorMessage}`);
-            }
-        } catch (error) {
-            message.error(`Failed to send invitation email to ${displayName}`);
-            console.error('Failed to send invitation email:', error);
-        }
+    const handleBulkSendInvitations = async () => {
+        if (!activeRole) return;
+        await emailService.sendBulkInvitations(usersWithEmails, activeRole);
     };
 
-    console.log('recommendedUsers', recommendedUsers); // TODO: remove
+    const handleSendInvitationEmail = async (user: CorpUser) => {
+        if (!activeRole) return;
+        await emailService.sendSingleInvitation(user, activeRole);
+    };
+
     if (recommendedUsers.length === 0) {
         return null;
     }
 
     return (
-        <>
+        <div>
             <Divider />
-            <Text size="lg" weight="semiBold">
-                Recommended Users
-            </Text>
-            <Text color="gray" size="md" style={{ marginBottom: 12 }}>
-                {recommendedUsers.length} {pluralize(recommendedUsers.length, 'user')} had platform activity in the last
-                30 days.
-            </Text>
+            <RecommendationsHeader
+                totalUsers={recommendedUsers.length}
+                usersWithEmails={usersWithEmails}
+                selectedRole={activeRole}
+                onRoleSelect={setLocalSelectedRole}
+                onBulkSendInvitations={handleBulkSendInvitations}
+            />
             <RecommendationsSection>
-                {recommendedUsers.map((user) => {
-                    const displayName = user.properties?.displayName || user.username;
-                    const title = user.properties?.title;
-                    const queryCount = user.usageFeatures?.userUsageTotalPast30Days || 0;
-                    const platformCount = user.usageFeatures?.userPlatformUsageTotalsPast30Days?.length || 0;
-
-                    return (
-                        <UserRecommendationCard key={user.urn}>
-                            <UserInfo>
-                                <UserName>{displayName}</UserName>
-                                {title && (
-                                    <Text color="gray" size="sm" style={{ fontSize: 12 }}>
-                                        {title}
-                                    </Text>
-                                )}
-                                <UserMetrics>
-                                    <MetricBadge>{formatNumber(queryCount)} queries</MetricBadge>
-                                    <MetricBadge>{platformCount} platforms</MetricBadge>
-                                </UserMetrics>
-                            </UserInfo>
-                            <Button size="sm" onClick={() => handleSendInvitationEmail(user)}>
-                                Send Email
-                            </Button>
-                        </UserRecommendationCard>
-                    );
-                })}
+                {recommendedUsers.map((user) => (
+                    <UserRecommendationCard key={user.urn} user={user} onSendInvitation={handleSendInvitationEmail} />
+                ))}
             </RecommendationsSection>
-        </>
+        </div>
     );
 }

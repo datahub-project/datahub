@@ -1,6 +1,7 @@
 import {
     AppWindow,
     BookBookmark,
+    ChatTeardropText,
     FileLock,
     Gear,
     Globe,
@@ -18,7 +19,7 @@ import {
     TrendUp,
     UserCircle,
 } from '@phosphor-icons/react';
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -37,6 +38,7 @@ import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import { ZendeskWidget } from '@app/shared/ZendeskWidget';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -93,6 +95,7 @@ const MenuWrapper = styled.div`
 export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
+    const [showZendeskWidget, setShowZendeskWidget] = useState(false);
 
     const { toggle, isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
@@ -112,6 +115,9 @@ export const NavSidebar = () => {
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+
+    const showSupportTickets =
+        (config?.featureFlags?.supportTicketsEnabled && me.platformPrivileges?.createSupportTickets) || false;
     const showManageTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
@@ -346,7 +352,7 @@ export const NavSidebar = () => {
             },
             {
                 type: NavBarMenuItemTypes.Dropdown,
-                title: 'Help',
+                title: 'Resources',
                 icon: <Question />,
                 selectedIcon: <Question weight="fill" />,
                 key: 'help',
@@ -414,6 +420,15 @@ export const NavSidebar = () => {
             },
             {
                 type: NavBarMenuItemTypes.Item,
+                title: 'Get Support',
+                icon: <ChatTeardropText />,
+                selectedIcon: <ChatTeardropText weight="fill" />,
+                key: 'supportTickets',
+                isHidden: !showSupportTickets,
+                onClick: () => setShowZendeskWidget(true),
+            },
+            {
+                type: NavBarMenuItemTypes.Item,
                 title: 'Sign out',
                 icon: <SignOut data-testid="log-out-menu-item" />,
                 key: 'signOut',
@@ -459,6 +474,7 @@ export const NavSidebar = () => {
                     </>
                 )}
             </Content>
+            {showZendeskWidget && <ZendeskWidget me={me} config={config} />}
         </Container>
     );
 };

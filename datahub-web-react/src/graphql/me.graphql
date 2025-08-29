@@ -93,6 +93,7 @@ query getMe {
             proposeCreateGlossaryTerm
             proposeCreateGlossaryNode
             canViewIngestionPage
+            createSupportTickets
         }
     }
 }
