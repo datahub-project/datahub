@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
+from datahub.ingestion.source.snowflake.snowflake_queries import QueryLogQueryBuilder
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
@@ -216,6 +217,19 @@ def default_query_results(  # noqa: C901
         return [{"CURRENT_VERSION()": "X.Y.Z"}]
     elif query == SnowflakeQuery.current_warehouse():
         return [{"CURRENT_WAREHOUSE()": "TEST_WAREHOUSE"}]
+    elif (
+        query == SnowflakeQuery.get_all_users()
+        or query
+        == QueryLogQueryBuilder(
+            start_time=datetime(year=2022, month=6, day=6, tzinfo=timezone.utc),
+            end_time=datetime(
+                year=2022, month=6, day=7, hour=7, minute=17, tzinfo=timezone.utc
+            ),
+            bucket_duration=BucketDuration.DAY,
+            deny_usernames=None,  # type: ignore[arg-type]
+        ).build_enriched_query_log_query()
+    ):
+        return []
     elif query == SnowflakeQuery.show_databases():
         return [
             {
