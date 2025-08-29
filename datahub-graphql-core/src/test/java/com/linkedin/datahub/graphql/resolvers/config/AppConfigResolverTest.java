@@ -14,6 +14,8 @@ import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
 import com.linkedin.datahub.graphql.generated.SearchBarAPI;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.telemetry.GoogleAnalyticsConfiguration;
+import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.version.GitVersion;
@@ -34,7 +36,11 @@ public class AppConfigResolverTest {
   @Mock private DefaultAuthorizerConfiguration mockDefaultAuthorizer;
   @Mock private VisualConfiguration mockVisualConfiguration;
   @Mock private TelemetryConfiguration mockTelemetryConfiguration;
+  @Mock private MixpanelConfiguration mockMixpanelConfiguration;
+  @Mock private GoogleAnalyticsConfiguration mockGoogleAnalyticsConfiguration;
   @Mock private TestsConfiguration mockTestsConfiguration;
+  @Mock private TestsHookConfiguration mockTestsHookConfiguration;
+  @Mock private TestsHookExecutionLimitConfiguration mockTestsHookExecutionLimitConfiguration;
   @Mock private DataHubConfiguration mockDatahubConfiguration;
   @Mock private ViewsConfiguration mockViewsConfiguration;
   @Mock private SearchBarConfiguration mockSearchBarConfiguration;
@@ -64,7 +70,20 @@ public class AppConfigResolverTest {
     when(mockAuthorizationConfiguration.getDefaultAuthorizer()).thenReturn(mockDefaultAuthorizer);
     when(mockDefaultAuthorizer.isEnabled()).thenReturn(true);
     when(mockTelemetryConfiguration.isEnableThirdPartyLogging()).thenReturn(false);
+    when(mockTelemetryConfiguration.isUserTrackingEnabled()).thenReturn(false);
+    when(mockTelemetryConfiguration.getMixpanel()).thenReturn(mockMixpanelConfiguration);
+    when(mockTelemetryConfiguration.getGoogleAnalytics())
+        .thenReturn(mockGoogleAnalyticsConfiguration);
+    when(mockMixpanelConfiguration.isEnabled()).thenReturn(false);
+    when(mockMixpanelConfiguration.getToken()).thenReturn("test-token");
+    when(mockGoogleAnalyticsConfiguration.isEnabled()).thenReturn(false);
+    when(mockGoogleAnalyticsConfiguration.getMeasurementId()).thenReturn("test-measurement-id");
     when(mockTestsConfiguration.isEnabled()).thenReturn(true);
+    when(mockTestsConfiguration.getHook()).thenReturn(mockTestsHookConfiguration);
+    when(mockTestsHookConfiguration.getHookExecutionLimit())
+        .thenReturn(mockTestsHookExecutionLimitConfiguration);
+    when(mockTestsHookExecutionLimitConfiguration.getElasticSearchExecutor()).thenReturn(10);
+    when(mockTestsHookExecutionLimitConfiguration.getDefaultExecutor()).thenReturn(10);
     when(mockViewsConfiguration.isEnabled()).thenReturn(true);
     when(mockSearchBarConfiguration.getApiVariant()).thenReturn("AUTOCOMPLETE_FOR_MULTIPLE");
     when(mockSearchCardConfiguration.getShowDescription()).thenReturn(true);
