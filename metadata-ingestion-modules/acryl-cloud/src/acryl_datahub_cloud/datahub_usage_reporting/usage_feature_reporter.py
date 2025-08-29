@@ -28,6 +28,7 @@ from acryl_datahub_cloud.datahub_usage_reporting.usage_feature_patch_builder imp
 )
 from acryl_datahub_cloud.elasticsearch.config import ElasticSearchClientConfig
 from acryl_datahub_cloud.metadata.schema_classes import (
+    CorpUserUsageFeaturesClass,
     QueryUsageFeaturesClass,
     UsageFeaturesClass,
 )
@@ -135,6 +136,10 @@ class DataHubUsageFeatureReportingSourceConfig(
         None,
         description="Optional configuration for stateful ingestion, including stale metadata removal.",
     )
+    user_usage_enabled: bool = Field(
+        True,
+        description="Flag to enable or disable user usage statistics collection.",
+    )
     dataset_usage_enabled: bool = Field(
         True,
         description="Flag to enable or disable dataset usage statistics collection.",
@@ -241,10 +246,6 @@ class DatahubUsageFeatureReport(IngestionStageReport, StatefulIngestionReport):
         default_factory=lambda: defaultdict(lambda: PerfTimer())
     )
 
-    dataset_usage_processing_time: PerfTimer = PerfTimer()
-    dashboard_usage_processing_time: PerfTimer = PerfTimer()
-    chart_usage_processing_time: PerfTimer = PerfTimer()
-    query_usage_processing_time: PerfTimer = PerfTimer()
     query_platforms_count: Dict[str, int] = field(
         default_factory=lambda: defaultdict(lambda: 0)
     )
@@ -923,6 +924,11 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         return dataset_df
 
+    def generate_user_usage_mcps(self) -> Iterable[MetadataWorkUnit]:
+        with polars.StringCache():
+            user_usage_lf = self.generate_user_usage()
+            yield from self.generate_user_usage_mcp_from_lazyframe(user_usage_lf)
+
     def generate_dataset_usage_mcps(self) -> Iterable[MetadataWorkUnit]:
         with polars.StringCache():
             dataset_usage_df = self.generate_dataset_usage()
@@ -958,38 +964,27 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.user_usage_enabled:
+            self.report.new_stage("generate user usage")
+            yield from self.generate_user_usage_mcps()
+
         if self.config.dataset_usage_enabled:
-            with self.report.dataset_usage_processing_time as timer:
-                self.report.new_stage("generate dataset usage")
-                yield from self.generate_dataset_usage_mcps()
-                time_taken = timer.elapsed_seconds()
-                logger.info(f"Dataset Usage generation took {time_taken:.3f} seconds")
+            self.report.new_stage("generate dataset usage")
+            yield from self.generate_dataset_usage_mcps()
 
         if self.config.dashboard_usage_enabled:
-            with self.report.dashboard_usage_processing_time as timer:
-                self.report.new_stage("generate dashboard usage")
-                yield from self.generate_dashboard_usage_mcps()
-
-                time_taken = timer.elapsed_seconds()
-                logger.info(f"Dashboard Usage generation took {time_taken:.3f}")
+            self.report.new_stage("generate dashboard usage")
+            yield from self.generate_dashboard_usage_mcps()
 
         if self.config.chart_usage_enabled:
-            with self.report.chart_usage_processing_time as timer:
-                self.report.new_stage("generate chart usage")
-
-                yield from self.generate_chart_usage_mcps()
-
-                time_taken = timer.elapsed_seconds()
-                logger.info(f"Chart Usage generation took {time_taken:.3f}")
+            self.report.new_stage("generate chart usage")
+            yield from self.generate_chart_usage_mcps()
 
         if self.config.query_usage_enabled:
-            with self.report.query_usage_processing_time as timer:
-                self.report.new_stage("generate query usage")
+            self.report.new_stage("generate query usage")
+            yield from self.generate_query_usage_mcps()
 
-                yield from self.generate_query_usage_mcps()
-
-                time_taken = timer.elapsed_seconds()
-                logger.info(f"Query Usage generation took {time_taken:.3f}")
+        self.report.new_stage("end so time is calculated for last stage")
 
     def generate_mcp_from_lazyframe(
         self, lazy_frame: polars.LazyFrame
@@ -1107,6 +1102,47 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             yield from self.generate_query_usage_feature_mcp(
                 row["urn"], query_usage_features
             )
+
+    def _convert_platform_pairs_to_dict(
+        self,
+        platform_pairs: Optional[List[Dict[str, Any]]],
+        value_key: str = "platform_total",
+    ) -> Optional[Dict[str, Any]]:
+        """Convert list of platform usage structs to dictionary."""
+        if not platform_pairs:
+            return None
+
+        return {
+            pair["platform_urn"]: pair[value_key]
+            for pair in platform_pairs
+            if pair["platform_urn"] is not None
+        }
+
+    def generate_user_usage_mcp_from_lazyframe(
+        self, lazy_frame: polars.LazyFrame
+    ) -> Iterable[MetadataWorkUnit]:
+        for row in lazy_frame.collect(
+            engine="streaming" if self.config.experimental_full_streaming else "auto"
+        ).iter_rows(named=True):
+            user_usage_features = CorpUserUsageFeaturesClass(
+                userUsageTotalPast30Days=int(
+                    row.get("userUsageTotalPast30Days", 0) or 0
+                ),
+                userPlatformUsageTotalsPast30Days=self._convert_platform_pairs_to_dict(
+                    row.get("platform_usage_pairs", [])
+                ),
+                userPlatformUsagePercentilePast30Days=self._convert_platform_pairs_to_dict(
+                    row.get("platform_usage_percentiles", []),
+                    "platform_rank_percentile",
+                ),
+                userUsagePercentilePast30Days=row.get("userUsagePercentilePast30Days"),
+                userTopDatasetsByUsage=self._convert_top_datasets_to_dict(
+                    row.get("top_datasets_map", [])
+                ),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=row["user"], aspect=user_usage_features
+            ).as_workunit(is_primary_source=False)
 
     def generate_usage_feature_mcp(
         self, urn: str, usage_feature: UsageFeaturesClass
@@ -1366,6 +1402,204 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         )
 
         return usage_with_top_users_with_ranks
+
+    def _generate_user_usage_for_dataset(self) -> polars.LazyFrame:
+        datasets_lf = self.get_datasets()
+        if self.config.set_upstream_table_max_modification_time_for_views:
+            datasets_lf = self.set_table_modification_time_for_views(datasets_lf)
+
+        lf = self.load_dataset_usage()
+
+        # Polaris/pandas join merges the join column into one column and that's why we need to filter based on the removed column
+        lf = (
+            lf.join(datasets_lf, left_on="urn", right_on="entity_urn", how="left")
+            .filter(polars.col("removed") == False)  # noqa: E712
+            .drop(["removed"])
+        )
+
+        users_lf = (
+            lf.explode("userCounts")
+            .unnest("userCounts")
+            .filter(polars.col("user").is_not_null())
+        )
+
+        user_dataset_usage_lf = self._create_user_dataset_usage_map(users_lf)
+        return user_dataset_usage_lf
+
+    @staticmethod
+    def _convert_top_datasets_to_dict(
+        top_datasets_list: Optional[List[Dict[str, Any]]],
+    ) -> Optional[Dict[str, float]]:
+        """
+        Convert list of top datasets structs to dictionary as expected by CorpUserUsageFeatures schema.
+
+        Args:
+            top_datasets_list: List of dictionaries with 'dataset_urn' and 'count' keys
+
+        Returns:
+            Dictionary mapping dataset URN to usage count, or None if input is empty
+        """
+        if not top_datasets_list:
+            return None
+
+        top_datasets_dict = {
+            item["dataset_urn"]: float(item["count"])
+            for item in top_datasets_list
+            if isinstance(item, dict) and "dataset_urn" in item and "count" in item
+        }
+
+        return top_datasets_dict if top_datasets_dict else None
+
+    def _create_user_dataset_usage_map(
+        self, users_lf: polars.LazyFrame, top_n: int = 25
+    ) -> polars.LazyFrame:
+        """
+        Creates a lazyframe with user string and map of top N datasets by usage.
+
+        Args:
+            users_lf: LazyFrame containing user usage data with columns: user, urn, platform, count
+            top_n: Number of top datasets to include per user (default: 25)
+
+        Returns:
+            LazyFrame with columns:
+            - user: string column containing the user identifier
+            - top_datasets_map: list of structs with dataset_urn (string), count (int), and platform_urn (string)
+            - userUsageTotalPast30Days: total usage count for the user across all datasets
+            - userPlatformUsageTotalsPast30Days: map from platform URN to usage totals
+        """
+
+        # Create intermediate lazy frame with filtered users and aggregated counts
+        user_dataset_aggregated = (
+            users_lf.filter(polars.col("user").str.contains("@"))
+            .group_by("user", "urn", "platform")
+            .agg(polars.col("count").sum().alias("total_count"))
+            .with_columns(
+                # Direct string formatting - vectorized operation
+                polars.format("urn:li:dataPlatform:{}", polars.col("platform")).alias(
+                    "platform_urn"
+                )
+            )
+        )
+
+        # Calculate user totals
+        user_totals = user_dataset_aggregated.group_by("user").agg(
+            polars.col("total_count").sum().alias("userUsageTotalPast30Days")
+        )
+
+        # Calculate platform totals for each user - keep as list of structs
+        platform_totals = (
+            user_dataset_aggregated.group_by("user", "platform_urn")
+            .agg(polars.col("total_count").sum().alias("platform_total"))
+            .filter(polars.col("platform_urn").is_not_null())
+            .group_by("user")
+            .agg(
+                polars.struct(
+                    [
+                        polars.col("platform_urn"),
+                        polars.col("platform_total").cast(polars.Float64),
+                    ]
+                ).alias("platform_usage_pairs")
+            )
+        )
+
+        # Calculate top datasets
+        top_datasets = (
+            user_dataset_aggregated.with_columns(
+                polars.col("total_count")
+                .rank(descending=True, method="ordinal")
+                .over("user")
+                .alias("dataset_rank")
+            )
+            .filter(polars.col("dataset_rank") <= top_n)
+            .group_by("user")
+            .agg(
+                polars.struct(
+                    [
+                        polars.col("urn").alias("dataset_urn"),
+                        polars.col("total_count").alias("count"),
+                        polars.col("platform_urn"),
+                    ]
+                )
+                .sort_by("total_count", descending=True)
+                .alias("top_datasets_map")
+            )
+        )
+
+        # Join all results
+        return top_datasets.join(user_totals, on="user", how="left").join(
+            platform_totals, on="user", how="left"
+        )
+
+    def add_platform_usage_percentiles(
+        self, user_usage_lf: polars.LazyFrame
+    ) -> polars.LazyFrame:
+        """
+        Add platform usage percentiles to user usage data.
+
+        Args:
+            user_usage_lf: LazyFrame with user usage data containing platform_usage_pairs column
+
+        Returns:
+            LazyFrame with additional platform_usage_percentiles column
+        """
+        # First explode the platform_usage_pairs to work with individual platform usage records
+        platform_usage_exploded = (
+            user_usage_lf.explode("platform_usage_pairs")
+            .unnest("platform_usage_pairs")
+            .filter(polars.col("platform_urn").is_not_null())
+        )
+
+        # Use the existing gen_rank_and_percentile method to calculate percentiles
+        platform_percentiles_with_ranks = self.gen_rank_and_percentile(
+            lf=platform_usage_exploded,
+            count_field="platform_total",
+            urn_field="user",
+            platform_field="platform_urn",
+            prefix="platform_",
+            use_exp_cdf=False,
+        )
+
+        # Group back by user and create the percentiles structure
+        platform_percentiles = platform_percentiles_with_ranks.group_by("user").agg(
+            polars.struct(
+                [
+                    polars.col("platform_urn"),
+                    polars.col("platform_rank_percentile").cast(polars.Float64),
+                ]
+            ).alias("platform_usage_percentiles")
+        )
+
+        # Join the percentiles back to the original user_usage_lf
+        return user_usage_lf.join(platform_percentiles, on="user", how="left")
+
+    def generate_user_usage(self) -> polars.LazyFrame:
+        dataset_usage_lf = self._generate_user_usage_for_dataset()
+        # TODO Add for dashboard and chart usage and combine them into one lazyframe
+        # This will be done in follow up PR
+        # This is being done to unblock parallel work. After this PR is merged in
+        # Ben can work on frontend in parallel with me working on adding the chart/dashboard usage
+
+        lf = self.add_platform_usage_percentiles(dataset_usage_lf)
+
+        # Add user usage percentiles across all users (not grouped by platform)
+        # Create a temporary platform field for percentile calculation
+        lf = lf.with_columns(polars.lit("all_users").alias("temp_platform"))
+
+        lf = self.gen_rank_and_percentile(
+            lf=lf,
+            count_field="userUsageTotalPast30Days",
+            urn_field="user",
+            platform_field="temp_platform",
+            prefix="userUsage",
+            use_exp_cdf=False,
+        )
+
+        # Rename the percentile column to match the schema field name and remove temp field
+        lf = lf.rename(
+            {"userUsagerank_percentile": "userUsagePercentilePast30Days"}
+        ).drop("temp_platform")
+
+        return lf
 
     def generate_dataset_usage(self) -> polars.LazyFrame:
         datasets_lf = self.get_datasets()

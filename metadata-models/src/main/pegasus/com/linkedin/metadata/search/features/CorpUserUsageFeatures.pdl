@@ -7,7 +7,7 @@ import com.linkedin.common.Urn
 }
 record CorpUserUsageFeatures {
   /**
-   * Total number of queries in the last 30 days
+   * Total number of usage in the last 30 days
    */
   @Searchable = {
     "fieldName": "userUsageTotalPast30DaysFeature",
@@ -16,7 +16,8 @@ record CorpUserUsageFeatures {
   userUsageTotalPast30Days: optional long
 
   /**
-   * Query Count broken down by platform so we can differentiate between top users of snowflake vs redshift
+   * usage broken down by platform so we can differentiate between top users of snowflake vs redshift
+   * key is supposed to be platform urn
    */
   @Searchable = {
     "/*": {
@@ -28,7 +29,7 @@ record CorpUserUsageFeatures {
   userPlatformUsageTotalsPast30Days: optional map[string, double]
 
   /**
-   * Query Count broken down by platform so we can differentiate between top users of snowflake vs redshift
+   * usage broken down by platform so we can differentiate between top users of snowflake vs redshift
    */
   @Searchable = {
     "/*": {
