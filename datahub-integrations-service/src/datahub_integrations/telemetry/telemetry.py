@@ -3,7 +3,6 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.telemetry.telemetry import TIMEOUT, _default_global_properties
 from loguru import logger
 from mixpanel import Consumer, Mixpanel
@@ -29,7 +28,6 @@ SEND_MIXPANEL_EVENTS = os.environ.get(SEND_MIXPANEL_EVENTS_ENV, "").lower() in (
     "yes",
 )
 
-_TELEMETRY_ENABLED = get_boolean_env_variable("DATAHUB_TELEMETRY_ENABLED", True)
 telemetry_client = Mixpanel(
     MIXPANEL_TOKEN,
     consumer=Consumer(request_timeout=int(TIMEOUT)),
@@ -101,11 +99,6 @@ def track_saas_event(
     Args:
         event: The event to track. Must be a subclass of BaseEvent.
     """
-
-    # No telemetry during experimentation phase.
-    if not _TELEMETRY_ENABLED:
-        return
-
     # Include the timestamp in ISO format in the properties
     # The TrackingService will handle the conversion to the appropriate format
     # for each destination (Mixpanel and Kafka)
