@@ -20,7 +20,6 @@ import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
-import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
 import controllers.SsoCallbackController;
@@ -41,17 +40,10 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.core.instrument.util.HierarchicalNameMapper;
 import io.micrometer.jmx.JmxConfig;
 import io.micrometer.jmx.JmxMeterRegistry;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
-import java.security.cert.CertificateException;
 import java.util.Collections;
-import java.util.Map;
 import javax.annotation.Nonnull;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -354,7 +346,7 @@ public class AuthModule extends AbstractModule {
   }
 
   private com.linkedin.restli.client.Client buildRestliClient() {
-    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(configs);
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(this.configs);
     final String metadataServiceHost =
         utils.ConfigUtil.getString(
             configs,
@@ -376,43 +368,22 @@ public class AuthModule extends AbstractModule {
             utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL);
 
-    Map<String, Object> inputParams = new java.util.HashMap<>();
-    String truststorePath = tsConfig.path;
-    String truststorePassword = tsConfig.password;
-    String truststoreType = tsConfig.type;
-
+    String truststorePath = null;
+    String truststorePassword = null;
+    String truststoreType = null;
     if (tsConfig.isValid()) {
-      try {
-        if (truststorePath != null && truststorePassword != null) {
-          if (truststoreType == null) {
-            truststoreType = "PKCS12";
-          }
-          KeyStore trustStore = KeyStore.getInstance(truststoreType);
-          try (FileInputStream fis = new FileInputStream(truststorePath)) {
-            trustStore.load(fis, truststorePassword.toCharArray());
-          } catch (IOException | CertificateException e) {
-            throw new RuntimeException(e);
-          }
-          TrustManagerFactory trustManagerFactory =
-              TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-          trustManagerFactory.init(trustStore);
-
-          SSLContext sslContext = SSLContext.getInstance("TLS");
-          sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
-
-          inputParams.put(HttpClientFactory.HTTP_SSL_CONTEXT, sslContext);
-        }
-      } catch (Exception e) {
-        log.error("Exception in setting up SSLContext: {}", e.getMessage());
-      }
+      truststorePath = tsConfig.path;
+      truststorePassword = tsConfig.password;
+      truststoreType = tsConfig.type;
     }
-
     return DefaultRestliClientFactory.getRestLiClient(
         metadataServiceHost,
         metadataServicePort,
         metadataServiceUseSsl,
         metadataServiceSslProtocol,
-        inputParams);
+        truststorePath,
+        truststorePassword,
+        truststoreType);
   }
 
   protected boolean doesMetadataServiceUseSsl(com.typesafe.config.Config configs) {
