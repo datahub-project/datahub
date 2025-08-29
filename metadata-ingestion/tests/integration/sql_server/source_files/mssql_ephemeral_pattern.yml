@@ -14,7 +14,7 @@ source:
       - ".*Ephemeral.*"
     database_pattern:
       deny:
-        - .*@.*
+        - .*DB_WITH@SPEC_SYMB.*
 
 sink:
   type: file

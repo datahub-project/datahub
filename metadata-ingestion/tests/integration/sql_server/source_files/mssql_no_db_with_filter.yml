@@ -9,7 +9,7 @@ source:
     database_pattern:
       deny:
         - NewData
-        - .*@.*
+        - .*DB_WITH@SPEC_SYMB.*
     procedure_pattern:
       deny:
         - DemoData.Foo.NewProc

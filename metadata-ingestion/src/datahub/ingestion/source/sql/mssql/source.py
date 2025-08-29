@@ -165,12 +165,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             uri_opts=uri_opts,
         )
         if self.use_odbc:
-            if self.uri_args and current_db:
-                self.uri_args.update({"database": current_db})
+            final_uri_args = self.uri_args.copy()
+            if final_uri_args and current_db:
+                final_uri_args.update({"database": current_db})
 
             uri = (
-                f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
-                if self.uri_args
+                f"{uri}?{urllib.parse.urlencode(final_uri_args)}"
+                if final_uri_args
                 else uri
             )
         return uri
@@ -1066,3 +1067,38 @@ class SQLServerSource(SQLAlchemySource):
                 yield quoted_name(schema, True)
             else:
                 yield schema
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        engine = inspector.engine
+
+        try:
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "database")
+                and engine.url.database
+            ):
+                return str(engine.url.database).strip('"')
+
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "query")
+                and "odbc_connect" in engine.url.query
+            ):
+                # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
+                database = re.search(
+                    r"DATABASE=([^;]*);",
+                    urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
+                    flags=re.IGNORECASE,
+                )
+
+                if database and database.group(1):
+                    return database.group(1)
+
+            return ""
+
+        except Exception as e:
+            raise RuntimeError(
+                "Unable to get database name from Sqlalchemy inspector"
+            ) from e
