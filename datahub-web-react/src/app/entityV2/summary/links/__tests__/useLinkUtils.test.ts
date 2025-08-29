@@ -3,7 +3,6 @@ import { message } from 'antd';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-// Helpers
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
@@ -23,9 +22,11 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
 
 const removeLinkMutationMock = vi.fn();
 const addLinkMutationMock = vi.fn();
+const updateLinkMutationMock = vi.fn();
 vi.mock('@graphql/mutations.generated', () => ({
     useRemoveLinkMutation: () => [removeLinkMutationMock],
     useAddLinkMutation: () => [addLinkMutationMock],
+    useUpdateLinkMutation: () => [updateLinkMutationMock],
 }));
 
 vi.mock('antd', () => ({
@@ -43,10 +44,10 @@ vi.mock('@app/analytics', () => ({
     EntityActionType: { UpdateLinks: 'UpdateLinks' },
 }));
 
+// Helpers
 const mockUserContext = (user: any) => {
     (useUserContext as Mock).mockReturnValue(user);
 };
-
 const mockEntityContext = ({
     urn = 'test-urn',
     entityType = 'dataset',
@@ -58,9 +59,7 @@ const mockEntityContext = ({
     (useMutationUrn as Mock).mockReturnValue(mutationUrn);
     return { urn, entityType, refetch, mutationUrn };
 };
-
-// Mock link
-const mockDeleteLinkInput = {
+const baseLink = {
     url: 'http://test.com',
     associatedUrn: 'urn:foo',
     actor: { urn: 'urn:actor', type: EntityType.CorpUser, username: 'actor' },
@@ -79,32 +78,32 @@ describe('useLinkUtils', () => {
         it('should remove a link and show success message when mutation succeeds', async () => {
             const { refetch } = mockEntityContext();
             mockUserContext({ urn: 'user-1' });
-
             removeLinkMutationMock.mockResolvedValueOnce({});
-
-            const { result } = renderHook(() => useLinkUtils());
+            const { result } = renderHook(() => useLinkUtils(baseLink));
             await act(async () => {
-                await result.current.handleDeleteLink(mockDeleteLinkInput);
+                await result.current.handleDeleteLink();
             });
-
             expect(removeLinkMutationMock).toHaveBeenCalledWith({
-                variables: { input: { linkUrl: 'http://test.com', resourceUrn: 'urn:foo' } },
+                variables: {
+                    input: {
+                        linkUrl: baseLink.url,
+                        label: baseLink.label,
+                        resourceUrn: baseLink.associatedUrn,
+                    },
+                },
             });
             expect(message.success).toHaveBeenCalledWith({ content: 'Link Removed', duration: 2 });
             expect(refetch).toHaveBeenCalled();
         });
 
-        it('should show error message when link removal fails', async () => {
+        it('should show error message when link removal mutation fails', async () => {
             const { refetch } = mockEntityContext();
             mockUserContext({ urn: 'user-1' });
-
-            removeLinkMutationMock.mockRejectedValueOnce(new Error('Network issue'));
-
-            const { result } = renderHook(() => useLinkUtils());
+            removeLinkMutationMock.mockRejectedValueOnce(new Error('Network error'));
+            const { result } = renderHook(() => useLinkUtils(baseLink));
             await act(async () => {
-                await result.current.handleDeleteLink(mockDeleteLinkInput);
+                await result.current.handleDeleteLink();
             });
-
             expect(message.destroy).toHaveBeenCalled();
             expect(message.error).toHaveBeenCalledWith({
                 content: expect.stringContaining('Error removing link:'),
@@ -112,70 +111,111 @@ describe('useLinkUtils', () => {
             });
             expect(refetch).toHaveBeenCalled();
         });
+
+        it('should do nothing if selectedLink is null', async () => {
+            mockEntityContext();
+            const { result } = renderHook(() => useLinkUtils(null));
+            await act(async () => {
+                await result.current.handleDeleteLink();
+            });
+            expect(removeLinkMutationMock).not.toHaveBeenCalled();
+            expect(message.success).not.toHaveBeenCalled();
+        });
     });
 
     describe('handleAddLink', () => {
-        it('should add a link, show success message, trigger analytics event, and refetch when mutation succeeds', async () => {
+        it('should add a link, show success message, fire analytics event, and refetch when mutation succeeds', async () => {
             const { refetch, mutationUrn, entityType } = mockEntityContext();
             mockUserContext({ urn: 'user-1' });
-
             addLinkMutationMock.mockResolvedValueOnce({});
-
             const { result } = renderHook(() => useLinkUtils());
             await act(async () => {
-                await result.current.handleAddLink({ url: 'http://test.com.com', label: 'Test Link' });
+                await result.current.handleAddLink({ url: 'http://test-add.com', label: 'Added Link' });
             });
-
             expect(addLinkMutationMock).toHaveBeenCalledWith({
                 variables: {
-                    input: { linkUrl: 'http://test.com.com', label: 'Test Link', resourceUrn: mutationUrn },
+                    input: {
+                        linkUrl: 'http://test-add.com',
+                        label: 'Added Link',
+                        resourceUrn: mutationUrn,
+                    },
                 },
             });
-
             expect(message.success).toHaveBeenCalledWith({ content: 'Link Added', duration: 2 });
-
             expect(analytics.event).toHaveBeenCalledWith({
                 type: EventType.EntityActionEvent,
                 entityType,
                 entityUrn: mutationUrn,
                 actionType: EntityActionType.UpdateLinks,
             });
-
             expect(refetch).toHaveBeenCalled();
         });
 
         it('should show error message when link add mutation fails', async () => {
             mockEntityContext();
             mockUserContext({ urn: 'user-1' });
-
-            addLinkMutationMock.mockRejectedValueOnce(new Error('Add failed'));
-
+            addLinkMutationMock.mockRejectedValueOnce(new Error('Create error'));
             const { result } = renderHook(() => useLinkUtils());
             await act(async () => {
-                await result.current.handleAddLink({ url: 'bad-url', label: 'Bad' });
+                await result.current.handleAddLink({ url: 'bad-add-url', label: 'Bad' });
             });
-
             expect(message.destroy).toHaveBeenCalled();
             expect(message.error).toHaveBeenCalledWith({
                 content: expect.stringContaining('Failed to add link:'),
                 duration: 3,
             });
         });
+    });
 
-        it('should show error message when adding link without a user context', async () => {
-            mockEntityContext();
-            mockUserContext(undefined);
-
-            const { result } = renderHook(() => useLinkUtils());
+    describe('handleUpdateLink', () => {
+        it('should update a link and show success message when mutation succeeds', async () => {
+            const { refetch } = mockEntityContext();
+            updateLinkMutationMock.mockResolvedValueOnce({});
+            const selectedLink = { ...baseLink };
+            const newData = { url: 'http://new.com', label: 'New Label' };
+            const { result } = renderHook(() => useLinkUtils(selectedLink));
             await act(async () => {
-                await result.current.handleAddLink({ url: 'test', label: 'no-user' });
+                await result.current.handleUpdateLink(newData);
             });
+            expect(updateLinkMutationMock).toHaveBeenCalledWith({
+                variables: {
+                    input: {
+                        currentLabel: selectedLink.label,
+                        currentUrl: selectedLink.url,
+                        resourceUrn: selectedLink.associatedUrn,
+                        label: 'New Label',
+                        linkUrl: 'http://new.com',
+                    },
+                },
+            });
+            expect(message.success).toHaveBeenCalledWith({ content: 'Link Updated', duration: 2 });
+            expect(refetch).toHaveBeenCalled();
+        });
 
+        it('should show error message when link update mutation fails', async () => {
+            const { refetch } = mockEntityContext();
+            updateLinkMutationMock.mockRejectedValueOnce(new Error('Update failed'));
+            const selectedLink = { ...baseLink };
+            const { result } = renderHook(() => useLinkUtils(selectedLink));
+            await act(async () => {
+                await result.current.handleUpdateLink({ url: 'fail-url', label: 'fail-label' });
+            });
+            expect(message.destroy).toHaveBeenCalled();
             expect(message.error).toHaveBeenCalledWith({
-                content: 'Error adding link: no user',
+                content: expect.stringContaining('Error updating link:'),
                 duration: 2,
             });
-            expect(addLinkMutationMock).not.toHaveBeenCalled();
+            expect(refetch).toHaveBeenCalled();
+        });
+
+        it('should do nothing if selectedLink is null when handling update', async () => {
+            mockEntityContext();
+            const { result } = renderHook(() => useLinkUtils(null));
+            await act(async () => {
+                await result.current.handleUpdateLink({ url: 'some-url', label: 'some-label' });
+            });
+            expect(updateLinkMutationMock).not.toHaveBeenCalled();
+            expect(message.success).not.toHaveBeenCalled();
         });
     });
 });
