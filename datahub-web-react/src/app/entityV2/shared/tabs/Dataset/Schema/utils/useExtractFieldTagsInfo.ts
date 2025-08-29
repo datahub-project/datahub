@@ -21,7 +21,7 @@ export default function useExtractFieldTagsInfo(
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidate) =>
             pathMatchesExact(candidate.fieldPath, record.fieldPath),
         );
-        const baseEditableTags = editableFieldInfo?.tags?.tags || [];
+        const baseEditableTags = editableFieldInfo?.globalTags?.tags || [];
         const editableTags = baseEditableTags.filter((tag) => !schemaFieldTagUrns.has(tag.tag.urn));
         const editableTagUrns = new Set(editableTags.map((t) => t.tag.urn));
 
@@ -29,14 +29,14 @@ export default function useExtractFieldTagsInfo(
         // Also includes tags referenced by EditableSchemaMetadata with a field path that does not exactly match,
         // but is functionally the same (i.e. v1 <-> v2 equivalent). These in practice are not editable
         // because they're technically on a different field path
-        const baseUneditableTags = defaultUneditableTags?.tags || record?.tags?.tags || [];
+        const baseUneditableTags = defaultUneditableTags?.tags || record?.globalTags?.tags || [];
         const baseUneditableTagUrns = new Set(baseUneditableTags.map((t) => t.tag.urn));
 
         // Collect extra uneditable tags from path-insensitive matches
         const extraUneditableTags =
             editableSchemaMetadata?.editableSchemaFieldInfo
                 .filter((candidate) => pathMatchesInsensitiveToV2(candidate.fieldPath, record.fieldPath))
-                .flatMap((info) => info.tags?.tags || [])
+                .flatMap((info) => info.globalTags?.tags || [])
                 .filter((tag) => !baseUneditableTagUrns.has(tag.tag.urn)) || [];
 
         // Combine all uneditable tags and remove duplicates
