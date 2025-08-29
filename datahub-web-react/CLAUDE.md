@@ -112,6 +112,7 @@ It also contains our style guide, which can be consumed by engineers.
         - Alt text should be a required field
 - How to do theming?
     - Use `styled-components` theming, with stringed css rather than object css
+- **React Components**: Use TypeScript interfaces for props instead of PropTypes (which are deprecated)
 
 ```jsx
 // YES

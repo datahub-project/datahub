@@ -969,6 +969,12 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 fragment entitySchemaFieldFields on SchemaField {

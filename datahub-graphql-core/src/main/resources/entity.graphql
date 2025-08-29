@@ -3574,6 +3574,16 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   deprecation status of the schema field
   """
   deprecation: Deprecation
+
+  """
+  Tags associated with the field
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the field
+  """
+  glossaryTerms: GlossaryTerms
 }
 
 """

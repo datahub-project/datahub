@@ -70,6 +70,10 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
     return fieldPathA === fieldPathB || fieldPathA === downgradeV2FieldPath(fieldPathB);
 }
 
+export function pathMatchesInsensitiveToV2(fieldPathA?: string | null, fieldPathB?: string | null) {
+    return fieldPathA === fieldPathB || downgradeV2FieldPath(fieldPathA) === downgradeV2FieldPath(fieldPathB);
+}
+
 // should use pathMatchesExact when rendering editable info so the user edits the correct field
 export function pathMatchesExact(fieldPathA?: string | null, fieldPathB?: string | null) {
     return fieldPathA === fieldPathB;

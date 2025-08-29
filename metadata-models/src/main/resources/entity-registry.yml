@@ -526,6 +526,8 @@ entities:
       - deprecation
       - subTypes
       - logicalParent
+      - globalTags
+      - glossaryTerms
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal

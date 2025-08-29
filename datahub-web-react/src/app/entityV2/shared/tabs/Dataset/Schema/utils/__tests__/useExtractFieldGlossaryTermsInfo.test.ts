@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react-hooks';
 
+import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import {
     EditableSchemaMetadata,
@@ -9,8 +10,8 @@ import {
     SchemaFieldDataType,
 } from '@src/types.generated';
 
-describe('useExtractFieldGlossaryTermsInfo', () => {
-    const testGlossaryTerm: GlossaryTerm = {
+describe('useExtractFieldTermsInfo', () => {
+    const testTerm: GlossaryTerm = {
         urn: 'urn:testField',
         type: EntityType.GlossaryTerm,
         name: 'testTermName',
@@ -21,6 +22,43 @@ describe('useExtractFieldGlossaryTermsInfo', () => {
             termSource: 'INTERNAL',
         },
     };
+
+    const testTerm2: GlossaryTerm = {
+        urn: 'urn:testField2',
+        type: EntityType.GlossaryTerm,
+        name: 'testTermName2',
+        hierarchicalName: 'test.testTermName2',
+        properties: {
+            name: 'testTermName2',
+            definition: 'test',
+            termSource: 'INTERNAL',
+        },
+    };
+
+    const testTerm3: GlossaryTerm = {
+        urn: 'urn:testField3',
+        type: EntityType.GlossaryTerm,
+        name: 'testTermName3',
+        hierarchicalName: 'test.testTermName3',
+        properties: {
+            name: 'testTermName3',
+            definition: 'test',
+            termSource: 'INTERNAL',
+        },
+    };
+
+    const extraTerm: GlossaryTerm = {
+        urn: 'urn:extraField',
+        type: EntityType.GlossaryTerm,
+        name: 'extraTermName',
+        hierarchicalName: 'test.extraTermName',
+        properties: {
+            name: 'extraTermName',
+            definition: 'test',
+            termSource: 'INTERNAL',
+        },
+    };
+
     const emptyEditableSchemaMetadata: EditableSchemaMetadata = { editableSchemaFieldInfo: [] };
 
     const filledEditableSchemaMetadata: EditableSchemaMetadata = {
@@ -30,8 +68,35 @@ describe('useExtractFieldGlossaryTermsInfo', () => {
                 glossaryTerms: {
                     terms: [
                         {
-                            associatedUrn: 'urn:li:glossaryTerm:test.testTermName',
-                            term: testGlossaryTerm,
+                            associatedUrn: 'urn:li:globalTerms:test.testTermName',
+                            term: testTerm,
+                        },
+                    ],
+                },
+            },
+        ],
+    };
+
+    const editableSchemaMetadataWithExtraTerms: EditableSchemaMetadata = {
+        editableSchemaFieldInfo: [
+            {
+                fieldPath: 'testField',
+                glossaryTerms: {
+                    terms: [
+                        {
+                            associatedUrn: 'urn:li:globalTerms:test.testTermName',
+                            term: testTerm,
+                        },
+                    ],
+                },
+            },
+            {
+                fieldPath: '[version=2.0].[type=record].testField',
+                glossaryTerms: {
+                    terms: [
+                        {
+                            associatedUrn: 'urn:li:globalTerms:test.extraTermName',
+                            term: extraTerm,
                         },
                     ],
                 },
@@ -47,18 +112,38 @@ describe('useExtractFieldGlossaryTermsInfo', () => {
     };
 
     const filledSchemaField: SchemaField = {
-        fieldPath: 'testField',
-        nullable: true,
-        recursive: false,
-        type: SchemaFieldDataType.String,
+        ...emptySchemaField,
         glossaryTerms: {
             terms: [
                 {
-                    associatedUrn: 'urn:li:glossaryTerm:test.testTermName',
-                    term: testGlossaryTerm,
+                    associatedUrn: 'urn:li:globalTerm:test.testTermName',
+                    term: testTerm,
                 },
             ],
         },
+    };
+
+    const directSchemaField: SchemaField = {
+        ...emptySchemaField,
+        schemaFieldEntity: {
+            urn: '',
+            type: EntityType.SchemaField,
+            fieldPath: 'testField',
+            parent: { urn: '', type: EntityType.Dataset },
+            glossaryTerms: {
+                terms: [
+                    {
+                        associatedUrn: testTerm.urn,
+                        term: testTerm,
+                    },
+                ],
+            },
+        },
+    };
+
+    const complexSchemaField: SchemaField = {
+        ...directSchemaField,
+        ...filledSchemaField,
     };
 
     const emptyBaseEntity = {};
@@ -75,57 +160,142 @@ describe('useExtractFieldGlossaryTermsInfo', () => {
         };
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
+    beforeAll(() => {
+        expect(pathMatchesExact('testField', 'testField')).toBe(true);
+        expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
+        expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
+        expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
     });
 
-    it('should extract uneditableTerms when they were provided in SchemaFild only', () => {
-        const extractFieldGlossaryTermsInfo = renderHook(() =>
-            useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata),
-        ).result.current;
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.resetAllMocks();
+    });
 
-        const { editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(filledSchemaField);
+    it('should extract uneditableTerms when they were provided in SchemaField only', () => {
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata))
+            .result.current;
 
-        expect(editableTerms).toBeUndefined();
-        expect(uneditableTerms?.terms?.[0]?.term?.properties?.name === 'testTermName').toBeTruthy();
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(filledSchemaField);
+
+        expect(directTerms?.terms).toHaveLength(0);
+        expect(editableTerms?.terms).toHaveLength(0);
+        expect(uneditableTerms?.terms).toHaveLength(1);
+        expect(uneditableTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName');
+        expect(numberOfTerms).toBe(1);
+    });
+
+    it('should extract uneditableTerms when they were provided on Schema Field Entity only', () => {
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata))
+            .result.current;
+
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(directSchemaField);
+
+        expect(directTerms?.terms).toHaveLength(1);
+        expect(directTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName');
+        expect(editableTerms?.terms).toHaveLength(0);
+        expect(uneditableTerms?.terms).toHaveLength(0);
         expect(numberOfTerms).toBe(1);
     });
 
     it('should extract editableTerms when they were provided in editableSchemaMetadata only', () => {
-        const extractFieldGlossaryTermsInfo = renderHook(() =>
-            useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata),
-        ).result.current;
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata))
+            .result.current;
 
-        const { editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(emptySchemaField);
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(emptySchemaField);
 
-        expect(editableTerms?.terms?.[0]?.term?.properties?.name === 'testTermName').toBeTruthy();
-        expect(uneditableTerms).toBeUndefined();
+        expect(directTerms?.terms).toHaveLength(0);
+        expect(editableTerms?.terms).toHaveLength(1);
+        expect(editableTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName');
+        expect(uneditableTerms?.terms).toHaveLength(0);
         expect(numberOfTerms).toBe(1);
     });
 
-    it('should extract all terms when they were provided', () => {
+    it('should extract all terms when they were provided in both schema and editable metadata, but exclude duplicates', () => {
         mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
-        const extractFieldGlossaryTermsInfo = renderHook(() =>
-            useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata),
-        ).result.current;
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata))
+            .result.current;
 
-        const { editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(filledSchemaField);
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(filledSchemaField);
 
-        expect(editableTerms?.terms?.[0]?.term?.properties?.name === 'testTermName').toBeTruthy();
-        expect(uneditableTerms?.terms?.[0]?.term?.properties?.name === 'testTermName').toBeTruthy();
-        expect(numberOfTerms).toBe(2);
+        expect(directTerms?.terms).toHaveLength(0);
+        expect(editableTerms?.terms).toHaveLength(1);
+        expect(editableTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName');
+        expect(uneditableTerms?.terms).toHaveLength(0);
+        expect(numberOfTerms).toBe(1);
     });
 
-    it('should not extract any terms when they were not provided', () => {
+    it('should extract uneditableTerms when they were provided everywhere, with duplicates', () => {
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata))
+            .result.current;
+
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } =
+            extractFieldTermsInfo(complexSchemaField);
+
+        expect(directTerms?.terms).toHaveLength(1);
+        expect(directTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName');
+        expect(editableTerms?.terms).toHaveLength(0);
+        expect(uneditableTerms?.terms).toHaveLength(0);
+        expect(numberOfTerms).toBe(1);
+    });
+
+    it('should extract uneditableTerms when they were provided everywhere, no duplicates', () => {
+        const editableSchemaMetadata: EditableSchemaMetadata = {
+            editableSchemaFieldInfo: [
+                {
+                    fieldPath: 'testField',
+                    glossaryTerms: { terms: [{ term: testTerm2, associatedUrn: testTerm2.urn }] },
+                },
+            ],
+        };
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(editableSchemaMetadata)).result
+            .current;
+
+        const schemaField: SchemaField = {
+            ...directSchemaField,
+            glossaryTerms: { terms: [{ term: testTerm3, associatedUrn: testTerm3.urn }] },
+        };
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(schemaField);
+
+        expect(directTerms?.terms).toHaveLength(1);
+        expect(directTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName');
+        expect(editableTerms?.terms).toHaveLength(1);
+        expect(editableTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName2');
+        expect(uneditableTerms?.terms).toHaveLength(1);
+        expect(uneditableTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName3');
+        expect(numberOfTerms).toBe(3);
+    });
+
+    it('should not extract any terms when they are not provided', () => {
         mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
-        const extractFieldGlossaryTermsInfo = renderHook(() =>
-            useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata),
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata))
+            .result.current;
+
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(emptySchemaField);
+
+        expect(directTerms?.terms).toHaveLength(0);
+        expect(editableTerms?.terms).toHaveLength(0);
+        expect(uneditableTerms?.terms).toHaveLength(0);
+        expect(numberOfTerms).toBe(0);
+    });
+
+    it('should extract extra uneditable terms from fields that match the field path insensitive to V2', () => {
+        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
+
+        const extractFieldTermsInfo = renderHook(() =>
+            useExtractFieldGlossaryTermsInfo(editableSchemaMetadataWithExtraTerms),
         ).result.current;
 
-        const { editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(emptySchemaField);
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(emptySchemaField);
 
-        expect(editableTerms).toBeUndefined();
-        expect(uneditableTerms).toBeUndefined();
-        expect(numberOfTerms).toBe(0);
+        expect(directTerms?.terms).toHaveLength(0);
+
+        expect(editableTerms?.terms).toHaveLength(1);
+        expect(editableTerms?.terms?.[0]?.term?.properties?.name).toBe('testTermName');
+
+        expect(uneditableTerms?.terms).toHaveLength(1);
+        expect(uneditableTerms?.terms?.[0]?.term?.properties?.name).toBe('extraTermName');
+
+        expect(numberOfTerms).toBe(2);
     });
 });
