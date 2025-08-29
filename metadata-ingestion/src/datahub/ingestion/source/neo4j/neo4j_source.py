@@ -33,6 +33,14 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    DateTypeClass,
+    NumberTypeClass,
+    StringTypeClass,
+    TimeTypeClass,
+)
 from datahub.sdk.dataset import Dataset
 
 log = logging.getLogger(__name__)
@@ -42,17 +50,17 @@ logging.basicConfig(level=logging.INFO)
 _NODE = "node"
 _RELATIONSHIP = "relationship"
 
-# Map Neo4j types to DataHub types
-_STRING_TYPE_MAPPING: Dict[str, str] = {
-    "list": "array",
-    "boolean": "boolean",
-    "integer": "int",
-    "local_date_time": "timestamp",
-    "float": "float",
-    "string": "string",
-    "date": "date",
-    "node": "string",
-    "relationship": "string",
+# Map Neo4j types to DataHub type classes
+_NEO4J_TYPE_MAPPING: Dict[str, type] = {
+    "list": ArrayTypeClass,
+    "boolean": BooleanTypeClass,
+    "integer": NumberTypeClass,
+    "local_date_time": TimeTypeClass,
+    "float": NumberTypeClass,
+    "string": StringTypeClass,
+    "date": DateTypeClass,
+    "node": StringTypeClass,
+    "relationship": StringTypeClass,
 }
 
 
@@ -94,28 +102,28 @@ class Neo4jSource(StatefulIngestionSourceBase):
         config = Neo4jConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_field_type_string(self, attribute_type: Union[type, str]) -> str:
-        """Convert Neo4j attribute type to DataHub string representation."""
+    def get_field_type_class(self, attribute_type: Union[type, str]) -> type:
+        """Convert Neo4j attribute type to DataHub type class."""
         type_key = (
             attribute_type if isinstance(attribute_type, str) else str(attribute_type)
         )
-        return _STRING_TYPE_MAPPING.get(type_key, "string")
+        return _NEO4J_TYPE_MAPPING.get(type_key, StringTypeClass)
 
     def create_schema_field_tuple(
         self, col_name: str, col_type: str, obj_type: Optional[str]
-    ) -> Tuple[str, str, str]:
-        """Convert Neo4j property to (field_name, field_type, description) tuple."""
+    ) -> Tuple[str, type, str]:
+        """Convert Neo4j property to (field_name, field_type_class, description) tuple."""
         # Special case: when a node has a relationship-typed property, treat it as a node reference
         # This ensures relationship properties within nodes are described as "NODE" rather than "RELATIONSHIP"
         if obj_type == _NODE and col_type == _RELATIONSHIP:
             col_type = _NODE
 
-        field_type = self.get_field_type_string(col_type)
+        field_type_class = self.get_field_type_class(col_type)
         description = (
             col_type.upper() if col_type in (_NODE, _RELATIONSHIP) else col_type
         )
 
-        return (col_name, field_type, description)
+        return (col_name, field_type_class, description)
 
     def get_subtype_from_obj_type(self, obj_type: str) -> str:
         """Map Neo4j object type to DataHub subtype."""
@@ -316,6 +324,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
                     yield from dataset_obj.as_workunits()
                     self.report.obj_created += 1
                 else:
+                    log.warning(f"Failed to create dataset object for {row['key']}")
                     self.report.obj_failures += 1
 
             except Exception as e:
