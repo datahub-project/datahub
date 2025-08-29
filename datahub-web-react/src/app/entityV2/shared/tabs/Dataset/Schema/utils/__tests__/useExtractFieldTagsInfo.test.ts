@@ -47,7 +47,7 @@ describe('useExtractFieldTagsInfo', () => {
         editableSchemaFieldInfo: [
             {
                 fieldPath: 'testField',
-                tags: {
+                globalTags: {
                     tags: [
                         {
                             associatedUrn: 'urn:li:globalTags:test.testTagName',
@@ -63,7 +63,7 @@ describe('useExtractFieldTagsInfo', () => {
         editableSchemaFieldInfo: [
             {
                 fieldPath: 'testField',
-                tags: {
+                globalTags: {
                     tags: [
                         {
                             associatedUrn: 'urn:li:globalTags:test.testTagName',
@@ -74,7 +74,7 @@ describe('useExtractFieldTagsInfo', () => {
             },
             {
                 fieldPath: '[version=2.0].[type=record].testField',
-                tags: {
+                globalTags: {
                     tags: [
                         {
                             associatedUrn: 'urn:li:globalTags:test.extraTagName',
@@ -95,7 +95,7 @@ describe('useExtractFieldTagsInfo', () => {
 
     const filledSchemaField: SchemaField = {
         ...emptySchemaField,
-        tags: {
+        globalTags: {
             tags: [
                 {
                     associatedUrn: 'urn:li:globalTag:test.testTagName',
@@ -225,7 +225,7 @@ describe('useExtractFieldTagsInfo', () => {
             editableSchemaFieldInfo: [
                 {
                     fieldPath: 'testField',
-                    tags: { tags: [{ tag: testTag2, associatedUrn: testTag2.urn }] },
+                    globalTags: { tags: [{ tag: testTag2, associatedUrn: testTag2.urn }] },
                 },
             ],
         };
@@ -233,7 +233,7 @@ describe('useExtractFieldTagsInfo', () => {
 
         const schemaField: SchemaField = {
             ...directSchemaField,
-            tags: { tags: [{ tag: testTag3, associatedUrn: testTag3.urn }] },
+            globalTags: { tags: [{ tag: testTag3, associatedUrn: testTag3.urn }] },
         };
         const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(schemaField);
 
