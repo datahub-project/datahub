@@ -25,6 +25,14 @@ const StyledWarning = styled(WarningFilled)<{ size: number }>`
     font-size: ${({ size }) => size}px;
 `;
 
+const Button = styled.button`
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+`;
+
 interface RouteParams {
     urn: string;
 }
@@ -71,9 +79,11 @@ export default function EmbeddedHealthIcon() {
         const warningIcon = <StyledWarning id={ICON_ID} size={iconSize} />;
 
         if (showTooltip) {
+            const title =
+                "Some upstream entities are unhealthy, which may impact this entity. Expand the DataHub browser extension's side panel for more details.";
             return (
-                <Tooltip title="Some upstream entities are unhealthy, which may impact this entity. Expand the DataHub browser extension's side panel for more details.">
-                    {warningIcon}
+                <Tooltip title={title}>
+                    <Button onClick={() => alert(title)}>{warningIcon}</Button>
                 </Tooltip>
             );
         }
