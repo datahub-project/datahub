@@ -66,7 +66,8 @@ public class DatasetMapperTest {
     expectedDatasetProperties.setLastModifiedActor(TEST_LAST_MODIFIED_ACTOR_URN.toString());
     expectedDatasetProperties.setCreatedActor(TEST_CREATED_ACTOR_URN.toString());
     expectedDatasetProperties.setLastModified(
-        new com.linkedin.datahub.graphql.generated.AuditStamp(20L, TEST_LAST_MODIFIED_ACTOR_URN.toString()));
+        new com.linkedin.datahub.graphql.generated.AuditStamp(
+            20L, TEST_LAST_MODIFIED_ACTOR_URN.toString()));
     expectedDatasetProperties.setCreated(10L);
     expected.setProperties(expectedDatasetProperties);
 
@@ -114,7 +115,8 @@ public class DatasetMapperTest {
     expectedDatasetProperties.setName("Test");
     expectedDatasetProperties.setLastModifiedActor(null);
     expectedDatasetProperties.setCreatedActor(null);
-    expectedDatasetProperties.setLastModified(new com.linkedin.datahub.graphql.generated.AuditStamp(0L, null));
+    expectedDatasetProperties.setLastModified(
+        new com.linkedin.datahub.graphql.generated.AuditStamp(0L, null));
     expectedDatasetProperties.setCreated(null);
     expected.setProperties(expectedDatasetProperties);
 
@@ -168,7 +170,8 @@ public class DatasetMapperTest {
     expectedDatasetProperties.setName("Test");
     expectedDatasetProperties.setLastModifiedActor(null);
     expectedDatasetProperties.setCreatedActor(null);
-    expectedDatasetProperties.setLastModified(new com.linkedin.datahub.graphql.generated.AuditStamp(20L, null));
+    expectedDatasetProperties.setLastModified(
+        new com.linkedin.datahub.graphql.generated.AuditStamp(20L, null));
     expectedDatasetProperties.setCreated(10L);
     expected.setProperties(expectedDatasetProperties);
 
