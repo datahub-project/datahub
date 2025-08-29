@@ -373,6 +373,9 @@ databricks = {
     "databricks-sql-connector>=2.8.0,<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
+    # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
+    # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
+    # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
     "pandas<2.2.0",
 }
 
