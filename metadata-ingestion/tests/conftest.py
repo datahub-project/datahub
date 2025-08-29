@@ -51,7 +51,7 @@ freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"]
 @pytest.fixture
 def mock_time(monkeypatch):
     def fake_time():
-        return 1615443388.0975091
+        return 1615443388.0975091  # Thu Mar 11 07:16:28 CET 2021
 
     monkeypatch.setattr(time, "time", fake_time)
 
