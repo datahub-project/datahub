@@ -2575,7 +2575,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default. ",
+          "description": "Disabled by default.",
           "subtype_modifier": null,
           "supported": true
         },
