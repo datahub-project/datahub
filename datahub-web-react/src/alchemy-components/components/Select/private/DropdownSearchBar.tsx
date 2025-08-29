@@ -30,6 +30,7 @@ export default function DropdownSearchBar({ placeholder, value, size, onChange, 
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}
                 style={{ fontSize: size || 'md' }}
+                data-testid="dropdown-search-bar"
                 onClear={onClear}
             />
         </SearchInputContainer>
