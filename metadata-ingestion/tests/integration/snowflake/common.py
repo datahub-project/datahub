@@ -205,6 +205,8 @@ def default_query_results(  # noqa: C901
     num_ops=NUM_OPS,
     num_usages=NUM_USAGE,
 ):
+    if query == SnowflakeQuery.get_all_users():
+        return []
     if query == SnowflakeQuery.current_account():
         return [{"CURRENT_ACCOUNT()": "ABC12345"}]
     if query == SnowflakeQuery.current_region():
@@ -218,8 +220,7 @@ def default_query_results(  # noqa: C901
     elif query == SnowflakeQuery.current_warehouse():
         return [{"CURRENT_WAREHOUSE()": "TEST_WAREHOUSE"}]
     elif (
-        query == SnowflakeQuery.get_all_users()
-        or query
+        query
         == QueryLogQueryBuilder(
             start_time=datetime(year=2022, month=6, day=6, tzinfo=timezone.utc),
             end_time=datetime(
