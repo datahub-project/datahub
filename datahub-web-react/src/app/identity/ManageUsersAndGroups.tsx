@@ -8,8 +8,8 @@ import {
     TabTitleWithCount,
 } from '@app/identity/ManageUsersAndGroups.components';
 import { GroupList } from '@app/identity/group/GroupList';
+import InviteUsersModal from '@app/identity/user/InviteUsersModal';
 import { UserAndGroupList } from '@app/identity/user/UserAndGroupList';
-import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { RoutedTabs } from '@app/shared/RoutedTabs';
 
 import { useListGroupsQuery } from '@graphql/group.generated';
@@ -94,7 +94,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
             </Content>
             {canManagePolicies && (
-                <ViewInviteTokenModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
+                <InviteUsersModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
             )}
         </PageContainer>
     );

@@ -205,6 +205,19 @@ query listUsers($input: ListUsersInput!) {
                 skills
             }
             status
+            invitationStatus {
+                status
+                created {
+                    time
+                    actor
+                }
+                lastUpdated {
+                    time
+                    actor
+                }
+                role
+                invitationToken
+            }
             groups: relationships(
                 input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 10 }
             ) {
@@ -333,9 +346,19 @@ query getUserRecommendations($input: ListUsersInput!) {
         total
         users {
             urn
+            type
             username
             isNativeUser
             info {
+                active
+                displayName
+                title
+                firstName
+                lastName
+                fullName
+                email
+            }
+            properties {
                 active
                 displayName
                 title
@@ -350,6 +373,7 @@ query getUserRecommendations($input: ListUsersInput!) {
                 teams
                 title
                 skills
+                email
             }
             usageFeatures {
                 userUsageTotalPast30Days
