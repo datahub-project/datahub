@@ -9,6 +9,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -102,6 +103,11 @@ class RedshiftConfig(
 
     _database_alias_removed = pydantic_removed_field("database_alias")
     _use_lineage_v2_removed = pydantic_removed_field("use_lineage_v2")
+    _rename_lineage_v2_generate_queries_to_lineage_generate_queries = (
+        pydantic_renamed_field(
+            "lineage_v2_generate_queries", "lineage_generate_queries"
+        )
+    )
 
     default_schema: str = Field(
         default="public",
@@ -113,9 +119,9 @@ class RedshiftConfig(
         description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
     )
 
-    lineage_v2_generate_queries: bool = Field(
+    lineage_generate_queries: bool = Field(
         default=True,
-        description="Whether to generate queries entities for the new SQL-based lineage collector.",
+        description="Whether to generate queries entities for the SQL-based lineage collector.",
     )
 
     include_table_lineage: bool = Field(

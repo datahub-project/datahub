@@ -7,10 +7,10 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
-from datahub.ingestion.source.redshift.lineage_v2 import (
+from datahub.ingestion.source.redshift.lineage import (
     LineageCollectorType,
     LineageDatasetPlatform,
-    RedshiftSqlLineageV2,
+    RedshiftSqlLineage,
     parse_alter_table_rename,
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
@@ -132,7 +132,7 @@ def test_parse_alter_table_rename():
     )
 
 
-def get_lineage_extractor() -> RedshiftSqlLineageV2:
+def get_lineage_extractor() -> RedshiftSqlLineage:
     config = RedshiftConfig(
         host_port="localhost:5439",
         database="test",
@@ -142,7 +142,7 @@ def get_lineage_extractor() -> RedshiftSqlLineageV2:
     )
     report = RedshiftReport()
 
-    lineage_extractor = RedshiftSqlLineageV2(
+    lineage_extractor = RedshiftSqlLineage(
         config, report, PipelineContext(run_id="foo"), config.database
     )
 
