@@ -348,7 +348,6 @@ class Model:
     catalog_name: str
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
-    # tags: Optional[List[str]]
 
 
 @dataclass
@@ -362,4 +361,3 @@ class ModelVersion:
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     created_by: Optional[str]
-    # tags: Optional[List[str]]
