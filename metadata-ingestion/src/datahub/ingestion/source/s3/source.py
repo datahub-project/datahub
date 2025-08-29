@@ -888,11 +888,14 @@ class S3Source(StatefulIngestionSourceBase):
         )
         iterator = peekable(iterator)
         if iterator:
-            sorted_dirs = sorted(
-                iterator,
-                key=functools.cmp_to_key(partitioned_folder_comparator),
-                reverse=not min,
-            )
+            if path_spec.traversal_method == FolderTraversalMethod.FIRST_MATCHING:
+                sorted_dirs: Iterable[str] = iterator
+            else:
+                sorted_dirs = sorted(
+                    iterator,
+                    key=functools.cmp_to_key(partitioned_folder_comparator),
+                    reverse=not min,
+                )
             folders = []
             for dir in sorted_dirs:
                 if path_spec.dir_allowed(f"{protocol}{bucket_name}/{dir}/"):
@@ -1175,6 +1178,8 @@ class S3Source(StatefulIngestionSourceBase):
                         if (
                             path_spec.traversal_method == FolderTraversalMethod.MIN_MAX
                             or path_spec.traversal_method == FolderTraversalMethod.MAX
+                            or path_spec.traversal_method
+                            == FolderTraversalMethod.FIRST_MATCHING
                         ):
                             # Get MAX partition using original logic
                             dirs_to_process_max = self.get_dir_to_process(
