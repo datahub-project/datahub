@@ -50,7 +50,7 @@ public class UsageClientFactory {
 
     Client restClient =
         DefaultRestliClientFactory.getRestLiClient(
-            gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, params);
+            gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, params, null, null, null);
     return new RestliUsageClient(
         restClient,
         new ExponentialBackoff(retryInterval),
