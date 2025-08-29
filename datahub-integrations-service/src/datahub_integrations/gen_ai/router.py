@@ -297,8 +297,7 @@ def embed_query(
     # Create Bedrock embeddings with model from request
     embeddings = create_embeddings(
         provider=provider,
-        model=model,
-        use_cache=False,  # No caching for queries
+        model_id=model,
     )
 
     # Generate embedding

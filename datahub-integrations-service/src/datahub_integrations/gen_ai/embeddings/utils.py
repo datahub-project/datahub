@@ -1,15 +1,13 @@
 """
 Utilities for working with embeddings using Bedrock.
 
-This module provides LiteLLM-based embeddings for Bedrock models
-with support for caching. Uses standard AWS credential chain (AWS_PROFILE).
+This module provides LiteLLM-based embeddings for Bedrock models.
+Uses standard AWS credential chain (AWS_PROFILE).
 """
 
 import os
 from typing import Any, Dict, List, Optional
 
-from .base import BaseEmbeddings
-from .cache import CachedEmbeddings, LocalFileEmbeddingCache
 from .litellm_wrapper import LiteLLMEmbeddings
 
 
@@ -17,9 +15,8 @@ def create_bedrock_embeddings(
     model_id: str = "cohere.embed-english-v3",
     *,
     region: str = "us-west-2",
-) -> BaseEmbeddings:
-    """
-    Create a Bedrock embeddings instance (LiteLLM-backed).
+) -> LiteLLMEmbeddings:
+    """Create a Bedrock embeddings instance using LiteLLM.
 
     Args:
         model_id: Bedrock model ID (default: "cohere.embed-english-v3")
@@ -30,19 +27,16 @@ def create_bedrock_embeddings(
         region: AWS region (default: us-west-2)
 
     Returns:
-        Configured embeddings instance implementing `embed_documents` and `embed_query`
+        LiteLLMEmbeddings instance
 
     Authentication:
         Uses standard AWS credential chain. Set AWS_PROFILE environment variable
-        to use a specific AWS profile (e.g., AWS_PROFILE=your-sso-profile).
+        to use a specific AWS profile.
 
     Note:
-        LiteLLM v1.75.5+ does NOT support external Bedrock clients for embedding functions,
-        although external client support is available for completion functions. LiteLLM will
-        always create its own internal Bedrock client using standard AWS credential chain,
-        ignoring any externally provided clients. For full control over Bedrock client
-        configuration (retries, timeouts, authentication), consider using direct Bedrock
-        API calls instead of LiteLLM for embeddings.
+        LiteLLM creates its own internal Bedrock client using the standard AWS
+        credential chain. For custom client configuration, consider using direct
+        Bedrock API calls instead.
     """
     # Map Bedrock model id to LiteLLM model string by prefixing with "bedrock/" if missing
     litellm_model = model_id if "/" in model_id else f"bedrock/{model_id}"
@@ -52,7 +46,7 @@ def create_bedrock_embeddings(
     # Bedrock returns ValidationException regardless of `truncate`. See discussion:
     # https://github.com/deepset-ai/haystack-core-integrations/issues/912
     return LiteLLMEmbeddings(
-        model=litellm_model,
+        model_id=litellm_model,
         aws_region_name=region,
         max_character_length=2048,
     )
@@ -108,7 +102,7 @@ def get_model_info(model_id: str) -> Dict[str, Any]:
 
 
 def batch_embed_texts(
-    embeddings: BaseEmbeddings, texts: List[str], batch_size: int = 25
+    embeddings: LiteLLMEmbeddings, texts: List[str], batch_size: int = 25
 ) -> List[List[float]]:
     """
     Embed texts in batches to avoid rate limits.
@@ -131,44 +125,21 @@ def batch_embed_texts(
     return all_embeddings
 
 
-def create_cached_embeddings(
-    embeddings: BaseEmbeddings,
-    cache_dir: Optional[str] = None,
-) -> CachedEmbeddings:
-    """
-    Wrap any embeddings implementation with caching.
-
-    Args:
-        embeddings: The base embeddings implementation
-        cache_dir: Optional custom cache directory
-
-    Returns:
-        Cached embeddings wrapper
-    """
-    cache = LocalFileEmbeddingCache(cache_dir)
-    return CachedEmbeddings(embeddings, cache)
-
-
 def create_embeddings(
     provider: Optional[str] = None,
-    model: Optional[str] = None,
+    model_id: Optional[str] = None,
     *,
-    use_cache: bool = False,
-    cache_dir: Optional[str] = None,
     aws_region: Optional[str] = None,
-) -> BaseEmbeddings:
-    """
-    Factory that creates embeddings instance with explicit parameters.
+) -> LiteLLMEmbeddings:
+    """Factory that creates embeddings instance with explicit parameters.
 
     Args:
         provider: Embedding provider - currently only "bedrock" is supported
-        model: Model identifier (defaults to BEDROCK_MODEL env var or "cohere.embed-english-v3")
-        use_cache: If True, wraps with caching
-        cache_dir: Optional cache directory
+        model_id: Model identifier (defaults to BEDROCK_MODEL env var or "cohere.embed-english-v3")
         aws_region: AWS region (defaults to BEDROCK_AWS_REGION or AWS_REGION or "us-west-2")
 
     Returns:
-        BaseEmbeddings implementation (may be cached wrapper)
+        LiteLLMEmbeddings instance
 
     Authentication:
         Uses standard AWS credential chain. Set AWS_PROFILE environment variable
@@ -184,7 +155,7 @@ def create_embeddings(
             f"Unsupported embedding provider: {provider}. Only 'bedrock' is currently supported."
         )
 
-    model = model or os.environ.get("BEDROCK_MODEL", "cohere.embed-english-v3")
+    model_id = model_id or os.environ.get("BEDROCK_MODEL", "cohere.embed-english-v3")
     aws_region = (
         aws_region
         or os.environ.get("BEDROCK_AWS_REGION")
@@ -192,14 +163,10 @@ def create_embeddings(
     )
 
     # These should always be strings due to fallback values above
-    assert model is not None
+    assert model_id is not None
     assert aws_region is not None
 
-    base = create_bedrock_embeddings(
-        model_id=model,
+    return create_bedrock_embeddings(
+        model_id=model_id,
         region=aws_region,
     )
-
-    if use_cache:
-        return create_cached_embeddings(base, cache_dir=cache_dir)
-    return base

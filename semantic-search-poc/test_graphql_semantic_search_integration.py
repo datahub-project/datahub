@@ -51,6 +51,7 @@ class SearchResult:
     platform: Optional[str]
     score: Optional[float] = None
     matched_fields: Optional[List[Dict]] = None
+    extra_properties: Optional[Dict[str, str]] = None
 
 
 @dataclass
@@ -100,6 +101,10 @@ class SemanticSearchIntegrationTest:
         """
         payload = {"query": query, "variables": variables}
         
+        if self.verbose:
+            console.print(f"[dim]Sending query with variables: {variables}[/dim]")
+            console.print(f"[dim]Query (first 500 chars): {query[:500]}...[/dim]")
+        
         start_time = time.time()
         response = requests.post(
             self.graphql_endpoint,
@@ -109,15 +114,19 @@ class SemanticSearchIntegrationTest:
         )
         response_time_ms = (time.time() - start_time) * 1000
         
+        if self.verbose and response.status_code != 200:
+            console.print(f"[red]HTTP {response.status_code}: {response.text[:500]}[/red]")
+        
         response.raise_for_status()
         return response.json(), response_time_ms
     
-    def _build_search_query(self, use_semantic_endpoint: bool = False) -> str:
+    def _build_search_query(self, use_semantic_endpoint: bool = False, fetch_extra_fields: Optional[List[str]] = None) -> str:
         """
         Build the GraphQL search query.
         
         Args:
             use_semantic_endpoint: Whether to use the dedicated semantic search endpoint
+            fetch_extra_fields: Optional list of extra fields to fetch from OpenSearch
             
         Returns:
             GraphQL query string
@@ -127,18 +136,24 @@ class SemanticSearchIntegrationTest:
             # Use dedicated semanticSearchAcrossEntities endpoint
             endpoint_name = "semanticSearchAcrossEntities"
             query_name = "semanticSearchAcrossEntities"
-            search_flags = """
-                    searchFlags: {{
-                        skipHighlighting: true
-                    }}"""
         else:
             # Use regular searchAcrossEntities endpoint for keyword search
             endpoint_name = "searchAcrossEntities"
-            query_name = "searchAcrossEntities" 
-            search_flags = """
+            query_name = "searchAcrossEntities"
+        
+        # Build search flags with fetchExtraFields if provided
+        if fetch_extra_fields:
+            extra_fields_str = json.dumps(fetch_extra_fields)
+            search_flags = f"""
                     searchFlags: {{
                         skipHighlighting: true
+                        fetchExtraFields: {extra_fields_str}
                     }}"""
+        else:
+            search_flags = """
+                    searchFlags: {
+                        skipHighlighting: true
+                    }"""
         
         return f"""
         query {query_name}(
@@ -208,6 +223,10 @@ class SemanticSearchIntegrationTest:
                         name
                         value
                     }}
+                    extraProperties {{
+                        name
+                        value
+                    }}
                 }}
                 facets {{
                     field
@@ -225,7 +244,8 @@ class SemanticSearchIntegrationTest:
         query: str, 
         search_mode: str = "KEYWORD",
         entity_types: Optional[List[str]] = None,
-        count: int = 10
+        count: int = 10,
+        fetch_extra_fields: Optional[List[str]] = None
     ) -> Tuple[List[SearchResult], SearchMetrics]:
         """
         Perform a search and return parsed results with metrics.
@@ -235,13 +255,14 @@ class SemanticSearchIntegrationTest:
             search_mode: "KEYWORD" or "SEMANTIC"
             entity_types: Entity types to search
             count: Number of results to return
+            fetch_extra_fields: Optional list of extra fields to fetch from OpenSearch
             
         Returns:
             Tuple of (search_results, metrics)
         """
         # Build query based on mode - use dedicated semantic endpoint for semantic search
         use_semantic_endpoint = (search_mode == "SEMANTIC")
-        graphql_query = self._build_search_query(use_semantic_endpoint)
+        graphql_query = self._build_search_query(use_semantic_endpoint, fetch_extra_fields)
         
         variables = {
             "query": query,
@@ -262,8 +283,11 @@ class SemanticSearchIntegrationTest:
                 if "disabled" in error_msg.lower():
                     raise Exception(f"Semantic search is disabled: {error_msg}")
             
-            # Parse results
-            search_data = response.get("data", {}).get("searchAcrossEntities", {})
+            # Parse results - handle both endpoints
+            data = response.get("data", {})
+            # Try semantic endpoint first, then regular endpoint
+            search_data = (data.get("semanticSearchAcrossEntities") or 
+                          data.get("searchAcrossEntities") or {})
             total = search_data.get("total", 0)
             results_data = search_data.get("searchResults", [])
             
@@ -293,6 +317,11 @@ class SemanticSearchIntegrationTest:
                 # Get semantic similarity score if available
                 score = item.get("semanticSimilarity") if use_semantic_endpoint else None
                 
+                # Parse extra properties if available
+                extra_props = {}
+                for prop in item.get("extraProperties", []):
+                    extra_props[prop["name"]] = prop["value"]
+                
                 results.append(SearchResult(
                     urn=entity.get("urn", ""),
                     entity_type=entity_type,
@@ -300,7 +329,8 @@ class SemanticSearchIntegrationTest:
                     description=description,
                     platform=platform,
                     score=score,
-                    matched_fields=item.get("matchedFields")
+                    matched_fields=item.get("matchedFields"),
+                    extra_properties=extra_props if extra_props else None
                 ))
             
             # Create metrics
@@ -319,6 +349,10 @@ class SemanticSearchIntegrationTest:
             
         except Exception as e:
             # Create error metrics
+            if self.verbose:
+                console.print(f"[red]Error in {search_mode} search: {e}[/red]")
+                import traceback
+                console.print(f"[dim]{traceback.format_exc()}[/dim]")
             metrics = SearchMetrics(
                 query=query,
                 search_type=search_mode,
@@ -462,6 +496,108 @@ class SemanticSearchIntegrationTest:
         if comparison["semantic"]["errors"]:
             console.print(f"[red]Semantic search errors: {comparison['semantic']['errors']}[/red]")
     
+    def test_fetch_extra_fields(self, query: str = "customer analytics") -> Dict[str, Any]:
+        """
+        Test the fetchExtraFields functionality for field selection optimization.
+        
+        Args:
+            query: Search query to test
+            
+        Returns:
+            Test results dictionary
+        """
+        console.print(f"\n[bold]Testing fetchExtraFields with query: '{query}'[/bold]")
+        
+        # Define field sets to test
+        field_sets = {
+            "minimal": None,  # No extra fields
+            "basic": ["name", "platform", "browsePaths"],
+            "comprehensive": [
+                "name", "platform", "browsePaths", "browsePathV2",
+                "owners", "tags", "glossaryTerms", "description",
+                "customProperties", "container", "created", 
+                "lastModified", "usageCountLast30Days"
+            ]
+        }
+        
+        results = {}
+        for field_set_name, fields in field_sets.items():
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+                transient=True
+            ) as progress:
+                task = progress.add_task(f"Testing {field_set_name} field set...", total=None)
+                
+                # Run semantic search with fetchExtraFields
+                search_results, metrics = self.perform_search(
+                    query, 
+                    "SEMANTIC", 
+                    fetch_extra_fields=fields
+                )
+                
+                progress.update(task, completed=True)
+            
+            # Analyze extra properties
+            extra_field_counts = []
+            for result in search_results[:5]:  # Check top 5 results
+                if result.extra_properties:
+                    extra_field_counts.append(len(result.extra_properties))
+            
+            results[field_set_name] = {
+                "fields_requested": len(fields) if fields else 0,
+                "response_time_ms": metrics.response_time_ms,
+                "avg_extra_fields": sum(extra_field_counts) / len(extra_field_counts) if extra_field_counts else 0,
+                "sample_result": search_results[0] if search_results else None
+            }
+        
+        # Display results
+        self.display_fetch_extra_fields_results(results)
+        return results
+    
+    def display_fetch_extra_fields_results(self, results: Dict[str, Any]) -> None:
+        """
+        Display fetchExtraFields test results in a formatted table.
+        
+        Args:
+            results: Test results from test_fetch_extra_fields
+        """
+        table = Table(title="fetchExtraFields Performance Impact", show_header=True)
+        table.add_column("Field Set", style="cyan")
+        table.add_column("Fields Requested", style="yellow")
+        table.add_column("Avg Extra Fields", style="green")
+        table.add_column("Response Time (ms)", style="red")
+        table.add_column("Performance Impact", style="magenta")
+        
+        baseline_time = results.get("minimal", {}).get("response_time_ms", 0)
+        
+        for field_set_name, data in results.items():
+            perf_impact = ""
+            if baseline_time > 0 and field_set_name != "minimal":
+                impact_pct = ((data["response_time_ms"] - baseline_time) / baseline_time) * 100
+                perf_impact = f"+{impact_pct:.1f}%" if impact_pct > 0 else f"{impact_pct:.1f}%"
+            
+            table.add_row(
+                field_set_name.capitalize(),
+                str(data["fields_requested"]),
+                f"{data['avg_extra_fields']:.1f}",
+                f"{data['response_time_ms']:.2f}",
+                perf_impact if field_set_name != "minimal" else "Baseline"
+            )
+        
+        console.print(table)
+        
+        # Show sample extra properties
+        if results.get("comprehensive", {}).get("sample_result"):
+            sample = results["comprehensive"]["sample_result"]
+            if sample.extra_properties:
+                console.print("\n[bold]Sample Extra Properties (Comprehensive):[/bold]")
+                for key, value in list(sample.extra_properties.items())[:5]:
+                    # Truncate long values
+                    display_value = value[:100] + "..." if len(value) > 100 else value
+                    console.print(f"  • {key}: {display_value}")
+    
     def run_test_suite(self) -> None:
         """
         Run a comprehensive test suite with multiple query types.
@@ -496,6 +632,12 @@ class SemanticSearchIntegrationTest:
             self.display_comparison(comparison)
             all_comparisons.append(comparison)
             console.print("─" * 80)
+        
+        # Test fetchExtraFields functionality
+        console.print("\n" + "="*80)
+        console.print(Panel.fit("[bold]Testing fetchExtraFields Functionality[/bold]", border_style="green"))
+        self.test_fetch_extra_fields("customer sales analytics")
+        console.print("="*80 + "\n")
         
         # Display summary statistics
         self.display_summary_statistics(all_comparisons)
@@ -577,6 +719,10 @@ def main():
     parser.add_argument("--token", help="Authentication token", default=None)
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--query", help="Single query to test", default=None)
+    parser.add_argument("--test-fetch-fields", action="store_true", 
+                       help="Test only fetchExtraFields functionality")
+    parser.add_argument("--fetch-fields", nargs="+", 
+                       help="Specific fields to fetch (for single query test)")
     
     args = parser.parse_args()
     
@@ -587,10 +733,26 @@ def main():
         verbose=args.verbose
     )
     
-    # Run single query or full suite
-    if args.query:
-        comparison = test.compare_search_modes(args.query)
-        test.display_comparison(comparison)
+    # Run appropriate test based on arguments
+    if args.test_fetch_fields:
+        # Test fetchExtraFields functionality only
+        test.test_fetch_extra_fields(args.query or "customer analytics")
+    elif args.query:
+        # Test single query with optional fetchExtraFields
+        if args.fetch_fields:
+            console.print(f"[bold]Testing with fetchExtraFields: {args.fetch_fields}[/bold]")
+            results, metrics = test.perform_search(
+                args.query, "SEMANTIC", fetch_extra_fields=args.fetch_fields
+            )
+            console.print(f"Response time: {metrics.response_time_ms:.2f}ms")
+            console.print(f"Results: {len(results)}")
+            for i, result in enumerate(results[:5]):
+                console.print(f"{i+1}. {result.name} ({result.entity_type})")
+                if result.extra_properties:
+                    console.print(f"   Extra fields: {len(result.extra_properties)}")
+        else:
+            comparison = test.compare_search_modes(args.query)
+            test.display_comparison(comparison)
     else:
         test.run_test_suite()
     
