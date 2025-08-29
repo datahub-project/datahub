@@ -1040,7 +1040,7 @@ class S3Source(StatefulIngestionSourceBase):
             # This creates individual file-level datasets
             yield from self._process_simple_path(path_spec)
 
-    def _process_templated_path(self, path_spec: PathSpec) -> Iterable[BrowsePath]:  # noqa: C901
+    def _process_templated_path(self, path_spec: PathSpec) -> Iterable[BrowsePath]:
         """
         Process S3 paths containing {table} templates to create table-level datasets.
 
@@ -1148,116 +1148,106 @@ class S3Source(StatefulIngestionSourceBase):
                         continue
 
                     # STEP 5: Handle partition traversal based on configuration
-                    if True:
-                        dirs_to_process = []
+                    dirs_to_process = []
 
-                        if path_spec.traversal_method == FolderTraversalMethod.ALL:
-                            # Process ALL partitions (original behavior)
-                            dirs_to_process = list(
-                                list_folders(
-                                    bucket_name,
-                                    table_folder,
-                                    self.source_config.aws_config,
+                    if path_spec.traversal_method == FolderTraversalMethod.ALL:
+                        # Process ALL partitions (original behavior)
+                        dirs_to_process = list(
+                            list_folders(
+                                bucket_name,
+                                table_folder,
+                                self.source_config.aws_config,
+                            )
+                        )
+                        logger.info(
+                            f"Found ALL {len(dirs_to_process)} partition folders under table {table_name}"
+                        )
+
+                    else:
+                        # Use the original get_dir_to_process logic for MIN/MAX
+                        protocol = "s3://"  # Default protocol for S3
+
+                        if (
+                            path_spec.traversal_method == FolderTraversalMethod.MIN_MAX
+                            or path_spec.traversal_method == FolderTraversalMethod.MAX
+                        ):
+                            # Get MAX partition using original logic
+                            dirs_to_process_max = self.get_dir_to_process(
+                                bucket_name=bucket_name,
+                                folder=table_folder + "/",
+                                path_spec=path_spec,
+                                protocol=protocol,
+                                min=False,
+                            )
+                            if dirs_to_process_max:
+                                # Convert full S3 paths back to relative paths for processing
+                                dirs_to_process.extend(
+                                    [
+                                        d.replace(f"{protocol}{bucket_name}/", "")
+                                        for d in dirs_to_process_max
+                                    ]
                                 )
-                            )
-                            logger.info(
-                                f"Found ALL {len(dirs_to_process)} partition folders under table {table_name}"
-                            )
-
-                        else:
-                            # Use the original get_dir_to_process logic for MIN/MAX
-                            protocol = "s3://"  # Default protocol for S3
-
-                            if (
-                                path_spec.traversal_method
-                                == FolderTraversalMethod.MIN_MAX
-                                or path_spec.traversal_method
-                                == FolderTraversalMethod.MAX
-                            ):
-                                # Get MAX partition using original logic
-                                dirs_to_process_max = self.get_dir_to_process(
-                                    bucket_name=bucket_name,
-                                    folder=table_folder + "/",
-                                    path_spec=path_spec,
-                                    protocol=protocol,
-                                    min=False,
+                                logger.debug(
+                                    f"Added MAX partition: {dirs_to_process_max}"
                                 )
-                                if dirs_to_process_max:
-                                    # Convert full S3 paths back to relative paths for processing
-                                    dirs_to_process.extend(
-                                        [
-                                            d.replace(f"{protocol}{bucket_name}/", "")
-                                            for d in dirs_to_process_max
-                                        ]
-                                    )
-                                    logger.debug(
-                                        f"Added MAX partition: {dirs_to_process_max}"
-                                    )
 
-                            if (
-                                path_spec.traversal_method
-                                == FolderTraversalMethod.MIN_MAX
-                            ):
-                                # Get MIN partition using original logic
-                                dirs_to_process_min = self.get_dir_to_process(
-                                    bucket_name=bucket_name,
-                                    folder=table_folder + "/",
-                                    path_spec=path_spec,
-                                    protocol=protocol,
-                                    min=True,
+                        if path_spec.traversal_method == FolderTraversalMethod.MIN_MAX:
+                            # Get MIN partition using original logic
+                            dirs_to_process_min = self.get_dir_to_process(
+                                bucket_name=bucket_name,
+                                folder=table_folder + "/",
+                                path_spec=path_spec,
+                                protocol=protocol,
+                                min=True,
+                            )
+                            if dirs_to_process_min:
+                                # Convert full S3 paths back to relative paths for processing
+                                dirs_to_process.extend(
+                                    [
+                                        d.replace(f"{protocol}{bucket_name}/", "")
+                                        for d in dirs_to_process_min
+                                    ]
                                 )
-                                if dirs_to_process_min:
-                                    # Convert full S3 paths back to relative paths for processing
-                                    dirs_to_process.extend(
-                                        [
-                                            d.replace(f"{protocol}{bucket_name}/", "")
-                                            for d in dirs_to_process_min
-                                        ]
-                                    )
-                                    logger.debug(
-                                        f"Added MIN partition: {dirs_to_process_min}"
-                                    )
+                                logger.debug(
+                                    f"Added MIN partition: {dirs_to_process_min}"
+                                )
 
-                        # Process the selected partitions
-                        all_folders = []
-                        for partition_folder in dirs_to_process:
-                            # Ensure we have a clean folder path
-                            clean_folder = partition_folder.rstrip("/")
+                    # Process the selected partitions
+                    all_folders = []
+                    for partition_folder in dirs_to_process:
+                        # Ensure we have a clean folder path
+                        clean_folder = partition_folder.rstrip("/")
 
-                            logger.info(f"Scanning files in partition: {clean_folder}")
-                            partition_files = list(
-                                self.get_folder_info(path_spec, bucket, clean_folder)
-                            )
-                            all_folders.extend(partition_files)
+                        logger.info(f"Scanning files in partition: {clean_folder}")
+                        partition_files = list(
+                            self.get_folder_info(path_spec, bucket, clean_folder)
+                        )
+                        all_folders.extend(partition_files)
 
-                        if all_folders:
-                            # Use the most recent file across all processed partitions
-                            latest_file = max(
-                                all_folders, key=lambda x: x.modification_time
-                            )
+                    if all_folders:
+                        # Use the most recent file across all processed partitions
+                        latest_file = max(
+                            all_folders, key=lambda x: x.modification_time
+                        )
 
-                            # Get partition information
-                            partitions = [f for f in all_folders if f.is_partition]
+                        # Get partition information
+                        partitions = [f for f in all_folders if f.is_partition]
 
-                            # Calculate total size of processed partitions
-                            total_size = sum(f.size for f in all_folders)
+                        # Calculate total size of processed partitions
+                        total_size = sum(f.size for f in all_folders)
 
-                            # Create ONE BrowsePath per table
-                            # The key insight: we need to provide the sample file for schema inference
-                            # but the table path should be extracted correctly by extract_table_name_and_path
-                            yield BrowsePath(
-                                file=latest_file.sample_file,  # Sample file for schema inference
-                                timestamp=latest_file.modification_time,  # Latest timestamp
-                                size=total_size,  # Size of processed partitions
-                                partitions=partitions,  # Partition metadata
-                            )
-                        else:
-                            logger.warning(
-                                f"No files found in processed partitions for table {table_name}"
-                            )
+                        # Create ONE BrowsePath per table
+                        # The key insight: we need to provide the sample file for schema inference
+                        # but the table path should be extracted correctly by extract_table_name_and_path
+                        yield BrowsePath(
+                            file=latest_file.sample_file,  # Sample file for schema inference
+                            timestamp=latest_file.modification_time,  # Latest timestamp
+                            size=total_size,  # Size of processed partitions
+                            partitions=partitions,  # Partition metadata
+                        )
                     else:
                         logger.warning(
-                            f"No partition folders found under table {table_name}"
+                            f"No files found in processed partitions for table {table_name}"
                         )
 
         except Exception as e:
