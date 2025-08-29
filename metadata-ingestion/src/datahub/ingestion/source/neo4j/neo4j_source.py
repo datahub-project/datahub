@@ -33,14 +33,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    DateTypeClass,
-    NumberTypeClass,
-    StringTypeClass,
-    TimeTypeClass,
-)
 from datahub.sdk.dataset import Dataset
 
 log = logging.getLogger(__name__)
@@ -50,17 +42,26 @@ logging.basicConfig(level=logging.INFO)
 _NODE = "node"
 _RELATIONSHIP = "relationship"
 
-# Map Neo4j types to DataHub type classes
-_NEO4J_TYPE_MAPPING: Dict[str, type] = {
-    "list": ArrayTypeClass,
-    "boolean": BooleanTypeClass,
-    "integer": NumberTypeClass,
-    "local_date_time": TimeTypeClass,
-    "float": NumberTypeClass,
-    "string": StringTypeClass,
-    "date": DateTypeClass,
-    "node": StringTypeClass,
-    "relationship": StringTypeClass,
+# TODO: These DataHub schema field type constants should ideally be defined in SDK v2
+_ARRAY_TYPE = "array"
+_BOOLEAN_TYPE = "boolean"
+_INT_TYPE = "int"
+_TIMESTAMP_TYPE = "timestamp"
+_FLOAT_TYPE = "float"
+_STRING_TYPE = "string"
+_DATE_TYPE = "date"
+
+# Map Neo4j types to DataHub types
+_STRING_TYPE_MAPPING: Dict[str, str] = {
+    "list": _ARRAY_TYPE,
+    "boolean": _BOOLEAN_TYPE,
+    "integer": _INT_TYPE,
+    "local_date_time": _TIMESTAMP_TYPE,
+    "float": _FLOAT_TYPE,
+    "string": _STRING_TYPE,
+    "date": _DATE_TYPE,
+    "node": _STRING_TYPE,
+    "relationship": _STRING_TYPE,
 }
 
 
@@ -102,32 +103,28 @@ class Neo4jSource(StatefulIngestionSourceBase):
         config = Neo4jConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_field_type_class(self, attribute_type: Union[type, str]) -> type:
-        """Convert Neo4j attribute type to DataHub type class."""
+    def get_field_type_string(self, attribute_type: Union[type, str]) -> str:
+        """Convert Neo4j attribute type to DataHub string representation."""
         type_key = (
             attribute_type if isinstance(attribute_type, str) else str(attribute_type)
         )
-        return _NEO4J_TYPE_MAPPING.get(type_key, StringTypeClass)
+        return _STRING_TYPE_MAPPING.get(type_key, _STRING_TYPE)
 
     def create_schema_field_tuple(
         self, col_name: str, col_type: str, obj_type: Optional[str]
-    ) -> Tuple[str, type, str]:
-        """Convert Neo4j property to tuple.
-        
-        Returns (field_name, field_type_class, description) tuple.
-        """
-        # Special case: when a node has a relationship-typed property,
-        # treat it as a node reference. This ensures relationship properties
-        # within nodes are described as "NODE" rather than "RELATIONSHIP"
+    ) -> Tuple[str, str, str]:
+        """Convert Neo4j property to (field_name, field_type, description) tuple."""
+        # Special case: when a node has a relationship-typed property, treat it as a node reference
+        # This ensures relationship properties within nodes are described as "NODE" rather than "RELATIONSHIP"
         if obj_type == _NODE and col_type == _RELATIONSHIP:
             col_type = _NODE
 
-        field_type_class = self.get_field_type_class(col_type)
+        field_type = self.get_field_type_string(col_type)
         description = (
             col_type.upper() if col_type in (_NODE, _RELATIONSHIP) else col_type
         )
 
-        return (col_name, field_type_class, description)
+        return (col_name, field_type, description)
 
     def get_subtype_from_obj_type(self, obj_type: str) -> str:
         """Map Neo4j object type to DataHub subtype."""
