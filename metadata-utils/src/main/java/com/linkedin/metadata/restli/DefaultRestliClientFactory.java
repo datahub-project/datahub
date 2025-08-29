@@ -19,7 +19,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 public class DefaultRestliClientFactory {
 
@@ -70,9 +70,7 @@ public class DefaultRestliClientFactory {
 
   @Nonnull
   public static RestClient getRestLiClient(
-      @Nonnull URI gmsUri,
-      @Nullable String sslProtocol,
-      @Nullable Map<String, ?> inputParams) {
+      @Nonnull URI gmsUri, @Nullable String sslProtocol, @Nullable Map<String, ?> inputParams) {
     if (StringUtils.isBlank(gmsUri.getHost()) || gmsUri.getPort() <= 0) {
       throw new InvalidParameterException("Invalid restli server host name or port!");
     }
