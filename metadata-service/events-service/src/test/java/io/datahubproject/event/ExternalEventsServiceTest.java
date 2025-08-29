@@ -37,6 +37,12 @@ public class ExternalEventsServiceTest {
     MockitoAnnotations.initMocks(this);
     when(consumerPool.borrowConsumer()).thenReturn(kafkaConsumer);
     topicNames.put(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, "CustomerSpecificTopicName");
+    topicNames.put(
+        ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+        "CustomerSpecificVersionedTopicName");
+    topicNames.put(
+        ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+        "CustomerSpecificTimeseriesTopicName");
     service = new ExternalEventsService(consumerPool, objectMapper, topicNames, 10, 100);
 
     // Setup to simulate fetching records from Kafka
@@ -93,6 +99,38 @@ public class ExternalEventsServiceTest {
     // Execute
     ExternalEvents events =
         service.poll(ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME, null, 10, 5, null);
+
+    // Validate
+    assertNotNull(events);
+    verify(kafkaConsumer, atLeastOnce()).poll(any());
+  }
+
+  @Test
+  public void testPollValidMetadataChangeLogVersionedTopic() throws Exception {
+    // Mocking Kafka and ObjectMapper behaviors
+    when(kafkaConsumer.partitionsFor(anyString())).thenReturn(Collections.emptyList());
+    when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
+
+    // Execute
+    ExternalEvents events =
+        service.poll(
+            ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME, null, 10, 5, null);
+
+    // Validate
+    assertNotNull(events);
+    verify(kafkaConsumer, atLeastOnce()).poll(any());
+  }
+
+  @Test
+  public void testPollValidMetadataChangeLogTimeseriesTopic() throws Exception {
+    // Mocking Kafka and ObjectMapper behaviors
+    when(kafkaConsumer.partitionsFor(anyString())).thenReturn(Collections.emptyList());
+    when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
+
+    // Execute
+    ExternalEvents events =
+        service.poll(
+            ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME, null, 10, 5, null);
 
     // Validate
     assertNotNull(events);

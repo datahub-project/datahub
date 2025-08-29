@@ -80,7 +80,7 @@ public class ExternalEventsController {
               name = "topic",
               required = true,
               description =
-                  "The topic to read events for. Currently only supports PlatformEvent_v1, which provides Platform Events such as EntityChangeEvent and NotificationRequestEvent.")
+                  "The topic to read events for. Currently only supports PlatformEvent_v1, which provides Platform Events such as EntityChangeEvent and NotificationRequestEvents and MetadataChangeLog_v1, which provides all aspect updates.")
           @RequestParam(name = "topic", required = true)
           String topic,
       @Parameter(name = "offsetId", description = "The offset to start reading the topic from")
@@ -142,6 +142,12 @@ public class ExternalEventsController {
       @Nonnull final OperationContext opContext, @Nonnull final String topic) {
     if (Topics.PLATFORM_EVENT.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE);
+    }
+    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)) {
+      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
+    }
+    if (Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
+      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
     }
     return false;
   }

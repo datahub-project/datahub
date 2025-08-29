@@ -28,7 +28,16 @@ import org.apache.kafka.common.TopicPartition;
 public class ExternalEventsService {
 
   public static final String PLATFORM_EVENT_TOPIC_NAME = "PlatformEvent_v1";
-  private static final Set<String> ALLOWED_TOPICS = Set.of(PLATFORM_EVENT_TOPIC_NAME);
+  public static final String METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME =
+      "MetadataChangeLog_Versioned_v1";
+  public static final String METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME =
+      "MetadataChangeLog_Timeseries_v1";
+
+  private static final Set<String> ALLOWED_TOPICS =
+      Set.of(
+          PLATFORM_EVENT_TOPIC_NAME,
+          METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+          METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME);
   private final KafkaConsumerPool consumerPool;
   private final ObjectMapper objectMapper;
   private final Map<String, String>
@@ -80,6 +89,8 @@ public class ExternalEventsService {
     long timeout =
         (pollTimeoutSeconds != null ? pollTimeoutSeconds : defaultPollTimeoutSeconds) * 1000L;
 
+    System.out.println(String.format("Final topic is %s", finalTopic));
+
     try {
       List<TopicPartition> partitions =
           consumer.partitionsFor(finalTopic).stream()
@@ -88,9 +99,10 @@ public class ExternalEventsService {
       consumer.assign(partitions);
 
       Map<TopicPartition, Long> partitionOffsets =
-          getPartitionOffsets(topic, offsetId, consumer, partitions, lookbackWindowDays);
+          getPartitionOffsets(finalTopic, offsetId, consumer, partitions, lookbackWindowDays);
 
       for (Map.Entry<TopicPartition, Long> entry : partitionOffsets.entrySet()) {
+        System.out.println(String.format("Seeking to topic is %s", entry.getKey().topic()));
         consumer.seek(entry.getKey(), entry.getValue());
       }
 
