@@ -101,6 +101,7 @@ class RedshiftConfig(
     )
 
     _database_alias_removed = pydantic_removed_field("database_alias")
+    _use_lineage_v2_removed = pydantic_removed_field("use_lineage_v2")
 
     default_schema: str = Field(
         default="public",
@@ -112,10 +113,6 @@ class RedshiftConfig(
         description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
     )
 
-    use_lineage_v2: bool = Field(
-        default=True,
-        description="Whether to use the new SQL-based lineage collector.",
-    )
     lineage_v2_generate_queries: bool = Field(
         default=True,
         description="Whether to generate queries entities for the new SQL-based lineage collector.",

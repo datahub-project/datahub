@@ -1,48 +1,37 @@
 from datetime import datetime
 from functools import partial
-from typing import List
+from typing import Dict, List, Union
 from unittest.mock import MagicMock
 
-import datahub.sql_parsing.sqlglot_lineage as sqlglot_l
+import pytest
+
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.redshift.config import RedshiftConfig
-from datahub.ingestion.source.redshift.lineage import (
+from datahub.ingestion.source.redshift.lineage_v2 import (
     LineageCollectorType,
-    LineageDataset,
     LineageDatasetPlatform,
-    LineageItem,
-    RedshiftLineageExtractor,
+    RedshiftSqlLineageV2,
     parse_alter_table_rename,
 )
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
-    TempTableRow,
+    RedshiftTable,
+    RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
-from datahub.metadata.schema_classes import NumberTypeClass, SchemaFieldDataTypeClass
-from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnTransformation,
     DownstreamColumnRef,
-    SqlParsingDebugInfo,
-    SqlParsingResult,
 )
 from tests.unit.redshift.redshift_query_mocker import mock_cursor
 
 
 def test_get_sources_from_query():
-    config = RedshiftConfig(host_port="localhost:5439", database="test")
-    report = RedshiftReport()
-
     test_query = """
         select * from my_schema.my_table
     """
-    lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
-    )
+    lineage_extractor = get_lineage_extractor()
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
         db_name="test", query=test_query
     )
@@ -57,15 +46,10 @@ def test_get_sources_from_query():
 
 
 def test_get_sources_from_query_with_only_table_name():
-    config = RedshiftConfig(host_port="localhost:5439", database="test")
-    report = RedshiftReport()
-
     test_query = """
         select * from my_table
     """
-    lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
-    )
+    lineage_extractor = get_lineage_extractor()
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
         db_name="test", query=test_query
     )
@@ -80,15 +64,10 @@ def test_get_sources_from_query_with_only_table_name():
 
 
 def test_get_sources_from_query_with_database():
-    config = RedshiftConfig(host_port="localhost:5439", database="test")
-    report = RedshiftReport()
-
     test_query = """
         select * from test.my_schema.my_table
     """
-    lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
-    )
+    lineage_extractor = get_lineage_extractor()
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
         db_name="test", query=test_query
     )
@@ -103,15 +82,10 @@ def test_get_sources_from_query_with_database():
 
 
 def test_get_sources_from_query_with_non_default_database():
-    config = RedshiftConfig(host_port="localhost:5439", database="test")
-    report = RedshiftReport()
-
     test_query = """
         select * from test2.my_schema.my_table
     """
-    lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
-    )
+    lineage_extractor = get_lineage_extractor()
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
         db_name="test", query=test_query
     )
@@ -126,15 +100,10 @@ def test_get_sources_from_query_with_non_default_database():
 
 
 def test_get_sources_from_query_with_only_table():
-    config = RedshiftConfig(host_port="localhost:5439", database="test")
-    report = RedshiftReport()
-
     test_query = """
         select * from my_table
     """
-    lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo")
-    )
+    lineage_extractor = get_lineage_extractor()
     lineage_datasets, _ = lineage_extractor._get_sources_from_query(
         db_name="test", query=test_query
     )
@@ -163,7 +132,7 @@ def test_parse_alter_table_rename():
     )
 
 
-def get_lineage_extractor() -> RedshiftLineageExtractor:
+def get_lineage_extractor() -> RedshiftSqlLineageV2:
     config = RedshiftConfig(
         host_port="localhost:5439",
         database="test",
@@ -173,8 +142,8 @@ def get_lineage_extractor() -> RedshiftLineageExtractor:
     )
     report = RedshiftReport()
 
-    lineage_extractor = RedshiftLineageExtractor(
-        config, report, PipelineContext(run_id="foo", graph=mock_graph())
+    lineage_extractor = RedshiftSqlLineageV2(
+        config, report, PipelineContext(run_id="foo"), config.database
     )
 
     return lineage_extractor
@@ -224,582 +193,6 @@ def mock_redshift_connection() -> MagicMock:
     return connection
 
 
-def mock_graph() -> DataHubGraph:
-    graph = MagicMock()
-
-    graph._make_schema_resolver.return_value = SchemaResolver(
-        platform="redshift",
-        env="PROD",
-        platform_instance=None,
-        graph=None,
-    )
-
-    return graph
-
-
-def test_collapse_temp_lineage():
-    lineage_extractor = get_lineage_extractor()
-
-    connection: MagicMock = mock_redshift_connection()
-
-    lineage_extractor._init_temp_table_schema(
-        database=lineage_extractor.config.database,
-        temp_tables=list(lineage_extractor.get_temp_tables(connection=connection)),
-    )
-
-    lineage_extractor._populate_lineage_map(
-        query="select * from test_collapse_temp_lineage",
-        database=lineage_extractor.config.database,
-        all_tables_set={
-            lineage_extractor.config.database: {"public": {"player_price_with_hike_v6"}}
-        },
-        connection=connection,
-        lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
-    )
-
-    print(lineage_extractor._lineage_map)
-
-    target_urn: str = "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_price_with_hike_v6,PROD)"
-
-    assert lineage_extractor._lineage_map.get(target_urn) is not None
-
-    lineage_item: LineageItem = lineage_extractor._lineage_map[target_urn]
-
-    assert list(lineage_item.upstreams)[0].urn == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_activity,PROD)"
-    )
-
-    assert lineage_item.cll is not None
-
-    assert lineage_item.cll[0].downstream.table == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,"
-        "test.public.player_price_with_hike_v6,PROD)"
-    )
-
-    assert lineage_item.cll[0].downstream.column == "price"
-
-    assert lineage_item.cll[0].upstreams[0].table == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.player_activity,PROD)"
-    )
-
-    assert lineage_item.cll[0].upstreams[0].column == "price"
-
-
-def test_collapse_temp_recursive_cll_lineage():
-    lineage_extractor = get_lineage_extractor()
-
-    temp_table: TempTableRow = TempTableRow(
-        transaction_id=126,
-        query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price_usd) AS price_usd "
-        "from #player_activity_temp group by player_id",
-        start_time=datetime.now(),
-        session_id="abc",
-        create_command="CREATE TABLE #player_price",
-        parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE_TABLE_AS_SELECT,
-            in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
-            ],
-            out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
-            ],
-            debug_info=SqlParsingDebugInfo(),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                        column="player_id",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="INTEGER",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="player_id",
-                        )
-                    ],
-                    logic=None,
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                        column="price_usd",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="BIGINT",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="price_usd",
-                        )
-                    ],
-                    logic=None,
-                ),
-            ],
-        ),
-        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-    )
-
-    temp_table_activity: TempTableRow = TempTableRow(
-        transaction_id=127,
-        query_text="CREATE TABLE #player_activity_temp SELECT player_id, SUM(price) AS price_usd "
-        "from player_activity",
-        start_time=datetime.now(),
-        session_id="abc",
-        create_command="CREATE TABLE #player_activity_temp",
-        parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE_TABLE_AS_SELECT,
-            in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
-            ],
-            out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
-            ],
-            debug_info=SqlParsingDebugInfo(),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                        column="player_id",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="INTEGER",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
-                            column="player_id",
-                        )
-                    ],
-                    logic=None,
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                        column="price_usd",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="BIGINT",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
-                            column="price",
-                        )
-                    ],
-                    logic=None,
-                ),
-            ],
-        ),
-        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-    )
-
-    assert temp_table.urn
-    assert temp_table_activity.urn
-
-    lineage_extractor.temp_tables[temp_table.urn] = temp_table
-    lineage_extractor.temp_tables[temp_table_activity.urn] = temp_table_activity
-
-    target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(
-                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
-                column="price",
-                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
-                native_column_type="DOUBLE PRECISION",
-            ),
-            upstreams=[
-                sqlglot_l.ColumnRef(
-                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                    column="price_usd",
-                )
-            ],
-            logic=None,
-        )
-    ]
-
-    datasets = lineage_extractor._get_upstream_lineages(
-        sources=[
-            LineageDataset(
-                platform=LineageDatasetPlatform.REDSHIFT,
-                urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-            )
-        ],
-        target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
-        raw_db_name="dev",
-        alias_db_name="dev",
-        all_tables_set={
-            "dev": {
-                "public": set(),
-            }
-        },
-        connection=MagicMock(),
-        target_dataset_cll=target_dataset_cll,
-    )
-
-    assert len(datasets) == 1
-
-    assert (
-        datasets[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
-    )
-
-    assert target_dataset_cll[0].upstreams[0].table == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
-    )
-    assert target_dataset_cll[0].upstreams[0].column == "price"
-
-
-def test_collapse_temp_recursive_with_compex_column_cll_lineage():
-    lineage_extractor = get_lineage_extractor()
-
-    temp_table: TempTableRow = TempTableRow(
-        transaction_id=126,
-        query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price+tax) AS price_usd "
-        "from #player_activity_temp group by player_id",
-        start_time=datetime.now(),
-        session_id="abc",
-        create_command="CREATE TABLE #player_price",
-        parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE_TABLE_AS_SELECT,
-            in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
-            ],
-            out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
-            ],
-            debug_info=SqlParsingDebugInfo(),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                        column="player_id",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="INTEGER",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="player_id",
-                        )
-                    ],
-                    logic=None,
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                        column="price_usd",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="BIGINT",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="price",
-                        ),
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="tax",
-                        ),
-                    ],
-                    logic=None,
-                ),
-            ],
-        ),
-        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-    )
-
-    temp_table_activity: TempTableRow = TempTableRow(
-        transaction_id=127,
-        query_text="CREATE TABLE #player_activity_temp SELECT player_id, price, tax "
-        "from player_activity",
-        start_time=datetime.now(),
-        session_id="abc",
-        create_command="CREATE TABLE #player_activity_temp",
-        parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE_TABLE_AS_SELECT,
-            in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
-            ],
-            out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
-            ],
-            debug_info=SqlParsingDebugInfo(),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                        column="player_id",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="INTEGER",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
-                            column="player_id",
-                        )
-                    ],
-                    logic=None,
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                        column="price",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="BIGINT",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
-                            column="price",
-                        )
-                    ],
-                    logic=None,
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                        column="tax",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="BIGINT",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)",
-                            column="tax",
-                        )
-                    ],
-                    logic=None,
-                ),
-            ],
-        ),
-        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-    )
-    assert temp_table.urn
-    assert temp_table_activity.urn
-
-    lineage_extractor.temp_tables[temp_table.urn] = temp_table
-    lineage_extractor.temp_tables[temp_table_activity.urn] = temp_table_activity
-
-    target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(
-                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
-                column="price",
-                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
-                native_column_type="DOUBLE PRECISION",
-            ),
-            upstreams=[
-                sqlglot_l.ColumnRef(
-                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                    column="price_usd",
-                )
-            ],
-            logic=None,
-        ),
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(
-                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
-                column="player_id",
-                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
-                native_column_type="BIGINT",
-            ),
-            upstreams=[
-                sqlglot_l.ColumnRef(
-                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                    column="player_id",
-                )
-            ],
-            logic=None,
-        ),
-    ]
-
-    datasets = lineage_extractor._get_upstream_lineages(
-        sources=[
-            LineageDataset(
-                platform=LineageDatasetPlatform.REDSHIFT,
-                urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-            )
-        ],
-        target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
-        raw_db_name="dev",
-        alias_db_name="dev",
-        all_tables_set={
-            "dev": {
-                "public": set(),
-            }
-        },
-        connection=MagicMock(),
-        target_dataset_cll=target_dataset_cll,
-    )
-
-    assert len(datasets) == 1
-
-    assert (
-        datasets[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
-    )
-
-    assert target_dataset_cll[0].upstreams[0].table == (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
-    )
-    assert target_dataset_cll[0].upstreams[0].column == "price"
-    assert target_dataset_cll[0].upstreams[1].column == "tax"
-    assert target_dataset_cll[1].upstreams[0].column == "player_id"
-
-
-def test_collapse_temp_recursive_cll_lineage_with_circular_reference():
-    lineage_extractor = get_lineage_extractor()
-
-    temp_table: TempTableRow = TempTableRow(
-        transaction_id=126,
-        query_text="CREATE TABLE #player_price distkey(player_id) AS SELECT player_id, SUM(price_usd) AS price_usd "
-        "from #player_activity_temp group by player_id",
-        start_time=datetime.now(),
-        session_id="abc",
-        create_command="CREATE TABLE #player_price",
-        parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE_TABLE_AS_SELECT,
-            in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
-            ],
-            out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)"
-            ],
-            debug_info=SqlParsingDebugInfo(),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                        column="player_id",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="INTEGER",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="player_id",
-                        )
-                    ],
-                    logic=None,
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                        column="price_usd",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="BIGINT",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="price_usd",
-                        )
-                    ],
-                    logic=None,
-                ),
-            ],
-        ),
-        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-    )
-
-    temp_table_activity: TempTableRow = TempTableRow(
-        transaction_id=127,
-        query_text="CREATE TABLE #player_activity_temp SELECT player_id, SUM(price) AS price_usd "
-        "from #player_price",
-        start_time=datetime.now(),
-        session_id="abc",
-        create_command="CREATE TABLE #player_activity_temp",
-        parsed_result=SqlParsingResult(
-            query_type=QueryType.CREATE_TABLE_AS_SELECT,
-            in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_activity,PROD)"
-            ],
-            out_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)"
-            ],
-            debug_info=SqlParsingDebugInfo(),
-            column_lineage=[
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                        column="player_id",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="INTEGER",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="player_id",
-                        )
-                    ],
-                    logic=None,
-                ),
-                ColumnLineageInfo(
-                    downstream=DownstreamColumnRef(
-                        table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                        column="price_usd",
-                        column_type=SchemaFieldDataTypeClass(NumberTypeClass()),
-                        native_column_type="BIGINT",
-                    ),
-                    upstreams=[
-                        sqlglot_l.ColumnRef(
-                            table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-                            column="price_usd",
-                        )
-                    ],
-                    logic=None,
-                ),
-            ],
-        ),
-        urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_activity_temp,PROD)",
-    )
-
-    assert temp_table.urn
-    assert temp_table_activity.urn
-
-    lineage_extractor.temp_tables[temp_table.urn] = temp_table
-    lineage_extractor.temp_tables[temp_table_activity.urn] = temp_table_activity
-
-    target_dataset_cll: List[sqlglot_l.ColumnLineageInfo] = [
-        ColumnLineageInfo(
-            downstream=DownstreamColumnRef(
-                table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v6,PROD)",
-                column="price",
-                column_type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
-                native_column_type="DOUBLE PRECISION",
-            ),
-            upstreams=[
-                sqlglot_l.ColumnRef(
-                    table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-                    column="price_usd",
-                )
-            ],
-            logic=None,
-        )
-    ]
-
-    datasets = lineage_extractor._get_upstream_lineages(
-        sources=[
-            LineageDataset(
-                platform=LineageDatasetPlatform.REDSHIFT,
-                urn="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.#player_price,PROD)",
-            )
-        ],
-        target_table="urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.player_price_with_hike_v4,PROD)",
-        raw_db_name="dev",
-        alias_db_name="dev",
-        all_tables_set={
-            "dev": {
-                "public": set(),
-            }
-        },
-        connection=MagicMock(),
-        target_dataset_cll=target_dataset_cll,
-    )
-
-    assert len(datasets) == 1
-    # Here we only interested if it fails or not
-
-
 def test_external_schema_get_upstream_schema_success():
     schema = RedshiftSchema(
         name="schema",
@@ -834,3 +227,201 @@ def test_local_schema_no_upstream_schema():
     )
 
     assert schema.get_upstream_schema_name() is None
+
+
+def test_make_filtered_target():
+    lineage_extractor = get_lineage_extractor()
+
+    # Set up known_urns
+    lineage_extractor.known_urns = {
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.known_table,PROD)"
+    }
+
+    # Mock LineageRow
+    lineage_row = MagicMock()
+    lineage_row.target_schema = "public"
+    lineage_row.target_table = "known_table"
+
+    target = lineage_extractor._make_filtered_target(lineage_row)
+    assert target is not None
+    assert (
+        target.urn()
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.known_table,PROD)"
+    )
+
+    # Test with unknown table
+    lineage_row.target_table = "unknown_table"
+    target = lineage_extractor._make_filtered_target(lineage_row)
+    assert target is None
+
+
+def test_get_s3_path():
+    lineage_extractor = get_lineage_extractor()
+
+    # Test with S3 config that strips URLs
+    lineage_extractor.config.s3_lineage_config = MagicMock()
+    lineage_extractor.config.s3_lineage_config.strip_urls = True
+    lineage_extractor.config.s3_lineage_config.path_specs = []
+    lineage_extractor.config.s3_lineage_config.ignore_non_path_spec_path = False
+
+    path = lineage_extractor._get_s3_path("s3://bucket/path/to/file.csv")
+    assert path == "s3://bucket/path/to"
+
+
+def test_build_s3_path_from_row():
+    lineage_extractor = get_lineage_extractor()
+
+    # Test valid S3 path
+    filename = "s3://bucket/path/to/file.csv"
+    path = lineage_extractor._build_s3_path_from_row(filename)
+    assert path == "bucket/path/to"
+
+    # Test non-S3 path (should raise ValueError)
+    with pytest.raises(ValueError):
+        lineage_extractor._build_s3_path_from_row("file://local/path")
+
+
+def test_get_sources():
+    lineage_extractor = get_lineage_extractor()
+
+    # Test SQL parser lineage type with DDL
+    sources, cll = lineage_extractor._get_sources(
+        lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
+        db_name="test",
+        source_schema=None,
+        source_table=None,
+        ddl="SELECT * FROM test.public.source_table",
+        filename=None,
+    )
+    assert isinstance(sources, list)
+
+    # Test COPY lineage type with S3 filename
+    sources, cll = lineage_extractor._get_sources(
+        lineage_type=LineageCollectorType.COPY,
+        db_name="test",
+        source_schema=None,
+        source_table=None,
+        ddl=None,
+        filename="s3://bucket/path/to/file.csv",
+    )
+    assert len(sources) == 1
+    assert sources[0].platform == LineageDatasetPlatform.S3
+
+    # Test with schema and table
+    sources, cll = lineage_extractor._get_sources(
+        lineage_type=LineageCollectorType.QUERY_SCAN,
+        db_name="test",
+        source_schema="public",
+        source_table="source_table",
+        ddl=None,
+        filename=None,
+    )
+    assert len(sources) == 1
+    assert sources[0].platform == LineageDatasetPlatform.REDSHIFT
+
+
+def test_get_target_lineage():
+    lineage_extractor = get_lineage_extractor()
+
+    # Mock LineageRow
+    lineage_row = MagicMock()
+    lineage_row.target_schema = "public"
+    lineage_row.target_table = "target_table"
+    lineage_row.filename = None
+
+    all_tables_set = {"test": {"public": {"target_table"}}}
+
+    # Test normal table lineage
+    target = lineage_extractor._get_target_lineage(
+        alias_db_name="test",
+        lineage_row=lineage_row,
+        lineage_type=LineageCollectorType.QUERY_SCAN,
+        all_tables_set=all_tables_set,
+    )
+    assert target is not None
+    assert target.dataset.platform == LineageDatasetPlatform.REDSHIFT
+
+    # Test UNLOAD lineage with S3 target
+    lineage_row.filename = "s3://bucket/output/file.csv"
+    target = lineage_extractor._get_target_lineage(
+        alias_db_name="test",
+        lineage_row=lineage_row,
+        lineage_type=LineageCollectorType.UNLOAD,
+        all_tables_set=all_tables_set,
+    )
+    assert target is not None
+    assert target.dataset.platform == LineageDatasetPlatform.S3
+
+
+def test_process_table_renames_integration():
+    """Integration test for _process_table_renames method."""
+    lineage_extractor = get_lineage_extractor()
+
+    # Mock connection using the query mocker
+    connection = mock_redshift_connection()
+
+    # Initial all_tables structure
+    all_tables = {
+        "test": {"public": {"new_table_name"}, "analytics": {"new_analytics_table"}}
+    }
+
+    lineage_extractor.start_time = lineage_extractor.config.start_time
+    lineage_extractor.end_time = lineage_extractor.config.end_time
+
+    # Process table renames
+    table_renames, updated_all_tables = lineage_extractor._process_table_renames(
+        database="test", connection=connection, all_tables=all_tables
+    )
+
+    # Verify results
+    assert len(table_renames) == 2
+
+    # Verify first rename
+    new_urn1 = (
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.new_table_name,PROD)"
+    )
+    assert new_urn1 in table_renames
+    assert (
+        table_renames[new_urn1].original_urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,test.public.old_table_name,PROD)"
+    )
+
+    # Verify second rename
+    new_urn2 = "urn:li:dataset:(urn:li:dataPlatform:redshift,test.analytics.new_analytics_table,PROD)"
+    assert new_urn2 in table_renames
+    assert (
+        table_renames[new_urn2].original_urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,test.analytics.old_analytics_table,PROD)"
+    )
+
+    # Verify all_tables was updated
+    assert "old_table_name" in updated_all_tables["test"]["public"]
+    assert "new_table_name" in updated_all_tables["test"]["public"]
+    assert "old_analytics_table" in updated_all_tables["test"]["analytics"]
+    assert "new_analytics_table" in updated_all_tables["test"]["analytics"]
+
+
+def test_build():
+    lineage_extractor = get_lineage_extractor()
+
+    connection: MagicMock = mock_redshift_connection()
+
+    # Mock tables and schemas
+    all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
+        "test": {"public": []}
+    }
+
+    db_schemas = {
+        "test": {
+            "public": RedshiftSchema(
+                name="public",
+                database="test",
+                type="local",
+                option=None,
+                external_platform=None,
+            )
+        }
+    }
+
+    # Test build method doesn't raise exception
+    lineage_extractor.build(connection, all_tables, db_schemas)
