@@ -1,10 +1,11 @@
 import { Space, Table, Typography } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import Link from 'antd/lib/typography/Link';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import StripMarkdownText from '@app/entity/shared/components/styled/StripMarkdownText';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetMlModelQuery } from '@graphql/mlModel.generated';
@@ -17,8 +18,21 @@ const TabContent = styled.div`
 export default function MLModelGroupsTab() {
     const baseEntity = useBaseEntity<GetMlModelQuery>();
     const model = baseEntity?.mlModel;
+    const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
 
     const entityRegistry = useEntityRegistry();
+
+    const ABBREVIATED_LIMIT = 80;
+
+    const handleExpanded = (urn: string, expanded: boolean) => {
+        const newExpanded = new Set(expandedDescriptions);
+        if (expanded) {
+            newExpanded.add(urn);
+        } else {
+            newExpanded.delete(urn);
+        }
+        setExpandedDescriptions(newExpanded);
+    };
 
     const propertyTableColumns: ColumnsType<MlModelGroup> = [
         {
@@ -35,6 +49,55 @@ export default function MLModelGroupsTab() {
         {
             title: 'Description',
             dataIndex: 'description',
+            key: 'description',
+            width: 300,
+            render: (_: any, record: any) => {
+                const description = record.description || '';
+
+                if (!description) {
+                    return <Typography.Text>-</Typography.Text>;
+                }
+
+                const isExpanded = expandedDescriptions.has(record.urn);
+
+                if (isExpanded) {
+                    return (
+                        <>
+                            <Typography.Text>{description}</Typography.Text>
+                            <br />
+                            <Typography.Link
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleExpanded(record.urn, false);
+                                }}
+                            >
+                                Read Less
+                            </Typography.Link>
+                        </>
+                    );
+                }
+
+                return (
+                    <StripMarkdownText
+                        limit={ABBREVIATED_LIMIT}
+                        readMore={
+                            <>
+                                <Typography.Link
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleExpanded(record.urn, true);
+                                    }}
+                                >
+                                    Read More
+                                </Typography.Link>
+                            </>
+                        }
+                        shouldWrap
+                    >
+                        {description}
+                    </StripMarkdownText>
+                );
+            },
         },
     ];
 
