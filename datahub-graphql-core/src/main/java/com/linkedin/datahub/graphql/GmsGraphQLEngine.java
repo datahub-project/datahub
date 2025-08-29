@@ -2368,6 +2368,7 @@ public class GmsGraphQLEngine {
                 typeWiring.typeResolver(
                     new EntityInterfaceTypeResolver(
                         loadableTypes.stream()
+                            .filter(graphType -> graphType instanceof EntityType)
                             .map(graphType -> (EntityType<?, ?>) graphType)
                             .collect(Collectors.toList()))))
         .type(
