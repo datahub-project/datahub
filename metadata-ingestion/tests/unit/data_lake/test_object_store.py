@@ -9,9 +9,9 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     ObjectStoreSourceAdapter,
     S3ObjectStore,
     create_object_store_adapter,
-    get_object_key,
-    get_object_store_bucket_name,
-    get_object_store_for_uri,
+)
+from datahub.ingestion.source.data_lake_common.object_store_client import (
+    ObjectStoreClient,
 )
 
 
@@ -309,7 +309,7 @@ class TestUtilityFunctions:
     )
     def test_get_object_store_for_uri(self, uri, expected):
         """Test the get_object_store_for_uri function."""
-        assert get_object_store_for_uri(uri) == expected
+        assert ObjectStoreClient.get_object_store_for_uri(uri) == expected
 
     @pytest.mark.parametrize(
         "uri,expected",
@@ -325,13 +325,13 @@ class TestUtilityFunctions:
         ],
     )
     def test_get_object_store_bucket_name(self, uri, expected):
-        """Test the get_object_store_bucket_name function."""
-        assert get_object_store_bucket_name(uri) == expected
+        """Test the ObjectStoreClient.get_bucket_name function."""
+        assert ObjectStoreClient.get_bucket_name(uri) == expected
 
     def test_get_object_store_bucket_name_invalid_uri(self):
-        """Test get_object_store_bucket_name with unsupported URI."""
+        """Test ObjectStoreClient.get_bucket_name with unsupported URI."""
         with pytest.raises(ValueError):
-            get_object_store_bucket_name("file:///path/to/file")
+            ObjectStoreClient.get_bucket_name("file:///path/to/file")
 
     @pytest.mark.parametrize(
         "uri,expected",
@@ -347,13 +347,13 @@ class TestUtilityFunctions:
         ],
     )
     def test_get_object_key(self, uri, expected):
-        """Test the get_object_key function."""
-        assert get_object_key(uri) == expected
+        """Test the ObjectStoreClient.get_object_key function."""
+        assert ObjectStoreClient.get_object_key(uri) == expected
 
     def test_get_object_key_invalid_uri(self):
-        """Test get_object_key with unsupported URI."""
+        """Test ObjectStoreClient.get_object_key with unsupported URI."""
         with pytest.raises(ValueError):
-            get_object_key("file:///path/to/file")
+            ObjectStoreClient.get_object_key("file:///path/to/file")
 
 
 class TestObjectStoreSourceAdapter:
@@ -697,8 +697,8 @@ class TestABSHTTPSSupport:
         ],
     )
     def test_fallback_bucket_name_resolution(self, uri, expected):
-        """Test the fallback logic in get_object_store_bucket_name."""
-        assert get_object_store_bucket_name(uri) == expected
+        """Test the fallback logic in ObjectStoreClient.get_bucket_name."""
+        assert ObjectStoreClient.get_bucket_name(uri) == expected
 
     def test_mixed_format_compatibility(self):
         """Test that both abfss:// and HTTPS formats work for the same container."""
