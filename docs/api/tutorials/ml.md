@@ -596,6 +596,7 @@ Find group information in the **Model** page under the **Group** tab:
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-with-model-group.png"/>
 </p>
+
 </TabItem>
 
 <TabItem value="graphql" label="GraphQL">
