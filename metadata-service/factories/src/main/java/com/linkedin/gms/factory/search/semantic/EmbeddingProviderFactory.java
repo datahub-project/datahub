@@ -5,7 +5,6 @@
  */
 package com.linkedin.gms.factory.search.semantic;
 
-import com.linkedin.gms.factory.integration.IntegrationsServiceFactory;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.IntegrationsServiceEmbeddingProvider;
@@ -14,11 +13,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Lazy;
 
 @Configuration
-@Import({IntegrationsServiceFactory.class})
 public class EmbeddingProviderFactory {
 
   @Autowired

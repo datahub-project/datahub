@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -26,6 +28,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -207,17 +210,27 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             normalizedPageSize,
             Math.min(MAX_K, (int) Math.ceil(needed * DEFAULT_OVERSAMPLE_FACTOR)));
 
-    // 6) Execute OpenSearch nested kNN query with pre-filtering inside kNN
-    List<SearchEntity> hits = executeKnn(indices, queryEmbedding, k, finalFilterMap);
+    // 6) Build field set using same logic as keyword search
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    Set<String> fieldsToFetch =
+        new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
+    if (searchFlags != null && searchFlags.getFetchExtraFields() != null) {
+      fieldsToFetch.addAll(searchFlags.getFetchExtraFields());
+    }
 
-    // 7) Slice [from, from+pageSize)
+    // 7) Execute OpenSearch nested kNN query with pre-filtering inside kNN
+    List<SearchEntity> hits = executeKnn(indices, queryEmbedding, k, finalFilterMap, fieldsToFetch);
+
+    // 8) Slice [from, from+pageSize)
     if (from >= hits.size()) {
       return emptyResult(from, normalizedPageSize);
     }
     int to = Math.min(hits.size(), from + normalizedPageSize);
     List<SearchEntity> page = hits.subList(from, to);
 
-    // 8) Build SearchResult (numEntities unknown precisely with kNN; best-effort is hits.size())
+    // 9) Build SearchResult following keyword search pattern
+    // Note: For k-NN, numEntities represents the total candidates found (after filtering),
+    // not total documents in index. With track_total_hits=false, hits.size() is our best estimate.
     SearchResultMetadata metadata =
         new SearchResultMetadata()
             .setAggregations(new AggregationMetadataArray())
@@ -268,17 +281,19 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * @param vector query embedding vector
    * @param k number of nearest neighbors to retrieve from OpenSearch
    * @param docLevelFilterMap optional document-level filter map to apply within the kNN filter
+   * @param fieldsToFetch set of fields to fetch in the _source (supports fetchExtraFields)
    * @return list of {@link SearchEntity} constructed from OpenSearch hits
    */
   private List<SearchEntity> executeKnn(
       @Nonnull List<String> indices,
       @Nonnull float[] vector,
       int k,
-      @Nullable Map<String, Object> docLevelFilterMap) {
+      @Nullable Map<String, Object> docLevelFilterMap,
+      @Nonnull Set<String> fieldsToFetch) {
     try {
       // Build the complete query JSON with pre-filtering inside kNN
       Map<String, Object> queryJson =
-          buildSemanticQueryWithPreFiltering(vector, k, docLevelFilterMap);
+          buildSemanticQueryWithPreFiltering(vector, k, docLevelFilterMap, fieldsToFetch);
 
       // Prepare the request body
       String requestBody = objectMapper.writeValueAsString(queryJson);
@@ -328,11 +343,9 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         results.add(entity);
       }
 
-      long totalHits = responseJson.path("hits").path("total").path("value").asLong();
-      log.info(
-          "kNN search with pre-filtering returned {} hits out of {} total",
-          results.size(),
-          totalHits);
+      // Note: With track_total_hits=false, we don't get exact total counts for performance
+      // This follows keyword search pattern. In k-NN, the returned hits are our best estimate.
+      log.info("kNN search with pre-filtering returned {} hits", results.size());
       return results;
 
     } catch (IOException e) {
@@ -342,14 +355,26 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
 
   /**
    * Build the complete OpenSearch query JSON with pre-filtering inside the kNN block. This produces
-   * a query structure like: { "size": k, "track_total_hits": true, "_source": ["urn", "typeNames",
-   * "name", "platform", "qualifiedName"], "query": { "nested": { "path":
-   * "embeddings.cohere_embed_v3.chunks", "score_mode": "max", "query": { "knn": {
-   * "embeddings.cohere_embed_v3.chunks.vector": { "vector": [...], "k": k, "filter": { "bool": {
-   * "filter": [...] } } } } } } } }
+   * a query structure like: { "size": k, "track_total_hits": false, "_source": [fieldsToFetch],
+   * "query": { "nested": { "path": "embeddings.cohere_embed_v3.chunks", "score_mode": "max",
+   * "query": { "knn": { "embeddings.cohere_embed_v3.chunks.vector": { "vector": [...], "k": k,
+   * "filter": { "bool": { "filter": [...] } } } } } } } }
+   *
+   * <p>Note: track_total_hits=false for performance, following keyword search pattern. In k-NN
+   * context, total_hits would represent either k (no filters) or filtered k-NN results count.
+   *
+   * @param vector query embedding vector
+   * @param k number of nearest neighbors to retrieve
+   * @param docLevelFilterMap optional document-level filter map
+   * @param fieldsToFetch set of fields to fetch in _source (follows keyword search pattern)
+   * @return complete query map for OpenSearch
    */
   private Map<String, Object> buildSemanticQueryWithPreFiltering(
-      float[] vector, int k, @Nullable Map<String, Object> docLevelFilterMap) throws IOException {
+      float[] vector,
+      int k,
+      @Nullable Map<String, Object> docLevelFilterMap,
+      @Nonnull Set<String> fieldsToFetch)
+      throws IOException {
 
     // Build the kNN parameters map
     Map<String, Object> knnParams = new HashMap<>();
@@ -363,14 +388,18 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     }
 
     // Build the complete query structure using Map.of() for clarity
+    // Use fieldsToFetch (supports DEFAULT_FIELDS_TO_FETCH_ON_SEARCH + fetchExtraFields like keyword
+    // search)
+    // Note: track_total_hits=false for better performance, following keyword search pattern
+    // In k-NN context, total_hits represents either k (no filters) or filtered k-NN results count
     Map<String, Object> query =
         Map.of(
             "size",
             k,
             "track_total_hits",
-            true,
+            false,
             "_source",
-            List.of("urn", "typeNames", "name", "platform", "qualifiedName"),
+            fieldsToFetch.toArray(new String[0]),
             "query",
             Map.of(
                 "nested",

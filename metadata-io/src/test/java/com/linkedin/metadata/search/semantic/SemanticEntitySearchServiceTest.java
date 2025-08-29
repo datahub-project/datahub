@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -40,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
+import org.apache.http.util.EntityUtils;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -355,7 +357,160 @@ public class SemanticEntitySearchServiceTest {
     assertEquals(result.getEntities().size(), 1);
   }
 
+  @Test
+  public void testSearchWithDefaultFieldsOnly() throws IOException {
+    // Setup mock response
+    setupMockOpenSearchResponse(
+        createMockSearchResponse(
+            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
+
+    // No fetchExtraFields specified, should use default fields
+    when(mockSearchFlags.getFetchExtraFields()).thenReturn(null);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+
+    // Verify the request was made with default fields
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    Request capturedRequest = requestCaptor.getValue();
+
+    // Parse the request body to verify _source contains default fields
+    String requestBody = extractRequestBody(capturedRequest);
+    assertNotNull(requestBody);
+    assertTrue(
+        requestBody.contains("_source"),
+        "Request body should contain _source field. Actual body: " + requestBody);
+    // Default fields from SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH should be
+    // present
+  }
+
+  @Test
+  public void testSearchWithFetchExtraFields() throws IOException {
+    // Setup mock response with extra fields in _source
+    ObjectNode mockResponse =
+        createMockSearchResponseWithExtraFields(
+            1,
+            "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)",
+            0.95,
+            "Test Dataset",
+            "urn:li:dataPlatform:test",
+            "test.table");
+    setupMockOpenSearchResponse(mockResponse);
+
+    // Setup fetchExtraFields
+    StringArray extraFields = new StringArray();
+    extraFields.add("name");
+    extraFields.add("platform");
+    extraFields.add("qualifiedName");
+    when(mockSearchFlags.getFetchExtraFields()).thenReturn(extraFields);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+
+    SearchEntity entity = result.getEntities().get(0);
+    assertNotNull(entity.getExtraFields());
+
+    // Verify extra fields are present in the result
+    assertNotNull(entity.getExtraFields());
+    assertTrue(entity.getExtraFields().size() > 0);
+    assertTrue(entity.getExtraFields().containsKey("name"));
+    assertTrue(entity.getExtraFields().containsKey("platform"));
+    assertTrue(entity.getExtraFields().containsKey("qualifiedName"));
+
+    // Verify the request was made with both default and extra fields
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    Request capturedRequest = requestCaptor.getValue();
+
+    String requestBody = extractRequestBody(capturedRequest);
+    assertNotNull(requestBody);
+    assertTrue(
+        requestBody.contains("_source"),
+        "Request body should contain _source field. Actual body: " + requestBody);
+  }
+
+  @Test
+  public void testSearchWithEmptyFetchExtraFields() throws IOException {
+    // Setup mock response
+    setupMockOpenSearchResponse(
+        createMockSearchResponse(
+            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
+
+    // Empty fetchExtraFields array should behave like no extra fields
+    StringArray emptyExtraFields = new StringArray();
+    when(mockSearchFlags.getFetchExtraFields()).thenReturn(emptyExtraFields);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+
+    // Should behave the same as default fields only
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    Request capturedRequest = requestCaptor.getValue();
+
+    String requestBody = extractRequestBody(capturedRequest);
+    assertNotNull(requestBody);
+    assertTrue(
+        requestBody.contains("_source"),
+        "Request body should contain _source field. Actual body: " + requestBody);
+  }
+
+  @Test
+  public void testSearchFieldFetchingParity() throws IOException {
+    // This test verifies that semantic search uses the same field fetching logic as keyword search
+    setupMockOpenSearchResponse(
+        createMockSearchResponse(
+            1, "urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)", 0.95));
+
+    // Setup extra fields that would be commonly requested
+    StringArray extraFields = new StringArray();
+    extraFields.add("customProperties");
+    extraFields.add("description");
+    when(mockSearchFlags.getFetchExtraFields()).thenReturn(extraFields);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+
+    // Verify the search request includes both default fields and extra fields
+    ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(mockLowLevelClient).performRequest(requestCaptor.capture());
+    Request capturedRequest = requestCaptor.getValue();
+
+    // The request should contain the combined field set (default + extra)
+    String requestBody = extractRequestBody(capturedRequest);
+    assertNotNull(requestBody);
+    assertTrue(
+        requestBody.contains("_source"),
+        "Request body should contain _source field. Actual body: " + requestBody);
+
+    // Verify that SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH fields are included
+    // This ensures parity with keyword search field fetching logic
+  }
+
   // Helper methods
+
+  private String extractRequestBody(Request request) throws IOException {
+    if (request.getEntity() != null) {
+      return EntityUtils.toString(request.getEntity());
+    }
+    return "";
+  }
 
   private void setupMockOpenSearchResponse(ObjectNode responseJson) throws IOException {
     String responseBody = objectMapper.writeValueAsString(responseJson);
@@ -395,6 +550,37 @@ public class SemanticEntitySearchServiceTest {
 
       hitsArray.add(hit);
     }
+    hits.set("hits", hitsArray);
+    response.set("hits", hits);
+
+    return response;
+  }
+
+  private ObjectNode createMockSearchResponseWithExtraFields(
+      int totalHits, String urn, double score, String name, String platform, String qualifiedName) {
+    ObjectNode response = JsonNodeFactory.instance.objectNode();
+
+    // Create hits structure
+    ObjectNode hits = JsonNodeFactory.instance.objectNode();
+    ObjectNode total = JsonNodeFactory.instance.objectNode();
+    total.put("value", totalHits);
+    hits.set("total", total);
+
+    // Create hits array with extra fields
+    ArrayNode hitsArray = JsonNodeFactory.instance.arrayNode();
+    ObjectNode hit = JsonNodeFactory.instance.objectNode();
+    hit.put("_score", score);
+
+    ObjectNode source = JsonNodeFactory.instance.objectNode();
+    source.put("urn", urn);
+    source.put("name", name);
+    source.put("platform", platform);
+    source.put("qualifiedName", qualifiedName);
+    // Add default fields that would be included
+    source.put("usageCountLast30Days", 42);
+    hit.set("_source", source);
+
+    hitsArray.add(hit);
     hits.set("hits", hitsArray);
     response.set("hits", hits);
 

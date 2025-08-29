@@ -7,7 +7,6 @@ package com.linkedin.gms.factory.search.semantic;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
-import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
@@ -18,10 +17,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class})
 public class SemanticEntitySearchServiceFactory {
 
   @Autowired
