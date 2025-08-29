@@ -331,24 +331,18 @@ def test_get_relationships(source, mock_data):
     assert source.get_relationships(results[2]["value"]) == {}
 
 
-def test_get_field_type(source):
-    """Test field type mapping"""
-    assert source.get_field_type("string").type.__class__.__name__ == "StringTypeClass"
-    assert source.get_field_type("integer").type.__class__.__name__ == "NumberTypeClass"
-    assert source.get_field_type("date").type.__class__.__name__ == "DateTypeClass"
-    assert source.get_field_type("unknown").type.__class__.__name__ == "NullTypeClass"
-
-
-def test_get_schema_field_class(source):
-    """Test schema field class generation"""
-    field = source.get_schema_field_class("test_field", "string", obj_type="node")
-    assert field.fieldPath == "test_field"
-    assert field.nativeDataType == "string"
-    assert field.type.type.__class__.__name__ == "StringTypeClass"
+def test_create_schema_field_tuple(source):
+    """Test schema field tuple creation"""
+    field_tuple = source.create_schema_field_tuple(
+        col_name="test_field", col_type="string", obj_type="node"
+    )
+    assert field_tuple == ("test_field", "string", "string")
 
     # Test relationship field conversion
-    field = source.get_schema_field_class("test_field", "relationship", obj_type="node")
-    assert field.nativeDataType == "node"
+    field_tuple = source.create_schema_field_tuple(
+        col_name="test_field", col_type="relationship", obj_type="node"
+    )
+    assert field_tuple == ("test_field", "string", "NODE")
 
 
 def test_get_workunits_processor(source):
@@ -367,19 +361,19 @@ def test_report_generation(source):
 @pytest.mark.parametrize(
     "test_input,expected",
     [
-        ("string", "StringTypeClass"),
-        ("integer", "NumberTypeClass"),
-        ("float", "NumberTypeClass"),
-        ("date", "DateTypeClass"),
-        ("boolean", "BooleanTypeClass"),
-        ("list", "UnionTypeClass"),
-        ("unknown_type", "NullTypeClass"),
+        ("string", "string"),
+        ("integer", "int"),
+        ("float", "float"),
+        ("date", "date"),
+        ("boolean", "boolean"),
+        ("list", "array"),
+        ("unknown_type", "string"),
     ],
 )
 def test_type_mapping(source, test_input, expected):
     """Test type mapping for different input types"""
-    field_type = source.get_field_type(test_input)
-    assert field_type.type.__class__.__name__ == expected
+    field_type = source.get_field_type_string(test_input)
+    assert field_type == expected
 
 
 def test_platform_instance_config(source_with_platform_instance):
@@ -446,6 +440,184 @@ def test_workunit_with_platform_instance(
         if df is not None:
             for workunit in source_with_platform_instance.get_workunits_internal():
                 assert "test-instance" in workunit.id
+
+
+def test_get_subtype_from_obj_type(source):
+    """Test subtype mapping from object type"""
+    from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+
+    assert source.get_subtype_from_obj_type("node") == DatasetSubTypes.NEO4J_NODE
+    assert (
+        source.get_subtype_from_obj_type("relationship")
+        == DatasetSubTypes.NEO4J_RELATIONSHIP
+    )
+    assert (
+        source.get_subtype_from_obj_type("unknown") == DatasetSubTypes.NEO4J_NODE
+    )  # fallback
+
+
+def test_create_neo4j_dataset(source):
+    """Test Neo4j dataset creation using SDK v2"""
+    columns = [{"field1": "string"}, {"field2": "integer"}, {"field3": "date"}]
+
+    dataset = source.create_neo4j_dataset(
+        dataset="test_node",
+        columns=columns,
+        obj_type="node",
+        description="Test node description",
+    )
+
+    assert dataset is not None
+    assert dataset.urn.name == "test_node"
+    assert dataset.platform.platform_name == "neo4j"
+    assert dataset.description == "Test node description"
+    assert dataset.subtype == "Neo4j Node"
+    assert len(dataset.schema) == 3
+
+    # Test schema fields
+    field_paths = [field.field_path for field in dataset.schema]
+    assert "field1" in field_paths
+    assert "field2" in field_paths
+    assert "field3" in field_paths
+
+
+def test_create_neo4j_dataset_relationship(source):
+    """Test Neo4j relationship dataset creation"""
+    columns = [{"rel_prop": "string"}]
+
+    dataset = source.create_neo4j_dataset(
+        dataset="test_relationship",
+        columns=columns,
+        obj_type="relationship",
+        description="Test relationship description",
+    )
+
+    assert dataset is not None
+    assert dataset.subtype == "Neo4j Relationship"
+
+
+def test_create_neo4j_dataset_with_platform_instance(source_with_platform_instance):
+    """Test dataset creation with platform instance"""
+    columns = [{"field1": "string"}]
+
+    dataset = source_with_platform_instance.create_neo4j_dataset(
+        dataset="test_node", columns=columns, obj_type="node"
+    )
+
+    assert dataset is not None
+    assert dataset.platform_instance is not None
+    assert "test-instance" in str(dataset.platform_instance)
+
+
+def test_create_neo4j_dataset_error_handling(source):
+    """Test error handling in dataset creation"""
+    # Test with malformed columns
+    invalid_columns = ["not_a_dict", {"valid": "string"}]
+
+    dataset = source.create_neo4j_dataset(
+        dataset="error_test", columns=invalid_columns, obj_type="node"
+    )
+
+    # Should handle errors gracefully and return None
+    assert dataset is None
+
+
+def test_create_neo4j_dataset_empty_columns(source):
+    """Test dataset creation with empty columns"""
+    dataset = source.create_neo4j_dataset(
+        dataset="empty_test", columns=[], obj_type="node", description="Empty dataset"
+    )
+
+    assert dataset is not None
+    assert len(dataset.schema) == 0
+    assert dataset.description == "Empty dataset"
+
+
+def test_get_field_type_string_type_conversion(source):
+    """Test the type conversion logic: type objects vs strings"""
+    # Test with actual Python type objects (the isinstance check)
+    assert (
+        source.get_field_type_string(str) == "string"
+    )  # str(str) = "<class 'str'>" -> fallback
+    assert (
+        source.get_field_type_string(int) == "string"
+    )  # str(int) = "<class 'int'>" -> fallback
+    assert (
+        source.get_field_type_string(bool) == "string"
+    )  # str(bool) = "<class 'bool'>" -> fallback
+
+    # Test with string types (should pass through directly)
+    assert source.get_field_type_string("string") == "string"  # direct lookup
+    assert source.get_field_type_string("integer") == "int"  # direct lookup
+    assert source.get_field_type_string("boolean") == "boolean"  # direct lookup
+
+    # Test unknown string types (fallback)
+    assert source.get_field_type_string("unknown_type") == "string"
+    assert source.get_field_type_string("custom_neo4j_type") == "string"
+
+
+def test_create_schema_field_tuple_relationship_conversion(source):
+    """Test relationship type conversion in schema field creation"""
+    # Test relationship → node conversion
+    field_tuple = source.create_schema_field_tuple(
+        col_name="rel_field", col_type="relationship", obj_type="node"
+    )
+
+    assert field_tuple == ("rel_field", "string", "NODE")
+
+    # Test no conversion when obj_type is relationship
+    field_tuple = source.create_schema_field_tuple(
+        col_name="rel_field", col_type="relationship", obj_type="relationship"
+    )
+
+    assert field_tuple == ("rel_field", "string", "RELATIONSHIP")
+
+
+def test_create_neo4j_dataset_no_description(source):
+    """Test dataset creation without description"""
+    columns = [{"field1": "string"}]
+
+    dataset = source.create_neo4j_dataset(
+        dataset="no_desc_test",
+        columns=columns,
+        obj_type="node",
+        # No description provided
+    )
+
+    assert dataset is not None
+    assert dataset.description is None
+
+
+def test_create_neo4j_dataset_default_obj_type(source):
+    """Test dataset creation with default obj_type"""
+    columns = [{"field1": "string"}]
+
+    dataset = source.create_neo4j_dataset(
+        dataset="default_type_test",
+        columns=columns,
+        # No obj_type provided - should default to NODE
+    )
+
+    assert dataset is not None
+    assert dataset.subtype == "Neo4j Node"  # Should default to NODE
+
+
+def test_get_field_type_string_all_mappings(source):
+    """Test all type mappings in _STRING_TYPE_MAPPING"""
+    expected_mappings = {
+        "list": "array",
+        "boolean": "boolean",
+        "integer": "int",
+        "local_date_time": "timestamp",
+        "float": "float",
+        "string": "string",
+        "date": "date",
+        "node": "string",
+        "relationship": "string",
+    }
+
+    for neo4j_type, expected_datahub_type in expected_mappings.items():
+        assert source.get_field_type_string(neo4j_type) == expected_datahub_type
 
 
 def test_default_values():
