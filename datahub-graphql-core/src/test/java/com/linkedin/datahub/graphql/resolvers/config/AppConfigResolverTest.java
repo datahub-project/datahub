@@ -43,6 +43,7 @@ public class AppConfigResolverTest {
   @Mock private FeatureFlags mockFeatureFlags;
   @Mock private ChromeExtensionConfiguration mockChromeExtensionConfiguration;
   @Mock private SettingsService mockSettingsService;
+  @Mock private ClassificationConfiguration mockClassificationConfiguration;
   @Mock private DataFetchingEnvironment mockDataFetchingEnvironment;
   @Mock private GlobalSettingsInfo mockGlobalSettingsInfo;
 
@@ -70,6 +71,14 @@ public class AppConfigResolverTest {
     when(mockHomePageConfiguration.getFirstInPersonalSidebar()).thenReturn("YOUR_ASSETS");
     when(mockChromeExtensionConfiguration.isEnabled()).thenReturn(false);
     when(mockChromeExtensionConfiguration.isLineageEnabled()).thenReturn(false);
+    when(mockClassificationConfiguration.isEnabled()).thenReturn(false);
+
+    // Setup classification automations mock
+    com.linkedin.metadata.config.ClassificationAutomations mockAutomations =
+        mock(com.linkedin.metadata.config.ClassificationAutomations.class);
+    when(mockClassificationConfiguration.getAutomations()).thenReturn(mockAutomations);
+    when(mockAutomations.isSnowflake()).thenReturn(false);
+    when(mockAutomations.isAiTermClassification()).thenReturn(false);
 
     // Setup feature flags
     setupFeatureFlags();
@@ -92,7 +101,9 @@ public class AppConfigResolverTest {
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            mockSettingsService);
+            mockSettingsService,
+            mockClassificationConfiguration,
+            null); // defaultLineageLastDaysFilter
   }
 
   private void setupFeatureFlags() {
@@ -191,7 +202,9 @@ public class AppConfigResolverTest {
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            mockSettingsService);
+            mockSettingsService,
+            mockClassificationConfiguration,
+            null); // defaultLineageLastDaysFilter
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -358,8 +371,9 @@ public class AppConfigResolverTest {
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            null // null settings service
-            );
+            null, // null settings service
+            mockClassificationConfiguration,
+            null); // defaultLineageLastDaysFilter
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
@@ -388,7 +402,9 @@ public class AppConfigResolverTest {
             mockHomePageConfiguration,
             mockFeatureFlags,
             mockChromeExtensionConfiguration,
-            mockSettingsService);
+            mockSettingsService,
+            mockClassificationConfiguration,
+            null); // defaultLineageLastDaysFilter
 
     AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
 
