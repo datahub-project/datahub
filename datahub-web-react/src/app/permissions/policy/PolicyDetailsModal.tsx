@@ -11,6 +11,7 @@ import {
     getFieldValues,
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
+import { getEntityDisplayNameOrNull } from '@app/permissions/utils/entityDisplayUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -87,18 +88,17 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         config: { policiesConfig },
     } = useAppConfig();
 
+    // Use the resolved entities from the policy query, which should already be populated
+    const displayResolvedUsers = policy?.actors?.resolvedUsers || [];
+    const displayResolvedGroups = policy?.actors?.resolvedGroups || [];
+
     const actionButtons = (
         <ButtonsContainer>
             <Button onClick={onClose}>Close</Button>
         </ButtonsContainer>
     );
 
-    const getDisplayName = (entity) => {
-        if (!entity) {
-            return null;
-        }
-        return entityRegistry.getDisplayName(entity.type, entity);
-    };
+    const getDisplayName = (entity) => getEntityDisplayNameOrNull(entity, entityRegistry);
 
     const getEntityTag = (criterionValue) => {
         return (
@@ -244,7 +244,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Typography.Title level={5}>Applies to Users</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
-                        users={policy?.actors?.resolvedUsers}
+                        users={displayResolvedUsers}
                         entityRegistry={entityRegistry}
                         maxCount={50}
                         size={28}
@@ -255,7 +255,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                     <Typography.Title level={5}>Applies to Groups</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
-                        groups={policy?.actors?.resolvedGroups}
+                        groups={displayResolvedGroups}
                         entityRegistry={entityRegistry}
                         maxCount={50}
                         size={28}

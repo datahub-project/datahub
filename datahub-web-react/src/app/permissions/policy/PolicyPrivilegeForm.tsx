@@ -705,7 +705,12 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             <Form.Item label={<Typography.Text strong>Privileges</Typography.Text>}>
-                <Typography.Paragraph>Select a set of privileges to permit.</Typography.Paragraph>
+                <Typography.Paragraph>
+                    Select a set of privileges to permit.{' '}
+                    {policyType === PolicyType.Platform
+                        ? 'Platform privileges grant system-wide administrative capabilities (e.g., manage all posts, all views, all users).'
+                        : 'Metadata privileges apply only to specific entities matching your resource filters (tags, domains, URNs, etc.).'}
+                </Typography.Paragraph>
                 <Select
                     data-testid="privileges"
                     value={privilegesSelectValue}
