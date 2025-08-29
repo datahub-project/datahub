@@ -7,7 +7,7 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
-from datahub.utilities.lossy_collections import LossyDict
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
 
@@ -37,6 +37,7 @@ class RedshiftReport(
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     tables_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     views_in_mem_size: Dict[str, str] = field(default_factory=TopKDict)
+    s3_lineage_path_spec_mismatch: LossyList = field(default_factory=LossyList)
     num_operational_stats_filtered: int = 0
     num_repeated_operations_dropped: int = 0
     num_usage_stat_skipped: int = 0
@@ -46,6 +47,9 @@ class RedshiftReport(
     num_lineage_processed_temp_tables = 0
     num_lineage_dropped_s3_path: int = 0
     num_alter_table_parse_errors: int = 0
+    num_lineage_processed_temp_tables: int = 0
+    num_s3_lineage_path_spec_mismatch: int = 0
+    num_s3_lineage_path_spec_match: int = 0
 
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
