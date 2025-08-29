@@ -878,6 +878,9 @@ class S3Source(StatefulIngestionSourceBase):
         protocol: str,
         min: bool = False,
     ) -> List[str]:
+        if folder == "/":
+            # handle case where folder is just the bucket root. prefixes can't start with "/".
+            folder = ""
         iterator = list_folders(
             bucket_name=bucket_name,
             prefix=folder,
