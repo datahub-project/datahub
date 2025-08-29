@@ -38,6 +38,7 @@ const ModuleHeader = styled.div`
 const DragHandle = styled.div<{ $isDragging?: boolean }>`
     cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
     flex: 1;
+    max-width: calc(100% - 10px);
 `;
 
 const Content = styled.div<{ $hasViewAll: boolean }>`
@@ -45,7 +46,7 @@ const Content = styled.div<{ $hasViewAll: boolean }>`
     overflow-y: auto;
     padding-right: 5px;
     scrollbar-gutter: stable;
-    height: ${({ $hasViewAll }) => ($hasViewAll ? '226px' : '238px')};
+    height: ${({ $hasViewAll }) => ($hasViewAll ? '234px' : '246px')};
 `;
 
 const LoaderContainer = styled.div`
@@ -54,17 +55,24 @@ const LoaderContainer = styled.div`
 `;
 
 const ViewAllButton = styled(Button)`
-    margin-left: auto;
-    margin-right: 16px;
     margin: 0 16px 0 auto;
+    padding-right: 8px;
 `;
 
 interface Props extends ModuleProps {
     loading?: boolean;
     onClickViewAll?: () => void;
+    dataTestId?: string;
 }
 
-function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
+function LargeModule({
+    children,
+    module,
+    position,
+    loading,
+    onClickViewAll,
+    dataTestId,
+}: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
 
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -87,9 +95,14 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
     }, [onClickViewAll, module.properties.type]);
 
     return (
-        <ModuleContainer $height="316px" ref={setNodeRef}>
+        <ModuleContainer $height="316px" ref={setNodeRef} data-testId={dataTestId}>
             <ModuleHeader>
-                <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
+                <DragHandle
+                    {...listeners}
+                    {...attributes}
+                    $isDragging={isDragging}
+                    data-testid="large-module-drag-handle"
+                >
                     <DragIcon
                         {...listeners}
                         size="lg"

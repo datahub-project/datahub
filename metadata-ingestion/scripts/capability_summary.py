@@ -19,6 +19,7 @@ DENY_LIST = {
     "snowflake-summary",
     "snowflake-queries",
     "bigquery-queries",
+    "datahub-mock-data",
 }
 
 

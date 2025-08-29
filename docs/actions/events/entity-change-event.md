@@ -603,3 +603,124 @@ This event is emitted when a structured property association is proposed for an 
   }
 }
 ```
+
+### Approval Workflow Request Create Event (Data Access Workflows)
+
+This event is emitted when a new approval workflow form request is submitted on DataHub.
+
+Note that `parameters.fields` contains all of the form fields provided when the user originally
+submitted the approval request form. It contains a serialized JSON object that must be deserialized from string before accessing!
+
+#### Sample Event
+
+```json
+{
+  "event_type": "EntityChangeEvent_v1",
+  "event": {
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:88170f40-b4f5-4b05-a997-f5f680248b59",
+    "category": "LIFECYCLE",
+    "operation": "CREATE",
+    "auditStamp": {
+      "time": 1753829419490,
+      "actor": "urn:li:corpuser:admin"
+    },
+    "version": 0,
+    "parameters": {
+      "actorUrn": "urn:li:corpuser:admin",
+      "actionRequestType": "WORKFLOW_FORM_REQUEST",
+      "workflowUrn": "urn:li:actionWorkflow:7a6e7a24-7525-4f1e-8d9b-08ba562399d0",
+      "expiresAtMs": 1756680611743,
+      "fields": "{\"reason\":[\"Building Tableau Dashboard Q2\"],\"privileges\":[\"SELECT\"],\"projects\":[\"Orders Dashboard Q2\"],\"tags\":[\"urn:li:tag:__default_gold\"]}",
+      "workflowId": "7a6e7a24-7525-4f1e-8d9b-08ba562399d0",
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,example.table,PROD)",
+      "entityName": "table",
+      "qualifiedName": "example.table",
+      "entityPlatformName": "Snowflake"
+    }
+  }
+}
+```
+
+### Approval Workflow Request Step Complete Event (Data Access Workflows)
+
+This event is emitted when an approval step within a workflow request has been completed (approved, rejected, or requires more information).
+
+Note that `parameters.fields` contains all of the form fields provided when the user originally
+submitted the approval request form. It contains a serialized JSON object that must be deserialized from string before accessing!
+
+#### Sample Event
+
+```json
+{
+  "event_type": "EntityChangeEvent_v1",
+  "event": {
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:ce424fff-7fab-4731-b106-fab9d69238da",
+    "category": "LIFECYCLE",
+    "operation": "MODIFY",
+    "auditStamp": {
+      "time": 1753829625133,
+      "actor": "urn:li:corpuser:admin"
+    },
+    "version": 0,
+    "parameters": {
+      "actorUrn": "urn:li:corpuser:admin",
+      "actionRequestType": "WORKFLOW_FORM_REQUEST",
+      "stepId": "approval-step-2",
+      "workflowUrn": "urn:li:actionWorkflow:7a6e7a24-7525-4f1e-8d9b-08ba562399d0",
+      "expiresAtMs": 1754002407730,
+      "stepResult": "ACCEPTED",
+      "fields": "{\"reason\":[\"Test\"],\"privileges\":[\"SELECT\"],\"tags\":[\"urn:li:tag:NeedsDocumentation\"]}",
+      "workflowId": "7a6e7a24-7525-4f1e-8d9b-08ba562399d0",
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,example.table,PROD)",
+      "entityName": "table",
+      "qualifiedName": "example.table",
+      "entityPlatformName": "Snowflake"
+    }
+  }
+}
+```
+
+### Approval Workflow Request Complete Event (Data Access Workflows)
+
+This event is emitted when an approval workflow request has been fully completed - either approved through all steps or rejected at any step.
+
+Note that `parameters.fields` contains all of the form fields provided when the user originally
+submitted the approval request form. It contains a serialized JSON object that must be deserialized from string before accessing!
+
+#### Sample Event
+
+```json
+{
+  "event_type": "EntityChangeEvent_v1",
+  "event": {
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:553595ec-2295-4970-89a4-bb7d02e691c0",
+    "category": "LIFECYCLE",
+    "operation": "COMPLETED",
+    "auditStamp": {
+      "time": 1753829954539,
+      "actor": "urn:li:corpuser:admin"
+    },
+    "version": 0,
+    "parameters": {
+      "result": "ACCEPTED",
+      "actorUrn": "urn:li:corpuser:admin",
+      "actionRequestType": "WORKFLOW_FORM_REQUEST",
+      "workflowUrn": "urn:li:actionWorkflow:7a6e7a24-7525-4f1e-8d9b-08ba562399d0",
+      "expiresAtMs": 1756335474418,
+      "fields": "{\"reason\":[\"test\"],\"privileges\":[\"SELECT\"],\"projects\":[\"test\"],\"tags\":[\"urn:li:tag:NeedsDocumentation\"]}",
+      "operation": "COMPLETE",
+      "workflowId": "7a6e7a24-7525-4f1e-8d9b-08ba562399d0",
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,example.table,PROD)",
+      "entityName": "table",
+      "qualifiedName": "example.table",
+      "entityPlatformName": "Snowflake"
+    }
+  }
+}
+```

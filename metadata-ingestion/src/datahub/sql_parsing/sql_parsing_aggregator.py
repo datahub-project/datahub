@@ -634,6 +634,9 @@ class SqlParsingAggregator(Closeable):
             TableSwap,
         ],
     ) -> None:
+        """
+        This assumes that queries come in order of increasing timestamps.
+        """
         if isinstance(item, KnownQueryLineageInfo):
             self.add_known_query_lineage(item)
         elif isinstance(item, KnownLineageMapping):

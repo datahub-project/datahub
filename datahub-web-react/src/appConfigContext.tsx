@@ -47,6 +47,9 @@ export const DEFAULT_APP_CONFIG = {
     searchBarConfig: {
         apiVariant: SearchBarApi.AutocompleteForMultiple,
     },
+    searchCardConfig: {
+        showDescription: false,
+    },
     homePageConfig: {
         firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },
@@ -80,11 +83,13 @@ export const DEFAULT_APP_CONFIG = {
         showIntroducePage: false,
         showIngestionPageRedesign: false,
         showLineageExpandMore: false,
+        showStatsTabRedesign: false,
         showHomePageRedesign: false,
         showProductUpdates: false,
         lineageGraphV3: false,
         logicalModelsEnabled: false,
         showHomepageUserRole: false,
+        assetSummaryPageV1: false,
     },
     chromeExtensionConfig: {
         enabled: false,

@@ -171,7 +171,11 @@ class SnowflakeV2Source(
         )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
+        self.data_dictionary = SnowflakeDataDictionary(
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
+        )
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
         self.discovered_datasets: Optional[List[str]] = None
@@ -526,6 +530,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
@@ -600,6 +605,7 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
                         query_dedup_strategy=self.config.query_dedup_strategy,
                         push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
                         additional_database_names_allowlist=self.config.additional_database_names_allowlist,
@@ -744,6 +750,7 @@ class SnowflakeV2Source(
                 # For privatelink, account identifier ends with .privatelink
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
+                snowflake_domain=self.config.snowflake_domain,
             )
 
         except Exception as e:

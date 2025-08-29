@@ -168,7 +168,7 @@ public class SampleDataFixtureConfiguration {
             TEST_ES_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
-            true,
+            false,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
@@ -205,6 +205,8 @@ public class SampleDataFixtureConfiguration {
                 indexConvention, _bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
             new ESGraphQueryDAO(
                 _searchClient,
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
                 opContext.getLineageRegistry(),
                 indexConvention,
                 TEST_GRAPH_SERVICE_CONFIG,

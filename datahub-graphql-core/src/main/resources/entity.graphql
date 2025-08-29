@@ -200,8 +200,9 @@ type Query {
 
   """
   Gets entities based on their urns
+  checkForExistence will do n+1 sql calls to check for existence of each entity requested if set to true
   """
-  entities(urns: [String!]!): [Entity]
+  entities(urns: [String!]!, checkForExistence: Boolean): [Entity]
 
   """
   List all DataHub Roles
@@ -602,6 +603,11 @@ type Mutation {
   Add a link, or institutional memory, from a particular Entity
   """
   addLink(input: AddLinkInput!): Boolean
+
+  """
+  Update a link, or institutional memory, from a particular Entity
+  """
+  updateLink(input: UpdateLinkInput!): Boolean
 
   """
   Remove a link, or institutional memory, from a particular Entity
@@ -1752,8 +1758,14 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Statistics about how this Dataset is used
   The first parameter, `resource`, is deprecated and no longer needs to be provided
+  timeZone accepts standard IANA time zone identifier ie. America/New_York
   """
-  usageStats(resource: String, range: TimeRange): UsageQueryResult
+  usageStats(
+    resource: String
+    range: TimeRange
+    startTimeMillis: Long
+    timeZone: String
+  ): UsageQueryResult
 
   """
   Experimental - Summary operational & usage statistics about a Dataset
@@ -1914,6 +1926,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Structured properties about this Dataset
   """
   structuredProperties: StructuredProperties
+
+  """
+  Statistics about how this Dataset has been operated on
+  """
+  operationsStats(input: OperationsStatsInput): OperationsQueryResult
 }
 
 type RoleAssociation {
@@ -2580,6 +2597,11 @@ type GlossaryTermProperties {
   Schema definition of glossary term
   """
   rawSchema: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -2705,6 +2727,11 @@ type GlossaryNodeProperties {
   Custom properties of the Glossary Node
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -3278,6 +3305,11 @@ type InstitutionalMemoryMetadata {
   An AuditStamp corresponding to the creation of this resource
   """
   created: AuditStamp!
+
+  """
+  An AuditStamp corresponding to the updating of this resource
+  """
+  updated: AuditStamp
 
   """
   Deprecated, use label instead
@@ -3954,6 +3986,21 @@ type StringMapEntry {
   The value fo the map entry
   """
   value: String
+}
+
+"""
+An entry in a integer string map represented as a tuple
+"""
+type IntMapEntry {
+  """
+  The key of the map entry
+  """
+  key: String!
+
+  """
+  The value for the map entry
+  """
+  value: Int
 }
 
 """
@@ -4807,6 +4854,11 @@ type Owner {
   Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -4927,6 +4979,16 @@ type TagAssociation {
   Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this tag is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -4976,6 +5038,16 @@ type GlossaryTermAssociation {
   Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this term is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -6799,6 +6871,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   dataPlatformInstance: DataPlatformInstance
 
   """
+  Standardized platform urn where the data job is defined
+  """
+  platform: DataPlatform
+
+  """
   The parent container in which the entity resides
   """
   container: Container
@@ -7574,6 +7651,11 @@ enum TimeRange {
   Last quarter
   """
   QUARTER
+
+  """
+  Last half year
+  """
+  HALF_YEAR
 
   """
   Last year
@@ -9085,13 +9167,48 @@ input AddLinkInput {
 }
 
 """
+Input provided when updating the association between a Metadata Entity and a Link
+"""
+input UpdateLinkInput {
+  """
+  Current url of the link
+  """
+  currentUrl: String!
+
+  """
+  Current label of the link
+  """
+  currentLabel: String!
+
+  """
+  The new url of the link
+  """
+  linkUrl: String!
+
+  """
+  The new label of the link
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+}
+
+"""
 Input provided when removing the association between a Metadata Entity and a Link
 """
 input RemoveLinkInput {
   """
-  The url of the link to add or remove, which uniquely identifies the Link
+  The url of the link to remove, which uniquely identifies the Link
   """
   linkUrl: String!
+
+  """
+  The label of the link to remove, which uniquely identifies the Link
+  """
+  label: String
 
   """
   The urn of the resource or entity to attach the link to, for example a dataset urn
@@ -11385,6 +11502,11 @@ type DomainProperties {
   Description of the Domain
   """
   description: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -12955,6 +13077,11 @@ type DataProductProperties {
   Custom properties of the Data Product
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """

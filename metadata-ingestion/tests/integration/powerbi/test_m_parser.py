@@ -25,7 +25,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_5
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu10758.ap-unknown-2.fakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -63,7 +63,8 @@ M_QUERIES = [
     'let Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]), DB_Source = Source{[Name="DATABASE_NAME",Kind="Database"]}[Data], SCHEMA_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data], TABLE_Source = SCHEMA_Source{[Name="TABLE_NAME",Kind="View"]}[Data], #"Split Column by Time" = Table.SplitColumn(Table.TransformColumnTypes(TABLE_Source, {{"TIMESTAMP_COLUMN", type text}}, "en-GB"), "TIMESTAMP_COLUMN", Splitter.SplitTextByDelimiter(" ", QuoteStyle.Csv), {"TIMESTAMP_COLUMN.1", "TIMESTAMP_COLUMN.2"}), #"Added Custom" = Table.AddColumn(#"Split Column by Time", "SOB", each ([ENDTIME] - [STARTTIME]) * 60 * 60 * 24) in #"Added Custom"',
     'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="DROP TABLE IF EXISTS #KKR;#(lf)Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"',
     "LOAD_DATA(SOURCE)",
-    'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=18.222.189.189;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
+    'let\n    Source = Odbc.DataSource("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name="employees",Kind="Database"]}[Data],\n    employees_Table = employees_Database{[Name="employees",Kind="Table"]}[Data]\nin\n    employees_Table',
+    'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};server=10.1.10.1;database=employees;dsn=testdb01", "SELECT transaction_id, account_id, customer_id, transaction_type, transaction_amount FROM bank_demo.transaction")\nin\n    Source',
 ]
 
 
@@ -1239,4 +1240,161 @@ def test_mysql_odbc_regular_case():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query():
+    q: str = M_QUERIES[36]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="BankDemoTransactions",
+        full_name="BankDemoTransactions.Transactions",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,bank_demo.transaction,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_with_dsn_to_database_mapping():
+    """Test ODBC query parsing with dsn_to_database_schema mapping using database-only format (dsn: database)."""
+    # Query with unqualified table reference "transaction" instead of "bank_demo.transaction"
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};'
+        'server=10.1.10.1;database=employees;dsn=testdb01", '
+        '"SELECT transaction_id, account_id FROM transaction")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="BankTransactions",
+        full_name="BankTransactions.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test with database-only mapping: "testdb01" -> "bank_demo" (no schema)
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"testdb01": "mysql"},
+            "dsn_to_database_schema": {"testdb01": "bank_demo"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,bank_demo.transaction,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_with_dsn_to_database_schema_mapping():
+    """Test ODBC query parsing with dsn_to_database_schema mapping using database.schema format (dsn: database.schema)."""
+    # Query with unqualified table reference
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={PostgreSQL ODBC Driver};'
+        'server=pg.example.com;database=warehouse;dsn=warehouse_dsn", '
+        '"SELECT order_id, customer_id FROM orders")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="Orders",
+        full_name="Orders.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test with database.schema mapping: "warehouse_dsn" -> "warehouse.sales" (includes schema)
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"warehouse_dsn": "postgres"},
+            "dsn_to_database_schema": {"warehouse_dsn": "warehouse.sales"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,warehouse.sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_without_dsn_mapping():
+    """Test ODBC query parsing without dsn_to_database_schema mapping falls back to default behavior."""
+    # Query with unqualified table reference
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};'
+        'server=10.1.10.1;database=employees;dsn=unmapped_dsn", '
+        '"SELECT id, name FROM users")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="Users",
+        full_name="Users.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test without dsn_to_database_schema mapping
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_platform_name": {"unmapped_dsn": "mysql"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    # Without dsn_to_database_schema mapping, should use table name as-is
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,users,PROD)"
     )

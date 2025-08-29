@@ -116,22 +116,34 @@ The frontend will be available at `http://localhost:3000` and will automatically
 
 ### Refreshing components of quickStart
 
-To refresh any of the running system started by `./gradlew quickStartDebug`, run
+To refresh any of the running system started by `./gradlew quickstartDebug`, run
 
 ```shell
 ./gradlew debugReload
 ```
 
 This will build any changed components and restart those containers that had changes.
-There are a few other quickStart\* variants, like quickStartDebugMin, quickStartDebugConsumers
+There are a few other quickstart\* variants, like quickstartDebugMin, quickstartDebugConsumers
 
 For each of those variants, there is a corresponding reloadTask.
 
-For `./gradlew quickStartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
-For `./gradlew quickStartDebugMin`, the reload command is `./gradlew debugMinReload`
+For `./gradlew quickstartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
+For `./gradlew quickstartDebugMin`, the reload command is `./gradlew debugMinReload`
 
-A full restart using `./gradlew quickStartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
+A full restart using `./gradlew quickstartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
 For incremental changes, the `debugReload*` variants can be used.
+
+### Cleaning up containers and volumes
+
+To completely remove containers and volumes for a specific project, you can use the nuke tasks:
+
+```shell
+# Remove containers and volumes for specific projects
+./gradlew quickstartDebugNuke     # For debug project
+./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
+```
+
+> **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](quickstart.md).
 
 ### Using .env to configure settings of services started by quickstart
 
@@ -139,7 +151,7 @@ To start datahub with a customized set of environment variables, .env files can 
 For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
 
 ```shell
-DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickstartDebug
 ```
 
 To refresh the containers due to code changes, `debugReload` task can be used.
@@ -261,3 +273,25 @@ git reset --hard
 ```
 
 See also [here](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for more information on how to enable symbolic links on Windows 10/11 and Git.
+
+## Security Testing
+
+### Configuration Property Classification Test
+
+**Location**: `metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java`
+
+This test ensures all configuration properties are explicitly classified as either sensitive (redacted) or non-sensitive (visible in system info). It prevents accidental exposure of secrets through DataHub's system information endpoints.
+
+**When you add new configuration properties:**
+
+1. The test will fail if your property is unclassified
+2. Follow the test failure message to add your property to the appropriate classification list
+3. When in doubt, classify as sensitive - it's safer to over-redact than expose secrets
+
+**Run the test:**
+
+```bash
+./gradlew :metadata-io:test --tests "*.PropertiesCollectorConfigurationTest"
+```
+
+Refer to the test file itself for comprehensive documentation on classification lists, template syntax, and examples. This is a mandatory security guardrail that protects against credential leaks.

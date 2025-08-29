@@ -15,7 +15,7 @@ export const getOperatorDisplayName = (operator: LogicalOperatorType) => {
  * Returns true if the predicate is a logical predicate, as opposed
  * to a property predicate.
  */
-export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate) => {
+export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate): predicate is LogicalPredicate => {
     const logicalPredicate = predicate as LogicalPredicate;
     return (logicalPredicate.operator && LOGICAL_OPERATORS.has(logicalPredicate.operator)) || false;
 };
@@ -52,14 +52,16 @@ function mapOperator(operator: string): FilterOperator {
 export function convertLogicalPredicateToOrFilters(
     pred: LogicalPredicate | PropertyPredicate,
     isNegated = false,
-): AndFilterInput[] {
+): AndFilterInput[] | undefined {
     if (pred && 'property' in pred) {
+        if (!pred.property) return undefined;
+
         // it's a PropertyPredicate
         return [
             {
                 and: [
                     {
-                        field: pred.property || '',
+                        field: pred.property,
                         values: pred.values || [],
                         condition: pred.operator ? mapOperator(pred.operator) : undefined,
                         ...(isNegated && { negated: true }),
@@ -68,33 +70,39 @@ export function convertLogicalPredicateToOrFilters(
             },
         ];
     }
-    // it's a LogicalPredicate
-    switch (pred.operator) {
-        case LogicalOperatorType.AND: {
-            const andResults = (pred as LogicalPredicate).operands.map((op) =>
-                convertLogicalPredicateToOrFilters(op, isNegated),
-            );
-            return andResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+    if (pred && pred.operator) {
+        // it's a LogicalPredicate
+        switch (pred.operator) {
+            case LogicalOperatorType.AND: {
+                const andResults = (pred as LogicalPredicate).operands
+                    .map((op) => convertLogicalPredicateToOrFilters(op, isNegated))
+                    .filter((filters): filters is AndFilterInput[] => !!filters);
+                return andResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+            }
+            case LogicalOperatorType.OR:
+                return (pred as LogicalPredicate).operands
+                    .flatMap((op) => convertLogicalPredicateToOrFilters(op, isNegated))
+                    .filter((andFilter): andFilter is AndFilterInput => !!andFilter);
+            case LogicalOperatorType.NOT: {
+                const notResults = (pred as LogicalPredicate).operands
+                    .map((op) => convertLogicalPredicateToOrFilters(op, !isNegated))
+                    .filter((filters): filters is AndFilterInput[] => !!filters);
+                return notResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+            }
+            default:
+                console.error(`Unknown operator: ${pred.operator}`);
+                return undefined;
         }
-        case LogicalOperatorType.OR:
-            return (pred as LogicalPredicate).operands.flatMap((op) =>
-                convertLogicalPredicateToOrFilters(op, isNegated),
-            );
-        case LogicalOperatorType.NOT: {
-            const notResults = (pred as LogicalPredicate).operands.map((op) =>
-                convertLogicalPredicateToOrFilters(op, !isNegated),
-            );
-            return notResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
-        }
-        default:
-            throw new Error(`Unknown operator: ${pred.operator}`);
     }
+
+    return undefined;
 }
 
 export const convertToLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate): LogicalPredicate => {
     // If we have a property predicate, simply convert to a basic logical predicate.
     if (!isLogicalPredicate(predicate)) {
         return {
+            type: 'logical',
             operator: LogicalOperatorType.AND,
             operands: [predicate],
         };
@@ -102,3 +110,7 @@ export const convertToLogicalPredicate = (predicate: LogicalPredicate | Property
     // Already is a logical predicate.
     return predicate as LogicalPredicate;
 };
+
+export function isEmptyLogicalPredicate(predicate: LogicalPredicate | null | undefined) {
+    return !predicate?.operands?.length;
+}

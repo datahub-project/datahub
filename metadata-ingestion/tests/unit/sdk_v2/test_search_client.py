@@ -335,6 +335,53 @@ def test_tagged_union_error_messages() -> None:
         load_filters({"and": [{"unknown_field": 6}]})
 
 
+@pytest.mark.skipif(
+    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
+)
+def test_filter_before_validators() -> None:
+    # Test that we can load a filter from a string.
+    # Sometimes we get filters encoded as JSON, and we want to handle those gracefully.
+    filter_str = '{\n  "and": [\n    {"entity_type": ["dataset"]},\n    {"entity_subtype": ["Table"]},\n    {"platform": ["snowflake"]}\n  ]\n}'
+    assert load_filters(filter_str) == F.and_(
+        F.entity_type("dataset"),
+        F.entity_subtype("Table"),
+        F.platform("snowflake"),
+    )
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.+Unable to extract tag using discriminator", re.DOTALL
+        ),
+    ):
+        load_filters("this is invalid json but should not raise a json error")
+
+    # Test that we can load a filter from and-like dictionary.
+    # Sometimes we get filters that are not wrapped in an "and" clause.
+    filter_str = '{"entity_type": ["dataset"], "entity_subtype": ["Table"], "platform": ["snowflake"]}'
+    assert load_filters(filter_str) == F.and_(
+        F.entity_type("dataset"),
+        F.entity_subtype("Table"),
+        F.platform("snowflake"),
+    )
+
+    filter_str = '{"entity_type": ["dataset"], "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"]}'
+    assert load_filters(filter_str) == F.and_(
+        F.entity_type("dataset"),
+        F.container("urn:li:container:f784c48c306ba1c775ef917e2f8c1560"),
+    )
+
+    filter_str = '{"entity_type": ["dataset"], "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"], "direct_descendants_only": true}'
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.*container\.entity_type.*Extra inputs are not permitted.*",
+            re.DOTALL,
+        ),
+    ):
+        load_filters(filter_str)
+
+
 def test_invalid_filter() -> None:
     with pytest.raises(InvalidUrnError):
         F.domain("marketing")
@@ -569,5 +616,56 @@ def test_get_urns() -> None:
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
                 "skipCache": False,
+            },
+        )
+
+
+def test_get_urns_with_skip_cache() -> None:
+    graph = MockDataHubGraph()
+
+    with unittest.mock.patch.object(graph, "execute_graphql") as mock_execute_graphql:
+        result_urns = ["urn:li:corpuser:datahub"]
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": urn}} for urn in result_urns],
+            }
+        }
+
+        client = DataHubClient(graph=graph)
+        urns = client.search.get_urns(
+            filter=F.and_(
+                F.entity_type("corpuser"),
+            ),
+            skip_cache=True,
+        )
+        assert list(urns) == [Urn.from_string(urn) for urn in result_urns]
+
+        assert mock_execute_graphql.call_count == 1
+        mock_execute_graphql.assert_called_once_with(
+            unittest.mock.ANY,
+            variables={
+                "types": ["CORP_USER"],
+                "query": "*",
+                "orFilters": [
+                    {
+                        "and": [
+                            {
+                                "field": "_entityType",
+                                "condition": "EQUAL",
+                                "values": ["CORP_USER"],
+                            },
+                            {
+                                "field": "removed",
+                                "condition": "EQUAL",
+                                "values": ["true"],
+                                "negated": True,
+                            },
+                        ]
+                    }
+                ],
+                "batchSize": unittest.mock.ANY,
+                "scrollId": None,
+                "skipCache": True,
             },
         )

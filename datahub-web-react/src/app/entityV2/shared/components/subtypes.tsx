@@ -5,7 +5,6 @@ import Icon, {
     FilterOutlined,
     LineChartOutlined,
 } from '@ant-design/icons';
-import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import React from 'react';
 
 import TableauEmbeddedDataSourceLogo from '@images/tableau-embedded-data-source.svg?react';
@@ -46,9 +45,6 @@ export function getSubTypeIcon(subType?: string): JSX.Element | undefined {
     }
     if (lowerSubType === SubType.Project.toLowerCase()) {
         return <DeploymentUnitOutlined className={TYPE_ICON_CLASS_NAME} />;
-    }
-    if (lowerSubType === SubType.Table.toLowerCase()) {
-        return <ViewComfyOutlinedIcon fontSize="inherit" className={TYPE_ICON_CLASS_NAME} />;
     }
     if (lowerSubType === SubType.View.toLowerCase()) {
         return <FilterOutlined className={TYPE_ICON_CLASS_NAME} />;
