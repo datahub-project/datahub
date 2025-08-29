@@ -19,7 +19,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang.StringUtils;
 
 public class DefaultRestliClientFactory {
 
@@ -54,7 +54,7 @@ public class DefaultRestliClientFactory {
       int restLiServerPort,
       boolean useSSL,
       @Nullable String sslProtocol,
-      @Nullable Map<String, String> params) {
+      @Nullable Map<String, ?> params) {
     return getRestLiClient(
         URI.create(
             String.format(
@@ -72,16 +72,12 @@ public class DefaultRestliClientFactory {
   public static RestClient getRestLiClient(
       @Nonnull URI gmsUri,
       @Nullable String sslProtocol,
-      @Nullable Map<String, String> inputParams) {
+      @Nullable Map<String, ?> inputParams) {
     if (StringUtils.isBlank(gmsUri.getHost()) || gmsUri.getPort() <= 0) {
       throw new InvalidParameterException("Invalid restli server host name or port!");
     }
 
     Map<String, Object> params = new HashMap<>();
-    if (inputParams != null) {
-      params.putAll(inputParams);
-    }
-
     if ("https".equals(gmsUri.getScheme())) {
       try {
         params.put(HttpClientFactory.HTTP_SSL_CONTEXT, SSLContext.getDefault());
@@ -94,6 +90,9 @@ public class DefaultRestliClientFactory {
         sslParameters.setProtocols(new String[] {sslProtocol});
       }
       params.put(HttpClientFactory.HTTP_SSL_PARAMS, sslParameters);
+    }
+    if (inputParams != null) {
+      params.putAll(inputParams);
     }
 
     return getHttpRestClient(gmsUri, params);
