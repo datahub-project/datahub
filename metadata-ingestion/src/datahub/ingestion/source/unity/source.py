@@ -13,7 +13,6 @@ from datahub.emitter.mce_builder import (
     make_domain_urn,
     make_group_urn,
     make_ml_model_group_urn,
-    make_ml_model_urn,
     make_schema_field_urn,
     make_ts_millis,
     make_user_urn,
@@ -126,6 +125,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
+    MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
     OwnerClass,
@@ -677,7 +677,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         for model in self.unity_catalog_api_proxy.models(schema=schema):
             yield from self.process_model(model, schema)
             model_urn = self.gen_model_urn(model.id)
-            for model_version in self.unity_catalog_api_proxy.model_versions(model.id):
+            for model_version in self.unity_catalog_api_proxy.model_versions(model):
                 yield from self.process_model_version(model_urn, model_version, schema)
 
     def process_model(self, model: Model, schema: Schema) -> Iterable[MetadataWorkUnit]:
@@ -699,14 +699,34 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_model_version(
         self, model_group_urn: str, model_version: ModelVersion, schema: Schema
     ) -> Iterable[MetadataWorkUnit]:
+        created_time = (
+            int(model_version.created_at.timestamp() * 1000)
+            if model_version.created_at
+            else None
+        )
+        created_actor = (
+            f"urn:li:platformResource:{model_version.created_by}"
+            if model_version.created_by
+            else None
+        )
+        extra_aspects = []
+        if created_time is not None:
+            extra_aspects.append(
+                MLModelPropertiesClass(
+                    created=TimeStampClass(time=created_time, actor=created_actor)
+                )
+            )
+
         model = MLModel(
             id=model_version.id,
-            name=model_version.id,
+            name=model_version.name,
             version=str(model_version.version),
             aliases=model_version.aliases,
             description=model_version.description,
             model_group=model_group_urn,
             platform=self.platform,
+            last_modified=model_version.updated_at,
+            extra_aspects=extra_aspects,
         )
 
         yield from model.as_workunits()
@@ -855,14 +875,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             group_name=name,
             env=self.config.env,
-        )
-
-    def gen_model_version_urn(self, model_name: str, version: str, env: str) -> str:
-        return make_ml_model_urn(
-            platform=self.platform,
-            model_name=model_name,
-            version=version,
-            env=env,
         )
 
     def gen_notebook_urn(self, notebook: Union[Notebook, NotebookId]) -> str:

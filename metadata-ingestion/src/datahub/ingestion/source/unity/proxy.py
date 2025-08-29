@@ -256,25 +256,29 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     self.report.report_warning("table-parse", str(e))
 
     def models(self, schema: Schema) -> Iterable[Model]:
-        # fetch unity-catalog models
-        # from databricks.sdk.service.catalog import RegisteredModelsAPI as rma
         response = self._workspace_client.registered_models.list(
             catalog_name=schema.catalog.name, schema_name=schema.name
         )
         for model in response:
-            yield self._create_model(schema, model)
+            optional_model = self._create_model(schema, model)
+            if optional_model:
+                yield optional_model
 
-        # TODO: fetch tags for models
-
-    def model_versions(self, model_full_name: str) -> Iterable[ModelVersion]:
+    def model_versions(self, model: Model) -> Iterable[ModelVersion]:
         response = self._workspace_client.model_versions.list(
-            full_name=model_full_name,
+            full_name=model.id,
             include_browse=True,
             max_results=self.databricks_api_page_size,
         )
-        # TODO: fetch tags
         for version in response:
-            yield self._create_model_version(model_full_name, version)
+            if version.version is not None:
+                # to get aliases info, use GET
+                version = self._workspace_client.model_versions.get(
+                    model.id, version.version, include_aliases=True
+                )
+                optional_model_version = self._create_model_version(model, version)
+                if optional_model_version:
+                    yield optional_model_version
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
@@ -890,8 +894,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def _create_model(
         self, schema: Schema, obj: RegisteredModelInfo
     ) -> Optional[Model]:
-        if not obj.name:
-            self.report.num_models_missing_name += 1
+        if not obj.name or not obj.full_name:
+            self.report.num_tables_missing_name += 1
             return None
         return Model(
             id=obj.full_name,
@@ -904,14 +908,26 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
 
     def _create_model_version(
-        self, model_full_name: str, obj: ModelVersionInfo
+        self, model: Model, obj: ModelVersionInfo
     ) -> Optional[ModelVersion]:
+        if obj.version is None:
+            return None
+
+        aliases = []
+        if obj.aliases:
+            for alias in obj.aliases:
+                if alias.alias_name:
+                    aliases.append(alias.alias_name)
         return ModelVersion(
-            id=f"{model_full_name}.{obj.version}",
-            model=model_full_name,
-            version=obj.version,
-            aliases=obj.aliases,
+            id=f"{model.id}_{obj.version}",
+            name=f"{model.name}_{obj.version}",
+            model=model,
+            version=str(obj.version),
+            aliases=aliases,
             description=obj.comment,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+            created_by=obj.created_by,
         )
 
     def _create_service_principal(
