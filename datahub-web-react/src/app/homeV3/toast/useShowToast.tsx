@@ -14,10 +14,10 @@ const notificationStyles = {
 };
 
 export default function useShowToast() {
-    function showToast(title: string, description?: string) {
+    function showToast(title: string, description?: string, dataTestId?: string) {
         notification.open({
             message: (
-                <Text color="blue" colorLevel={1000} weight="semiBold" lineHeight="sm">
+                <Text color="blue" colorLevel={1000} weight="semiBold" lineHeight="sm" data-testid={dataTestId}>
                     {title}
                 </Text>
             ),

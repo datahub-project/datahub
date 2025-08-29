@@ -207,6 +207,7 @@ export function useTemplateOperations(
                     showToast(
                         'You’ve edited your home page',
                         `To reset your home page click "Reset to Organization Default"`,
+                        'edited-home-page-toast',
                     );
                 }
             });
