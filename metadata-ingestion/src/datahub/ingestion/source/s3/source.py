@@ -882,13 +882,14 @@ class S3Source(StatefulIngestionSourceBase):
             prefix=folder,
             aws_config=self.source_config.aws_config,
         )
-        sorted_dirs = sorted(
-            iterator,
-            key=functools.cmp_to_key(partitioned_folder_comparator),
-            reverse=not min,
-        )
+        if path_spec.traversal_method != FolderTraversalMethod.FIRST_MATCHING:
+            iterator = sorted(
+                iterator,
+                key=functools.cmp_to_key(partitioned_folder_comparator),
+                reverse=not min,
+            )
         folders = []
-        for dir in sorted_dirs:
+        for dir in iterator:
             if path_spec.dir_allowed(f"{protocol}{bucket_name}/{dir}/"):
                 folders_list = self.get_dir_to_process(
                     bucket_name=bucket_name,
@@ -1168,6 +1169,8 @@ class S3Source(StatefulIngestionSourceBase):
                         if (
                             path_spec.traversal_method == FolderTraversalMethod.MIN_MAX
                             or path_spec.traversal_method == FolderTraversalMethod.MAX
+                            or path_spec.traversal_method
+                            == FolderTraversalMethod.FIRST_MATCHING
                         ):
                             # Get MAX partition using original logic
                             dirs_to_process_max = self.get_dir_to_process(

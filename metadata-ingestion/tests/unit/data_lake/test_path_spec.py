@@ -146,6 +146,7 @@ def test_folder_traversal_method_values() -> None:
     assert FolderTraversalMethod.ALL.value == "ALL"
     assert FolderTraversalMethod.MIN_MAX.value == "MIN_MAX"
     assert FolderTraversalMethod.MAX.value == "MAX"
+    assert FolderTraversalMethod.FIRST_MATCHING.value == "FIRST_MATCHING"
 
 
 # Tests for PathSpec initialization and validation
