@@ -14,6 +14,24 @@ describe('useExtractFieldTagsInfo', () => {
         },
     };
 
+    const testTag2: Tag = {
+        urn: 'urn:testField2',
+        type: EntityType.Tag,
+        name: 'testTagName2',
+        properties: {
+            name: 'testTagName2',
+        },
+    };
+
+    const testTag3: Tag = {
+        urn: 'urn:testField3',
+        type: EntityType.Tag,
+        name: 'testTagName3',
+        properties: {
+            name: 'testTagName3',
+        },
+    };
+
     const extraTag: Tag = {
         urn: 'urn:extraField',
         type: EntityType.Tag,
@@ -29,7 +47,7 @@ describe('useExtractFieldTagsInfo', () => {
         editableSchemaFieldInfo: [
             {
                 fieldPath: 'testField',
-                globalTags: {
+                tags: {
                     tags: [
                         {
                             associatedUrn: 'urn:li:globalTags:test.testTagName',
@@ -45,7 +63,7 @@ describe('useExtractFieldTagsInfo', () => {
         editableSchemaFieldInfo: [
             {
                 fieldPath: 'testField',
-                globalTags: {
+                tags: {
                     tags: [
                         {
                             associatedUrn: 'urn:li:globalTags:test.testTagName',
@@ -56,7 +74,7 @@ describe('useExtractFieldTagsInfo', () => {
             },
             {
                 fieldPath: '[version=2.0].[type=record].testField',
-                globalTags: {
+                tags: {
                     tags: [
                         {
                             associatedUrn: 'urn:li:globalTags:test.extraTagName',
@@ -76,11 +94,8 @@ describe('useExtractFieldTagsInfo', () => {
     };
 
     const filledSchemaField: SchemaField = {
-        fieldPath: 'testField',
-        nullable: true,
-        recursive: false,
-        type: SchemaFieldDataType.String,
-        globalTags: {
+        ...emptySchemaField,
+        tags: {
             tags: [
                 {
                     associatedUrn: 'urn:li:globalTag:test.testTagName',
@@ -88,6 +103,29 @@ describe('useExtractFieldTagsInfo', () => {
                 },
             ],
         },
+    };
+
+    const directSchemaField: SchemaField = {
+        ...emptySchemaField,
+        schemaFieldEntity: {
+            urn: '',
+            type: EntityType.SchemaField,
+            fieldPath: 'testField',
+            parent: { urn: '', type: EntityType.Dataset },
+            tags: {
+                tags: [
+                    {
+                        associatedUrn: testTag.urn,
+                        tag: testTag,
+                    },
+                ],
+            },
+        },
+    };
+
+    const complexSchemaField: SchemaField = {
+        ...directSchemaField,
+        ...filledSchemaField,
     };
 
     const emptyBaseEntity = {};
@@ -120,11 +158,25 @@ describe('useExtractFieldTagsInfo', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
 
+        expect(directTags?.tags).toHaveLength(0);
         expect(editableTags?.tags).toHaveLength(0);
         expect(uneditableTags?.tags).toHaveLength(1);
         expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
+        expect(numberOfTags).toBe(1);
+    });
+
+    it('should extract uneditableTags when they were provided on Schema Field Entity only', () => {
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
+            .current;
+
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(directSchemaField);
+
+        expect(directTags?.tags).toHaveLength(1);
+        expect(directTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(uneditableTags?.tags).toHaveLength(0);
         expect(numberOfTags).toBe(1);
     });
 
@@ -132,8 +184,9 @@ describe('useExtractFieldTagsInfo', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
 
+        expect(directTags?.tags).toHaveLength(0);
         expect(editableTags?.tags).toHaveLength(1);
         expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
         expect(uneditableTags?.tags).toHaveLength(0);
@@ -145,12 +198,52 @@ describe('useExtractFieldTagsInfo', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(filledSchemaField);
 
+        expect(directTags?.tags).toHaveLength(0);
         expect(editableTags?.tags).toHaveLength(1);
         expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
         expect(uneditableTags?.tags).toHaveLength(0);
         expect(numberOfTags).toBe(1);
+    });
+
+    it('should extract uneditableTags when they were provided everywhere, with duplicates', () => {
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
+            .current;
+
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(complexSchemaField);
+
+        expect(directTags?.tags).toHaveLength(1);
+        expect(directTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(uneditableTags?.tags).toHaveLength(0);
+        expect(numberOfTags).toBe(1);
+    });
+
+    it('should extract uneditableTags when they were provided everywhere, no duplicates', () => {
+        const editableSchemaMetadata: EditableSchemaMetadata = {
+            editableSchemaFieldInfo: [
+                {
+                    fieldPath: 'testField',
+                    tags: { tags: [{ tag: testTag2, associatedUrn: testTag2.urn }] },
+                },
+            ],
+        };
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(editableSchemaMetadata)).result.current;
+
+        const schemaField: SchemaField = {
+            ...directSchemaField,
+            tags: { tags: [{ tag: testTag3, associatedUrn: testTag3.urn }] },
+        };
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(schemaField);
+
+        expect(directTags?.tags).toHaveLength(1);
+        expect(directTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');
+        expect(editableTags?.tags).toHaveLength(1);
+        expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName2');
+        expect(uneditableTags?.tags).toHaveLength(1);
+        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName3');
+        expect(numberOfTags).toBe(3);
     });
 
     it('should not extract any tags when they are not provided', () => {
@@ -158,8 +251,9 @@ describe('useExtractFieldTagsInfo', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
             .current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
 
+        expect(directTags?.tags).toHaveLength(0);
         expect(editableTags?.tags).toHaveLength(0);
         expect(uneditableTags?.tags).toHaveLength(0);
         expect(numberOfTags).toBe(0);
@@ -171,7 +265,9 @@ describe('useExtractFieldTagsInfo', () => {
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(editableSchemaMetadataWithExtraTags))
             .result.current;
 
-        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(emptySchemaField);
+
+        expect(directTags?.tags).toHaveLength(0);
 
         expect(editableTags?.tags).toHaveLength(1);
         expect(editableTags?.tags?.[0]?.tag?.properties?.name).toBe('testTagName');

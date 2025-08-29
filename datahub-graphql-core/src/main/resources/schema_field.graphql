@@ -1,0 +1,11 @@
+extend type SchemaFieldEntity {
+    """
+    Tags associated with the field
+    """
+    tags: GlobalTags
+
+    """
+    Glossary terms associated with the field
+    """
+    glossaryTerms: GlossaryTerms
+}

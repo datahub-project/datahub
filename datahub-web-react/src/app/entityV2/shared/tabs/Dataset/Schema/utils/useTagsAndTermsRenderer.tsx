@@ -50,8 +50,8 @@ export default function useTagsAndTermsRenderer(
     };
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
-        const { editableTerms, uneditableTerms } = extractFieldGlossaryTermsInfo(record);
-        const { editableTags, uneditableTags } = extractFieldTagsInfo(record, tags);
+        const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldGlossaryTermsInfo(record);
+        const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(record, tags);
 
         return (
             <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
@@ -66,8 +66,12 @@ export default function useTagsAndTermsRenderer(
                     </Tooltip>
                 )}
                 <TagTermGroup
+                    numberOfTags={numberOfTags}
+                    directTags={options.showTags ? directTags : null}
                     uneditableTags={options.showTags ? uneditableTags : null}
                     editableTags={options.showTags ? editableTags : null}
+                    numberOfTerms={numberOfTerms}
+                    directGlossaryTerms={options.showTerms ? directTerms : null}
                     uneditableGlossaryTerms={options.showTerms ? uneditableTerms : null}
                     editableGlossaryTerms={options.showTerms ? editableTerms : null}
                     canRemove={canEdit}
