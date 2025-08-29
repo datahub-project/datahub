@@ -36,6 +36,8 @@ public class SchemaFieldType
           BUSINESS_ATTRIBUTE_ASPECT,
           DOCUMENTATION_ASPECT_NAME,
           STATUS_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
+          GLOSSARY_TERMS_ASPECT_NAME,
           LOGICAL_PARENT_ASPECT_NAME);
 
   private final EntityClient _entityClient;
