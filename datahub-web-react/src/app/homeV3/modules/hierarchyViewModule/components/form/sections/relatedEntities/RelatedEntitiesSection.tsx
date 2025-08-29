@@ -13,7 +13,8 @@ import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuil
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { properties } from '@app/sharedV2/queryBuilder/properties';
 
-const EMPTY_FILTER = {
+const EMPTY_FILTER: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.AND,
     operands: [],
 };
