@@ -1146,25 +1146,20 @@ class S3Source(StatefulIngestionSourceBase):
                         continue
 
                     # STEP 5: Handle partition traversal based on configuration
-                    # Get all partition folders first
-                    all_partition_folders = list(
-                        list_folders(
-                            bucket_name, table_folder, self.source_config.aws_config
-                        )
-                    )
-                    logger.info(
-                        f"Found {len(all_partition_folders)} partition folders under table {table_name} using method {path_spec.traversal_method}"
-                    )
-
-                    if all_partition_folders:
-                        # Apply the same traversal logic as the original code
+                    if True:
                         dirs_to_process = []
 
                         if path_spec.traversal_method == FolderTraversalMethod.ALL:
                             # Process ALL partitions (original behavior)
-                            dirs_to_process = all_partition_folders
-                            logger.debug(
-                                f"Processing ALL {len(all_partition_folders)} partitions"
+                            dirs_to_process = list(
+                                list_folders(
+                                    bucket_name,
+                                    table_folder,
+                                    self.source_config.aws_config,
+                                )
+                            )
+                            logger.info(
+                                f"Found ALL {len(dirs_to_process)} partition folders under table {table_name}"
                             )
 
                         else:
