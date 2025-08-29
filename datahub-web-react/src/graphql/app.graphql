@@ -123,6 +123,7 @@ query appConfig {
             slackBotTokensObfuscationEnabled
             showSeparateSiblings
             showManageStructuredProperties
+            supportTicketsEnabled
             entityVersioningEnabled
             formCreationEnabled
             schemaFieldCLLEnabled

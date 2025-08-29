@@ -4198,6 +4198,7 @@ export const platformPrivileges: PlatformPrivileges = {
     proposeCreateGlossaryTerm: true,
     proposeCreateGlossaryNode: true,
     canViewIngestionPage: true,
+    createSupportTickets: true,
 };
 
 export const DomainMock1 = {

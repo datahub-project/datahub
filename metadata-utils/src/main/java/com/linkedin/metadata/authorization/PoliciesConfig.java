@@ -71,6 +71,10 @@ public class PoliciesConfig {
           "Update Users & Groups",
           "Update users and groups on DataHub.");
 
+  public static final Privilege CREATE_SUPPORT_TICKETS_PRIVILEGE =
+      Privilege.of(
+          "CREATE_SUPPORT_TICKETS", "Create Support Tickets", "Create support tickets on DataHub.");
+
   static final Privilege CREATE_USERS_PRIVILEGE =
       Privilege.of("CREATE_USERS", "Create Users", "Create users on DataHub.");
 
@@ -318,7 +322,8 @@ public class PoliciesConfig {
           MANAGE_ORGANIZATION_DISPLAY_PREFERENCES,
           PROPOSE_CREATE_GLOSSARY_TERM,
           PROPOSE_CREATE_GLOSSARY_NODE,
-          MANAGE_ACTION_WORKFLOWS_PRIVILEGE);
+          MANAGE_ACTION_WORKFLOWS_PRIVILEGE,
+          CREATE_SUPPORT_TICKETS_PRIVILEGE);
 
   // Resource Privileges //
 

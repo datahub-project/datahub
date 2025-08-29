@@ -136,6 +136,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showHomePageRedesign: false,
         assetSummaryPageV1: false,
         inviteUsersEnabled: false,
+        supportTicketsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,
