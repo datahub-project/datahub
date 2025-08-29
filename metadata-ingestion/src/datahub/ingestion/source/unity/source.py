@@ -12,6 +12,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_group_urn,
+    make_ml_model_group_urn,
     make_schema_field_urn,
     make_ts_millis,
     make_user_urn,
@@ -26,6 +27,7 @@ from datahub.emitter.mcp_builder import (
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
     add_dataset_to_container,
+    add_entity_to_container,
     gen_containers,
 )
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
@@ -87,6 +89,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     CustomCatalogType,
     HiveTableType,
     Metastore,
+    Model,
+    ModelVersion,
     Notebook,
     NotebookId,
     Schema,
@@ -121,6 +125,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
+    MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
     OwnerClass,
@@ -135,6 +140,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import TagUrn
+from datahub.sdk import MLModel, MLModelGroup
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -182,6 +188,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - metastores
     - schemas
     - tables and column lineage
+    - model and model versions
     """
 
     config: UnityCatalogSourceConfig
@@ -512,6 +519,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_schema_containers(schema)
                 try:
                     yield from self.process_tables(schema)
+                    yield from self.process_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.report_warning(
@@ -665,6 +673,61 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         ]
 
+    def process_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        for model in self.unity_catalog_api_proxy.models(schema=schema):
+            yield from self.process_model(model, schema)
+            model_urn = self.gen_model_urn(model.id)
+            for model_version in self.unity_catalog_api_proxy.model_versions(model):
+                yield from self.process_model_version(model_urn, model_version, schema)
+
+    def process_model(self, model: Model, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        model_group = MLModelGroup(
+            id=model.id,
+            name=model.name,
+            platform=self.platform,
+            platform_instance=schema.name,
+            env=self.config.env,
+            description=model.description,
+            created=model.created_at,
+            last_modified=model.updated_at,
+        )
+        yield from model_group.as_workunits()
+        yield from self.add_model_to_schema_container(str(model_group.urn), schema)
+        self.report.models.processed(model.id)
+
+    def process_model_version(
+        self, model_urn: str, model_version: ModelVersion, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        extra_aspects = []
+        if model_version.created_at is not None:
+            created_time = int(model_version.created_at.timestamp() * 1000)
+            created_actor = (
+                f"urn:li:platformResource:{model_version.created_by}"
+                if model_version.created_by
+                else None
+            )
+            extra_aspects.append(
+                MLModelPropertiesClass(
+                    created=TimeStampClass(time=created_time, actor=created_actor),
+                )
+            )
+
+        model = MLModel(
+            id=model_version.id,
+            name=model_version.name,
+            version=str(model_version.version),
+            aliases=model_version.aliases,
+            description=model_version.description,
+            model_group=model_urn,
+            platform=self.platform,
+            last_modified=model_version.updated_at,
+            extra_aspects=extra_aspects,
+        )
+
+        yield from model.as_workunits()
+        yield from self.add_model_version_to_schema_container(str(model.urn), schema)
+        self.report.model_versions.processed(model_version.id)
+
     def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
         # Calculate datetime filters for lineage
         lineage_start_time = None
@@ -799,6 +862,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.platform_instance_name,
             name=str(table_ref),
+            env=self.config.env,
+        )
+
+    def gen_model_urn(self, name: str) -> str:
+        return make_ml_model_group_urn(
+            platform=self.platform,
+            group_name=name,
             env=self.config.env,
         )
 
@@ -971,6 +1041,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from add_dataset_to_container(
             container_key=schema_container_key,
             dataset_urn=dataset_urn,
+        )
+
+    def add_model_to_schema_container(
+        self, model_urn: str, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(schema)
+        yield from add_entity_to_container(
+            container_key=schema_container_key,
+            entity_type="mlModelGroup",
+            entity_urn=model_urn,
+        )
+
+    def add_model_version_to_schema_container(
+        self, model_version_urn: str, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_container_key = self.gen_schema_key(schema)
+        yield from add_entity_to_container(
+            container_key=schema_container_key,
+            entity_type="mlModel",
+            entity_urn=model_version_urn,
         )
 
     def _get_catalog_tags(

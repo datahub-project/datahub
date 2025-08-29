@@ -17,6 +17,8 @@ from databricks.sdk.service.catalog import (
     ColumnInfo,
     GetMetastoreSummaryResponse,
     MetastoreInfo,
+    ModelVersionInfo,
+    RegisteredModelInfo,
     SchemaInfo,
     TableInfo,
 )
@@ -49,6 +51,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     CustomCatalogType,
     ExternalTableReference,
     Metastore,
+    Model,
+    ModelVersion,
     Notebook,
     NotebookReference,
     Query,
@@ -250,6 +254,31 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 except Exception as e:
                     logger.warning(f"Error parsing table: {e}")
                     self.report.report_warning("table-parse", str(e))
+
+    def models(self, schema: Schema) -> Iterable[Model]:
+        response = self._workspace_client.registered_models.list(
+            catalog_name=schema.catalog.name, schema_name=schema.name
+        )
+        for model in response:
+            optional_model = self._create_model(schema, model)
+            if optional_model:
+                yield optional_model
+
+    def model_versions(self, model: Model) -> Iterable[ModelVersion]:
+        response = self._workspace_client.model_versions.list(
+            full_name=model.id,
+            include_browse=True,
+            max_results=self.databricks_api_page_size,
+        )
+        for version in response:
+            if version.version is not None:
+                # to get aliases info, use GET
+                version = self._workspace_client.model_versions.get(
+                    model.id, version.version, include_aliases=True
+                )
+                optional_model_version = self._create_model_version(model, version)
+                if optional_model_version:
+                    yield optional_model_version
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
@@ -861,6 +890,45 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             optional_column = self._create_column(table_id, column)
             if optional_column:
                 yield optional_column
+
+    def _create_model(
+        self, schema: Schema, obj: RegisteredModelInfo
+    ) -> Optional[Model]:
+        if not obj.name or not obj.full_name:
+            self.report.num_tables_missing_name += 1
+            return None
+        return Model(
+            id=obj.full_name,
+            name=obj.name,
+            description=obj.comment,
+            schema_name=schema.name,
+            catalog_name=schema.catalog.name,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+        )
+
+    def _create_model_version(
+        self, model: Model, obj: ModelVersionInfo
+    ) -> Optional[ModelVersion]:
+        if obj.version is None:
+            return None
+
+        aliases = []
+        if obj.aliases:
+            for alias in obj.aliases:
+                if alias.alias_name:
+                    aliases.append(alias.alias_name)
+        return ModelVersion(
+            id=f"{model.id}_{obj.version}",
+            name=f"{model.name}_{obj.version}",
+            model=model,
+            version=str(obj.version),
+            aliases=aliases,
+            description=obj.comment,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+            created_by=obj.created_by,
+        )
 
     def _create_service_principal(
         self, obj: DatabricksServicePrincipal

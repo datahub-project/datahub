@@ -31,6 +31,8 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+    models: EntityFilterReport = EntityFilterReport.field(type="model")
+    model_versions: EntityFilterReport = EntityFilterReport.field(type="model_version")
 
     hive_metastore_catalog_found: Optional[bool] = None
 

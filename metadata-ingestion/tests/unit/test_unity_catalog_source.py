@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
@@ -141,3 +142,37 @@ class TestUnityCatalogSource:
             # Get the config that was passed to UnityCatalogConnectionTest
             connection_test_config = mock_connection_test.call_args[0][0]
             assert connection_test_config.databricks_api_page_size == 300
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_source_report_includes_ml_model_stats(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """Test that source report properly tracks ML model statistics."""
+        from datahub.ingestion.api.common import PipelineContext
+
+        # Setup mocks
+        mock_unity_instance = mock_unity_proxy.return_value
+        mock_unity_instance.catalogs.return_value = []
+        mock_unity_instance.check_basic_connectivity.return_value = True
+
+        config = UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "databricks_api_page_size": 200,
+            }
+        )
+
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource.create(config, ctx)
+
+        # Verify report has proper ML model tracking attributes
+        assert hasattr(source.report, "models")
+        assert hasattr(source.report, "model_versions")
+
+        # Verify they are EntityFilterReport objects
+        assert isinstance(source.report.models, EntityFilterReport)
+        assert isinstance(source.report.model_versions, EntityFilterReport)
