@@ -9,7 +9,6 @@ import com.linkedin.r2.transport.common.bridge.client.TransportClient;
 import com.linkedin.r2.transport.common.bridge.client.TransportClientAdapter;
 import com.linkedin.r2.transport.http.client.HttpClientFactory;
 import com.linkedin.restli.client.RestClient;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -25,7 +24,6 @@ import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
-
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -50,50 +48,64 @@ public class DefaultRestliClientFactory {
 
   @Nonnull
   public static RestClient getRestLiClient(
-          @Nonnull String restLiServerHost,
-          int restLiServerPort,
-          boolean useSSL,
-          @Nullable String sslProtocol,
-          String truststorePath,
-          String truststorePassword,
-          String truststoreType) {
-    return getRestLiClient(restLiServerHost, restLiServerPort, useSSL, sslProtocol, null, truststorePath, truststorePassword, truststoreType);
-  }
-
-  @Nonnull
-  public static RestClient getRestLiClient(
-          @Nonnull String restLiServerHost,
-          int restLiServerPort,
-          boolean useSSL,
-          @Nullable String sslProtocol,
-          @Nullable Map<String, String> params,
-          String truststorePath,
-          String truststorePassword,
-          String truststoreType) {
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
+      boolean useSSL,
+      @Nullable String sslProtocol,
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType) {
     return getRestLiClient(
-            URI.create(
-                    String.format(
-                            "%s://%s:%s", useSSL ? "https" : "http", restLiServerHost, restLiServerPort)),
-            sslProtocol,
-            params, truststorePath, truststorePassword, truststoreType);
-  }
-
-  @Nonnull
-  public static RestClient getRestLiClient(@Nonnull URI gmsUri, @Nullable String sslProtocol,
-                                           String truststorePath,
-                                           String truststorePassword,
-                                           String truststoreType) {
-    return getRestLiClient(gmsUri, sslProtocol, null, truststorePath, truststorePassword, truststoreType);
+        restLiServerHost,
+        restLiServerPort,
+        useSSL,
+        sslProtocol,
+        null,
+        truststorePath,
+        truststorePassword,
+        truststoreType);
   }
 
   @Nonnull
   public static RestClient getRestLiClient(
-          @Nonnull URI gmsUri,
-          @Nullable String sslProtocol,
-          @Nullable Map<String, String> inputParams,
-          String truststorePath,
-          String truststorePassword,
-          String truststoreType) {
+      @Nonnull String restLiServerHost,
+      int restLiServerPort,
+      boolean useSSL,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> params,
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType) {
+    return getRestLiClient(
+        URI.create(
+            String.format(
+                "%s://%s:%s", useSSL ? "https" : "http", restLiServerHost, restLiServerPort)),
+        sslProtocol,
+        params,
+        truststorePath,
+        truststorePassword,
+        truststoreType);
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull URI gmsUri,
+      @Nullable String sslProtocol,
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType) {
+    return getRestLiClient(
+        gmsUri, sslProtocol, null, truststorePath, truststorePassword, truststoreType);
+  }
+
+  @Nonnull
+  public static RestClient getRestLiClient(
+      @Nonnull URI gmsUri,
+      @Nullable String sslProtocol,
+      @Nullable Map<String, String> inputParams,
+      String truststorePath,
+      String truststorePassword,
+      String truststoreType) {
     if (StringUtils.isBlank(gmsUri.getHost()) || gmsUri.getPort() <= 0) {
       throw new InvalidParameterException("Invalid restli server host name or port!");
     }
@@ -111,11 +123,11 @@ public class DefaultRestliClientFactory {
       }
       SSLParameters sslParameters = new SSLParameters();
       if (sslProtocol != null) {
-        sslParameters.setProtocols(new String[]{sslProtocol});
+        sslParameters.setProtocols(new String[] {sslProtocol});
       }
       try {
-        if(truststorePath != null && truststorePassword != null) {
-          if(truststoreType == null) {
+        if (truststorePath != null && truststorePassword != null) {
+          if (truststoreType == null) {
             truststoreType = "PKCS12";
           }
           KeyStore trustStore = KeyStore.getInstance(truststoreType);
@@ -124,7 +136,8 @@ public class DefaultRestliClientFactory {
           } catch (IOException | CertificateException e) {
             throw new RuntimeException(e);
           }
-          TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+          TrustManagerFactory trustManagerFactory =
+              TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
           trustManagerFactory.init(trustStore);
 
           SSLContext sslContext = SSLContext.getInstance("TLS");
@@ -132,7 +145,7 @@ public class DefaultRestliClientFactory {
 
           params.put(HttpClientFactory.HTTP_SSL_CONTEXT, sslContext);
         }
-      }catch (Exception e){
+      } catch (Exception e) {
         log.info("Exception in setting up SSLContext: {}", e.getMessage());
       }
       params.put(HttpClientFactory.HTTP_SSL_PARAMS, sslParameters);
