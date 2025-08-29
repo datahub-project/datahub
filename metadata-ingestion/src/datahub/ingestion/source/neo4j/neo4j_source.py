@@ -112,9 +112,13 @@ class Neo4jSource(StatefulIngestionSourceBase):
     def create_schema_field_tuple(
         self, col_name: str, col_type: str, obj_type: Optional[str]
     ) -> Tuple[str, type, str]:
-        """Convert Neo4j property to (field_name, field_type_class, description) tuple."""
-        # Special case: when a node has a relationship-typed property, treat it as a node reference
-        # This ensures relationship properties within nodes are described as "NODE" rather than "RELATIONSHIP"
+        """Convert Neo4j property to tuple.
+        
+        Returns (field_name, field_type_class, description) tuple.
+        """
+        # Special case: when a node has a relationship-typed property,
+        # treat it as a node reference. This ensures relationship properties
+        # within nodes are described as "NODE" rather than "RELATIONSHIP"
         if obj_type == _NODE and col_type == _RELATIONSHIP:
             col_type = _NODE
 
@@ -174,21 +178,24 @@ class Neo4jSource(StatefulIngestionSourceBase):
             self.config.uri, auth=(self.config.username, self.config.password)
         )
         """
-        This process retrieves the metadata for Neo4j objects using an APOC query, which returns a dictionary
-        with two columns: key and value. The key represents the Neo4j object, while the value contains the
-        corresponding metadata.
+        This process retrieves the metadata for Neo4j objects using an APOC query,
+        which returns a dictionary with two columns: key and value. The key represents
+        the Neo4j object, while the value contains the corresponding metadata.
 
-        When data is returned from Neo4j, much of the relationship metadata is stored with the relevant node's
-        metadata. Consequently, the objects are organized into two separate dataframes: one for nodes and one for
-        relationships.
+        When data is returned from Neo4j, much of the relationship metadata is stored
+        with the relevant node's metadata. Consequently, the objects are organized
+        into two separate dataframes: one for nodes and one for relationships.
 
-        In the node dataframe, several fields are extracted and added as new columns. Similarly, in the relationship
-        dataframe, certain fields are parsed out, while others require metadata from the nodes dataframe.
+        In the node dataframe, several fields are extracted and added as new columns.
+        Similarly, in the relationship dataframe, certain fields are parsed out,
+        while others require metadata from the nodes dataframe.
 
-        Once the data is parsed and these two dataframes are created, we combine a subset of their columns into a
-        single dataframe, which will be used to create the DataHub objects.
+        Once the data is parsed and these two dataframes are created, we combine
+        a subset of their columns into a single dataframe, which will be used to
+        create the DataHub objects.
 
-        See the docs for examples of metadata:  metadata-ingestion/docs/sources/neo4j/neo4j.md
+        See the docs for examples of metadata:
+        metadata-ingestion/docs/sources/neo4j/neo4j.md
         """
         try:
             log.info(f"{query}")
@@ -304,9 +311,11 @@ class Neo4jSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        df = self.get_neo4j_metadata(
-            "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
+        query = (
+            "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key "
+            "RETURN key, value[key] AS value;"
         )
+        df = self.get_neo4j_metadata(query)
         if df is None:
             log.warning("No metadata retrieved from Neo4j")
             return

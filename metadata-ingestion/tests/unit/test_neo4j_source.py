@@ -414,10 +414,12 @@ def test_neo4j_session_handling(source, mock_neo4j_session):
     mock_result.data = mock_data_method
 
     # Use the mock with a context manager
+    query = (
+        "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key "
+        "RETURN key, value[key] AS value;"
+    )
     with mock.patch("neo4j.GraphDatabase.driver", return_value=mock_driver):
-        source.get_neo4j_metadata(
-            "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
-        )
+        source.get_neo4j_metadata(query)
 
         # Verify proper session handling
         assert mock_session.__enter__.called, "Session context manager entry not called"
@@ -436,10 +438,12 @@ def test_workunit_with_platform_instance(
 
     mock_result.data = mock_data_method
 
+    query = (
+        "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key "
+        "RETURN key, value[key] AS value;"
+    )
     with mock.patch("neo4j.GraphDatabase.driver", return_value=mock_driver):
-        df = source_with_platform_instance.get_neo4j_metadata(
-            "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
-        )
+        df = source_with_platform_instance.get_neo4j_metadata(query)
 
         # Verify session was used as context manager
         assert mock_session.__enter__.called
