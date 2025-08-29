@@ -18,7 +18,7 @@ import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
 import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
-import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
+import { DEFAULT_PATH, getFilteredPaths } from '@app/settingsV2/settingsPaths';
 import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -90,12 +90,17 @@ export const SettingsPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { config } = useAppConfig();
 
+    // Get filtered paths based on user privileges
+    const PATHS = getFilteredPaths(me, config);
+
     const subRoutes = PATHS.map((p) => p.path.replace('/', ''));
     const currPathName = pathname.replace(path, '');
     const trimmedPathName = currPathName.endsWith('/') ? pathname.slice(0, pathname.length - 1) : currPathName;
     const splitPathName = trimmedPathName.split('/');
     const providedPath = splitPathName[1];
-    const activePath = subRoutes.includes(providedPath) ? providedPath : DEFAULT_PATH.path.replace('/', '');
+    const activePath = subRoutes.includes(providedPath)
+        ? providedPath
+        : (PATHS[0]?.path || DEFAULT_PATH.path).replace('/', '');
 
     const isViewsEnabled = config?.viewsConfig?.enabled;
     const isPoliciesEnabled = config?.policiesConfig?.enabled;
@@ -278,6 +283,8 @@ export const SettingsPage = () => {
                     {PATHS.map((p) => (
                         <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
                     ))}
+                    {/* Fallback for any unmatched route - redirect to default */}
+                    <Route render={() => <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
                 </Switch>
             </ContentContainer>
         </PageContainer>
