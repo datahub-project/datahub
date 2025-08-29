@@ -692,6 +692,13 @@ type SearchResult {
   Additional properties about the search result. Used for rendering in the UI
   """
   extraProperties: [ExtraProperty!]
+
+  """
+  Search score for this result.
+  For keyword search, this is the BM25 score (unbounded).
+  For semantic search, this is the cosine similarity score normalized to [0, 1].
+  """
+  score: Float
 }
 
 """

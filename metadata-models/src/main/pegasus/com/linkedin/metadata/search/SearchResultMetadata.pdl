@@ -17,4 +17,9 @@ record SearchResultMetadata {
    */
   suggestions: array[SearchSuggestion] = []
 
+  /**
+   * The scoring method used for ranking results
+   */
+  scoringMethod: optional string
+
 }

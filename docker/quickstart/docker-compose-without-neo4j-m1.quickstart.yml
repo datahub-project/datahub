@@ -156,7 +156,8 @@ services:
     - discovery.type=single-node
     - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
     - ES_JAVA_OPTS=-Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
-    - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
+    - OPENSEARCH_JAVA_OPTS=-Xms768m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
+    - DISABLE_SECURITY_PLUGIN=true
     healthcheck:
       interval: 1s
       retries: 3
