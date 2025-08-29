@@ -35,7 +35,9 @@ public class SchemaFieldType
           DEPRECATION_ASPECT_NAME,
           BUSINESS_ATTRIBUTE_ASPECT,
           DOCUMENTATION_ASPECT_NAME,
-          STATUS_ASPECT_NAME);
+          STATUS_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
+          GLOSSARY_TERMS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;
