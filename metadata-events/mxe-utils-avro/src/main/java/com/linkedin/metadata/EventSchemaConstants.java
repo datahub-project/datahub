@@ -3,12 +3,12 @@ package com.linkedin.metadata;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Arrays;
 import org.apache.avro.Schema;
 
 /** Constants and utility methods for avro schema */
@@ -97,7 +97,8 @@ public final class EventSchemaConstants {
     // Map schema names to their list of schema IDs
     // Each schema ID represents a different version of the schema (backwards incompatible)
     SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME, Arrays.asList(MCP_V1_SCHEMA_ID, MCP_SCHEMA_ID));
+        EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME,
+        Arrays.asList(MCP_V1_SCHEMA_ID, MCP_SCHEMA_ID));
     SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
         EventUtils.FAILED_METADATA_CHANGE_PROPOSAL_SCHEMA_NAME,
         Arrays.asList(FMCP_V1_SCHEMA_ID, FMCP_SCHEMA_ID));
@@ -108,14 +109,17 @@ public final class EventSchemaConstants {
             MCL_SCHEMA_ID,
             MCL_TIMESERIES_V1_SCHEMA_ID,
             MCL_TIMESERIES_SCHEMA_ID));
-    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(EventUtils.PLATFORM_EVENT_SCHEMA_NAME, Arrays.asList(PE_SCHEMA_ID));
     SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME, Arrays.asList(MCE_V1_SCHEMA_ID, MCE_SCHEMA_ID));
+        EventUtils.PLATFORM_EVENT_SCHEMA_NAME, Arrays.asList(PE_SCHEMA_ID));
+    SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
+        EventUtils.METADATA_CHANGE_EVENT_SCHEMA_NAME,
+        Arrays.asList(MCE_V1_SCHEMA_ID, MCE_SCHEMA_ID));
     SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
         EventUtils.FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME,
         Arrays.asList(FMCE_V1_SCHEMA_ID, FMCE_SCHEMA_ID));
     SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
-        EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME, Arrays.asList(MAE_V1_SCHEMA_ID, MAE_SCHEMA_ID));
+        EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME,
+        Arrays.asList(MAE_V1_SCHEMA_ID, MAE_SCHEMA_ID));
     SCHEMA_NAME_TO_SCHEMA_IDS_MAP.put(
         EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME, Arrays.asList(DUHE_SCHEMA_ID));
 
