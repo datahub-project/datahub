@@ -518,7 +518,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             with self.report.new_stage(f"Ingest schema {schema.id}"):
                 yield from self.gen_schema_containers(schema)
                 try:
-                    # yield from self.process_tables(schema)
+                    yield from self.process_tables(schema)
                     yield from self.process_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
@@ -684,11 +684,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         model_group = MLModelGroup(
             id=model.id,
             name=model.name,
-            platform=self.platform,  # TODO: this should be mlflow?
+            platform=self.platform,
             platform_instance=schema.name,
             env=self.config.env,
             description=model.description,
-            # tags=model.tags,
             created=model.created_at,
             last_modified=model.updated_at,
         )
@@ -697,7 +696,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.report.models.processed(model.id)
 
     def process_model_version(
-        self, model_group_urn: str, model_version: ModelVersion, schema: Schema
+        self, model_urn: str, model_version: ModelVersion, schema: Schema
     ) -> Iterable[MetadataWorkUnit]:
         created_time = (
             int(model_version.created_at.timestamp() * 1000)
@@ -723,7 +722,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             version=str(model_version.version),
             aliases=model_version.aliases,
             description=model_version.description,
-            model_group=model_group_urn,
+            model_group=model_urn,
             platform=self.platform,
             last_modified=model_version.updated_at,
             extra_aspects=extra_aspects,
