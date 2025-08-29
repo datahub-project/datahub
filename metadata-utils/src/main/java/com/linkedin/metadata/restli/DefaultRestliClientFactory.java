@@ -92,7 +92,6 @@ public class DefaultRestliClientFactory {
     if (inputParams != null) {
       params.putAll(inputParams);
     }
-
     return getHttpRestClient(gmsUri, params);
   }
 
