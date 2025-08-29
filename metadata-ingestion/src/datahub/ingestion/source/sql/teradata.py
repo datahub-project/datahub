@@ -468,23 +468,23 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
-    database_pattern = Field(
+    database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=EXCLUDED_DATABASES),
         description="Regex patterns for databases to filter in ingestion.",
     )
-    include_table_lineage = Field(
+    include_table_lineage: bool = Field(
         default=False,
         description="Whether to include table lineage in the ingestion. "
         "This requires to have the table lineage feature enabled.",
     )
 
-    include_view_lineage = Field(
+    include_view_lineage: bool = Field(
         default=True,
         description="Whether to include view lineage in the ingestion. "
         "This requires to have the view lineage feature enabled.",
     )
 
-    include_queries = Field(
+    include_queries: bool = Field(
         default=True,
         description="Whether to generate query entities for SQL queries. "
         "Query entities provide metadata about individual SQL queries including "

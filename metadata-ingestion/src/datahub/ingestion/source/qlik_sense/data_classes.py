@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, ConfigDict, Field, root_validator
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.qlik_sense.config import QLIK_DATETIME_FORMAT, Constant
@@ -78,7 +78,11 @@ PERSONAL_SPACE_DICT = {
 }
 
 
-class Space(BaseModel):
+class _QlikBaseModel(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+
+class Space(_QlikBaseModel):
     id: str
     name: str
     description: str
@@ -98,7 +102,7 @@ class Space(BaseModel):
         return values
 
 
-class Item(BaseModel):
+class Item(_QlikBaseModel):
     id: str
     description: str = ""
     ownerId: str
@@ -107,7 +111,7 @@ class Item(BaseModel):
     updatedAt: datetime
 
 
-class SchemaField(BaseModel):
+class SchemaField(_QlikBaseModel):
     name: str
     dataType: Optional[str] = None
     primaryKey: Optional[bool] = None
@@ -148,13 +152,13 @@ class QlikDataset(Item):
         return values
 
 
-class AxisProperty(BaseModel):
+class AxisProperty(_QlikBaseModel):
     Title: str = Field(alias="qFallbackTitle")
     Min: str = Field(alias="qMin")
     Max: str = Field(alias="qMax")
 
 
-class Chart(BaseModel):
+class Chart(_QlikBaseModel):
     qId: str
     visualization: str
     title: str
@@ -170,7 +174,7 @@ class Chart(BaseModel):
         return values
 
 
-class Sheet(BaseModel):
+class Sheet(_QlikBaseModel):
     id: str
     title: str
     description: str
@@ -190,7 +194,7 @@ class Sheet(BaseModel):
         return values
 
 
-class QlikTable(BaseModel):
+class QlikTable(_QlikBaseModel):
     tableName: str
     type: BoxType = Field(alias="boxType")
     tableAlias: str

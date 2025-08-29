@@ -1,5 +1,6 @@
+import pathlib
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import ClassVar, Dict, Iterable, List, Optional, Tuple, Union
 
 import feast.types
 from feast import (
@@ -97,7 +98,7 @@ class FeastRepositorySourceConfig(
     StatefulIngestionConfigBase,
 ):
     path: str = Field(description="Path to Feast repository")
-    fs_yaml_file: Optional[str] = Field(
+    fs_yaml_file: Optional[pathlib.Path] = Field(
         default=None,
         description="Path to the `feature_store.yaml` file used to configure the feature store",
     )
@@ -142,17 +143,14 @@ class FeastRepositorySource(StatefulIngestionSourceBase):
     - Column types associated with each entity and feature
     """
 
-    platform = "feast"
-    source_config: FeastRepositorySourceConfig
-    report: StaleEntityRemovalSourceReport
-    feature_store: FeatureStore
+    platform: ClassVar[str] = "feast"
 
     def __init__(self, config: FeastRepositorySourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.source_config = config
-        self.ctx = ctx
-        self.report = StaleEntityRemovalSourceReport()
-        self.feature_store = FeatureStore(
+        self.source_config: FeastRepositorySourceConfig = config
+        self.ctx: PipelineContext = ctx
+        self.report: StaleEntityRemovalSourceReport = StaleEntityRemovalSourceReport()
+        self.feature_store: FeatureStore = FeatureStore(
             repo_path=self.source_config.path,
             fs_yaml_file=self.source_config.fs_yaml_file,
         )
