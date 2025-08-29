@@ -51,7 +51,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelper
 from datahub.ingestion.source.redshift.exception import handle_redshift_exceptions_yield
-from datahub.ingestion.source.redshift.lineage_v2 import RedshiftSqlLineageV2
+from datahub.ingestion.source.redshift.lineage import RedshiftSqlLineage
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_data_reader import RedshiftDataReader
 from datahub.ingestion.source.redshift.redshift_schema import (
@@ -419,7 +419,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             memory_footprint.total_size(self.db_views)
         )
 
-        with RedshiftSqlLineageV2(
+        with RedshiftSqlLineage(
             config=self.config,
             report=self.report,
             context=self.ctx,
@@ -953,7 +953,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self,
         connection: redshift_connector.Connection,
         database: str,
-        lineage_extractor: RedshiftSqlLineageV2,
+        lineage_extractor: RedshiftSqlLineage,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.include_share_lineage:
             outbound_shares = self.data_dictionary.get_outbound_datashares(connection)

@@ -107,7 +107,7 @@ def parse_alter_table_rename(default_schema: str, query: str) -> Tuple[str, str,
     return schema, prev_name, new_name
 
 
-class RedshiftSqlLineageV2(Closeable):
+class RedshiftSqlLineage(Closeable):
     # does lineage and usage based on SQL parsing.
 
     def __init__(
@@ -131,7 +131,7 @@ class RedshiftSqlLineageV2(Closeable):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             generate_lineage=True,
-            generate_queries=self.config.lineage_v2_generate_queries,
+            generate_queries=self.config.lineage_generate_queries,
             generate_usage_statistics=False,
             generate_operations=False,
             usage_config=self.config,
