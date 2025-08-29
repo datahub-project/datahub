@@ -3,7 +3,7 @@ import { BookmarkSimple } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
 import GlossaryRelatedEntity from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms';
@@ -216,10 +216,10 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm, undefined, undefined);
     };
 
-    renderPreview = (previewType: PreviewType, data: GlossaryTerm) => {
+    renderPreview = (previewType: PreviewType, data: GlossaryTerm, _actions, extraContext?: PreviewContext) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -233,6 +233,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 deprecation={data?.deprecation}
                 domain={data.domain?.domain}
                 headerDropdownItems={headerDropdownItems}
+                propagationDetails={extraContext?.propagationDetails}
             />
         );
     };
