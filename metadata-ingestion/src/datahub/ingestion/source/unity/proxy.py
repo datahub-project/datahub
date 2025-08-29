@@ -900,7 +900,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         return Model(
             id=obj.full_name,
             name=obj.name,
-            description=obj.comment or "",
+            description=obj.comment,
             schema_name=schema.name,
             catalog_name=schema.catalog.name,
             created_at=parse_ts_millis(obj.created_at),

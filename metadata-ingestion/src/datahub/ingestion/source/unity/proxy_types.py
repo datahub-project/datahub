@@ -343,9 +343,9 @@ class Notebook:
 class Model:
     id: str
     name: str
-    description: Optional[str]
     schema_name: str
     catalog_name: str
+    description: Optional[str]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -356,7 +356,7 @@ class ModelVersion:
     name: str
     model: Model
     version: str
-    aliases: List[str]
+    aliases: Optional[List[str]]
     description: Optional[str]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]

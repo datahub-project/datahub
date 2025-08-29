@@ -793,3 +793,204 @@ class TestUnityCatalogProxy:
         mock_client.api_client.do.assert_called_once()
         call_args = mock_client.api_client.do.call_args
         assert call_args[1]["body"]["max_results"] == 150
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_models_with_page_size(self, mock_workspace_client):
+        """Test models() method calls registered_models.list() with correct parameters."""
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.registered_models.list.return_value = []
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=150,
+        )
+
+        # Create test schema
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="test_catalog.test_schema",
+            name="test_schema",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        list(proxy.models(schema))
+
+        mock_client.registered_models.list.assert_called_with(
+            catalog_name="test_catalog", schema_name="test_schema"
+        )
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_model_versions_with_page_size(self, mock_workspace_client):
+        """Test model_versions() method passes page size to model_versions.list()."""
+        from datahub.ingestion.source.unity.proxy_types import Model
+
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.model_versions.list.return_value = []
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=75,
+        )
+
+        # Create test model
+        model = Model(
+            id="test_catalog.test_schema.test_model",
+            name="test_model",
+            description=None,
+            schema_name="test_schema",
+            catalog_name="test_catalog",
+            created_at=None,
+            updated_at=None,
+        )
+
+        list(proxy.model_versions(model))
+
+        mock_client.model_versions.list.assert_called_with(
+            full_name="test_catalog.test_schema.test_model",
+            include_browse=True,
+            max_results=75,
+        )
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_model_versions_with_get_call(self, mock_workspace_client):
+        """Test model_versions() method calls model_versions.get() for each version to get aliases."""
+        from databricks.sdk.service.catalog import ModelVersionInfo
+
+        from datahub.ingestion.source.unity.proxy_types import Model, ModelVersion
+
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+
+        # Mock list response with one version
+        mock_version = ModelVersionInfo(version=1, comment="Test version")
+        mock_client.model_versions.list.return_value = [mock_version]
+
+        # Mock get response with aliases
+        mock_detailed_version = ModelVersionInfo(
+            version=1, comment="Test version", aliases=[]
+        )
+        mock_client.model_versions.get.return_value = mock_detailed_version
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=100,
+        )
+
+        # Create test model
+        model = Model(
+            id="test_catalog.test_schema.test_model",
+            name="test_model",
+            description=None,
+            schema_name="test_schema",
+            catalog_name="test_catalog",
+            created_at=None,
+            updated_at=None,
+        )
+
+        # Mock the _create_model_version method to return a simple result
+        with patch.object(proxy, "_create_model_version") as mock_create:
+            mock_create.return_value = ModelVersion(
+                id="test_model_1",
+                name="test_model_1",
+                model=model,
+                version="1",
+                aliases=[],
+                description="Test version",
+                created_at=None,
+                updated_at=None,
+                created_by=None,
+            )
+
+            result = list(proxy.model_versions(model))
+
+            # Verify list was called
+            mock_client.model_versions.list.assert_called_with(
+                full_name="test_catalog.test_schema.test_model",
+                include_browse=True,
+                max_results=100,
+            )
+
+            # Verify get was called for the version
+            mock_client.model_versions.get.assert_called_with(
+                "test_catalog.test_schema.test_model", 1, include_aliases=True
+            )
+
+            # Should return one model version
+            assert len(result) == 1
+
+    def test_dataclass_creation_ml_models(self):
+        """Test creation of ML model related dataclasses."""
+        from datetime import datetime
+
+        from datahub.ingestion.source.unity.proxy_types import Model, ModelVersion
+
+        # Test Model
+        model = Model(
+            id="test_catalog.test_schema.test_model",
+            name="test_model",
+            description="Test model description",
+            schema_name="test_schema",
+            catalog_name="test_catalog",
+            created_at=datetime(2023, 1, 1),
+            updated_at=datetime(2023, 1, 2),
+        )
+        assert model.id == "test_catalog.test_schema.test_model"
+        assert model.name == "test_model"
+        assert model.description == "Test model description"
+        assert model.schema_name == "test_schema"
+        assert model.catalog_name == "test_catalog"
+
+        # Test ModelVersion
+        version = ModelVersion(
+            id="test_catalog.test_schema.test_model_1",
+            name="test_model_1",
+            model=model,
+            version="1",
+            aliases=["prod", "latest"],
+            description="Version 1",
+            created_at=datetime(2023, 1, 3),
+            updated_at=datetime(2023, 1, 4),
+            created_by="test_user",
+        )
+        assert version.id == "test_catalog.test_schema.test_model_1"
+        assert version.name == "test_model_1"
+        assert version.model == model
+        assert version.version == "1"
+        assert version.aliases == ["prod", "latest"]
+        assert version.created_by == "test_user"

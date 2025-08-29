@@ -698,21 +698,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_model_version(
         self, model_urn: str, model_version: ModelVersion, schema: Schema
     ) -> Iterable[MetadataWorkUnit]:
-        created_time = (
-            int(model_version.created_at.timestamp() * 1000)
-            if model_version.created_at
-            else None
-        )
-        created_actor = (
-            f"urn:li:platformResource:{model_version.created_by}"
-            if model_version.created_by
-            else None
-        )
         extra_aspects = []
-        if created_time is not None:
+        if model_version.created_at is not None:
+            created_time = int(model_version.created_at.timestamp() * 1000)
+            created_actor = (
+                f"urn:li:platformResource:{model_version.created_by}"
+                if model_version.created_by
+                else None
+            )
             extra_aspects.append(
                 MLModelPropertiesClass(
-                    created=TimeStampClass(time=created_time, actor=created_actor)
+                    created=TimeStampClass(time=created_time, actor=created_actor),
                 )
             )
 
