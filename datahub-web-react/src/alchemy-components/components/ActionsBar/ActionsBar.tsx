@@ -19,8 +19,8 @@ const ActionsContainer = styled.div`
     transform: translateX(-55%);
 `;
 
-export type ActionsBarProps = { children?: React.ReactNode };
+export type ActionsBarProps = { children?: React.ReactNode; dataTestId?: string };
 
-export const ActionsBar = ({ children }: ActionsBarProps) => {
-    return <ActionsContainer>{children}</ActionsContainer>;
+export const ActionsBar = ({ children, dataTestId }: ActionsBarProps) => {
+    return <ActionsContainer data-testid={dataTestId}>{children}</ActionsContainer>;
 };

@@ -50,3 +50,4 @@ jobs:
           event_name: ${{ github.event.workflow_run.event }}
           files: "artifacts/**/*.xml"
           comment_mode: off
+          large_files: true

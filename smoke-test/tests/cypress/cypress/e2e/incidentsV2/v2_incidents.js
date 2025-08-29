@@ -180,7 +180,7 @@ describe("incidents", () => {
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false",
     );
 
-    // Wait for the page to load properly and button to be interactive
+    // Wait for loading to complete and use the correct test ID for sibling mode
     cy.findByTestId("create-incident-btn-main-with-siblings", {
       timeout: 10000,
     }).should("be.visible");

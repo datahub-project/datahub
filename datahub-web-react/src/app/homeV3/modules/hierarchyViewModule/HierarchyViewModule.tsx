@@ -70,7 +70,7 @@ export default function HierarchyViewModule(props: ModuleProps) {
     }, [history, assetType]);
 
     return (
-        <LargeModule {...props} onClickViewAll={onClickViewAll}>
+        <LargeModule {...props} onClickViewAll={onClickViewAll} dataTestId="hierarchy-module">
             {assetUrns.length === 0 ? (
                 <EmptyContent
                     icon="Stack"

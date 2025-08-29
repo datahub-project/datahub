@@ -9,6 +9,8 @@ class SnowflakeCloudProvider(StrEnum):
 
 SNOWFLAKE_DEFAULT_CLOUD = SnowflakeCloudProvider.AWS
 
+DEFAULT_SNOWFLAKE_DOMAIN = "snowflakecomputing.com"
+
 
 class SnowflakeEdition(StrEnum):
     STANDARD = "Standard"

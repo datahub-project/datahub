@@ -47,6 +47,7 @@ import {
     ParentDomainsResult,
     ParentNodesResult,
     RawAspect,
+    ResolvedAuditStamp,
     SchemaMetadata,
     ScrollResults,
     Share,
@@ -93,6 +94,7 @@ export type GenericEntityProperties = {
         sourceRef?: Maybe<string>;
         businessAttributeDataType?: Maybe<string>;
         externalUrl?: Maybe<string>;
+        createdOn?: Maybe<ResolvedAuditStamp>;
     }>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;

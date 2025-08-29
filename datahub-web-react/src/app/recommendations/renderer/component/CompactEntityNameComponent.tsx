@@ -39,6 +39,7 @@ type CompactEntityNameProps = {
     onClick?: () => void;
     linkUrlParams?: Record<string, string | boolean>;
     isProposed?: boolean;
+    showMargin?: boolean;
 };
 
 export const CompactEntityNameComponent = ({
@@ -49,6 +50,7 @@ export const CompactEntityNameComponent = ({
     onClick,
     linkUrlParams,
     isProposed,
+    showMargin = true,
 }: CompactEntityNameProps) => {
     const entityRegistry = useEntityRegistry();
 
@@ -91,6 +93,7 @@ export const CompactEntityNameComponent = ({
                         columnName={columnName}
                         dataTestId={`compact-entity-link-${processedEntity.urn}`}
                         isProposed={isProposed}
+                        showMargin={showMargin}
                     />
                 </FullWidthContainer>
             </HoverEntityTooltip>

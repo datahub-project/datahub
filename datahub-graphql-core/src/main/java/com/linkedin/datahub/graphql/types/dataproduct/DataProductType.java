@@ -39,6 +39,7 @@ public class DataProductType
         com.linkedin.datahub.graphql.types.EntityType<DataProduct, String> {
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
+          DATA_PRODUCT_KEY_ASPECT_NAME,
           DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           GLOBAL_TAGS_ASPECT_NAME,

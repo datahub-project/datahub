@@ -325,17 +325,7 @@ import com.linkedin.datahub.graphql.types.view.DataHubViewType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
-import com.linkedin.metadata.config.AssertionMonitorsConfiguration;
-import com.linkedin.metadata.config.ChromeExtensionConfiguration;
-import com.linkedin.metadata.config.ClassificationConfiguration;
-import com.linkedin.metadata.config.DataHubConfiguration;
-import com.linkedin.metadata.config.GraphQLConfiguration;
-import com.linkedin.metadata.config.HomePageConfiguration;
-import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.config.SearchBarConfiguration;
-import com.linkedin.metadata.config.TestsConfiguration;
-import com.linkedin.metadata.config.ViewsConfiguration;
-import com.linkedin.metadata.config.VisualConfiguration;
+import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
@@ -452,6 +442,7 @@ public class GmsGraphQLEngine {
   private final DataHubConfiguration datahubConfiguration;
   private final ViewsConfiguration viewsConfiguration;
   private final SearchBarConfiguration searchBarConfiguration;
+  private final SearchCardConfiguration searchCardConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
   private final ClassificationConfiguration classificationConfiguration;
@@ -585,6 +576,7 @@ public class GmsGraphQLEngine {
     this.datahubConfiguration = args.datahubConfiguration;
     this.viewsConfiguration = args.viewsConfiguration;
     this.searchBarConfiguration = args.searchBarConfiguration;
+    this.searchCardConfiguration = args.searchCardConfiguration;
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
@@ -1001,6 +993,7 @@ public class GmsGraphQLEngine {
                         this.datahubConfiguration,
                         this.viewsConfiguration,
                         this.searchBarConfiguration,
+                        this.searchCardConfiguration,
                         this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration,

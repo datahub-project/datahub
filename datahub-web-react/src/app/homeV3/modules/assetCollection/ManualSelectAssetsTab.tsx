@@ -62,6 +62,7 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
                     size="xs"
                     isChecked={selectedAssetUrns?.includes(entity.urn)}
                     onCheckboxChange={() => handleCheckboxChange(entity.urn)}
+                    data-testid="asset-selection-checkbox"
                 />
             </ItemDetailsContainer>
         );
@@ -98,7 +99,9 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
                 updateFieldFilters={updateFieldFilters}
             />
             <ResultsContainer>
-                <ScrollableResultsContainer>{content}</ScrollableResultsContainer>
+                <ScrollableResultsContainer data-testid="select-assets-search-results">
+                    {content}
+                </ScrollableResultsContainer>
             </ResultsContainer>
         </>
     );

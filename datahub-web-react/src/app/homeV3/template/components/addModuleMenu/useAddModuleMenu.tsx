@@ -103,10 +103,10 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule
                 />
             ),
-
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
+            'data-testid': 'add-link-module',
         };
 
         const documentation = {
@@ -120,10 +120,10 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule={false}
                 />
             ),
-
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
+            'data-testid': 'add-documentation-module',
         };
 
         const assetCollection = {
@@ -140,6 +140,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
             },
+            'data-testid': 'add-asset-collection-module',
         };
 
         const hierarchyView = {
@@ -149,6 +150,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
             },
+            'data-testid': 'add-hierarchy-module',
         };
 
         items.push({
@@ -169,10 +171,10 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule={false}
                 />
             ),
-
             onClick: () => {
                 handleAddExistingModule(YOUR_ASSETS_MODULE);
             },
+            'data-testid': 'add-your-assets-module',
         };
 
         const domains = {
@@ -186,10 +188,10 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule={false}
                 />
             ),
-
             onClick: () => {
                 handleAddExistingModule(DOMAINS_MODULE);
             },
+            'data-testid': 'add-domains-module',
         };
 
         // SaaS-only
@@ -253,6 +255,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     />
                 ),
                 onClick: () => handleAddExistingModule(module),
+                'data-testid': 'home-default-submenu-option',
             }));
 
             const homeDefaults = {
@@ -269,6 +272,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 expandIcon: <></>, // hide the default expand icon
                 popupClassName: RESET_DROPDOWN_MENU_STYLES_CLASSNAME, // reset styles of submenu
                 children: adminModuleItems,
+                'data-testid': 'home-default-modules',
             };
 
             items.push({

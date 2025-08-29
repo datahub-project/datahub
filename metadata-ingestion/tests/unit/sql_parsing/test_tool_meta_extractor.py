@@ -100,6 +100,114 @@ limit 100
     assert extractor.report.num_queries_meta_extracted["hex"] == 1
 
 
+def test_extract_hex_metadata_single_line_at_end() -> None:
+    """Test that single line queries with hex metadata at the end are detected."""
+    extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
+    hex_query = 'SELECT * FROM "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" LIMIT 100 -- Hex query metadata: {"user": "alice@mail.com"}'
+
+    entry = PreparsedQuery(
+        query_id=None,
+        query_text=hex_query,
+        upstreams=[],
+        downstream=None,
+        column_lineage=None,
+        column_usage=None,
+        inferred_schema=None,
+        user=CorpUserUrn("hexuser"),
+        timestamp=parse_absolute_time("2021-08-01T01:02:03Z"),
+    )
+
+    assert extractor.extract_bi_metadata(entry)
+    assert isinstance(
+        entry.origin, DataPlatformUrn
+    ) and entry.origin == Urn.from_string("urn:li:dataPlatform:hex")
+    assert extractor.report.num_queries_meta_extracted["hex"] == 1
+
+
+def test_extract_hex_metadata_in_middle() -> None:
+    """Test that hex queries with metadata in the middle of query are detected."""
+    extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
+    hex_query = """\
+select * 
+from "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" 
+-- Hex query metadata: {"user": "alice@mail.com"}
+limit 100"""
+
+    entry = PreparsedQuery(
+        query_id=None,
+        query_text=hex_query,
+        upstreams=[],
+        downstream=None,
+        column_lineage=None,
+        column_usage=None,
+        inferred_schema=None,
+        user=CorpUserUrn("hexuser"),
+        timestamp=parse_absolute_time("2021-08-01T01:02:03Z"),
+    )
+
+    assert extractor.extract_bi_metadata(entry)
+    assert isinstance(
+        entry.origin, DataPlatformUrn
+    ) and entry.origin == Urn.from_string("urn:li:dataPlatform:hex")
+    assert extractor.report.num_queries_meta_extracted["hex"] == 1
+
+
+def test_extract_hex_metadata_multiline() -> None:
+    """Test that hex queries work with complex multiline queries."""
+    extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
+    hex_query = """\
+CREATE TABLE test AS 
+WITH cte AS (
+    SELECT col1, col2 
+    FROM source_table
+    -- Hex query metadata: {"user": "alice@mail.com"}
+    WHERE date_col > '2023-01-01'
+)
+SELECT * FROM cte"""
+
+    entry = PreparsedQuery(
+        query_id=None,
+        query_text=hex_query,
+        upstreams=[],
+        downstream=None,
+        column_lineage=None,
+        column_usage=None,
+        inferred_schema=None,
+        user=CorpUserUrn("hexuser"),
+        timestamp=parse_absolute_time("2021-08-01T01:02:03Z"),
+    )
+
+    assert extractor.extract_bi_metadata(entry)
+    assert isinstance(
+        entry.origin, DataPlatformUrn
+    ) and entry.origin == Urn.from_string("urn:li:dataPlatform:hex")
+    assert extractor.report.num_queries_meta_extracted["hex"] == 1
+
+
+def test_extract_hex_metadata_without_dashes_not_detected() -> None:
+    """Test that queries with 'Hex query metadata:' but without dashes are not detected."""
+    extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
+    query = """\
+select * from table
+Hex query metadata: {"user": "alice@mail.com"}"""
+
+    entry = PreparsedQuery(
+        query_id=None,
+        query_text=query,
+        upstreams=[],
+        downstream=None,
+        column_lineage=None,
+        column_usage=None,
+        inferred_schema=None,
+        user=CorpUserUrn("hexuser"),
+        timestamp=parse_absolute_time("2021-08-01T01:02:03Z"),
+    )
+
+    assert not extractor.extract_bi_metadata(entry)
+    assert not entry.origin
+    assert extractor.report.num_queries_meta_extracted["hex"] == 0
+
+
 def test_extract_no_metadata() -> None:
     extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
     query = """\

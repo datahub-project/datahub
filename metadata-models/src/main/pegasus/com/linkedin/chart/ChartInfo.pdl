@@ -66,7 +66,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ],
+      "entityTypes": [ "dataset", "chart" ],
       "isLineage": true,
       "createdOn": "inputEdges/*/created/time"
       "createdActor": "inputEdges/*/created/actor"

@@ -45,7 +45,17 @@ const StyledModuleContainer = styled(ModuleContainer)`
     max-height: 64px;
 `;
 
-export default function SmallModule({ children, module, position, onClick }: React.PropsWithChildren<ModuleProps>) {
+interface Props extends ModuleProps {
+    dataTestId?: string;
+}
+
+export default function SmallModule({
+    children,
+    module,
+    position,
+    onClick,
+    dataTestId,
+}: React.PropsWithChildren<Props>) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `module-${module.urn}-${position.rowIndex}-${position.moduleIndex}`,
         data: {
@@ -56,7 +66,7 @@ export default function SmallModule({ children, module, position, onClick }: Rea
     });
 
     return (
-        <StyledModuleContainer ref={setNodeRef} {...attributes}>
+        <StyledModuleContainer ref={setNodeRef} {...attributes} data-testId={dataTestId}>
             <ContainerWithHover>
                 <DragIcon
                     {...listeners}

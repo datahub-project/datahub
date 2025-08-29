@@ -79,6 +79,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
             customProperties {
                 ...customPropertiesFields
             }
+            createdOn {
+                time
+            }
         }
         schemaMetadata(version: 0) {
             ...schemaMetadataFields

@@ -19,9 +19,6 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
 
     const siblingOptionsToAuthorOn = useSiblingOptionsForIncidentBuilder(entityData, entityUrn, dataEntityType) ?? [];
 
-    // Consider data still loading if entityData is loading or if we're in sibling mode but don't have sibling options yet
-    const isDataStillLoading = loading || (isSiblingMode && siblingOptionsToAuthorOn.length <= 1);
-
     const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
 
     const canEditIncidents = privileges?.canEditIncidents || false;
@@ -58,18 +55,22 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
         ),
     }));
 
-    let testId = 'create-incident-btn-main';
-    if (isDataStillLoading) {
-        testId = 'create-incident-btn-loading';
-    } else if (isSiblingMode) {
-        testId = 'create-incident-btn-main-with-siblings';
-    }
+    // Dynamic test IDs based on loading state
+    const getTestId = () => {
+        if (loading) return 'create-incident-btn-loading';
+        if (isSiblingMode) return 'create-incident-btn-main-with-siblings';
+        return 'create-incident-btn-main';
+    };
 
     return (
         <>
             {isSiblingMode ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
-                    <CreateButton disabled={!canEditIncidents} data-testid={testId} className="create-incident-button">
+                    <CreateButton
+                        disabled={!canEditIncidents}
+                        data-testid={getTestId()}
+                        className="create-incident-button"
+                    >
                         <PlusOutlined /> Create
                     </CreateButton>
                 </Dropdown>
@@ -78,7 +79,7 @@ export const CreateIncidentButton = ({ privileges, setShowIncidentBuilder, setEn
                     <CreateButton
                         onClick={() => setShowIncidentBuilder(true)}
                         disabled={!canEditIncidents}
-                        data-testid={testId}
+                        data-testid={getTestId()}
                         className="create-incident-button"
                     >
                         <PlusOutlined /> Create

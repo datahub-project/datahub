@@ -420,6 +420,7 @@ public class Constants {
   public static final String QUERY_USAGE_FEATURES_ASPECT_NAME = "queryUsageFeatures";
 
   // DataProduct
+  public static final String DATA_PRODUCT_KEY_ASPECT_NAME = "dataProductKey";
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 

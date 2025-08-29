@@ -111,6 +111,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
         description
+        createdOn {
+            time
+        }
     }
     displayProperties {
         ...displayPropertiesFields
@@ -387,6 +390,23 @@ fragment institutionalMemoryFields on InstitutionalMemory {
         settings {
             showInAssetPreview
         }
+    }
+}
+
+fragment attributionFields on MetadataAttribution {
+    time
+    actor {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    source {
+        urn
+        type
+    }
+    sourceDetail {
+        key
+        value
     }
 }
 

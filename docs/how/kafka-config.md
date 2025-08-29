@@ -5,7 +5,9 @@ hide_title: true
 
 # Configuring Kafka in DataHub
 
-DataHub requires Kafka to operate. Kafka is used as a durable log that can be used to store inbound
+DataHub uses Kafka as the pub-sub message queue in the backend.
+[Official Confluent Kafka Docker images](https://hub.docker.com/u/confluentinc) found in Docker Hub is used without
+any modification. Kafka is used as a durable log that can be used to store inbound
 requests to update the Metadata Graph (Metadata Change Proposal), or as a change log detailing the updates
 that have been made to the Metadata Graph (Metadata Change Log).
 
@@ -15,9 +17,9 @@ The following environment variables can be used to customize DataHub's connectio
 each of which requires a connection to Kafka:
 
 - `metadata-service` (datahub-gms container)
+- `system-update` (dathub-system-update container if setting up topics via datahub)
 - (Advanced - if standalone consumers are deployed) `mce-consumer-job` (datahub-mce-consumer container)
 - (Advanced - if standalone consumers are deployed) `mae-consumer-job` (datahub-mae-consumer container)
-- (Advanced - if product analytics are enabled) datahub-frontend
 
 ### Connection Configuration
 
@@ -70,9 +72,10 @@ How Metadata Events relate to these topics is discussed at more length in [Metad
 
 We've included environment variables to customize the name each of these topics, for cases where an organization has naming rules for your topics.
 
-### Metadata Service (datahub-gms)
+### Metadata Service (datahub-gms) and System Update (datahub-system-update)
 
-The following are environment variables you can use to configure topic names used in the Metadata Service container:
+The following are environment variables you can use to configure topic names used in the Metadata Service container and
+the System Update container for topic setup:
 
 - `METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted by the ingestion framework.
 - `FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted when MCPs fail processing.
@@ -98,11 +101,6 @@ The following are environment variables you can use to configure topic names use
 - `PLATFORM_EVENT_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
 - `DATAHUB_USAGE_EVENT_NAME`: The name of the topic for product analytics events.
 - (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the deprecated metadata audit event topic.
-
-### DataHub Frontend (datahub-frontend-react)
-
-- `DATAHUB_TRACKING_TOPIC`: The name of the topic used for storing DataHub usage events.
-  It should contain the same value as `DATAHUB_USAGE_EVENT_NAME` in the Metadata Service container.
 
 Please ensure that these environment variables are set consistently throughout your ecosystem. DataHub has a few different applications running which communicate with Kafka (see above).
 
@@ -162,6 +160,19 @@ datahub-gms:
       - name: KAFKA_CONSUMER_GROUP_ID
         value: "my-apps-mae-consumer"
         ....
+datahub-system-update:
+    ...
+    extraEnvs:
+      - name: METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+        value: "CustomMetadataChangeProposal_v1"
+      - name: METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME
+        value: "CustomMetadataChangeLogVersioned_v1"
+      - name: FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+        value: "CustomFailedMetadataChangeProposal_v1"
+      - name: KAFKA_CONSUMER_GROUP_ID
+        value: "my-apps-mae-consumer"
+        ....
+
 
 datahub-frontend:
     ...
@@ -189,10 +200,9 @@ datahub-mce-consumer;
 
 ## Other Components that use Kafka can be configured using environment variables:
 
-- kafka-setup
 - schema-registry
 
-## SASL/GSSAPI properties for kafka-setup and datahub-frontend via environment variables
+## SASL/GSSAPI properties for system-update and datahub-frontend via environment variables
 
 ```bash
 KAFKA_BOOTSTRAP_SERVER=broker:29092
@@ -249,3 +259,32 @@ Client.
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
 
 > Other errors: `Failed to start bean 'org.springframework.kafka.config.internalKafkaListenerEndpointRegistry'; nested exception is org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [DataHubUsageEvent_v1]`. Please check ranger permissions or kafka broker logs.
+
+### Additional Kafka Topic level configuration
+
+For additional [Kafka topic level config properties](https://kafka.apache.org/documentation/#topicconfigs), either add them to application.yaml under `kafka.topics.<topicName>.configProperties` or `kafka.topicDefaults.configProperties` or define env vars in the following form (standard Spring conventions applied to application.yaml)
+These env vars are required in datahub-system-update contained.
+
+Examples:
+
+1. To configure `max.message.bytes` on topic used for `metadataChangeLogVersioned`, set
+   `KAFKA_TOPICS_metadataChangeLogVersioned_CONFIGPROPERTIES_max_message_bytes=10000`
+2. To configure `max.message.bytes` for all topics that don't explicitly define one, set the `topicDefaults` via
+   `KAFKA_TOPICDEFAULTS_CONFIGPROPERTIES_max_message_bytes=10000`
+
+Configurations specified in `topicDefaults` are applied to all topics by merging them with any configs defined per topic, with the per-topic config taking precedence over those specified in `topicDefault`.
+
+If you intend to create and configure the topics yourself and not have datahub create them, the kafka setup process of
+datahub-system-update can be turned off by setting env var DATAHUB_PRECREATE_TOPICS to false
+
+## Debugging Kafka
+
+You can install [kafkacat](https://github.com/edenhill/kafkacat) to consume and produce messaged to Kafka topics.
+For example, to consume messages on MetadataAuditEvent topic, you can run below command.
+
+```
+kafkacat -b localhost:9092 -t MetadataAuditEvent
+```
+
+However, `kafkacat` currently doesn't support Avro deserialization at this point,
+but they have an ongoing [work](https://github.com/edenhill/kafkacat/pull/151) for that.

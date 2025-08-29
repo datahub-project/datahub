@@ -928,6 +928,38 @@
       "platform_name": "Elasticsearch",
       "support_status": "CERTIFIED"
     },
+    "excel": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.excel.source.ExcelSource",
+      "platform_id": "excel",
+      "platform_name": "Excel",
+      "support_status": "INCUBATING"
+    },
     "feast": {
       "capabilities": [
         {

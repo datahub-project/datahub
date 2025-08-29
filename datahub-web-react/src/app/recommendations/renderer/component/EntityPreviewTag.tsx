@@ -9,8 +9,8 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
 
-const EntityTag = styled(Tag)<{ $isProposed?: boolean }>`
-    margin: 4px;
+const EntityTag = styled(Tag)<{ $showMargin?: boolean; $isProposed?: boolean }>`
+    ${(props) => (props.$showMargin ? `margin: 4px;` : `margin: 0px;`)}
     max-width: inherit;
     border-color: ${colors.gray[200]} !important;
 
@@ -85,6 +85,7 @@ type Props = {
     dataTestId?: string;
     showNameTooltip?: boolean;
     isProposed?: boolean;
+    showMargin?: boolean;
 };
 
 const constructExternalUrl = (url) => {
@@ -107,13 +108,14 @@ export const EntityPreviewTag = ({
     dataTestId,
     showNameTooltip = true,
     isProposed,
+    showMargin = true,
 }: Props) => {
     const externalUrl = constructExternalUrl(url);
     const linkProps = useEmbeddedProfileLinkProps();
 
     const renderTag = () => {
         return (
-            <EntityTag $isProposed={isProposed}>
+            <EntityTag $isProposed={isProposed} $showMargin={showMargin}>
                 <TitleContainer>
                     <IconContainer>
                         {(!!platformLogoUrl && !platformLogoUrls && (

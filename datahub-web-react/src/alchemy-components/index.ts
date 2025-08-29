@@ -25,6 +25,7 @@ export * from './components/LoadedImage';
 export * from './components/LoadedVideo';
 export * from './components/Loader';
 export * from './components/MatchText';
+export * from './components/Menu';
 export * from './components/Modal';
 export * from './components/OverflowText';
 export * from './components/PageTitle';
