@@ -90,12 +90,12 @@ public class SemanticEntitySearchServiceTest {
     when(mockEmbeddingProvider.embed(anyString(), any())).thenReturn(TEST_EMBEDDING);
     when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
     when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
+    when(mockOpContext.getObjectMapper()).thenReturn(objectMapper);
+    when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
     when(mockSearchContext.getSearchFlags()).thenReturn(mockSearchFlags);
     when(mockSearchFlags.isFilterNonLatestVersions()).thenReturn(false);
 
-    service =
-        new SemanticEntitySearchService(
-            mockSearchClient, mockIndexConvention, mockEmbeddingProvider, objectMapper);
+    service = new SemanticEntitySearchService(mockSearchClient, mockEmbeddingProvider);
   }
 
   @AfterMethod
@@ -111,35 +111,15 @@ public class SemanticEntitySearchServiceTest {
     // Test null searchClient
     assertThrows(
         NullPointerException.class,
-        () ->
-            new SemanticEntitySearchService(
-                null, mockIndexConvention, mockEmbeddingProvider, objectMapper));
-
-    // Test null indexConvention
-    assertThrows(
-        NullPointerException.class,
-        () ->
-            new SemanticEntitySearchService(
-                mockSearchClient, null, mockEmbeddingProvider, objectMapper));
+        () -> new SemanticEntitySearchService(null, mockEmbeddingProvider));
 
     // Test null embeddingProvider
     assertThrows(
-        NullPointerException.class,
-        () ->
-            new SemanticEntitySearchService(
-                mockSearchClient, mockIndexConvention, null, objectMapper));
-
-    // Test null objectMapper
-    assertThrows(
-        NullPointerException.class,
-        () ->
-            new SemanticEntitySearchService(
-                mockSearchClient, mockIndexConvention, mockEmbeddingProvider, null));
+        NullPointerException.class, () -> new SemanticEntitySearchService(mockSearchClient, null));
 
     // Test successful construction
     SemanticEntitySearchService validService =
-        new SemanticEntitySearchService(
-            mockSearchClient, mockIndexConvention, mockEmbeddingProvider, objectMapper);
+        new SemanticEntitySearchService(mockSearchClient, mockEmbeddingProvider);
     assertNotNull(validService);
   }
 

@@ -28,8 +28,11 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SemanticSearchService;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.action.ActionApplier;
@@ -116,15 +119,15 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @MockBean
   @Qualifier("semanticSearchService")
-  private com.linkedin.metadata.search.SemanticSearchService semanticSearchService;
+  private SemanticSearchService semanticSearchService;
 
   @MockBean
   @Qualifier("cachingEntitySearchService")
-  private com.linkedin.metadata.search.client.CachingEntitySearchService cachingEntitySearchService;
+  private CachingEntitySearchService cachingEntitySearchService;
 
   @MockBean
   @Qualifier("semanticEntitySearchService")
-  private com.linkedin.metadata.search.semantic.SemanticEntitySearch semanticEntitySearchService;
+  private SemanticEntitySearch semanticEntitySearchService;
 
   @MockBean
   @Qualifier("graphService")

@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub_integrations.gen_ai.embeddings.litellm_wrapper import LiteLLMEmbeddings
 
 
@@ -229,3 +231,46 @@ class TestLiteLLMEmbeddings:
 
         assert "input_type" in kwargs
         assert kwargs["input_type"] == "search_query"
+
+    @patch("datahub_integrations.gen_ai.embeddings.litellm_wrapper.litellm_embedding")
+    def test_embed_query_invalid_response_format(self, mock_litellm: MagicMock) -> None:
+        """Test that invalid response format raises ValueError."""
+        mock_response = MagicMock()
+        mock_response.data = [{"embedding": "invalid_format"}]  # String instead of list
+        mock_litellm.return_value = mock_response
+
+        embeddings = LiteLLMEmbeddings(model_id="bedrock/cohere.embed-english-v3")
+
+        with pytest.raises(ValueError, match="Expected List\\[float\\] from litellm"):
+            embeddings.embed_query("test query")
+
+    @patch("datahub_integrations.gen_ai.embeddings.litellm_wrapper.litellm_embedding")
+    def test_embed_documents_invalid_response_format(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        """Test that invalid response format in documents raises ValueError."""
+        mock_response = MagicMock()
+        mock_response.data = [
+            MagicMock(embedding=[0.1, 0.2]),  # Valid
+            {"embedding": ["not", "numbers"]},  # Invalid - strings instead of floats
+        ]
+        mock_litellm.return_value = mock_response
+
+        embeddings = LiteLLMEmbeddings(model_id="bedrock/cohere.embed-english-v3")
+
+        with pytest.raises(ValueError, match="Expected List\\[float\\] from litellm"):
+            embeddings.embed_documents(["doc1", "doc2"])
+
+    @patch("datahub_integrations.gen_ai.embeddings.litellm_wrapper.litellm_embedding")
+    def test_embed_query_non_list_response(self, mock_litellm: MagicMock) -> None:
+        """Test that non-list embedding response raises ValueError."""
+        mock_response = MagicMock()
+        mock_response.data = [MagicMock(embedding=42)]  # Number instead of list
+        mock_litellm.return_value = mock_response
+
+        embeddings = LiteLLMEmbeddings(model_id="bedrock/titan-embed-v2")
+
+        with pytest.raises(
+            ValueError, match="Expected List\\[float\\] from litellm, got <class 'int'>"
+        ):
+            embeddings.embed_query("test query")

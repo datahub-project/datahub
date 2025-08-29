@@ -149,7 +149,7 @@ class TestBatchEmbedTexts:
         mock_embeddings = MagicMock(spec=LiteLLMEmbeddings)
 
         # Mock responses for each batch
-        def mock_embed_side_effect(batch_texts):
+        def mock_embed_side_effect(batch_texts: list[str]) -> list[list[float]]:
             if batch_texts == ["text1", "text2"]:
                 return [[0.1, 0.2], [0.3, 0.4]]
             elif batch_texts == ["text3", "text4"]:

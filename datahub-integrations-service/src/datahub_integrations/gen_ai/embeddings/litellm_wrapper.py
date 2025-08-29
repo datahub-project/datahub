@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from litellm import embedding as litellm_embedding
 
@@ -51,10 +51,21 @@ class LiteLLMEmbeddings:
         kwargs = self._build_call_kwargs(is_query=False)
         response = litellm_embedding(model=self._model_id, input=texts, **kwargs)
         # OpenAI-compatible response: response.data is a list, each with `.embedding`
-        return [
-            item["embedding"] if isinstance(item, dict) else item.embedding
-            for item in response.data
-        ]
+        embeddings = []
+        for item in response.data:
+            embedding = cast(
+                List[float],
+                item["embedding"] if isinstance(item, dict) else item.embedding,
+            )
+            # Runtime validation to ensure we get the expected format
+            if not isinstance(embedding, list) or not all(
+                isinstance(x, (int, float)) for x in embedding
+            ):
+                raise ValueError(
+                    f"Expected List[float] from litellm, got {type(embedding)}"
+                )
+            embeddings.append(embedding)
+        return embeddings
 
     def embed_query(self, text: str) -> List[float]:
         """Embed a single query text.
@@ -72,7 +83,17 @@ class LiteLLMEmbeddings:
         response = litellm_embedding(model=self._model_id, input=text, **kwargs)
         # For single input, response.data has one item
         item = response.data[0]
-        return item["embedding"] if isinstance(item, dict) else item.embedding
+        embedding = cast(
+            List[float], item["embedding"] if isinstance(item, dict) else item.embedding
+        )
+        # Runtime validation to ensure we get the expected format
+        if not isinstance(embedding, list) or not all(
+            isinstance(x, (int, float)) for x in embedding
+        ):
+            raise ValueError(
+                f"Expected List[float] from litellm, got {type(embedding)}"
+            )
+        return embedding
 
     def _build_call_kwargs(self, *, is_query: bool) -> Dict[str, Any]:
         """Construct provider-specific kwargs, merging defaults.

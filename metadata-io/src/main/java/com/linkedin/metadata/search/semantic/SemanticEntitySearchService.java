@@ -23,7 +23,6 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchResultUtils;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -90,33 +89,23 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
 
   private static final String NESTED_PATH = "embeddings.cohere_embed_v3.chunks";
   private static final String VECTOR_FIELD = NESTED_PATH + ".vector";
-  private static final int EXPECTED_VECTOR_DIMS = 1024;
   private static final double DEFAULT_OVERSAMPLE_FACTOR = 1.2d; // Lower for pre-filtering
   private static final int MAX_K = 500;
 
   private final RestClient lowLevelClient;
-  private final IndexConvention indexConvention;
   private final EmbeddingProvider embeddingProvider;
-  private final ObjectMapper objectMapper;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
 
   /**
    * Constructs a semantic entity search service backed by OpenSearch's low-level REST client.
    *
    * @param searchClient high-level client used only to obtain the low-level client
-   * @param indexConvention index naming convention for resolving base and semantic indices
    * @param embeddingProvider provider capable of generating query embeddings
-   * @param objectMapper Jackson object mapper for JSON (request/response) handling
    */
   public SemanticEntitySearchService(
-      @Nonnull RestHighLevelClient searchClient,
-      @Nonnull IndexConvention indexConvention,
-      @Nonnull EmbeddingProvider embeddingProvider,
-      @Nonnull ObjectMapper objectMapper) {
+      @Nonnull RestHighLevelClient searchClient, @Nonnull EmbeddingProvider embeddingProvider) {
     this.lowLevelClient = Objects.requireNonNull(searchClient, "searchClient").getLowLevelClient();
-    this.indexConvention = Objects.requireNonNull(indexConvention, "indexConvention");
     this.embeddingProvider = Objects.requireNonNull(embeddingProvider, "embeddingProvider");
-    this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     // Initialize with empty chain for POC - in production this would be injected
     this.queryFilterRewriteChain = QueryFilterRewriteChain.EMPTY;
   }
@@ -150,7 +139,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         entityNames.stream()
             .map(
                 entity -> {
-                  String baseIndex = indexConvention.getEntityIndexName(entity);
+                  String baseIndex =
+                      opContext.getSearchContext().getIndexConvention().getEntityIndexName(entity);
                   return appendSemanticSuffix(baseIndex);
                 })
             .collect(Collectors.toList());
@@ -219,7 +209,9 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     }
 
     // 7) Execute OpenSearch nested kNN query with pre-filtering inside kNN
-    List<SearchEntity> hits = executeKnn(indices, queryEmbedding, k, finalFilterMap, fieldsToFetch);
+    List<SearchEntity> hits =
+        executeKnn(
+            opContext.getObjectMapper(), indices, queryEmbedding, k, finalFilterMap, fieldsToFetch);
 
     // 8) Slice [from, from+pageSize)
     if (from >= hits.size()) {
@@ -277,6 +269,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
   /**
    * Executes a nested kNN query against the provided semantic indices with optional pre-filtering.
    *
+   * @param objectMapper Jackson object mapper for JSON (request/response) handling
    * @param indices list of semantic index names to search
    * @param vector query embedding vector
    * @param k number of nearest neighbors to retrieve from OpenSearch
@@ -285,6 +278,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * @return list of {@link SearchEntity} constructed from OpenSearch hits
    */
   private List<SearchEntity> executeKnn(
+      @Nonnull ObjectMapper objectMapper,
       @Nonnull List<String> indices,
       @Nonnull float[] vector,
       int k,

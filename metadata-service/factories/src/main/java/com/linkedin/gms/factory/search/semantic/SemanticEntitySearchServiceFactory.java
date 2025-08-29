@@ -5,12 +5,9 @@
  */
 package com.linkedin.gms.factory.search.semantic;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import javax.annotation.Nonnull;
 import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,17 +23,12 @@ public class SemanticEntitySearchServiceFactory {
   private RestHighLevelClient searchClient;
 
   @Autowired
-  @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
-  private IndexConvention indexConvention;
-
-  @Autowired
   @Qualifier("embeddingProvider")
   private EmbeddingProvider embeddingProvider;
 
   @Bean(name = "semanticEntitySearchService")
   @Nonnull
-  protected SemanticEntitySearch getInstance(ObjectMapper objectMapper) {
-    return new SemanticEntitySearchService(
-        searchClient, indexConvention, embeddingProvider, objectMapper);
+  protected SemanticEntitySearch getInstance() {
+    return new SemanticEntitySearchService(searchClient, embeddingProvider);
   }
 }

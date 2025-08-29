@@ -7,7 +7,6 @@ package com.linkedin.metadata.search.semantic;
 
 import static org.testng.Assert.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -16,8 +15,6 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -84,12 +81,10 @@ public class SemanticEntitySearchIT {
 
   public void testSemanticSearchAgainstLocalOpenSearch() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5");
     EmbeddingProvider embeddingProvider = new ZerosEmbeddingProvider();
-    ObjectMapper objectMapper = new ObjectMapper();
 
     SemanticEntitySearchService service =
-        new SemanticEntitySearchService(client, indexConvention, embeddingProvider, objectMapper);
+        new SemanticEntitySearchService(client, embeddingProvider);
 
     // Query "anything"; embedding is zeros; expect request to succeed and return 0..N hits
     SearchResult result =
@@ -104,12 +99,10 @@ public class SemanticEntitySearchIT {
 
   public void testSemanticSearchWithFilters() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5");
     EmbeddingProvider embeddingProvider = new ZerosEmbeddingProvider();
-    ObjectMapper objectMapper = new ObjectMapper();
 
     SemanticEntitySearchService service =
-        new SemanticEntitySearchService(client, indexConvention, embeddingProvider, objectMapper);
+        new SemanticEntitySearchService(client, embeddingProvider);
 
     // Build a simple doc-level filter: platform == hive (adjust to a value present in your data)
     Criterion platformEq = new Criterion();

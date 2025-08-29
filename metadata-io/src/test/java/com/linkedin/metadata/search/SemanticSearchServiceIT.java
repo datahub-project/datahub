@@ -121,8 +121,7 @@ public class SemanticSearchServiceIT {
             entityDocCountCacheConfiguration);
 
     SemanticEntitySearchService semanticService =
-        new SemanticEntitySearchService(
-            client, indexConvention, new ZerosEmbeddingProvider(), new ObjectMapper());
+        new SemanticEntitySearchService(client, new ZerosEmbeddingProvider());
 
     // Create a configuration with semantic search enabled
     SearchServiceConfiguration searchConfig =
@@ -204,8 +203,7 @@ public class SemanticSearchServiceIT {
 
     // Create semantic search service
     var semanticEntitySearchService =
-        new SemanticEntitySearchService(
-            client, indexConvention, new ZerosEmbeddingProvider(), new ObjectMapper());
+        new SemanticEntitySearchService(client, new ZerosEmbeddingProvider());
 
     // Search for "customers" using semantic search
     SearchResult semanticResult =
