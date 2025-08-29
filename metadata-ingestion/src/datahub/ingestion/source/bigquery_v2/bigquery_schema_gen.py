@@ -52,7 +52,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
     BigQueryIdentifierBuilder,
 )
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -632,15 +632,13 @@ class BigQuerySchemaGenerator:
             )
 
         # If table has time partitioning, set the data type of the partitioning field
-        if table.partition_info:
-            table.partition_info.column = next(
-                (
-                    column
-                    for column in columns
-                    if column.name == table.partition_info.field
-                ),
-                None,
-            )
+        if table.partition_info and table.partition_info.fields:
+            matching_columns = [
+                column
+                for column in columns
+                if column.name in table.partition_info.fields
+            ]
+            table.partition_info.columns = matching_columns
         yield from self.gen_table_dataset_workunits(
             table, columns, project_id, dataset_name
         )
