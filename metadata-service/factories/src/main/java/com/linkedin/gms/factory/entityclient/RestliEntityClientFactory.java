@@ -33,10 +33,10 @@ public class RestliEntityClientFactory {
       final MetricUtils metricUtils) {
     final Client restClient;
     if (gmsUri != null) {
-      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol, null, null, null);
     } else {
       restClient =
-          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, null, null, null);
     }
     return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
   }
@@ -55,10 +55,10 @@ public class RestliEntityClientFactory {
 
     final Client restClient;
     if (gmsUri != null) {
-      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
+      restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol, null, null, null);
     } else {
       restClient =
-          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, null, null, null);
     }
     return new SystemRestliEntityClient(
         restClient, entityClientConfig, entityClientCacheConfig, metricUtils);
