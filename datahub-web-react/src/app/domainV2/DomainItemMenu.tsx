@@ -32,7 +32,8 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
                     onDelete?.();
                 }
             })
-            .catch(() => {
+            .catch((e) => {
+                console.error('Issue deleting a domain:', e);
                 message.destroy();
                 message.error({ content: `Failed to delete Domain!: An unknown error occurred.`, duration: 3 });
             });

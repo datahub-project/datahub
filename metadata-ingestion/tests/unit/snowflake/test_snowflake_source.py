@@ -199,6 +199,28 @@ def test_snowflake_oauth_token_with_empty_token():
         )
 
 
+def test_config_fetch_views_from_information_schema():
+    """Test the fetch_views_from_information_schema configuration parameter"""
+    # Test default value (False)
+    config_dict = {
+        "account_id": "test_account",
+        "username": "test_user",
+        "password": "test_pass",
+    }
+    config = SnowflakeV2Config.parse_obj(config_dict)
+    assert config.fetch_views_from_information_schema is False
+
+    # Test explicitly set to True
+    config_dict_true = {**config_dict, "fetch_views_from_information_schema": True}
+    config = SnowflakeV2Config.parse_obj(config_dict_true)
+    assert config.fetch_views_from_information_schema is True
+
+    # Test explicitly set to False
+    config_dict_false = {**config_dict, "fetch_views_from_information_schema": False}
+    config = SnowflakeV2Config.parse_obj(config_dict_false)
+    assert config.fetch_views_from_information_schema is False
+
+
 default_config_dict: Dict[str, Any] = {
     "username": "user",
     "password": "password",
@@ -267,6 +289,46 @@ def test_options_contain_connect_args():
     config = SnowflakeV2Config.parse_obj(default_config_dict)
     connect_args = config.get_options().get("connect_args")
     assert connect_args is not None
+
+
+@patch(
+    "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect"
+)
+def test_snowflake_connection_with_default_domain(mock_connect):
+    """Test that connection uses default .com domain when not specified"""
+    config_dict = default_config_dict.copy()
+    config = SnowflakeV2Config.parse_obj(config_dict)
+
+    mock_connect.return_value = MagicMock()
+    try:
+        config.get_connection()
+    except Exception:
+        pass  # We expect this to fail since we're mocking, but we want to check the call args
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["host"] == "acctname.snowflakecomputing.com"
+
+
+@patch(
+    "datahub.ingestion.source.snowflake.snowflake_connection.snowflake.connector.connect"
+)
+def test_snowflake_connection_with_china_domain(mock_connect):
+    """Test that connection uses China .cn domain when specified"""
+    config_dict = default_config_dict.copy()
+    config_dict["account_id"] = "test-account_cn"
+    config_dict["snowflake_domain"] = "snowflakecomputing.cn"
+    config = SnowflakeV2Config.parse_obj(config_dict)
+
+    mock_connect.return_value = MagicMock()
+    try:
+        config.get_connection()
+    except Exception:
+        pass  # We expect this to fail since we're mocking, but we want to check the call args
+
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+    assert call_kwargs["host"] == "test-account_cn.snowflakecomputing.cn"
 
 
 def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():

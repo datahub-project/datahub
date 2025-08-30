@@ -172,7 +172,9 @@ class SnowflakeV2Source(
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(
-            connection=self.connection, report=self.report
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
         )
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
@@ -528,6 +530,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            fetch_views_from_information_schema=self.config.fetch_views_from_information_schema,
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):
@@ -747,6 +750,7 @@ class SnowflakeV2Source(
                 # For privatelink, account identifier ends with .privatelink
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
+                snowflake_domain=self.config.snowflake_domain,
             )
 
         except Exception as e:

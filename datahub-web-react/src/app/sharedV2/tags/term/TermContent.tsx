@@ -10,11 +10,10 @@ import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils'
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { StopPropagation } from '@app/shared/StopPropagation';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
-import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
+import { GlossaryTermAssociation, SubResourceType } from '@types';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
@@ -120,7 +119,6 @@ interface Props {
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
     showOneAndCount?: boolean;
-    context?: string | null;
 }
 
 export default function TermContent({
@@ -134,7 +132,6 @@ export default function TermContent({
     onOpenModal,
     refetch,
     showOneAndCount,
-    context,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
@@ -188,7 +185,6 @@ export default function TermContent({
                 <StyledHighlight matchStyle={highlightMatchStyle} search={highlightText}>
                     {displayName}
                 </StyledHighlight>
-                <LabelPropagationDetails entityType={EntityType.GlossaryTerm} context={context} />
 
                 {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
             </StyledTerm>
