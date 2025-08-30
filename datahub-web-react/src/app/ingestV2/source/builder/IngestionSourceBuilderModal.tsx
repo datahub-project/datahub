@@ -2,9 +2,10 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Modal } from '@components';
 import { Spin, Steps } from 'antd';
 import { isEqual } from 'lodash';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { CreateScheduleStep } from '@app/ingestV2/source/builder/CreateScheduleStep';
 import { DefineRecipeStep } from '@app/ingestV2/source/builder/DefineRecipeStep';
 import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
@@ -93,11 +94,27 @@ export const IngestionSourceBuilderModal = ({
         prevInitialState.current = initialState;
     }, [initialState]);
 
+    const sendAnalyticsStepViewedEvent = useCallback(
+        (step: IngestionSourceBuilderStep) => {
+            analytics.event({
+                type: EventType.IngestionSourceConfigurationImpressionEvent,
+                viewedSection: step,
+                sourceType: selectedSource?.type,
+                sourceUrn: selectedSource?.urn,
+            });
+        },
+        [selectedSource?.type, selectedSource?.urn],
+    );
+
     // Reset the step stack to the initial step when the modal is re-opened.
-    useEffect(() => setStepStack([initialStep]), [initialStep]);
+    useEffect(() => {
+        setStepStack([initialStep]);
+        sendAnalyticsStepViewedEvent(initialStep);
+    }, [initialStep, sendAnalyticsStepViewedEvent]);
 
     const goTo = (step: IngestionSourceBuilderStep) => {
         setStepStack([...stepStack, step]);
+        sendAnalyticsStepViewedEvent(step);
     };
 
     const prev = () => {

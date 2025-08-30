@@ -39,7 +39,7 @@ const ControlsContainer = styled.div`
 /**
  * The step for defining a recipe
  */
-export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSources }: StepProps) => {
+export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSources, selectedSource }: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
@@ -109,6 +109,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 setStagedRecipe={setStagedRecipeYml}
                 onClickNext={onClickNext}
                 goToPrevious={prev}
+                selectedSource={selectedSource}
             />
         );
     }
