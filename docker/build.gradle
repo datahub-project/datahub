@@ -150,6 +150,30 @@ ext {
     ]
 }
 
+// Helper method to generate bake spec from modules
+def generateBakeSpec(modules, taskSuffix) {
+    def bakeSnippets = [:]
+    def targets = []
+
+    modules.each { module ->
+        def moduleProject = project.project(module)
+        def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
+        bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
+        targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
+    }
+
+    return [
+        group: [ "default": ["targets": targets] ],
+        target: bakeSnippets
+    ]
+}
+
+// Helper method to write bake spec to JSON file
+def writeBakeSpecToFile(bakeSpec, jsonFile) {
+    jsonFile.parentFile.mkdirs()
+    jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(bakeSpec))
+}
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register(taskName) {
@@ -276,18 +300,19 @@ quickstart_configs.each { taskName, config ->
 
 
 quickstart_configs.each { taskName, config ->
+    def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
+    def taskSuffix = config.isDebug? 'debug' : ''
+        
     tasks.register("buildImages${taskName}", Exec) {
         ext{
             bakeSpec = [:]
         }
         group = 'quickstart-ci'
-        def taskSuffix = config.isDebug? 'debug' : ''
         dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
         dependsOn tasks.named("generateQuickstartComposeConfig")
 
-        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
-
+        
         def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
         def buildCmd = []
         if (System.getenv("DOCKER_CACHE") == "DEPOT") {
@@ -305,21 +330,19 @@ quickstart_configs.each { taskName, config ->
         workingDir rootProject.projectDir
 
         doFirst {
-            def bakeSnippets = [:]
-            def targets = []
-
-            config.modules.each { module ->
-                def moduleProject = project.project(module)
-                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
-                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
-                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
-            }
-
-            ext.bakeSpec.group = [ "default": ["targets": targets] ]
-            ext.bakeSpec.target = bakeSnippets
-
-            jsonFile.parentFile.mkdirs()
-            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+            ext.bakeSpec = generateBakeSpec(config.modules, taskSuffix)
+            writeBakeSpecToFile(ext.bakeSpec, jsonFile)
+        }
+    }
+    tasks.register("generateBakeSpec${taskName}") {
+        group = 'quickstart-ci'
+        description = "Generates the bake spec for the ${taskName} task"
+        
+        dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        
+        doLast {
+            ext.bakeSpec = generateBakeSpec(config.modules, taskSuffix)
+            writeBakeSpecToFile(ext.bakeSpec, jsonFile)
         }
     }
 }

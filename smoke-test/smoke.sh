@@ -56,3 +56,4 @@ elif [[ "${TEST_STRATEGY}" == "cypress" ]]; then
 else
   pytest -rP --durations=20 -vvs --continue-on-collection-errors --junit-xml=junit.smoke-all.xml
 fi
+
