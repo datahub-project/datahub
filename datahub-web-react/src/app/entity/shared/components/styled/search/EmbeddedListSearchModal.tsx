@@ -70,7 +70,7 @@ export const EmbeddedListSearchModal = ({
 
     return (
         <Modal
-            width={800}
+            width={1200}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={title}
