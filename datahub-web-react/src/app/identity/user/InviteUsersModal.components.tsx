@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 export const ModalSection = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 16px;
 `;
 
 export const SectionTitle = styled.div`
@@ -125,13 +125,6 @@ export const WarningIconContainer = styled.div`
     display: flex;
     align-items: center;
     margin-left: auto;
-`;
-
-export const InputWithErrorWrapper = styled.div`
-    position: relative;
-    flex: 1;
-    max-width: 470px;
-    margin-bottom: 24px;
 `;
 
 export const ErrorMessageOverlay = styled.div`

@@ -51,10 +51,10 @@ export default function InviteUsersModal({ open, onClose }: Props) {
 
     return (
         <Modal
-            width="620px"
+            width="649px"
             footer={null}
             title="Invite Users"
-            subtitle="Copy an invite link to send to your users or invite them directly via email. When they join, users will be automatically assigned to the selected role."
+            subtitle="Add colleagues to your DataHub workspace."
             open={open}
             onCancel={onClose}
             buttons={[]}
@@ -70,6 +70,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                             readOnly
                             placeholder="Invite link will appear here"
                             icon={{ icon: 'LinkSimple', source: 'phosphor' }}
+                            helperText="Anyone with this link can join DataHub. Links stay active until refreshed"
                         />
                         <SimpleSelectRole
                             selectedRole={selectedRole}
@@ -78,7 +79,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                             size="md"
                             width="fit-content"
                         />
-                        <Tooltip title="Generate a new link">
+                        <Tooltip title="Refresh">
                             <Button
                                 className="refresh-btn"
                                 variant="text"

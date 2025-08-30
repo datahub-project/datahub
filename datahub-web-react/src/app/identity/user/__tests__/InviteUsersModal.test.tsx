@@ -188,7 +188,7 @@ describe('InviteUsersModal', () => {
             render(<InviteUsersModal {...defaultProps} />);
 
             expect(screen.getByText('Invite Users')).toBeInTheDocument();
-            expect(screen.getByText(/Copy an invite link to send to your users/)).toBeInTheDocument();
+            expect(screen.getByText(/Anyone with this link can join DataHub/)).toBeInTheDocument();
         });
 
         it('should not render modal content when open is false', () => {
@@ -197,11 +197,11 @@ describe('InviteUsersModal', () => {
             expect(screen.queryByText('Invite Users')).not.toBeInTheDocument();
         });
 
-        it('should render both sections: Share Link and Invite users', () => {
+        it('should render both sections: Share Link and Input emails', () => {
             render(<InviteUsersModal {...defaultProps} />);
 
             expect(screen.getByText('Share Link')).toBeInTheDocument();
-            expect(screen.getByText('Invite users')).toBeInTheDocument();
+            expect(screen.getByText('Input emails')).toBeInTheDocument();
         });
 
         it('should render Or divider between sections', () => {
@@ -293,7 +293,7 @@ describe('InviteUsersModal', () => {
 
             // The EmailInviteSection component should be rendered with proper props
             // Input change handling is tested in EmailInviteSection unit tests
-            expect(screen.getByText('Send Invite')).toBeInTheDocument();
+            expect(screen.getByText('Invite')).toBeInTheDocument();
         });
 
         it('should show validation error with red border and warning icon', () => {
@@ -348,7 +348,7 @@ describe('InviteUsersModal', () => {
         it('should render send invite button', () => {
             render(<InviteUsersModal {...defaultProps} />);
 
-            expect(screen.getByText('Send Invite')).toBeInTheDocument();
+            expect(screen.getByText('Invite')).toBeInTheDocument();
         });
 
         it('should disable send invite button when email input is empty', () => {
@@ -359,7 +359,7 @@ describe('InviteUsersModal', () => {
 
             render(<InviteUsersModal {...defaultProps} />);
 
-            const sendButton = screen.getByText('Send Invite');
+            const sendButton = screen.getByText('Invite');
             expect(sendButton).toBeDisabled();
         });
 
@@ -371,7 +371,7 @@ describe('InviteUsersModal', () => {
 
             render(<InviteUsersModal {...defaultProps} />);
 
-            const sendButton = screen.getByText('Send Invite');
+            const sendButton = screen.getByText('Invite');
             expect(sendButton).toBeEnabled();
         });
 
@@ -383,7 +383,7 @@ describe('InviteUsersModal', () => {
 
             render(<InviteUsersModal {...defaultProps} />);
 
-            const sendButton = screen.getByText('Send Invite');
+            const sendButton = screen.getByText('Invite');
             fireEvent.click(sendButton);
 
             expect(mockHookReturnValue.handleSendInvitations).toHaveBeenCalled();
