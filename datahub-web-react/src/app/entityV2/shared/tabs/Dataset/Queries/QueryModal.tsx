@@ -68,7 +68,7 @@ type Props = {
     query: string;
     title?: string;
     description?: string;
-    onClose?: () => void;
+    onClose: () => void;
     showDetails?: boolean;
 };
 
@@ -85,7 +85,7 @@ export default function QueryModal({ query, title, description, showDetails = tr
             buttons={[
                 {
                     text: 'Close',
-                    onClick: () => onClose?.(),
+                    onClick: onClose,
                     variant: 'text',
                     buttonDataTestId: 'query-modal-close-button',
                 },
