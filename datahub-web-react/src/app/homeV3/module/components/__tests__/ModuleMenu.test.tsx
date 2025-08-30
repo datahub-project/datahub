@@ -29,6 +29,22 @@ vi.mock('@components', () => ({
     Text: (props: any) => <p {...props} />,
     Button: (props: any) => <button type="button" data-testid="confirm" {...props} />,
     Heading: (props: any) => <p {...props} />,
+    Modal: ({ children, buttons, onCancel, ...props }: any) => (
+        <div data-testid="modal" {...props}>
+            {children}
+            {buttons &&
+                buttons.map((button: any, index: number) => (
+                    <button
+                        key={index}
+                        data-testid={button.buttonDataTestId || `modal-button-${index}`}
+                        onClick={button.onClick}
+                        type="button"
+                    >
+                        {button.text}
+                    </button>
+                ))}
+        </div>
+    ),
     typography: {
         fonts: {
             body: '#eeeeee',
