@@ -184,7 +184,7 @@
         "vite-plugin-babel-macros": "^1.0.6",
         "vite-plugin-static-copy": "^3.1.2",
         "vite-plugin-svgr": "^4.3.0",
-        "vitest": "^3.2.2"
+        "vitest": "^3.2.4"
     },
     "resolutions": {
         "@ant-design/colors": "6.0.0",

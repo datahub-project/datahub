@@ -3,6 +3,7 @@ import React from 'react';
 import { ManageViews } from '@app/entity/view/ManageViews';
 import { ManageOwnership } from '@app/entityV2/ownership/ManageOwnership';
 import { ManageIdentities } from '@app/identity/ManageIdentities';
+import IdentitiesContent from '@app/identityV2/IdentitiesContent';
 import { ManagePermissions } from '@app/permissions/ManagePermissions';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
 import { AccessTokens } from '@app/settingsV2/AccessTokens';
@@ -16,7 +17,7 @@ import ManagePosts from '@app/settingsV2/posts/ManagePosts';
 export const PATHS = [
     { path: 'views', content: <ManageViews /> },
     { path: 'tokens', content: <AccessTokens /> },
-    { path: 'identities', content: <ManageIdentities version="v2" /> },
+    { path: 'identities', content: <IdentitiesContent /> },
     { path: 'policies', content: <ManagePolicies /> },
     { path: 'preferences', content: <Preferences /> },
     { path: 'permissions', content: <ManagePermissions /> },
