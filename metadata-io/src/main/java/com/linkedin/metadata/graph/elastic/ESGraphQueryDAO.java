@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -65,11 +66,14 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.opensearch.action.search.ClearScrollRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.lucene.search.function.CombineFunction;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -77,6 +81,7 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.rescore.QueryRescorerBuilder;
+import org.opensearch.search.slice.SliceBuilder;
 import org.opensearch.search.sort.SortBuilders;
 import org.opensearch.search.sort.SortOrder;
 
@@ -304,7 +309,7 @@ public class ESGraphQueryDAO {
     Set<Urn> visitedEntities = ConcurrentHashMap.newKeySet();
     visitedEntities.add(entityUrn);
     Set<Urn> viaEntities = ConcurrentHashMap.newKeySet();
-    Map<Urn, UrnArrayArray> existingPaths = new HashMap<>();
+    ThreadSafePathStore existingPaths = new ThreadSafePathStore();
     List<Urn> currentLevel = ImmutableList.of(entityUrn);
 
     for (int i = 0; i < maxHops; i++) {
@@ -363,7 +368,7 @@ public class ESGraphQueryDAO {
       LineageGraphFilters graphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths,
       Map<Urn, LineageRelationship> result,
       int i) {
@@ -480,11 +485,21 @@ public class ESGraphQueryDAO {
       }
       degrees.add(newRelationship.getDegree());
       copyRelationship.setDegrees(new IntegerArray(degrees));
-      UrnArrayArray copyPaths =
-          new UrnArrayArray(
-              existingRelationship.getPaths().size() + newRelationship.getPaths().size());
-      copyPaths.addAll(existingRelationship.getPaths());
-      copyPaths.addAll(newRelationship.getPaths());
+      // Deduplicate paths when merging relationships
+      Set<UrnArray> uniquePaths = new HashSet<>();
+      if (existingRelationship.hasPaths()) {
+        for (UrnArray path : existingRelationship.getPaths()) {
+          uniquePaths.add(path);
+        }
+      }
+      if (newRelationship.hasPaths()) {
+        for (UrnArray path : newRelationship.getPaths()) {
+          uniquePaths.add(path);
+        }
+      }
+
+      UrnArrayArray copyPaths = new UrnArrayArray(uniquePaths.size());
+      copyPaths.addAll(uniquePaths);
       copyRelationship.setPaths(copyPaths);
       return copyRelationship;
     } catch (CloneNotSupportedException e) {
@@ -503,7 +518,7 @@ public class ESGraphQueryDAO {
       int numHops,
       int remainingHops,
       long remainingTime,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths) {
     List<List<Urn>> batches =
         Lists.partition(entityUrns, config.getSearch().getGraph().getBatchSize());
@@ -541,7 +556,7 @@ public class ESGraphQueryDAO {
       Set<Urn> viaEntities,
       int numHops,
       int remainingHops,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths) {
     final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
 
@@ -683,6 +698,12 @@ public class ESGraphQueryDAO {
     sourceBuilder.addRescorer(queryRescorerBuilder);
   }
 
+  private static boolean containsCycle(final UrnArray path) {
+    Set<Urn> urnSet = path.stream().collect(Collectors.toUnmodifiableSet());
+    // path contains a cycle if any urn is repeated twice
+    return (path.size() != urnSet.size());
+  }
+
   /**
    * Adds an individual relationship edge to a running set of unique paths to each node in the
    * graph.
@@ -710,28 +731,15 @@ public class ESGraphQueryDAO {
    *     the Graph Store.
    */
   @VisibleForTesting
-  static void addEdgeToPaths(
-      @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
-      @Nonnull final Urn parentUrn,
-      @Nonnull final Urn childUrn) {
-    addEdgeToPaths(existingPaths, parentUrn, null, childUrn);
-  }
-
-  private static boolean containsCycle(final UrnArray path) {
-    Set<Urn> urnSet = path.stream().collect(Collectors.toUnmodifiableSet());
-    // path contains a cycle if any urn is repeated twice
-    return (path.size() != urnSet.size());
-  }
-
   static boolean addEdgeToPaths(
-      @Nonnull final Map<Urn, UrnArrayArray> existingPaths,
+      @Nonnull final ThreadSafePathStore existingPaths,
       @Nonnull final Urn parentUrn,
       final Urn viaUrn,
       @Nonnull final Urn childUrn) {
     boolean edgeAdded = false;
     // Collect all full-paths to this child node. This is what will be returned.
-    UrnArrayArray pathsToParent = existingPaths.get(parentUrn);
-    if (pathsToParent != null && !pathsToParent.isEmpty()) {
+    Set<UrnArray> pathsToParent = existingPaths.getPaths(parentUrn);
+    if (!pathsToParent.isEmpty()) {
       // If there are existing paths to this parent node, then we attempt
       // to append the child to each of the existing paths (lengthen it).
       // We then store this as a separate, unique path associated with the child.
@@ -745,19 +753,9 @@ public class ESGraphQueryDAO {
           pathToChild.add(viaUrn);
         }
         pathToChild.add(childUrn);
-        // Save these paths to the global structure for easy access on future iterations.
-        existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
-        UrnArrayArray existingPathsToChild = existingPaths.get(childUrn);
-        boolean dupExists = false;
-        for (UrnArray existingPathToChild : existingPathsToChild) {
-          if (existingPathToChild.equals(pathToChild)) {
-            dupExists = true;
-          }
-        }
-        if (!dupExists) {
-          existingPathsToChild.add(pathToChild);
-          edgeAdded = true;
-        }
+        // Use the thread-safe addPath method which handles duplicates automatically
+        existingPaths.addPath(childUrn, pathToChild);
+        edgeAdded = true;
       }
     } else {
       // No existing paths to this parent urn. Let's create a new path to the child!
@@ -767,9 +765,8 @@ public class ESGraphQueryDAO {
       } else {
         pathToChild.addAll(ImmutableList.of(parentUrn, viaUrn, childUrn));
       }
-      // Save these paths to the global structure for easy access on future iterations.
-      existingPaths.putIfAbsent(childUrn, new UrnArrayArray());
-      existingPaths.get(childUrn).add(pathToChild);
+      // Use the thread-safe addPath method which handles duplicates automatically
+      existingPaths.addPath(childUrn, pathToChild);
       edgeAdded = true;
     }
     return edgeAdded;
@@ -786,7 +783,7 @@ public class ESGraphQueryDAO {
       Set<Urn> viaEntities,
       int numHops,
       int remainingHops,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths) {
     try {
       Map<Urn, LineageRelationship> lineageRelationshipMap = new HashMap<>();
@@ -826,7 +823,7 @@ public class ESGraphQueryDAO {
       boolean exploreMultiplePaths,
       Set<Urn> visitedEntities,
       LineageGraphFilters lineageGraphFilters,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       int numHops,
       boolean truncatedChildren,
       Map<Urn, LineageRelationship> lineageRelationshipMap,
@@ -840,6 +837,15 @@ public class ESGraphQueryDAO {
         UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, SOURCE, "source");
     final Urn destinationUrn =
         UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, DESTINATION, "destination");
+
+    // Skip if either URN is null
+    if (sourceUrn == null || destinationUrn == null) {
+      log.debug(
+          "Skipping edge with null URNs: sourceUrn={}, destinationUrn={}",
+          sourceUrn,
+          destinationUrn);
+      return;
+    }
 
     final String type = document.get(RELATIONSHIP_TYPE).toString();
     if (sourceUrn.equals(destinationUrn)) {
@@ -933,7 +939,7 @@ public class ESGraphQueryDAO {
       Urn destinationUrn,
       LineageGraphFilters lineageGraphFilters,
       String type,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       Urn viaEntity,
       int numHops,
       Long createdOn,
@@ -963,7 +969,7 @@ public class ESGraphQueryDAO {
                   type,
                   destinationUrn,
                   numHops,
-                  existingPaths.getOrDefault(destinationUrn, new UrnArrayArray()),
+                  new UrnArrayArray(existingPaths.getPaths(destinationUrn)),
                   // Fetch the paths to the next level entity.
                   createdOn,
                   createdActor,
@@ -1005,7 +1011,7 @@ public class ESGraphQueryDAO {
       Urn destinationUrn,
       LineageGraphFilters lineageGraphFilters,
       String type,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       Urn viaEntity,
       int numHops,
       Long createdOn,
@@ -1036,7 +1042,7 @@ public class ESGraphQueryDAO {
                   type,
                   sourceUrn,
                   numHops,
-                  existingPaths.getOrDefault(sourceUrn, new UrnArrayArray()),
+                  new UrnArrayArray(existingPaths.getPaths(sourceUrn)),
                   // Fetch the paths to the next level entity.
                   createdOn,
                   createdActor,
@@ -1070,9 +1076,8 @@ public class ESGraphQueryDAO {
   }
 
   private static UrnArrayArray getViaPaths(
-      Map<Urn, UrnArrayArray> existingPaths, Urn destinationUrn, Urn viaEntity) {
-    UrnArrayArray destinationPaths =
-        existingPaths.getOrDefault(destinationUrn, new UrnArrayArray());
+      ThreadSafePathStore existingPaths, Urn destinationUrn, Urn viaEntity) {
+    Set<UrnArray> destinationPaths = existingPaths.getPaths(destinationUrn);
     UrnArrayArray viaPaths = new UrnArrayArray();
     for (UrnArray destPath : destinationPaths) {
       UrnArray viaPath = new UrnArray();
@@ -1160,7 +1165,7 @@ public class ESGraphQueryDAO {
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       int numHops,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths,
       @Nullable final Integer entitiesPerHopLimit) {
 
@@ -1905,7 +1910,7 @@ public class ESGraphQueryDAO {
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       int numHops,
-      Map<Urn, UrnArrayArray> existingPaths,
+      ThreadSafePathStore existingPaths,
       boolean exploreMultiplePaths,
       @Nullable Integer entitiesPerHopLimit) {
 
@@ -2099,11 +2104,11 @@ public class ESGraphQueryDAO {
 
   // Check if a relationship is connected to a specific input entity
   private static boolean isRelationshipConnectedToInput(
-      LineageRelationship relationship, Urn inputUrn, Map<Urn, UrnArrayArray> existingPaths) {
+      LineageRelationship relationship, Urn inputUrn, ThreadSafePathStore existingPaths) {
 
     // Check if the relationship's paths include the input URN
-    UrnArrayArray paths = existingPaths.get(relationship.getEntity());
-    if (paths == null) {
+    Set<UrnArray> paths = existingPaths.getPaths(relationship.getEntity());
+    if (paths == null || paths.isEmpty()) {
       return false;
     }
 
@@ -2114,5 +2119,482 @@ public class ESGraphQueryDAO {
     }
 
     return false;
+  }
+
+  /**
+   * Get lineage relationships up to the maximum number of relationships specified in the impact
+   * configuration. This method scrolls through results using scroll+slice until it reaches the
+   * limit or exhausts all results.
+   *
+   * @param opContext The operation context
+   * @param entityUrn The source entity URN
+   * @param lineageGraphFilters The lineage graph filters
+   * @param maxHops The maximum number of hops to traverse
+   * @return A LineageResponse containing all relationships up to the maxRelations limit
+   */
+  @WithSpan
+  public LineageResponse getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      LineageGraphFilters lineageGraphFilters,
+      int maxHops) {
+
+    // Get the maxRelations limit from configuration
+    int maxRelations = config.getSearch().getGraph().getImpact().getMaxRelations();
+
+    Map<Urn, LineageRelationship> result = new HashMap<>();
+    long currentTime = System.currentTimeMillis();
+    long remainingTime = config.getSearch().getGraph().getTimeoutSeconds() * 1000;
+    long timeoutTime = currentTime + remainingTime;
+
+    // Do a Level-order BFS
+    Set<Urn> visitedEntities = ConcurrentHashMap.newKeySet();
+    visitedEntities.add(entityUrn);
+    Set<Urn> viaEntities = ConcurrentHashMap.newKeySet();
+    ThreadSafePathStore existingPaths = new ThreadSafePathStore();
+    List<Urn> currentLevel = ImmutableList.of(entityUrn);
+
+    for (int i = 0; i < maxHops; i++) {
+      if (currentLevel.isEmpty()) {
+        break;
+      }
+
+      if (remainingTime < 0) {
+        log.error(
+            "Timed out while fetching lineage for {} with direction {}, maxHops {}. Operation exceeded the configured timeout.",
+            entityUrn,
+            lineageGraphFilters.getLineageDirection(),
+            maxHops);
+        throw new IllegalStateException(
+            String.format(
+                "Lineage operation timed out after %d seconds. Entity: %s, Direction: %s, MaxHops: %d",
+                config.getSearch().getGraph().getTimeoutSeconds(),
+                entityUrn,
+                lineageGraphFilters.getLineageDirection(),
+                maxHops));
+      }
+
+      // Check if we've reached the maxRelations limit
+      if (result.size() >= maxRelations) {
+        log.error(
+            "Reached maxRelations limit {} for {} with direction {}, maxHops {}. This indicates the data exceeds the configured limit.",
+            maxRelations,
+            entityUrn,
+            lineageGraphFilters.getLineageDirection(),
+            maxHops);
+        throw new IllegalStateException(
+            String.format(
+                "Lineage results exceeded the configured maxRelations limit of %d. Entity: %s, Direction: %s, MaxHops: %d. Consider reducing maxHops or increasing the maxRelations limit.",
+                maxRelations, entityUrn, lineageGraphFilters.getLineageDirection(), maxHops));
+      }
+
+      // Do one hop on the lineage graph
+      // Note: maxRelations is the original total limit, but we pass the remaining capacity
+      // to the scroll methods to ensure accurate limit checking at each level
+      currentLevel =
+          processOneHopLineageWithMaxRelations(
+                  opContext,
+                  currentLevel,
+                  remainingTime,
+                  maxHops,
+                  lineageGraphFilters,
+                  visitedEntities,
+                  viaEntities,
+                  existingPaths,
+                  result,
+                  i,
+                  maxRelations)
+              .collect(Collectors.toList());
+
+      currentTime = System.currentTimeMillis();
+      remainingTime = timeoutTime - currentTime;
+
+      // Early termination if no new entities to process
+      if (currentLevel.isEmpty()) {
+        break;
+      }
+    }
+
+    List<LineageRelationship> resultList = new ArrayList<>(result.values());
+    return new LineageResponse(resultList.size(), resultList);
+  }
+
+  private Stream<Urn> processOneHopLineageWithMaxRelations(
+      @Nonnull OperationContext opContext,
+      List<Urn> currentLevel,
+      long remainingTime,
+      int maxHops,
+      LineageGraphFilters graphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      ThreadSafePathStore existingPaths,
+      Map<Urn, LineageRelationship> result,
+      int i,
+      int maxRelations) {
+
+    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+
+    // Do one hop on the lineage graph
+    int numHops = i + 1; // Zero indexed for loop counter, one indexed count
+    int remainingHops = maxHops - numHops;
+
+    // Calculate remaining capacity and pass it to scroll methods
+    // This ensures scroll methods check against the actual remaining capacity, not the original
+    // total limit
+    int remainingCapacity = Math.max(0, maxRelations - result.size());
+    List<LineageRelationship> oneHopRelationships =
+        getLineageRelationshipsWithMaxRelations(
+            opContext,
+            currentLevel,
+            graphFilters,
+            visitedEntities,
+            viaEntities,
+            numHops,
+            remainingHops,
+            remainingTime,
+            existingPaths,
+            remainingCapacity);
+
+    for (LineageRelationship oneHopRelnship : oneHopRelationships) {
+      if (result.containsKey(oneHopRelnship.getEntity())) {
+        log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
+        result.put(
+            oneHopRelnship.getEntity(),
+            mergeLineageRelationships(result.get(oneHopRelnship.getEntity()), oneHopRelnship));
+      } else {
+        result.put(oneHopRelnship.getEntity(), oneHopRelnship);
+      }
+    }
+    return oneHopRelationships.stream().map(LineageRelationship::getEntity);
+  }
+
+  // Get 1-hop lineage relationships with timeout
+  @WithSpan
+  private List<LineageRelationship> getLineageRelationshipsWithMaxRelations(
+      @Nonnull final OperationContext opContext,
+      @Nonnull List<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      int numHops,
+      int remainingHops,
+      long remainingTime,
+      ThreadSafePathStore existingPaths,
+      int maxRelations) {
+
+    Map<String, Set<Urn>> urnsPerEntityType =
+        entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+
+    QueryBuilder finalQuery = getLineageQuery(opContext, urnsPerEntityType, lineageGraphFilters);
+
+    // Use scroll search to get all results up to maxRelations
+    return scrollLineageSearchWithMaxRelations(
+        opContext,
+        finalQuery,
+        lineageGraphFilters,
+        visitedEntities,
+        viaEntities,
+        numHops,
+        remainingHops,
+        existingPaths,
+        maxRelations,
+        remainingTime,
+        new HashSet<>(entityUrns));
+  }
+
+  /**
+   * Scroll through lineage search results up to the maximum number of relationships using
+   * slice-based parallel scroll processing.
+   *
+   * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   */
+  private List<LineageRelationship> scrollLineageSearchWithMaxRelations(
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryBuilder query,
+      LineageGraphFilters lineageGraphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      int numHops,
+      int remainingHops,
+      ThreadSafePathStore existingPaths,
+      int maxRelations, // This is the REMAINING capacity, not the original total limit
+      long remainingTime,
+      Set<Urn> entityUrns) {
+
+    int defaultPageSize = graphServiceConfig.getLimit().getResults().getApiDefault();
+    int slices = config.getSearch().getGraph().getImpact().getSlices();
+
+    return scrollWithSlices(
+        opContext,
+        query,
+        lineageGraphFilters,
+        visitedEntities,
+        viaEntities,
+        numHops,
+        remainingHops,
+        existingPaths,
+        maxRelations,
+        defaultPageSize,
+        slices,
+        remainingTime,
+        entityUrns);
+  }
+
+  /**
+   * Scroll using slice-based parallel search for better performance.
+   *
+   * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   */
+  private List<LineageRelationship> scrollWithSlices(
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryBuilder query,
+      LineageGraphFilters lineageGraphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      int numHops,
+      int remainingHops,
+      ThreadSafePathStore existingPaths,
+      int maxRelations, // This is the REMAINING capacity, not the original total limit
+      int defaultPageSize,
+      int slices,
+      long remainingTime,
+      Set<Urn> entityUrns) {
+
+    List<LineageRelationship> allRelationships = Collections.synchronizedList(new ArrayList<>());
+
+    // Create slice-based search requests
+    List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
+
+    for (int sliceId = 0; sliceId < slices; sliceId++) {
+      final int currentSliceId = sliceId;
+      CompletableFuture<List<LineageRelationship>> sliceFuture =
+          CompletableFuture.supplyAsync(
+              () -> {
+                return scrollSingleSlice(
+                    opContext,
+                    query,
+                    lineageGraphFilters,
+                    visitedEntities,
+                    viaEntities,
+                    numHops,
+                    remainingHops,
+                    existingPaths,
+                    maxRelations,
+                    defaultPageSize,
+                    currentSliceId,
+                    slices,
+                    remainingTime,
+                    entityUrns);
+              });
+      sliceFutures.add(sliceFuture);
+    }
+
+    // Wait for all slices to complete
+    try {
+      CompletableFuture.allOf(sliceFutures.toArray(new CompletableFuture[0]))
+          .get(remainingTime, TimeUnit.MILLISECONDS);
+
+      // Check for exceptions in individual futures BEFORE collecting results
+      for (int i = 0; i < sliceFutures.size(); i++) {
+        CompletableFuture<List<LineageRelationship>> future = sliceFutures.get(i);
+        if (future.isCompletedExceptionally()) {
+          try {
+            future.get(); // This will throw the actual exception
+          } catch (Exception e) {
+            log.error("Slice {} failed with exception", i, e);
+            throw new RuntimeException("Slice " + i + " failed", e);
+          }
+        }
+      }
+
+      // Now collect results (should be safe)
+      for (CompletableFuture<List<LineageRelationship>> future : sliceFutures) {
+        List<LineageRelationship> sliceResults = future.get();
+        allRelationships.addAll(sliceResults);
+
+        // Check if we've exceeded the limit - use >= for consistency
+        if (allRelationships.size() >= maxRelations) {
+          log.error(
+              "Total results from all slices exceeded maxRelations limit {} during slice search.",
+              maxRelations);
+          throw new IllegalStateException(
+              String.format(
+                  "Lineage slice results exceeded the configured maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit.",
+                  maxRelations));
+        }
+      }
+    } catch (TimeoutException e) {
+      log.error("Slice processing timed out after {} ms", remainingTime);
+      throw new IllegalStateException("Slice processing timed out", e);
+    } catch (Exception e) {
+      log.error("Error during slice-based scroll search", e);
+      throw new RuntimeException("Failed to execute slice-based scroll search", e);
+    }
+
+    return allRelationships;
+  }
+
+  /**
+   * Scroll a single slice of the data.
+   *
+   * @param maxRelations The remaining capacity for relationships (decremented from original limit)
+   */
+  private List<LineageRelationship> scrollSingleSlice(
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryBuilder query,
+      LineageGraphFilters lineageGraphFilters,
+      Set<Urn> visitedEntities,
+      Set<Urn> viaEntities,
+      int numHops,
+      int remainingHops,
+      ThreadSafePathStore existingPaths,
+      int maxRelations, // This is the REMAINING capacity, not the original total limit
+      int defaultPageSize,
+      int sliceId,
+      int totalSlices,
+      long remainingTime,
+      Set<Urn> entityUrns) {
+
+    List<LineageRelationship> sliceRelationships = new ArrayList<>();
+
+    // Build search request with slice configuration for scroll
+    SearchRequest searchRequest = new SearchRequest();
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.query(query);
+    searchSourceBuilder.size(defaultPageSize);
+
+    // Add sorting for consistent results
+    searchSourceBuilder.sort(SortBuilders.fieldSort("_id").order(SortOrder.ASC));
+
+    // Add slice configuration for parallel scroll processing
+    searchSourceBuilder.slice(new SliceBuilder(sliceId, totalSlices));
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    // Set up scroll context - this is required for slice to work
+    searchRequest.scroll(TimeValue.timeValueMinutes(5));
+
+    try {
+      // Initial search request
+      SearchResponse response =
+          opContext.withSpan(
+              "esQuery",
+              () -> {
+                try {
+                  if (metricUtils != null)
+                    metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
+                  return client.search(searchRequest, RequestOptions.DEFAULT);
+                } catch (Exception e) {
+                  log.error("Search query failed", e);
+                  throw new ESQueryException("Search query failed:", e);
+                }
+              },
+              MetricUtils.DROPWIZARD_NAME,
+              MetricUtils.name(this.getClass(), "esQuery"));
+
+      String scrollId = response == null ? null : response.getScrollId();
+
+      try {
+        while (sliceRelationships.size() < maxRelations
+            && response != null
+            && response.getHits() != null
+            && response.getHits().getHits().length > 0) {
+          // Check timeout before processing
+          if (remainingTime <= 0) {
+            log.warn("Slice {} timed out, stopping scroll", sliceId);
+            break;
+          }
+
+          List<LineageRelationship> pageRelationships =
+              extractRelationships(
+                  entityUrns,
+                  response,
+                  lineageGraphFilters,
+                  visitedEntities,
+                  viaEntities,
+                  numHops,
+                  remainingHops,
+                  existingPaths,
+                  false); // exploreMultiplePaths - not needed for slice-based search
+
+          sliceRelationships.addAll(pageRelationships);
+
+          // Safety check to prevent exceeding the limit
+          if (sliceRelationships.size() >= maxRelations) {
+            log.error("Slice {} reached maxRelations limit, stopping scroll", sliceId);
+            throw new IllegalStateException(
+                String.format(
+                    "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit.",
+                    sliceId, maxRelations));
+          }
+
+          if (scrollId == null) {
+            log.debug("Scroll ID is null for slice {}, stopping scroll", sliceId);
+            break;
+          }
+
+          // Continue scrolling
+          SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
+          scrollRequest.scroll(TimeValue.timeValueMinutes(5));
+
+          response = client.scroll(scrollRequest, RequestOptions.DEFAULT);
+          scrollId = response == null ? null : response.getScrollId();
+        }
+      } finally {
+        // Clean up scroll context
+        if (scrollId != null) {
+          try {
+            ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
+            clearScrollRequest.addScrollId(scrollId);
+            client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.warn("Failed to clear scroll context for slice {}", sliceId, e);
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.error("Failed to execute scroll search for slice {}", sliceId, e);
+      throw new RuntimeException("Failed to execute scroll search for slice " + sliceId, e);
+    }
+
+    return sliceRelationships;
+  }
+
+  /**
+   * Thread-safe wrapper for storing paths during lineage computation. Uses ConcurrentHashMap with
+   * Set<UrnArray> for efficient duplicate detection.
+   */
+  public static class ThreadSafePathStore {
+    protected final ConcurrentHashMap<Urn, Set<UrnArray>> pathMap = new ConcurrentHashMap<>();
+
+    public void addPath(Urn destinationUrn, UrnArray path) {
+      pathMap.compute(
+          destinationUrn,
+          (key, existingSet) -> {
+            if (existingSet == null) {
+              Set<UrnArray> newSet = ConcurrentHashMap.newKeySet();
+              newSet.add(path);
+              return newSet;
+            } else {
+              existingSet.add(path);
+              return existingSet;
+            }
+          });
+    }
+
+    public Set<UrnArray> getPaths(Urn destinationUrn) {
+      return pathMap.getOrDefault(destinationUrn, ConcurrentHashMap.newKeySet());
+    }
+
+    public Map<Urn, UrnArrayArray> toUrnArrayArrayMap() {
+      Map<Urn, UrnArrayArray> result = new HashMap<>();
+      pathMap.forEach(
+          (urn, pathSet) -> {
+            UrnArrayArray urnArrayArray = new UrnArrayArray(pathSet.size());
+            urnArrayArray.addAll(pathSet);
+            result.put(urn, urnArrayArray);
+          });
+      return result;
+    }
   }
 }

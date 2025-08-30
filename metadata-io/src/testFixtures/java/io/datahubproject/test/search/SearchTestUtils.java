@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
@@ -68,10 +69,14 @@ public class SearchTestUtils {
                       new GraphQueryConfiguration() {
                         {
                           setBatchSize(1000);
-                          setTimeoutSeconds(10);
+                          setTimeoutSeconds(5);
                           setEnableMultiPathSearch(true);
                           setBoostViaNodes(true);
-                          setImpactMaxHops(1000);
+                          ImpactConfiguration impactConfig = new ImpactConfiguration();
+                          impactConfig.setMaxHops(1000);
+                          impactConfig.setMaxRelations(100);
+                          impactConfig.setSlices(2);
+                          setImpact(impactConfig);
                           setLineageMaxHops(20);
                           setMaxThreads(1);
                           setQueryOptimization(true);

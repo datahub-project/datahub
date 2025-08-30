@@ -31,8 +31,8 @@ public class GraphQueryConfiguration {
   /** Maximum lineage hops */
   private int lineageMaxHops;
 
-  /** Maximum impact analysis max hops */
-  private int impactMaxHops;
+  /** Impact analysis configuration */
+  private ImpactConfiguration impact;
 
   /** Maximum threads used in lineage queries * */
   private int maxThreads;

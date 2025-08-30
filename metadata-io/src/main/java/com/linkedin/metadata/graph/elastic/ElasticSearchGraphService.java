@@ -232,6 +232,23 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .setTotal(lineageResponse.getTotal());
   }
 
+  @Nonnull
+  @WithSpan
+  @Override
+  public EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int maxHops) {
+    ESGraphQueryDAO.LineageResponse lineageResponse =
+        graphReadDAO.getImpactLineage(opContext, entityUrn, lineageGraphFilters, maxHops);
+    return new EntityLineageResult()
+        .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
+        .setStart(0)
+        .setCount(lineageResponse.getLineageRelationships().size())
+        .setTotal(lineageResponse.getTotal());
+  }
+
   private static Filter createUrnFilter(@Nonnull final Urn urn) {
     Filter filter = new Filter();
     CriterionArray criterionArray = new CriterionArray();
