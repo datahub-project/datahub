@@ -22,6 +22,7 @@ import {
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     Embed,
+    Entity,
     EntityLineageResult,
     EntityPrivileges,
     EntityRelationshipsResult,
@@ -146,6 +147,10 @@ export type GenericEntityProperties = {
     // Data job / data process instance
     lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
+
+    // Logical models
+    logicalParent?: Maybe<Entity>;
+    physicalChildren?: Maybe<EntityRelationshipsResult>;
 };
 
 export type GenericEntityUpdate = {

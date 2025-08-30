@@ -31,6 +31,7 @@ import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/
 import SidebarDatasetHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import SidebarLineageSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
+import SidebarLogicalSection from '@app/entityV2/shared/containers/profile/sidebar/Logical/SidebarLogicalSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarQueryOperationsSection from '@app/entityV2/shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
 import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
@@ -284,6 +285,7 @@ export class DatasetEntity implements Entity<Dataset> {
     getSidebarSections = () => [
         { component: SidebarEntityHeader },
         { component: SidebarDatasetHeaderSection },
+        { component: SidebarLogicalSection },
         { component: SidebarAboutSection },
         { component: SidebarNotesSection },
         { component: SidebarLineageSection },

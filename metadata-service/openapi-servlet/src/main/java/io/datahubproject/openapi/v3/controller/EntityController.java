@@ -374,6 +374,49 @@ public class EntityController
             .collect(Collectors.toList()));
   }
 
+  @Tag(name = "Logical Models")
+  @PostMapping(
+      value = "logical/{childDatasetUrn}/relationship/physicalInstanceOf/{parentDatasetUrn}",
+      consumes = MediaType.APPLICATION_JSON_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE
+  )
+  @Operation(summary = "Associate a physical dataset and its schema fields to a logical dataset")
+  public ResponseEntity<Void> setLogicalParents(
+      HttpServletRequest request,
+      @PathVariable("childDatasetUrn") String childDatasetUrnStr,
+      @PathVariable("parentDatasetUrn") String parentDatasetUrnStr,
+      @RequestBody String jsonBody
+  ) throws URISyntaxException, JsonProcessingException {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    Urn childDatasetUrn = UrnUtils.getUrn(childDatasetUrnStr);
+    Urn parentDatasetUrn = UrnUtils.getUrn(parentDatasetUrnStr);
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "setLogicalParents",
+                    ImmutableSet.of(childDatasetUrn.getEntityType(), parentDatasetUrn.getEntityType())),
+            authorizationChain,
+            authentication,
+            true);
+
+    // Assumes if a user has access to a dataset, they have access to its schema fields
+    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+        opContext, UPDATE, ImmutableSet.of(childDatasetUrn, parentDatasetUrn))) {
+      throw new UnauthorizedException(
+          String.format(
+              "%s is unauthorized to %s entities %s and %s",
+              authentication.getActor().toUrnStr(), UPDATE, childDatasetUrnStr, parentDatasetUrnStr));
+    }
+
+    // Fetch schema metadata for each dataset
+
+    return ResponseEntity.ok().build();
+  }
+
   @Tag(name = "Generic Entities")
   @PatchMapping(
       value = "/{entityName}",
