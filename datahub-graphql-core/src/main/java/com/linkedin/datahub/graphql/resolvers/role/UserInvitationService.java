@@ -2,6 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.role;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
@@ -16,9 +18,14 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.template.NotificationTemplateType;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserInvitationStatus;
+import com.linkedin.identity.InvitationStatus;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.integration.IntegrationsService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,7 +75,7 @@ public class UserInvitationService {
       }
 
       for (int i = 0; i < emails.size(); i++) {
-        String email = emails.get(i);
+        String email = emails.get(i).trim(); // Trim whitespace from email
         String inviteToken = individualTokens.get(i); // Get unique token for this email
         String inviteLink =
             String.format("%s/signup?invite_token=%s", effectiveBaseUrl, inviteToken);
@@ -123,6 +130,9 @@ public class UserInvitationService {
 
           // Send notification via integrations service
           integrationsService.sendNotification(notificationRequest);
+
+          // Create CorpUserInvitationStatus aspect for the invited user
+          createInvitationAspect(operationContext, email, roleUrn, inviteToken, authentication);
 
           successCount++;
 
@@ -201,5 +211,61 @@ public class UserInvitationService {
       return firstName + " " + lastName;
     }
     return null;
+  }
+
+  /**
+   * Creates a CorpUserInvitationStatus aspect for the invited user so they appear in the Manage
+   * Users & Groups table with "Invited" status.
+   */
+  private void createInvitationAspect(
+      OperationContext operationContext,
+      String email,
+      String roleUrn,
+      String inviteToken,
+      Authentication authentication) {
+    try {
+      // Create URN for the user using their email as the username (trim whitespace)
+      CorpuserUrn userUrn = new CorpuserUrn(email.trim());
+
+      // Create audit stamp
+      AuditStamp auditStamp = new AuditStamp();
+      auditStamp.setTime(System.currentTimeMillis());
+      auditStamp.setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()));
+
+      // Create the invitation status aspect
+      CorpUserInvitationStatus invitationStatus = new CorpUserInvitationStatus();
+      invitationStatus.setStatus(InvitationStatus.SENT);
+      invitationStatus.setInvitationToken(inviteToken);
+      invitationStatus.setCreated(auditStamp);
+      invitationStatus.setLastUpdated(auditStamp);
+
+      // Set role if provided
+      if (roleUrn != null) {
+        invitationStatus.setRole(UrnUtils.getUrn(roleUrn));
+      }
+
+      // Create metadata change proposal
+      MetadataChangeProposal mcp = new MetadataChangeProposal();
+      mcp.setEntityUrn(userUrn);
+      mcp.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+      mcp.setAspectName(Constants.CORP_USER_INVITATION_STATUS_ASPECT_NAME);
+      mcp.setAspect(GenericRecordUtils.serializeAspect(invitationStatus));
+      mcp.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+
+      // Create AspectsBatch with single MCP
+      AspectsBatchImpl aspectsBatch =
+          AspectsBatchImpl.builder()
+              .mcps(List.of(mcp), auditStamp, operationContext.getRetrieverContext())
+              .build(operationContext);
+
+      // Ingest the aspect
+      entityService.ingestProposal(operationContext, aspectsBatch, false);
+
+      log.info(
+          "Successfully created invitation aspect for user: {} with token: {}", email, inviteToken);
+    } catch (Exception e) {
+      log.error("Failed to create invitation aspect for user: {}", email, e);
+      // Don't throw exception here to avoid breaking the invitation flow
+    }
   }
 }

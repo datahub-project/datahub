@@ -145,12 +145,12 @@ export const UserNameCell = ({ user }: UserCellProps) => {
 type StatusCellProps = {
     user: UserListItem;
     getUserStatusText: (userStatus: CorpUserStatus | undefined | null, user: UserListItem) => string;
-    getUserStatusColor: (userStatus: CorpUserStatus | undefined | null) => ColorValues;
+    getUserStatusColor: (userStatus: CorpUserStatus | undefined | null, user: UserListItem) => ColorValues;
 };
 
 export const UserStatusCell = ({ user, getUserStatusText, getUserStatusColor }: StatusCellProps) => {
     const status = getUserStatusText(user.status, user);
-    const color = getUserStatusColor(user.status);
+    const color = getUserStatusColor(user.status, user);
     return <Pill variant="filled" color={color} label={status} />;
 };
 

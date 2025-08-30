@@ -153,8 +153,8 @@ public class OidcImplicitController extends Controller {
         logger.debug("Successfully validated token and extracted email: {}", email);
       }
 
-      // Create user URN
-      final Urn userUrn = new CorpuserUrn(email);
+      // Create user URN (trim email to avoid whitespace issues)
+      final Urn userUrn = new CorpuserUrn(email.trim());
       final String userUrnString = userUrn.toString();
 
       // Generate session token

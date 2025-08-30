@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { Icon } from '@components/components/Icon';
 import {
     ErrorMessage,
+    HelperText,
     InputContainer,
     InputField,
     InputWrapper,
@@ -22,6 +23,7 @@ export const inputDefaults: InputProps = {
     placeholder: 'Placeholder',
     error: '',
     warning: '',
+    helperText: '',
     isSuccess: false,
     isDisabled: false,
     isInvalid: false,
@@ -48,6 +50,7 @@ export const Input = ({
     icon, // default undefined
     error = inputDefaults.error,
     warning = inputDefaults.warning,
+    helperText = inputDefaults.helperText,
     isSuccess = inputDefaults.isSuccess,
     isDisabled = inputDefaults.isDisabled,
     isInvalid = inputDefaults.isInvalid,
@@ -114,6 +117,7 @@ export const Input = ({
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}
+            {helperText && !invalid && !warning && <HelperText>{helperText}</HelperText>}
         </InputWrapper>
     );
 };

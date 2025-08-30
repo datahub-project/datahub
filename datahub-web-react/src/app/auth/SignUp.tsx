@@ -109,8 +109,8 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    fullName: values.fullName,
-                    email: values.email,
+                    fullName: values.fullName.trim(),
+                    email: values.email.trim(),
                     password: values.password,
                     title: values.title,
                     inviteToken,

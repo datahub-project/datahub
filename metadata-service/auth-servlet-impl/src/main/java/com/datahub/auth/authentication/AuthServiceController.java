@@ -262,7 +262,7 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
     String fullNameString = fullName.asText();
-    String emailString = email.asText();
+    String emailString = email.asText().trim(); // Trim email to avoid whitespace issues
     String titleString = title.asText();
     String passwordString = password.asText();
     String inviteTokenString = inviteToken.asText();

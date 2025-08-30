@@ -29,17 +29,18 @@ export default function EmailInviteSection({
 }: Props) {
     return (
         <EmailInputSection>
-            <SectionTitle>Invite users</SectionTitle>
+            <SectionTitle>Input emails</SectionTitle>
             <InputRow>
                 <Input
                     label=""
-                    placeholder="Email, comma separated"
+                    placeholder="email1@address.com, email2@address.com"
                     value={emailInput}
                     onChange={(e) => handleEmailInputChange(e.target.value)}
                     onKeyPress={handleEmailInputKeyPress}
                     icon={{ icon: 'EnvelopeSimple', source: 'phosphor' }}
                     error={emailValidationError}
                     isInvalid={!!emailValidationError}
+                    helperText="Add multiple team members by entering comma-separated email addresses"
                     style={{ flex: 1, maxWidth: '470px' }}
                 />
                 <SimpleSelectRole
@@ -49,7 +50,7 @@ export default function EmailInviteSection({
                     size="md"
                 />
                 <Button onClick={handleSendInvitations} disabled={!emailInput.trim()} style={{ fontSize: '12px' }}>
-                    Send Invite
+                    Invite
                 </Button>
             </InputRow>
         </EmailInputSection>
