@@ -44,7 +44,8 @@ public class MceConsumerApplicationTestConfiguration {
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils) {
     String selfUri = restTemplate.getRootUri();
-    final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
+    final Client restClient =
+        DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null, null, null, null);
     return new SystemRestliEntityClient(
         restClient,
         entityClientConfig,
