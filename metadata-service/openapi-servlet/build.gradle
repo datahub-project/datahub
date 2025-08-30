@@ -32,6 +32,7 @@ dependencies {
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
   implementation externalDependency.swaggerAnnotations
+  implementation externalDependency.graphqlJava
   implementation externalDependency.guava
   implementation('io.acryl:json-schema-avro:0.2.3')
   implementation externalDependency.jsonSchemaValidator
