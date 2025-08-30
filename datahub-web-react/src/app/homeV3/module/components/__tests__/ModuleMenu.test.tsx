@@ -29,12 +29,13 @@ vi.mock('@components', () => ({
     Text: (props: any) => <p {...props} />,
     Button: (props: any) => <button type="button" data-testid="confirm" {...props} />,
     Heading: (props: any) => <p {...props} />,
-    Modal: ({ children, buttons, onCancel, ...props }: any) => (
+    Modal: ({ children, buttons, ...props }: any) => (
         <div data-testid="modal" {...props}>
             {children}
             {buttons &&
                 buttons.map((button: any, index: number) => (
                     <button
+                        // eslint-disable-next-line
                         key={index}
                         data-testid={button.buttonDataTestId || `modal-button-${index}`}
                         onClick={button.onClick}
