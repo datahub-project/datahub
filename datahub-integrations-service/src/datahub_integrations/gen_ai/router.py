@@ -1,5 +1,5 @@
 import functools
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Dict, List, Optional
 
 import fastapi
@@ -16,6 +16,7 @@ from datahub_integrations.gen_ai.description_context import (
 from datahub_integrations.gen_ai.description_v3 import (
     generate_entity_descriptions_for_urn,
 )
+from datahub_integrations.gen_ai.embeddings import create_embeddings, get_model_info
 from datahub_integrations.gen_ai.suggest_query_description import (
     generate_query_desc,
     get_query_context,
@@ -231,3 +232,90 @@ def suggest_terms_batch(
         raise last_exception
 
     return results
+
+
+class QueryEmbeddingRequest(pydantic.BaseModel):
+    """Request model for generating query embeddings."""
+
+    text: str = pydantic.Field(
+        description="The query text to generate embeddings for",
+        min_length=1,
+        max_length=131072,  # 128k chars - models will truncate as needed
+    )
+    model: Optional[str] = pydantic.Field(
+        default=None,
+        description="The embedding model to use (e.g., 'bedrock:cohere.embed-english-v3'). "
+        "If not provided, uses the default configured model.",
+    )
+
+
+class QueryEmbeddingResponse(pydantic.BaseModel):
+    """Response model for query embeddings."""
+
+    provider: str = pydantic.Field(
+        description="The provider used (e.g., 'bedrock', 'openai')"
+    )
+    model: str = pydantic.Field(
+        description="The model identifier used for embedding generation"
+    )
+    embedding: List[float] = pydantic.Field(
+        description="The normalized embedding vector"
+    )
+    dimensionality: int = pydantic.Field(
+        description="The dimension of the embedding vector"
+    )
+    truncated: Optional[bool] = pydantic.Field(
+        default=None,
+        description="Whether the input text was truncated by the model. "
+        "None if truncation status is unknown.",
+    )
+    created_at: str = pydantic.Field(
+        description="ISO 8601 timestamp of when the embedding was generated"
+    )
+
+
+@router.post("/embeddings/query", response_model=QueryEmbeddingResponse)
+def embed_query(
+    request: QueryEmbeddingRequest,
+) -> QueryEmbeddingResponse:
+    """
+    Generate embeddings for a single query text.
+
+    This endpoint is designed to be called by Java's EmbeddingProvider for semantic search.
+    The embeddings are always L2-normalized for cosine similarity scoring.
+
+    Uses Bedrock with Cohere embedding models (or other supported Bedrock models).
+    Raises an exception if Bedrock is unavailable or authentication fails.
+    """
+
+    logger.debug(f"Generating embeddings for query text of length {len(request.text)}")
+
+    # Determine model (use default if not specified)
+    model = request.model or "cohere.embed-english-v3"
+    provider = "bedrock"  # Hardcoded to bedrock
+
+    # Create Bedrock embeddings with model from request
+    embeddings = create_embeddings(
+        provider=provider,
+        model_id=model,
+    )
+
+    # Generate embedding
+    embedding = embeddings.embed_query(request.text)
+
+    # Check for truncation based on model's max tokens
+    model_info = get_model_info(model)
+    max_chars = (
+        model_info.get("max_tokens", 512) * 4
+    )  # Rough char estimate (4 chars per token)
+    truncated = len(request.text) > max_chars
+    dimensionality = len(embedding)
+
+    return QueryEmbeddingResponse(
+        provider=provider,
+        model=model,
+        embedding=embedding,
+        dimensionality=dimensionality,
+        truncated=truncated,
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )

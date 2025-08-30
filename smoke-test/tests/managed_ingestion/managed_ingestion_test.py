@@ -121,7 +121,7 @@ def _ensure_ingestion_source_present(
     json_q = {
         "query": """query ingestionSource($urn: String!) {\n
             ingestionSource(urn: $urn) {\n
-              executions(start: 0, count: 1) {\n
+              executions(start: 0, count: 10) {\n
                   start\n
                   count\n
                   total\n

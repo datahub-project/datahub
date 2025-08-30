@@ -36,6 +36,7 @@ dependencies = [
 	"tenacity",
 	"boto3",
 	"mlflow-skinny",
+	"litellm>=1.0.0",
 	# Email notifications.
 	"sendgrid",
 	# Reporting.
@@ -146,5 +147,6 @@ extraPaths = ['tests']
 
 [tool.pytest.ini_options]
 markers = [
-    "asyncio: mark a test as an asyncio coroutine."
+    "asyncio: mark a test as an asyncio coroutine.",
+    "integration: mark a test as an integration test requiring external dependencies."
 ]

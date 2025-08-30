@@ -2,11 +2,16 @@ import os
 import pathlib
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from dotenv import load_dotenv
 
 import datahub_integrations as di
 from datahub_integrations._logging_setup import LOGGING_SETUP_COMPLETE
 
 assert LOGGING_SETUP_COMPLETE
+
+# Load environment variables from .env file if it exists
+# This is safe to call even if .env doesn't exist - it will just do nothing
+load_dotenv()
 
 # A global config and graph object that can be used by all routers.
 if os.environ.get("DATAHUB_GMS_URL"):

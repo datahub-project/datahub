@@ -17,12 +17,17 @@
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-aiohttp==3.9.5
+aiohappyeyeballs==2.6.1
+    # via
+    #   -r requirements.txt
+    #   aiohttp
+aiohttp==3.12.15
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   litellm
     #   papermill
-aiosignal==1.3.1
+aiosignal==1.4.0
     # via
     #   -r requirements.txt
     #   aiohttp
@@ -47,6 +52,7 @@ anyio==4.9.0
     #   asyncer
     #   httpx
     #   mcp
+    #   openai
     #   reactpy
     #   sse-starlette
     #   starlette
@@ -174,6 +180,7 @@ click==8.1.7
     #   aws-msk-iam-sasl-signer-python
     #   click-default-group
     #   flask
+    #   litellm
     #   mlflow-skinny
     #   papermill
     #   streamlit
@@ -262,6 +269,10 @@ deprecated==1.2.14
     #   pygithub
 diskcache==5.6.3
     # via acryl-datahub-integrations (pyproject.toml)
+distro==1.9.0
+    # via
+    #   -r requirements.txt
+    #   openai
 dnspython==2.7.0
     # via
     #   -r requirements.txt
@@ -335,6 +346,7 @@ fastmcp==2.10.4
 filelock==3.14.0
     # via
     #   -r requirements.txt
+    #   huggingface-hub
     #   pygitops
     #   snowflake-connector-python
 flask==3.1.0
@@ -348,6 +360,10 @@ frozenlist==1.4.0
     #   -r requirements.txt
     #   aiohttp
     #   aiosignal
+fsspec==2025.7.0
+    # via
+    #   -r requirements.txt
+    #   huggingface-hub
 gitdb==4.0.11
     # via
     #   -r requirements.txt
@@ -465,6 +481,10 @@ h11==0.16.0
     #   acryl-datahub-integrations
     #   httpcore
     #   uvicorn
+hf-xet==1.1.8 ; platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+    # via
+    #   -r requirements.txt
+    #   huggingface-hub
 httpcore==1.0.9
     # via
     #   -r requirements.txt
@@ -480,12 +500,18 @@ httpx==0.28.1
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
     #   fastmcp
+    #   litellm
     #   mcp
+    #   openai
 httpx-sse==0.4.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   mcp
+huggingface-hub==0.34.4
+    # via
+    #   -r requirements.txt
+    #   tokenizers
 humanfriendly==10.0
     # via
     #   -r requirements.txt
@@ -506,6 +532,7 @@ ijson==3.2.3
 importlib-metadata==7.1.0
     # via
     #   -r requirements.txt
+    #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
 inflect==7.2.1
@@ -532,8 +559,13 @@ jinja2==3.1.3
     #   acryl-datahub-integrations
     #   altair
     #   flask
+    #   litellm
     #   mlflow
     #   pydeck
+jiter==0.10.0
+    # via
+    #   -r requirements.txt
+    #   openai
 jmespath==1.0.1
     # via
     #   -r requirements.txt
@@ -555,11 +587,12 @@ jsonref==1.1.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-jsonschema==4.21.1
+jsonschema==4.25.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
     #   altair
+    #   litellm
     #   mcp
     #   nbformat
 jsonschema-specifications==2023.12.1
@@ -577,6 +610,11 @@ jupyter-core==4.12.0
     #   nbformat
 kiwisolver==1.4.8
     # via matplotlib
+litellm==1.75.9
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 loguru==0.7.3
     # via
     #   -r requirements.txt
@@ -703,6 +741,10 @@ oauthlib==3.2.2
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
+openai==1.101.0
+    # via
+    #   -r requirements.txt
+    #   litellm
 openapi-pydantic==0.5.1
     # via
     #   -r requirements.txt
@@ -737,6 +779,7 @@ packaging==24.0
     #   docker
     #   google-cloud-bigquery
     #   gunicorn
+    #   huggingface-hub
     #   ipykernel
     #   matplotlib
     #   mlflow-skinny
@@ -791,6 +834,11 @@ prometheus-client==0.20.0
     #   acryl-datahub-actions
 prompt-toolkit==3.0.51
     # via ipython
+propcache==0.3.2
+    # via
+    #   -r requirements.txt
+    #   aiohttp
+    #   yarl
 proto-plus==1.24.0
     # via
     #   -r requirements.txt
@@ -860,8 +908,10 @@ pydantic==2.11.7
     #   acryl-datahub-integrations
     #   fastapi
     #   fastmcp
+    #   litellm
     #   mcp
     #   mlflow-skinny
+    #   openai
     #   openapi-pydantic
     #   pydantic-settings
 pydantic-core==2.33.2
@@ -950,6 +1000,7 @@ python-dotenv==1.1.1
     # via
     #   -r requirements.txt
     #   fastmcp
+    #   litellm
     #   pydantic-settings
     #   uvicorn
 python-http-client==3.3.7
@@ -979,6 +1030,7 @@ pyyaml==6.0.1
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   huggingface-hub
     #   mlflow-skinny
     #   papermill
     #   uvicorn
@@ -1006,8 +1058,10 @@ referencing==0.35.0
     #   -r requirements.txt
     #   jsonschema
     #   jsonschema-specifications
-regex==2024.11.6
-    # via tiktoken
+regex==2025.7.34
+    # via
+    #   -r requirements.txt
+    #   tiktoken
 requests==2.31.0
     # via
     #   -r requirements.txt
@@ -1018,6 +1072,7 @@ requests==2.31.0
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
+    #   huggingface-hub
     #   mixpanel
     #   mlflow-skinny
     #   msal
@@ -1108,6 +1163,7 @@ sniffio==1.3.1
     #   -r requirements.txt
     #   anyio
     #   asgi-lifespan
+    #   openai
 snowflake-connector-python==3.13.1
     # via
     #   -r requirements.txt
@@ -1188,8 +1244,15 @@ thrift==0.16.0
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
-tiktoken==0.9.0
-    # via acryl-datahub-integrations (pyproject.toml)
+tiktoken==0.11.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   litellm
+tokenizers==0.21.4
+    # via
+    #   -r requirements.txt
+    #   litellm
 toml==0.10.2
     # via
     #   -r requirements.txt
@@ -1209,8 +1272,12 @@ tornado==6.4
     #   ipykernel
     #   jupyter-client
     #   streamlit
-tqdm==4.66.2
-    # via papermill
+tqdm==4.67.1
+    # via
+    #   -r requirements.txt
+    #   huggingface-hub
+    #   openai
+    #   papermill
 traitlets==5.14.3
     # via
     #   comm
@@ -1241,6 +1308,7 @@ typing-extensions==4.13.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   aiosignal
     #   alembic
     #   anyio
     #   azure-core
@@ -1248,11 +1316,13 @@ typing-extensions==4.13.2
     #   exceptiongroup
     #   fastapi
     #   graphene
+    #   huggingface-hub
     #   inflect
     #   ipython
     #   mlflow-skinny
     #   mypy
     #   mypy-boto3-bedrock-runtime
+    #   openai
     #   opentelemetry-sdk
     #   pydantic
     #   pydantic-core
@@ -1328,7 +1398,7 @@ wrapt==1.16.0
     # via
     #   -r requirements.txt
     #   deprecated
-yarl==1.9.4
+yarl==1.20.1
     # via
     #   -r requirements.txt
     #   aiohttp

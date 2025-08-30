@@ -15,4 +15,7 @@ import lombok.experimental.Accessors;
 public class SearchServiceConfiguration {
   private QueryFilterRewriterConfiguration queryFilterRewriter;
   private LimitConfig limit;
+
+  /** Environment-level gate to enable/disable semantic search. Defaults to false when absent. */
+  @Builder.Default private boolean semanticSearchEnabled = false;
 }
