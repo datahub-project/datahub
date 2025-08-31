@@ -1936,8 +1936,8 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         entityTypes,
                         (env) ->
-                            Optional.ofNullable((Dataset) env.getSource())
-                                .map(Dataset::getLogicalParent)
+                            Optional.ofNullable((SchemaFieldEntity) env.getSource())
+                                .map(SchemaFieldEntity::getLogicalParent)
                                 .orElse(null)))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(

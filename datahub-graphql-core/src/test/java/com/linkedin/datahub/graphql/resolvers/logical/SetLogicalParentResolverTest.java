@@ -135,7 +135,10 @@ public class SetLogicalParentResolverTest {
                         && edge.getCreated() != null
                         && edge.getLastModified() != null
                         && edge.getCreated().getActor().toString().equals(TEST_ACTOR_URN.toString())
-                        && edge.getLastModified().getActor().toString().equals(TEST_ACTOR_URN.toString());
+                        && edge.getLastModified()
+                            .getActor()
+                            .toString()
+                            .equals(TEST_ACTOR_URN.toString());
                   } catch (Exception e) {
                     return false;
                   }

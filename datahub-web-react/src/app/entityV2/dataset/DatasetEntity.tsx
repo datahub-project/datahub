@@ -285,9 +285,9 @@ export class DatasetEntity implements Entity<Dataset> {
     getSidebarSections = () => [
         { component: SidebarEntityHeader },
         { component: SidebarDatasetHeaderSection },
-        { component: SidebarLogicalSection },
         { component: SidebarAboutSection },
         { component: SidebarNotesSection },
+        { component: SidebarLogicalSection },
         { component: SidebarLineageSection },
         { component: SidebarOwnerSection },
         { component: SidebarDomainSection },

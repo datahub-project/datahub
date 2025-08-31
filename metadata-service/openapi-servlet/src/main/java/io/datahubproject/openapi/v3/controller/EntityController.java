@@ -470,9 +470,9 @@ public class EntityController
     // Create schema field -> schema field logical parent aspects
     for (Map.Entry<String, String> mapping : fieldPathMap.entrySet()) {
       Urn parentSchemaFieldUrn =
-          SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, mapping.getKey());
+          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, mapping.getKey());
       Urn childSchemaFieldUrn =
-          SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, mapping.getValue());
+          SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, mapping.getValue());
       proposals.add(
           LogicalModelUtils.createLogicalParentProposal(
               childSchemaFieldUrn, parentSchemaFieldUrn, opContext));
