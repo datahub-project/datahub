@@ -276,8 +276,6 @@ jobs:
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
           echo "matrix=$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '{"target":.target | keys}')" >> $GITHUB_OUTPUT
 
-          echo "matrix=$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '{"target":.target | keys}')"
-
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         uses: actions/upload-artifact@v4
@@ -306,12 +304,10 @@ jobs:
       contents: read # for actions/checkout to fetch code
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-    name: Vulnerability Scan
+    name: Scan images for vulnerabilities
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
-    # scans only on for images on releases or head
-    # if: ${{ needs.setup.outputs.publish == 'true' && github.event_name != 'pull_request' }}
-    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
@@ -470,7 +466,6 @@ jobs:
           docker images
 
       - name: run quickstart
-        if: false
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
@@ -484,7 +479,6 @@ jobs:
         run: df -h . && docker images
 
       - name: Disable ES Disk Threshold
-        if: false
         run: |
           curl -XPUT "http://localhost:9200/_cluster/settings" \
           -H 'Content-Type: application/json' -d'{
@@ -505,7 +499,6 @@ jobs:
           ./gradlew :metadata-ingestion:install
 
       - name: Smoke test
-        if: false
         env:
           RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
@@ -542,8 +535,7 @@ jobs:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
       - uses: actions/upload-artifact@v4
-        #if: always()
-        if: false
+        if: always()
         with:
           name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
           path: |
@@ -622,10 +614,7 @@ jobs:
             TARGET=$(echo "$line" | jq -r '.target')
             TAG=$(echo "$line" | jq -r '.tags')
 
-            echo "Target: $TARGET"
-            echo "Tag: $TAG"
             depot push --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target $TARGET --tag $TAG
-
           done
 
   deploy_datahub_head:
