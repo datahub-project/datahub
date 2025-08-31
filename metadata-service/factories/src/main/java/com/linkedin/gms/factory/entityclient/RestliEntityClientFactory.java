@@ -29,17 +29,30 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
+      @Value("${datahub.gms.truststore.path}") String gmsSslTrustStorePath,
+      @Value("${datahub.gms.truststore.password}") String gmsSslTrustStorePass,
+      @Value("${datahub.gms.truststore.type}") String gmsSslTrustStoreType,
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils) {
     final Client restClient;
     if (gmsUri != null) {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              URI.create(gmsUri), gmsSslProtocol, null, null, null);
+              URI.create(gmsUri),
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType);
     } else {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, null, null, null);
+              gmsHost,
+              gmsPort,
+              gmsUseSSL,
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType);
     }
     return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
   }
@@ -52,6 +65,9 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
+      @Value("${datahub.gms.truststore.path}") String gmsSslTrustStorePath,
+      @Value("${datahub.gms.truststore.password}") String gmsSslTrustStorePass,
+      @Value("${datahub.gms.truststore.type}") String gmsSslTrustStoreType,
       final EntityClientCacheConfig entityClientCacheConfig,
       final EntityClientConfig entityClientConfig,
       final MetricUtils metricUtils) {
@@ -60,11 +76,21 @@ public class RestliEntityClientFactory {
     if (gmsUri != null) {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              URI.create(gmsUri), gmsSslProtocol, null, null, null);
+              URI.create(gmsUri),
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType);
     } else {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(
-              gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol, null, null, null);
+              gmsHost,
+              gmsPort,
+              gmsUseSSL,
+              gmsSslProtocol,
+              gmsSslTrustStorePath,
+              gmsSslTrustStorePass,
+              gmsSslTrustStoreType);
     }
     return new SystemRestliEntityClient(
         restClient, entityClientConfig, entityClientCacheConfig, metricUtils);

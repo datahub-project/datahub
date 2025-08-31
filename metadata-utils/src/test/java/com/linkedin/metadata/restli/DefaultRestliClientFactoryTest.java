@@ -96,7 +96,7 @@ public class DefaultRestliClientFactoryTest {
   public void testHttpsClientWithCustomSslProtocol() {
     URI uri = URI.create("https://localhost:8443");
     RestClient client =
-        DefaultRestliClientFactory.getRestLiClient(uri, "TLSv1.2", null, null, null, null);
+        DefaultRestliClientFactory.getRestLiClient(uri, null, null, null, null, null);
     Assertions.assertNotNull(client);
   }
 
