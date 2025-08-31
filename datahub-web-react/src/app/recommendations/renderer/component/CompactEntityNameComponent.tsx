@@ -7,6 +7,7 @@ import { IconStyleType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityPreviewTag } from '@app/recommendations/renderer/component/EntityPreviewTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, SchemaFieldEntity } from '@types';
@@ -21,6 +22,10 @@ const NameWrapper = styled.span<{ addMargin: boolean }>`
 const StyledArrow = styled(ArrowRightOutlined)`
     color: ${ANTD_GRAY[8]};
     margin: 0 4px;
+`;
+
+const StyledPlatformIcon = styled(PlatformIcon)`
+    padding: 0;
 `;
 
 type CompactEntityNameProps = {
@@ -58,7 +63,9 @@ export const CompactEntityNameComponent = ({
     const genericProps = entityRegistry.getGenericEntityProperties(processedEntity.type, processedEntity);
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
     const displayName = entityRegistry.getDisplayName(processedEntity.type, processedEntity);
-    const fallbackIcon = entityRegistry.getIcon(processedEntity.type, 12, IconStyleType.ACCENT);
+    const fallbackIcon = (
+        <StyledPlatformIcon platform={genericProps?.platform} size={12} alt={genericProps?.platform?.name} />
+    );
     const url = entityRegistry.getEntityUrl(processedEntity.type, processedEntity.urn, linkUrlParams);
 
     return (
