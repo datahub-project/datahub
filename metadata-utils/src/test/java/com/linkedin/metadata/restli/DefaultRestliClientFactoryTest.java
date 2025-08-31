@@ -77,6 +77,14 @@ public class DefaultRestliClientFactoryTest {
   }
 
   @Test
+  public void testHttpClientCreatedWithPort() {
+    RestClient client =
+        DefaultRestliClientFactory.getRestLiClient(
+            "localhost", 8080, false, null, null, null, null);
+    Assertions.assertNotNull(client, "RestClient should not be null");
+  }
+
+  @Test
   public void testHttpsClientWithDefaultSSLContext() {
     URI uri = URI.create("https://localhost:8443");
     RestClient client =
@@ -101,7 +109,7 @@ public class DefaultRestliClientFactoryTest {
     assertDoesNotThrow(
         () ->
             DefaultRestliClientFactory.getRestLiClient(
-                uri, "TLSv1.2", null, truststorePath.toString(), "password", "PKCS12"));
+                uri, "TLSv1.2", null, truststorePath.toString(), "password", null));
   }
 
   @Test
