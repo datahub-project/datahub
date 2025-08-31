@@ -1,5 +1,5 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
-import { pathMatchesExact } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import { findFieldPathProposal } from '@src/app/shared/tags/utils/proposalUtils';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
@@ -11,17 +11,54 @@ import {
     SchemaField,
 } from '@src/types.generated';
 
+type ReturnValue = {
+    directTerms?: GlossaryTerms;
+    editableTerms?: GlossaryTerms;
+    uneditableTerms?: GlossaryTerms;
+    proposedTerms?: ActionRequest[];
+    numberOfTerms: number;
+};
+type ReturnType = (record: SchemaField, defaultUneditableTerms?: GlossaryTerms | null) => ReturnValue;
+
 export default function useExtractFieldGlossaryTermsInfo(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-) {
+): ReturnType {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     return (record: SchemaField, defaultUneditableTerms: GlossaryTerms | null = null) => {
-        const editableTerms = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
-            pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
-        )?.glossaryTerms;
+        // Three term locations: schema field entity, EditableSchemaMetadata, SchemaMetadata (uneditable)
+        const schemaFieldTerms = record?.schemaFieldEntity?.glossaryTerms?.terms || [];
+        const schemaFieldTermUrns = new Set(schemaFieldTerms.map((t) => t.term.urn));
 
-        const uneditableTerms = defaultUneditableTerms || record?.glossaryTerms;
+        // Editable terms: from EditableSchemaMetadata and not on schema field entity itself
+        const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidate) =>
+            pathMatchesExact(candidate.fieldPath, record.fieldPath),
+        );
+        const baseEditableTerms = editableFieldInfo?.glossaryTerms?.terms || [];
+        const editableTerms = baseEditableTerms.filter((t) => !schemaFieldTermUrns.has(t.term.urn));
+        const editableTermUrns = new Set(editableTerms.map((t) => t.term.urn));
+
+        // Uneditable terms: from SchemaMetadata and not in EditableSchemaMetadata or on schema field entity
+        // Also includes terms referenced by EditableSchemaMetadata with a field path that does not exactly match,
+        // but is functionally the same (i.e. v1 <-> v2 equivalent). These in practice are not editable
+        // because they're technically on a different field path
+        const baseUneditableTerms = defaultUneditableTerms?.terms || record?.glossaryTerms?.terms || [];
+        const baseUneditableTermUrns = new Set(baseUneditableTerms.map((t) => t.term.urn));
+
+        // Collect extra uneditable terms from path-insensitive matches
+        const extraUneditableTerms =
+            editableSchemaMetadata?.editableSchemaFieldInfo
+                .filter((candidate) => pathMatchesInsensitiveToV2(candidate.fieldPath, record.fieldPath))
+                .flatMap((info) => info.glossaryTerms?.terms || [])
+                .filter((t) => !baseUneditableTermUrns.has(t.term.urn)) || [];
+
+        // Combine all uneditable terms and remove duplicates
+        const allUneditableTerms = [...baseUneditableTerms, ...extraUneditableTerms];
+
+        // Final deduped uneditable terms excluding any in editableTerms
+        const uneditableTerms = allUneditableTerms.filter(
+            (t) => !schemaFieldTermUrns.has(t.term.urn) && !editableTermUrns.has(t.term.urn),
+        );
 
         const proposedTerms: ActionRequest[] = findFieldPathProposal(
             getProposedItemsByType(
@@ -30,10 +67,19 @@ export default function useExtractFieldGlossaryTermsInfo(
             ) || [],
             record.fieldPath,
         );
+        const flatProposedTerms = proposedTerms?.flatMap((request) =>
+            request.params?.glossaryTermProposal?.glossaryTerm
+                ? [request.params?.glossaryTermProposal?.glossaryTerm]
+                : request.params?.glossaryTermProposal?.glossaryTerms || [],
+        );
 
-        const numberOfTerms =
-            (editableTerms?.terms?.length ?? 0) + (uneditableTerms?.terms?.length ?? 0) + proposedTerms.length;
-
-        return { editableTerms, uneditableTerms, proposedTerms, numberOfTerms };
+        return {
+            directTerms: { terms: schemaFieldTerms },
+            editableTerms: { terms: editableTerms },
+            uneditableTerms: { terms: uneditableTerms },
+            proposedTerms,
+            numberOfTerms:
+                schemaFieldTerms.length + editableTerms.length + uneditableTerms.length + flatProposedTerms.length,
+        };
     };
 }

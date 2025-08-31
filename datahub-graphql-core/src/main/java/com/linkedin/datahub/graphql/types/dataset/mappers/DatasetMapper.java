@@ -36,12 +36,14 @@ import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.structured.StructuredProperties;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -175,6 +177,17 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (entity, dataMap) ->
             entity.setVersionProperties(
                 VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
+    mappingHelper.mapToResult(
+        LOGICAL_PARENT_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLogicalParent(
+                Optional.ofNullable(new LogicalParent(dataMap).getParent())
+                    .map(
+                        logicalParent ->
+                            UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
+                    .orElse(null)));
+
+    // SaaS Only
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
