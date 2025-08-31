@@ -1,9 +1,6 @@
 package io.datahubproject.openapi.v3.controller;
 
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
@@ -41,6 +38,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.logical.LogicalParent;
+import com.linkedin.common.Edge;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.entity.Aspect;
@@ -71,7 +70,15 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.schema.SchemaFieldDataType;
+import com.linkedin.schema.StringType;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -1579,5 +1586,273 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     assertNotNull(headers);
     assertEquals("test-value", headers.get("X-Custom-Header"));
     assertEquals("123", headers.get("X-Version-Match"));
+  }
+
+  @Test
+  public void testSetLogicalParentsHappyPath() throws Exception {
+    // Setup test data
+    String childDatasetUrnStr = "urn:li:dataset:(urn:li:dataPlatform:bigquery,child_dataset,PROD)";
+    String parentDatasetUrnStr =
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,parent_dataset,PROD)";
+    Urn childDatasetUrn = UrnUtils.getUrn(childDatasetUrnStr);
+    Urn parentDatasetUrn = UrnUtils.getUrn(parentDatasetUrnStr);
+
+    // Create field path mapping
+    Map<String, String> fieldPathMap =
+        Map.of(
+            "parent_field1", "child_field1",
+            "parent_field2", "child_field2");
+    String jsonBody = new ObjectMapper().writeValueAsString(fieldPathMap);
+
+    // Create schema metadata with matching fields
+    SchemaMetadata parentSchema = createSchemaMetadata("parent_field1", "parent_field2");
+    SchemaMetadata childSchema = createSchemaMetadata("child_field1", "child_field2");
+
+    // Mock entity service responses
+    when(mockEntityService.getLatestAspect(any(), eq(parentDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(parentSchema);
+    when(mockEntityService.getLatestAspect(any(), eq(childDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(childSchema);
+
+    // Mock successful ingest with logicalParent aspects
+    Urn childField1Urn = SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, "child_field1");
+    Urn childField2Urn = SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, "child_field2");
+    List<IngestResult> mockResults =
+        List.of(
+            createMockIngestResultWithLogicalParent(childDatasetUrn, parentDatasetUrn),
+            createMockIngestResultWithLogicalParent(
+                childField1Urn,
+                SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field1")),
+            createMockIngestResultWithLogicalParent(
+                childField2Urn,
+                SchemaFieldUtils.generateSchemaFieldUrn(parentDatasetUrn, "parent_field2")));
+    when(mockEntityService.ingestProposal(any(), any(), eq(false))).thenReturn(mockResults);
+
+    // Execute the request and verify response structure
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/v3/entity/logical/"
+                        + childDatasetUrnStr
+                        + "/relationship/physicalInstanceOf/"
+                        + parentDatasetUrnStr)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonBody))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$").isArray())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.length()").value(3))
+        .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(childDatasetUrn.toString()))
+        .andExpect(MockMvcResultMatchers.jsonPath("$[0].logicalParent").exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$[1].urn").value(childField1Urn.toString()))
+        .andExpect(MockMvcResultMatchers.jsonPath("$[1].logicalParent").exists())
+        .andExpect(MockMvcResultMatchers.jsonPath("$[2].urn").value(childField2Urn.toString()))
+        .andExpect(MockMvcResultMatchers.jsonPath("$[2].logicalParent").exists());
+
+    // Verify that ingestProposal was called
+    verify(mockEntityService, times(1)).ingestProposal(any(), batchCaptor.capture(), eq(false));
+
+    // Verify the batch contains the expected proposals (1 dataset + 2 schema fields)
+    AspectsBatch capturedBatch = batchCaptor.getValue();
+    assertEquals(3, capturedBatch.getMCPItems().size());
+    MetadataChangeProposal mcp0 = capturedBatch.getMCPItems().get(0).getMetadataChangeProposal();
+    LogicalParent aspect0 =
+        (LogicalParent)
+            GenericRecordUtils.deserializeAspect(
+                mcp0.getAspect().getValue(),
+                JSON,
+                entityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(LOGICAL_PARENT_ASPECT_NAME));
+    assertEquals(childDatasetUrn, mcp0.getEntityUrn());
+    assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp0.getAspectName());
+    assertEquals(parentDatasetUrn, aspect0.getParent().getDestinationUrn());
+    assertEquals(
+        opContext.getActorContext().getActorUrn().toString(),
+        aspect0.getParent().getLastModified().getActor().toString());
+
+    MetadataChangeProposal mcp1 = capturedBatch.getMCPItems().get(1).getMetadataChangeProposal();
+    MetadataChangeProposal mcp2 = capturedBatch.getMCPItems().get(2).getMetadataChangeProposal();
+  }
+
+  @Test
+  public void testSetLogicalParentsWithoutSchemaMetadata() throws Exception {
+    // Setup test data
+    String childDatasetUrnStr = "urn:li:dataset:(urn:li:dataPlatform:bigquery,child_dataset,PROD)";
+    String parentDatasetUrnStr =
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,parent_dataset,PROD)";
+    Urn childDatasetUrn = UrnUtils.getUrn(childDatasetUrnStr);
+    Urn parentDatasetUrn = UrnUtils.getUrn(parentDatasetUrnStr);
+
+    // Create field path mapping
+    Map<String, String> fieldPathMap = Map.of("parent_field1", "child_field1");
+    String jsonBody = new ObjectMapper().writeValueAsString(fieldPathMap);
+
+    // Mock entity service to return null for schema metadata (no schema validation)
+    when(mockEntityService.getLatestAspect(any(), eq(parentDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(null);
+    when(mockEntityService.getLatestAspect(any(), eq(childDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(null);
+
+    // Execute the request - should succeed without schema validation
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/v3/entity/logical/"
+                        + childDatasetUrnStr
+                        + "/relationship/physicalInstanceOf/"
+                        + parentDatasetUrnStr)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonBody))
+        .andExpect(status().isOk());
+
+    // Verify that ingestProposal was called
+    verify(mockEntityService, times(1)).ingestProposal(any(), batchCaptor.capture(), eq(false));
+
+    // Verify the batch contains the expected proposals (1 dataset + 1 schema field)
+    AspectsBatch capturedBatch = batchCaptor.getValue();
+    assertEquals(2, capturedBatch.getMCPItems().size());
+  }
+
+  @Test
+  public void testSetLogicalParentsInvalidParentFieldPath() throws Exception {
+    // Setup test data
+    String childDatasetUrnStr = "urn:li:dataset:(urn:li:dataPlatform:bigquery,child_dataset,PROD)";
+    String parentDatasetUrnStr =
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,parent_dataset,PROD)";
+    Urn childDatasetUrn = UrnUtils.getUrn(childDatasetUrnStr);
+    Urn parentDatasetUrn = UrnUtils.getUrn(parentDatasetUrnStr);
+
+    // Create field path mapping with invalid parent field
+    Map<String, String> fieldPathMap = Map.of("invalid_parent_field", "child_field1");
+    String jsonBody = new ObjectMapper().writeValueAsString(fieldPathMap);
+
+    // Create schema metadata - parent doesn't have the field referenced in mapping
+    SchemaMetadata parentSchema = createSchemaMetadata("parent_field1", "parent_field2");
+    SchemaMetadata childSchema = createSchemaMetadata("child_field1", "child_field2");
+
+    // Mock entity service responses
+    when(mockEntityService.getLatestAspect(any(), eq(parentDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(parentSchema);
+    when(mockEntityService.getLatestAspect(any(), eq(childDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(childSchema);
+
+    // Execute the request - should fail with validation error
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/v3/entity/logical/"
+                        + childDatasetUrnStr
+                        + "/relationship/physicalInstanceOf/"
+                        + parentDatasetUrnStr)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonBody))
+        .andExpect(status().isBadRequest());
+
+    // Verify that ingestProposal was never called due to validation failure
+    verify(mockEntityService, times(0)).ingestProposal(any(), any(), eq(false));
+  }
+
+  @Test
+  public void testSetLogicalParentsInvalidChildFieldPath() throws Exception {
+    // Setup test data
+    String childDatasetUrnStr = "urn:li:dataset:(urn:li:dataPlatform:bigquery,child_dataset,PROD)";
+    String parentDatasetUrnStr =
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,parent_dataset,PROD)";
+    Urn childDatasetUrn = UrnUtils.getUrn(childDatasetUrnStr);
+    Urn parentDatasetUrn = UrnUtils.getUrn(parentDatasetUrnStr);
+
+    // Create field path mapping with invalid child field
+    Map<String, String> fieldPathMap = Map.of("parent_field1", "invalid_child_field");
+    String jsonBody = new ObjectMapper().writeValueAsString(fieldPathMap);
+
+    // Create schema metadata - child doesn't have the field referenced in mapping
+    SchemaMetadata parentSchema = createSchemaMetadata("parent_field1", "parent_field2");
+    SchemaMetadata childSchema = createSchemaMetadata("child_field1", "child_field2");
+
+    // Mock entity service responses
+    when(mockEntityService.getLatestAspect(any(), eq(parentDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(parentSchema);
+    when(mockEntityService.getLatestAspect(any(), eq(childDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(childSchema);
+
+    // Execute the request - should fail with validation error
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/v3/entity/logical/"
+                        + childDatasetUrnStr
+                        + "/relationship/physicalInstanceOf/"
+                        + parentDatasetUrnStr)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(jsonBody))
+        .andExpect(status().isBadRequest());
+
+    // Verify that ingestProposal was never called due to validation failure
+    verify(mockEntityService, times(0)).ingestProposal(any(), any(), eq(false));
+  }
+
+  // Helper methods for creating test data
+  private SchemaMetadata createSchemaMetadata(String... fieldPaths) {
+    SchemaFieldArray fields = new SchemaFieldArray();
+    for (String fieldPath : fieldPaths) {
+      SchemaField field =
+          new SchemaField()
+              .setFieldPath(fieldPath)
+              .setNativeDataType("STRING")
+              .setType(
+                  new SchemaFieldDataType()
+                      .setType(SchemaFieldDataType.Type.create(new StringType())));
+      fields.add(field);
+    }
+    return new SchemaMetadata()
+        .setSchemaName("test_schema")
+        .setPlatform(new DataPlatformUrn("bigquery"))
+        .setVersion(1L)
+        .setFields(fields);
+  }
+
+  private IngestResult createMockIngestResultWithLogicalParent(Urn childUrn, Urn parentUrn) {
+    // Create a LogicalParent aspect with Edge
+    Edge edge =
+        new Edge()
+            .setDestinationUrn(parentUrn)
+            .setCreated(
+                new AuditStamp()
+                    .setTime(System.currentTimeMillis())
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
+            .setLastModified(
+                new AuditStamp()
+                    .setTime(System.currentTimeMillis())
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test")));
+
+    LogicalParent logicalParent = new LogicalParent().setParent(edge);
+
+    // Create a mock MCPItem for the request field
+    MCPItem mockRequest = mock(MCPItem.class);
+    when(mockRequest.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(mockRequest.getAspectName()).thenReturn("logicalParent");
+    when(mockRequest.getRecordTemplate()).thenReturn(logicalParent);
+    when(mockRequest.getSystemMetadata()).thenReturn(new SystemMetadata());
+    when(mockRequest.getAuditStamp())
+        .thenReturn(
+            new AuditStamp()
+                .setTime(System.currentTimeMillis())
+                .setActor(UrnUtils.getUrn("urn:li:corpuser:test")));
+
+    return IngestResult.builder()
+        .urn(childUrn)
+        .sqlCommitted(true)
+        .request(mockRequest)
+        .result(
+            UpdateAspectResult.builder()
+                .urn(childUrn)
+                .auditStamp(
+                    new AuditStamp()
+                        .setTime(System.currentTimeMillis())
+                        .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
+                .newValue(logicalParent)
+                .newSystemMetadata(new SystemMetadata())
+                .build())
+        .build();
   }
 }

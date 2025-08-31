@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.Edge;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.SetLogicalParentInput;
 import com.linkedin.entity.client.EntityClient;
@@ -15,6 +17,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ActorContext;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -25,7 +29,7 @@ public class SetLogicalParentResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
   private static final String TEST_PARENT_URN =
       "urn:li:dataset:(urn:li:dataPlatform:mysql,my-parent,PROD)";
-  private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
+  private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
 
   @Test
   public void testGetSuccessSetParent() throws Exception {
@@ -33,7 +37,7 @@ public class SetLogicalParentResolverTest {
     SetLogicalParentResolver resolver = new SetLogicalParentResolver(mockClient);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
+    mockActor(mockContext);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     SetLogicalParentInput input = new SetLogicalParentInput();
@@ -55,7 +59,7 @@ public class SetLogicalParentResolverTest {
     SetLogicalParentResolver resolver = new SetLogicalParentResolver(mockClient);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
+    mockActor(mockContext);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     SetLogicalParentInput input = new SetLogicalParentInput();
@@ -81,7 +85,7 @@ public class SetLogicalParentResolverTest {
     SetLogicalParentResolver resolver = new SetLogicalParentResolver(mockClient);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
+    mockActor(mockContext);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     SetLogicalParentInput input = new SetLogicalParentInput();
@@ -100,7 +104,7 @@ public class SetLogicalParentResolverTest {
     SetLogicalParentResolver resolver = new SetLogicalParentResolver(mockClient);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
+    mockActor(mockContext);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     SetLogicalParentInput input = new SetLogicalParentInput();
@@ -130,8 +134,8 @@ public class SetLogicalParentResolverTest {
                     return edge.getDestinationUrn().toString().equals(TEST_PARENT_URN)
                         && edge.getCreated() != null
                         && edge.getLastModified() != null
-                        && edge.getCreated().getActor().toString().equals(TEST_ACTOR_URN)
-                        && edge.getLastModified().getActor().toString().equals(TEST_ACTOR_URN);
+                        && edge.getCreated().getActor().toString().equals(TEST_ACTOR_URN.toString())
+                        && edge.getLastModified().getActor().toString().equals(TEST_ACTOR_URN.toString());
                   } catch (Exception e) {
                     return false;
                   }
@@ -145,7 +149,7 @@ public class SetLogicalParentResolverTest {
     SetLogicalParentResolver resolver = new SetLogicalParentResolver(mockClient);
 
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
+    mockActor(mockContext);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     SetLogicalParentInput input = new SetLogicalParentInput();
@@ -174,5 +178,13 @@ public class SetLogicalParentResolverTest {
                   }
                 }),
             anyBoolean());
+  }
+
+  private void mockActor(QueryContext mockContext) {
+    OperationContext mockOperationContext = Mockito.mock(OperationContext.class);
+    ActorContext mockActorContext = Mockito.mock(ActorContext.class);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mockOperationContext);
+    Mockito.when(mockOperationContext.getActorContext()).thenReturn(mockActorContext);
+    Mockito.when(mockActorContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
   }
 }
