@@ -25,14 +25,14 @@ const SearchBody = styled.div<{ showFilters?: boolean }>`
     background-color: ${REDESIGN_COLORS.BACKGROUND};
     display: grid;
     grid-template-rows: 92% auto;
-    grid-template-columns: ${(p) => (p.showFilters ? '0.5fr auto' : '1fr')};
+    grid-template-columns: ${(p) => (p.showFilters ? '0.2fr auto' : '1fr')};
     grid-template-areas: ${(p) =>
         p.showFilters
-               ? `
+            ? `
                  "filters results"
                  "footer  footer"
                `
-               : `
+            : `
                  "results"
                  "footer"
                `};
