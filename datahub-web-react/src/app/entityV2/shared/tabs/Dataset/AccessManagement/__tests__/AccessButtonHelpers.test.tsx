@@ -64,7 +64,7 @@ describe('AccessButtonHelpers (EntityV2)', () => {
             expect(result).toBeNull();
         });
 
-        it('should show tooltip when user has access', () => {
+        it('should show tooltip when user has access', async () => {
             const roleData: RoleAccessData = {
                 hasAccess: true,
                 url: 'https://example.com/request',
@@ -76,8 +76,10 @@ describe('AccessButtonHelpers (EntityV2)', () => {
             render(<TestWrapper>{result}</TestWrapper>);
 
             const button = screen.getByRole('button');
-            fireEvent.mouseOver(button);
+            fireEvent.mouseEnter(button);
 
+            // Wait for tooltip to appear
+            await screen.findByText(ACCESS_GRANTED_TOOLTIP);
             expect(screen.getByText(ACCESS_GRANTED_TOOLTIP)).toBeInTheDocument();
         });
 
