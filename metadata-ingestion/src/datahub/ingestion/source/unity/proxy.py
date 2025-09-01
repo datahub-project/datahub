@@ -78,15 +78,32 @@ _MAX_CONCURRENT_CATALOGS = 1
 # https://github.com/databricks/databricks-sql-python/pull/354
 def _apply_databricks_proxy_fix():
     """Apply the databricks-sql < 3.0 proxy authentication fix at module import time."""
+    # Debug logging for proxy environment variables
+    proxy_env_vars = {}
+    for var in PROXY_VARS:
+        value = os.environ.get(var)
+        if value:
+            # Mask credentials in logging
+            masked_value = _mask_proxy_credentials(value)
+            proxy_env_vars[var] = masked_value
+
+    if proxy_env_vars:
+        logger.info(f"Detected proxy environment variables: {proxy_env_vars}")
+    else:
+        logger.debug("No proxy environment variables detected")
+
     logger.info("Applying databricks-sql proxy authentication fix...")
     try:
         import databricks.sql.auth.thrift_http_client as thrift_http
         from urllib3.poolmanager import ProxyManager
 
-        # Store original method
-        if not getattr(thrift_http.THttpClient, "open", None):
+        # Store original method for fallback
+        original_open = getattr(thrift_http.THttpClient, "open", None)
+        if not original_open:
             logger.warning("Could not find THttpClient.open method to patch")
             return
+
+        logger.debug(f"Found THttpClient.open method at {original_open}")
 
         def patched_open(self):
             """Patched version of THttpClient.open following databricks-sql >= 3.0 structure.
@@ -94,7 +111,22 @@ def _apply_databricks_proxy_fix():
             This is largely copied from the >= 3.0 implementation:
             https://github.com/databricks/databricks-sql-python/pull/354/files
             """
+            logger.debug(
+                f"Patched THttpClient.open called for host={getattr(self, 'host', 'unknown')}, scheme={getattr(self, 'scheme', 'unknown')}"
+            )
+
             try:
+                # Validate required attributes
+                required_attrs = ["scheme", "host", "port", "max_connections"]
+                missing_attrs = [
+                    attr for attr in required_attrs if not hasattr(self, attr)
+                ]
+                if missing_attrs:
+                    logger.warning(
+                        f"THttpClient missing required attributes: {missing_attrs}, falling back to original"
+                    )
+                    return original_open(self)
+
                 # Code structure reused from https://github.com/databricks/databricks-sql-python/pull/354
                 # Determine pool class based on scheme
                 if self.scheme == "http":
@@ -105,13 +137,28 @@ def _apply_databricks_proxy_fix():
                     from urllib3 import HTTPSConnectionPool
 
                     pool_class = HTTPSConnectionPool
+                else:
+                    logger.warning(
+                        f"Unknown scheme '{self.scheme}', falling back to original"
+                    )
+                    return original_open(self)
 
                 _pool_kwargs = {"maxsize": self.max_connections}
+                logger.debug(f"Pool kwargs: {_pool_kwargs}")
 
                 if self.using_proxy():
+                    logger.info(
+                        f"Using proxy for connection to {self.host}:{self.port}"
+                    )
+                    proxy_uri = getattr(self, "proxy_uri", None)
+                    logger.debug(
+                        f"Proxy URI: {_mask_proxy_credentials(proxy_uri) if proxy_uri else 'None'}"
+                    )
+
                     # Compute proxy authentication headers properly (the bug fix!)
                     # Don't rely on self.proxy_auth which is likely None in < 3.0
                     proxy_headers = None
+                    proxy_env_found = None
                     for env_var in [
                         "HTTPS_PROXY",
                         "https_proxy",
@@ -120,16 +167,43 @@ def _apply_databricks_proxy_fix():
                     ]:
                         proxy_url = os.environ.get(env_var)
                         if proxy_url:
+                            logger.debug(
+                                f"Found proxy URL in {env_var}: {_mask_proxy_credentials(proxy_url)}"
+                            )
                             auth_info = _basic_proxy_auth_header(proxy_url)
                             if auth_info:
                                 proxy_headers = auth_info["proxy_headers"]
+                                proxy_env_found = env_var
+                                logger.debug(
+                                    f"Successfully created proxy headers from {env_var}"
+                                )
                                 break
+                            else:
+                                logger.debug(
+                                    f"No authentication info found in proxy URL from {env_var}"
+                                )
+
+                    if proxy_headers:
+                        logger.info(
+                            f"Using proxy authentication headers from {proxy_env_found}"
+                        )
+                    else:
+                        logger.warning(
+                            "No proxy authentication headers could be created from environment variables"
+                        )
 
                     proxy_manager = ProxyManager(
                         self.proxy_uri,
                         num_pools=1,
                         proxy_headers=proxy_headers,  # Use our computed headers!
                     )
+
+                    # Validate proxy manager attributes
+                    if not hasattr(self, "realhost") or not hasattr(self, "realport"):
+                        logger.warning(
+                            "THttpClient missing realhost/realport attributes, falling back to original"
+                        )
+                        return original_open(self)
 
                     # In Python, private attributes like self.__pool are automatically name-mangled
                     # to self._THttpClient__pool to prevent accidental access. Our patched method
@@ -140,24 +214,53 @@ def _apply_databricks_proxy_fix():
                         scheme=self.scheme,
                         pool_kwargs=_pool_kwargs,  # type: ignore
                     )
+                    logger.debug(
+                        f"Created proxy connection pool for {self.realhost}:{self.realport}"
+                    )
                 else:
+                    logger.debug(
+                        f"Direct connection (no proxy) to {self.host}:{self.port}"
+                    )
                     self._THttpClient__pool = pool_class(
                         self.host, self.port, **_pool_kwargs
                     )
 
+                logger.debug("Patched THttpClient.open completed successfully")
+
             except Exception as e:
                 logger.warning(
-                    f"Error in proxy auth patch: {e}, falling back to original"
+                    f"Error in proxy auth patch: {e}, falling back to original",
+                    exc_info=True,
                 )
+                # Fallback to original implementation
+                try:
+                    return original_open(self)
+                except Exception as fallback_error:
+                    logger.error(
+                        f"Fallback to original THttpClient.open also failed: {fallback_error}",
+                        exc_info=True,
+                    )
+                    raise
 
         # Apply the patch permanently
         thrift_http.THttpClient.open = patched_open
-        logger.info("Applied databricks-sql proxy authentication fix")
+        logger.info("Successfully applied databricks-sql proxy authentication fix")
+
+        # Verify the patch was applied
+        current_method = getattr(thrift_http.THttpClient, "open", None)
+        if current_method == patched_open:
+            logger.debug(
+                "Patch verification successful: THttpClient.open is now the patched version"
+            )
+        else:
+            logger.warning(
+                "Patch verification failed: THttpClient.open was not replaced correctly"
+            )
 
     except ImportError as e:
         logger.debug(f"Could not import databricks-sql internals for proxy patch: {e}")
     except Exception as e:
-        logger.debug(f"Failed to apply databricks-sql proxy patch: {e}")
+        logger.error(f"Failed to apply databricks-sql proxy patch: {e}", exc_info=True)
 
 
 # Apply the fix when the module is imported
@@ -199,6 +302,41 @@ def _basic_proxy_auth_header(proxy_url: str) -> Optional[Dict[str, str]]:
         logger.debug(f"Failed to create proxy auth header from URL {proxy_url}: {e}")
 
     return None
+
+
+def _mask_proxy_credentials(url: Optional[str]) -> str:
+    """Mask credentials in proxy URL for safe logging."""
+    if not url:
+        return "None"
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.username:
+            # Replace credentials with masked version
+            masked_netloc = parsed.netloc
+            if parsed.username and parsed.password:
+                masked_netloc = masked_netloc.replace(
+                    f"{parsed.username}:{parsed.password}@", f"{parsed.username}:***@"
+                )
+            elif parsed.username:
+                masked_netloc = masked_netloc.replace(
+                    f"{parsed.username}@", f"{parsed.username}:***@"
+                )
+
+            return urllib.parse.urlunparse(
+                (
+                    parsed.scheme,
+                    masked_netloc,
+                    parsed.path,
+                    parsed.params,
+                    parsed.query,
+                    parsed.fragment,
+                )
+            )
+        else:
+            return url
+    except Exception:
+        return "***INVALID_URL***"
 
 
 @dataclasses.dataclass
@@ -1030,16 +1168,63 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
         """Execute SQL query using databricks-sql connector for better performance"""
+        logger.debug(f"Executing SQL query with {len(params)} parameters")
+
+        # Log connection parameters (with masked token)
+        masked_params = {**self._sql_connection_params}
+        if "access_token" in masked_params:
+            masked_params["access_token"] = "***MASKED***"
+        logger.debug(f"Using connection parameters: {masked_params}")
+
+        # Log proxy environment variables that affect SQL connections
+        proxy_env_debug = {}
+        for var in PROXY_VARS:
+            value = os.environ.get(var)
+            if value:
+                proxy_env_debug[var] = _mask_proxy_credentials(value)
+
+        if proxy_env_debug:
+            logger.debug(
+                f"SQL connection will use proxy environment variables: {proxy_env_debug}"
+            )
+        else:
+            logger.debug("No proxy environment variables detected for SQL connection")
+
         try:
             with (
                 connect(**self._sql_connection_params) as connection,
                 connection.cursor() as cursor,
             ):
                 cursor.execute(query, list(params))
-                return cursor.fetchall()
+                rows = cursor.fetchall()
+                logger.debug(
+                    f"SQL query executed successfully, returned {len(rows)} rows"
+                )
+                return rows
 
         except Exception as e:
             logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
+            logger.debug(f"SQL query that failed: {query}")
+            logger.debug(f"SQL query parameters: {params}")
+
+            # Check if this might be a proxy-related error
+            error_str = str(e).lower()
+            if any(
+                proxy_keyword in error_str
+                for proxy_keyword in [
+                    "proxy",
+                    "407",
+                    "authentication required",
+                    "tunnel",
+                    "connect",
+                ]
+            ):
+                logger.error(
+                    "SQL query failure appears to be proxy-related. "
+                    "Please check proxy configuration and authentication. "
+                    f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
+                )
+
             return []
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
