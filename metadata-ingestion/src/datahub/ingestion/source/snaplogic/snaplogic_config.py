@@ -30,4 +30,8 @@ class SnaplogicConfig(
         default=[],
         description="List of namespaces that should be treated as case insensitive",
     )
+    create_non_snaplogic_datasets: bool = Field(
+        default=False,
+        description="Whether to create datasets for non-Snaplogic datasets (e.g., databases, S3, etc.)",
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None

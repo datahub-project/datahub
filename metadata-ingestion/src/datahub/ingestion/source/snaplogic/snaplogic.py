@@ -43,12 +43,14 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
+    BooleanTypeClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
+    NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -286,9 +288,17 @@ class SnaplogicSource(StatefulIngestionSourceBase):
             env=env,
             platform_instance=platform_instance,
         )
-        # If we have datasets already in the datahub we don't need to create it.
-        # We only create datasets for other platforms if they don't exist in the datahub.
-        if platform != "snaplogic" and self.graph and self.graph.exists(dataset_urn):
+
+        # Skip dataset creation if:
+        # 1. The platform is not "snaplogic" AND
+        # 2. Either:
+        #    a) The config `create_non_snaplogic_datasets` is disabled (False), meaning
+        #       we do not create datasets for non-snaplogic platforms, OR
+        #    b) The dataset already exists in DataHub (`self.graph.exists(dataset_urn)`).
+        if platform != "snaplogic" and (
+            not self.config.create_non_snaplogic_datasets
+            or (self.graph and self.graph.exists(dataset_urn))
+        ):
             return
 
         dataset_properties = DatasetPropertiesClass(
@@ -298,7 +308,9 @@ class SnaplogicSource(StatefulIngestionSourceBase):
         schema_fields = [
             SchemaFieldClass(
                 fieldPath=field["name"],
-                type=SchemaFieldDataTypeClass(StringTypeClass()),
+                type=SchemaFieldDataTypeClass(
+                    self.get_datahub_type(field.get("type", "Varchar"))
+                ),
                 nativeDataType=field.get("type", "Varchar"),
             )
             for field in fields
@@ -336,12 +348,23 @@ class SnaplogicSource(StatefulIngestionSourceBase):
             ),
         ).as_workunit()
 
+    def _get_datahub_type(self, type: str) -> SchemaFieldDataTypeClass:
+        type = type.lower()
+
+        if type in ["string", "varchar"]:
+            return SchemaFieldDataTypeClass(type=StringTypeClass())
+        elif type in ["number", "long", "float", "double", "int"]:
+            return SchemaFieldDataTypeClass(type=NumberTypeClass())
+        elif type == "boolean":
+            return SchemaFieldDataTypeClass(type=BooleanTypeClass())
+        else:
+            return SchemaFieldDataTypeClass(type=StringTypeClass())
+
     def get_report(self) -> SourceReport:
         return self.report
 
     def close(self) -> None:
         super().close()
-        StatefulIngestionSourceBase.close(self)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnaplogicSource":
