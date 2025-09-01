@@ -7,7 +7,7 @@ from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PrivateAttr
 
-from datahub._version import nice_version_name
+from datahub._version import __version__
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _get_bigquery_client_info() -> ClientInfo:
     """Get ClientInfo with DataHub user-agent for BigQuery client identification"""
-    return ClientInfo(user_agent=f"datahub/{nice_version_name()}")
+    return ClientInfo(user_agent=f"datahub/{__version__}")
 
 
 class BigQueryConnectionConfig(ConfigModel):
