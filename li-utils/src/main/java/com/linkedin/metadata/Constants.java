@@ -377,6 +377,7 @@ public class Constants {
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
 
   // DataProduct
+  public static final String DATA_PRODUCT_KEY_ASPECT_NAME = "dataProductKey";
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
@@ -516,6 +517,9 @@ public class Constants {
   public static final String IS_LATEST_FIELD_NAME = "isLatest";
   public static final String VERSION_SET_FIELD_NAME = "versionSet";
   public static final String VERSION_LABEL_FIELD_NAME = "version";
+
+  // Logical
+  public static final String LOGICAL_PARENT_ASPECT_NAME = "logicalParent";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

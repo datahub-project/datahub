@@ -11,6 +11,9 @@ fragment globalTagsFields on GlobalTags {
             }
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
 }
 
@@ -107,6 +110,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
         description
+        createdOn {
+            time
+        }
     }
     displayProperties {
         ...displayPropertiesFields
@@ -178,6 +184,9 @@ fragment glossaryTerms on GlossaryTerms {
             urn
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
 }
 
@@ -335,6 +344,9 @@ fragment ownershipFields on Ownership {
             }
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
     lastModified {
         time
@@ -371,24 +383,28 @@ fragment institutionalMemoryFields on InstitutionalMemory {
     }
 }
 
+fragment attributionFields on MetadataAttribution {
+    time
+    actor {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    source {
+        urn
+        type
+    }
+    sourceDetail {
+        key
+        value
+    }
+}
+
 fragment documentationFields on Documentation {
     documentations {
         documentation
         attribution {
-            time
-            actor {
-                urn
-                type
-                ...entityDisplayNameFields
-            }
-            source {
-                urn
-                type
-            }
-            sourceDetail {
-                key
-                value
-            }
+            ...attributionFields
         }
     }
 }
@@ -952,6 +968,12 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     }
     documentation {
         ...documentationFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 
@@ -1642,6 +1664,9 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         ...entityDisplayNameFields
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment autoRenderAspectFields on RawAspect {

@@ -31,7 +31,7 @@ export default function useDescriptionRenderer(
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
+        const { displayedDescription, sanitizedDescription, isPropagated, attribution } = extractFieldDescription(
             record,
             description,
         );
@@ -64,7 +64,7 @@ export default function useDescriptionRenderer(
                 }
                 isReadOnly
                 isPropagated={isPropagated}
-                sourceDetail={sourceDetail}
+                attribution={attribution}
             />
         );
     };

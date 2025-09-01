@@ -44,7 +44,6 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 - [acryldata/datahub-mae-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mae-consumer/)
 - [acryldata/datahub-mce-consumer](https://hub.docker.com/repository/docker/acryldata/datahub-mce-consumer/)
 - [acryldata/datahub-upgrade](https://hub.docker.com/r/acryldata/datahub-upgrade/)
-- [acryldata/datahub-kafka-setup](https://hub.docker.com/r/acryldata/datahub-kafka-setup/)
 - [acryldata/datahub-elasticsearch-setup](https://hub.docker.com/r/acryldata/datahub-elasticsearch-setup/)
 - [acryldata/datahub-mysql-setup](https://hub.docker.com/r/acryldata/datahub-mysql-setup/)
 - [acryldata/datahub-postgres-setup](https://hub.docker.com/r/acryldata/datahub-postgres-setup/)
@@ -52,7 +51,6 @@ Do not use `latest` or `debug` tags for any of the image as those are not suppor
 
 Dependencies:
 
-- [Kafka, Zookeeper, and Schema Registry](kafka-setup)
 - [Elasticsearch](elasticsearch-setup)
 - [MySQL](mysql)
 - [(Optional) Neo4j](neo4j)
