@@ -110,6 +110,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
         description
+        createdOn {
+            time
+        }
     }
     displayProperties {
         ...displayPropertiesFields
@@ -965,6 +968,12 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     }
     documentation {
         ...documentationFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 
