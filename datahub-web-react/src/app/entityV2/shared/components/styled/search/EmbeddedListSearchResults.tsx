@@ -19,12 +19,23 @@ import { SearchCfg } from '@src/conf';
 
 import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
-const SearchBody = styled.div`
+const SearchBody = styled.div<{ showFilters?: boolean }>`
     height: 100%;
     overflow: hidden;
     background-color: ${REDESIGN_COLORS.BACKGROUND};
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: 92% auto;
+    grid-template-columns: ${(p) => (p.showFilters ? '0.5fr auto' : '1fr')};
+    grid-template-areas: ${(p) =>
+        p.showFilters
+               ? `
+                 "filters results"
+                 "footer  footer"
+               `
+               : `
+                 "results"
+                 "footer"
+               `};
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -32,6 +43,7 @@ const PaginationInfo = styled(Typography.Text)`
 `;
 
 const FiltersContainer = styled.div`
+    grid-area: filters;
     background-color: ${REDESIGN_COLORS.WHITE};
     display: flex;
     flex-direction: column;
@@ -43,6 +55,7 @@ const FiltersContainer = styled.div`
 `;
 
 const ResultContainer = styled.div`
+    grid-area: results;
     height: auto;
     overflow: auto;
     flex: 1;
@@ -53,6 +66,7 @@ const ResultContainer = styled.div`
 `;
 
 const PaginationInfoContainer = styled.span`
+    grid-area: footer;
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
@@ -199,7 +213,7 @@ export const EmbeddedListSearchResults = ({
 
     return (
         <>
-            <SearchBody>
+            <SearchBody showFilters={!!showFilters}>
                 {!!showFilters && (
                     <FiltersContainer>
                         <SearchFiltersSection
