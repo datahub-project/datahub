@@ -3430,7 +3430,8 @@ public class GmsGraphQLEngine {
   private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Role",
-        typeWiring -> typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver(groupService)));
+        typeWiring ->
+            typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver(groupService)));
   }
 
   private void configureBusinessAttributeResolver(final RuntimeWiring.Builder builder) {

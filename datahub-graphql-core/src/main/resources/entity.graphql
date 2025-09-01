@@ -1988,7 +1988,7 @@ type Actor {
   List of users for which the role is provisioned
   """
   users: [RoleUser!]
-  
+
   """
   List of groups for which the role is provisioned
   """
