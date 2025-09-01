@@ -38,6 +38,10 @@ export type StepProps = {
     isEditing: boolean;
     sourceRefetch?: () => Promise<any>;
     selectedSource?: IngestionSource;
+    // This is not same as selectedSource
+    // This is required when the ingestion source has not been created
+    selectedSourceType?: string;
+    setSelectedSourceType?: (sourceType: string) => void;
 };
 
 export type StringMapEntryInput = {

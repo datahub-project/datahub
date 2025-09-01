@@ -272,6 +272,8 @@ export const IngestionSourceList = ({
 
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
     const isLastPage = totalSources <= pageSize * page;
+    // this is required when the ingestion source has not been created
+    const [selectedSourceType, setSelectedSourceType] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
@@ -700,6 +702,8 @@ export const IngestionSourceList = ({
                     return Promise.resolve();
                 }}
                 selectedSource={focusSource}
+                selectedSourceType={selectedSourceType}
+                setSelectedSourceType={setSelectedSourceType}
                 loading={isModalWaiting}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}

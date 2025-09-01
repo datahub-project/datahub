@@ -39,7 +39,15 @@ const ControlsContainer = styled.div`
 /**
  * The step for defining a recipe
  */
-export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSources, selectedSource }: StepProps) => {
+export const DefineRecipeStep = ({
+    state,
+    updateState,
+    goTo,
+    prev,
+    ingestionSources,
+    selectedSource,
+    setSelectedSourceType,
+}: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
     const { type } = state;
@@ -96,6 +104,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
         updateState(newState);
 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
+        setSelectedSourceType?.(newState.type);
     };
 
     if (type && CONNECTORS_WITH_FORM.has(type)) {

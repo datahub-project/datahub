@@ -628,10 +628,8 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
 }
 
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
-    // TODO this is being incorrectly fired when we update an existing source
     type: EventType.IngestionSourceConfigurationImpressionEvent;
     viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
-    // sourceType is missing when we are creating new source
     sourceType?: string;
     sourceUrn?: string;
 }
