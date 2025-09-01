@@ -322,7 +322,47 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
+    _forced_disable_hive_metastore_extraction = pydantic.PrivateAttr(default=False)
+
     scheme: str = DATABRICKS
+
+    def __init__(self, **data):
+        # Process and modify data before creating the model
+        warehouse_id = data.get("warehouse_id")
+        include_tags = data.get("include_tags", True)  # Use default if not provided
+        include_hive_metastore = data.get("include_hive_metastore", True)
+
+        # Track what we're about to force-disable
+        forced_disable_tag_extraction = False
+        forced_disable_hive_metastore_extraction = False
+
+        if include_tags and not warehouse_id:
+            forced_disable_tag_extraction = True
+            data["include_tags"] = False  # Modify data before model creation
+            logger.warning(
+                "warehouse_id is not set but include_tags=True. "
+                "Automatically disabling tag extraction since it requires SQL queries. "
+                "Set warehouse_id to enable tag extraction."
+            )
+
+        if include_hive_metastore and not warehouse_id:
+            forced_disable_hive_metastore_extraction = True
+            data["include_hive_metastore"] = False  # Modify data before model creation
+            logger.warning(
+                "warehouse_id is not set but include_hive_metastore=True. "
+                "Automatically disabling hive metastore extraction since it requires SQL queries. "
+                "Set warehouse_id to enable tag extraction."
+            )
+
+        # Now create the model with the modified data
+        super().__init__(**data)
+
+        # Set private attributes after model creation
+        self._forced_disable_tag_extraction = forced_disable_tag_extraction
+        self._forced_disable_hive_metastore_extraction = (
+            forced_disable_hive_metastore_extraction
+        )
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
@@ -417,23 +457,6 @@ class UnityCatalogSourceConfig(
             raise ValueError(
                 f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
-
-        return values
-
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_warehouse_id_for_sql_features(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        warehouse_id = values.get("warehouse_id")
-        include_tags = values.get("include_tags", True)
-
-        if include_tags and not warehouse_id:
-            logger.warning(
-                "warehouse_id is not set but include_tags=True. "
-                "Automatically disabling tag extraction since it requires SQL queries. "
-                "Set warehouse_id to enable tag extraction."
-            )
-            values["include_tags"] = False
 
         return values
 

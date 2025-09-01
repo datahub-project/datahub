@@ -250,6 +250,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         else:
             self.platform_resource_repository = None
 
+        if self.config._forced_disable_tag_extraction:
+            self.report.report_warning(
+                "Initialization",
+                "Tag Extraction is disabled due to missing warehouse_id in config",
+            )
+
+        if self.config._forced_disable_hive_metastore_extraction:
+            self.report.report_warning(
+                "Initialization",
+                "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+            )
+
         # Include platform resource repository in report for automatic cache statistics
         if self.config.include_tags and self.platform_resource_repository:
             self.report.tag_urn_resolver_cache = self.platform_resource_repository
