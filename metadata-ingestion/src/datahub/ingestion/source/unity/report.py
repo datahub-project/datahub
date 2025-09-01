@@ -31,8 +31,10 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
-    models: EntityFilterReport = EntityFilterReport.field(type="model")
-    model_versions: EntityFilterReport = EntityFilterReport.field(type="model_version")
+    ml_models: EntityFilterReport = EntityFilterReport.field(type="ml_model")
+    ml_model_versions: EntityFilterReport = EntityFilterReport.field(
+        type="ml_model_version"
+    )
 
     hive_metastore_catalog_found: Optional[bool] = None
 
@@ -66,6 +68,7 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0
+    num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
 

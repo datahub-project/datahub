@@ -255,30 +255,39 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     logger.warning(f"Error parsing table: {e}")
                     self.report.report_warning("table-parse", str(e))
 
-    def models(self, schema: Schema) -> Iterable[Model]:
+    def ml_models(
+        self, schema: Schema, max_results: Optional[int] = None
+    ) -> Iterable[Model]:
         response = self._workspace_client.registered_models.list(
-            catalog_name=schema.catalog.name, schema_name=schema.name
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+            max_results=max_results,
         )
-        for model in response:
-            optional_model = self._create_model(schema, model)
-            if optional_model:
-                yield optional_model
+        for ml_model in response:
+            optional_ml_model = self._create_ml_model(schema, ml_model)
+            if optional_ml_model:
+                yield optional_ml_model
 
-    def model_versions(self, model: Model) -> Iterable[ModelVersion]:
+    def ml_model_versions(
+        self, ml_model: Model, include_aliases: bool = False
+    ) -> Iterable[ModelVersion]:
         response = self._workspace_client.model_versions.list(
-            full_name=model.id,
+            full_name=ml_model.id,
             include_browse=True,
             max_results=self.databricks_api_page_size,
         )
         for version in response:
             if version.version is not None:
-                # to get aliases info, use GET
-                version = self._workspace_client.model_versions.get(
-                    model.id, version.version, include_aliases=True
+                if include_aliases:
+                    # to get aliases info, use GET
+                    version = self._workspace_client.model_versions.get(
+                        ml_model.id, version.version, include_aliases=True
+                    )
+                optional_ml_model_version = self._create_ml_model_version(
+                    ml_model, version
                 )
-                optional_model_version = self._create_model_version(model, version)
-                if optional_model_version:
-                    yield optional_model_version
+                if optional_ml_model_version:
+                    yield optional_ml_model_version
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
@@ -891,11 +900,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if optional_column:
                 yield optional_column
 
-    def _create_model(
+    def _create_ml_model(
         self, schema: Schema, obj: RegisteredModelInfo
     ) -> Optional[Model]:
         if not obj.name or not obj.full_name:
-            self.report.num_tables_missing_name += 1
+            self.report.num_ml_models_missing_name += 1
             return None
         return Model(
             id=obj.full_name,
@@ -907,7 +916,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             updated_at=parse_ts_millis(obj.updated_at),
         )
 
-    def _create_model_version(
+    def _create_ml_model_version(
         self, model: Model, obj: ModelVersionInfo
     ) -> Optional[ModelVersion]:
         if obj.version is None:
