@@ -192,6 +192,83 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
+@freeze_time(FROZEN_TIME)
+def test_snowflake_basic_disable_queries(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    """
+    Test that include_queries=False properly disables query entity generation.
+
+    Note: This test uses a simpler configuration compared to test_snowflake_basic
+    (no classification, profiling, usage stats, etc.), so differences in the golden
+    files will include those aspects in addition to the query-related changes.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "snowflake_basic_disable_queries_test_events.json"
+    golden_file = test_resources_dir / "snowflake_basic_disable_queries_golden.json"
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        sf_cursor.execute.side_effect = default_query_results
+
+        config = SnowflakeV2Config(
+            account_id="ABC12345.ap-south-1.aws",
+            username="TST_USR",
+            password="TST_PWD",
+            match_fully_qualified_names=True,
+            schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+            include_technical_schema=True,
+            include_table_lineage=True,
+            include_queries=False,  # This is the key difference - disable query generation
+            format_sql_queries=True,
+            validate_upstreams_against_patterns=False,
+            incremental_lineage=False,
+            use_queries_v2=False,
+            start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(tzinfo=timezone.utc),
+            end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
+        )
+
+        pipeline = Pipeline(
+            config=PipelineConfig(
+                source=SourceConfig(type="snowflake", config=config),
+                sink=DynamicTypedConfig(
+                    type="file", config={"filename": str(output_file)}
+                ),
+            )
+        )
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+
+        # Verify the output - query entities should be absent and lineage query references should be null.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=golden_file,
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+                r"root\[\d+\]\['systemMetadata'\]",
+            ],
+        )
+
+        report = cast(SnowflakeV2Report, pipeline.source.get_report())
+
+        # Validate that the SqlParsingAggregator report shows no queries were generated
+        # when include_queries=False
+        assert report.sql_aggregator is not None
+        assert report.sql_aggregator.num_queries_entities_generated == 0, (
+            "No query entities should be generated when include_queries=False"
+        )
+
+
 def test_snowflake_tags_as_structured_properties(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
