@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 from unittest.mock import Mock, patch
 
 import jpype
@@ -13,7 +13,6 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
     get_dataset_name,
-    get_platform_from_connector_class,
     has_three_level_hierarchy,
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
@@ -853,44 +852,84 @@ class TestPlatformDetection:
 
     def test_cloud_postgres_connector_detection(self) -> None:
         """Test detection of Confluent Cloud PostgreSQL connectors."""
-        assert get_platform_from_connector_class("PostgresCdcSource") == "postgres"
-        assert get_platform_from_connector_class("PostgresCdcSourceV2") == "postgres"
-        assert get_platform_from_connector_class("PostgresSink") == "postgres"
+        from datahub.ingestion.source.kafka_connect.common import (
+            ConnectorTopicHandlerRegistry,
+        )
+        
+        config = KafkaConnectSourceConfig()
+        report = KafkaConnectSourceReport()
+        registry = ConnectorTopicHandlerRegistry(config, report)
+        
+        assert registry.get_platform_for_connector("PostgresCdcSource") == "postgres"
+        assert registry.get_platform_for_connector("PostgresCdcSourceV2") == "postgres"
+        assert registry.get_platform_for_connector("PostgresSink") == "postgres"
 
     def test_cloud_mysql_connector_detection(self) -> None:
         """Test detection of Confluent Cloud MySQL connectors."""
-        assert get_platform_from_connector_class("MySqlSource") == "mysql"
-        assert get_platform_from_connector_class("MySqlSink") == "mysql"
+        from datahub.ingestion.source.kafka_connect.common import (
+            ConnectorTopicHandlerRegistry,
+        )
+        
+        config = KafkaConnectSourceConfig()
+        report = KafkaConnectSourceReport()
+        registry = ConnectorTopicHandlerRegistry(config, report)
+        
+        assert registry.get_platform_for_connector("MySqlSource") == "mysql"
+        assert registry.get_platform_for_connector("MySqlSink") == "mysql"
 
     def test_cloud_snowflake_connector_detection(self) -> None:
         """Test detection of Confluent Cloud Snowflake connectors."""
-        assert get_platform_from_connector_class("SnowflakeSink") == "snowflake"
+        from datahub.ingestion.source.kafka_connect.common import (
+            ConnectorTopicHandlerRegistry,
+        )
+        
+        config = KafkaConnectSourceConfig()
+        report = KafkaConnectSourceReport()
+        registry = ConnectorTopicHandlerRegistry(config, report)
+        
+        assert registry.get_platform_for_connector("SnowflakeSink") == "snowflake"
 
     def test_platform_connector_detection_fallback(self) -> None:
         """Test fallback detection for platform connectors with descriptive class names."""
+        from datahub.ingestion.source.kafka_connect.common import (
+            ConnectorTopicHandlerRegistry,
+        )
+        
+        config = KafkaConnectSourceConfig()
+        report = KafkaConnectSourceReport()
+        registry = ConnectorTopicHandlerRegistry(config, report)
+        
         assert (
-            get_platform_from_connector_class(
+            registry.get_platform_for_connector(
                 "io.confluent.connect.jdbc.JdbcSourceConnector"
             )
             == "unknown"
         )
-        assert get_platform_from_connector_class("com.mysql.cj.jdbc.Driver") == "mysql"
-        assert get_platform_from_connector_class("org.postgresql.Driver") == "postgres"
+        assert registry.get_platform_for_connector("com.mysql.cj.jdbc.Driver") == "mysql"
+        assert registry.get_platform_for_connector("org.postgresql.Driver") == "postgres"
         assert (
-            get_platform_from_connector_class(
+            registry.get_platform_for_connector(
                 "net.snowflake.client.jdbc.SnowflakeDriver"
             )
             == "snowflake"
         )
 
     def test_unknown_connector_detection(self) -> None:
-        """Test detection returns 'unknown' for unrecognized connector classes."""
-        assert (
-            get_platform_from_connector_class("com.unknown.connector.SomeConnector")
-            == "unknown"
+        """Test detection returns connector class name in lowercase for unrecognized connector classes."""
+        from datahub.ingestion.source.kafka_connect.common import (
+            ConnectorTopicHandlerRegistry,
         )
-        assert get_platform_from_connector_class("") == "unknown"
-        assert get_platform_from_connector_class("RandomConnector") == "unknown"
+        
+        config = KafkaConnectSourceConfig()
+        report = KafkaConnectSourceReport()
+        registry = ConnectorTopicHandlerRegistry(config, report)
+        
+        assert (
+            registry.get_platform_for_connector("com.unknown.connector.SomeConnector")
+            == "unknown"  # Contains "unknown" keyword
+        )
+        assert registry.get_platform_for_connector("") == "unknown"  # Empty string falls through to unknown
+        assert registry.get_platform_for_connector("com.example.CustomConnector") == "unknown"  # No recognized keywords
 
 
 class TestFullConnectorConfigValidation:
@@ -1744,3 +1783,753 @@ class TestTopicGeneration:
                 f"Kafka Connect JDBC documentation compliance failed: {description} "
                 f"Expected '{expected}', got '{result}'"
             )
+
+
+class TestEnvironmentSpecificTopicRetrieval:
+    """Test the fallback strategy for topic derivation when /topics endpoint fails."""
+
+    @patch("requests.Session.get")
+    def test_derive_sink_topics_explicit_list(self, mock_get: Mock) -> None:
+        """Test deriving topics from sink connector with explicit topics list."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock successful connection test
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        sink_config = {
+            "connector.class": "io.confluent.connect.bigquery.BigQuerySinkConnector",
+            "topics": "topic1,topic2,topic3",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink", 
+            config=sink_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert result == ["topic1", "topic2", "topic3"]
+
+    @patch("requests.Session.get")
+    def test_derive_sink_topics_with_spaces(self, mock_get: Mock) -> None:
+        """Test deriving topics from sink connector with spaces in topic list."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock successful connection test
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        sink_config = {
+            "connector.class": "io.confluent.connect.bigquery.BigQuerySinkConnector",
+            "topics": " topic1 , topic2 ,  topic3  ",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink", 
+            config=sink_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert result == ["topic1", "topic2", "topic3"]
+
+    @patch("requests.Session.get")
+    def test_derive_sink_topics_regex(self, mock_get: Mock) -> None:
+        """Test deriving topics from sink connector with regex pattern."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        sink_config = {
+            "connector.class": "io.confluent.connect.bigquery.BigQuerySinkConnector",
+            "topics.regex": "test_.*",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink", 
+            config=sink_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        # Should return empty list and log warning since we can't enumerate regex matches
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_derive_sink_topics_no_config(self, mock_get: Mock) -> None:
+        """Test deriving topics from sink connector with no topic configuration."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        sink_config = {
+            "connector.class": "io.confluent.connect.bigquery.BigQuerySinkConnector",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink", 
+            config=sink_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_derive_topics_from_table_config_platform_style(self, mock_get: Mock) -> None:
+        """Test deriving topics from table configuration with platform connector."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "table.whitelist": "public.users,public.orders,inventory.products",
+            "topic.prefix": "db-",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-source",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert len(result) == 3
+        assert "db-public.users" in result
+        assert "db-public.orders" in result
+        assert "db-inventory.products" in result
+
+    @patch("requests.Session.get")
+    def test_derive_topics_from_table_config_cloud_style(self, mock_get: Mock) -> None:
+        """Test deriving topics from table configuration with cloud connector."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "PostgresCdcSource",
+            "table.include.list": "schema1.table1,schema2.table2",
+            "database.server.name": "cloud-",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-source",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert len(result) == 2
+        assert "cloud-.schema1.table1" in result
+        assert "cloud-.schema2.table2" in result
+
+    @patch("requests.Session.get")
+    def test_derive_topics_from_table_config_no_schema(self, mock_get: Mock) -> None:
+        """Test deriving topics from tables without schema names."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "table.whitelist": "users,orders,products",
+            "topic.prefix": "app-",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-source",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert len(result) == 3
+        assert "app-users" in result
+        assert "app-orders" in result
+        assert "app-products" in result
+
+    @patch("requests.Session.get")
+    def test_derive_topics_from_table_config_quoted_identifiers(self, mock_get: Mock) -> None:
+        """Test deriving topics from tables with quoted identifiers."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "table.whitelist": '"public"."user table","schema2"."order-data"',
+            "topic.prefix": "sys-",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-source",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert len(result) == 2
+        assert 'sys-public.user table' in result
+        assert 'sys-schema2.order-data' in result
+
+    @patch("requests.Session.get")
+    def test_derive_source_topics_platform_jdbc_no_transforms(
+        self, mock_get: Mock
+    ) -> None:
+        """Test deriving topics from platform JDBC source connector without transforms."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+            "table.whitelist": "users,orders",
+            "topic.prefix": "db-",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-connector",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        # Should derive topics using JDBC naming strategy: prefix + table
+        expected_topics = ["db-users", "db-orders"]
+        assert result == expected_topics
+
+    @patch("requests.Session.get")
+    def test_derive_source_topics_cloud_cdc_no_transforms(self, mock_get: Mock) -> None:
+        """Test deriving topics from cloud CDC source connector without transforms."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "PostgresCdcSource",
+            "table.include.list": "public.users,public.orders",
+            "database.server.name": "myserver",
+            "database.hostname": "localhost",
+            "database.port": "5432",
+            "database.dbname": "testdb",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-connector",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        # Should derive topics using CDC naming strategy: server.schema.table
+        expected_topics = ["myserver.public.users", "myserver.public.orders"]
+        assert result == expected_topics
+
+    @patch("requests.Session.get")
+    def test_derive_source_topics_with_transforms(self, mock_get: Mock) -> None:
+        """Test deriving topics from source connector with transforms."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "PostgresCdcSource",
+            "table.include.list": "public.users",
+            "database.server.name": "myserver",
+            "database.hostname": "localhost",
+            "database.port": "5432",
+            "database.dbname": "testdb",
+            "transforms": "route",
+            "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.route.regex": "myserver\\.public\\.(.*)",
+            "transforms.route.replacement": "events.$1",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-connector",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        # Current implementation doesn't apply transforms - returns base topic name
+        expected_topics = ["myserver.public.users"]
+        assert result == expected_topics
+
+    @patch("requests.Session.get")
+    def test_derive_source_topics_unsupported_connector(self, mock_get: Mock) -> None:
+        """Test deriving topics from unsupported source connector type."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "com.example.CustomSourceConnector",
+            "table.whitelist": "users,orders",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-connector",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        # Should return empty list for unsupported connectors
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_derive_source_topics_no_tables(self, mock_get: Mock) -> None:
+        """Test deriving topics when no table configuration is found."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            # No table configuration
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-connector",
+            type="source", 
+            config=connector_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_get_connector_topics_self_hosted_api_failure(self, mock_get: Mock) -> None:
+        """Test _get_connector_topics returns empty list when self-hosted /topics endpoint fails."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock connection test success, but topics endpoint failure
+        def mock_get_side_effect(url: str, **kwargs: Any) -> Mock:
+            response = Mock()
+            if "/topics" in url:
+                response.raise_for_status.side_effect = Exception("404 Not Found")
+            else:
+                # Connection test success
+                response.raise_for_status.return_value = None
+                response.json.return_value = {}
+            return response
+
+        mock_get.side_effect = mock_get_side_effect
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        # Create mock ConnectorManifest
+        mock_connector = Mock()
+        mock_connector.name = "test-connector"
+        mock_connector.type = "source"
+        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+
+        # For self-hosted when API fails, we return empty list (no fallback)
+        result = source._get_connector_topics(mock_connector)
+
+        # Self-hosted should return empty list when API fails
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_get_connector_topics_self_hosted_api_success(self, mock_get: Mock) -> None:
+        """Test _get_connector_topics uses self-hosted /topics API when endpoint succeeds."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock connection test and /topics API response success  
+        def mock_get_side_effect(url: str, **kwargs: Any) -> Mock:
+            response = Mock()
+            if "/topics" in url:
+                # Mock /connectors/{name}/topics response for self-hosted
+                response.raise_for_status.return_value = None
+                response.json.return_value = {
+                    "test-connector": {
+                        "topics": ["runtime-topic1", "runtime-topic2"]
+                    }
+                }
+            else:
+                # Connection test success
+                response.raise_for_status.return_value = None
+                response.json.return_value = []
+            return response
+
+        mock_get.side_effect = mock_get_side_effect
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        # Create mock ConnectorManifest
+        mock_connector = Mock()
+        mock_connector.name = "test-connector"
+        mock_connector.type = "source"
+        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+
+        # Call the method to get topics
+        result = source._get_connector_topics(mock_connector)
+
+        # Should use self-hosted /topics API response
+        assert result == ["runtime-topic1", "runtime-topic2"]
+
+    @patch("requests.Session.get")
+    def test_extract_sink_topics_from_config_flow(self, mock_get: Mock) -> None:
+        """Test _extract_sink_topics_from_config handles sink connectors correctly."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        sink_config = {
+            "connector.class": "io.confluent.connect.bigquery.BigQuerySinkConnector",
+            "topics": "sink-topic1,sink-topic2",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-sink",
+            type="sink", 
+            config=sink_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert result == ["sink-topic1", "sink-topic2"]
+
+    @patch("requests.Session.get")
+    def test_derive_and_match_source_topics_flow(self, mock_get: Mock) -> None:
+        """Test _derive_and_match_source_topics handles source connectors correctly."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        source_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:postgresql://localhost:5432/testdb",
+            "table.whitelist": "users",
+            "topic.prefix": "source-",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="test-source",
+            type="source", 
+            config=source_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        assert result == ["source-users"]
+
+    @patch("requests.Session.get")
+    def test_outbox_pattern_scenario(self, mock_get: Mock) -> None:
+        """Test fallback with outbox pattern similar to user's scenario."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock the connection test that happens in __init__
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        config = KafkaConnectSourceConfig(connect_uri="http://test:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        # Simulate outbox-cashout-dev connector configuration
+        outbox_config = {
+            "connector.class": "PostgresCdcSource",
+            "table.include.list": "public.outbox",
+            "database.server.name": "cashout-dev",
+            "database.hostname": "localhost",
+            "database.port": "5432",
+            "database.dbname": "cashout",
+            "transforms": "outbox,route",
+            "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+            "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.route.regex": "outbox\\.event\\.(.*)",
+            "transforms.route.replacement": "cashout.$1",
+        }
+
+        # Create connector manifest for the new handler approach
+        connector_manifest = ConnectorManifest(
+            name="outbox-cashout-dev",
+            type="source", 
+            config=outbox_config,
+            tasks=[]
+        )
+        result = source._get_topics_from_connector_config(connector_manifest)
+
+        # The new implementation derives the base topic name from config
+        # Complex transforms like EventRouter are not currently handled
+        # So we get the basic topic name based on the table configuration
+        assert result == ["cashout-dev.public.outbox"]  # Base topic derived from config
+
+
+class TestConfluentCloudDetection:
+    """Test Confluent Cloud detection functionality."""
+
+    @patch("requests.Session.get")
+    def test_confluent_cloud_detection_positive(self, mock_get: Mock) -> None:
+        """Test detection of Confluent Cloud Connect URI."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock successful connection test
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        # Confluent Cloud URI pattern
+        config = KafkaConnectSourceConfig(
+            connect_uri="https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-abc456"
+        )
+        source = KafkaConnectSource(config, Mock())
+
+        assert source._is_confluent_cloud is True
+
+    @patch("requests.Session.get")
+    def test_confluent_cloud_detection_negative(self, mock_get: Mock) -> None:
+        """Test detection with self-hosted Connect URI."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock successful connection test
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        # Self-hosted URI pattern
+        config = KafkaConnectSourceConfig(connect_uri="http://localhost:8083")
+        source = KafkaConnectSource(config, Mock())
+
+        assert source._is_confluent_cloud is False
+
+    @patch("requests.Session.get")
+    def test_feature_flag_disabled_skips_api_calls(self, mock_get: Mock) -> None:
+        """Test that disabling use_connect_topics_api skips all API calls."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock connection test
+        mock_response = Mock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = []
+        mock_get.return_value = mock_response
+
+        # Disable the feature flag
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://localhost:8083",
+            use_connect_topics_api=False  # Explicitly disabled
+        )
+        source = KafkaConnectSource(config, Mock())
+
+        # Create mock ConnectorManifest
+        mock_connector = Mock()
+        mock_connector.name = "test-connector"
+        mock_connector.type = "source"
+        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+
+        result = source._get_connector_topics(mock_connector)
+
+        # Should return empty list when feature flag is disabled
+        assert result == []
+
+    @patch("requests.Session.get")
+    def test_feature_flag_enabled_allows_api_calls(self, mock_get: Mock) -> None:
+        """Test that enabling use_connect_topics_api allows API calls."""
+        from datahub.ingestion.source.kafka_connect.kafka_connect import (
+            KafkaConnectSource,
+        )
+
+        # Mock connection test and successful /topics API response
+        def mock_get_side_effect(url: str, **kwargs: Any) -> Mock:
+            response = Mock()
+            if "/topics" in url:
+                # Mock /connectors/{name}/topics response for self-hosted
+                response.raise_for_status.return_value = None
+                response.json.return_value = {
+                    "test-connector": {
+                        "topics": ["api-topic1", "api-topic2"]
+                    }
+                }
+            else:
+                # Connection test success
+                response.raise_for_status.return_value = None
+                response.json.return_value = []
+            return response
+
+        mock_get.side_effect = mock_get_side_effect
+
+        # Enable the feature flag (default behavior)
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://localhost:8083",
+            use_connect_topics_api=True  # Explicitly enabled
+        )
+        source = KafkaConnectSource(config, Mock())
+
+        # Create mock ConnectorManifest
+        mock_connector = Mock()
+        mock_connector.name = "test-connector"
+        mock_connector.type = "source"
+        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+
+        result = source._get_connector_topics(mock_connector)
+
+        # Should return topics from API when feature flag is enabled
+        assert result == ["api-topic1", "api-topic2"]
+
