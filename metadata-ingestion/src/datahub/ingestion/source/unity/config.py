@@ -137,7 +137,15 @@ class UnityCatalogSourceConfig(
     )
     warehouse_id: Optional[str] = pydantic.Field(
         default=None,
-        description="SQL Warehouse id, for running queries. If not set, will use the default warehouse.",
+        description=(
+            "SQL Warehouse id, for running queries. Must be explicitly provided to enable SQL-based features. "
+            "Required for the following features that need SQL access: "
+            "1) Tag extraction (include_tags=True) - queries system.information_schema.tags "
+            "2) Hive Metastore catalog (include_hive_metastore=True) - queries legacy hive_metastore catalog "
+            "3) System table lineage (lineage_data_source=SYSTEM_TABLES) - queries system.access.table_lineage/column_lineage "
+            "4) Data profiling (profiling.enabled=True) - runs SELECT/ANALYZE queries on tables. "
+            "When warehouse_id is missing, these features will be automatically disabled (with warnings) to allow ingestion to continue."
+        ),
     )
     include_hive_metastore: bool = pydantic.Field(
         default=True,
@@ -237,7 +245,11 @@ class UnityCatalogSourceConfig(
 
     include_tags: bool = pydantic.Field(
         default=True,
-        description="Option to enable/disable column/table tag extraction.",
+        description=(
+            "Option to enable/disable column/table tag extraction. "
+            "Requires warehouse_id to be set since tag extraction needs to query system.information_schema.tags. "
+            "If warehouse_id is not provided, this will be automatically disabled to allow ingestion to continue."
+        ),
     )
 
     _rename_table_ownership = pydantic_renamed_field(
@@ -405,6 +417,23 @@ class UnityCatalogSourceConfig(
             raise ValueError(
                 f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
+
+        return values
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_warehouse_id_for_sql_features(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        warehouse_id = values.get("warehouse_id")
+        include_tags = values.get("include_tags", True)
+
+        if include_tags and not warehouse_id:
+            logger.warning(
+                "warehouse_id is not set but include_tags=True. "
+                "Automatically disabling tag extraction since it requires SQL queries. "
+                "Set warehouse_id to enable tag extraction."
+            )
+            values["include_tags"] = False
 
         return values
 

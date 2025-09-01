@@ -1198,6 +1198,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """Execute SQL query using databricks-sql connector for better performance"""
         logger.debug(f"Executing SQL query with {len(params)} parameters")
 
+        # Check if warehouse_id is available for SQL operations
+        if not self.warehouse_id:
+            logger.warning(
+                "Cannot execute SQL query: warehouse_id is not configured. "
+                "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
+            )
+            return []
+
         # Log connection parameters (with masked token)
         masked_params = {**self._sql_connection_params}
         if "access_token" in masked_params:

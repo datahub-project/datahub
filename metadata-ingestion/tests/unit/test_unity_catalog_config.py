@@ -17,6 +17,7 @@ def test_within_thirty_days():
             "workspace_url": "https://workspace_url",
             "include_usage_statistics": True,
             "include_hive_metastore": False,
+            "include_tags": False,
             "start_time": FROZEN_TIME - timedelta(days=30),
         }
     )
@@ -55,6 +56,7 @@ def test_profiling_requires_warehouses_id():
             "token": "token",
             "workspace_url": "https://workspace_url",
             "include_hive_metastore": False,
+            "include_tags": False,
             "profiling": {"enabled": False, "method": "ge"},
         }
     )
@@ -65,6 +67,7 @@ def test_profiling_requires_warehouses_id():
             {
                 "token": "token",
                 "include_hive_metastore": False,
+                "include_tags": False,
                 "workspace_url": "workspace_url",
             }
         )
@@ -157,6 +160,85 @@ def test_set_profiling_warehouse_id_from_global():
     assert config.profiling.warehouse_id == "my_global_warehouse_id"
 
 
+def test_warehouse_id_auto_disables_tags_when_missing():
+    """Test that include_tags is automatically disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,  # Disable to test tag validation specifically
+            # include_tags defaults to True, warehouse_id is missing
+        }
+    )
+    # Should automatically disable tags when warehouse_id is missing
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_not_required_when_tags_disabled():
+    """Test that warehouse_id is not required when include_tags=False."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,  # Explicitly disable tags
+            # warehouse_id is missing but should be allowed
+        }
+    )
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_explicit_true_auto_disables():
+    """Test that explicitly setting include_tags=True gets auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": True,  # Explicitly enable tags
+            # warehouse_id is missing
+        }
+    )
+    # Should automatically disable tags even when explicitly set to True
+    assert config.include_tags is False
+    assert config.warehouse_id is None
+
+
+def test_warehouse_id_with_tags_enabled_succeeds():
+    """Test that providing warehouse_id with include_tags=True succeeds."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": True,
+            "warehouse_id": "test_warehouse_123",
+        }
+    )
+    assert config.include_tags is True
+    assert config.warehouse_id == "test_warehouse_123"
+
+
+def test_warehouse_id_validation_with_hive_metastore_precedence():
+    """Test that hive_metastore validation takes precedence over tag validation."""
+    # When include_hive_metastore=True (default), that validation should trigger first
+    with pytest.raises(
+        ValueError,
+        match="When `include_hive_metastore` is set, `warehouse_id` must be set.",
+    ):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": True,  # This should trigger first
+                "include_tags": True,
+                # warehouse_id is missing
+            }
+        )
+
+
 def test_databricks_api_page_size_default():
     """Test that databricks_api_page_size defaults to 0."""
     config = UnityCatalogSourceConfig.parse_obj(
@@ -164,6 +246,7 @@ def test_databricks_api_page_size_default():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
         }
     )
     assert config.databricks_api_page_size == 0
@@ -176,6 +259,7 @@ def test_databricks_api_page_size_valid_values():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
             "databricks_api_page_size": 100,
         }
     )
@@ -186,6 +270,7 @@ def test_databricks_api_page_size_valid_values():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
             "databricks_api_page_size": 1000,
         }
     )
@@ -199,6 +284,7 @@ def test_databricks_api_page_size_zero_allowed():
             "token": "token",
             "workspace_url": "https://test.databricks.com",
             "include_hive_metastore": False,
+            "include_tags": False,
             "databricks_api_page_size": 0,
         }
     )
@@ -215,6 +301,7 @@ def test_databricks_api_page_size_negative_invalid():
                 "token": "token",
                 "workspace_url": "https://test.databricks.com",
                 "include_hive_metastore": False,
+                "include_tags": False,
                 "databricks_api_page_size": -1,
             }
         )
@@ -227,6 +314,7 @@ def test_databricks_api_page_size_negative_invalid():
                 "token": "token",
                 "workspace_url": "https://test.databricks.com",
                 "include_hive_metastore": False,
+                "include_tags": False,
                 "databricks_api_page_size": -100,
             }
         )
