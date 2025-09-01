@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration import ConfigModel
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 
 

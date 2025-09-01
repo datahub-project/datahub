@@ -1,13 +1,59 @@
 source:
   type: "dbt"
   config:
-    # Coordinates
+    # Coordinates - can be local paths, cloud storage URIs, Git repositories, or HTTP URLs
+
+    # Local paths (traditional approach)
     # To use this as-is, set the environment variable DBT_PROJECT_ROOT to the root folder of your dbt project
     manifest_path: "${DBT_PROJECT_ROOT}/target/manifest_file.json"
     catalog_path: "${DBT_PROJECT_ROOT}/target/catalog_file.json"
     sources_path: "${DBT_PROJECT_ROOT}/target/sources_file.json" # optional for freshness
     run_results_paths:
       - "${DBT_PROJECT_ROOT}/target/run_results.json" # optional for recording dbt test results after running dbt test
+
+    # Cloud storage examples (S3, GCS, Azure Blob Storage)
+    # manifest_path: "s3://my-bucket/dbt-artifacts/manifest.json"
+    # catalog_path: "gs://my-bucket/dbt-artifacts/catalog.json"
+    # sources_path: "https://myaccount.blob.core.windows.net/container/sources.json"
+
+    # Git repository examples
+    # manifest_path: "git@github.com:my-org/dbt-artifacts.git/target/manifest.json"
+    # catalog_path: "https://github.com/my-org/dbt-artifacts/raw/main/target/catalog.json"
+
+    # HTTP/HTTPS examples
+    # manifest_path: "https://example.com/artifacts/manifest.json"
+
+    # External connections configuration (required for cloud storage and Git)
+    external_connections:
+      # AWS S3 configuration
+      aws_connection:
+        aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+        aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+        aws_region: "${AWS_DEFAULT_REGION}"
+        # aws_role: "arn:aws:iam::123456789012:role/MyRole" # optional, for role-based access
+
+      # Google Cloud Storage configuration
+      # gcs_connection:
+      #   type: "service_account"
+      #   project_id: "${GCP_PROJECT_ID}"
+      #   private_key_id: "${GCP_PRIVATE_KEY_ID}"
+      #   private_key: "${GCP_PRIVATE_KEY}"
+      #   client_email: "${GCP_CLIENT_EMAIL}"
+      #   client_id: "${GCP_CLIENT_ID}"
+
+      # Azure Blob Storage configuration
+      # azure_connection:
+      #   account_name: "${AZURE_ACCOUNT_NAME}"
+      #   account_key: "${AZURE_ACCOUNT_KEY}"
+      #   # account_url: "https://myaccount.blob.core.windows.net" # alternative to account_name
+      #   # sas_token: "${AZURE_SAS_TOKEN}" # alternative to account_key
+
+      # Git repository configuration
+      # git_info:
+      #   repo: "git@github.com:my-org/dbt-artifacts.git"
+      #   branch: "main" # optional, defaults to default branch
+      #   deploy_key: "${GITHUB_DEPLOY_KEY}" # optional, for private repos
+      #   # deploy_key_file: "/path/to/deploy_key" # alternative to deploy_key
 
     # Options
     target_platform: "my_target_platform_id" # e.g. bigquery/postgres/etc.
