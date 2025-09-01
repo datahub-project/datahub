@@ -8,6 +8,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     BaseConnector,
     ConnectorManifest,
     KafkaConnectLineage,
+    parse_comma_separated_list,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,9 +30,7 @@ class RegexRouterTransform:
             return transforms_list
 
         # Parse individual transforms
-        transform_names: List[str] = [
-            name.strip() for name in transforms_param.split(",")
-        ]
+        transform_names = parse_comma_separated_list(transforms_param)
 
         for transform_name in transform_names:
             if not transform_name:
@@ -71,16 +70,21 @@ class RegexRouterTransform:
                     pattern = Pattern.compile(regex_pattern)
                     matcher = pattern.matcher(result)
 
-                    if matcher.find():
-                        # Reset matcher to beginning for replaceFirst
-                        matcher.reset()
-                        result = matcher.replaceFirst(replacement)
+                    # Use replaceFirst directly - it handles the matching internally
+                    new_result = matcher.replaceFirst(replacement)
+                    if new_result != result:  # Only log if transformation actually occurred
                         logger.debug(
-                            f"Applied transform {transform['name']}: {topic_name} -> {result}"
+                            f"Applied transform {transform['name']}: {result} -> {new_result}"
                         )
+                        result = new_result
+                except ImportError as e:
+                    logger.warning(
+                        f"Java regex library not available for transform {transform['name']}: {e}. "
+                        f"Skipping regex transform."
+                    )
                 except Exception as e:
                     logger.warning(
-                        f"Invalid regex pattern in transform {transform['name']}: {e}"
+                        f"Failed to apply regex transform {transform['name']} with pattern '{regex_pattern}': {e}"
                     )
 
         return str(result)
@@ -158,9 +162,15 @@ class ConfluentS3SinkConnector(BaseConnector):
                     )
                 )
             return lineages
+        except ValueError as e:
+            self.report.warning(
+                f"Configuration error in S3 sink connector {self.connector_manifest.name}",
+                self.connector_manifest.name,
+                exc=e,
+            )
         except Exception as e:
             self.report.warning(
-                "Error resolving lineage for connector",
+                f"Unexpected error resolving lineage for S3 sink connector {self.connector_manifest.name}",
                 self.connector_manifest.name,
                 exc=e,
             )
@@ -207,11 +217,16 @@ class SnowflakeSinkConnector(BaseConnector):
         # Fetch user provided topic to table map
         provided_topics_to_tables: Dict[str, str] = {}
         if connector_manifest.config.get("snowflake.topic2table.map"):
-            for each in connector_manifest.config["snowflake.topic2table.map"].split(
-                ","
-            ):
-                topic, table = each.split(":")
-                provided_topics_to_tables[topic.strip()] = table.strip()
+            try:
+                mappings = parse_comma_separated_list(connector_manifest.config["snowflake.topic2table.map"])
+                for mapping in mappings:
+                    if ":" not in mapping:
+                        logger.warning(f"Invalid topic:table mapping format: '{mapping}'. Expected 'topic:table'.")
+                        continue
+                    topic, table = mapping.split(":", 1)  # Split only on first colon
+                    provided_topics_to_tables[topic.strip()] = table.strip()
+            except Exception as e:
+                logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
         topics_to_tables: Dict[str, str] = {}
         # Extract lineage for only those topics whose data ingestion started
@@ -314,7 +329,17 @@ class BigQuerySinkConnector(BaseConnector):
             connector_manifest.config
         )
 
+        # BigQuery connector supports two configuration versions for backward compatibility:
+        # v2 (current): Uses 'defaultDataset' with simpler topic:dataset mapping
+        # v1 (legacy): Uses 'datasets' with regex-based topic-to-dataset mapping
+        # 
+        # This dual support is necessary because:
+        # 1. Many production deployments still use v1 configuration format
+        # 2. Breaking changes would require coordinated upgrades across environments
+        # 3. v1 supports more complex topic routing that some users depend on
+        
         if "defaultDataset" in connector_manifest.config:
+            # v2 configuration: simpler, recommended approach
             defaultDataset: str = connector_manifest.config["defaultDataset"]
             return self.BQParser(
                 project=project,
@@ -326,7 +351,7 @@ class BigQuerySinkConnector(BaseConnector):
                 regex_router=regex_router,
             )
         else:
-            # version 1.6.x and similar configs supported
+            # v1 configuration: legacy format with regex-based dataset mapping
             datasets: str = connector_manifest.config["datasets"]
             topicsToTables: Optional[str] = connector_manifest.config.get(
                 "topicsToTables"
@@ -343,10 +368,16 @@ class BigQuerySinkConnector(BaseConnector):
             )
 
     def get_list(self, property: str) -> Iterable[Tuple[str, str]]:
-        entries: List[str] = property.split(",")
+        entries = parse_comma_separated_list(property)
         for entry in entries:
-            key, val = entry.rsplit("=")
-            yield (key.strip(), val.strip())
+            if "=" not in entry:
+                logger.warning(f"Invalid key=value mapping format: '{entry}'. Expected 'key=value'.")
+                continue
+            try:
+                key, val = entry.rsplit("=", 1)  # Split only on last equals sign
+                yield (key.strip(), val.strip())
+            except ValueError as e:
+                logger.warning(f"Failed to parse mapping entry '{entry}': {e}")
 
     def get_dataset_for_topic_v1(self, topic: str, parser: BQParser) -> Optional[str]:
         topicregex_dataset_map: Dict[str, str] = dict(self.get_list(parser.datasets))  # type: ignore
