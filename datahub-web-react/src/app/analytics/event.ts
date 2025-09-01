@@ -75,6 +75,9 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    IngestionTestConnectionEvent,
+    IngestionExecutionResultViewedEvent,
+    IngestionSourceConfigurationImpressionEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -610,18 +613,43 @@ export interface MoveDomainEvent extends BaseEvent {
 
 // Managed Ingestion Events
 
+export interface IngestionTestConnectionEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    outcome?: string;
+}
+
+export interface IngestionExecutionResultViewedEvent extends BaseEvent {
+    type: EventType.IngestionExecutionResultViewedEvent;
+    executionUrn: string;
+    executionStatus: string;
+    viewedSection: string;
+}
+
+export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
+    type: EventType.IngestionSourceConfigurationImpressionEvent;
+    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
+    sourceType?: string;
+    sourceUrn?: string;
+}
+
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
+    sourceUrn?: string;
     interval?: string;
     numOwners?: number;
+    outcome?: string;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
     type: EventType.UpdateIngestionSourceEvent;
     sourceType: string;
+    sourceUrn: string;
     interval?: string;
     numOwners?: number;
+    outcome?: string;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -630,6 +658,8 @@ export interface DeleteIngestionSourceEvent extends BaseEvent {
 
 export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
+    sourceType?: string;
+    sourceUrn?: string;
 }
 
 // TODO: Find a way to use this event
@@ -1216,4 +1246,7 @@ export type Event =
     | WelcomeToDataHubModalInteractEvent
     | WelcomeToDataHubModalExitEvent
     | WelcomeToDataHubModalClickViewDocumentationEvent
-    | ProductTourButtonClickEvent;
+    | ProductTourButtonClickEvent
+    | IngestionTestConnectionEvent
+    | IngestionExecutionResultViewedEvent
+    | IngestionSourceConfigurationImpressionEvent;
