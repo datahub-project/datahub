@@ -411,7 +411,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             query = f"""
                 SELECT
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
+                    source_table_full_name, source_type, source_path,
                     target_table_full_name, target_type,
                     max(event_time) as last_updated
                 FROM system.access.table_lineage
@@ -420,7 +420,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     {additional_where}
                 GROUP BY
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
+                    source_table_full_name, source_type, source_path,
                     target_table_full_name, target_type
                 """
             rows = self._execute_sql_query(query, [catalog, catalog])
@@ -432,6 +432,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 source_full_name = row["source_table_full_name"]
                 target_full_name = row["target_table_full_name"]
                 source_type = row["source_type"]
+                source_path = row["source_path"]
                 last_updated = row["last_updated"]
 
                 # Initialize TableLineageInfo for both source and target tables if they're in our catalog
@@ -460,7 +461,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     # Handle external upstreams (PATH type)
                     elif source_type == "PATH":
                         external_upstream = ExternalUpstream(
-                            path=source_full_name,
+                            path=source_path,
                             source_type=source_type,
                             last_updated=last_updated,
                         )
