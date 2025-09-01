@@ -36,6 +36,10 @@ const SearchIcon = styled(Icon)`
     margin-left: 8px;
 `;
 
+const ClearIcon = styled(Icon)`
+    cursor: pointer;
+`;
+
 export const Input = ({
     value = inputDefaults.value,
     setValue = inputDefaults.setValue,
@@ -55,6 +59,7 @@ export const Input = ({
     id,
     inputStyles,
     inputTestId,
+    onClear,
     ...props
 }: InputProps) => {
     // Invalid state is always true if error is present
@@ -104,6 +109,7 @@ export const Input = ({
                         {warning && <Icon icon="ErrorOutline" color="yellow" size="lg" />}
                     </Tooltip>
                 )}
+                {!!onClear && value && <ClearIcon source="phosphor" icon="X" size="lg" onClick={onClear} />}
                 {isPassword && <Icon onClick={() => setShowPassword(!showPassword)} icon={passwordIcon} size="lg" />}
             </InputContainer>
             {invalid && error && !errorOnHover && <ErrorMessage>{error}</ErrorMessage>}

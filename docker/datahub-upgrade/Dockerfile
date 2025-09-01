@@ -49,6 +49,19 @@ RUN apk --no-cache --update-cache --available upgrade \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
+ENV KUBECTL_VERSION=v1.33.4
+RUN set -x \
+  && APK_ARCH="$(cat /etc/apk/arch)" \
+  && case "$APK_ARCH" in \
+     x86_64) \
+       KUBECTL_ARCH=amd64 \
+       ;; \
+     aarch64) \
+       KUBECTL_ARCH=arm64 \
+       ;; \
+     esac \
+    && curl -L "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${KUBECTL_ARCH}/kubectl" | install -o root -g root -m 0755 /dev/stdin /usr/local/bin/kubectl
+
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base AS prod-install

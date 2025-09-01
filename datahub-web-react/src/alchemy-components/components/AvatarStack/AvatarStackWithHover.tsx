@@ -24,9 +24,11 @@ const AvatarStackWithHover = ({
     showRemainingNumber = true,
     maxToShow = 4,
     entityRegistry,
+    title = 'Owners',
 }: Props) => {
-    const users = avatars.filter((avatar) => avatar.type === AvatarType.user);
-    const groups = avatars.filter((avatar) => avatar.type === AvatarType.group);
+    const users = avatars?.filter((avatar) => avatar.type === AvatarType.user) || [];
+    const groups = avatars?.filter((avatar) => avatar.type === AvatarType.group) || [];
+    const roles = avatars?.filter((avatar) => avatar.type === AvatarType.role) || [];
 
     const renderTitle = (headerText, count) => (
         <HeaderContainer>
@@ -41,7 +43,7 @@ const AvatarStackWithHover = ({
         <StopPropagationWrapper>
             <StructuredPopover
                 width={280}
-                title="Owners"
+                title={title}
                 sections={[
                     ...(users.length > 0
                         ? [
@@ -67,6 +69,21 @@ const AvatarStackWithHover = ({
                                           entityRegistry={entityRegistry}
                                           size={size}
                                           type={AvatarType.group}
+                                      />
+                                  ),
+                              },
+                          ]
+                        : []),
+                    ...(roles.length > 0
+                        ? [
+                              {
+                                  title: renderTitle('Roles', roles.length),
+                                  content: (
+                                      <HoverSectionContent
+                                          avatars={roles}
+                                          entityRegistry={entityRegistry}
+                                          size={size}
+                                          type={AvatarType.role}
                                       />
                                   ),
                               },
