@@ -62,7 +62,6 @@ def random_cloud_region():
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
-    # Run the metadata ingestion pipeline.
     output_file = tmp_path / "snowflake_test_events.json"
     golden_file = test_resources_dir / "snowflake_golden.json"
 
@@ -167,8 +166,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         pipeline.raise_from_status()
         assert not pipeline.source.get_report().warnings
 
-        # Verify the output.
-
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=output_file,
@@ -205,7 +202,6 @@ def test_snowflake_basic_disable_queries(
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
-    # Run the metadata ingestion pipeline.
     output_file = tmp_path / "snowflake_basic_disable_queries_test_events.json"
     golden_file = test_resources_dir / "snowflake_basic_disable_queries_golden.json"
 
@@ -246,7 +242,6 @@ def test_snowflake_basic_disable_queries(
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
 
-        # Verify the output - query entities should be absent and lineage query references should be null.
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=output_file,
@@ -261,8 +256,6 @@ def test_snowflake_basic_disable_queries(
 
         report = cast(SnowflakeV2Report, pipeline.source.get_report())
 
-        # Validate that the SqlParsingAggregator report shows no queries were generated
-        # when include_queries=False
         assert report.sql_aggregator is not None
         assert report.sql_aggregator.num_queries_entities_generated == 0, (
             "No query entities should be generated when include_queries=False"
@@ -274,7 +267,6 @@ def test_snowflake_tags_as_structured_properties(
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
-    # Run the metadata ingestion pipeline.
     output_file = tmp_path / "snowflake_structured_properties_test_events.json"
     golden_file = test_resources_dir / "snowflake_structured_properties_golden.json"
 
@@ -320,8 +312,6 @@ def test_snowflake_tags_as_structured_properties(
         pipeline.raise_from_status()
         assert not pipeline.source.get_report().warnings
 
-        # Verify the output.
-
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=output_file,
@@ -342,7 +332,6 @@ def test_snowflake_private_link_and_incremental_mcps(
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
-    # Run the metadata ingestion pipeline.
     output_file = tmp_path / "snowflake_privatelink_test_events.json"
     golden_file = test_resources_dir / "snowflake_privatelink_golden.json"
 
@@ -389,8 +378,6 @@ def test_snowflake_private_link_and_incremental_mcps(
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
-
-        # Verify the output.
 
         mce_helpers.check_golden_file(
             pytestconfig,
