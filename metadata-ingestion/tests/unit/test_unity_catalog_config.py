@@ -121,28 +121,29 @@ def test_set_different_warehouse_id_from_profiling():
 
 
 def test_warehouse_id_must_be_set_if_include_hive_metastore_is_true():
-    with pytest.raises(
-        ValueError,
-        match="When `include_hive_metastore` is set, `warehouse_id` must be set.",
-    ):
-        UnityCatalogSourceConfig.parse_obj(
-            {
-                "token": "token",
-                "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
-                "include_hive_metastore": True,
-            }
-        )
+    """Test that include_hive_metastore is auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
+            "include_hive_metastore": True,
+        }
+    )
+    # Should automatically disable hive_metastore when warehouse_id is missing
+    assert config.include_hive_metastore is False
+    assert config.warehouse_id is None
 
 
 def test_warehouse_id_must_be_present_test_connection():
+    """Test that connection succeeds when hive_metastore gets auto-disabled."""
     config_dict = {
         "token": "token",
         "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
-        "include_hive_metastore": True,
+        "include_hive_metastore": True,  # Will be auto-disabled
     }
     report = UnityCatalogSource.test_connection(config_dict)
-    assert report.internal_failure
-    print(report.internal_failure_reason)
+    # Should succeed since include_hive_metastore gets auto-disabled
+    assert not report.internal_failure
 
 
 def test_set_profiling_warehouse_id_from_global():
@@ -222,21 +223,20 @@ def test_warehouse_id_with_tags_enabled_succeeds():
 
 
 def test_warehouse_id_validation_with_hive_metastore_precedence():
-    """Test that hive_metastore validation takes precedence over tag validation."""
-    # When include_hive_metastore=True (default), that validation should trigger first
-    with pytest.raises(
-        ValueError,
-        match="When `include_hive_metastore` is set, `warehouse_id` must be set.",
-    ):
-        UnityCatalogSourceConfig.parse_obj(
-            {
-                "token": "token",
-                "workspace_url": "https://test.databricks.com",
-                "include_hive_metastore": True,  # This should trigger first
-                "include_tags": True,
-                # warehouse_id is missing
-            }
-        )
+    """Test that both hive_metastore and tags are auto-disabled when warehouse_id is missing."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": True,  # Should be auto-disabled
+            "include_tags": True,  # Should be auto-disabled
+            # warehouse_id is missing
+        }
+    )
+    # Both should be auto-disabled when warehouse_id is missing
+    assert config.include_hive_metastore is False
+    assert config.include_tags is False
+    assert config.warehouse_id is None
 
 
 def test_databricks_api_page_size_default():

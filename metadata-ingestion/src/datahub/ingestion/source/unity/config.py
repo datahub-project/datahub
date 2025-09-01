@@ -328,37 +328,38 @@ class UnityCatalogSourceConfig(
     scheme: str = DATABRICKS
 
     def __init__(self, **data):
-        # Process and modify data before creating the model
-        warehouse_id = data.get("warehouse_id")
-        include_tags = data.get("include_tags", True)  # Use default if not provided
-        include_hive_metastore = data.get("include_hive_metastore", True)
+        # First, let the parent handle the root validators and field processing
+        super().__init__(**data)
 
-        # Track what we're about to force-disable
+        # After model creation, check if we need to auto-disable features
+        # based on the final warehouse_id value (which may have been set by root validators)
+        include_tags_original = data.get("include_tags", True)
+        include_hive_metastore_original = data.get("include_hive_metastore", True)
+
+        # Track what we're force-disabling
         forced_disable_tag_extraction = False
         forced_disable_hive_metastore_extraction = False
 
-        if include_tags and not warehouse_id:
+        # Check if features should be auto-disabled based on final warehouse_id
+        if include_tags_original and not self.warehouse_id:
             forced_disable_tag_extraction = True
-            data["include_tags"] = False  # Modify data before model creation
+            self.include_tags = False  # Modify the model attribute directly
             logger.warning(
                 "warehouse_id is not set but include_tags=True. "
                 "Automatically disabling tag extraction since it requires SQL queries. "
                 "Set warehouse_id to enable tag extraction."
             )
 
-        if include_hive_metastore and not warehouse_id:
+        if include_hive_metastore_original and not self.warehouse_id:
             forced_disable_hive_metastore_extraction = True
-            data["include_hive_metastore"] = False  # Modify data before model creation
+            self.include_hive_metastore = False  # Modify the model attribute directly
             logger.warning(
                 "warehouse_id is not set but include_hive_metastore=True. "
                 "Automatically disabling hive metastore extraction since it requires SQL queries. "
-                "Set warehouse_id to enable tag extraction."
+                "Set warehouse_id to enable hive metastore extraction."
             )
 
-        # Now create the model with the modified data
-        super().__init__(**data)
-
-        # Set private attributes after model creation
+        # Set private attributes
         self._forced_disable_tag_extraction = forced_disable_tag_extraction
         self._forced_disable_hive_metastore_extraction = (
             forced_disable_hive_metastore_extraction
@@ -431,11 +432,6 @@ class UnityCatalogSourceConfig(
         ):
             raise ValueError(
                 "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`."
-            )
-
-        if values.get("include_hive_metastore") and not values.get("warehouse_id"):
-            raise ValueError(
-                "When `include_hive_metastore` is set, `warehouse_id` must be set."
             )
 
         if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
