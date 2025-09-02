@@ -146,7 +146,6 @@ describe("home page modules", () => {
     const name = "Global Collection Module";
     addYourAssetsModule();
     cy.ensureElementWithTestIdPresent("edited-home-page-toast");
-    cy.clickFirstOptionWithTestId("toast-notification-close-icon");
     startEditingDefaultTemplate();
     createAssetCollectionModule(name);
     finishEditingDefaultTemplate();
