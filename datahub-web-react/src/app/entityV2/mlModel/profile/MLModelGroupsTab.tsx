@@ -1,7 +1,7 @@
 import { Space, Table, Typography } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import Link from 'antd/lib/typography/Link';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -14,11 +14,18 @@ const TabContent = styled.div`
     padding: 16px;
 `;
 
+const TruncatedDescription = styled.div<{ isExpanded: boolean }>`
+    display: -webkit-box;
+    -webkit-line-clamp: ${({ isExpanded }) => (isExpanded ? 'unset' : '3')};
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+`;
+
 export default function MLModelGroupsTab() {
     const baseEntity = useBaseEntity<GetMlModelQuery>();
     const model = baseEntity?.mlModel;
-
     const entityRegistry = useEntityRegistry();
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     const propertyTableColumns: ColumnsType<MlModelGroup> = [
         {
@@ -35,6 +42,37 @@ export default function MLModelGroupsTab() {
         {
             title: 'Description',
             dataIndex: 'description',
+            render: (_, record) => {
+                const editableDesc = record.editableProperties?.description;
+                const originalDesc = record.description;
+                const description = editableDesc || originalDesc;
+
+                if (!description) return '-';
+
+                const isExpanded = expandedRows.has(record.urn);
+                const isLong = description.length > 150;
+
+                if (!isLong) return description;
+
+                return (
+                    <>
+                        <TruncatedDescription isExpanded={isExpanded}>{description}</TruncatedDescription>
+                        <Typography.Link
+                            onClick={() => {
+                                const newExpanded = new Set(expandedRows);
+                                if (isExpanded) {
+                                    newExpanded.delete(record.urn);
+                                } else {
+                                    newExpanded.add(record.urn);
+                                }
+                                setExpandedRows(newExpanded);
+                            }}
+                        >
+                            {isExpanded ? 'Show less' : 'Read more'}
+                        </Typography.Link>
+                    </>
+                );
+            },
         },
     ];
 
