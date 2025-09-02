@@ -8,7 +8,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
-import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
+import { ActorFilter, CorpGroup, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -41,6 +41,14 @@ const SearchResultContent = styled.div`
 
 const OwnershipWrapper = styled.div`
     margin-top: 12px;
+`;
+
+const StyledTag = styled(Tag)`
+    padding: '0px 7px 0px 7px';
+    marginright: 3;
+    display: 'flex';
+    justifycontent: 'start';
+    alignitems: 'center';
 `;
 
 /**
@@ -87,6 +95,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
+    // User and group dropdown search results!
+    const userSearchResults = userSearchData?.search?.searchResults;
+    const groupSearchResults = groupSearchData?.search?.searchResults;
+
     // When a user search result is selected, add the urn to the ActorFilter
     const onSelectUserActor = (newUser: string) => {
         if (newUser === 'All') {
@@ -96,9 +108,18 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             });
         } else {
             const newUserActors = [...(actors.users || []), newUser];
+
+            // Find the selected user entity from search results and add it to resolved users
+            const selectedUserEntity = userSearchResults?.find((result) => result.entity.urn === newUser)
+                ?.entity as CorpUser;
+            const newResolvedUsers = selectedUserEntity
+                ? [...(actors.resolvedUsers || []), selectedUserEntity]
+                : actors.resolvedUsers;
+
             setActors({
                 ...actors,
                 users: newUserActors,
+                resolvedUsers: newResolvedUsers,
             });
         }
     };
@@ -128,9 +149,18 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             });
         } else {
             const newGroupActors = [...(actors.groups || []), newGroup];
+
+            // Find the selected group entity from search results and add it to resolved groups
+            const selectedGroupEntity = groupSearchResults?.find((result) => result.entity.urn === newGroup)
+                ?.entity as CorpGroup;
+            const newResolvedGroups = selectedGroupEntity
+                ? [...(actors.resolvedGroups || []), selectedGroupEntity]
+                : actors.resolvedGroups;
+
             setActors({
                 ...actors,
                 groups: newGroupActors,
+                resolvedGroups: newResolvedGroups,
             });
         }
     };
@@ -200,38 +230,16 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Whether to show "owners" switch.
     const showAppliesToOwners = policyType === PolicyType.Metadata;
 
-    // User and group dropdown search results!
-    const userSearchResults = userSearchData?.search?.searchResults;
-    const groupSearchResults = groupSearchData?.search?.searchResults;
-
     // Select dropdown values.
-    const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
-    const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
+    const usersSelectUrns = actors.allUsers ? ['All'] : actors.users || [];
+    const groupsSelectUrns = actors.allGroups ? ['All'] : actors.groups || [];
     const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
+    const usersSelectValues = actors.resolvedUsers?.filter((u) => usersSelectUrns.includes(u.urn)) || [];
+    const groupsSelectValues = actors.resolvedGroups?.filter((g) => groupsSelectUrns.includes(g.urn)) || [];
 
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose, value } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        return (
-            <Tag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{
-                    padding: value === 'All' ? '0px 7px 0px 7px' : '0px 7px 0px 0px',
-                    marginRight: 3,
-                    display: 'flex',
-                    justifyContent: 'start',
-                    alignItems: 'center',
-                }}
-            >
-                {label}
-            </Tag>
-        );
+    const onPreventMouseDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
     };
 
     return (
@@ -287,14 +295,31 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 </Typography.Paragraph>
                 <Select
                     data-testid="users"
-                    value={usersSelectValue}
+                    value={usersSelectUrns}
                     mode="multiple"
                     filterOption={false}
                     placeholder="Search for users..."
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
-                    tagRender={tagRender}
+                    tagRender={(tagProps) => {
+                        const { closable, onClose, value } = tagProps;
+
+                        if (value === 'All') {
+                            return (
+                                <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                    All Users
+                                </StyledTag>
+                            );
+                        }
+
+                        const selectedItem = usersSelectValues?.find((u) => u?.urn === value) || {};
+                        return (
+                            <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                {entityRegistry.getDisplayName(EntityType.CorpUser, selectedItem)}
+                            </StyledTag>
+                        );
+                    }}
                 >
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
@@ -309,14 +334,31 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 </Typography.Paragraph>
                 <Select
                     data-testid="groups"
-                    value={groupsSelectValue}
+                    value={groupsSelectUrns}
                     mode="multiple"
                     placeholder="Search for groups..."
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
                     filterOption={false}
-                    tagRender={tagRender}
+                    tagRender={(tagProps) => {
+                        const { closable, onClose, value } = tagProps;
+
+                        if (value === 'All') {
+                            return (
+                                <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                    All Groups
+                                </StyledTag>
+                            );
+                        }
+
+                        const selectedItem = groupsSelectValues?.find((g) => g?.urn === value) || {};
+                        return (
+                            <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                {entityRegistry.getDisplayName(EntityType.CorpGroup, selectedItem)}
+                            </StyledTag>
+                        );
+                    }}
                 >
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
