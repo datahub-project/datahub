@@ -37,7 +37,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     showClear?: boolean;
     width?: number | 'full' | 'fit-content';
     isMultiSelect?: boolean;
-    placeholder?: string;
+    placeholder?: string | React.ReactNode;
     disabledValues?: string[];
     showSelectAll?: boolean;
     selectAllLabel?: string;
@@ -83,7 +83,7 @@ export interface ActionButtonsProps {
 export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
     selectedValues: string[];
     options: OptionType[];
-    placeholder: string;
+    placeholder: string | React.ReactNode;
     isMultiSelect?: boolean;
     removeOption?: (option: OptionType) => void;
     disabledValues?: string[];

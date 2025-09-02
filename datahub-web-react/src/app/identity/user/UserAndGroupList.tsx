@@ -3,6 +3,7 @@ import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
+import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import {
     ActionsContainer,
     FilterContainer,
@@ -244,12 +245,6 @@ export const UserAndGroupList = () => {
 
                 const currentRoleUrn = userRole?.urn || invitationRole || NO_ROLE_URN;
 
-                const allRoleOptions = [{ urn: NO_ROLE_URN, name: NO_ROLE_TEXT }, ...selectRoleOptions];
-                const roleSelectOptions = allRoleOptions.map((role) => ({
-                    value: role.urn,
-                    label: role.name,
-                }));
-
                 // Show the invited role for users with pending invitations
                 if (invitationRole && user.invitationStatus?.status === 'SENT') {
                     const invitedRole = selectRoleOptions.find((role: DataHubRole) => role.urn === invitationRole);
@@ -261,20 +256,21 @@ export const UserAndGroupList = () => {
                     );
                 }
 
+                const currentRole = selectRoleOptions.find((role) => role.urn === currentRoleUrn);
+
                 return (
                     <div id={USERS_ASSIGN_ROLE_ID}>
-                        <SimpleSelect
-                            placeholder={NO_ROLE_TEXT}
-                            position="start"
-                            options={roleSelectOptions}
-                            values={[currentRoleUrn]}
-                            showClear={false}
-                            onUpdate={(values) => {
-                                const newRoleUrn = values[0];
-                                if (newRoleUrn && newRoleUrn !== currentRoleUrn) {
+                        <SimpleSelectRole
+                            selectedRole={currentRole}
+                            onRoleSelect={(role) => {
+                                const newRoleUrn = role?.urn || NO_ROLE_URN;
+                                if (newRoleUrn !== currentRoleUrn) {
                                     onSelectRole(user.urn, user.username, currentRoleUrn, newRoleUrn);
                                 }
                             }}
+                            placeholder={NO_ROLE_TEXT}
+                            size="md"
+                            width="fit-content"
                         />
                     </div>
                 );

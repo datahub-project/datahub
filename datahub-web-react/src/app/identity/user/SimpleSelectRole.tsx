@@ -1,8 +1,17 @@
-import { SimpleSelect } from '@components';
+import { Icon, SimpleSelect } from '@components';
 import React, { useMemo } from 'react';
+import styled from 'styled-components';
+
+import { mapRoleToPhosphorIcon } from '@app/identity/user/PhosphorRoleUtils';
 
 import { useListRolesQuery } from '@graphql/role.generated';
 import { DataHubRole } from '@types';
+
+const PlaceholderContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
 
 interface Props {
     selectedRole?: DataHubRole;
@@ -21,6 +30,12 @@ export default function SimpleSelectRole({
     width = 'fit-content',
     disabled = false,
 }: Props) {
+    const placeholderWithIcon = (
+        <PlaceholderContainer>
+            <Icon icon="User" source="phosphor" size="xl" />
+            {placeholder}
+        </PlaceholderContainer>
+    );
     // Fetch roles for the dropdown
     const { data: rolesData } = useListRolesQuery({
         fetchPolicy: 'cache-first',
@@ -40,10 +55,11 @@ export default function SimpleSelectRole({
         const roleOptions = roles.map((role) => ({
             value: role.urn,
             label: role.name,
+            icon: mapRoleToPhosphorIcon(role.name),
         }));
 
         // Add "No Role" option at the end
-        return [...roleOptions, { value: '', label: placeholder }];
+        return [...roleOptions, { value: '', label: placeholder, icon: mapRoleToPhosphorIcon('') }];
     }, [roles, placeholder]);
 
     const handleRoleSelect = (roleUrn: string) => {
@@ -59,7 +75,7 @@ export default function SimpleSelectRole({
         <SimpleSelect
             onUpdate={(values) => handleRoleSelect(values[0] || '')}
             options={roleSelectOptions}
-            placeholder={placeholder}
+            placeholder={placeholderWithIcon}
             values={selectedRole?.urn ? [selectedRole.urn] : []}
             size={size}
             width={width}
