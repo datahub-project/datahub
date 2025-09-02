@@ -1,5 +1,6 @@
 import React, { ReactNode, createContext, useContext, useMemo, useState } from 'react';
 
+import { useAssetSummaryOperations } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
 import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
@@ -22,6 +23,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         globalTemplate,
         template,
         isEditingGlobalTemplate,
+        summaryElements,
         setIsEditingGlobalTemplate,
         setPersonalTemplate,
         setGlobalTemplate,
@@ -49,6 +51,17 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         moduleModalState.initialState,
     );
 
+    // Asset summary operations
+    const { addSummaryElement, removeSummaryElement, replaceSummaryElement, getSummaryElementsWithIds } =
+        useAssetSummaryOperations(
+            isEditingGlobalTemplate,
+            personalTemplate,
+            globalTemplate,
+            setPersonalTemplate,
+            setGlobalTemplate,
+            upsertTemplate,
+        );
+
     // If modules should be reloaded
     const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
 
@@ -70,6 +83,12 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             resetTemplateToDefault,
             reloadHomepageModules,
             setReloadHomepageModules,
+            // Asset summary operations
+            summaryElements,
+            addSummaryElement,
+            removeSummaryElement,
+            replaceSummaryElement,
+            getSummaryElementsWithIds,
         }),
         [
             personalTemplate,
@@ -88,6 +107,12 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             resetTemplateToDefault,
             reloadHomepageModules,
             setReloadHomepageModules,
+            // Asset summary operations
+            summaryElements,
+            addSummaryElement,
+            removeSummaryElement,
+            replaceSummaryElement,
+            getSummaryElementsWithIds,
         ],
     );
 

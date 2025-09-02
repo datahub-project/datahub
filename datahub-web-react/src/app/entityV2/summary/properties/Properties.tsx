@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import AddPropertyButton from '@app/entityV2/summary/properties/menuAddProperty/AddPropertyButton';
 import PropertyRenderer from '@app/entityV2/summary/properties/property/PropertyRenderer';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 const Container = styled.div`
     display: flex;
@@ -13,16 +14,17 @@ const Container = styled.div`
 `;
 
 export default function Properties() {
-    const { properties, editable } = useAssetPropertiesContext();
+    const { editable } = useAssetPropertiesContext();
+    const { summaryElements } = usePageTemplateContext();
 
     const propertyItems = useMemo(
         () =>
-            properties?.map((property, index) => ({
+            summaryElements?.map((property, index) => ({
                 property,
                 key: `${property.type}-${index}`,
                 index,
             })) ?? [],
-        [properties],
+        [summaryElements],
     );
 
     return (

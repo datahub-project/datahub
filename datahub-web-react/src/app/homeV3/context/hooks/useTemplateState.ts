@@ -3,14 +3,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { mapSummaryElement } from '@app/entityV2/summary/properties/utils';
 import { filterOutNonExistentModulesFromTemplate } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { getDefaultSummaryPageTemplate } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE } from '@app/homeV3/modules/constants';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { PageTemplateSurfaceType } from '@types';
 
 export function useTemplateState(templateType: PageTemplateSurfaceType) {
+    const entityRegistry = useEntityRegistryV2();
     const [areTemplatesInitialized, setAreTemplatesInitialized] = useState(false);
     const [personalTemplate, setPersonalTemplate] = useState<PageTemplateFragment | null>(null);
     const [globalTemplate, setGlobalTemplate] = useState<PageTemplateFragment | null>(null);
@@ -68,11 +71,17 @@ export function useTemplateState(templateType: PageTemplateSurfaceType) {
         }
     };
 
+    const summaryElements = useMemo(
+        () => template?.properties.assetSummary?.summaryElements?.map((el) => mapSummaryElement(el, entityRegistry)),
+        [template, entityRegistry],
+    );
+
     return {
         personalTemplate,
         globalTemplate,
         template,
         isEditingGlobalTemplate,
+        summaryElements,
         setIsEditingGlobalTemplate,
         setPersonalTemplate,
         setGlobalTemplate,

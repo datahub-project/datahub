@@ -1564,6 +1564,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
