@@ -100,7 +100,6 @@ public class ExternalEventsService {
           getPartitionOffsets(finalTopic, offsetId, consumer, partitions, lookbackWindowDays);
 
       for (Map.Entry<TopicPartition, Long> entry : partitionOffsets.entrySet()) {
-        System.out.println(String.format("Seeking to topic is %s", entry.getKey().topic()));
         consumer.seek(entry.getKey(), entry.getValue());
       }
 
