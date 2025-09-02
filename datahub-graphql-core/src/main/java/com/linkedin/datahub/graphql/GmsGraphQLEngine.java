@@ -778,7 +778,7 @@ public class GmsGraphQLEngine {
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
-    configurePageTemplateRowResolvers(builder);
+    configurePageTemplateResolvers(builder);
     configureAssetSettingsResolver(builder);
   }
 
@@ -3571,7 +3571,7 @@ public class GmsGraphQLEngine {
                     })));
   }
 
-  private void configurePageTemplateRowResolvers(final RuntimeWiring.Builder builder) {
+  private void configurePageTemplateResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "DataHubPageTemplateRow",
         typeWiring ->
@@ -3584,6 +3584,22 @@ public class GmsGraphQLEngine {
                             .getModules().stream()
                                 .map(DataHubPageModule::getUrn)
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "SummaryElement",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "structuredProperty",
+                new LoadableTypeResolver<>(
+                    structuredPropertyType,
+                    (env) -> {
+                      final SummaryElement summaryElement = env.getSource();
+                      if (summaryElement != null) {
+                        return summaryElement.getStructuredProperty() != null
+                            ? summaryElement.getStructuredProperty().getUrn()
+                            : null;
+                      }
+                      return null;
+                    })));
 
     builder.type(
         "DataHubPageModule",
@@ -3601,11 +3617,6 @@ public class GmsGraphQLEngine {
                     (env) -> {
                       final AssetSummarySettingsTemplate assetSummarySettingsTemplate =
                           env.getSource();
-                      System.out.println("~~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~");
-                      System.out.println(assetSummarySettingsTemplate);
-                      System.out.println(assetSummarySettingsTemplate.getTemplate());
-                      System.out.println(assetSummarySettingsTemplate.getTemplate().getUrn());
-                      System.out.println("~~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~");
                       if (assetSummarySettingsTemplate != null) {
                         return assetSummarySettingsTemplate.getTemplate() != null
                             ? assetSummarySettingsTemplate.getTemplate().getUrn()
@@ -3613,9 +3624,5 @@ public class GmsGraphQLEngine {
                       }
                       return null;
                     })));
-
-    builder.type(
-        "DataHubPageModule",
-        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 }
