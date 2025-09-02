@@ -1,4 +1,4 @@
-import { createAccessButtonHelpersTestSuite } from '@app/shared/tabs/Dataset/AccessManagement/AccessButtonHelpers.testUtils';
+import { createAccessButtonHelpersTestSuite } from '@utils/test-utils/createAccessButtonHelpersTestSuite';
 
 /**
  * Tests for EntityV2 AccessButtonHelpers
