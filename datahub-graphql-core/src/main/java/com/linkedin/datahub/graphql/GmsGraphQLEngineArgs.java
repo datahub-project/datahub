@@ -24,6 +24,7 @@ import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SemanticSearchService;
 import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.ApplicationService;
@@ -129,4 +130,5 @@ public class GmsGraphQLEngineArgs {
   MetadataTestClient metadataTestClient;
   AssertionMonitorsConfiguration assertionMonitorsConfiguration;
   UserService userService;
+  SemanticSearchService semanticSearchService;
 }

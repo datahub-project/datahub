@@ -10,21 +10,30 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +48,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class ESUtilsTest {
-
   private static final String FIELD_TO_EXPAND = "fieldTags";
 
   private static AspectRetriever aspectRetriever;
@@ -157,15 +165,18 @@ public class ESUtilsTest {
             mock(OperationContext.class),
             QueryFilterRewriteChain.EMPTY);
     String expected =
-        "{\n"
-            + "  \"terms\" : {\n"
-            + "    \"myTestField.keyword\" : [\n"
-            + "      \"value1\"\n"
-            + "    ],\n"
-            + "    \"boost\" : 1.0,\n"
-            + "    \"_name\" : \"myTestField\"\n"
-            + "  }\n"
-            + "}";
+        """
+    {
+      "terms" : {
+        "myTestField.keyword" : [
+          "value1"
+        ],
+        "boost" : 1.0,
+        "_name" : "myTestField"
+      }
+    }
+    """
+            .trim();
 
     Assert.assertEquals(result.toString(), expected);
 
@@ -180,16 +191,19 @@ public class ESUtilsTest {
             mock(OperationContext.class),
             QueryFilterRewriteChain.EMPTY);
     expected =
-        "{\n"
-            + "  \"terms\" : {\n"
-            + "    \"myTestField.keyword\" : [\n"
-            + "      \"value1\",\n"
-            + "      \"value2\"\n"
-            + "    ],\n"
-            + "    \"boost\" : 1.0,\n"
-            + "    \"_name\" : \"myTestField\"\n"
-            + "  }\n"
-            + "}";
+        """
+    {
+      "terms" : {
+        "myTestField.keyword" : [
+          "value1",
+          "value2"
+        ],
+        "boost" : 1.0,
+        "_name" : "myTestField"
+      }
+    }
+    """
+            .trim();
     Assert.assertEquals(result.toString(), expected);
 
     final Criterion timeseriesField =
@@ -203,16 +217,19 @@ public class ESUtilsTest {
             mock(OperationContext.class),
             QueryFilterRewriteChain.EMPTY);
     expected =
-        "{\n"
-            + "  \"terms\" : {\n"
-            + "    \"myTestField\" : [\n"
-            + "      \"value1\",\n"
-            + "      \"value2\"\n"
-            + "    ],\n"
-            + "    \"boost\" : 1.0,\n"
-            + "    \"_name\" : \"myTestField\"\n"
-            + "  }\n"
-            + "}";
+        """
+    {
+      "terms" : {
+        "myTestField" : [
+          "value1",
+          "value2"
+        ],
+        "boost" : 1.0,
+        "_name" : "myTestField"
+      }
+    }
+    """
+            .trim();
     Assert.assertEquals(result.toString(), expected);
   }
 
@@ -231,25 +248,28 @@ public class ESUtilsTest {
             QueryFilterRewriteChain.EMPTY);
 
     String expected =
-        "{\n"
-            + "  \"bool\" : {\n"
-            + "    \"should\" : [\n"
-            + "      {\n"
-            + "        \"term\" : {\n"
-            + "          \"myTestField.keyword\" : {\n"
-            + "            \"value\" : \"value1\",\n"
-            + "            \"case_insensitive\" : true,\n"
-            + "            \"boost\" : 1.0\n"
-            + "          }\n"
-            + "        }\n"
-            + "      }\n"
-            + "    ],\n"
-            + "    \"adjust_pure_negative\" : true,\n"
-            + "    \"minimum_should_match\" : \"1\",\n"
-            + "    \"boost\" : 1.0,\n"
-            + "    \"_name\" : \"myTestField\"\n"
-            + "  }\n"
-            + "}";
+        """
+    {
+      "bool" : {
+        "should" : [
+          {
+            "term" : {
+              "myTestField.keyword" : {
+                "value" : "value1",
+                "case_insensitive" : true,
+                "boost" : 1.0
+              }
+            }
+          }
+        ],
+        "adjust_pure_negative" : true,
+        "minimum_should_match" : "1",
+        "boost" : 1.0,
+        "_name" : "myTestField"
+      }
+    }
+    """
+            .trim();
 
     Assert.assertEquals(result.toString(), expected);
 
@@ -265,34 +285,37 @@ public class ESUtilsTest {
             QueryFilterRewriteChain.EMPTY);
 
     expected =
-        "{\n"
-            + "  \"bool\" : {\n"
-            + "    \"should\" : [\n"
-            + "      {\n"
-            + "        \"term\" : {\n"
-            + "          \"myTestField.keyword\" : {\n"
-            + "            \"value\" : \"value1\",\n"
-            + "            \"case_insensitive\" : true,\n"
-            + "            \"boost\" : 1.0\n"
-            + "          }\n"
-            + "        }\n"
-            + "      },\n"
-            + "      {\n"
-            + "        \"term\" : {\n"
-            + "          \"myTestField.keyword\" : {\n"
-            + "            \"value\" : \"value2\",\n"
-            + "            \"case_insensitive\" : true,\n"
-            + "            \"boost\" : 1.0\n"
-            + "          }\n"
-            + "        }\n"
-            + "      }\n"
-            + "    ],\n"
-            + "    \"adjust_pure_negative\" : true,\n"
-            + "    \"minimum_should_match\" : \"1\",\n"
-            + "    \"boost\" : 1.0,\n"
-            + "    \"_name\" : \"myTestField\"\n"
-            + "  }\n"
-            + "}";
+        """
+    {
+      "bool" : {
+        "should" : [
+          {
+            "term" : {
+              "myTestField.keyword" : {
+                "value" : "value1",
+                "case_insensitive" : true,
+                "boost" : 1.0
+              }
+            }
+          },
+          {
+            "term" : {
+              "myTestField.keyword" : {
+                "value" : "value2",
+                "case_insensitive" : true,
+                "boost" : 1.0
+              }
+            }
+          }
+        ],
+        "adjust_pure_negative" : true,
+        "minimum_should_match" : "1",
+        "boost" : 1.0,
+        "_name" : "myTestField"
+      }
+    }
+    """
+            .trim();
 
     Assert.assertEquals(result.toString(), expected);
   }
@@ -1767,5 +1790,442 @@ public class ESUtilsTest {
     TermQueryBuilder filterTerm = (TermQueryBuilder) optimizedBool.filter().get(0);
     Assert.assertEquals("status", filterTerm.fieldName());
     Assert.assertEquals("active", filterTerm.value());
+  }
+
+  // ===================== buildFilterMap tests =====================
+
+  @Test
+  public void testBuildFilterMapSimpleEqualSingleValue() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+    searchableFieldTypes.put("status", Set.of(SearchableAnnotation.FieldType.KEYWORD));
+
+    Criterion c = new Criterion();
+    c.setField("status");
+    c.setCondition(Condition.EQUAL);
+    StringArray values = new StringArray();
+    values.add("active");
+    c.setValues(values);
+
+    ConjunctiveCriterion and = new ConjunctiveCriterion();
+    and.setAnd(new CriterionArray(c));
+    Filter f = new Filter();
+    f.setOr(new ConjunctiveCriterionArray(and));
+
+    Map<String, Object> result =
+        ESUtils.buildFilterMap(
+            f, false, searchableFieldTypes, opContext, QueryFilterRewriteChain.EMPTY);
+
+    // The optimizer moves the main filter to the top level
+    // Using assertJsonContains to ignore boost, _name, adjust_pure_negative fields
+    String expectedJson =
+        """
+    {
+      "bool": {
+        "filter": [
+          { "terms": { "status.keyword": ["active"] } }
+        ],
+        "must": [ {
+          "bool": {
+            "should": [
+              { "bool": { "filter": [ { "terms": { "isLatest.keyword": ["true"] } } ] } },
+              { "bool": { "must_not": [ { "bool": { "must": [ { "exists": { "field": "isLatest" } } ] } } ] } }
+            ],
+            "minimum_should_match": "1"
+          }
+        } ]
+      }
+    }
+    """;
+    assertJsonContains(expectedJson, result);
+  }
+
+  @Test
+  public void testBuildFilterMapMultipleValuesEqual() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+    searchableFieldTypes.put("platform", Set.of(SearchableAnnotation.FieldType.KEYWORD));
+
+    Criterion c = new Criterion();
+    c.setField("platform");
+    c.setCondition(Condition.EQUAL);
+    StringArray values = new StringArray();
+    values.add("urn:li:dataPlatform:hive");
+    values.add("urn:li:dataPlatform:kafka");
+    c.setValues(values);
+
+    ConjunctiveCriterion and = new ConjunctiveCriterion();
+    and.setAnd(new CriterionArray(c));
+    Filter f = new Filter();
+    f.setOr(new ConjunctiveCriterionArray(and));
+
+    Map<String, Object> result =
+        ESUtils.buildFilterMap(
+            f, false, searchableFieldTypes, opContext, QueryFilterRewriteChain.EMPTY);
+
+    // The optimizer moves the main filter to the top level
+    String expectedJson =
+        """
+    {
+      "bool": {
+        "filter": [
+          { "terms": { "platform.keyword": [
+            "urn:li:dataPlatform:hive", "urn:li:dataPlatform:kafka"
+          ] } }
+        ],
+        "must": [ {
+          "bool": {
+            "should": [
+              { "bool": { "filter": [ { "terms": { "isLatest.keyword": ["true"] } } ] } },
+              { "bool": { "must_not": [ { "bool": { "must": [ { "exists": { "field": "isLatest" } } ] } } ] } }
+            ],
+            "minimum_should_match": "1"
+          }
+        } ]
+      }
+    }
+    """;
+    assertJsonContains(expectedJson, result);
+  }
+
+  @Test
+  public void testBuildFilterMapRangeGteLte() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+    // Specify that age is a numeric field (COUNT type becomes LONG in ES)
+    // This is critical - without field type specification, values remain as strings!
+    searchableFieldTypes.put("age", Set.of(SearchableAnnotation.FieldType.COUNT));
+
+    Criterion c = new Criterion();
+    c.setField("age");
+    c.setCondition(Condition.BETWEEN);
+    StringArray values = new StringArray();
+    values.add("18");
+    values.add("65");
+    c.setValues(values);
+
+    ConjunctiveCriterion and = new ConjunctiveCriterion();
+    and.setAnd(new CriterionArray(c));
+    Filter f = new Filter();
+    f.setOr(new ConjunctiveCriterionArray(and));
+
+    Map<String, Object> result =
+        ESUtils.buildFilterMap(
+            f, false, searchableFieldTypes, opContext, QueryFilterRewriteChain.EMPTY);
+
+    // The optimizer moves the main filter to the top level
+    // With proper numeric field type, values are parsed as Long (18L, 65L)
+    // Note: minimumShouldMatch is always serialized as string by OpenSearch (supports percentages)
+    String expectedJson =
+        """
+    {
+      "bool": {
+        "filter": [
+          { "range": { "age": { "from": 18, "to": 65, "include_lower": true, "include_upper": true } } }
+        ],
+        "must": [ {
+          "bool": {
+            "should": [
+              { "bool": { "filter": [ { "terms": { "isLatest.keyword": ["true"] } } ] } },
+              { "bool": { "must_not": [ { "bool": { "must": [ { "exists": { "field": "isLatest" } } ] } } ] } }
+            ],
+            "minimum_should_match": "1"
+          }
+        } ]
+      }
+    }
+    """;
+    assertJsonContains(expectedJson, result);
+
+    // Verify that age values are indeed numeric (not strings)
+    @SuppressWarnings("unchecked")
+    Map<String, Object> boolMap = (Map<String, Object>) result.get("bool");
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> filterList = (List<Map<String, Object>>) boolMap.get("filter");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> rangeMap = (Map<String, Object>) filterList.get(0).get("range");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> ageRange = (Map<String, Object>) rangeMap.get("age");
+
+    // These should be Long values, not Strings
+    Assert.assertTrue(
+        ageRange.get("from") instanceof Number,
+        "Expected 'from' to be numeric, got: " + ageRange.get("from").getClass());
+    Assert.assertTrue(
+        ageRange.get("to") instanceof Number,
+        "Expected 'to' to be numeric, got: " + ageRange.get("to").getClass());
+    Assert.assertEquals(((Number) ageRange.get("from")).longValue(), 18L);
+    Assert.assertEquals(((Number) ageRange.get("to")).longValue(), 65L);
+  }
+
+  @Test
+  public void testBuildFilterMapRangeWithoutFieldType() {
+    // Test to demonstrate that without field type specification, range values remain as strings
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+    // NO field type specified - will default to string handling
+
+    Criterion c = new Criterion();
+    c.setField("score");
+    c.setCondition(Condition.BETWEEN);
+    c.setValues(new StringArray("9", "15")); // "9" > "15" lexicographically!
+
+    ConjunctiveCriterion and = new ConjunctiveCriterion();
+    and.setAnd(new CriterionArray(c));
+    Filter f = new Filter();
+    f.setOr(new ConjunctiveCriterionArray(and));
+
+    Map<String, Object> result =
+        ESUtils.buildFilterMap(
+            f, false, searchableFieldTypes, opContext, QueryFilterRewriteChain.EMPTY);
+
+    // Verify values are strings (not numbers) when field type is not specified
+    @SuppressWarnings("unchecked")
+    Map<String, Object> boolMap = (Map<String, Object>) result.get("bool");
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> filterList = (List<Map<String, Object>>) boolMap.get("filter");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> rangeMap = (Map<String, Object>) filterList.get(0).get("range");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> scoreRange = (Map<String, Object>) rangeMap.get("score.keyword");
+
+    // Without field type, these remain as strings - DANGEROUS for numeric comparisons!
+    Assert.assertTrue(
+        scoreRange.get("from") instanceof String,
+        "Without field type, 'from' should be String, got: " + scoreRange.get("from").getClass());
+    Assert.assertTrue(
+        scoreRange.get("to") instanceof String,
+        "Without field type, 'to' should be String, got: " + scoreRange.get("to").getClass());
+    Assert.assertEquals(scoreRange.get("from"), "9");
+    Assert.assertEquals(scoreRange.get("to"), "15");
+    // Note: "9" > "15" in string comparison, so this would give incorrect results!
+  }
+
+  @Test
+  public void testBuildFilterMapExistsAndIsNull() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+
+    Criterion existsC = new Criterion();
+    existsC.setField("description");
+    existsC.setCondition(Condition.EXISTS);
+    existsC.setValues(new StringArray("true"));
+
+    Criterion nullC = new Criterion();
+    nullC.setField("owner");
+    nullC.setCondition(Condition.IS_NULL);
+    nullC.setValues(new StringArray("true"));
+
+    ConjunctiveCriterion and = new ConjunctiveCriterion();
+    and.setAnd(new CriterionArray(existsC, nullC));
+    Filter f = new Filter();
+    f.setOr(new ConjunctiveCriterionArray(and));
+
+    Map<String, Object> result =
+        ESUtils.buildFilterMap(
+            f, false, searchableFieldTypes, opContext, QueryFilterRewriteChain.EMPTY);
+
+    // The optimizer moves filters to top level. EXISTS field is expanded to include
+    // editedDescription
+    // EXISTS and IS_NULL become separate filter clauses
+    String expectedJson =
+        """
+    {
+      "bool": {
+        "filter": [
+          { "bool": {
+            "should": [
+              { "bool": { "must": [ { "exists": { "field": "description" } } ] } },
+              { "bool": { "must": [ { "exists": { "field": "editedDescription" } } ] } }
+            ],
+            "minimum_should_match": "1"
+          } },
+          { "bool": { "must_not": [ { "exists": { "field": "owner" } } ] } }
+        ],
+        "must": [ {
+          "bool": {
+            "should": [
+              { "bool": { "filter": [ { "terms": { "isLatest.keyword": ["true"] } } ] } },
+              { "bool": { "must_not": [ { "bool": { "must": [ { "exists": { "field": "isLatest" } } ] } } ] } }
+            ],
+            "minimum_should_match": "1"
+          }
+        } ]
+      }
+    }
+    """;
+    assertJsonContains(expectedJson, result);
+  }
+
+  @Test
+  public void testBuildFilterMapOrGrouping() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+    searchableFieldTypes.put("type", Set.of(SearchableAnnotation.FieldType.KEYWORD));
+
+    Criterion type1 = new Criterion();
+    type1.setField("type");
+    type1.setCondition(Condition.EQUAL);
+    type1.setValues(new StringArray("dataset"));
+
+    Criterion type2 = new Criterion();
+    type2.setField("type");
+    type2.setCondition(Condition.EQUAL);
+    type2.setValues(new StringArray("chart"));
+
+    ConjunctiveCriterion and1 = new ConjunctiveCriterion();
+    and1.setAnd(new CriterionArray(type1));
+    ConjunctiveCriterion and2 = new ConjunctiveCriterion();
+    and2.setAnd(new CriterionArray(type2));
+
+    Filter f = new Filter();
+    f.setOr(new ConjunctiveCriterionArray(and1, and2));
+
+    Map<String, Object> result =
+        ESUtils.buildFilterMap(
+            f, false, searchableFieldTypes, opContext, QueryFilterRewriteChain.EMPTY);
+
+    // With OR conditions, the structure is preserved in should clause
+    String expectedJson =
+        """
+    {
+      "bool": {
+        "should": [
+          { "bool": { "filter": [ { "terms": { "type.keyword": ["dataset"] } } ] } },
+          { "bool": { "filter": [ { "terms": { "type.keyword": ["chart"] } } ] } }
+        ],
+        "minimum_should_match": "1",
+        "must": [ {
+          "bool": {
+            "should": [
+              { "bool": { "filter": [ { "terms": { "isLatest.keyword": ["true"] } } ] } },
+              { "bool": { "must_not": [ { "bool": { "must": [ { "exists": { "field": "isLatest" } } ] } } ] } }
+            ],
+            "minimum_should_match": "1"
+          }
+        } ]
+      }
+    }
+    """;
+    assertJsonContains(expectedJson, result);
+  }
+
+  @Test
+  public void testBuildFilterMapSimpleEqualSingleValueWithoutDefaultVersionGuard() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    opContext.getSearchContext().getSearchFlags().setFilterNonLatestVersions(false);
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes = new HashMap<>();
+    searchableFieldTypes.put("status", Set.of(SearchableAnnotation.FieldType.KEYWORD));
+
+    Criterion c = new Criterion();
+    c.setField("status");
+    c.setCondition(Condition.EQUAL);
+    StringArray values = new StringArray();
+    values.add("active");
+    c.setValues(values);
+
+    ConjunctiveCriterion and = new ConjunctiveCriterion();
+    and.setAnd(new CriterionArray(c));
+    Filter f = new Filter();
+    f.setOr(new ConjunctiveCriterionArray(and));
+
+    Map<String, Object> result =
+        ESUtils.buildFilterMap(
+            f, false, searchableFieldTypes, opContext, QueryFilterRewriteChain.EMPTY);
+
+    // Without default guard, the optimized query is simpler
+    String expectedJson =
+        """
+    {
+      "bool": {
+        "filter": [
+          { "terms": { "status.keyword": ["active"] } }
+        ]
+      }
+    }
+    """;
+    assertJsonContains(expectedJson, result);
+  }
+
+  private static void assertJsonEquals(String expectedJson, Map<String, Object> actual) {
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode expected = mapper.readTree(expectedJson);
+      JsonNode actualNode = mapper.valueToTree(actual);
+      Assert.assertEquals(
+          actualNode,
+          expected,
+          "JSON mismatch:\nExpected:\n"
+              + expected.toPrettyString()
+              + "\nActual:\n"
+              + actualNode.toPrettyString());
+    } catch (Exception e) {
+      throw new AssertionError("Failed to compare JSON: " + e.getMessage(), e);
+    }
+  }
+
+  private static void assertJsonContains(String expectedJson, Map<String, Object> actual) {
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      JsonNode expected = mapper.readTree(expectedJson);
+      JsonNode actualNode = mapper.valueToTree(actual);
+      if (!jsonContains(actualNode, expected)) {
+        Assert.fail(
+            "Expected JSON shape not contained in actual.\nExpected subset:\n"
+                + expected.toPrettyString()
+                + "\nActual:\n"
+                + actualNode.toPrettyString());
+      }
+    } catch (Exception e) {
+      throw new AssertionError("Failed to compare JSON shape: " + e.getMessage(), e);
+    }
+  }
+
+  private static boolean jsonContains(JsonNode actual, JsonNode expected) {
+    if (expected == null || expected.isNull()) {
+      return true;
+    }
+    if (actual == null || actual.isNull()) {
+      return false;
+    }
+    if (expected.isObject()) {
+      if (!actual.isObject()) return false;
+      var fields = expected.fields();
+      while (fields.hasNext()) {
+        var entry = fields.next();
+        var key = entry.getKey();
+        var expVal = entry.getValue();
+        var actVal = actual.get(key);
+        if (actVal == null) return false;
+        if (!jsonContains(actVal, expVal)) return false;
+      }
+      return true;
+    }
+    if (expected.isArray()) {
+      if (!actual.isArray()) return false;
+      if (expected.size() > actual.size()) return false;
+      for (int i = 0; i < expected.size(); i++) {
+        if (!jsonContains(actual.get(i), expected.get(i))) return false;
+      }
+      return true;
+    }
+    // primitives: require equality
+    return actual.equals(expected);
+  }
+
+  @Test
+  public void testBuildSearchableFieldTypes() {
+    // Test with empty entity specs
+    EntityRegistry registry = mock(EntityRegistry.class);
+    List<EntitySpec> emptySpecs = Collections.emptyList();
+    Map<String, Set<SearchableAnnotation.FieldType>> result =
+        ESUtils.buildSearchableFieldTypes(registry, emptySpecs);
+    Assert.assertTrue(result.isEmpty());
+
+    // Note: Full testing of buildSearchableFieldTypes with entity specs requires
+    // complex mocking of MappingsBuilder.getMappings (static method) and DataSchema types.
+    // The method's logic is tested through integration tests like SearchRequestHandlerTest
+    // and SemanticEntitySearchIT which exercise the full search path including field type
+    // resolution.
   }
 }

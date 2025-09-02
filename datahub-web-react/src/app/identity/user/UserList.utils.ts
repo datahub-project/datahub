@@ -4,13 +4,17 @@ import { UserListItem } from '@app/identity/user/UserAndGroupList.hooks';
 
 import { CorpUserStatus } from '@types';
 
-export const getUserStatusColor = (userStatus: CorpUserStatus | null | undefined): ColorValues => {
+export const getUserStatusColor = (userStatus: CorpUserStatus | null | undefined, user: UserListItem): ColorValues => {
     switch (userStatus) {
         case CorpUserStatus.Active:
             return ColorValues.green;
         case CorpUserStatus.Suspended:
             return ColorValues.red;
         default:
+            // Check invitation status for appropriate color
+            if (user.invitationStatus?.status === 'SENT') {
+                return ColorValues.blue; // Blue for invited users
+            }
             return ColorValues.gray;
     }
 };
@@ -19,6 +23,20 @@ export const getUserStatusText = (userStatus: CorpUserStatus | undefined | null,
     if (userStatus) {
         return userStatus.charAt(0).toUpperCase() + userStatus.slice(1).toLowerCase();
     }
+
+    // Check if user has an invitation status
+    if (user.invitationStatus) {
+        if (user.invitationStatus.status === 'SENT') {
+            return 'Invited';
+        }
+        if (user.invitationStatus.status === 'ACCEPTED') {
+            return 'Active'; // User was invited and accepted
+        }
+        if (user.invitationStatus.status === 'REVOKED') {
+            return 'Inactive';
+        }
+    }
+
     // If no status, check if user has logged in before
     return user.isNativeUser ? 'Invited' : 'Inactive';
 };

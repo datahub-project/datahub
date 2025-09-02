@@ -181,6 +181,18 @@ query getSamplesSearchResults($input: SearchAcrossEntitiesInput!) {
                     subTypes {
                         typeNames
                     }
+                    dataFlow {
+                        platform {
+                            urn
+                            type
+                            name
+                            properties {
+                                type
+                                displayName
+                                logoUrl
+                            }
+                        }
+                    }
                     dataPlatformInstance {
                         urn
                         type

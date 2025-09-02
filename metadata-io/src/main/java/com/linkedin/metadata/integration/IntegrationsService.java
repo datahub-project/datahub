@@ -24,9 +24,12 @@ import io.datahubproject.integrations.invoker.ServerConfiguration;
 import io.datahubproject.integrations.model.ExecuteShareResult;
 import io.datahubproject.integrations.model.ExecuteUnshareResult;
 import io.datahubproject.integrations.model.LineageDirection;
+import io.datahubproject.integrations.model.QueryEmbeddingRequest;
+import io.datahubproject.integrations.model.QueryEmbeddingResponse;
 import io.datahubproject.integrations.model.SuggestedDescription;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -443,6 +446,50 @@ public class IntegrationsService {
     } catch (ApiException e) {
       log.error("Failed to suggest description for entity: " + entity, e);
       return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  /**
+   * Generates query embeddings using the integrations service.
+   *
+   * @param text The text to generate embeddings for
+   * @param model The model to use (can be null for default)
+   * @return The embedding vector as a float array
+   * @throws RuntimeException if embedding generation fails
+   */
+  @Nonnull
+  public float[] generateQueryEmbedding(@Nonnull String text, @Nullable String model) {
+    Objects.requireNonNull(text, "text must not be null");
+
+    if (text.trim().isEmpty()) {
+      throw new IllegalArgumentException("Cannot generate embeddings for empty text");
+    }
+
+    try {
+      QueryEmbeddingRequest request = new QueryEmbeddingRequest().text(text).model(model);
+
+      QueryEmbeddingResponse response = aiApi.embedQuery(request);
+
+      // Convert List<BigDecimal> to float[]
+      List<BigDecimal> embedding = response.getEmbedding();
+      if (embedding == null || embedding.isEmpty()) {
+        throw new RuntimeException("Received empty embedding from integrations service");
+      }
+
+      float[] result = new float[embedding.size()];
+      for (int i = 0; i < embedding.size(); i++) {
+        result[i] = embedding.get(i).floatValue();
+      }
+
+      // Log if truncation occurred
+      if (response.getTruncated() != null && Boolean.parseBoolean(response.getTruncated())) {
+        log.warn("Input text was truncated by the embedding model");
+      }
+
+      return result;
+    } catch (ApiException e) {
+      log.error("Failed to generate embeddings for text", e);
+      throw new RuntimeException("Failed to generate embeddings", e);
     }
   }
 

@@ -155,6 +155,21 @@ export const UserAndGroupList = () => {
     const filteredUsers = filterUsersByStatus(usersList, statusFilter);
     const isFiltering = statusFilter !== 'all';
 
+    // Sort invited users first for ascending, last for descending
+    const sortedFilteredUsers = React.useMemo(() => {
+        if (!sortField || sortField !== ENTITY_NAME_FIELD) {
+            return filteredUsers;
+        }
+
+        const invitedUsers = filteredUsers.filter((user) => user.invitationStatus?.status === 'SENT');
+        const otherUsers = filteredUsers.filter((user) => user.invitationStatus?.status !== 'SENT');
+
+        if (sortOrder === SortOrder.Ascending) {
+            return [...invitedUsers, ...otherUsers];
+        }
+        return [...otherUsers, ...invitedUsers];
+    }, [filteredUsers, sortField, sortOrder]);
+
     const handleSortColumnChange = ({
         sortColumn,
         sortOrder: tableSortOrder,
@@ -197,8 +212,8 @@ export const UserAndGroupList = () => {
             render: (user: UserListItem) => (
                 <UserStatusCell
                     user={user}
-                    getUserStatusText={getUserStatusText}
-                    getUserStatusColor={getUserStatusColor}
+                    getUserStatusText={(status) => getUserStatusText(status, user)}
+                    getUserStatusColor={(status) => getUserStatusColor(status, user)}
                 />
             ),
         },
@@ -220,13 +235,31 @@ export const UserAndGroupList = () => {
                     userRelationships && userRelationships.length > 0
                         ? (userRelationships[0]?.entity as DataHubRole)
                         : null;
-                const currentRoleUrn = userRole?.urn || NO_ROLE_URN;
+
+                // Check if user has a pending invitation with a role
+                const invitationRole =
+                    user.invitationStatus?.status === 'SENT' && user.invitationStatus?.role
+                        ? user.invitationStatus.role
+                        : null;
+
+                const currentRoleUrn = userRole?.urn || invitationRole || NO_ROLE_URN;
 
                 const allRoleOptions = [{ urn: NO_ROLE_URN, name: NO_ROLE_TEXT }, ...selectRoleOptions];
                 const roleSelectOptions = allRoleOptions.map((role) => ({
                     value: role.urn,
                     label: role.name,
                 }));
+
+                // Show the invited role for users with pending invitations
+                if (invitationRole && user.invitationStatus?.status === 'SENT') {
+                    const invitedRole = selectRoleOptions.find((role: DataHubRole) => role.urn === invitationRole);
+                    const roleName = invitedRole?.name || 'Unknown Role';
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <span style={{ color: '#1890ff' }}>{roleName}</span>
+                        </div>
+                    );
+                }
 
                 return (
                     <div id={USERS_ASSIGN_ROLE_ID}>
@@ -303,32 +336,23 @@ export const UserAndGroupList = () => {
             </UserContainer>
 
             <TableContainer>
-                {filteredUsers.length > 0 ? (
+                {sortedFilteredUsers.length > 0 ? (
                     <>
                         <Table
                             columns={columns}
-                            data={filteredUsers}
+                            data={sortedFilteredUsers}
                             isLoading={loading}
                             isScrollable
                             handleSortColumnChange={handleSortColumnChange}
                         />
-                        {!isFiltering && (
-                            <div
-                                style={{
-                                    paddingTop: '0',
-                                    paddingBottom: '16px',
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <Pagination
-                                    currentPage={page}
-                                    itemsPerPage={pageSize}
-                                    total={totalUsers}
-                                    onPageChange={onChangePage}
-                                />
-                            </div>
-                        )}
+                        <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                            <Pagination
+                                currentPage={page}
+                                itemsPerPage={pageSize}
+                                total={isFiltering ? sortedFilteredUsers.length : totalUsers}
+                                onPageChange={onChangePage}
+                            />
+                        </div>
                     </>
                 ) : (
                     <div style={{ padding: '20px', textAlign: 'center' }}>

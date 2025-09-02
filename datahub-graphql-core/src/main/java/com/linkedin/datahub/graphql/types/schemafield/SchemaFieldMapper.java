@@ -7,6 +7,8 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Documentation;
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,12 +21,16 @@ import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.search.features.LineageFeatures;
 import com.linkedin.structured.StructuredProperties;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -68,6 +74,26 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         ((schemaField, dataMap) ->
             schemaField.setDeprecation(
                 DeprecationMapper.map(context, new Deprecation((dataMap))))));
+    mappingHelper.mapToResult(
+        GLOBAL_TAGS_ASPECT_NAME,
+        (schemaField, dataMap) ->
+            schemaField.setTags(GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        GLOSSARY_TERMS_ASPECT_NAME,
+        (schemaField, dataMap) ->
+            schemaField.setGlossaryTerms(
+                GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        LOGICAL_PARENT_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLogicalParent(
+                Optional.ofNullable(new LogicalParent(dataMap).getParent())
+                    .map(
+                        logicalParent ->
+                            UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
+                    .orElse(null)));
+
+    // SaaS Only
     mappingHelper.mapToResult(
         LINEAGE_FEATURES_ASPECT_NAME,
         (entity, dataMap) ->

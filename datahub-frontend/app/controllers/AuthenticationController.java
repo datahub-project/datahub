@@ -287,9 +287,9 @@ public class AuthenticationController extends Controller {
       return Results.badRequest(invalidCredsJson);
     }
 
-    final Urn userUrn = new CorpuserUrn(email);
+    final Urn userUrn = new CorpuserUrn(email.trim());
     final String userUrnString = userUrn.toString();
-    authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
+    authClient.signUp(userUrnString, fullName, email.trim(), title, password, inviteToken);
     logger.info("Signed up user {} using invite tokens", userUrnString);
     final String accessToken =
         authClient.generateSessionTokenForUser(userUrn.getId(), SIGN_UP_LINK_LOGIN);
@@ -329,7 +329,7 @@ public class AuthenticationController extends Controller {
       return Results.badRequest(invalidCredsJson);
     }
 
-    final Urn userUrn = new CorpuserUrn(email);
+    final Urn userUrn = new CorpuserUrn(email.trim());
     final String userUrnString = userUrn.toString();
     authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
     final String accessToken =

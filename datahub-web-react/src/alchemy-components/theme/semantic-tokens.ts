@@ -17,5 +17,6 @@ export const semanticTokens = {
         success: colors.green[500],
         warning: colors.yellow[500],
         info: colors.blue[500],
+        tertiary: colors.gray[1800],
     },
 };

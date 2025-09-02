@@ -185,6 +185,9 @@ export const mapSearchResultToEntityData = (
     let platform: DataPlatform | undefined;
     if ('platform' in entity) {
         platform = entity.platform as DataPlatform;
+    } else if ('dataFlow' in entity && entity.dataFlow && 'platform' in entity.dataFlow) {
+        // Handle DataJob entities that get platform from dataFlow.platform
+        platform = entity.dataFlow.platform as DataPlatform;
     }
 
     // Extract browsePathV2

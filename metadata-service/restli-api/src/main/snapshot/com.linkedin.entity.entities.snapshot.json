@@ -6962,6 +6962,7 @@
       "doc" : "Extra fields to fetch from the search documents\nNote: This will be added on top of the default fields that is controlled\n      by the server",
       "default" : [ ],
       "optional" : true
+
     }, {
       "name" : "sliceOptions",
       "type" : {
@@ -7002,7 +7003,7 @@
       "RELATED_INCL" : "Represent the relation: URN field matches any nested child or parent in addition to the given URN",
       "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView"
     }
-  }, {
+  }, "com.linkedin.metadata.query.filter.Condition", {
     "type" : "record",
     "name" : "ConjunctiveCriterion",
     "namespace" : "com.linkedin.metadata.query.filter",
@@ -7427,6 +7428,11 @@
           },
           "doc" : "A list of search query suggestions based on the given query",
           "default" : [ ]
+        }, {
+          "name" : "scoringMethod",
+          "type" : "string",
+          "doc" : "The scoring method used for ranking results",
+          "optional" : true
         } ]
       },
       "doc" : "Metadata specific to the browse result of the queried path"

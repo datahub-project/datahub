@@ -644,6 +644,8 @@ entities:
       - deprecation
       - subTypes
       - logicalParent
+      - globalTags
+      - glossaryTerms
       # SaaS Only
       - schemaFieldProfile
       - lineageFeatures

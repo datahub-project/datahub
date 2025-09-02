@@ -1,5 +1,3 @@
-import json
-
 import streamlit as st
 import tiktoken
 from typing_extensions import assert_never
@@ -77,7 +75,7 @@ def st_chat_history(
                     st.caption(
                         f"Calling `{message.tool_name}` tool · {_token_count(str(message.tool_input))}"
                     )
-                    st.code(json.dumps(message.tool_input), language="json")
+                    st.code(str(message.tool_input), language="json")
         elif isinstance(message, ToolResultError):
             if show_thinking:
                 with st.chat_message("tool", avatar="❌"):
