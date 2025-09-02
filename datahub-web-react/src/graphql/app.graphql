@@ -80,6 +80,9 @@ query appConfig {
         searchBarConfig {
             apiVariant
         }
+        searchCardConfig {
+            showDescription
+        }
         homePageConfig {
             firstInPersonalSidebar
         }

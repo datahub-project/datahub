@@ -3,6 +3,7 @@ import _TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
+import { ptToPx } from '@components/components/Editor/utils';
 
 const TurndownService = defaultImport(_TurndownService);
 
@@ -104,6 +105,38 @@ const turndownService = new TurndownService({
             if (!urn) return '';
 
             return `[${node.textContent}](${urn})`;
+        },
+    })
+    /* Add support for underline */
+    .addRule('underline', {
+        filter: (node) => {
+            const nodeName = node.nodeName?.toUpperCase();
+            return (
+                nodeName === 'U' ||
+                (nodeName === 'SPAN' &&
+                    node instanceof HTMLElement &&
+                    typeof node.style.textDecoration === 'string' &&
+                    node.style.textDecoration.toLowerCase().includes('underline'))
+            );
+        },
+        replacement: (content) => `<u>${content}</u>`,
+    })
+    /* Add support for handling font size change */
+    .addRule('fontSize', {
+        filter: (node) =>
+            node instanceof HTMLElement && node.nodeName?.toUpperCase() === 'SPAN' && !!node.style.fontSize,
+        replacement: (content, node) => {
+            const elem = node as HTMLElement;
+            let size = elem.style.fontSize.trim();
+            if (!size) return content;
+
+            // Convert pt to px
+            if (size.endsWith('pt')) {
+                const pts = parseFloat(size);
+                size = `${ptToPx(pts)}px`;
+            }
+
+            return `<span style="font-size:${size}">${content}</span>`;
         },
     });
 

@@ -1,4 +1,5 @@
 import { DeleteOutlined, LinkOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import { Pencil } from '@phosphor-icons/react';
 import { Button, List, Typography, message } from 'antd';
 import React, { useCallback, useState } from 'react';
@@ -12,7 +13,6 @@ import { formatDateString } from '@app/entityV2/shared/containers/profile/utils'
 import LinkPreview from '@app/integration/LinkPreview';
 import { shouldTryLinkPreview } from '@app/integration/linkPreviews';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
 
 import { useRemoveLinkMutation, useUpdateLinkMutation } from '@graphql/mutations.generated';
 import { InstitutionalMemoryMetadata } from '@types';
@@ -91,7 +91,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                 await updateLinkMutation({
                     variables: {
                         input: {
-                            currentLabel: editingMetadata.label,
+                            currentLabel: editingMetadata.label || editingMetadata.description,
                             currentUrl: editingMetadata.url,
                             resourceUrn: editingMetadata.associatedUrn || entityUrn,
                             label: formData.label,
@@ -118,7 +118,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const onEdit = useCallback((metadata: InstitutionalMemoryMetadata) => {
         setEditingMetadata(metadata);
         setInitialValuesOfEditForm({
-            label: metadata.label,
+            label: metadata.label || metadata.description,
             url: metadata.url,
             showInAssetPreview: !!metadata.settings?.showInAssetPreview,
         });

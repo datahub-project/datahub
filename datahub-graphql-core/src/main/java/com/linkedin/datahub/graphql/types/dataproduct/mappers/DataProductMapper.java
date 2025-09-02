@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -27,6 +28,7 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -53,11 +55,18 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATA_PRODUCT);
 
+    // Getting of created timestamp from key aspect as we can't get this data in default way
+    ResolvedAuditStamp createdAuditStampFromKeyAspect =
+        EntityResponseUtils.extractAspectCreatedAuditStamp(
+            entityResponse, DATA_PRODUCT_KEY_ASPECT_NAME);
+
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataProduct> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
-        (dataProduct, dataMap) -> mapDataProductProperties(dataProduct, dataMap, entityUrn));
+        (dataProduct, dataMap) ->
+            mapDataProductProperties(
+                dataProduct, dataMap, entityUrn, createdAuditStampFromKeyAspect));
     mappingHelper.mapToResult(
         GLOBAL_TAGS_ASPECT_NAME,
         (dataProduct, dataMap) ->
@@ -111,7 +120,10 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
   }
 
   private void mapDataProductProperties(
-      @Nonnull DataProduct dataProduct, @Nonnull DataMap dataMap, @Nonnull Urn urn) {
+      @Nonnull DataProduct dataProduct,
+      @Nonnull DataMap dataMap,
+      @Nonnull Urn urn,
+      final ResolvedAuditStamp createdAuditStamp) {
     DataProductProperties dataProductProperties = new DataProductProperties(dataMap);
     com.linkedin.datahub.graphql.generated.DataProductProperties properties =
         new com.linkedin.datahub.graphql.generated.DataProductProperties();
@@ -131,6 +143,8 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     properties.setCustomProperties(
         CustomPropertiesMapper.map(
             dataProductProperties.getCustomProperties(), UrnUtils.getUrn(dataProduct.getUrn())));
+
+    properties.setCreatedOn(createdAuditStamp);
 
     dataProduct.setProperties(properties);
   }

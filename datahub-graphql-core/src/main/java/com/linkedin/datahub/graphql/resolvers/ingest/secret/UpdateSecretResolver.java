@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.text.StringEscapeUtils;
 
 /**
  * Creates an encrypted DataHub secret. Uses AES symmetric encryption / decryption. Requires the
@@ -49,7 +50,8 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
                       context.getOperationContext(),
                       secretUrn.getEntityType(),
                       secretUrn,
-                      Set.of(SECRET_VALUE_ASPECT_NAME));
+                      Set.of(SECRET_VALUE_ASPECT_NAME),
+                      false);
               if (!entityClient.exists(context.getOperationContext(), secretUrn)
                   || response == null) {
                 throw new IllegalArgumentException(
@@ -60,7 +62,7 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
                   DataHubSecretValueMapper.map(
                       response,
                       input.getName(),
-                      secretService.encrypt(input.getValue()),
+                      secretService.encrypt(StringEscapeUtils.escapeJson(input.getValue())),
                       input.getDescription(),
                       null);
 

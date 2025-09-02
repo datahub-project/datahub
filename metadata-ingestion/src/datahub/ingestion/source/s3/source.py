@@ -34,7 +34,13 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
+from datahub.ingestion.source.aws.s3_boto_utils import (
+    get_s3_tags,
+    list_folders,
+    list_folders_path,
+    list_objects_recursive,
+    list_objects_recursive_path,
+)
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
@@ -83,8 +89,6 @@ if TYPE_CHECKING:
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
-
-PAGE_SIZE = 1000
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
@@ -384,7 +388,10 @@ class S3Source(StatefulIngestionSourceBase):
 
     def read_file_spark(self, file: str, ext: str) -> Optional[DataFrame]:
         logger.debug(f"Opening file {file} for profiling in spark")
-        file = file.replace("s3://", "s3a://")
+        if "s3://" in file:
+            # replace s3:// with s3a://, and make sure standalone bucket names always end with a slash.
+            # Spark will fail if given a path like `s3a://mybucket`, and requires it to be `s3a://mybucket/`.
+            file = f"s3a://{get_bucket_name(file)}/{get_bucket_relative_path(file)}"
 
         telemetry.telemetry_instance.ping("data_lake_file", {"extension": ext})
 
@@ -836,29 +843,31 @@ class S3Source(StatefulIngestionSourceBase):
             content_type=browse_path.content_type,
         )
 
-    def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
+    def resolve_templated_folders(self, prefix: str) -> Iterable[str]:
         folder_split: List[str] = prefix.split("*", 1)
         # If the len of split is 1 it means we don't have * in the prefix
         if len(folder_split) == 1:
             yield prefix
             return
 
-        folders: Iterable[str] = list_folders(
-            bucket_name, folder_split[0], self.source_config.aws_config
+        basename_startswith = folder_split[0].split("/")[-1]
+        dirname = folder_split[0].removesuffix(basename_startswith)
+
+        folders = list_folders_path(
+            dirname,
+            startswith=basename_startswith,
+            aws_config=self.source_config.aws_config,
         )
         for folder in folders:
-            # Ensure proper path joining - folder already includes trailing slash from list_folders
-            # but we need to handle the case where folder_split[1] might start with a slash
+            # Ensure proper path joining - folders from list_folders path never include a
+            # trailing slash, but we need to handle the case where folder_split[1] might
+            # start with a slash
             remaining_pattern = folder_split[1]
             if remaining_pattern.startswith("/"):
                 remaining_pattern = remaining_pattern[1:]
 
-            # Ensure folder ends with slash for proper path construction
-            if not folder.endswith("/"):
-                folder = folder + "/"
-
             yield from self.resolve_templated_folders(
-                bucket_name, f"{folder}{remaining_pattern}"
+                f"{folder.path}/{remaining_pattern}"
             )
 
     def get_dir_to_process(
@@ -942,7 +951,9 @@ class S3Source(StatefulIngestionSourceBase):
         # Instead of loading all objects into memory, we'll accumulate folder data incrementally
         folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
 
-        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+        for obj in list_objects_recursive(
+            bucket.name, prefix, self.source_config.aws_config
+        ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
             if not _is_allowed_path(path_spec, s3_path):
@@ -1016,13 +1027,6 @@ class S3Source(StatefulIngestionSourceBase):
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
 
-        s3 = self.source_config.aws_config.get_s3_resource(
-            self.source_config.verify_ssl
-        )
-        bucket_name = get_bucket_name(path_spec.include)
-        bucket = s3.Bucket(bucket_name)
-
-        logger.debug(f"Scanning bucket: {bucket_name}")
         logger.info(f"Processing path spec: {path_spec.include}")
 
         # Check if we have {table} template in the path
@@ -1034,16 +1038,14 @@ class S3Source(StatefulIngestionSourceBase):
             logger.info("Using templated path processing")
             # Always use templated processing when {table} is present
             # This groups files under table-level datasets
-            yield from self._process_templated_path(path_spec, bucket, bucket_name)
+            yield from self._process_templated_path(path_spec)
         else:
             logger.info("Using simple path processing")
             # Only use simple processing for non-templated paths
             # This creates individual file-level datasets
-            yield from self._process_simple_path(path_spec, bucket, bucket_name)
+            yield from self._process_simple_path(path_spec)
 
-    def _process_templated_path(
-        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
-    ) -> Iterable[BrowsePath]:
+    def _process_templated_path(self, path_spec: PathSpec) -> Iterable[BrowsePath]:  # noqa: C901
         """
         Process S3 paths containing {table} templates to create table-level datasets.
 
@@ -1057,12 +1059,17 @@ class S3Source(StatefulIngestionSourceBase):
 
         Args:
             path_spec: Path specification with {table} template
-            bucket: S3 bucket resource
-            bucket_name: Name of the S3 bucket
 
         Yields:
             BrowsePath: One per table (not per file), containing aggregated metadata
         """
+
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        s3 = self.source_config.aws_config.get_s3_resource(
+            self.source_config.verify_ssl
+        )
+
         # Find the part before {table}
         table_marker = "{table}"
         if table_marker not in path_spec.include:
@@ -1097,20 +1104,13 @@ class S3Source(StatefulIngestionSourceBase):
 
         # Split the path at {table} to get the prefix that needs wildcard resolution
         prefix_before_table = include.split(table_marker)[0]
-        # Remove the s3:// and bucket name to get the relative path
-        relative_path = get_bucket_relative_path(prefix_before_table)
-
         logger.info(f"Prefix before table: {prefix_before_table}")
-        logger.info(f"Relative path for resolution: {relative_path}")
 
         try:
             # STEP 2: Resolve ALL wildcards in the path up to {table}
-            # This converts patterns like "data/*/logs/" to actual paths like ["data/2023/logs/", "data/2024/logs/"]
-            table_index = include.find(table_marker)
-            folder_prefix = get_bucket_relative_path(include[:table_index])
-
+            # This converts patterns like "s3://data/*/logs/" to actual paths like ["s3://data/2023/logs/", "s3://data/2024/logs/"]
             resolved_prefixes = list(
-                self.resolve_templated_folders(bucket_name, folder_prefix)
+                self.resolve_templated_folders(prefix_before_table)
             )
             logger.info(f"Resolved prefixes: {resolved_prefixes}")
 
@@ -1121,20 +1121,22 @@ class S3Source(StatefulIngestionSourceBase):
                 # Get all folders that could be tables under this resolved prefix
                 # These are the actual table names (e.g., "users", "events", "logs")
                 table_folders = list(
-                    list_folders(
-                        bucket_name, resolved_prefix, self.source_config.aws_config
+                    list_folders_path(
+                        resolved_prefix, aws_config=self.source_config.aws_config
                     )
                 )
                 logger.debug(
-                    f"Found table folders under {resolved_prefix}: {table_folders}"
+                    f"Found table folders under {resolved_prefix}: {[folder.name for folder in table_folders]}"
                 )
 
                 # STEP 4: Process each table folder to create a table-level dataset
-                for table_folder in table_folders:
+                for folder in table_folders:
+                    bucket_name = get_bucket_name(folder.path)
+                    table_folder = get_bucket_relative_path(folder.path)
+                    bucket = s3.Bucket(bucket_name)
+
                     # Create the full S3 path for this table
-                    table_s3_path = self.create_s3_path(
-                        bucket_name, table_folder.rstrip("/")
-                    )
+                    table_s3_path = self.create_s3_path(bucket_name, table_folder)
                     logger.info(
                         f"Processing table folder: {table_folder} -> {table_s3_path}"
                     )
@@ -1269,17 +1271,16 @@ class S3Source(StatefulIngestionSourceBase):
                         )
 
         except Exception as e:
-            if "NoSuchBucket" in repr(e):
+            if isinstance(e, s3.meta.client.exceptions.NoSuchBucket):
                 self.get_report().report_warning(
-                    "Missing bucket", f"No bucket found {bucket_name}"
+                    "Missing bucket",
+                    f"No bucket found {e.response['Error'].get('BucketName')}",
                 )
                 return
             logger.error(f"Error in _process_templated_path: {e}")
             raise e
 
-    def _process_simple_path(
-        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
-    ) -> Iterable[BrowsePath]:
+    def _process_simple_path(self, path_spec: PathSpec) -> Iterable[BrowsePath]:
         """
         Process simple S3 paths without {table} templates to create file-level datasets.
 
@@ -1295,8 +1296,6 @@ class S3Source(StatefulIngestionSourceBase):
 
         Args:
             path_spec: Path specification without {table} template
-            bucket: S3 bucket resource
-            bucket_name: Name of the S3 bucket
 
         Yields:
             BrowsePath: One per file, containing individual file metadata
@@ -1305,20 +1304,27 @@ class S3Source(StatefulIngestionSourceBase):
             - BrowsePath(file="data/file1.csv", size=1000, partitions=[])
             - BrowsePath(file="data/file2.csv", size=2000, partitions=[])
         """
-        assert self.source_config.aws_config is not None, "aws_config not set"
 
-        path_spec.sample_files = False  # Disable sampling for simple paths
-
-        # Extract the prefix from the path spec (stops at first wildcard)
-        prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
-
-        # Get s3 resource for content type checking
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set")
         s3 = self.source_config.aws_config.get_s3_resource(
             self.source_config.verify_ssl
         )
 
+        path_spec.sample_files = False  # Disable sampling for simple paths
+
+        # Extract the prefix from the path spec (stops at first wildcard)
+        prefix = self.get_prefix(path_spec.include)
+
+        basename_startswith = prefix.split("/")[-1]
+        dirname = prefix.removesuffix(basename_startswith)
+
         # Iterate through all objects in the bucket matching the prefix
-        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+        for obj in list_objects_recursive_path(
+            dirname,
+            startswith=basename_startswith,
+            aws_config=self.source_config.aws_config,
+        ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
             # Get content type if configured

@@ -563,7 +563,7 @@ class PathSpec(ConfigModel):
     def extract_table_name_and_path(self, path: str) -> Tuple[str, str]:
         parsed_vars = self.get_named_vars(path)
         if parsed_vars is None or "table" not in parsed_vars.named:
-            return os.path.basename(path), path
+            return os.path.basename(path.removesuffix("/")), path
         else:
             include = self.include
             depth = include.count("/", 0, include.find("{table}"))

@@ -80,7 +80,7 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
             variable_values["customProperties"] = custom_properties
 
         result = self.client.execute(
-            gql(Operation.REPORT_OPERATION_MUTATION), variable_values
+            gql(Operation.REPORT_OPERATION_MUTATION), variable_values=variable_values
         )
 
         return result["reportOperation"]

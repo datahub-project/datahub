@@ -58,6 +58,9 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     searchBarConfig: {
         apiVariant: SearchBarApi.AutocompleteForMultiple,
     },
+    searchCardConfig: {
+        showDescription: false,
+    },
     homePageConfig: {
         firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },

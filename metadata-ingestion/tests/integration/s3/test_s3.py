@@ -13,6 +13,10 @@ from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.s3.source import S3Source
 from datahub.testing import mce_helpers
 
+logging.getLogger("boto3").setLevel(logging.INFO)
+logging.getLogger("botocore").setLevel(logging.INFO)
+logging.getLogger("s3transfer").setLevel(logging.INFO)
+
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 FILE_LIST_FOR_VALIDATION = [

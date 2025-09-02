@@ -229,11 +229,3 @@ credentialsAndCertsSecrets:
 ```
 
 The Actions pod will automatically pick these up in the correctly named environment variables when they are named this exact way.
-
-## Contribution
-
-Accepting contributions for a setup script compatible with Confluent Cloud!
-
-The kafka-setup-job container we ship with is only compatible with a distribution of Kafka wherein ZooKeeper
-is exposed and available. A version of the job using the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/command-reference/kafka/topic/confluent_kafka_topic_create.html)
-would be very useful for the broader community.
