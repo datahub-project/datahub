@@ -38,6 +38,36 @@ def default_recipe(tmp_path, output_file_name="snaplogic_mces_default_config.jso
     }
 
 
+def create_non_snaplogic_datasets_recipe(
+    tmp_path,
+    output_file_name="snaplogic_mces_create_non_snaplogic_datasets_config.json",
+):
+    return {
+        "run_id": "test-snaplogic",
+        "pipeline_name": "snaplogic_ingest",
+        "source": {
+            "type": "snaplogic",
+            "config": {
+                "username": "example@snaplogic.com",
+                "password": "dummy_password",
+                "base_url": "https://elastic.snaplogic.com",
+                "org_name": ORG_NAME,
+                "create_non_snaplogic_datasets": True,
+                "stateful_ingestion": {
+                    "enabled": False,
+                    "remove_stale_metadata": False,
+                },
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{tmp_path}/{output_file_name}",
+            },
+        },
+    }
+
+
 def register_mock_api(pytestconfig: Any, request_mock: Any) -> None:
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/snaplogic"
@@ -103,4 +133,28 @@ def test_snaplogic_source_default_configs(
         pytestconfig,
         output_path=tmp_path / "snaplogic_mces_default_config.json",
         golden_path=test_resources_dir / "snaplogic_base_golden.json",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_snaplogic_source_create_non_snaplogic_datasets(
+    pytestconfig, mock_datahub_graph, tmp_path, requests_mock
+):
+    test_resources_dir: pathlib.Path = (
+        pytestconfig.rootpath / "tests/integration/snaplogic"
+    )
+    register_mock_api(pytestconfig, requests_mock)
+
+    run_ingest(
+        pytestconfig=pytestconfig,
+        mock_datahub_graph=mock_datahub_graph,
+        recipe=create_non_snaplogic_datasets_recipe(tmp_path),
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path
+        / "snaplogic_mces_create_non_snaplogic_datasets_config.json",
+        golden_path=test_resources_dir
+        / "snaplogic_create_non_snaplogic_datasets_golden.json",
     )

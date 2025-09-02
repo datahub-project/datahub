@@ -21,6 +21,145 @@
   },
   {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "snaplogic-test.tonyschema.accounts",
+        "qualifiedName": "snaplogic-test.tonyschema.accounts",
+        "tags": []
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "snaplogic-test.tonyschema.accounts",
+        "platform": "urn:li:dataPlatform:mssql",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "Id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "IsDeleted",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "MasterRecordId",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "Name",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "Type",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "account_id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "contact_name",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "VARCHAR",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snaplogic,Virtual_DB.Virtual_Schema.Azure Synapse SQL - Select:2faf1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -320,6 +459,23 @@
   {
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snaplogic,685013b9da1804dd3b4037e8,PROD),Datahub Demo 3:Azure Synapse SQL - Select:2faf1220-44e8-4a52-a093-48f1e4d7d79a)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1586847600000,
+      "runId": "test-snaplogic",
+      "lastRunId": "no-run-id-provided",
+      "pipelineName": "snaplogic_ingest"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,snaplogic-test.tonyschema.accounts,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
