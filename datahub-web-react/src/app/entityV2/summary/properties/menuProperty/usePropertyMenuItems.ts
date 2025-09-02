@@ -17,7 +17,7 @@ export default function usePropertyMenuItems(position: number): ItemType[] {
                 structuredProperty: newElement.structuredProperty,
                 position,
             }),
-        [removeSummaryElement, position],
+        [replaceSummaryElement, position],
     );
 
     const addPropertyMenuItems = useAddPropertyMenuItems(onReplace);

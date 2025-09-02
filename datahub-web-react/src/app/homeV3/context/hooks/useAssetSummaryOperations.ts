@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.generated';
@@ -79,20 +79,6 @@ const persistTemplateChanges = async (
     }
 };
 
-// Helper function to generate unique ID for summary elements
-const generateSummaryElementId = (element: SummaryElement, index: number): string => {
-    if (element.elementType === SummaryElementType.StructuredProperty && element.structuredProperty?.urn) {
-        return `${element.elementType}-${element.structuredProperty.urn}`;
-    }
-    return `${element.elementType}-${index}`;
-};
-
-// Helper function to convert SummaryElement to SummaryElementWithId
-const addIdToSummaryElement = (element: SummaryElement, index: number): SummaryElementWithId => ({
-    ...element,
-    id: generateSummaryElementId(element, index),
-});
-
 // Helper function to create a new summary element from input
 const createSummaryElementFromInput = (input: AddSummaryElementInput): SummaryElementFragment => ({
     __typename: 'SummaryElement',
@@ -141,20 +127,24 @@ export function useAssetSummaryOperations(
     ) => Promise<any>,
 ) {
     // Create context object to avoid passing many parameters
-    const context: TemplateUpdateContext = {
-        isEditingGlobalTemplate,
-        personalTemplate,
-        globalTemplate,
-        setPersonalTemplate,
-        setGlobalTemplate,
-        upsertTemplate,
-    };
-
-    // Get current summary elements with IDs for easier manipulation
-    const getSummaryElementsWithIds = useCallback((template: PageTemplateFragment | null): SummaryElementWithId[] => {
-        const summaryElements = template?.properties?.assetSummary?.summaryElements || [];
-        return summaryElements.map(addIdToSummaryElement);
-    }, []);
+    const context: TemplateUpdateContext = useMemo(
+        () => ({
+            isEditingGlobalTemplate,
+            personalTemplate,
+            globalTemplate,
+            setPersonalTemplate,
+            setGlobalTemplate,
+            upsertTemplate,
+        }),
+        [
+            isEditingGlobalTemplate,
+            personalTemplate,
+            globalTemplate,
+            setPersonalTemplate,
+            setGlobalTemplate,
+            upsertTemplate,
+        ],
+    );
 
     // Add a new summary element to the template
     const addSummaryElement = useCallback(
@@ -312,6 +302,5 @@ export function useAssetSummaryOperations(
         addSummaryElement,
         removeSummaryElement,
         replaceSummaryElement,
-        getSummaryElementsWithIds,
     };
 }

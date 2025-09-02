@@ -2,7 +2,6 @@ import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import {
     AddSummaryElementInput,
     ReplaceSummaryElementInput,
-    SummaryElementWithId,
 } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
@@ -53,6 +52,7 @@ export interface MoveModuleInput {
 
 // Context state shape
 export type PageTemplateContextState = {
+    isTemplateEditable: boolean;
     personalTemplate: PageTemplateFragment | null;
     globalTemplate: PageTemplateFragment | null;
     template: PageTemplateFragment | null;
@@ -74,5 +74,4 @@ export type PageTemplateContextState = {
     addSummaryElement: (input: AddSummaryElementInput) => void;
     removeSummaryElement: (position: number) => void;
     replaceSummaryElement: (input: ReplaceSummaryElementInput) => void;
-    getSummaryElementsWithIds: (template: PageTemplateFragment | null) => SummaryElementWithId[];
 };

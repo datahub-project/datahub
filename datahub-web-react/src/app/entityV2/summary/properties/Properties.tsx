@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import AddPropertyButton from '@app/entityV2/summary/properties/menuAddProperty/AddPropertyButton';
 import PropertyRenderer from '@app/entityV2/summary/properties/property/PropertyRenderer';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
@@ -14,8 +13,7 @@ const Container = styled.div`
 `;
 
 export default function Properties() {
-    const { editable } = useAssetPropertiesContext();
-    const { summaryElements } = usePageTemplateContext();
+    const { summaryElements, isTemplateEditable } = usePageTemplateContext();
 
     const propertyItems = useMemo(
         () =>
@@ -36,7 +34,7 @@ export default function Properties() {
                     key={propertyItem.key}
                 />
             ))}
-            {editable && <AddPropertyButton />}
+            {isTemplateEditable && <AddPropertyButton />}
         </Container>
     );
 }

@@ -1,5 +1,6 @@
 import React, { ReactNode, createContext, useContext, useMemo, useState } from 'react';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useAssetSummaryOperations } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
 import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
@@ -17,6 +18,9 @@ interface Props {
 }
 
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
+    const { entityData } = useEntityData();
+    const editable = !!entityData?.privileges?.canManageAssetSummary;
+    const isTemplateEditable = templateType === PageTemplateSurfaceType.AssetSummary ? editable : true;
     // Template state management
     const {
         personalTemplate,
@@ -52,21 +56,21 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
     );
 
     // Asset summary operations
-    const { addSummaryElement, removeSummaryElement, replaceSummaryElement, getSummaryElementsWithIds } =
-        useAssetSummaryOperations(
-            isEditingGlobalTemplate,
-            personalTemplate,
-            globalTemplate,
-            setPersonalTemplate,
-            setGlobalTemplate,
-            upsertTemplate,
-        );
+    const { addSummaryElement, removeSummaryElement, replaceSummaryElement } = useAssetSummaryOperations(
+        isEditingGlobalTemplate,
+        personalTemplate,
+        globalTemplate,
+        setPersonalTemplate,
+        setGlobalTemplate,
+        upsertTemplate,
+    );
 
     // If modules should be reloaded
     const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
 
     const value = useMemo(
         () => ({
+            isTemplateEditable,
             personalTemplate,
             globalTemplate,
             template,
@@ -88,9 +92,9 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             addSummaryElement,
             removeSummaryElement,
             replaceSummaryElement,
-            getSummaryElementsWithIds,
         }),
         [
+            isTemplateEditable,
             personalTemplate,
             globalTemplate,
             template,
@@ -112,7 +116,6 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             addSummaryElement,
             removeSummaryElement,
             replaceSummaryElement,
-            getSummaryElementsWithIds,
         ],
     );
 
