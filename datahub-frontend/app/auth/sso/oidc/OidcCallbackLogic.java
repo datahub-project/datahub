@@ -12,6 +12,7 @@ import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -334,7 +335,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
   }
 
   /** Attempts to map to an OIDC {@link CommonProfile} (userInfo) to a {@link CorpUserSnapshot}. */
-  private CorpUserSnapshot extractUser(CorpuserUrn urn, CommonProfile profile) {
+  @VisibleForTesting
+  public CorpUserSnapshot extractUser(CorpuserUrn urn, CommonProfile profile) {
 
     log.debug(
         String.format(
@@ -411,8 +413,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     return groupNames;
   }
 
-  private List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
-
+  @VisibleForTesting
+  public List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
     log.debug(
         String.format(
             "Attempting to extract groups from OIDC profile %s",
