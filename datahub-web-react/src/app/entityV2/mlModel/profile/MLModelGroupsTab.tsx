@@ -5,7 +5,6 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import StripMarkdownText from '@app/entity/shared/components/styled/StripMarkdownText';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetMlModelQuery } from '@graphql/mlModel.generated';
@@ -15,24 +14,18 @@ const TabContent = styled.div`
     padding: 16px;
 `;
 
+const TruncatedDescription = styled.div<{ isExpanded: boolean }>`
+    display: -webkit-box;
+    -webkit-line-clamp: ${({ isExpanded }) => (isExpanded ? 'unset' : '3')};
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+`;
+
 export default function MLModelGroupsTab() {
     const baseEntity = useBaseEntity<GetMlModelQuery>();
     const model = baseEntity?.mlModel;
-    const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
-
     const entityRegistry = useEntityRegistry();
-
-    const ABBREVIATED_LIMIT = 80;
-
-    const handleExpanded = (urn: string, expanded: boolean) => {
-        const newExpanded = new Set(expandedDescriptions);
-        if (expanded) {
-            newExpanded.add(urn);
-        } else {
-            newExpanded.delete(urn);
-        }
-        setExpandedDescriptions(newExpanded);
-    };
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     const propertyTableColumns: ColumnsType<MlModelGroup> = [
         {
@@ -49,53 +42,35 @@ export default function MLModelGroupsTab() {
         {
             title: 'Description',
             dataIndex: 'description',
-            key: 'description',
-            width: 300,
-            render: (_: any, record: any) => {
-                const description = record.description || '';
+            render: (_, record) => {
+                const editableDesc = record.editableProperties?.description;
+                const originalDesc = record.description;
+                const description = editableDesc || originalDesc;
 
-                if (!description) {
-                    return <Typography.Text>-</Typography.Text>;
-                }
+                if (!description) return '-';
 
-                const isExpanded = expandedDescriptions.has(record.urn);
+                const isExpanded = expandedRows.has(record.urn);
+                const isLong = description.length > 150;
 
-                if (isExpanded) {
-                    return (
-                        <>
-                            <Typography.Text>{description}</Typography.Text>
-                            <br />
-                            <Typography.Link
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleExpanded(record.urn, false);
-                                }}
-                            >
-                                Read Less
-                            </Typography.Link>
-                        </>
-                    );
-                }
+                if (!isLong) return description;
 
                 return (
-                    <StripMarkdownText
-                        limit={ABBREVIATED_LIMIT}
-                        readMore={
-                            <>
-                                <Typography.Link
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleExpanded(record.urn, true);
-                                    }}
-                                >
-                                    Read More
-                                </Typography.Link>
-                            </>
-                        }
-                        shouldWrap
-                    >
-                        {description}
-                    </StripMarkdownText>
+                    <>
+                        <TruncatedDescription isExpanded={isExpanded}>{description}</TruncatedDescription>
+                        <Typography.Link
+                            onClick={() => {
+                                const newExpanded = new Set(expandedRows);
+                                if (isExpanded) {
+                                    newExpanded.delete(record.urn);
+                                } else {
+                                    newExpanded.add(record.urn);
+                                }
+                                setExpandedRows(newExpanded);
+                            }}
+                        >
+                            {isExpanded ? 'Show less' : 'Read more'}
+                        </Typography.Link>
+                    </>
                 );
             },
         },
