@@ -56,14 +56,15 @@ source:
 <details>
   <summary>View All Recipe Configuartion Options</summary>
 
-| Field                         | Required |            Default            | Description                                                     |
-| ----------------------------- | :------: | :---------------------------: | --------------------------------------------------------------- |
-| `username`                    |    ✅    |                               | SnapLogic account login                                         |
-| `password`                    |    ✅    |                               | SnapLogic account password.                                     |
-| `base_url`                    |    ✅    | https://elastic.snaplogic.com | Snaplogic url                                                   |
-| `org_name`                    |    ✅    |                               | Organisation name in snaplogic platform                         |
-| `namespace_mapping`           |    ❌    |                               | Namespace mapping. Used to map namespaces to platform instances |
-| `case_insensitive_namespaces` |    ❌    |                               | List of case insensitive namespaces                             |
+| Field                           | Required |            Default            | Description                                                                                                                |
+| ------------------------------- | :------: | :---------------------------: | -------------------------------------------------------------------------------------------------------------------------- |
+| `username`                      |    ✅    |                               | SnapLogic account login                                                                                                    |
+| `password`                      |    ✅    |                               | SnapLogic account password.                                                                                                |
+| `base_url`                      |    ✅    | https://elastic.snaplogic.com | Snaplogic url                                                                                                              |
+| `org_name`                      |    ✅    |                               | Organisation name in snaplogic platform                                                                                    |
+| `create_non_snaplogic_datasets` |    ✅    |             False             | If set to `True`, the DataHub connector will automatically create non-SnapLogic datasets in DataHub when they are missing. |
+| `namespace_mapping`             |    ❌    |                               | Namespace mapping. Used to map namespaces to platform instances                                                            |
+| `case_insensitive_namespaces`   |    ❌    |                               | List of case insensitive namespaces                                                                                        |
 
 </details>
 
