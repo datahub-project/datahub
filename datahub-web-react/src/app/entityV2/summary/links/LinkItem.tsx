@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { useGetLinkPermissions } from '@app/entityV2/summary/links/useGetLinkPermissions';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -44,6 +45,8 @@ type Props = {
 
 export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete }: Props) {
     const entityRegistry = useEntityRegistryV2();
+    const hasLinkPermissions = useGetLinkPermissions();
+
     const createdBy = link.actor;
 
     return (
@@ -60,18 +63,22 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete }
                         Added {formatDateString(link.created.time)} by{' '}
                     </Text>
                     <AvatarPillWithLinkAndHover user={createdBy} size="sm" entityRegistry={entityRegistry} />
-                    <StyledIcon icon="PencilSimpleLine" source="phosphor" color="gray" size="md" />
-                    <StyledIcon
-                        icon="Trash"
-                        source="phosphor"
-                        color="red"
-                        size="md"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedLink(link);
-                            setShowConfirmDelete(true);
-                        }}
-                    />
+                    {hasLinkPermissions && (
+                        <>
+                            <StyledIcon icon="PencilSimpleLine" source="phosphor" color="gray" size="md" />
+                            <StyledIcon
+                                icon="Trash"
+                                source="phosphor"
+                                color="red"
+                                size="md"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setSelectedLink(link);
+                                    setShowConfirmDelete(true);
+                                }}
+                            />
+                        </>
+                    )}
                 </RightSection>
             </LinkContainer>
         </a>

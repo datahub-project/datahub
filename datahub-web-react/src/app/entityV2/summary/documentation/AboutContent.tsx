@@ -2,6 +2,7 @@ import { Editor } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import DescriptionActionsBar from '@app/entityV2/summary/documentation/DescriptionActionsBar';
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EmptyDescription from '@app/entityV2/summary/documentation/EmptyDescription';
@@ -46,6 +47,8 @@ export default function AboutContent() {
         handleCancel,
         emptyDescriptionText,
     } = useDescriptionUtils();
+    const { entityData } = useEntityData();
+    const canEditDescription = !!entityData?.privileges?.canEditDescription;
 
     let content;
 
@@ -71,7 +74,15 @@ export default function AboutContent() {
     }
     return (
         <>
-            <DescriptionContainer onClick={() => setIsEditing(true)}>{content}</DescriptionContainer>
+            <DescriptionContainer
+                onClick={() => {
+                    if (canEditDescription) {
+                        setIsEditing(true);
+                    }
+                }}
+            >
+                {content}
+            </DescriptionContainer>
             {isEditing && (
                 <DescriptionActionsBar
                     onCancel={handleCancel}
