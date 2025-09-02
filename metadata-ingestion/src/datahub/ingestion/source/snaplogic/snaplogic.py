@@ -308,9 +308,7 @@ class SnaplogicSource(StatefulIngestionSourceBase):
         schema_fields = [
             SchemaFieldClass(
                 fieldPath=field["name"],
-                type=SchemaFieldDataTypeClass(
-                    self.get_datahub_type(field.get("type", "Varchar"))
-                ),
+                type=self._get_datahub_type(field.get("type", "Varchar")),
                 nativeDataType=field.get("type", "Varchar"),
             )
             for field in fields

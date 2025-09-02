@@ -6,7 +6,6 @@ source:
     password: dummy_password
     base_url: https://elastic.snaplogic.com
     org_name: TEST_ORG
-    create_non_snaplogic_datasets: True
     stateful_ingestion:
       enabled: True
       remove_stale_metadata: False
