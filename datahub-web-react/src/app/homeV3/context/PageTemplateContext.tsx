@@ -17,6 +17,8 @@ interface Props {
 }
 
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
+    // add check and replace "true" with permission check for asset
+    const isTemplateEditable = templateType === PageTemplateSurfaceType.AssetSummary && true;
     // Template state management
     const {
         personalTemplate,
@@ -52,21 +54,21 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
     );
 
     // Asset summary operations
-    const { addSummaryElement, removeSummaryElement, replaceSummaryElement, getSummaryElementsWithIds } =
-        useAssetSummaryOperations(
-            isEditingGlobalTemplate,
-            personalTemplate,
-            globalTemplate,
-            setPersonalTemplate,
-            setGlobalTemplate,
-            upsertTemplate,
-        );
+    const { addSummaryElement, removeSummaryElement, replaceSummaryElement } = useAssetSummaryOperations(
+        isEditingGlobalTemplate,
+        personalTemplate,
+        globalTemplate,
+        setPersonalTemplate,
+        setGlobalTemplate,
+        upsertTemplate,
+    );
 
     // If modules should be reloaded
     const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
 
     const value = useMemo(
         () => ({
+            isTemplateEditable,
             personalTemplate,
             globalTemplate,
             template,
@@ -88,9 +90,9 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             addSummaryElement,
             removeSummaryElement,
             replaceSummaryElement,
-            getSummaryElementsWithIds,
         }),
         [
+            isTemplateEditable,
             personalTemplate,
             globalTemplate,
             template,
@@ -112,7 +114,6 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             addSummaryElement,
             removeSummaryElement,
             replaceSummaryElement,
-            getSummaryElementsWithIds,
         ],
     );
 

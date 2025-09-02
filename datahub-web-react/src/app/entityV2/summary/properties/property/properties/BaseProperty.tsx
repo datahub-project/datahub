@@ -3,9 +3,9 @@ import { Skeleton } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
-import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import usePropertyMenuItems from '@app/entityV2/summary/properties/menuProperty/usePropertyMenuItems';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 const PropertyWrapper = styled.div`
     display: flex;
@@ -81,7 +81,7 @@ export default function BaseProperty<T>({
     restItemsPillBorderType = 'none',
     loading,
 }: Props<T>) {
-    const { editable } = useAssetPropertiesContext();
+    const { isTemplateEditable } = usePageTemplateContext();
 
     const menuItems = usePropertyMenuItems(position);
 
@@ -127,8 +127,15 @@ export default function BaseProperty<T>({
 
     return (
         <PropertyWrapper>
-            <Menu items={menuItems} trigger={['click']} disabled={!editable}>
-                <Title weight="bold" color="gray" size="sm" colorLevel={1700} $clickable={editable} type="div">
+            <Menu items={menuItems} trigger={['click']} disabled={!isTemplateEditable}>
+                <Title
+                    weight="bold"
+                    color="gray"
+                    size="sm"
+                    colorLevel={1700}
+                    $clickable={isTemplateEditable}
+                    type="div"
+                >
                     {property.name}
                 </Title>
             </Menu>

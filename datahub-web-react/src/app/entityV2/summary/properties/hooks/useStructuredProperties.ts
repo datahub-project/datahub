@@ -93,7 +93,7 @@ export default function useStructuredProperties(query: string | undefined) {
                     key: structuredProperty.urn,
                     name: structuredProperty.definition.displayName ?? '',
                     type: SummaryElementType.StructuredProperty,
-                    structuredProperty: structuredProperty,
+                    structuredProperty,
                 }))
                 .filter((property) => !!property.name) as AssetProperty[]) ?? []
         );
