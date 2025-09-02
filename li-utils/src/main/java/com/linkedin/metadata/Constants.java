@@ -518,6 +518,9 @@ public class Constants {
   public static final String VERSION_SET_FIELD_NAME = "versionSet";
   public static final String VERSION_LABEL_FIELD_NAME = "version";
 
+  // Logical
+  public static final String LOGICAL_PARENT_ASPECT_NAME = "logicalParent";
+
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 
   // Config
