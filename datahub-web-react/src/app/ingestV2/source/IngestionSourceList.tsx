@@ -114,6 +114,17 @@ export enum IngestionSourceType {
 
 const DEFAULT_PAGE_SIZE = 25;
 
+const mapSourceTypeAliases = (source) => {
+    if (source) {
+        let { type } = source;
+        if (type === 'unity-catalog') {
+            type = 'databricks';
+        }
+        return { ...source, type };
+    }
+    return undefined;
+};
+
 const removeExecutionsFromIngestionSource = (source) => {
     if (source) {
         return {
@@ -695,7 +706,7 @@ export const IngestionSourceList = ({
                 )}
             </SourceContainer>
             <IngestionSourceBuilderModal
-                initialState={removeExecutionsFromIngestionSource(focusSource)}
+                initialState={mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))}
                 open={showCreateModal}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
