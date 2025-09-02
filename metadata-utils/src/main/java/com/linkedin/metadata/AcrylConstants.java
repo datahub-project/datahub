@@ -49,7 +49,7 @@ public class AcrylConstants {
 
   // For system monitors
   public static final String FRESHNESS_SYSTEM_MONITOR_ID = "__system_freshness";
-  public static final String ACRYL_LOGO_FILE_PATH = "/integrations/static/acryl-slack-icon.png";
+  public static final String ACRYL_LOGO_FILE_PATH = "/integrations/static/datahub-slack-icon.png";
 
   // For subscriptions
   public static final String SUBSCRIPTION_ENTITY_NAME = "subscription";
