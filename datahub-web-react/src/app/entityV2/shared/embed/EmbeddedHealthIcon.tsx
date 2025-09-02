@@ -8,9 +8,11 @@ import styled from 'styled-components';
 import { generateQueryVariables } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
 import { decodeUrn } from '@app/entityV2/shared/utils';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, HAS_FAILING_ASSERTIONS_FILTER_NAME } from '@app/search/utils/constants';
 import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useSearchAcrossLineageQuery } from '@graphql/search.generated';
 
@@ -25,26 +27,22 @@ const StyledWarning = styled(WarningFilled)<{ size: number }>`
     font-size: ${({ size }) => size}px;
 `;
 
-const Button = styled.button`
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    margin: 0;
-`;
-
 interface RouteParams {
     urn: string;
 }
 
 // Used by our Chrome Extension to show a warning health icon if there are unhealthy upstreams
 export default function EmbeddedHealthIcon() {
+    const entityRegistry = useEntityRegistry();
     const { urn: encodedUrn } = useParams<RouteParams>();
     const { value: showTooltipParam } = useUrlQueryParam('show-tooltip', 'false');
     const { value: sizeParam } = useUrlQueryParam('size', DEFAULT_ICON_SIZE.toString());
     const showTooltip = showTooltipParam === 'true';
     const iconSize = parseInt(sizeParam || DEFAULT_ICON_SIZE.toString(), 10);
     const urn = decodeUrn(encodedUrn);
+    const entityType = getEntityTypeFromEntityUrn(urn, entityRegistry);
+    const [, , entityTypeFallback] = urn.split(':');
+
     const appConfig = useAppConfig();
     const lineageEnabled: boolean = appConfig?.config?.chromeExtensionConfig?.lineageEnabled || false;
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
@@ -83,7 +81,13 @@ export default function EmbeddedHealthIcon() {
                 "Some upstream entities are unhealthy, which may impact this entity. Expand the DataHub browser extension's side panel for more details.";
             return (
                 <Tooltip title={title}>
-                    <Button onClick={() => alert(title)}>{warningIcon}</Button>
+                    <a
+                        href={`${window.location.origin}${entityType ? entityRegistry.getEntityUrl(entityType, urn) : `/${entityTypeFallback}/${encodeURIComponent(urn)}`}`}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                    >
+                        {warningIcon}
+                    </a>
                 </Tooltip>
             );
         }
