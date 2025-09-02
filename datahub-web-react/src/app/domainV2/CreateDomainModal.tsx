@@ -14,8 +14,7 @@ import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
-import { Entity, EntityType, OwnerEntityType, OwnershipType } from '@types';
-
+import { Entity, OwnerEntityType } from '@types';
 
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
@@ -91,7 +90,6 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             return {
                 ownerUrn: urn,
                 ownerEntityType,
-                type: OwnershipType.BusinessOwner,
             };
         });
 

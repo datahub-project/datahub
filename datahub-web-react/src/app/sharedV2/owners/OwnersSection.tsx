@@ -85,7 +85,9 @@ const OwnersSection = <T,>({
     isEditForm = false,
     shouldSetOwnerEntities = false,
 }: Props<T>) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
+    const [inputValue, setInputValue] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
     const [selectedOwnerEntities, setSelectedOwnerEntities] = useState<Entity[]>([]);
 
     // Autocomplete query for owners across both CorpUser and CorpGroup types
@@ -200,12 +202,9 @@ const OwnersSection = <T,>({
                 <Text>Add Owners</Text>
             </SectionHeader>
             <FormSection>
-                <SimpleSelect
-                    options={selectOptions}
-                    isLoading={isSelectLoading}
-                    values={selectedOwnerUrns}
-                    onUpdate={handleSelectChange}
-                    onSearchChange={handleSearch}
+                <SelectInput
+                    mode="multiple"
+                    placeholder="Search for users or groups"
                     showSearch
                     filterOption={false}
                     onSearch={handleOwnerSearch}
