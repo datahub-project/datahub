@@ -200,6 +200,17 @@ export function useTemplateOperations(
                     })) || [],
                 scope: isPersonal ? PageTemplateScope.Personal : PageTemplateScope.Global,
                 surfaceType: templateType,
+                assetSummary:
+                    templateType === PageTemplateSurfaceType.AssetSummary &&
+                    templateToUpsert.properties.assetSummary?.summaryElements !== undefined
+                        ? {
+                              summaryElements:
+                                  templateToUpsert.properties.assetSummary?.summaryElements?.map((el) => ({
+                                      elementType: el.elementType,
+                                      structuredPropertyUrn: el.structuredProperty?.urn,
+                                  })) || [],
+                          }
+                        : undefined,
             };
 
             return upsertPageTemplateMutation({

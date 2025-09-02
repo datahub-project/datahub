@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES } from '@app/entityV2/summary/properties/constants';
-import { AssetProperty, PropertyType } from '@app/entityV2/summary/properties/types';
+import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import {
     getDisplayNameFilter,
     getEntityTypesPropertyFilter,
@@ -13,7 +13,7 @@ import {
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import { EntityType, SummaryElementType } from '@types';
 
 const MAX_PROPERTIES = 20;
 
@@ -92,8 +92,8 @@ export default function useStructuredProperties(query: string | undefined) {
                 ?.map((structuredProperty) => ({
                     key: structuredProperty.urn,
                     name: structuredProperty.definition.displayName ?? '',
-                    type: PropertyType.StructuredProperty,
-                    structuredPropertyUrn: structuredProperty.urn,
+                    type: SummaryElementType.StructuredProperty,
+                    structuredProperty: structuredProperty,
                 }))
                 .filter((property) => !!property.name) as AssetProperty[]) ?? []
         );

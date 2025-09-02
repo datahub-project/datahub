@@ -1,3 +1,9 @@
+import { AssetProperty } from '@app/entityV2/summary/properties/types';
+import {
+    AddSummaryElementInput,
+    ReplaceSummaryElementInput,
+    SummaryElementWithId,
+} from '@app/homeV3/context/hooks/useAssetSummaryOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
@@ -63,4 +69,10 @@ export type PageTemplateContextState = {
     resetTemplateToDefault: () => void;
     reloadHomepageModules: boolean;
     setReloadHomepageModules: (val: boolean) => void;
+    // Asset summary operations
+    summaryElements?: AssetProperty[];
+    addSummaryElement: (input: AddSummaryElementInput) => void;
+    removeSummaryElement: (position: number) => void;
+    replaceSummaryElement: (input: ReplaceSummaryElementInput) => void;
+    getSummaryElementsWithIds: (template: PageTemplateFragment | null) => SummaryElementWithId[];
 };

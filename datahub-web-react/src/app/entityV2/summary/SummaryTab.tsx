@@ -5,7 +5,9 @@ import AboutSection from '@app/entityV2/summary/documentation/AboutSection';
 import Links from '@app/entityV2/summary/links/Links';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
 import { StyledDivider } from '@app/entityV2/summary/styledComponents';
-import SummaryTabTemplate from '@app/entityV2/summary/template/SummaryTabTemplate';
+import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
+import { PageTemplateSurfaceType } from '@types';
+import Template from '@app/homeV3/template/Template';
 
 const SummaryWrapper = styled.div`
     padding: 16px 20px;
@@ -22,12 +24,14 @@ export default function SummaryTab({ properties }: { properties?: Props }) {
     const hideLinksButton = properties?.hideLinksButton;
 
     return (
-        <SummaryWrapper>
-            <PropertiesHeader />
-            <AboutSection />
-            {!hideLinksButton && <Links />}
-            <StyledDivider />
-            <SummaryTabTemplate />
-        </SummaryWrapper>
+        <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
+            <SummaryWrapper>
+                <PropertiesHeader />
+                <AboutSection />
+                {!hideLinksButton && <Links />}
+                <StyledDivider />
+                <Template />
+            </SummaryWrapper>
+        </PageTemplateProvider>
     );
 }
