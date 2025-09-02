@@ -230,3 +230,65 @@ def test_databricks_api_page_size_negative_invalid():
                 "databricks_api_page_size": -100,
             }
         )
+
+
+def test_include_ml_model_default():
+    """Test that include_ml_model_aliases defaults to False."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+        }
+    )
+    assert config.include_ml_model_aliases is False
+    assert config.ml_model_max_results == 1000
+
+
+def test_include_ml_model_aliases_explicit_true():
+    """Test that include_ml_model_aliases can be set to True."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_ml_model_aliases": True,
+        }
+    )
+    assert config.include_ml_model_aliases is True
+
+
+def test_ml_model_max_results_valid_values():
+    """Test that ml_model_max_results accepts valid positive integers."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "ml_model_max_results": 2000,
+        }
+    )
+    assert config.ml_model_max_results == 2000
+
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "ml_model_max_results": 1,
+        }
+    )
+    assert config.ml_model_max_results == 1
+
+
+def test_ml_model_max_results_negative_invalid():
+    """Test that ml_model_max_results rejects negative values."""
+    with pytest.raises(ValueError):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "ml_model_max_results": -100,
+            }
+        )
