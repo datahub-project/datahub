@@ -5,9 +5,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
-  push:
-    branches:
-      - master
 
 concurrency:
   group: ${{ github.workflow }}
