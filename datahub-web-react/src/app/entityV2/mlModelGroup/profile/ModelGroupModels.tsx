@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
-import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
-import { notEmpty } from '@app/entity/shared/utils';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
+import { notEmpty } from '@app/entityV2/shared/utils';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Pill } from '@src/alchemy-components/components/Pills';
@@ -83,7 +83,9 @@ export default function MLGroupModels() {
     const models =
         baseEntity?.mlModelGroup?.incoming?.relationships
             ?.map((relationship) => relationship.entity)
-            .filter(notEmpty) || [];
+            .filter(notEmpty)
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            ?.sort((a, b) => b?.['properties']?.createdTS?.time - a?.['properties']?.createdTS?.time) || [];
 
     const columns = [
         {
