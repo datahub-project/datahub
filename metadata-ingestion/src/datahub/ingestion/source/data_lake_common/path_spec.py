@@ -79,6 +79,7 @@ class FolderTraversalMethod(Enum):
     ALL = "ALL"
     MIN_MAX = "MIN_MAX"
     MAX = "MAX"
+    FIRST_MATCHING = "FIRST_MATCHING"
 
 
 class PathSpec(ConfigModel):
@@ -136,7 +137,7 @@ class PathSpec(ConfigModel):
 
     traversal_method: FolderTraversalMethod = Field(
         default=FolderTraversalMethod.MAX,
-        description="Method to traverse the folder. ALL: Traverse all the folders, MIN_MAX: Traverse the folders by finding min and max value, MAX: Traverse the folder with max value",
+        description="Method to traverse the folder. ALL: Traverse all the folders, MIN_MAX: Traverse the folders by finding min and max value, MAX: Traverse the folder with max value, FIRST_MATCHING: Traverse the first folder found that matches the pattern",
     )
 
     include_hidden_folders: bool = Field(
