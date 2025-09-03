@@ -27,6 +27,7 @@ import controllers.routes;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
@@ -542,7 +543,10 @@ public class ApplicationTest extends WithBrowser {
         // Configure group provisioning mocks (mirrors tryProvisionGroups)
         configureGroupProvisioningMocks(mockClient);
 
-        // Mock ingestProposal to capture calls for validation
+        // Configure user status checking mocks (mirrors checkIsUserStatusActive)
+        configureUserStatusMocks(mockClient);
+
+        // Mock ingestProposal to capture calls for validation (both 2-param and 3-param versions)
         doAnswer(
                 invocation -> {
                   MetadataChangeProposal proposal = invocation.getArgument(1);
@@ -666,6 +670,25 @@ public class ApplicationTest extends WithBrowser {
               })
           .when(mockClient)
           .batchUpdate(any(), any());
+    }
+
+    /**
+     * Configures mocks for user status checking (mirrors checkIsUserStatusActive method). getV2()
+     * returns null to simulate that the user doesn't have a status aspect, which will cause
+     * checkIsUserStatusActive to return false and trigger status update.
+     */
+    private void configureUserStatusMocks(SystemEntityClient mockClient)
+        throws RemoteInvocationException, URISyntaxException {
+      // getV2() returns null to simulate user without status aspect
+      // This will cause checkIsUserStatusActive to return false and trigger status update
+      doAnswer(
+              invocation -> {
+                logger.debug(
+                    "getV2() called for user status check, returning null (no status aspect)");
+                return null;
+              })
+          .when(mockClient)
+          .getV2(any(), any(), any());
     }
   }
 }
