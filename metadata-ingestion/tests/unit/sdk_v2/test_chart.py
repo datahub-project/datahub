@@ -9,6 +9,7 @@ import datahub.metadata.schema_classes as models
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     ChartUrn,
+    ContainerUrn,
     CorpUserUrn,
     DatasetUrn,
     DomainUrn,
@@ -38,6 +39,10 @@ def test_chart_basic(pytestconfig: pytest.Config) -> None:
     assert c.platform is not None
     assert c.platform.platform_name == "looker"
     assert c.platform_instance is None
+    assert c.parent_container is None
+    assert c.browse_path is None
+    assert c.owners is None
+    assert c.links is None
     assert c.tags is None
     assert c.terms is None
     assert c.last_modified is None
@@ -77,6 +82,11 @@ def test_chart_complex() -> None:
         chart_url="https://looker.example.com/charts/123",
         chart_type=models.ChartTypeClass.BAR,
         access=models.AccessLevelClass.PUBLIC,
+        parent_container=[
+            "Folders",
+            "urn:li:container:dummyvalue",
+            "urn:li:dashboard:(looker,dummydash.1)",
+        ],
         owners=[
             CorpUserUrn("admin@datahubproject.io"),
         ],
@@ -114,6 +124,8 @@ def test_chart_complex() -> None:
     assert c.access == models.AccessLevelClass.PUBLIC
 
     # Check standard aspects.
+    assert c.browse_path is not None and len(c.browse_path) == 3
+    assert c.parent_container == ContainerUrn.from_string("urn:li:container:dummyvalue")
     assert c.owners is not None and len(c.owners) == 1
     assert c.links is not None and len(c.links) == 2
     assert c.tags is not None and len(c.tags) == 2
