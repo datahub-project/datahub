@@ -235,6 +235,10 @@ enum DataHubPageModuleType {
   Module displaying the assets of parent entities
   """
   ASSETS
+  """
+  Module displaying the hierarchy of the children of a given entity. Glossary or Domains.
+  """
+  CHILD_HIERARCHY
 }
 
 """

@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from 'react';
 
 import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
+import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProps } from '@app/homeV3/module/types';
 import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
@@ -25,6 +26,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.RichText) return DocumentationModule;
         if (module.properties.type === DataHubPageModuleType.Hierarchy) return HierarchyViewModule;
         if (module.properties.type === DataHubPageModuleType.Assets) return AssetsModule;
+        if (module.properties.type === DataHubPageModuleType.ChildHierarchy) return ChildHierarchyModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out
         console.error(`Issue finding module with type ${module.properties.type}`);

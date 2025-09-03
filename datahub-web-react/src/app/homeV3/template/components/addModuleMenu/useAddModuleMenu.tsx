@@ -48,6 +48,17 @@ export const ASSETS_MODULE: PageModuleFragment = {
     },
 };
 
+export const CHILD_HIERARCHY_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:child_hierarchy',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Hierarchy',
+        type: DataHubPageModuleType.ChildHierarchy,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const {
         addModule,
@@ -196,11 +207,28 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-assets-module',
         };
 
+        const childHierarchy = {
+            name: 'Hierarchy',
+            key: 'hierarchy',
+            label: (
+                <MenuItem
+                    description="Related Assets tagged with the parent entity"
+                    title="Hierarchy"
+                    icon="Globe"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(CHILD_HIERARCHY_MODULE);
+            },
+            'data-testid': 'add-hierarchy-module',
+        };
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Default" />,
             type: 'group',
-            children: [yourAssets, domains, assets],
+            children: [yourAssets, domains, assets, childHierarchy],
         });
 
         // Add global custom modules if available

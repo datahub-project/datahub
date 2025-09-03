@@ -57,7 +57,7 @@ export function useTemplateOperations(
     personalTemplate: PageTemplateFragment | null,
     templateType: PageTemplateSurfaceType,
 ) {
-    const { urn } = useEntityContext();
+    const { urn, refetch } = useEntityContext();
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
     const [updateAssetSettings] = useUpdateAssetSettingsMutation();
@@ -232,8 +232,10 @@ export function useTemplateOperations(
                         setPersonalTemplate(data.upsertPageTemplate);
                         updateAssetSettings({
                             variables: { input: { urn, summary: { template: data.upsertPageTemplate.urn } } },
-                        });
+                        }).then(() => refetch?.());
                     }
+                } else {
+                    refetch?.(); // updates entityData that gets cached on a profile page for summary tab
                 }
             });
         },
