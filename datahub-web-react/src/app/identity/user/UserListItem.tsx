@@ -115,6 +115,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                 </MenuItemStyle>
             ),
         },
+
         {
             key: 'delete',
             label: (

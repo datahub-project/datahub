@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import { Copy, LockOpen, Trash } from 'phosphor-react';
+import { Copy, LockOpen, Repeat, Trash } from 'phosphor-react';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -7,12 +7,13 @@ import styled from 'styled-components/macro';
 import { ColorValues } from '@components/theme/config';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
 import { UserListItem } from '@app/identity/user/UserAndGroupList.hooks';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Avatar, Button, Dropdown, Pill, Text, Tooltip, colors } from '@src/alchemy-components';
 
-import { CorpUserStatus, EntityType } from '@types';
+import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
+import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
 
 const UserInfo = styled.div`
     display: flex;
@@ -226,9 +227,18 @@ type UserActionsMenuProps = {
     canManagePolicies: boolean;
     onResetPassword: (user: { urn: string; username: string }) => void;
     onDelete: (urn: string) => void;
+    refetch?: () => void;
 };
 
-export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDelete }: UserActionsMenuProps) => {
+export const UserActionsMenu = ({
+    user,
+    canManagePolicies,
+    onResetPassword,
+    onDelete,
+    refetch,
+}: UserActionsMenuProps) => {
+    const [sendUserInvitationsMutation] = useSendUserInvitationsMutation();
+
     const { onDeleteEntity } = useDeleteEntity(
         user.urn,
         EntityType.CorpUser,
@@ -240,40 +250,99 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManagePolicies && isNativeUser;
 
+    // Check if user has pending invitation
+    const isInvitedUser = user.invitationStatus?.status === 'SENT';
+    const canResendInvitation = canManagePolicies && isInvitedUser;
+
+    const handleResendInvitation = async () => {
+        // For invited users, the email is typically stored in the username field
+        // since their username IS the email address they were invited with
+        const email = user.info?.email || user.username;
+        if (!email) {
+            message.error('No email address found for this user');
+            return;
+        }
+
+        // Use the role from the invitation
+        const roleToUse = user.invitationStatus?.role;
+        if (!roleToUse) {
+            message.error('No role found for invitation');
+            return;
+        }
+
+        // Create a CorpUser-compatible object for the EmailInvitationService
+        const corpUserForService = {
+            ...user,
+            type: EntityType.CorpUser,
+            properties: {
+                email,
+                displayName: user.info?.displayName || user.username,
+            },
+        };
+
+        const emailService = new EmailInvitationService(sendUserInvitationsMutation);
+        const success = await emailService.sendSingleInvitation(
+            corpUserForService as CorpUser,
+            { urn: roleToUse } as DataHubRole,
+        );
+        if (success && refetch) {
+            refetch();
+        }
+    };
+
     const items = [
-        {
-            key: 'copyurn',
-            label: (
-                <MenuItemStyle
-                    onClick={() => {
-                        navigator.clipboard.writeText(user.urn);
-                        message.success('Urn copied to clipboard');
-                    }}
-                >
-                    <Copy /> &nbsp; Copy Urn
-                </MenuItemStyle>
-            ),
-        },
+        // Don't show Copy Urn for invited users
+        ...(isInvitedUser
+            ? []
+            : [
+                  {
+                      key: 'copyurn',
+                      label: (
+                          <span>
+                              <Copy size={16} style={{ marginRight: '8px' }} />
+                              Copy Urn
+                          </span>
+                      ),
+                      onClick: () => {
+                          navigator.clipboard.writeText(user.urn);
+                          message.success('Urn copied to clipboard');
+                      },
+                  },
+              ]),
         {
             key: 'reset',
             label: (
-                <MenuItemStyle
-                    disabled={!shouldShowPasswordReset}
-                    onClick={() => {
-                        onResetPassword({ urn: user.urn, username: user.username });
-                    }}
-                >
-                    <LockOpen /> &nbsp; Reset user password
-                </MenuItemStyle>
+                <span>
+                    <LockOpen size={16} style={{ marginRight: '8px' }} />
+                    Reset Password
+                </span>
             ),
+            onClick: () => {
+                onResetPassword({ urn: user.urn, username: user.username });
+            },
+            disabled: !shouldShowPasswordReset,
+        },
+        {
+            key: 'resend-invitation',
+            'data-testid': 'resend-invitation-menu-item',
+            label: (
+                <span>
+                    <Repeat size={16} style={{ marginRight: '8px' }} />
+                    Resend Invitation
+                </span>
+            ),
+            onClick: handleResendInvitation,
+            disabled: !canResendInvitation,
         },
         {
             key: 'delete',
             label: (
-                <MenuItemStyle onClick={onDeleteEntity}>
-                    <Trash /> &nbsp;Delete
-                </MenuItemStyle>
+                <span>
+                    <Trash size={16} style={{ marginRight: '8px' }} />
+                    Delete User
+                </span>
             ),
+            onClick: onDeleteEntity,
         },
     ];
 

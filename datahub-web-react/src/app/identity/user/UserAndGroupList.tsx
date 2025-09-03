@@ -287,6 +287,7 @@ export const UserAndGroupList = () => {
                         canManagePolicies={canManagePolicies}
                         onResetPassword={onResetPassword}
                         onDelete={onDelete}
+                        refetch={usersRefetch}
                     />
                 </ActionsContainer>
             ),
