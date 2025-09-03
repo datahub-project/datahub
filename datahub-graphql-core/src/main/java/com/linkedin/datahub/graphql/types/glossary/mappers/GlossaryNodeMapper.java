@@ -72,6 +72,12 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
             glossaryNode.setOwnership(
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (glossaryNode, dataMap) ->
+            glossaryNode.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(

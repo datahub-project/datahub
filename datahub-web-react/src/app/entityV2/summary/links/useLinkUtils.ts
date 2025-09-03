@@ -1,25 +1,33 @@
 import { message } from 'antd';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 
-import { useAddLinkMutation, useRemoveLinkMutation } from '@graphql/mutations.generated';
+import { useAddLinkMutation, useRemoveLinkMutation, useUpdateLinkMutation } from '@graphql/mutations.generated';
 import { InstitutionalMemoryMetadata } from '@types';
 
-export function useLinkUtils() {
+export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = null) {
     const { urn: entityUrn, entityType } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
-    const user = useUserContext();
 
     const [removeLinkMutation] = useRemoveLinkMutation();
     const [addLinkMutation] = useAddLinkMutation();
+    const [updateLinkMutation] = useUpdateLinkMutation();
 
-    const handleDeleteLink = async (link: InstitutionalMemoryMetadata) => {
+    const handleDeleteLink = async () => {
+        if (!selectedLink) {
+            return;
+        }
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl: link.url, resourceUrn: link.associatedUrn || entityUrn } },
+                variables: {
+                    input: {
+                        linkUrl: selectedLink.url,
+                        label: selectedLink.label || selectedLink.description,
+                        resourceUrn: selectedLink.associatedUrn || entityUrn,
+                    },
+                },
             });
             message.success({ content: 'Link Removed', duration: 2 });
         } catch (e: unknown) {
@@ -32,31 +40,51 @@ export function useLinkUtils() {
     };
 
     const handleAddLink = async (formValues) => {
-        if (user?.urn) {
-            try {
-                await addLinkMutation({
-                    variables: {
-                        input: { linkUrl: formValues.url, label: formValues.label, resourceUrn: mutationUrn },
-                    },
-                });
-                message.success({ content: 'Link Added', duration: 2 });
-                analytics.event({
-                    type: EventType.EntityActionEvent,
-                    entityType,
-                    entityUrn: mutationUrn,
-                    actionType: EntityActionType.UpdateLinks,
-                });
-                refetch?.();
-            } catch (e: unknown) {
-                message.destroy();
-                if (e instanceof Error) {
-                    message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
-                }
+        try {
+            await addLinkMutation({
+                variables: {
+                    input: { linkUrl: formValues.url, label: formValues.label, resourceUrn: mutationUrn },
+                },
+            });
+            message.success({ content: 'Link Added', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                entityType,
+                entityUrn: mutationUrn,
+                actionType: EntityActionType.UpdateLinks,
+            });
+            refetch?.();
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to add link: \n ${e.message || ''}`, duration: 3 });
             }
-        } else {
-            message.error({ content: `Error adding link: no user`, duration: 2 });
         }
     };
 
-    return { handleDeleteLink, handleAddLink };
+    const handleUpdateLink = async (formData) => {
+        if (!selectedLink) return;
+        try {
+            await updateLinkMutation({
+                variables: {
+                    input: {
+                        currentLabel: selectedLink.label || selectedLink.description,
+                        currentUrl: selectedLink.url,
+                        resourceUrn: selectedLink.associatedUrn || entityUrn,
+                        label: formData.label,
+                        linkUrl: formData.url,
+                    },
+                },
+            });
+            message.success({ content: 'Link Updated', duration: 2 });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Error updating link: \n ${e.message || ''}`, duration: 2 });
+            }
+        }
+        refetch?.();
+    };
+
+    return { handleDeleteLink, handleAddLink, handleUpdateLink };
 }
