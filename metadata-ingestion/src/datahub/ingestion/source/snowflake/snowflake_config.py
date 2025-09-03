@@ -67,13 +67,10 @@ class TagOption(StrEnum):
 
 @dataclass(frozen=True)
 class DatabaseId:
-    database: str = Field(
-        description="Database created from share in consumer account."
-    )
-    platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance of consumer snowflake account.",
-    )
+    # Database created from share in consumer account
+    database: str
+    # Platform instance of consumer snowflake account
+    platform_instance: Optional[str] = None
 
 
 class SnowflakeShareConfig(ConfigModel):
