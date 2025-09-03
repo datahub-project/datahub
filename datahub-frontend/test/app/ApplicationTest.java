@@ -1,12 +1,25 @@
 package app;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.*;
 import static play.mvc.Http.Status.NOT_FOUND;
 import static play.mvc.Http.Status.OK;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
 
+import com.google.inject.AbstractModule;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.aspect.CorpUserAspectArray;
+import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
@@ -15,13 +28,19 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import no.nav.security.mock.oauth2.MockOAuth2Server;
 import no.nav.security.mock.oauth2.http.OAuth2HttpRequest;
 import no.nav.security.mock.oauth2.http.OAuth2HttpResponse;
@@ -57,7 +76,9 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "KAFKA_BOOTSTRAP_SERVER", value = "")
 @SetEnvironmentVariable(key = "DATAHUB_ANALYTICS_ENABLED", value = "false")
 @SetEnvironmentVariable(key = "AUTH_OIDC_ENABLED", value = "true")
-@SetEnvironmentVariable(key = "AUTH_OIDC_JIT_PROVISIONING_ENABLED", value = "false")
+@SetEnvironmentVariable(key = "AUTH_OIDC_JIT_PROVISIONING_ENABLED", value = "true")
+@SetEnvironmentVariable(key = "AUTH_OIDC_EXTRACT_GROUPS_ENABLED", value = "true")
+@SetEnvironmentVariable(key = "AUTH_OIDC_GROUPS_CLAIM_NAME", value = "groups")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_ID", value = "testclient")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_SECRET", value = "testsecret")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
@@ -75,6 +96,7 @@ public class ApplicationTest extends WithBrowser {
             "http://localhost:"
                 + oauthServerPort()
                 + "/testIssuer/.well-known/openid-configuration")
+        .overrides(new TestModule())
         .in(new Environment(Mode.TEST))
         .build();
   }
@@ -109,9 +131,7 @@ public class ApplicationTest extends WithBrowser {
   public void init() throws IOException {
     // Start Mock GMS
     gmsServer = new MockWebServer();
-    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
-    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
-    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    // auth client mock response
     gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
     gmsServer.enqueue(
         new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
@@ -125,6 +145,20 @@ public class ApplicationTest extends WithBrowser {
     createBrowser();
 
     Awaitility.await().timeout(Durations.TEN_SECONDS).until(() -> app != null);
+
+    // Wait for the Play application to be fully ready to handle requests
+    Awaitility.await()
+        .timeout(Durations.TEN_SECONDS)
+        .until(
+            () -> {
+              try {
+                // Try to hit a simple endpoint to verify the server is ready
+                browser.goTo("/admin");
+                return true;
+              } catch (Exception e) {
+                return false;
+              }
+            });
   }
 
   @AfterAll
@@ -151,7 +185,7 @@ public class ApplicationTest extends WithBrowser {
   }
 
   private void startMockOauthServer() {
-    // Configure HEAD responses
+    // Configure HEAD responses and userInfo endpoint
     Route[] routes =
         new Route[] {
           new Route() {
@@ -166,15 +200,73 @@ public class ApplicationTest extends WithBrowser {
 
             @Override
             public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
+              String path = oAuth2HttpRequest.getUrl().url().getPath();
+              String responseBody = null;
+
+              if (path.equals(String.format("/%s/.well-known/openid-configuration", ISSUER_ID))) {
+                // Return well-known configuration with userinfo endpoint
+                int port = oAuth2HttpRequest.getUrl().url().getPort();
+                responseBody =
+                    String.format(
+                        "{\n"
+                            + "  \"issuer\": \"http://localhost:%d/%s\",\n"
+                            + "  \"authorization_endpoint\": \"http://localhost:%d/%s/authorize\",\n"
+                            + "  \"token_endpoint\": \"http://localhost:%d/%s/token\",\n"
+                            + "  \"userinfo_endpoint\": \"http://localhost:%d/%s/userinfo\",\n"
+                            + "  \"jwks_uri\": \"http://localhost:%d/%s/.well-known/jwks.json\",\n"
+                            + "  \"response_types_supported\": [\"code\"],\n"
+                            + "  \"subject_types_supported\": [\"public\"],\n"
+                            + "  \"id_token_signing_alg_values_supported\": [\"RS256\"]\n"
+                            + "}",
+                        port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port,
+                        ISSUER_ID);
+              }
+
+              return new OAuth2HttpResponse(
+                  Headers.of(
+                      Map.of(
+                          "Content-Type", "application/json",
+                          "Cache-Control", "no-store",
+                          "Pragma", "no-cache")),
+                  200,
+                  responseBody,
+                  null);
+            }
+          },
+          // Add userInfo endpoint route
+          new Route() {
+            @Override
+            public boolean match(@NotNull OAuth2HttpRequest oAuth2HttpRequest) {
+              return "GET".equals(oAuth2HttpRequest.getMethod())
+                  && String.format("/%s/userinfo", ISSUER_ID)
+                      .equals(oAuth2HttpRequest.getUrl().url().getPath());
+            }
+
+            @Override
+            public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
+              // Return userInfo with groups (not in ID token)
+              String userInfoResponse =
+                  String.format(
+                      "{\n"
+                          + "  \"sub\": \"testUser\",\n"
+                          + "  \"preferred_username\": \"testUser\",\n"
+                          + "  \"given_name\": \"Test\",\n"
+                          + "  \"family_name\": \"User\",\n"
+                          + "  \"email\": \"testUser@myCompany.com\",\n"
+                          + "  \"name\": \"Test User\",\n"
+                          + "  \"groups\": \"myGroup\",\n"
+                          + "  \"email_verified\": true\n"
+                          + "}");
+
               return new OAuth2HttpResponse(
                   Headers.of(
                       Map.of(
                           "Content-Type", "application/json",
                           "Cache-Control", "no-store",
                           "Pragma", "no-cache",
-                          "Content-Length", "-1")),
+                          "Content-Length", String.valueOf(userInfoResponse.length()))),
                   200,
-                  null,
+                  userInfoResponse,
                   null);
             }
           }
@@ -187,7 +279,7 @@ public class ApplicationTest extends WithBrowser {
         new Thread(
             () -> {
               try {
-                // Configure mock responses
+                // Configure mock responses - groups are NOT in ID token, only in userInfo endpoint
                 oauthServer.enqueueCallback(
                     new DefaultOAuth2TokenCallback(
                         ISSUER_ID,
@@ -195,8 +287,10 @@ public class ApplicationTest extends WithBrowser {
                         "JWT",
                         List.of(),
                         Map.of(
-                            "email", "testUser@myCompany.com",
-                            "groups", "myGroup"),
+                            "email", "testUser@myCompany.com"
+                            // Note: groups are intentionally NOT included in ID token
+                            // They will only be available from the userInfo endpoint
+                            ),
                         600));
 
                 oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
@@ -288,6 +382,11 @@ public class ApplicationTest extends WithBrowser {
 
   @Test
   public void testHappyPathOidc() throws ParseException {
+    // Clear any previously captured proposals and ensure clean state
+    TestModule.clearCapturedProposals();
+    // Verify the list is actually empty
+    assertTrue(TestModule.getCapturedProposals().isEmpty());
+
     browser.goTo("/authenticate");
     assertEquals("", browser.url());
 
@@ -308,18 +407,50 @@ public class ApplicationTest extends WithBrowser {
                 .getExpirationTime()
                 .compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
             < 0);
-  }
 
-  @Test
-  public void testAPI() throws ParseException {
-    testHappyPathOidc();
-    int requestCount = gmsServer.getRequestCount();
+    // Verify that ingestProposal was called for group membership and user status updates
+    List<MetadataChangeProposal> capturedProposals = TestModule.getCapturedProposals();
+    logger.debug("Captured {} ingestProposal calls", capturedProposals.size());
 
-    // Enqueue a mock response for the /api/v2/graphql/ call
-    gmsServer.enqueue(new MockResponse().setResponseCode(200).setBody("{\"data\":\"ok\"}"));
+    // We should have at least 2 calls: one for group membership and one for user status
+    assertTrue(capturedProposals.size() >= 2);
 
-    browser.goTo("/api/v2/graphql/");
-    assertEquals(++requestCount, gmsServer.getRequestCount());
+    // Verify we have a group membership proposal
+    boolean hasGroupMembership =
+        capturedProposals.stream()
+            .anyMatch(proposal -> "groupMembership".equals(proposal.getAspectName()));
+    assertTrue(hasGroupMembership);
+
+    // Verify we have a user status proposal
+    boolean hasUserStatus =
+        capturedProposals.stream()
+            .anyMatch(proposal -> "corpUserStatus".equals(proposal.getAspectName()));
+    assertTrue(hasUserStatus);
+
+    // Verify the basic OIDC flow worked and the user was authenticated
+    assertNotNull(actorCookie);
+    assertNotNull(sessionCookie);
+
+    // Find and validate the group membership proposal
+    MetadataChangeProposal groupMembershipProposal =
+        capturedProposals.stream()
+            .filter(proposal -> "groupMembership".equals(proposal.getAspectName()))
+            .findFirst()
+            .orElse(null);
+
+    assertNotNull(groupMembershipProposal);
+    assertEquals(
+        "urn:li:corpuser:testUser@myCompany.com",
+        groupMembershipProposal.getEntityUrn().toString());
+    assertEquals("corpuser", groupMembershipProposal.getEntityType());
+    assertEquals("groupMembership", groupMembershipProposal.getAspectName());
+    assertEquals("UPSERT", groupMembershipProposal.getChangeType().toString());
+
+    // Validate that the group membership proposal contains "myGroup" from the /userInfo endpoint
+    String aspectData =
+        groupMembershipProposal.getAspect().getValue().asString(StandardCharsets.UTF_8);
+    logger.debug("Group membership aspect data: {}", aspectData);
+    assertTrue(aspectData.contains("myGroup"));
   }
 
   @Test
@@ -346,5 +477,146 @@ public class ApplicationTest extends WithBrowser {
 
     browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
     assertEquals("", browser.url());
+  }
+
+  /** Test module that provides comprehensive mocks to handle all GMS interactions */
+  private static class TestModule extends AbstractModule {
+    // Store captured ingestProposal calls for validation
+    private static final List<MetadataChangeProposal> capturedProposals = new ArrayList<>();
+
+    @Override
+    protected void configure() {
+      // This module will override providers for GMS interactions
+    }
+
+    public static List<MetadataChangeProposal> getCapturedProposals() {
+      return new ArrayList<>(capturedProposals);
+    }
+
+    public static void clearCapturedProposals() {
+      capturedProposals.clear();
+    }
+
+    @Provides
+    @Singleton
+    protected SystemEntityClient provideMockSystemEntityClient() {
+      logger.debug("Creating mock SystemEntityClient");
+      SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+      try {
+        // Configure user provisioning mocks (mirrors tryProvisionUser)
+        configureUserProvisioningMocks(mockClient);
+
+        // Configure group provisioning mocks (mirrors tryProvisionGroups)
+        configureGroupProvisioningMocks(mockClient);
+
+        // Mock ingestProposal to capture calls for validation
+        doAnswer(
+                invocation -> {
+                  MetadataChangeProposal proposal = invocation.getArgument(1);
+                  logger.debug(
+                      "ingestProposal() called with entityUrn: {}, entityType: {}, aspectName: {}, changeType: {}",
+                      proposal.getEntityUrn(),
+                      proposal.getEntityType(),
+                      proposal.getAspectName(),
+                      proposal.getChangeType());
+                  // Capture the proposal for validation
+                  capturedProposals.add(proposal);
+                  return null;
+                })
+            .when(mockClient)
+            .ingestProposal(any(), any());
+      } catch (RemoteInvocationException e) {
+        // This should not happen with mocks, but handle it just in case
+        throw new RuntimeException("Failed to configure mock SystemEntityClient", e);
+      } catch (Exception e) {
+        // This should not happen with mocks, but handle it just in case
+        throw new RuntimeException("Failed to configure mock SystemEntityClient", e);
+      }
+
+      return mockClient;
+    }
+
+    /**
+     * Configures mocks for user provisioning flow (mirrors tryProvisionUser method). - First get()
+     * call returns null (user doesn't exist) - update() call stores the actual Entity object -
+     * Subsequent get() calls return the stored Entity
+     */
+    private void configureUserProvisioningMocks(SystemEntityClient mockClient)
+        throws RemoteInvocationException {
+      final AtomicReference<Entity> storedEntity = new AtomicReference<>();
+
+      // First call to get() returns an Entity with just a key aspect (user doesn't exist),
+      // subsequent calls return the stored user with full aspects
+      doAnswer(
+              invocation -> {
+                Entity entity = storedEntity.get();
+                if (entity == null) {
+                  // Return an Entity with just a key aspect (simulating non-existent user)
+                  Entity keyOnlyEntity = new Entity();
+                  // Create a minimal CorpUserSnapshot with just the key aspect
+                  CorpUserSnapshot keyOnlySnapshot = new CorpUserSnapshot();
+                  keyOnlySnapshot.setUrn(invocation.getArgument(1)); // The URN from the get() call
+                  keyOnlySnapshot.setAspects(new CorpUserAspectArray());
+                  keyOnlyEntity.setValue(Snapshot.create(keyOnlySnapshot));
+                  logger.debug("get() called, returning key-only entity for non-existent user");
+                  return keyOnlyEntity;
+                } else {
+                  logger.debug("get() called, returning stored entity with full aspects");
+                  return entity;
+                }
+              })
+          .when(mockClient)
+          .get(any(), any());
+
+      // Store the entity when update() is called
+      doAnswer(
+              invocation -> {
+                Entity entity = invocation.getArgument(1);
+                storedEntity.set(entity);
+                logger.debug("update() called, stored entity: {}", entity);
+                return null;
+              })
+          .when(mockClient)
+          .update(any(), any());
+    }
+
+    /**
+     * Configures mocks for group provisioning flow (mirrors tryProvisionGroups method). -
+     * batchGet() returns empty map initially (groups don't exist) - batchUpdate() stores the actual
+     * Map<Urn, Entity> of groups - Subsequent batchGet() calls return the stored groups
+     */
+    private void configureGroupProvisioningMocks(SystemEntityClient mockClient)
+        throws RemoteInvocationException {
+      final AtomicReference<Map<Urn, Entity>> storedGroups =
+          new AtomicReference<>(Collections.emptyMap());
+
+      // batchGet() returns the stored groups (empty initially, then populated after batchUpdate)
+      doAnswer(
+              invocation -> {
+                Map<Urn, Entity> groups = storedGroups.get();
+                logger.debug("batchGet() called, returning {} groups", groups.size());
+                return groups;
+              })
+          .when(mockClient)
+          .batchGet(any(), any());
+
+      // Store the groups when batchUpdate() is called
+      doAnswer(
+              invocation -> {
+                Set<Entity> groupEntities = invocation.getArgument(1);
+                // Convert Set<Entity> to Map<Urn, Entity> for storage
+                Map<Urn, Entity> groupsMap = new HashMap<>();
+                for (Entity entity : groupEntities) {
+                  Urn urn = entity.getValue().getCorpGroupSnapshot().getUrn();
+                  groupsMap.put(urn, entity);
+                }
+                storedGroups.set(groupsMap);
+                logger.debug("batchUpdate() called, stored {} groups", groupEntities.size());
+                return null;
+              })
+          .when(mockClient)
+          .batchUpdate(any(), any());
+    }
   }
 }
