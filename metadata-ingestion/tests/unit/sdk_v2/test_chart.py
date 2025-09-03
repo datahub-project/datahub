@@ -229,5 +229,5 @@ def test_chart_set_chart_type() -> None:
     )
     c.set_chart_type(models.ChartTypeClass.BAR)
     assert c.chart_type == models.ChartTypeClass.BAR
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError, match=r"Invalid chart type:.*"):
         c.set_chart_type("invalid_type")

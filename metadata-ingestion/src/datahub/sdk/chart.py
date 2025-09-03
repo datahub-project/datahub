@@ -262,9 +262,11 @@ class Chart(
     def set_chart_type(self, chart_type: Union[str, models.ChartTypeClass]) -> None:
         """Set the type of the chart."""
         if isinstance(chart_type, str):
-            assert chart_type in get_enum_options(models.ChartTypeClass), (
-                f"Invalid chart type: {chart_type}"
-            )
+            chart_type_options = get_enum_options(models.ChartTypeClass)
+            if chart_type not in chart_type_options:
+                raise ValueError(
+                    f"Invalid chart type: {chart_type}; valid types are {chart_type_options}"
+                )
         self._ensure_chart_props().type = chart_type
 
     @property
