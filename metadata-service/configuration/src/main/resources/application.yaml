@@ -389,12 +389,15 @@ kafka:
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:
       name: ${METADATA_AUDIT_EVENT_NAME:MetadataAuditEvent_v4}
+      enabled: false
 
     metadataChangeEvent:
       name: ${METADATA_CHANGE_EVENT_NAME:MetadataChangeEvent_v4}
+      enabled: false
 
     failedMetadataChangeEvent:
       name: ${FAILED_METADATA_CHANGE_EVENT_NAME:FailedMetadataChangeEvent_v4}
+      enabled: false
 
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
