@@ -382,6 +382,41 @@ def test_filter_before_validators() -> None:
         load_filters(filter_str)
 
 
+def test_owner_filter() -> None:
+    """Test basic owner filter functionality."""
+    filter_obj: Filter = load_filters({"owner": ["urn:li:corpuser:john"]})
+    assert filter_obj == F.owner("urn:li:corpuser:john")
+    assert filter_obj.compile() == [
+        {
+            "and": [
+                SearchFilterRule(
+                    field="owners",
+                    condition="EQUAL",
+                    values=["urn:li:corpuser:john"],
+                )
+            ]
+        }
+    ]
+
+
+def test_owner_filter_mixed_types() -> None:
+    """Test owner filter with both user and group URNs."""
+    filter_obj: Filter = load_filters(
+        {"owner": ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]}
+    )
+    assert filter_obj == F.owner(
+        ["urn:li:corpuser:john", "urn:li:corpGroup:engineering"]
+    )
+
+
+def test_invalid_owner_filter() -> None:
+    """Test validation error for invalid owner URN."""
+    with pytest.raises(
+        ValidationError, match="Owner must be a valid User or Group URN"
+    ):
+        F.owner("invalid-owner")
+
+
 def test_invalid_filter() -> None:
     with pytest.raises(InvalidUrnError):
         F.domain("marketing")
