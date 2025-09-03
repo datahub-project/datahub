@@ -40,9 +40,10 @@ type Props = {
     link: InstitutionalMemoryMetadata;
     setSelectedLink: (link: InstitutionalMemoryMetadata | null) => void;
     setShowConfirmDelete: (show: boolean) => void;
+    setShowEditLinkModal: (show: boolean) => void;
 };
 
-export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete }: Props) {
+export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, setShowEditLinkModal }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const createdBy = link.actor;
 
@@ -60,7 +61,17 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete }
                         Added {formatDateString(link.created.time)} by{' '}
                     </Text>
                     <AvatarPillWithLinkAndHover user={createdBy} size="sm" entityRegistry={entityRegistry} />
-                    <StyledIcon icon="PencilSimpleLine" source="phosphor" color="gray" size="md" />
+                    <StyledIcon
+                        icon="PencilSimpleLine"
+                        source="phosphor"
+                        color="gray"
+                        size="md"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedLink(link);
+                            setShowEditLinkModal(true);
+                        }}
+                    />
                     <StyledIcon
                         icon="Trash"
                         source="phosphor"
