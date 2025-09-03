@@ -1,9 +1,22 @@
-import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
 import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
 import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.generated';
 import { SummaryElement, SummaryElementType } from '@types';
+import {
+    TemplateUpdateContext,
+    getTemplateToUpdate,
+    updateTemplateStateOptimistically,
+    persistTemplateChanges,
+    handleValidationError,
+    validateTemplateAvailability,
+} from './utils/templateOperationUtils';
+import {
+    validatePosition,
+    validateArrayBounds,
+    validateElementType,
+    validateStructuredProperty,
+} from './utils/validationUtils';
 
 // Types for summary element operations
 export interface SummaryElementWithId extends SummaryElement {
@@ -21,64 +34,6 @@ export interface ReplaceSummaryElementInput {
     position: number;
 }
 
-// Helper functions for template operations
-interface TemplateUpdateContext {
-    isEditingGlobalTemplate: boolean;
-    personalTemplate: PageTemplateFragment | null;
-    globalTemplate: PageTemplateFragment | null;
-    setPersonalTemplate: (template: PageTemplateFragment | null) => void;
-    setGlobalTemplate: (template: PageTemplateFragment | null) => void;
-    upsertTemplate: (
-        templateToUpsert: PageTemplateFragment | null,
-        isPersonal: boolean,
-        personalTemplate: PageTemplateFragment | null,
-    ) => Promise<any>;
-}
-
-const getTemplateToUpdate = (
-    context: TemplateUpdateContext,
-): {
-    template: PageTemplateFragment | null;
-    isPersonal: boolean;
-} => {
-    const isPersonal = !context.isEditingGlobalTemplate;
-    const template = isPersonal ? context.personalTemplate || context.globalTemplate : context.globalTemplate;
-
-    return { template, isPersonal };
-};
-
-const updateTemplateStateOptimistically = (
-    context: TemplateUpdateContext,
-    updatedTemplate: PageTemplateFragment | null,
-    isPersonal: boolean,
-) => {
-    if (isPersonal) {
-        context.setPersonalTemplate(updatedTemplate);
-    } else {
-        context.setGlobalTemplate(updatedTemplate);
-    }
-};
-
-const persistTemplateChanges = async (
-    context: TemplateUpdateContext,
-    updatedTemplate: PageTemplateFragment | null,
-    isPersonal: boolean,
-    operationName: string,
-) => {
-    try {
-        await context.upsertTemplate(updatedTemplate, isPersonal, context.personalTemplate);
-    } catch (error) {
-        // Revert on error
-        if (isPersonal) {
-            context.setPersonalTemplate(context.personalTemplate);
-        } else {
-            context.setGlobalTemplate(context.globalTemplate);
-        }
-        console.error(`Failed to ${operationName}:`, error);
-        message.error(`Failed to ${operationName}`);
-    }
-};
-
 // Helper function to create a new summary element from input
 const createSummaryElementFromInput = (input: AddSummaryElementInput): SummaryElementFragment => ({
     __typename: 'SummaryElement',
@@ -88,12 +43,12 @@ const createSummaryElementFromInput = (input: AddSummaryElementInput): SummaryEl
 
 // Validation functions
 const validateAddSummaryElementInput = (input: AddSummaryElementInput): string | null => {
-    if (!input.elementType) {
-        return 'Element type is required';
-    }
-    if (input.elementType === SummaryElementType.StructuredProperty && !input.structuredProperty?.urn) {
-        return 'Structured property URN is required for STRUCTURED_PROPERTY element type';
-    }
+    const elementTypeError = validateElementType(input.elementType);
+    if (elementTypeError) return elementTypeError;
+
+    const structuredPropertyError = validateStructuredProperty(input.elementType, input.structuredProperty?.urn);
+    if (structuredPropertyError) return structuredPropertyError;
+
     return null;
 };
 
@@ -101,17 +56,11 @@ const validateReplaceSummaryElementInput = (input: ReplaceSummaryElementInput): 
     const baseValidation = validateAddSummaryElementInput(input);
     if (baseValidation) return baseValidation;
 
-    if (input.position < 0) {
-        return 'Position must be non-negative';
-    }
-    return null;
+    return validatePosition(input.position, 'replace summary element');
 };
 
 const validateRemoveSummaryElementInput = (position: number): string | null => {
-    if (position < 0) {
-        return 'Position must be non-negative';
-    }
-    return null;
+    return validatePosition(position, 'remove summary element');
 };
 
 export function useAssetSummaryOperations(
@@ -151,19 +100,10 @@ export function useAssetSummaryOperations(
         (input: AddSummaryElementInput) => {
             // Validate input
             const validationError = validateAddSummaryElementInput(input);
-            if (validationError) {
-                console.error('Invalid addSummaryElement input:', validationError);
-                message.error(validationError);
-                return;
-            }
+            if (handleValidationError(validationError, 'addSummaryElement')) return;
 
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-
-            if (!templateToUpdate) {
-                console.error('No template provided to update');
-                message.error('No template available to update');
-                return;
-            }
+            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             // Create new summary element
             const newSummaryElement = createSummaryElementFromInput(input);
@@ -176,7 +116,6 @@ export function useAssetSummaryOperations(
                 properties: {
                     ...templateToUpdate.properties,
                     assetSummary: {
-                        // __typename: 'DataHubPageTemplateAssetSummary',
                         summaryElements: updatedSummaryElements,
                     },
                 },
@@ -196,27 +135,15 @@ export function useAssetSummaryOperations(
         (position: number) => {
             // Validate input
             const validationError = validateRemoveSummaryElementInput(position);
-            if (validationError) {
-                console.error('Invalid removeSummaryElement input:', validationError);
-                message.error(validationError);
-                return;
-            }
+            if (handleValidationError(validationError, 'removeSummaryElement')) return;
 
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-
-            if (!templateToUpdate) {
-                console.error('No template provided to update');
-                message.error('No template available to update');
-                return;
-            }
+            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             const currentSummaryElements = templateToUpdate.properties?.assetSummary?.summaryElements || [];
-
-            if (position >= currentSummaryElements.length) {
-                console.error('Position is out of bounds');
-                message.error('Invalid position for removal');
-                return;
-            }
+            
+            const boundsError = validateArrayBounds(position, currentSummaryElements.length, 'removal');
+            if (handleValidationError(boundsError, 'removeSummaryElement')) return;
 
             // Create updated summary elements array
             const updatedSummaryElements = [...currentSummaryElements];
@@ -228,7 +155,6 @@ export function useAssetSummaryOperations(
                 properties: {
                     ...templateToUpdate.properties,
                     assetSummary: {
-                        // __typename: 'DataHubPageTemplateAssetSummary',
                         summaryElements: updatedSummaryElements,
                     },
                 },
@@ -248,27 +174,15 @@ export function useAssetSummaryOperations(
         (input: ReplaceSummaryElementInput) => {
             // Validate input
             const validationError = validateReplaceSummaryElementInput(input);
-            if (validationError) {
-                console.error('Invalid replaceSummaryElement input:', validationError);
-                message.error(validationError);
-                return;
-            }
+            if (handleValidationError(validationError, 'replaceSummaryElement')) return;
 
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-
-            if (!templateToUpdate) {
-                console.error('No template provided to update');
-                message.error('No template available to update');
-                return;
-            }
+            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             const currentSummaryElements = templateToUpdate.properties?.assetSummary?.summaryElements || [];
-
-            if (input.position >= currentSummaryElements.length) {
-                console.error('Position is out of bounds');
-                message.error('Invalid position for replacement');
-                return;
-            }
+            
+            const boundsError = validateArrayBounds(input.position, currentSummaryElements.length, 'replacement');
+            if (handleValidationError(boundsError, 'replaceSummaryElement')) return;
 
             // Create new summary element
             const newSummaryElement = createSummaryElementFromInput(input);
@@ -283,7 +197,6 @@ export function useAssetSummaryOperations(
                 properties: {
                     ...templateToUpdate.properties,
                     assetSummary: {
-                        // __typename: 'DataHubPageTemplateAssetSummary',
                         summaryElements: updatedSummaryElements,
                     },
                 },
