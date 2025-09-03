@@ -65,7 +65,7 @@ public class ElasticSearchServiceFactory {
 
     return new ESSearchDAO(
         components.getSearchClient(),
-        configurationProvider.getFeatureFlags().isPointInTimeCreationEnabled(),
+        elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration.getImplementation(),
         elasticSearchConfiguration,
         customSearchConfiguration,
