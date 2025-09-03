@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, Union
@@ -93,6 +94,9 @@ class Space(_QlikBaseModel):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
+
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDAT], QLIK_DATETIME_FORMAT
         )
