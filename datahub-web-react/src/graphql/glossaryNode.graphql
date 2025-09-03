@@ -35,6 +35,9 @@ fragment glossaryNodeFields on GlossaryNode {
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
         ...autoRenderAspectFields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields
