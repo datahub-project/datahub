@@ -29,11 +29,12 @@ x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
 x-graph-datastore-search-env: &graph-datastore-search-env
   GRAPH_SERVICE_IMPL: elasticsearch
 
-x-search-datastore-elasticsearch-env: &search-datastore-env
+x-search-datastore-opensearch-env: &search-datastore-env
   ELASTICSEARCH_HOST: search
   ELASTICSEARCH_PORT: 9200
   ELASTICSEARCH_PROTOCOL: http
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+  ELASTICSEARCH_IMPLEMENTATION: opensearch
 
 x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
@@ -295,6 +296,9 @@ services:
     <<: *datahub-system-update-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-system-update-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
@@ -441,6 +445,9 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-gms-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
