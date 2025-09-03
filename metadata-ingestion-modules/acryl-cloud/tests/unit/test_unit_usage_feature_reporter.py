@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 from unittest.mock import Mock
 
-import polars
+import polars as pl
 import pytest
 
 from acryl_datahub_cloud.datahub_usage_reporting.usage_feature_reporter import (
@@ -47,7 +47,7 @@ class TestUserDatasetUsageMap:
         return create_test_source(use_exp_cdf=True)
 
     @pytest.fixture
-    def sample_users_data(self) -> polars.LazyFrame:
+    def sample_users_data(self) -> pl.LazyFrame:
         """Create sample user usage data for testing."""
         data = [
             # User 1 with multiple datasets
@@ -108,10 +108,10 @@ class TestUserDatasetUsageMap:
                 "count": 75,
             },
         ]
-        return polars.LazyFrame(data)
+        return pl.LazyFrame(data)
 
     @pytest.fixture
-    def large_dataset_users_data(self) -> polars.LazyFrame:
+    def large_dataset_users_data(self) -> pl.LazyFrame:
         """Create sample data with more than 25 datasets for a user to test top_n filtering."""
         data = []
         platforms = ["snowflake", "bigquery", "postgres", "mysql", "redshift"]
@@ -135,12 +135,12 @@ class TestUserDatasetUsageMap:
                     "count": 50 - i * 5,
                 }
             )
-        return polars.LazyFrame(data)
+        return pl.LazyFrame(data)
 
     def test_basic_functionality(
         self,
         source: DataHubUsageFeatureReportingSource,
-        sample_users_data: polars.LazyFrame,
+        sample_users_data: pl.LazyFrame,
     ) -> None:
         """Test basic functionality of _create_user_dataset_usage_map."""
         result_lf = source._create_user_dataset_usage_map(sample_users_data)
@@ -258,7 +258,7 @@ class TestUserDatasetUsageMap:
     def test_top_n_filtering(
         self,
         source: DataHubUsageFeatureReportingSource,
-        large_dataset_users_data: polars.LazyFrame,
+        large_dataset_users_data: pl.LazyFrame,
     ) -> None:
         """Test that top_n parameter correctly limits the number of datasets returned."""
         # Test with default top_n=25
@@ -297,7 +297,7 @@ class TestUserDatasetUsageMap:
     def test_custom_top_n(
         self,
         source: DataHubUsageFeatureReportingSource,
-        large_dataset_users_data: polars.LazyFrame,
+        large_dataset_users_data: pl.LazyFrame,
     ) -> None:
         """Test custom top_n parameter."""
         # Test with top_n=3
@@ -353,7 +353,7 @@ class TestUserDatasetUsageMap:
                 "count": 10,
             },  # duplicate
         ]
-        users_lf = polars.LazyFrame(data)
+        users_lf = pl.LazyFrame(data)
 
         result_lf = source._create_user_dataset_usage_map(users_lf)
         result_df = result_lf.collect()
@@ -389,13 +389,13 @@ class TestUserDatasetUsageMap:
 
     def test_empty_input(self, source: DataHubUsageFeatureReportingSource) -> None:
         """Test handling of empty input data."""
-        empty_lf = polars.LazyFrame(
+        empty_lf = pl.LazyFrame(
             [],
             schema={
-                "user": polars.String,
-                "urn": polars.String,
-                "platform": polars.String,
-                "count": polars.Int64,
+                "user": pl.String,
+                "urn": pl.String,
+                "platform": pl.String,
+                "count": pl.Int64,
             },
         )
 
@@ -439,7 +439,7 @@ class TestUserDatasetUsageMap:
                 "count": 75,
             },
         ]
-        users_lf = polars.LazyFrame(data)
+        users_lf = pl.LazyFrame(data)
 
         result_lf = source._create_user_dataset_usage_map(users_lf)
         result_df = result_lf.collect()
@@ -499,7 +499,7 @@ class TestUserDatasetUsageMap:
                 "count": 20,
             },
         ]
-        users_lf = polars.LazyFrame(data)
+        users_lf = pl.LazyFrame(data)
 
         result_lf = source._create_user_dataset_usage_map(users_lf)
         result_df = result_lf.collect()
@@ -598,7 +598,7 @@ class TestGenRankAndPercentile:
             {"urn": "dataset4", "platform": "snowflake", "count": 40},
             {"urn": "dataset5", "platform": "snowflake", "count": 20},
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.gen_rank_and_percentile(lf, "count", prefix="test_")
         result_df = result_lf.collect()
@@ -636,7 +636,7 @@ class TestGenRankAndPercentile:
             {"urn": "dataset4", "platform": "bigquery", "count": 150},
             {"urn": "dataset5", "platform": "bigquery", "count": 100},
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.gen_rank_and_percentile(lf, "count", prefix="test_")
         result_df = result_lf.collect()
@@ -673,7 +673,7 @@ class TestGenRankAndPercentile:
             {"urn": "dataset3", "platform": "snowflake", "count": 0},
             {"urn": "dataset4", "platform": "snowflake", "count": 0},
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.gen_rank_and_percentile(lf, "count", prefix="test_")
         result_df = result_lf.collect()
@@ -699,7 +699,7 @@ class TestGenRankAndPercentile:
             {"urn": "dataset1", "platform": "snowflake", "count": 100},
             {"urn": "dataset2", "platform": "bigquery", "count": 50},  # Single item
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.gen_rank_and_percentile(lf, "count", prefix="test_")
         result_df = result_lf.collect()
@@ -722,7 +722,7 @@ class TestGenRankAndPercentile:
             {"entity_id": "dataset1", "data_platform": "snowflake", "usage_count": 100},
             {"entity_id": "dataset2", "data_platform": "snowflake", "usage_count": 50},
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.gen_rank_and_percentile(
             lf,
@@ -756,7 +756,7 @@ class TestGenRankAndPercentile:
             {"urn": "dataset1", "platform": "snowflake", "count": 100},
             {"urn": "dataset2", "platform": "snowflake", "count": 50},
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.gen_rank_and_percentile(lf, "count", prefix=None)
         result_df = result_lf.collect()
@@ -774,7 +774,7 @@ class TestGenRankAndPercentile:
             {"urn": "dataset2", "platform": "snowflake", "count": 100},  # Tie
             {"urn": "dataset3", "platform": "snowflake", "count": 50},
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.gen_rank_and_percentile(lf, "count", prefix="test_")
         result_df = result_lf.collect()
@@ -798,7 +798,7 @@ class TestGenRankAndPercentile:
             {"urn": "dataset1", "platform": "snowflake", "count": 100},
             {"urn": "dataset2", "platform": "snowflake", "count": 50},
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         # Override to use exp_cdf (even though config has it as False)
         result_lf = source.gen_rank_and_percentile(
@@ -812,12 +812,12 @@ class TestGenRankAndPercentile:
 
     def test_empty_dataframe(self, source: DataHubUsageFeatureReportingSource) -> None:
         """Test handling of empty dataframe."""
-        empty_lf = polars.LazyFrame(
+        empty_lf = pl.LazyFrame(
             [],
             schema={
-                "urn": polars.String,
-                "platform": polars.String,
-                "count": polars.Int64,
+                "urn": pl.String,
+                "platform": pl.String,
+                "count": pl.Int64,
             },
         )
 
@@ -988,7 +988,7 @@ class TestAddPlatformUsagePercentiles:
         return create_test_source(use_exp_cdf=False)
 
     @pytest.fixture
-    def sample_user_usage_data(self) -> polars.LazyFrame:
+    def sample_user_usage_data(self) -> pl.LazyFrame:
         """Create sample user usage data with platform_usage_pairs."""
         data = [
             {
@@ -1055,12 +1055,12 @@ class TestAddPlatformUsagePercentiles:
                 ],
             },
         ]
-        return polars.LazyFrame(data)
+        return pl.LazyFrame(data)
 
     def test_basic_percentile_calculation(
         self,
         source: DataHubUsageFeatureReportingSource,
-        sample_user_usage_data: polars.LazyFrame,
+        sample_user_usage_data: pl.LazyFrame,
     ) -> None:
         """Test basic platform usage percentile calculation."""
         result_lf = source.add_platform_usage_percentiles(sample_user_usage_data)
@@ -1145,7 +1145,7 @@ class TestAddPlatformUsagePercentiles:
                 ],
             },
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.add_platform_usage_percentiles(lf)
         result_df = result_lf.collect()
@@ -1176,7 +1176,7 @@ class TestAddPlatformUsagePercentiles:
                 ],
             },
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.add_platform_usage_percentiles(lf)
         result_df = result_lf.collect()
@@ -1214,7 +1214,7 @@ class TestAddPlatformUsagePercentiles:
                 ],
             },
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.add_platform_usage_percentiles(lf)
         result_df = result_lf.collect()
@@ -1229,7 +1229,7 @@ class TestAddPlatformUsagePercentiles:
     def test_original_data_preserved(
         self,
         source: DataHubUsageFeatureReportingSource,
-        sample_user_usage_data: polars.LazyFrame,
+        sample_user_usage_data: pl.LazyFrame,
     ) -> None:
         """Test that original columns are preserved in the result."""
         result_lf = source.add_platform_usage_percentiles(sample_user_usage_data)
@@ -1266,7 +1266,7 @@ class TestAddPlatformUsagePercentiles:
                 ],
             },
         ]
-        lf = polars.LazyFrame(data)
+        lf = pl.LazyFrame(data)
 
         result_lf = source.add_platform_usage_percentiles(lf)
         result_df = result_lf.collect()
@@ -1282,3 +1282,553 @@ class TestAddPlatformUsagePercentiles:
         assert "platform_urn" in percentile_entry
         assert "platform_rank_percentile" in percentile_entry
         assert isinstance(percentile_entry["platform_rank_percentile"], float)
+
+
+class TestCombineUserUsageData:
+    """Test cases for _combine_user_usage_data method."""
+
+    @pytest.fixture
+    def source(self) -> DataHubUsageFeatureReportingSource:
+        """Create a DataHubUsageFeatureReportingSource instance for testing."""
+        return create_test_source(use_exp_cdf=False)
+
+    @pytest.fixture
+    def dataset_usage_data(self) -> pl.LazyFrame:
+        """Sample dataset usage data."""
+        data = [
+            {
+                "user": "user1@company.com",
+                "top_datasets_map": [
+                    {
+                        "dataset_urn": "dataset1",
+                        "count": 100,
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                    },
+                    {
+                        "dataset_urn": "dataset2",
+                        "count": 80,
+                        "platform_urn": "urn:li:dataPlatform:bigquery",
+                    },
+                ],
+                "userUsageTotalPast30Days": 180,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                        "platform_total": 100.0,
+                    },
+                    {
+                        "platform_urn": "urn:li:dataPlatform:bigquery",
+                        "platform_total": 80.0,
+                    },
+                ],
+            },
+            {
+                "user": "user2@domain.org",
+                "top_datasets_map": [
+                    {
+                        "dataset_urn": "dataset3",
+                        "count": 150,
+                        "platform_urn": "urn:li:dataPlatform:postgres",
+                    }
+                ],
+                "userUsageTotalPast30Days": 150,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:postgres",
+                        "platform_total": 150.0,
+                    }
+                ],
+            },
+        ]
+        return pl.LazyFrame(data)
+
+    @pytest.fixture
+    def dashboard_usage_data(self) -> pl.LazyFrame:
+        """Sample dashboard usage data."""
+        data = [
+            {
+                "user": "user1@company.com",
+                "userUsageTotalPast30Days": 50,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:tableau",
+                        "platform_total": 50.0,
+                    }
+                ],
+            },
+            {
+                "user": "user3@example.net",  # New user only in dashboards
+                "userUsageTotalPast30Days": 75,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:looker",
+                        "platform_total": 75.0,
+                    }
+                ],
+            },
+        ]
+        return pl.LazyFrame(data)
+
+    @pytest.fixture
+    def chart_usage_data(self) -> pl.LazyFrame:
+        """Sample chart usage data."""
+        data = [
+            {
+                "user": "user1@company.com",
+                "userUsageTotalPast30Days": 30,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                        "platform_total": 20.0,
+                    },  # Overlaps with dataset
+                    {
+                        "platform_urn": "urn:li:dataPlatform:tableau",
+                        "platform_total": 10.0,
+                    },  # Overlaps with dashboard
+                ],
+            },
+            {
+                "user": "user2@domain.org",
+                "userUsageTotalPast30Days": 25,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:powerbi",
+                        "platform_total": 25.0,
+                    }
+                ],
+            },
+        ]
+        return pl.LazyFrame(data)
+
+    def test_basic_combination(
+        self,
+        source: DataHubUsageFeatureReportingSource,
+        dataset_usage_data: pl.LazyFrame,
+        dashboard_usage_data: pl.LazyFrame,
+        chart_usage_data: pl.LazyFrame,
+    ) -> None:
+        """Test basic combination of user usage data from all three sources."""
+        result_lf = source._combine_user_usage_data(
+            dataset_usage_data, dashboard_usage_data, chart_usage_data
+        )
+        result_df = result_lf.collect()
+        result_list = result_df.to_dicts()
+
+        # Should have 3 users (user1, user2, user3)
+        assert len(result_list) == 3
+
+        # Check user1 (appears in all three sources)
+        user1_row = next(
+            row for row in result_list if row["user"] == "user1@company.com"
+        )
+
+        # top_datasets_map should come from dataset usage
+        expected_top_datasets = [
+            {
+                "dataset_urn": "dataset1",
+                "count": 100,
+                "platform_urn": "urn:li:dataPlatform:snowflake",
+            },
+            {
+                "dataset_urn": "dataset2",
+                "count": 80,
+                "platform_urn": "urn:li:dataPlatform:bigquery",
+            },
+        ]
+        assert user1_row["top_datasets_map"] == expected_top_datasets
+
+        # userUsageTotalPast30Days should be sum: 180 + 50 + 30 = 260
+        assert user1_row["userUsageTotalPast30Days"] == 260
+
+        # platform_usage_pairs should be aggregated union
+        # snowflake: 100 (dataset) + 20 (chart) = 120
+        # bigquery: 80 (dataset only) = 80
+        # tableau: 50 (dashboard) + 10 (chart) = 60
+        expected_platform_pairs = [
+            {"platform_urn": "urn:li:dataPlatform:snowflake", "platform_total": 120.0},
+            {"platform_urn": "urn:li:dataPlatform:bigquery", "platform_total": 80.0},
+            {"platform_urn": "urn:li:dataPlatform:tableau", "platform_total": 60.0},
+        ]
+        # Sort both lists by platform_urn for consistent comparison
+        actual_platform_pairs = sorted(
+            user1_row["platform_usage_pairs"], key=lambda x: str(x["platform_urn"])
+        )
+        expected_platform_pairs = sorted(
+            expected_platform_pairs, key=lambda x: str(x["platform_urn"])
+        )
+        assert actual_platform_pairs == expected_platform_pairs
+
+        # Check user2 (appears in dataset and chart)
+        user2_row = next(
+            row for row in result_list if row["user"] == "user2@domain.org"
+        )
+
+        # Should have top_datasets_map from dataset usage
+        expected_top_datasets = [
+            {
+                "dataset_urn": "dataset3",
+                "count": 150,
+                "platform_urn": "urn:li:dataPlatform:postgres",
+            }
+        ]
+        assert user2_row["top_datasets_map"] == expected_top_datasets
+
+        # userUsageTotalPast30Days should be sum: 150 + 0 + 25 = 175
+        assert user2_row["userUsageTotalPast30Days"] == 175
+
+        # platform_usage_pairs should include both postgres and powerbi
+        expected_platform_pairs = [
+            {"platform_urn": "urn:li:dataPlatform:postgres", "platform_total": 150.0},
+            {"platform_urn": "urn:li:dataPlatform:powerbi", "platform_total": 25.0},
+        ]
+        # Sort both lists by platform_urn for consistent comparison
+        actual_platform_pairs = sorted(
+            user2_row["platform_usage_pairs"], key=lambda x: str(x["platform_urn"])
+        )
+        expected_platform_pairs = sorted(
+            expected_platform_pairs, key=lambda x: str(x["platform_urn"])
+        )
+        assert actual_platform_pairs == expected_platform_pairs
+
+        # Check user3 (appears only in dashboard)
+        user3_row = next(
+            row for row in result_list if row["user"] == "user3@example.net"
+        )
+
+        # Should have null top_datasets_map (not in dataset usage)
+        assert user3_row["top_datasets_map"] is None
+
+        # userUsageTotalPast30Days should be: 0 + 75 + 0 = 75
+        assert user3_row["userUsageTotalPast30Days"] == 75
+
+        # platform_usage_pairs should only include looker
+        expected_platform_pairs = [
+            {"platform_urn": "urn:li:dataPlatform:looker", "platform_total": 75.0}
+        ]
+        assert user3_row["platform_usage_pairs"] == expected_platform_pairs
+
+    def test_empty_sources(self, source: DataHubUsageFeatureReportingSource) -> None:
+        """Test handling of empty data sources."""
+        empty_schema: Dict[str, pl.DataType] = {
+            "user": pl.String(),
+            "top_datasets_map": pl.List(
+                pl.Struct(
+                    [
+                        pl.Field("dataset_urn", pl.String),
+                        pl.Field("count", pl.Int64),
+                        pl.Field("platform_urn", pl.String),
+                    ]
+                )
+            ),
+            "userUsageTotalPast30Days": pl.Int64(),
+            "platform_usage_pairs": pl.List(
+                pl.Struct(
+                    [
+                        pl.Field("platform_urn", pl.String),
+                        pl.Field("platform_total", pl.Float64),
+                    ]
+                )
+            ),
+        }
+
+        dashboard_chart_schema: Dict[str, pl.DataType] = {
+            "user": pl.String(),
+            "userUsageTotalPast30Days": pl.Int64(),
+            "platform_usage_pairs": pl.List(
+                pl.Struct(
+                    [
+                        pl.Field("platform_urn", pl.String),
+                        pl.Field("platform_total", pl.Float64),
+                    ]
+                )
+            ),
+        }
+
+        empty_dataset_lf = pl.LazyFrame([], schema=empty_schema)
+        empty_dashboard_lf = pl.LazyFrame([], schema=dashboard_chart_schema)
+        empty_chart_lf = pl.LazyFrame([], schema=dashboard_chart_schema)
+
+        result_lf = source._combine_user_usage_data(
+            empty_dataset_lf, empty_dashboard_lf, empty_chart_lf
+        )
+        result_df = result_lf.collect()
+
+        # Should return empty dataframe with correct columns
+        assert len(result_df) == 0
+        expected_columns = {
+            "user",
+            "top_datasets_map",
+            "userUsageTotalPast30Days",
+            "platform_usage_pairs",
+        }
+        assert set(result_df.columns) == expected_columns
+
+    def test_no_overlap_users(self, source: DataHubUsageFeatureReportingSource) -> None:
+        """Test combination when users don't overlap between sources."""
+        dataset_data = [
+            {
+                "user": "dataset_user@company.com",
+                "top_datasets_map": [
+                    {
+                        "dataset_urn": "dataset1",
+                        "count": 100,
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                    }
+                ],
+                "userUsageTotalPast30Days": 100,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                        "platform_total": 100.0,
+                    }
+                ],
+            }
+        ]
+
+        dashboard_data = [
+            {
+                "user": "dashboard_user@company.com",
+                "userUsageTotalPast30Days": 50,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:tableau",
+                        "platform_total": 50.0,
+                    }
+                ],
+            }
+        ]
+
+        chart_data = [
+            {
+                "user": "chart_user@company.com",
+                "userUsageTotalPast30Days": 25,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:powerbi",
+                        "platform_total": 25.0,
+                    }
+                ],
+            }
+        ]
+
+        dataset_lf = pl.LazyFrame(dataset_data)
+        dashboard_lf = pl.LazyFrame(dashboard_data)
+        chart_lf = pl.LazyFrame(chart_data)
+
+        result_lf = source._combine_user_usage_data(dataset_lf, dashboard_lf, chart_lf)
+        result_df = result_lf.collect()
+        result_list = result_df.to_dicts()
+
+        # Should have all 3 users
+        assert len(result_list) == 3
+
+        user_names = {row["user"] for row in result_list}
+        assert "dataset_user@company.com" in user_names
+        assert "dashboard_user@company.com" in user_names
+        assert "chart_user@company.com" in user_names
+
+        # Check that each user only has their own data
+        dataset_user_row = next(
+            row for row in result_list if row["user"] == "dataset_user@company.com"
+        )
+        assert dataset_user_row["userUsageTotalPast30Days"] == 100
+        expected_top_datasets = [
+            {
+                "dataset_urn": "dataset1",
+                "count": 100,
+                "platform_urn": "urn:li:dataPlatform:snowflake",
+            }
+        ]
+        assert dataset_user_row["top_datasets_map"] == expected_top_datasets
+
+        dashboard_user_row = next(
+            row for row in result_list if row["user"] == "dashboard_user@company.com"
+        )
+        assert dashboard_user_row["userUsageTotalPast30Days"] == 50
+        assert dashboard_user_row["top_datasets_map"] is None  # No dataset usage
+
+        chart_user_row = next(
+            row for row in result_list if row["user"] == "chart_user@company.com"
+        )
+        assert chart_user_row["userUsageTotalPast30Days"] == 25
+        assert chart_user_row["top_datasets_map"] is None  # No dataset usage
+
+    def test_null_platform_urns_filtered(
+        self, source: DataHubUsageFeatureReportingSource
+    ) -> None:
+        """Test that null platform URNs are filtered out during aggregation."""
+        dataset_data = [
+            {
+                "user": "user1@company.com",
+                "top_datasets_map": [
+                    {
+                        "dataset_urn": "dataset1",
+                        "count": 100,
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                    }
+                ],
+                "userUsageTotalPast30Days": 100,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                        "platform_total": 100.0,
+                    },
+                    {
+                        "platform_urn": None,
+                        "platform_total": 50.0,
+                    },  # Should be filtered
+                ],
+            }
+        ]
+
+        dashboard_data = [
+            {
+                "user": "user1@company.com",
+                "userUsageTotalPast30Days": 25,
+                "platform_usage_pairs": [
+                    {"platform_urn": None, "platform_total": 25.0}  # Should be filtered
+                ],
+            }
+        ]
+
+        chart_data = [
+            {
+                "user": "user1@company.com",
+                "userUsageTotalPast30Days": 10,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                        "platform_total": 10.0,
+                    }
+                ],
+            }
+        ]
+
+        dataset_lf = pl.LazyFrame(dataset_data)
+        dashboard_lf = pl.LazyFrame(dashboard_data)
+        chart_lf = pl.LazyFrame(chart_data)
+
+        result_lf = source._combine_user_usage_data(dataset_lf, dashboard_lf, chart_lf)
+        result_df = result_lf.collect()
+        result_list = result_df.to_dicts()
+
+        assert len(result_list) == 1
+
+        user_row = result_list[0]
+        assert user_row["userUsageTotalPast30Days"] == 135  # 100 + 25 + 10
+
+        # Should only have snowflake platform (null ones filtered out)
+        expected_platform_pairs = [
+            {
+                "platform_urn": "urn:li:dataPlatform:snowflake",
+                "platform_total": 110.0,
+            }  # 100 + 10
+        ]
+        assert user_row["platform_usage_pairs"] == expected_platform_pairs
+
+    def test_platform_aggregation(
+        self, source: DataHubUsageFeatureReportingSource
+    ) -> None:
+        """Test that platforms are correctly aggregated across sources."""
+        dataset_data = [
+            {
+                "user": "user1@company.com",
+                "top_datasets_map": [
+                    {
+                        "dataset_urn": "dataset1",
+                        "count": 100,
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                    }
+                ],
+                "userUsageTotalPast30Days": 100,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                        "platform_total": 100.0,
+                    },
+                    {
+                        "platform_urn": "urn:li:dataPlatform:postgres",
+                        "platform_total": 50.0,
+                    },
+                ],
+            }
+        ]
+
+        dashboard_data = [
+            {
+                "user": "user1@company.com",
+                "userUsageTotalPast30Days": 75,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:snowflake",
+                        "platform_total": 25.0,
+                    },  # Overlaps
+                    {
+                        "platform_urn": "urn:li:dataPlatform:tableau",
+                        "platform_total": 50.0,
+                    },  # New platform
+                ],
+            }
+        ]
+
+        chart_data = [
+            {
+                "user": "user1@company.com",
+                "userUsageTotalPast30Days": 60,
+                "platform_usage_pairs": [
+                    {
+                        "platform_urn": "urn:li:dataPlatform:postgres",
+                        "platform_total": 30.0,
+                    },  # Overlaps
+                    {
+                        "platform_urn": "urn:li:dataPlatform:tableau",
+                        "platform_total": 20.0,
+                    },  # Overlaps
+                    {
+                        "platform_urn": "urn:li:dataPlatform:powerbi",
+                        "platform_total": 10.0,
+                    },  # New platform
+                ],
+            }
+        ]
+
+        dataset_lf = pl.LazyFrame(dataset_data)
+        dashboard_lf = pl.LazyFrame(dashboard_data)
+        chart_lf = pl.LazyFrame(chart_data)
+
+        result_lf = source._combine_user_usage_data(dataset_lf, dashboard_lf, chart_lf)
+        result_df = result_lf.collect()
+        result_list = result_df.to_dicts()
+
+        assert len(result_list) == 1
+
+        user_row = result_list[0]
+        assert user_row["userUsageTotalPast30Days"] == 235  # 100 + 75 + 60
+
+        # Check platform aggregation
+        expected_platform_pairs = [
+            {
+                "platform_urn": "urn:li:dataPlatform:powerbi",
+                "platform_total": 10.0,
+            },  # 10 only
+            {
+                "platform_urn": "urn:li:dataPlatform:postgres",
+                "platform_total": 80.0,
+            },  # 50 + 30
+            {
+                "platform_urn": "urn:li:dataPlatform:snowflake",
+                "platform_total": 125.0,
+            },  # 100 + 25
+            {
+                "platform_urn": "urn:li:dataPlatform:tableau",
+                "platform_total": 70.0,
+            },  # 50 + 20
+        ]
+        # Sort both lists by platform_urn for consistent comparison
+        actual_platform_pairs = sorted(
+            user_row["platform_usage_pairs"], key=lambda x: str(x["platform_urn"])
+        )
+        expected_platform_pairs = sorted(
+            expected_platform_pairs, key=lambda x: str(x["platform_urn"])
+        )
+        assert actual_platform_pairs == expected_platform_pairs

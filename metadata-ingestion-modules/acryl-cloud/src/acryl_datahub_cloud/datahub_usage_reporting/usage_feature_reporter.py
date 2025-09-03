@@ -1178,9 +1178,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         return self.generate_dashboard_chart_usage(entity_index, usage_index)
 
-    def generate_dashboard_chart_usage(
-        self, entity_index: str, usage_index: str
-    ) -> polars.LazyFrame:
+    def _generate_dashboard_chart_entities(self, entity_index: str) -> polars.LazyFrame:
         entity_schema = {
             "entity_urn": polars.Categorical,
             "removed": polars.Boolean,
@@ -1197,7 +1195,12 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             process_function=self.soft_deleted_batch,
         )
 
-        dashboard_usage_schema = {
+        return entities_df
+
+    def _generate_dashboard_chart_usage(
+        self, entities_df: polars.LazyFrame, usage_index: str
+    ) -> polars.LazyFrame:
+        entities_usage_schema = {
             "timestampMillis": polars.Int64,
             "lastObserved": polars.Int64,
             "urn": polars.Categorical,
@@ -1215,7 +1218,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         }
 
         lf = self.load_data_from_es_to_lf(
-            schema=dashboard_usage_schema,
+            schema=entities_usage_schema,
             index=usage_index,
             query=QueryBuilder.get_dashboard_usage_query(self.config.lookback_days),
             process_function=self.process_dashboard_usage,
@@ -1233,6 +1236,15 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             .over("urn", "timestampMillis")
             .alias("row_num")
         ).filter(polars.col("row_num") == 1)
+
+        return lf
+
+    def generate_dashboard_chart_usage(
+        self, entity_index: str, usage_index: str
+    ) -> polars.LazyFrame:
+        entities_df = self._generate_dashboard_chart_entities(entity_index)
+
+        lf = self._generate_dashboard_chart_usage(entities_df, usage_index)
 
         # lf = lf.filter(polars.col("urn") == "urn:li:dashboard:(looker,dashboards.8)")
         # "urn:li:dashboard:(looker,dashboards.8)"
@@ -1530,6 +1542,139 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             platform_totals, on="user", how="left"
         )
 
+    def _combine_user_usage_data(
+        self,
+        dataset_usage_lf: polars.LazyFrame,
+        dashboard_usage_lf: polars.LazyFrame,
+        chart_usage_lf: polars.LazyFrame,
+    ) -> polars.LazyFrame:
+        """
+        Combines user usage data from dataset, dashboard, and chart sources.
+
+        Args:
+            dataset_usage_lf: LazyFrame with dataset usage data containing top_datasets_map
+            dashboard_usage_lf: LazyFrame with dashboard usage data
+            chart_usage_lf: LazyFrame with chart usage data
+
+        Returns:
+            Combined LazyFrame with aggregated usage data per user
+        """
+        user_totals = self._combine_user_totals(
+            dataset_usage_lf, dashboard_usage_lf, chart_usage_lf
+        )
+
+        platform_pairs = self._combine_platform_pairs(
+            dataset_usage_lf, dashboard_usage_lf, chart_usage_lf
+        )
+
+        result = user_totals.join(platform_pairs, on="user", how="left")
+
+        return result.with_columns(
+            polars.col("platform_usage_pairs").fill_null(polars.lit([]))
+        )
+
+    def _combine_user_totals(
+        self,
+        dataset_usage_lf: polars.LazyFrame,
+        dashboard_usage_lf: polars.LazyFrame,
+        chart_usage_lf: polars.LazyFrame,
+    ) -> polars.LazyFrame:
+        """Combine user totals and top_datasets_map from all sources."""
+        # Collect all unique users in one operation
+        all_users_lf = polars.concat(
+            [
+                dataset_usage_lf.select("user"),
+                dashboard_usage_lf.select("user"),
+                chart_usage_lf.select("user"),
+            ]
+        ).unique()
+
+        return (
+            all_users_lf.join(
+                dataset_usage_lf.select(
+                    ["user", "top_datasets_map", "userUsageTotalPast30Days"]
+                ),
+                on="user",
+                how="left",
+            )
+            .join(
+                dashboard_usage_lf.select(["user", "userUsageTotalPast30Days"]),
+                on="user",
+                how="left",
+                suffix="_dashboard",
+            )
+            .join(
+                chart_usage_lf.select(["user", "userUsageTotalPast30Days"]),
+                on="user",
+                how="left",
+                suffix="_chart",
+            )
+            .with_columns(
+                [
+                    # Sum with explicit null handling
+                    (
+                        polars.col("userUsageTotalPast30Days").fill_null(0)
+                        + polars.col("userUsageTotalPast30Days_dashboard").fill_null(0)
+                        + polars.col("userUsageTotalPast30Days_chart").fill_null(0)
+                    ).alias("userUsageTotalPast30Days")
+                ]
+            )
+            .select(["user", "top_datasets_map", "userUsageTotalPast30Days"])
+        )
+
+    def _combine_platform_pairs(
+        self,
+        dataset_usage_lf: polars.LazyFrame,
+        dashboard_usage_lf: polars.LazyFrame,
+        chart_usage_lf: polars.LazyFrame,
+    ) -> polars.LazyFrame:
+        """Combine platform usage pairs from all sources."""
+        all_platforms = []
+
+        # Extract platforms from each source
+        for source_lf, col_name in [
+            (dataset_usage_lf, "platform_usage_pairs"),
+            (dashboard_usage_lf, "platform_usage_pairs"),
+            (chart_usage_lf, "platform_usage_pairs"),
+        ]:
+            platforms = self._extract_platforms_from_source(source_lf, col_name)
+            if platforms is not None:
+                all_platforms.append(platforms)
+
+        if not all_platforms:
+            # Return empty result if no platforms found
+            return polars.LazyFrame({"user": [], "platform_usage_pairs": []})
+
+        # Combine all platforms and aggregate by user + platform
+        combined_platforms = polars.concat(all_platforms, how="vertical_relaxed")
+        aggregated = combined_platforms.group_by("user", "platform_urn").agg(
+            polars.col("platform_total").sum().alias("platform_total")
+        )
+
+        # Rebuild platform_usage_pairs structure
+        return aggregated.group_by("user").agg(
+            polars.struct(
+                [polars.col("platform_urn"), polars.col("platform_total")]
+            ).alias("platform_usage_pairs")
+        )
+
+    def _extract_platforms_from_source(
+        self, source_lf: polars.LazyFrame, col_name: str
+    ) -> polars.LazyFrame | None:
+        """Extract platform data from a source LazyFrame."""
+        try:
+            return (
+                source_lf.select(["user", col_name])
+                .filter(polars.col(col_name).is_not_null())
+                .filter(polars.col(col_name).list.len() > 0)
+                .explode(col_name)
+                .unnest(col_name)
+                .filter(polars.col("platform_urn").is_not_null())
+                .select(["user", "platform_urn", "platform_total"])
+            )
+        except polars.exceptions.ColumnNotFoundError:
+            return None
+
     def add_platform_usage_percentiles(
         self, user_usage_lf: polars.LazyFrame
     ) -> polars.LazyFrame:
@@ -1572,14 +1717,44 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         # Join the percentiles back to the original user_usage_lf
         return user_usage_lf.join(platform_percentiles, on="user", how="left")
 
+    def _generate_user_usage_for_dashboard_charts(
+        self, entity_index: str, usage_index: str
+    ) -> polars.LazyFrame:
+        entities_df = self._generate_dashboard_chart_entities(entity_index)
+        lf = self._generate_dashboard_chart_usage(entities_df, usage_index)
+
+        # Process dashboard usage data into user usage format (similar to dataset version)
+        users_lf = (
+            lf.explode("userCounts")
+            .unnest("userCounts")
+            .filter(polars.col("user").is_not_null())
+            .rename({"usageCount": "count"})  # Rename to match dataset schema
+        )
+
+        user_dashboard_usage_lf = self._create_user_dataset_usage_map(users_lf)
+        return user_dashboard_usage_lf
+
     def generate_user_usage(self) -> polars.LazyFrame:
         dataset_usage_lf = self._generate_user_usage_for_dataset()
-        # TODO Add for dashboard and chart usage and combine them into one lazyframe
-        # This will be done in follow up PR
-        # This is being done to unblock parallel work. After this PR is merged in
-        # Ben can work on frontend in parallel with me working on adding the chart/dashboard usage
 
-        lf = self.add_platform_usage_percentiles(dataset_usage_lf)
+        usage_index = "dashboard_dashboardusagestatisticsaspect_v1"
+        entity_index = "dashboardindex_v2"
+        dashboard_usage_lf = self._generate_user_usage_for_dashboard_charts(
+            entity_index, usage_index
+        )
+
+        entity_index = "chartindex_v2"
+        usage_index = "chart_chartusagestatisticsaspect_v1"
+        chart_usage_lf = self._generate_user_usage_for_dashboard_charts(
+            entity_index, usage_index
+        )
+
+        # Combine all three usage sources
+        lf = self._combine_user_usage_data(
+            dataset_usage_lf, dashboard_usage_lf, chart_usage_lf
+        )
+
+        lf = self.add_platform_usage_percentiles(lf)
 
         # Add user usage percentiles across all users (not grouped by platform)
         # Create a temporary platform field for percentile calculation
