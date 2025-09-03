@@ -59,9 +59,6 @@ fragment glossaryNodeFields on GlossaryNode {
     assetOrigin {
         ...originFields
     }
-    institutionalMemory {
-        ...institutionalMemoryFields
-    }
     ...notes
     proposals: proposals {
         ...proposalsFragment

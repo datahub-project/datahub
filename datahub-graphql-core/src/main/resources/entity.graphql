@@ -2801,11 +2801,6 @@ type GlossaryNode implements Entity {
   Carries information about where an entity originated from.
   """
   assetOrigin: Origin
-
-  """
-  References to internal resources related to the glossary node
-  """
-  institutionalMemory: InstitutionalMemory
 }
 
 """
