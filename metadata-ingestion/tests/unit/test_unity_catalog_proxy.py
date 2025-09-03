@@ -1228,6 +1228,7 @@ class TestUnityCatalogProxy:
         assert result.description == "Version 1"
         assert result.created_by == "test_user"
 
+
 class TestUnityCatalogProxyAuthentication:
     def test_basic_proxy_auth_header(self):
         proxy_url = "http://user:pass@proxy.example.com:8080"
