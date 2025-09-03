@@ -1,4 +1,8 @@
-import { ASSETS_MODULE, CHILD_HIERARCHY_MODULE } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
+import {
+    ASSETS_MODULE,
+    CHILD_HIERARCHY_MODULE,
+    DATA_PRODUCTS_MODULE,
+} from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElement, SummaryElementType } from '@types';
@@ -9,26 +13,25 @@ const DOMAIN = { elementType: SummaryElementType.Domain };
 const TAGS = { elementType: SummaryElementType.Tags };
 const GLOSSARY_TERMS = { elementType: SummaryElementType.GlossaryTerms };
 
-// TODO: apply actual functionality once the required modules exist
 export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTemplateFragment {
-    let modules: PageModuleFragment[] = [];
+    let rows: { modules: PageModuleFragment[] }[] = [];
     let summaryElements: SummaryElement[] = [];
 
     switch (entityType) {
         case EntityType.Domain:
-            modules = [ASSETS_MODULE, CHILD_HIERARCHY_MODULE];
+            rows = [{ modules: [ASSETS_MODULE, CHILD_HIERARCHY_MODULE] }, { modules: [DATA_PRODUCTS_MODULE] }];
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.DataProduct:
-            modules = [ASSETS_MODULE];
+            rows = [{ modules: [ASSETS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:
-            modules = [ASSETS_MODULE];
+            rows = [{ modules: [ASSETS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN];
             break;
         case EntityType.GlossaryNode:
-            modules = [CHILD_HIERARCHY_MODULE];
+            rows = [{ modules: [CHILD_HIERARCHY_MODULE] }];
             summaryElements = [CREATED, OWNERS];
             break;
         default:
@@ -45,7 +48,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             surface: {
                 surfaceType: PageTemplateSurfaceType.AssetSummary,
             },
-            rows: [{ modules }],
+            rows,
             assetSummary: { summaryElements },
         },
     };

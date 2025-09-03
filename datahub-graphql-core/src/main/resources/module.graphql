@@ -239,6 +239,10 @@ enum DataHubPageModuleType {
   Module displaying the hierarchy of the children of a given entity. Glossary or Domains.
   """
   CHILD_HIERARCHY
+  """
+  Module displaying child data products of a given domain
+  """
+  DATA_PRODUCTS
 }
 
 """

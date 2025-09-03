@@ -3,6 +3,7 @@ import React, { useCallback, useMemo } from 'react';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
@@ -59,7 +60,19 @@ export const CHILD_HIERARCHY_MODULE: PageModuleFragment = {
     },
 };
 
+export const DATA_PRODUCTS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:data_products',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Data Products',
+        type: DataHubPageModuleType.DataProducts,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
+    const { entityType } = useEntityData();
     const {
         addModule,
         moduleModalState: { open: openModal },
@@ -228,11 +241,34 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleAddExistingModule(CHILD_HIERARCHY_MODULE);
             },
-            'data-testid': 'add-hierarchy-module',
+            'data-testid': 'add-child-hierarchy-module',
+        };
+
+        const dataProducts = {
+            name: 'DataProducts',
+            key: 'dataProducts',
+            label: (
+                <MenuItem
+                    description="View the data products inside of this domain"
+                    title="Data Products"
+                    icon="FileText"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(DATA_PRODUCTS_MODULE);
+            },
+            'data-testid': 'add-data-products-module',
         };
 
         const defaultHomeModules = [yourAssets, domains];
-        const defaultSummaryModules = [assets, childHierarchy];
+        // TODO: make this a function to pull out and write unit tests for
+        let defaultSummaryModules = [assets];
+        if (entityType === EntityType.Domain) {
+            defaultSummaryModules = [...defaultSummaryModules, childHierarchy, dataProducts];
+        } else if (entityType === EntityType.GlossaryNode) {
+            defaultSummaryModules = [childHierarchy];
+        }
 
         const finalDefaultModules =
             templateType === PageTemplateSurfaceType.HomePage ? defaultHomeModules : defaultSummaryModules;

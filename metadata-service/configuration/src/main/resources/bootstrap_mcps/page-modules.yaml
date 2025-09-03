@@ -49,3 +49,15 @@
     params: {}
     created: {{&auditStamp}}
     lastModified: {{&auditStamp}}
+- entityUrn: urn:li:dataHubPageModule:data_products
+  entityType: dataHubPageModule
+  aspectName: dataHubPageModuleProperties
+  changeType: UPSERT
+  aspect:
+    name: "Data Products"
+    type: DATA_PRODUCTS
+    visibility:
+      scope: GLOBAL
+    params: {}
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
