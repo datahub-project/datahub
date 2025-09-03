@@ -1,3 +1,4 @@
+import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
 import {
     ColumnRef,
     FineGrainedLineage,
@@ -35,13 +36,13 @@ interface TentativeEdge {
  * @param nodes Map of nodes containing schema metadata
  * @returns true if the field exists, false otherwise
  */
-function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
+export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
-    if (!node?.entity?.schemaMetadata?.fields) {
+    if (!node?.entity?.lineageAssets) {
         return false;
     }
 
-    return node.entity.schemaMetadata.fields.some((field) => field.fieldPath === fieldPath);
+    return node.entity.lineageAssets.has(downgradeV2FieldPath(fieldPath));
 }
 
 /**
