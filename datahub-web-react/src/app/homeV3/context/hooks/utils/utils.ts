@@ -22,6 +22,19 @@ const domainsModule: PageModuleFragment = {
     },
 };
 
+const asssetsModule: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:assets',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Assets',
+        type: DataHubPageModuleType.Assets,
+        visibility: {
+            scope: PageModuleScope.Global,
+        },
+        params: {},
+    },
+};
+
 const CREATED = { elementType: SummaryElementType.Created };
 const OWNERS = { elementType: SummaryElementType.Owners };
 const DOMAIN = { elementType: SummaryElementType.Domain };
@@ -35,15 +48,15 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
 
     switch (entityType) {
         case EntityType.Domain:
-            modules = [domainsModule];
+            modules = [domainsModule, asssetsModule];
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.DataProduct:
-            modules = [domainsModule];
+            modules = [domainsModule, asssetsModule];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:
-            modules = [domainsModule];
+            modules = [domainsModule, asssetsModule];
             summaryElements = [CREATED, OWNERS, DOMAIN];
             break;
         case EntityType.GlossaryNode:
