@@ -276,23 +276,6 @@ const EntityDropdown = (props: Props) => {
             });
         }
 
-        if (menuItems.has(EntityMenuItems.DELETE)) {
-            items.push({
-                type: 'item' as const,
-                key: '5',
-                title: 'Delete',
-                icon: 'Trash',
-                danger: true,
-                disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
-                tooltip: shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
-                    ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
-                          isDomainEntity ? 'sub-domain' : 'child'
-                      } entities.`
-                    : undefined,
-                onClick: onDeleteEntity,
-            });
-        }
-
         if (menuItems.has(EntityMenuItems.EDIT) && onEdit) {
             items.push({
                 type: 'item' as const,
@@ -435,6 +418,24 @@ const EntityDropdown = (props: Props) => {
                 title: 'Share',
                 icon: 'Share',
                 children: shareChildren,
+            });
+        }
+
+        // Delete should always be last (destructive action)
+        if (menuItems.has(EntityMenuItems.DELETE)) {
+            items.push({
+                type: 'item' as const,
+                key: 'delete',
+                title: 'Delete',
+                icon: 'Trash',
+                danger: true,
+                disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
+                tooltip: shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
+                    ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
+                          isDomainEntity ? 'sub-domain' : 'child'
+                      } entities.`
+                    : undefined,
+                onClick: onDeleteEntity,
             });
         }
 
