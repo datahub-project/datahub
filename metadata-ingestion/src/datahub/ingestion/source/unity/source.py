@@ -252,13 +252,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config._forced_disable_tag_extraction:
             self.report.report_warning(
-                "Initialization",
+                "Some features disabled because of configuration conflicts",
                 "Tag Extraction is disabled due to missing warehouse_id in config",
             )
 
         if self.config._forced_disable_hive_metastore_extraction:
             self.report.report_warning(
-                "Initialization",
+                "Some features disabled because of configuration conflicts",
                 "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
             )
 

@@ -35,6 +35,10 @@ from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
 
+# Configuration default constants
+INCLUDE_TAGS_DEFAULT = True
+INCLUDE_HIVE_METASTORE_DEFAULT = True
+
 
 class LineageDataSource(ConfigEnum):
     AUTO = "AUTO"
@@ -148,7 +152,7 @@ class UnityCatalogSourceConfig(
         ),
     )
     include_hive_metastore: bool = pydantic.Field(
-        default=True,
+        default=INCLUDE_HIVE_METASTORE_DEFAULT,
         description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
     )
     workspace_name: Optional[str] = pydantic.Field(
@@ -244,7 +248,7 @@ class UnityCatalogSourceConfig(
     )
 
     include_tags: bool = pydantic.Field(
-        default=True,
+        default=INCLUDE_TAGS_DEFAULT,
         description=(
             "Option to enable/disable column/table tag extraction. "
             "Requires warehouse_id to be set since tag extraction needs to query system.information_schema.tags. "
@@ -333,8 +337,10 @@ class UnityCatalogSourceConfig(
 
         # After model creation, check if we need to auto-disable features
         # based on the final warehouse_id value (which may have been set by root validators)
-        include_tags_original = data.get("include_tags", True)
-        include_hive_metastore_original = data.get("include_hive_metastore", True)
+        include_tags_original = data.get("include_tags", INCLUDE_TAGS_DEFAULT)
+        include_hive_metastore_original = data.get(
+            "include_hive_metastore", INCLUDE_HIVE_METASTORE_DEFAULT
+        )
 
         # Track what we're force-disabling
         forced_disable_tag_extraction = False

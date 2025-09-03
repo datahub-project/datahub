@@ -9,8 +9,8 @@ from datahub.ingestion.source.unity.proxy import (
     TableLineageInfo,
     TableUpstream,
     UnityCatalogApiProxy,
-    _basic_proxy_auth_header,
 )
+from datahub.ingestion.source.unity.proxy_patch import _basic_proxy_auth_header
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
@@ -845,10 +845,12 @@ class TestUnityCatalogProxyAuthentication:
             mock_connect.assert_called_once()
 
     def test_apply_databricks_proxy_fix(self):
-        with patch("datahub.ingestion.source.unity.proxy.logger") as mock_logger:
-            from datahub.ingestion.source.unity.proxy import _apply_databricks_proxy_fix
+        with patch("datahub.ingestion.source.unity.proxy_patch.logger") as mock_logger:
+            from datahub.ingestion.source.unity.proxy_patch import (
+                apply_databricks_proxy_fix,
+            )
 
-            _apply_databricks_proxy_fix()
+            apply_databricks_proxy_fix()
 
             log_calls = [call.args[0] for call in mock_logger.info.call_args_list]
             assert any(
