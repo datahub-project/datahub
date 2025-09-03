@@ -344,20 +344,9 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
-  # Kafka Setup Configuration - replaces kafka-setup container functionality
   setup:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
-
-    #    readinessCheck:
-    #      timeoutSeconds: 300 # HARDCODED: 60 attempts * 5 seconds = 300s total
-    #      intervalSeconds: 5 # HARDCODED: kafka-ready.sh sleep 5s
-    #      maxAttempts: 60 # HARDCODED: kafka-ready.sh for i in {1..60}
-
-  #    # EXISTING KAFKA_PROPERTIES_* environment variable mapping
-  #    properties:
-  #      securityProtocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT} # EXISTING
-  #      # All KAFKA_PROPERTIES_* environment variables will be automatically mapped
 
   # Topic defaults applied when individual topic configuration is missing
   topicDefaults:
