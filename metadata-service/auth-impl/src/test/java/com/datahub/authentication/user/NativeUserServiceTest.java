@@ -89,12 +89,44 @@ public class NativeUserServiceTest {
       expectedExceptions = RuntimeException.class,
       expectedExceptionsMessageRegExp = "This user already exists! Cannot create a new user.")
   public void testCreateNativeUserUserAlreadyExists() throws Exception {
-    // The user already exists
+    // The user already exists with credentials (real user)
     when(_entityService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
         .thenReturn(true);
 
+    // Mock existing credentials to indicate this is a real user
+    CorpUserCredentials existingCredentials = new CorpUserCredentials();
+    existingCredentials.setSalt(ENCRYPTED_SALT);
+    existingCredentials.setHashedPassword(HASHED_PASSWORD);
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(Urn.class), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(existingCredentials);
+
     _nativeUserService.createNativeUser(
         opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD);
+  }
+
+  @Test
+  public void testCreateNativeUserInvitedUserCompletingSignup() throws Exception {
+    // User exists but has no credentials (was invited but didn't complete signup)
+    when(_entityService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
+        .thenReturn(true);
+
+    // Mock no existing credentials - user was only invited
+    when(_entityService.getLatestAspect(
+            any(OperationContext.class), any(Urn.class), eq(CORP_USER_CREDENTIALS_ASPECT_NAME)))
+        .thenReturn(null);
+
+    // Mock secret service for credential generation
+    when(_secretService.generateSalt(anyInt())).thenReturn(SALT);
+    when(_secretService.encrypt(any())).thenReturn(ENCRYPTED_SALT);
+    when(_secretService.getHashedPassword(any(), any())).thenReturn(HASHED_PASSWORD);
+
+    // Should not throw exception - allow user to complete signup
+    _nativeUserService.createNativeUser(
+        opContext, USER_URN_STRING, FULL_NAME, EMAIL, TITLE, PASSWORD);
+
+    // Just verify that the user creation succeeded without throwing an exception
+    // The entity service interactions are internal implementation details
   }
 
   @Test(

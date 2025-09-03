@@ -104,7 +104,7 @@ public class InviteTokenService {
               .setToken(_secretService.encrypt(inviteTokenStr))
               .setTokenType(com.linkedin.identity.TokenType.INDIVIDUAL);
 
-      if (roleUrnStr != null) {
+      if (roleUrnStr != null && !roleUrnStr.trim().isEmpty()) {
         Urn roleUrn = Urn.createFromString(roleUrnStr);
         inviteTokenAspect.setRole(roleUrn);
       }

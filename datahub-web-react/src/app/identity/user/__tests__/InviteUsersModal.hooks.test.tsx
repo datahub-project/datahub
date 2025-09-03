@@ -498,7 +498,6 @@ describe('useInviteUsersModal', () => {
                 variables: {
                     input: {
                         emails: ['user@example.com'],
-                        roleUrn: '',
                     },
                 },
             });

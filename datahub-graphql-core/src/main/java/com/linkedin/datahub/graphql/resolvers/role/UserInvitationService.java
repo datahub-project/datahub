@@ -108,7 +108,7 @@ public class UserInvitationService {
           if (subject != null) {
             parametersMap.put("title", subject);
           }
-          if (roleUrn != null) {
+          if (roleUrn != null && !roleUrn.trim().isEmpty()) {
             parametersMap.put("roleName", roleUrn);
           }
 
@@ -240,7 +240,7 @@ public class UserInvitationService {
       invitationStatus.setLastUpdated(auditStamp);
 
       // Set role if provided
-      if (roleUrn != null) {
+      if (roleUrn != null && !roleUrn.trim().isEmpty()) {
         invitationStatus.setRole(UrnUtils.getUrn(roleUrn));
       }
 

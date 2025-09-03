@@ -52,14 +52,30 @@ public class NativeUserService {
         opContext.getSessionAuthentication(), "authentication must not be null!");
 
     final Urn userUrn = Urn.createFromString(userUrnString);
-    if (_entityService.exists(opContext, userUrn, true)
-        // Should never fail these due to Controller level check, but just in case more usages get
-        // put in
-        || userUrn.toString().equals(SYSTEM_ACTOR)
+
+    // Check for system users first
+    if (userUrn.toString().equals(SYSTEM_ACTOR)
         || userUrn.toString().equals(new CorpuserUrn(_authConfig.getSystemClientId()).toString())
         || userUrn.toString().equals(DATAHUB_ACTOR)
         || userUrn.toString().equals(UNKNOWN_ACTOR)) {
       throw new RuntimeException("This user already exists! Cannot create a new user.");
+    }
+
+    // If user exists, check if they already have credentials (real user) or only invitation aspects
+    if (_entityService.exists(opContext, userUrn, true)) {
+      // Check if user already has credentials - if so, they're a real user and signup should fail
+      CorpUserCredentials existingCredentials =
+          (CorpUserCredentials)
+              _entityService.getLatestAspect(opContext, userUrn, CORP_USER_CREDENTIALS_ASPECT_NAME);
+
+      if (existingCredentials != null
+          && existingCredentials.hasSalt()
+          && existingCredentials.hasHashedPassword()) {
+        throw new RuntimeException("This user already exists! Cannot create a new user.");
+      }
+
+      // User exists but has no credentials - they were invited but haven't completed signup yet
+      // Allow them to complete their account setup
     }
     updateCorpUserInfo(opContext, userUrn, fullName, email, title);
     updateCorpUserStatus(opContext, userUrn);

@@ -1,7 +1,7 @@
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
 import { Button, Form, Image, Input, Select, message } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
@@ -9,6 +9,7 @@ import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import styles from '@app/auth/login.module.css';
 import useGetInviteTokenFromUrlParams from '@app/auth/useGetInviteTokenFromUrlParams';
+import { UserContext } from '@app/context/userContext';
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
@@ -75,6 +76,7 @@ export const SignUp: React.VFC<SignUpProps> = () => {
     const [loading, setLoading] = useState(false);
 
     const { refreshContext } = useAppConfig();
+    const { refetchUser } = useContext(UserContext);
 
     const [acceptRoleMutation] = useAcceptRoleMutation();
     const acceptRole = () => {
@@ -91,6 +93,8 @@ export const SignUp: React.VFC<SignUpProps> = () => {
                         content: `Accepted invite!`,
                         duration: 2,
                     });
+                    // Refresh user context to get updated roles and privileges
+                    refetchUser();
                 }
             })
             .catch((e) => {

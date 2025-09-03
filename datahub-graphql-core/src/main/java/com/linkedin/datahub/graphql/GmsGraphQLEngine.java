@@ -1347,7 +1347,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
-                  "acceptRole", new AcceptRoleResolver(this.roleService, this.inviteTokenService))
+                  "acceptRole",
+                  new AcceptRoleResolver(
+                      this.roleService, this.inviteTokenService, this.entityService))
               .dataFetcher("createPost", new CreatePostResolver(this.postService))
               .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
               .dataFetcher("deletePost", new DeletePostResolver(this.postService))

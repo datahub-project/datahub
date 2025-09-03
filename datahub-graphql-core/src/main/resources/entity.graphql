@@ -13037,7 +13037,7 @@ input SendUserInvitationsInput {
   """
   The role URN for the invitation
   """
-  roleUrn: String!
+  roleUrn: String
   """
   Optional custom subject for the invitation email
   """

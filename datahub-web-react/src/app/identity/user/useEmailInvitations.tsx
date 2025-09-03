@@ -2,7 +2,7 @@ import { message } from 'antd';
 import { useCallback, useState } from 'react';
 
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
-import { DataHubRole } from '@types';
+import { DataHubRole, SendUserInvitationsInput } from '@types';
 
 type InvitedUser = {
     email: string;
@@ -71,12 +71,17 @@ export function useEmailInvitations() {
             try {
                 const hideLoading = message.loading(`Sending invitations to ${emails.length} email(s)...`, 0);
 
+                const input: SendUserInvitationsInput = {
+                    emails,
+                };
+
+                if (emailInviteRole?.urn) {
+                    input.roleUrn = emailInviteRole.urn;
+                }
+
                 const result = await sendUserInvitationsMutation({
                     variables: {
-                        input: {
-                            emails,
-                            roleUrn: emailInviteRole?.urn || '',
-                        },
+                        input,
                     },
                 });
 
