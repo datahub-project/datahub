@@ -93,6 +93,7 @@ describe("home page modules", () => {
 
   it("remove default module", () => {
     addYourAssetsModule();
+    cy.ensureElementWithTestIdPresent("edited-home-page-toast");
     removeFirstModuleWithTestId("your-assets-module");
     cy.getWithTestId("your-assets-module").should("have.length.lessThan", 2);
     cy.getWithTestId("your-assets-module").should("have.length", 1);
@@ -144,6 +145,7 @@ describe("home page modules", () => {
   it("add home default module", () => {
     const name = "Global Collection Module";
     addYourAssetsModule();
+    cy.ensureElementWithTestIdPresent("edited-home-page-toast");
     startEditingDefaultTemplate();
     createAssetCollectionModule(name);
     finishEditingDefaultTemplate();

@@ -312,6 +312,17 @@ class UnityCatalogSourceConfig(
 
     scheme: str = DATABRICKS
 
+    include_ml_model_aliases: bool = pydantic.Field(
+        default=False,
+        description="Whether to include ML model aliases in the ingestion.",
+    )
+
+    ml_model_max_results: int = pydantic.Field(
+        default=1000,
+        ge=0,
+        description="Maximum number of ML models to ingest.",
+    )
+
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
         if database:

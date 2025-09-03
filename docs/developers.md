@@ -188,6 +188,20 @@ Expected Output:
 acryl-datahub, version unavailable (installed in develop mode)
 ```
 
+### Building All Docker images
+
+Running `./gradlew quickstart` or one of its variants builds images required for that variant and also starts datahub.
+If you want to build all images without starting datahub, run
+
+```commandline
+./gradlew :docker:build
+```
+
+You can optionally pass the following additional args when executing `:docker:build` task
+
+- `-Ptag=customTag` to use the custom tag when generating the image tag.
+- `-PdockerRegistry=customRegistry` to use the custom registry when generating the full image tag.
+
 ## IDE Support
 
 The recommended IDE for DataHub development is [IntelliJ IDEA](https://www.jetbrains.com/idea/).

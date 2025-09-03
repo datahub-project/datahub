@@ -17,6 +17,8 @@ from databricks.sdk.service.catalog import (
     ColumnInfo,
     GetMetastoreSummaryResponse,
     MetastoreInfo,
+    ModelVersionInfo,
+    RegisteredModelInfo,
     SchemaInfo,
     TableInfo,
 )
@@ -49,6 +51,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     CustomCatalogType,
     ExternalTableReference,
     Metastore,
+    Model,
+    ModelVersion,
     Notebook,
     NotebookReference,
     Query,
@@ -251,6 +255,40 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     logger.warning(f"Error parsing table: {e}")
                     self.report.report_warning("table-parse", str(e))
 
+    def ml_models(
+        self, schema: Schema, max_results: Optional[int] = None
+    ) -> Iterable[Model]:
+        response = self._workspace_client.registered_models.list(
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+            max_results=max_results,
+        )
+        for ml_model in response:
+            optional_ml_model = self._create_ml_model(schema, ml_model)
+            if optional_ml_model:
+                yield optional_ml_model
+
+    def ml_model_versions(
+        self, ml_model: Model, include_aliases: bool = False
+    ) -> Iterable[ModelVersion]:
+        response = self._workspace_client.model_versions.list(
+            full_name=ml_model.id,
+            include_browse=True,
+            max_results=self.databricks_api_page_size,
+        )
+        for version in response:
+            if version.version is not None:
+                if include_aliases:
+                    # to get aliases info, use GET
+                    version = self._workspace_client.model_versions.get(
+                        ml_model.id, version.version, include_aliases=True
+                    )
+                optional_ml_model_version = self._create_ml_model_version(
+                    ml_model, version
+                )
+                if optional_ml_model_version:
+                    yield optional_ml_model_version
+
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
             optional_sp = self._create_service_principal(principal)
@@ -373,7 +411,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             query = f"""
                 SELECT
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
+                    source_table_full_name, source_type, source_path,
                     target_table_full_name, target_type,
                     max(event_time) as last_updated
                 FROM system.access.table_lineage
@@ -382,7 +420,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     {additional_where}
                 GROUP BY
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
+                    source_table_full_name, source_type, source_path,
                     target_table_full_name, target_type
                 """
             rows = self._execute_sql_query(query, [catalog, catalog])
@@ -394,6 +432,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 source_full_name = row["source_table_full_name"]
                 target_full_name = row["target_table_full_name"]
                 source_type = row["source_type"]
+                source_path = row["source_path"]
                 last_updated = row["last_updated"]
 
                 # Initialize TableLineageInfo for both source and target tables if they're in our catalog
@@ -422,7 +461,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     # Handle external upstreams (PATH type)
                     elif source_type == "PATH":
                         external_upstream = ExternalUpstream(
-                            path=source_full_name,
+                            path=source_path,
                             source_type=source_type,
                             last_updated=last_updated,
                         )
@@ -861,6 +900,45 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             optional_column = self._create_column(table_id, column)
             if optional_column:
                 yield optional_column
+
+    def _create_ml_model(
+        self, schema: Schema, obj: RegisteredModelInfo
+    ) -> Optional[Model]:
+        if not obj.name or not obj.full_name:
+            self.report.num_ml_models_missing_name += 1
+            return None
+        return Model(
+            id=obj.full_name,
+            name=obj.name,
+            description=obj.comment,
+            schema_name=schema.name,
+            catalog_name=schema.catalog.name,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+        )
+
+    def _create_ml_model_version(
+        self, model: Model, obj: ModelVersionInfo
+    ) -> Optional[ModelVersion]:
+        if obj.version is None:
+            return None
+
+        aliases = []
+        if obj.aliases:
+            for alias in obj.aliases:
+                if alias.alias_name:
+                    aliases.append(alias.alias_name)
+        return ModelVersion(
+            id=f"{model.id}_{obj.version}",
+            name=f"{model.name}_{obj.version}",
+            model=model,
+            version=str(obj.version),
+            aliases=aliases,
+            description=obj.comment,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+            created_by=obj.created_by,
+        )
 
     def _create_service_principal(
         self, obj: DatabricksServicePrincipal
