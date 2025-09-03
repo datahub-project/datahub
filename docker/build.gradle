@@ -15,7 +15,6 @@ ext {
     backend_profile_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
-            ':docker:kafka-setup',
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
@@ -430,3 +429,6 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
+
+// :docker:build builds all docker images.
+build.dependsOn buildImagesallImages

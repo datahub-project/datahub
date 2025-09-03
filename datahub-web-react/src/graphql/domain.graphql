@@ -6,6 +6,9 @@ query getDomain($urn: String!) {
         properties {
             name
             description
+            createdOn {
+                time
+            }
         }
         parentDomains {
             ...parentDomainsFields

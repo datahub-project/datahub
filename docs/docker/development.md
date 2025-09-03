@@ -31,7 +31,6 @@ Once the `debug` docker images are constructed you'll see images similar to the 
 
 ```shell
 acryldata/datahub-frontend-react                 debug              e52fef698025   28 minutes ago   763MB
-acryldata/datahub-kafka-setup                    debug              3375aaa2b12d   55 minutes ago   659MB
 acryldata/datahub-gms                            debug              ea2b0a8ea115   56 minutes ago   408MB
 acryldata/datahub-upgrade                       debug              322377a7a21d   56 minutes ago   463MB
 acryldata/datahub-mysql-setup                   debug              17768edcc3e5   2 hours ago      58.2MB

@@ -342,6 +342,19 @@ public class Neo4jGraphService implements GraphService {
     return result;
   }
 
+  @Nonnull
+  @Override
+  public EntityLineageResult getImpactLineage(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int maxHops) {
+    // For Neo4j, we can reuse the existing getLineage method with appropriate parameters
+    // since Neo4j doesn't have the same slice-based search capabilities as Elasticsearch
+    log.debug("Neo4j getImpactLineage maxHops = {}", maxHops);
+    return getLineage(opContext, entityUrn, lineageGraphFilters, 0, null, maxHops);
+  }
+
   private String getPathFindingLabelFilter(Set<String> entityNames) {
     return entityNames.stream().map(x -> String.format("+%s", x)).collect(Collectors.joining("|"));
   }

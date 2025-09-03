@@ -27,6 +27,10 @@ public class OpenTelemetryBaseFactoryTest {
   // Mock TopicsConfiguration since it's not provided in the classes
   public static class TopicsConfiguration
       extends com.linkedin.metadata.config.kafka.TopicsConfiguration {
+    TopicsConfiguration() {
+      super(null, null);
+    }
+
     private String dataHubUsage;
 
     public String getDataHubUsage() {

@@ -27,5 +27,5 @@ record LogicalParent {
       "filterNameOverride": "Physical Instance Of"
     }
   }
-  parent: Edge
+  parent: optional Edge
 }

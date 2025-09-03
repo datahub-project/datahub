@@ -326,6 +326,17 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    include_ml_model_aliases: bool = pydantic.Field(
+        default=False,
+        description="Whether to include ML model aliases in the ingestion.",
+    )
+
+    ml_model_max_results: int = pydantic.Field(
+        default=1000,
+        ge=0,
+        description="Maximum number of ML models to ingest.",
+    )
+
     _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
     _forced_disable_hive_metastore_extraction = pydantic.PrivateAttr(default=False)
 
