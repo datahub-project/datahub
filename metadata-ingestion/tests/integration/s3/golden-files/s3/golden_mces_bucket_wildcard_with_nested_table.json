@@ -1,0 +1,1866 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part3.csv"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/food_csv",
+            "name": "food_csv",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "food_csv",
+            "platform": "urn:li:dataPlatform:s3",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "weight",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847820000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "bucket_name": "my-test-bucket"
+            },
+            "name": "my-test-bucket",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "S3 bucket"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a"
+            },
+            "name": "folder_a",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+                    "urn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
+            },
+            "name": "folder_aa",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+                    "urn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+                },
+                {
+                    "id": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+                    "urn": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+                    "urn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+                },
+                {
+                    "id": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+                    "urn": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+                },
+                {
+                    "id": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+                    "urn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+                    "urn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+                },
+                {
+                    "id": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+                    "urn": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+                },
+                {
+                    "id": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+                    "urn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
+                },
+                {
+                    "id": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+                    "urn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/food_parquet",
+            "name": "food_parquet",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "food_parquet",
+            "platform": "urn:li:dataPlatform:s3",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "weight",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "healthy",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "bool",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847840000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:647eefb4dfda8695baf1aa0775d78689",
+                    "urn": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+                },
+                {
+                    "id": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+                    "urn": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+                },
+                {
+                    "id": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+                    "urn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
+                },
+                {
+                    "id": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+                    "urn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv/part3.csv"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket-2?prefix=folder_a/folder_aa/folder_aaa/food_csv",
+            "name": "food_csv",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "food_csv",
+            "platform": "urn:li:dataPlatform:s3",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "weight",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847820000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "bucket_name": "my-test-bucket-2"
+            },
+            "name": "my-test-bucket-2",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "S3 bucket"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket-2/folder_a"
+            },
+            "name": "folder_a",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+                    "urn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket-2/folder_a/folder_aa"
+            },
+            "name": "folder_aa",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+                    "urn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d"
+                },
+                {
+                    "id": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+                    "urn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1e3122e258fb5c4147000d3d063960c6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "instance": "test-platform-instance",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket-2/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa",
+            "env": "DEV"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+                    "urn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d"
+                },
+                {
+                    "id": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+                    "urn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92"
+                },
+                {
+                    "id": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+                    "urn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+                    "urn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d"
+                },
+                {
+                    "id": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+                    "urn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92"
+                },
+                {
+                    "id": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+                    "urn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6"
+                },
+                {
+                    "id": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+                    "urn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:s3",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket-2?prefix=folder_a/folder_aa/folder_aaa/food_parquet",
+            "name": "food_parquet",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "food_parquet",
+            "platform": "urn:li:dataPlatform:s3",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "weight",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "healthy",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "bool",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847840000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d",
+                    "urn": "urn:li:container:bf5984ede2cfb154c0a8619a25452f2d"
+                },
+                {
+                    "id": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92",
+                    "urn": "urn:li:container:5bd4b3bdfa6344a278d455815a971c92"
+                },
+                {
+                    "id": "urn:li:container:1e3122e258fb5c4147000d3d063960c6",
+                    "urn": "urn:li:container:1e3122e258fb5c4147000d3d063960c6"
+                },
+                {
+                    "id": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236",
+                    "urn": "urn:li:container:f4c21b93db4cda94ed40cc58b8eb0236"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847820000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847840000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847820000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-platform-instance.my-test-bucket-2/folder_a/folder_aa/folder_aaa/food_parquet,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586847840000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "bucket_wildcard_with_nested_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

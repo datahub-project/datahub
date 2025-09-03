@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataproduct;
 
 import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
@@ -47,6 +48,7 @@ public class DataProductType
         com.linkedin.datahub.graphql.types.EntityType<DataProduct, String> {
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
+          DATA_PRODUCT_KEY_ASPECT_NAME,
           DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
           GLOBAL_TAGS_ASPECT_NAME,

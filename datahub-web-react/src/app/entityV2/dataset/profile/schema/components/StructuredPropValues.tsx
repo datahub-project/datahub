@@ -52,6 +52,7 @@ const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
                                     isRichText={isRichText}
                                     truncateText
                                     isFieldColumn
+                                    attribution={propRow?.attribution}
                                 />
                             </ValuesContainer>
                         );

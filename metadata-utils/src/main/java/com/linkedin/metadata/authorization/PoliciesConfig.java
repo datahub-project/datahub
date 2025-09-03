@@ -212,6 +212,12 @@ public class PoliciesConfig {
           "Get Platform Events",
           "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
+  public static final Privilege GET_METADATA_CHANGE_LOG_EVENTS =
+      Privilege.of(
+          "GET_METADATA_CHANGE_LOG_EVENTS",
+          "Get Metadata Change Log Events",
+          "The ability to use the Events API to read Metadata Change Log, or all low-level Metadata Change Events.");
+
   public static final Privilege MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE =
       Privilege.of(
           "MANAGE_HOME_PAGE_TEMPLATES",
@@ -256,6 +262,7 @@ public class PoliciesConfig {
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
+          GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
 
   // Resource Privileges //

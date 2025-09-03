@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -13,13 +14,16 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -45,18 +49,30 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
     result.setType(EntityType.GLOSSARY_NODE);
     Urn entityUrn = entityResponse.getUrn();
 
+    // Getting of created timestamp from key aspect as we can't get this data in default way
+    ResolvedAuditStamp createdAuditStampFromKeyAspect =
+        EntityResponseUtils.extractAspectCreatedAuditStamp(
+            entityResponse, GLOSSARY_NODE_KEY_ASPECT_NAME);
+
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<GlossaryNode> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         GLOSSARY_NODE_INFO_ASPECT_NAME,
         (glossaryNode, dataMap) ->
-            glossaryNode.setProperties(mapGlossaryNodeProperties(dataMap, entityUrn)));
+            glossaryNode.setProperties(
+                mapGlossaryNodeProperties(dataMap, entityUrn, createdAuditStampFromKeyAspect)));
     mappingHelper.mapToResult(GLOSSARY_NODE_KEY_ASPECT_NAME, this::mapGlossaryNodeKey);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (glossaryNode, dataMap) ->
             glossaryNode.setOwnership(
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (glossaryNode, dataMap) ->
+            glossaryNode.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
@@ -81,7 +97,9 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
   }
 
   private GlossaryNodeProperties mapGlossaryNodeProperties(
-      @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
+      @Nonnull DataMap dataMap,
+      @Nonnull final Urn entityUrn,
+      final ResolvedAuditStamp createdAuditStamp) {
     GlossaryNodeInfo glossaryNodeInfo = new GlossaryNodeInfo(dataMap);
     GlossaryNodeProperties result = new GlossaryNodeProperties();
     result.setDescription(glossaryNodeInfo.getDefinition());
@@ -92,6 +110,7 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
       result.setCustomProperties(
           CustomPropertiesMapper.map(glossaryNodeInfo.getCustomProperties(), entityUrn));
     }
+    result.setCreatedOn(createdAuditStamp);
     return result;
   }
 
