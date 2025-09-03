@@ -105,7 +105,7 @@ enum IngestionSourceType {
 
 const DEFAULT_PAGE_SIZE = 25;
 
-const mapSourceTypeAliases = (source) => {
+const mapSourceTypeAliases = <T extends { type: string }>(source?: T): T | undefined => {
     if (source) {
         let { type } = source;
         if (type === 'unity-catalog') {
