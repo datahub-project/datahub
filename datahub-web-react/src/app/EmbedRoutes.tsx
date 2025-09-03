@@ -3,7 +3,6 @@ import { Route } from 'react-router-dom';
 
 import EmbeddedPage from '@app/embed/EmbeddedPage';
 import EmbedLookup from '@app/embed/lookup';
-import EmbeddedHealthIcon from '@app/entityV2/shared/embed/EmbeddedHealthIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 
@@ -13,7 +12,6 @@ export default function EmbedRoutes() {
     return (
         <>
             <Route exact path={PageRoutes.EMBED_LOOKUP} render={() => <EmbedLookup />} />
-            <Route path={`${PageRoutes.EMBED_HEALTH}/:urn`} render={() => <EmbeddedHealthIcon />} />
             {entityRegistry.getEntities().map((entity) => (
                 <Route
                     key={`${entity.getPathName()}/${PageRoutes.EMBED}`}
