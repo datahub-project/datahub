@@ -13,6 +13,7 @@ from datahub.ingestion.source.usage.usage_common import (
     DEFAULT_QUERIES_CHARACTER_LIMIT,
     BaseUsageConfig,
     GenericAggregatedDataset,
+    UsageAggregator,
 )
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
@@ -301,3 +302,28 @@ def test_make_usage_workunit_include_top_n_queries():
 
 def test_extract_user_email():
     assert_doctest(datahub.ingestion.source.usage.usage_common)
+
+
+def test_usage_aggregator_passes_user_email_pattern():
+    test_email = "test_email@test.com"
+    test_query = "select * from test"
+    event_time = datetime(2020, 1, 1)
+    resource = "test_db.test_schema.test_table"
+    user_email_pattern = AllowDenyPattern(deny=["test_email@test.com"])
+
+    config = BaseUsageConfig(user_email_pattern=user_email_pattern)
+    aggregator = UsageAggregator(config)
+
+    aggregator.aggregate_event(
+        resource=resource,
+        start_time=event_time,
+        query=test_query,
+        user=test_email,
+        fields=[],
+    )
+
+    floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
+    aggregated_dataset = aggregator.aggregation[floored_ts][resource]
+
+    assert aggregated_dataset.queryCount == 0
+    assert aggregated_dataset.userFreq[test_email] == 0
