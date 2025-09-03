@@ -95,7 +95,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     // Enable state parameter validation
     oidcConfiguration.setWithState(true);
 
-    final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration);
+    final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration, oidcConfigs);
     oidcClient.setName(oidcConfigs.isImplicitFlow() ? OIDC_IMPLICIT_CLIENT_NAME : OIDC_CLIENT_NAME);
     oidcClient.setCallbackUrl(
         oidcConfigs.isImplicitFlow()
