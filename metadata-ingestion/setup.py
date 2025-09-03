@@ -447,7 +447,7 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
-    "excel": {"openpyxl>=3.1.5"},
+    "excel": {"openpyxl>=3.1.5", "pandas", *aws_common, *abs_base, *cachetools_lib, *data_lake_profiling},
     "cassandra": {
         "cassandra-driver>=3.28.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -715,6 +715,7 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
+            "mssql-odbc"
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -745,6 +746,7 @@ full_test_dev_requirements = {
             "mongodb",
             "slack",
             "mssql",
+            "mssql-odbc",
             "mysql",
             "mariadb",
             "redash",
