@@ -1289,7 +1289,9 @@ public class ESGraphQueryDAO {
         searchSourceBuilder, opContext.getSearchContext().getSearchFlags().getSliceOptions());
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    if (!usePIT) {
+      searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    }
 
     return opContext.withSpan(
         "esQuery",

@@ -16,7 +16,6 @@ action:
         - "dataset"
         - "schemaField"
       target_urn_resolution:
-        - type: upstream
         - type: downstream
       metadata_propagated:
           tags:

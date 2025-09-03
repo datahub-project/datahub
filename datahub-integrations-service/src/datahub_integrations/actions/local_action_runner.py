@@ -16,7 +16,9 @@ from datahub.telemetry.telemetry import telemetry_instance
 from datahub_actions.pipeline.pipeline import Pipeline
 
 from datahub_integrations.actions.action_extended import ExtendedAction
+from datahub_integrations.actions.bulk_bootstrap_action import BulkBootstrapAction
 from datahub_integrations.actions.oss.stats_util import ReportingAction
+from datahub_integrations.actions.remote_action_runner import run_action_remotely
 from datahub_integrations.actions.reporter import ActionStatsReporter
 from datahub_integrations.actions.stats_util import Stage
 
@@ -118,12 +120,34 @@ def run_action_locally(recipe: dict, port: int, stage: Stage) -> None:
         logger.info("Bootstrapping pipeline")
         if isinstance(pipeline.action, ExtendedAction):
             pipeline.action.bootstrap()
-
-            assert reporter is not None
-            reporter.report()
+        elif isinstance(pipeline.action, BulkBootstrapAction):
+            if (
+                pipeline.action.is_monitoring_process()
+                and pipeline.action.config.bootstrap_executor_id
+            ):
+                for slice_id in range(pipeline.action.num_slices):
+                    new_recipe = {
+                        **recipe,
+                        "action": {
+                            **((recipe.get("action") or {}).get("config") or {}),
+                            "slice": slice_id,
+                        },
+                    }
+                    run_action_remotely(
+                        action_urn=pipeline.action.action_urn,
+                        action_recipe=new_recipe,
+                        executor_id=pipeline.action.config.bootstrap_executor_id,
+                        stage=stage,
+                    )
+                pipeline.action.monitor_bootstrap()
+            else:
+                pipeline.action.bootstrap()
         else:
             logger.error("Action does not support bootstrap")
             sys.exit(1)
+
+        if reporter:
+            reporter.report()
         logger.info("Pipeline bootstrapped successfully")
     else:
         # Run the pipeline.

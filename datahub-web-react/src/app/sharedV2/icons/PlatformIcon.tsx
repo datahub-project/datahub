@@ -1,3 +1,4 @@
+import { Icon } from '@components';
 import ColorThief from 'colorthief';
 import React, { useCallback, useRef, useState } from 'react';
 import styled, { CSSObject, css } from 'styled-components/macro';
@@ -22,7 +23,7 @@ type PlatformIconProps = {
     onError?: () => void;
 };
 
-const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined }>`
+const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined; size: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -30,6 +31,7 @@ const IconContainer = styled.div<{ background?: string; styles: CSSObject | unde
     padding: 6px;
     border-radius: 8px;
     background-color: ${(props) => props.background || 'transparent'};
+    font-size: ${(props) => props.size}px;
     ${({ styles }) => (styles ? css(styles) : undefined)};
 `;
 
@@ -68,8 +70,15 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
         onError?.();
     }, [onError, setBackground]);
 
+    const defaultIcon =
+        platform?.name === 'logical' ? (
+            <Icon icon="IntersectSquare" source="phosphor" size="inherit" />
+        ) : (
+            entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
+        );
+
     return (
-        <IconContainer background={background} styles={styles} title={title} className={className}>
+        <IconContainer background={background} size={size} styles={styles} title={title} className={className}>
             {logoUrl ? (
                 <PreviewImage
                     crossOrigin="anonymous"
@@ -89,7 +98,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                     onError={handleError}
                 />
             ) : (
-                entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
+                defaultIcon
             )}
         </IconContainer>
     );

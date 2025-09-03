@@ -296,7 +296,7 @@ elasticsearch:
   useSSL: ${ELASTICSEARCH_USE_SSL:false}
   opensearchUseAwsIamAuth: ${OPENSEARCH_USE_AWS_IAM_AUTH:false}
   region: ${AWS_REGION:#{null}}
-  implementation: ${ELASTICSEARCH_IMPLEMENTATION:elasticsearch} # elasticsearch or opensearch, for handling divergent cases
+  implementation: ${ELASTICSEARCH_IMPLEMENTATION:opensearch} # elasticsearch or opensearch, for handling divergent cases
   idHashAlgo: ${ELASTIC_ID_HASH_ALGO:MD5}
   sslContext: # Required if useSSL is true
     protocol: ${ELASTICSEARCH_SSL_PROTOCOL:#{null}}

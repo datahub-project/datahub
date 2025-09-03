@@ -5,6 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { CountStyle } from '@app/entityV2/shared/SidebarStyledComponents';
+import InfoPopover from '@app/sharedV2/icons/InfoPopover';
 
 const Container = styled.div`
     margin-left: 7px;
@@ -56,6 +57,7 @@ const SectionHeader = styled.span<{ collapsible?: boolean }>`
     display: flex;
     align-items: center;
     ${(props) => !props.collapsible && 'margin-left: 8px;'}
+    gap: 8px;
 `;
 
 const Title = styled(Typography.Text)`
@@ -77,6 +79,15 @@ const StyledIcon = styled.div`
     }
 `;
 
+const StyledInfoPopover = styled(InfoPopover)`
+    display: flex;
+    align-items: center;
+`;
+
+const InfoPopoverContent = styled.div`
+    max-width: 300px;
+`;
+
 type Props = {
     title: string;
     content: React.ReactNode;
@@ -86,6 +97,7 @@ type Props = {
     collapsible?: boolean;
     expandedByDefault?: boolean;
     showFullCount?: boolean;
+    infoPopover?: string;
 };
 
 export const SidebarSection = ({
@@ -97,6 +109,7 @@ export const SidebarSection = ({
     collapsible = true,
     expandedByDefault = true,
     showFullCount,
+    infoPopover,
 }: Props) => {
     return (
         <StyledCollapse
@@ -109,6 +122,9 @@ export const SidebarSection = ({
                     <>
                         <SectionHeader collapsible={collapsible}>
                             <Title ellipsis={{ tooltip: true }}>{title}</Title>
+                            {infoPopover && (
+                                <StyledInfoPopover content={<InfoPopoverContent>{infoPopover}</InfoPopoverContent>} />
+                            )}
                             {count > 0 && (
                                 <CountStyle>
                                     {showFullCount ? <>{count}</> : <>{count > 10 ? '10+' : count}</>}

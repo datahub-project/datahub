@@ -43,12 +43,6 @@ def run_action_remotely(
 ) -> None:
     # Initialize graph
     graph = get_default_graph()
-    # TODO: Support stages remotely. We'll need to disable through the UI
-    if stage != Stage.LIVE:
-        raise Exception(
-            f"Running stages aside from Live actions are not currently supported remotely! {action_urn}"
-        )
-
     remote_action_runner = RemoteActionRunner(graph, DATAHUB_FRONTEND_URL)
 
     # Register signal handlers to stop the pipeline gracefully.
@@ -62,7 +56,7 @@ def run_action_remotely(
     signal.signal(signal.SIGTERM, stop_handler)
 
     # Start running the remote action!
-    remote_action_runner.run_action(action_urn, action_recipe, executor_id)
+    remote_action_runner.run_action(action_urn, action_recipe, executor_id, stage)
 
 
 class RemoteActionRunner:
@@ -76,13 +70,14 @@ class RemoteActionRunner:
         action_urn: str,
         action_recipe: dict,
         executor_id: str,
+        stage: Stage,
     ) -> None:
         # How this should work is:
         try:
             # Step 1: First, check whether there is an ingestion source created for this action.
             # If not, provision one.
             ingestion_source_urn = self.try_create_remote_action_ingestion_source(
-                action_urn, action_recipe, executor_id
+                action_urn, action_recipe, executor_id, stage
             )
 
             # Step 2: Then, check whether the ingestion source is already running (has open execution requests)
@@ -105,6 +100,7 @@ class RemoteActionRunner:
         action_urn: str,
         action_recipe: dict,
         executor_id: str,
+        stage: Stage,
     ) -> str:
         """
         Creates a remove action ingestion source for the automation if it does not already exist.
@@ -120,7 +116,7 @@ class RemoteActionRunner:
 
         # Step 1: Build the ingestion recipe from config.
         ingestion_recipe = self.build_remote_ingestion_source_recipe_json(
-            action_urn, action_recipe
+            action_urn, action_recipe, stage
         )
 
         # Step 2: Provision the ingestion source
@@ -329,7 +325,7 @@ class RemoteActionRunner:
         return self.graph.execute_graphql(query=query, variables=variables)
 
     def build_remote_ingestion_source_recipe_json(
-        self, action_urn: str, action_recipe: dict
+        self, action_urn: str, action_recipe: dict, stage: Stage
     ) -> str:
         """
         Generates a remote ingestion source recipe from an action recipe.
@@ -356,6 +352,7 @@ class RemoteActionRunner:
                 "config": {
                     "action_urn": action_urn,
                     "action_spec": action_config.dict(),
+                    "stage": stage.value,
                 },
             }
         }

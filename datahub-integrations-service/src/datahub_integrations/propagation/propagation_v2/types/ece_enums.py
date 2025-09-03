@@ -1,0 +1,35 @@
+from enum import Enum
+
+
+class ChangeCategory(Enum):
+    """Enum for change categories."""
+
+    DOCUMENTATION = "DOCUMENTATION"
+    GLOSSARY_TERM = "GLOSSARY_TERM"
+    OWNER = "OWNER"
+    TECHNICAL_SCHEMA = "TECHNICAL_SCHEMA"
+    TAG = "TAG"
+    DOMAIN = "DOMAIN"
+    DEPRECATION = "DEPRECATION"
+    LIFECYCLE = "LIFECYCLE"
+    RUN = "RUN"
+    BUSINESS_ATTRIBUTE = "BUSINESS_ATTRIBUTE"
+    INCIDENT = "INCIDENT"
+    STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
+
+
+class ChangeOperation(Enum):
+    """Enum for change operations."""
+
+    ADD = "ADD"
+    MODIFY = "MODIFY"
+    REMOVE = "REMOVE"
+    CREATE = "CREATE"
+    HARD_DELETE = "HARD_DELETE"
+    SOFT_DELETE = "SOFT_DELETE"
+    REINSTATE = "REINSTATE"
+    STARTED = "STARTED"
+    COMPLETED = "COMPLETED"
+    PENDING = "PENDING"
+    ACTIVE = "ACTIVE"
+    RESOLVED = "RESOLVED"

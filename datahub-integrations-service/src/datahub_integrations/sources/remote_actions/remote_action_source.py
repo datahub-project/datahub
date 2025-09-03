@@ -18,9 +18,18 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub_actions.pipeline.pipeline import Pipeline
 from jinja2 import Environment
 
+from datahub_integrations.actions.action_extended import ExtendedAction
+from datahub_integrations.actions.bulk_bootstrap_action import BulkBootstrapAction
+from datahub_integrations.actions.stats_util import Stage
+
 logger = logging.getLogger(__name__)
 
 SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
+SUPPORTS_BOOTSTRAP_ACTIONS = (
+    ExtendedAction,
+    BulkBootstrapAction,
+)
+SUPPORTS_ROLLBACK_ACTIONS = (ExtendedAction,)
 
 
 class RemoteActionSourceConfig(ConfigModel):
@@ -37,6 +46,8 @@ class RemoteActionSourceConfig(ConfigModel):
     # On this run, do we want the action to discard previous state and start
     # fresh?
     force_full_refresh: Optional[bool] = False
+
+    stage: str = Stage.LIVE.value
 
 
 @dataclass
@@ -94,18 +105,29 @@ action:
         signal.signal(signal.SIGINT, stop_handler)
         signal.signal(signal.SIGTERM, stop_handler)
 
-        # TODO: Support Remote Bootstrap and Rollback
-        # Run the pipeline.
-        logger.info("Running pipeline")
-        try:
-            pipeline.run()
-            logger.info("Pipeline has stopped without raising an exception.")
-            pipeline.stop()
-            yield from []
-        except Exception as e:
-            logger.exception(f"Caught exception while running pipeline: {e}")
-            pipeline.stop()
-            sys.exit(1)
+        if self.config.stage == Stage.BOOTSTRAP.value:
+            if isinstance(pipeline.action, SUPPORTS_BOOTSTRAP_ACTIONS):
+                pipeline.action.bootstrap()
+            else:
+                logger.error("Action does not support bootstrap")
+                sys.exit(1)
+        elif self.config.stage == Stage.ROLLBACK.value:
+            if isinstance(pipeline.action, SUPPORTS_ROLLBACK_ACTIONS):
+                pipeline.action.rollback()
+            else:
+                logger.error("Action does not support rollback")
+                sys.exit(1)
+        else:
+            logger.info("Running pipeline")
+            try:
+                pipeline.run()
+                logger.info("Pipeline has stopped without raising an exception.")
+                pipeline.stop()
+                yield from []
+            except Exception as e:
+                logger.exception(f"Caught exception while running pipeline: {e}")
+                pipeline.stop()
+                sys.exit(1)
 
     def create_pipeline_recipe(self) -> str:
         def to_yaml_filter(value: Any) -> str:
