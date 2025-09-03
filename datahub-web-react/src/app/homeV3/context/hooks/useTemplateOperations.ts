@@ -118,7 +118,13 @@ export function useTemplateOperations(
                     }
 
                     // Insert module into the rows at given position
-                    newRows = insertModuleIntoRows(newRows, module, { ...position, moduleIndex }, rowIndex);
+                    newRows = insertModuleIntoRows(
+                        newRows,
+                        module,
+                        { ...position, moduleIndex },
+                        rowIndex,
+                        templateType,
+                    );
                 }
             }
 
