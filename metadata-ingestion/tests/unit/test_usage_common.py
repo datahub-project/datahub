@@ -312,7 +312,7 @@ def test_usage_aggregator_passes_user_email_pattern():
     user_email_pattern = AllowDenyPattern(deny=["test_email@test.com"])
 
     config = BaseUsageConfig(user_email_pattern=user_email_pattern)
-    aggregator = UsageAggregator(config)
+    aggregator: UsageAggregator[str] = UsageAggregator(config)
 
     aggregator.aggregate_event(
         resource=resource,
