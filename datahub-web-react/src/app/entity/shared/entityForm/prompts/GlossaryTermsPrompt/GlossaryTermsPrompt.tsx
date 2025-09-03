@@ -53,6 +53,7 @@ interface Props {
     field?: SchemaField;
     optimisticCompletedTimestamp?: number | null;
     columnSelectorProps?: ColumnSelectorProps;
+    setRemovedUrns?: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export default function GlossaryTermsPrompt({
@@ -62,6 +63,7 @@ export default function GlossaryTermsPrompt({
     field,
     optimisticCompletedTimestamp,
     columnSelectorProps,
+    setRemovedUrns,
 }: Props) {
     const { hasEdited, selectedValues, initialEntities, submitGlossaryTermsResponse, updateSelectedValues } =
         useGlossaryTermsPrompt({
@@ -105,6 +107,7 @@ export default function GlossaryTermsPrompt({
                             updateSelectedValues={updateSelectedValues}
                             promptType={prompt.type}
                             placeholder={allowedTerms.length ? 'Select from the provided Glossary Terms...' : undefined}
+                            setRemovedUrns={setRemovedUrns}
                         />
                         {displayBulkPromptStyles && (
                             <BulkSubmissionButton

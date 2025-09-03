@@ -10,6 +10,7 @@ import GlossaryTermsPrompt from '@app/entity/shared/entityForm/prompts/GlossaryT
 import OwnershipPrompt from '@app/entity/shared/entityForm/prompts/OwnershipPrompt/OwnershipPrompt';
 import StructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/StructuredPropertyPrompt';
 import useColumnSelector from '@app/entity/shared/entityForm/prompts/useColumnSelector';
+import useRemoveSuggested from '@app/entity/shared/entityForm/prompts/useRemoveSuggested';
 
 import { useSubmitFormPromptMutation } from '@graphql/form.generated';
 import { FormPromptType, FormPrompt as PromptEntity, SchemaField, SubmitFormPromptInput } from '@types';
@@ -40,21 +41,33 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
     const [submitFormPrompt] = useSubmitFormPromptMutation();
     const urn = useMutationUrn();
 
+    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
+    const { removeInitialSuggested } = useRemoveSuggested(removedUrns, prompt.type, associatedUrn || urn);
+
+    // Remove initial suggested entities
+    const handleRemoveInitialSuggested = async (input: SubmitFormPromptInput) => {
+        if (removedUrns.length > 0) {
+            await removeInitialSuggested(input);
+        }
+    };
+
     function submitResponse(input: SubmitFormPromptInput, onSuccess: () => void) {
-        submitFormPrompt({ variables: { urn: associatedUrn || urn, input } })
+        handleRemoveInitialSuggested(input)
             .then(() => {
-                onSuccess();
-                setOptimisticCompletedTimestamp(Date.now());
-                refetch();
-                analytics.event({
-                    type: EventType.CompleteDocRequestPrompt,
-                    source: DocRequestView.ByAsset,
-                    required: prompt.required,
-                    promptId: prompt.id,
-                    numAssets: 1,
+                submitFormPrompt({ variables: { urn: associatedUrn || urn, input } }).then(() => {
+                    onSuccess();
+                    setOptimisticCompletedTimestamp(Date.now());
+                    refetch();
+                    analytics.event({
+                        type: EventType.CompleteDocRequestPrompt,
+                        source: DocRequestView.ByAsset,
+                        required: prompt.required,
+                        promptId: prompt.id,
+                        numAssets: 1,
+                    });
+                    setIsBulkApplyingFieldPath(false);
+                    setSelectedFieldPaths([]);
                 });
-                setIsBulkApplyingFieldPath(false);
-                setSelectedFieldPaths([]);
             })
             .catch(() => {
                 message.error('Unknown error while submitting form response');
@@ -69,6 +82,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
                 fieldPaths: selectedFieldPaths,
             };
         }
+
         submitResponse(updatedInput, onSuccess);
         // delay submitting many fields in a separate call for snappier response on initial submit
         if (isBulkApplyingFieldPath && selectedFieldPaths.length > MAX_NUM_FIELDS_TO_SUBMIT_SYNCHRONOUSLY) {
@@ -113,6 +127,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                    setRemovedUrns={setRemovedUrns}
                 />
             )}
             {prompt.type === FormPromptType.Documentation && (
@@ -139,6 +154,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
+                    setRemovedUrns={setRemovedUrns}
                 />
             )}
             {prompt.type === FormPromptType.FieldsGlossaryTerms && (
@@ -149,6 +165,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
                     field={field}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
                     columnSelectorProps={columnSelectorProps}
+                    setRemovedUrns={setRemovedUrns}
                 />
             )}
             {prompt.type === FormPromptType.Domain && (

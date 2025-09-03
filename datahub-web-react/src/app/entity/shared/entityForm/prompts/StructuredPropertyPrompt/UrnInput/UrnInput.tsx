@@ -41,6 +41,7 @@ interface Props {
     isMultiple: boolean;
     promptType?: FormPromptType;
     placeholder?: string;
+    setRemovedUrns?: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 const GLOSSARY_TERM_PROMPT_TYPES = [FormPromptType.GlossaryTerms, FormPromptType.FieldsGlossaryTerms];
@@ -54,6 +55,7 @@ export default function UrnInput({
     updateSelectedValues,
     promptType,
     placeholder,
+    setRemovedUrns,
 }: Props) {
     const {
         onSelectValue,
@@ -84,6 +86,7 @@ export default function UrnInput({
     const canShowGlossaryBrowser =
         promptType && GLOSSARY_TERM_PROMPT_TYPES.includes(promptType) && !allowedEntities?.length;
     const isShowingGlossaryBrowser = canShowGlossaryBrowser && !searchValue;
+    const initialEntityUrns = initialEntities.map((entity) => entity.urn);
 
     return (
         <ClickOutside
@@ -107,6 +110,10 @@ export default function UrnInput({
                 onDeselect={(urn: any) => {
                     onDeselectValue(urn);
                     setSearchValue('');
+                    if (initialEntityUrns.includes(urn)) {
+                        // Keep track of the removed initial suggested entities
+                        setRemovedUrns?.((removedUrns) => [...removedUrns, urn]);
+                    }
                 }}
                 onSearch={(value: string) => handleSearch(value)}
                 tagRender={tagRender}

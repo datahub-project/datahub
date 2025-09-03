@@ -69,6 +69,7 @@ interface Props {
     field?: SchemaField;
     optimisticCompletedTimestamp?: number | null;
     columnSelectorProps?: ColumnSelectorProps;
+    setRemovedUrns?: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export default function OwnershipPrompt({
@@ -78,6 +79,7 @@ export default function OwnershipPrompt({
     field,
     optimisticCompletedTimestamp,
     columnSelectorProps,
+    setRemovedUrns,
 }: Props) {
     const allowedOwnershipTypes = useMemo(
         () => prompt.ownershipParams?.allowedOwnershipTypes || [],
@@ -147,6 +149,7 @@ export default function OwnershipPrompt({
                             placeholder={
                                 allowedOwners.length ? 'Select from the provided Users and Groups...' : undefined
                             }
+                            setRemovedUrns={setRemovedUrns}
                         />
                         <OwnershipTypesSelect
                             selectedOwnerTypeUrn={selectedOwnerTypeUrn}
