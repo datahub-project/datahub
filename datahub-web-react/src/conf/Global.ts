@@ -29,7 +29,6 @@ export enum PageRoutes {
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_LOOKUP = '/embed/lookup/:url',
-    EMBED_HEALTH = '/embed/health',
     SETTINGS_POSTS = '/settings/posts',
     BUSINESS_ATTRIBUTE = '/business-attribute',
     INTRODUCE = '/introduce',
