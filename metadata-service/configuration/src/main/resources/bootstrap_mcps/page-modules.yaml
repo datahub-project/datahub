@@ -42,7 +42,7 @@
   aspectName: dataHubPageModuleProperties
   changeType: UPSERT
   aspect:
-    name: "Hierarchy"
+    name: "Children"
     type: CHILD_HIERARCHY
     visibility:
       scope: GLOBAL

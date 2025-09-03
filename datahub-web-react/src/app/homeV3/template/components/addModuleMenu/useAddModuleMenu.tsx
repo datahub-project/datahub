@@ -13,7 +13,7 @@ import { getCustomGlobalModules } from '@app/homeV3/template/components/addModul
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateSurfaceType } from '@types';
 
 const YOUR_ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:your_assets',
@@ -52,7 +52,7 @@ export const CHILD_HIERARCHY_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:child_hierarchy',
     type: EntityType.DatahubPageModule,
     properties: {
-        name: 'Hierarchy',
+        name: 'Children',
         type: DataHubPageModuleType.ChildHierarchy,
         visibility: { scope: PageModuleScope.Global },
         params: {},
@@ -64,6 +64,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         addModule,
         moduleModalState: { open: openModal },
         globalTemplate,
+        templateType,
     } = usePageTemplateContext();
 
     const handleAddExistingModule = useCallback(
@@ -149,11 +150,17 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-hierarchy-module',
         };
 
+        const customHomeModules = [quickLink, assetCollection, documentation, hierarchyView];
+        const customSummaryModules = [assetCollection, documentation, hierarchyView];
+
+        const finalCustomModules =
+            templateType === PageTemplateSurfaceType.HomePage ? customHomeModules : customSummaryModules;
+
         items.push({
             key: 'customModulesGroup',
             label: <GroupItem title="Create Your Own" />,
             type: 'group',
-            children: [quickLink, assetCollection, documentation, hierarchyView],
+            children: finalCustomModules,
         });
 
         const yourAssets = {
@@ -212,8 +219,8 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             key: 'hierarchy',
             label: (
                 <MenuItem
-                    description="Related Assets tagged with the parent entity"
-                    title="Hierarchy"
+                    description="View the hierarchy of this asset's children"
+                    title="Children"
                     icon="Globe"
                     isSmallModule={false}
                 />
@@ -224,11 +231,17 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-hierarchy-module',
         };
 
+        const defaultHomeModules = [yourAssets, domains];
+        const defaultSummaryModules = [assets, childHierarchy];
+
+        const finalDefaultModules =
+            templateType === PageTemplateSurfaceType.HomePage ? defaultHomeModules : defaultSummaryModules;
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Default" />,
             type: 'group',
-            children: [yourAssets, domains, assets, childHierarchy],
+            children: finalDefaultModules,
         });
 
         // Add global custom modules if available
