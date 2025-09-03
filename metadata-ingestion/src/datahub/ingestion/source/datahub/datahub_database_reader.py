@@ -384,7 +384,9 @@ class DataHubDatabaseReader:
             return MetadataChangeProposalWrapper(
                 entityUrn=row["urn"],
                 aspect=ASPECT_MAP[row["aspect"]].from_obj(json_aspect),
-                systemMetadata=system_metadata,
+                systemMetadata=system_metadata
+                if self.config.preserve_system_metadata
+                else None,
             )
         except Exception as e:
             logger.warning(
