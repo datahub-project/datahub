@@ -310,6 +310,7 @@ elasticsearch:
     reindexOptimizationEnabled: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED:true} # Disable when Multi-AZ zone replication is set to required, will prevent index from setting zero replicas during reindexing
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
+    pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
@@ -338,26 +339,21 @@ elasticsearch:
       boostViaNodes: ${ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES:true} # adds a boosting query that ranks graph edges with via nodes higher, used to allow via paths to be prioritized when multi path search is disabled
       graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:false} # enable soft delete tracking of the urns on edges
       lineageMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS:20} # the maximum hops to traverse lineage graph visualization
-      impactMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
+      pointInTimeCreationEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED:true} # enables creation of point in time snapshots for graph queries
+      # Impact analysis configuration
+      impact:
+        maxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
+        maxRelations: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS:40000} # maximum number of relationships
+        slices: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES:2} # number of slices for parallel search operations
+        keepAlive: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE:5m} # Point-in-Time keepAlive duration for impact analysis queries
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:32} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
 
 # TODO: Kafka topic convention
 kafka:
-  # Kafka Setup Configuration - replaces kafka-setup container functionality
   setup:
     preCreateTopics: ${DATAHUB_PRECREATE_TOPICS:true}
     useConfluentSchemaRegistry: ${USE_CONFLUENT_SCHEMA_REGISTRY:false}
-
-    #    readinessCheck:
-    #      timeoutSeconds: 300 # HARDCODED: 60 attempts * 5 seconds = 300s total
-    #      intervalSeconds: 5 # HARDCODED: kafka-ready.sh sleep 5s
-    #      maxAttempts: 60 # HARDCODED: kafka-ready.sh for i in {1..60}
-
-  #    # EXISTING KAFKA_PROPERTIES_* environment variable mapping
-  #    properties:
-  #      securityProtocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT} # EXISTING
-  #      # All KAFKA_PROPERTIES_* environment variables will be automatically mapped
 
   # Topic defaults applied when individual topic configuration is missing
   topicDefaults:
@@ -690,7 +686,6 @@ featureFlags:
   showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
   lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true} # Enables in-memory cache for searchAcrossLineage query
   graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
-  pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
   readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
