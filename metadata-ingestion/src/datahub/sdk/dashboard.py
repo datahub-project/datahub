@@ -25,12 +25,14 @@ from datahub.sdk._shared import (
     HasTerms,
     LinksInputType,
     OwnersInputType,
+    ParentContainerInputType,
     TagsInputType,
     TermsInputType,
 )
 from datahub.sdk.chart import Chart
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.utilities.sentinels import Unset, unset
 
 
 class Dashboard(
@@ -75,6 +77,7 @@ class Dashboard(
         charts: Optional[List[Union[ChartUrnOrStr, Chart]]] = None,
         dashboards: Optional[List[Union[DashboardUrnOrStr, Dashboard]]] = None,
         # Standard aspects.
+        parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
@@ -104,7 +107,6 @@ class Dashboard(
                 ),
             )
 
-        # Set additional properties
         if description is not None:
             self.set_description(description)
         if display_name is not None:
@@ -119,6 +121,15 @@ class Dashboard(
             self.set_last_modified(last_modified)
         if last_refreshed is not None:
             self.set_last_refreshed(last_refreshed)
+        if input_datasets is not None:
+            self.set_input_datasets(input_datasets)
+        if charts is not None:
+            self.set_charts(charts)
+        if dashboards is not None:
+            self.set_dashboards(dashboards)
+
+        if parent_container is not unset:
+            self._set_container(parent_container)
         if subtype is not None:
             self.set_subtype(subtype)
         if owners is not None:
@@ -131,12 +142,6 @@ class Dashboard(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
-        if input_datasets is not None:
-            self.set_input_datasets(input_datasets)
-        if charts is not None:
-            self.set_charts(charts)
-        if dashboards is not None:
-            self.set_dashboards(dashboards)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -199,10 +204,9 @@ class Dashboard(
         self._ensure_dashboard_props().description = description
 
     @property
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str:
         """Get the display name of the dashboard."""
         return self._ensure_dashboard_props().title
-        return self.title
 
     def set_display_name(self, display_name: str) -> None:
         """Set the display name of the dashboard."""
