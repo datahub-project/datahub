@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -215,6 +216,9 @@ class RedshiftConfig(
 
     @root_validator(skip_on_failure=True)
     def connection_config_compatibility_set(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
+
         if (
             ("options" in values and "connect_args" in values["options"])
             and "extra_client_options" in values

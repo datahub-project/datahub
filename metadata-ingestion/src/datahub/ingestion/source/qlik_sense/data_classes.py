@@ -123,6 +123,8 @@ class SchemaField(_QlikBaseModel):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.DATATYPE] = values.get(Constant.DATATYPE, {}).get(Constant.TYPE)
         return values
 
@@ -138,6 +140,8 @@ class QlikDataset(Item):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         # Update str time to datetime
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDTIME], QLIK_DATETIME_FORMAT
@@ -172,6 +176,8 @@ class Chart(_QlikBaseModel):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.QID] = values[Constant.QINFO][Constant.QID]
         values["qDimension"] = values[Constant.HYPERCUBE]["qDimensionInfo"]
         values["qMeasure"] = values[Constant.HYPERCUBE]["qMeasureInfo"]
@@ -189,6 +195,8 @@ class Sheet(_QlikBaseModel):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
         )
@@ -214,6 +222,8 @@ class QlikTable(_QlikBaseModel):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.DATACONNECTORID] = values[Constant.CONNECTIONINFO][Constant.ID]
         values[Constant.DATACONNECTORPLATFORM] = values[Constant.CONNECTIONINFO][
             Constant.SOURCECONNECTORID
@@ -231,6 +241,8 @@ class App(Item):
 
     @root_validator(pre=True)
     def update_values(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         values[Constant.CREATEDAT] = datetime.strptime(
             values[Constant.CREATEDDATE], QLIK_DATETIME_FORMAT
         )

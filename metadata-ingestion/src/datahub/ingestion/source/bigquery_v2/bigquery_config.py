@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from copy import deepcopy
 from datetime import timedelta
 from typing import Dict, List, Optional, Union
 
@@ -75,6 +76,8 @@ class BigQueryBaseConfig(ConfigModel):
 
     @root_validator(pre=True)
     def project_id_backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         project_id = values.pop("project_id", None)
         project_ids = values.get("project_ids")
 
@@ -188,6 +191,8 @@ class BigQueryFilterConfig(SQLFilterConfig):
 
     @root_validator(pre=False, skip_on_failure=True)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         dataset_pattern: Optional[AllowDenyPattern] = values.get("dataset_pattern")
         schema_pattern = values.get("schema_pattern")
         if (
@@ -475,6 +480,8 @@ class BigQueryV2Config(
 
     @root_validator(pre=True)
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         # Historically this is used to disable schema ingestion
         if (
             "include_tables" in values
@@ -493,6 +500,8 @@ class BigQueryV2Config(
 
     @root_validator(skip_on_failure=True)
     def profile_default_settings(cls, values: Dict) -> Dict:
+        # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
+        values = deepcopy(values)
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         values["options"].setdefault("max_overflow", -1)
