@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Final, Iterable, List, Optional, Tuple
 
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
@@ -14,80 +14,111 @@ from datahub.ingestion.source.kafka_connect.common import (
 logger = logging.getLogger(__name__)
 
 
-class RegexRouterTransform:
-    """Helper class to handle RegexRouter transformations for topic/table names."""
+class BaseTransform:
+    """Base class for Kafka Connect transforms."""
 
-    def __init__(self, config: Dict[str, str]) -> None:
-        self.transforms = self._parse_transforms(config)
+    def __init__(self, config: Dict[str, str]):
+        self.config = config
 
-    def _parse_transforms(self, config: Dict[str, str]) -> List[Dict[str, str]]:
-        """Parse transforms configuration from connector config."""
-        transforms_list: List[Dict[str, str]] = []
+    def apply(self, current_topics: List[str]) -> List[str]:
+        """Apply the transform to the current topics."""
+        raise NotImplementedError("Subclasses must implement apply method")
 
-        # Get the transforms parameter
-        transforms_param: str = config.get("transforms", "")
-        if not transforms_param:
-            return transforms_list
 
-        # Parse individual transforms
-        transform_names = parse_comma_separated_list(transforms_param)
+class RegexRouterTransform(BaseTransform):
+    """Kafka Connect RegexRouter transform."""
 
-        for transform_name in transform_names:
-            if not transform_name:
-                continue
-            transform_config: Dict[str, str] = {}
-            transform_prefix: str = f"transforms.{transform_name}."
+    def apply(self, current_topics: List[str]) -> List[str]:
+        """Apply RegexRouter transform to rename topics."""
+        regex_pattern = self.config.get("regex", "")
+        replacement = self.config.get("replacement", "")
 
-            # Extract transform configuration
-            for key, value in config.items():
-                if key.startswith(transform_prefix):
-                    config_key: str = key[len(transform_prefix) :]
-                    transform_config[config_key] = value
+        if not regex_pattern or replacement is None:
+            logger.warning("RegexRouter missing regex or replacement pattern")
+            return current_topics
 
-            # Only process RegexRouter transforms
-            if (
-                transform_config.get("type")
-                == "org.apache.kafka.connect.transforms.RegexRouter"
-            ):
-                transform_config["name"] = transform_name
-                transforms_list.append(transform_config)
+        transformed_topics = []
+        for topic in current_topics:
+            try:
+                # Use Java regex for exact Kafka Connect compatibility
+                from java.util.regex import Pattern
 
-        return transforms_list
+                transform_regex = Pattern.compile(regex_pattern)
+                matcher = transform_regex.matcher(topic)
 
-    def apply_transforms(self, topic_name: str) -> str:
-        """Apply RegexRouter transforms to the topic name using Java regex."""
-        result: str = topic_name
+                if matcher.matches():
+                    transformed_topic = str(matcher.replaceFirst(replacement))
+                    logger.debug(f"RegexRouter: {topic} -> {transformed_topic}")
+                    transformed_topics.append(transformed_topic)
+                else:
+                    logger.debug(f"RegexRouter: {topic} (no match)")
+                    transformed_topics.append(topic)
 
-        for transform in self.transforms:
-            regex_pattern: Optional[str] = transform.get("regex")
-            replacement: str = transform.get("replacement", "")
+            except ImportError:
+                logger.warning(
+                    f"Java regex library not available for RegexRouter transform. "
+                    f"Cannot apply pattern '{regex_pattern}' to topic '{topic}'. "
+                    f"Returning original topic name."
+                )
+                transformed_topics.append(topic)
 
-            if regex_pattern:
-                try:
-                    # Use Java Pattern and Matcher for exact Kafka Connect compatibility
-                    from java.util.regex import Pattern
+            except Exception as e:
+                logger.warning(
+                    f"RegexRouter failed for topic '{topic}' with pattern '{regex_pattern}' "
+                    f"and replacement '{replacement}': {e}"
+                )
+                transformed_topics.append(topic)
 
-                    pattern = Pattern.compile(regex_pattern)
-                    matcher = pattern.matcher(result)
+        return transformed_topics
 
-                    # Use replaceFirst directly - it handles the matching internally
-                    new_result = matcher.replaceFirst(replacement)
-                    if new_result != result:  # Only log if transformation actually occurred
-                        logger.debug(
-                            f"Applied transform {transform['name']}: {result} -> {new_result}"
-                        )
-                        result = new_result
-                except ImportError as e:
-                    logger.warning(
-                        f"Java regex library not available for transform {transform['name']}: {e}. "
-                        f"Skipping regex transform."
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to apply regex transform {transform['name']} with pattern '{regex_pattern}': {e}"
-                    )
 
-        return str(result)
+def _apply_transforms_to_topics(topics: List[str], config: Dict[str, str]) -> List[str]:
+    """Apply transforms to topic list using proper Transform classes."""
+    # Get the transforms parameter
+    transforms_param: str = config.get("transforms", "")
+    if not transforms_param:
+        return topics
+
+    # Parse transform names
+    transform_names = parse_comma_separated_list(transforms_param)
+
+    # Known transform types
+    TRANSFORM_CLASSES = {
+        "org.apache.kafka.connect.transforms.RegexRouter": RegexRouterTransform,
+        "io.confluent.connect.cloud.transforms.TopicRegexRouter": RegexRouterTransform,
+    }
+
+    # Build transform pipeline
+    transforms = []
+    for transform_name in transform_names:
+        if not transform_name:
+            continue
+
+        # Get transform configuration
+        transform_config = {"name": transform_name}
+        transform_prefix = f"transforms.{transform_name}."
+
+        for key, value in config.items():
+            if key.startswith(transform_prefix):
+                config_key = key[len(transform_prefix) :]
+                transform_config[config_key] = value
+
+        # Create transform instance only for known types
+        transform_type = transform_config.get("type", "")
+        transform_class = TRANSFORM_CLASSES.get(transform_type)
+
+        if transform_class:
+            transform_instance = transform_class(transform_config)
+            transforms.append(transform_instance)
+        else:
+            logger.debug(f"Skipping unsupported transform type: {transform_type}")
+
+    # Apply transforms in sequence
+    result_topics = topics[:]
+    for transform in transforms:
+        result_topics = transform.apply(result_topics)
+
+    return result_topics
 
 
 @dataclass
@@ -98,7 +129,6 @@ class ConfluentS3SinkConnector(BaseConnector):
         bucket: str
         topics_dir: str
         topics: Iterable[str]
-        regex_router: RegexRouterTransform
 
     def _get_parser(self, connector_manifest: ConnectorManifest) -> S3SinkParser:
         # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#s3
@@ -111,17 +141,11 @@ class ConfluentS3SinkConnector(BaseConnector):
         # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#storage
         topics_dir: str = connector_manifest.config.get("topics.dir", "topics")
 
-        # Create RegexRouterTransform instance
-        regex_router: RegexRouterTransform = RegexRouterTransform(
-            connector_manifest.config
-        )
-
         return self.S3SinkParser(
             target_platform="s3",
             bucket=bucket,
             topics_dir=topics_dir,
             topics=connector_manifest.topic_names,
-            regex_router=regex_router,
         )
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
@@ -145,17 +169,23 @@ class ConfluentS3SinkConnector(BaseConnector):
                 self.connector_manifest
             )
 
+            # Apply transforms to all topics
+            topic_list = list(parser.topics)
+            transformed_topics = _apply_transforms_to_topics(
+                topic_list, self.connector_manifest.config
+            )
+
             lineages: List[KafkaConnectLineage] = list()
-            for topic in parser.topics:
-                # Apply RegexRouter transformations using the RegexRouterTransform class
-                transformed_topic: str = parser.regex_router.apply_transforms(topic)
+            for original_topic, transformed_topic in zip(
+                topic_list, transformed_topics
+            ):
                 target_dataset: str = (
                     f"{parser.bucket}/{parser.topics_dir}/{transformed_topic}"
                 )
 
                 lineages.append(
                     KafkaConnectLineage(
-                        source_dataset=topic,
+                        source_dataset=original_topic,
                         source_platform="kafka",
                         target_dataset=target_dataset,
                         target_platform=parser.target_platform,
@@ -185,7 +215,6 @@ class SnowflakeSinkConnector(BaseConnector):
         database_name: str
         schema_name: str
         topics_to_tables: Dict[str, str]
-        regex_router: RegexRouterTransform
 
     def get_table_name_from_topic_name(self, topic_name: str) -> str:
         """
@@ -209,37 +238,41 @@ class SnowflakeSinkConnector(BaseConnector):
         database_name: str = connector_manifest.config["snowflake.database.name"]
         schema_name: str = connector_manifest.config["snowflake.schema.name"]
 
-        # Create RegexRouterTransform instance
-        regex_router: RegexRouterTransform = RegexRouterTransform(
-            connector_manifest.config
-        )
-
         # Fetch user provided topic to table map
         provided_topics_to_tables: Dict[str, str] = {}
         if connector_manifest.config.get("snowflake.topic2table.map"):
             try:
-                mappings = parse_comma_separated_list(connector_manifest.config["snowflake.topic2table.map"])
+                mappings = parse_comma_separated_list(
+                    connector_manifest.config["snowflake.topic2table.map"]
+                )
                 for mapping in mappings:
                     if ":" not in mapping:
-                        logger.warning(f"Invalid topic:table mapping format: '{mapping}'. Expected 'topic:table'.")
+                        logger.warning(
+                            f"Invalid topic:table mapping format: '{mapping}'. Expected 'topic:table'."
+                        )
                         continue
                     topic, table = mapping.split(":", 1)  # Split only on first colon
                     provided_topics_to_tables[topic.strip()] = table.strip()
             except Exception as e:
                 logger.warning(f"Failed to parse snowflake.topic2table.map: {e}")
 
+        # Apply transforms to get final topic names
+        topic_list = list(connector_manifest.topic_names)
+        transformed_topics = _apply_transforms_to_topics(
+            topic_list, connector_manifest.config
+        )
+
         topics_to_tables: Dict[str, str] = {}
         # Extract lineage for only those topics whose data ingestion started
-        for topic in connector_manifest.topic_names:
-            # Apply transforms first to get the transformed topic name
-            transformed_topic: str = regex_router.apply_transforms(topic)
-
-            if topic in provided_topics_to_tables:
+        for original_topic, transformed_topic in zip(topic_list, transformed_topics):
+            if original_topic in provided_topics_to_tables:
                 # If user provided which table to get mapped with this topic
-                topics_to_tables[topic] = provided_topics_to_tables[topic]
+                topics_to_tables[original_topic] = provided_topics_to_tables[
+                    original_topic
+                ]
             else:
                 # Use the transformed topic name to generate table name
-                topics_to_tables[topic] = self.get_table_name_from_topic_name(
+                topics_to_tables[original_topic] = self.get_table_name_from_topic_name(
                     transformed_topic
                 )
 
@@ -247,7 +280,6 @@ class SnowflakeSinkConnector(BaseConnector):
             database_name=database_name,
             schema_name=schema_name,
             topics_to_tables=topics_to_tables,
-            regex_router=regex_router,
         )
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
@@ -295,7 +327,6 @@ class BigQuerySinkConnector(BaseConnector):
         target_platform: str
         sanitizeTopics: bool
         transforms: List[Dict[str, str]]
-        regex_router: RegexRouterTransform
         topicsToTables: Optional[str] = None
         datasets: Optional[str] = None
         defaultDataset: Optional[str] = None
@@ -324,20 +355,15 @@ class BigQuerySinkConnector(BaseConnector):
                         self.connector_manifest.config[key]
                     )
 
-        # Create RegexRouterTransform instance for RegexRouter-specific handling
-        regex_router: RegexRouterTransform = RegexRouterTransform(
-            connector_manifest.config
-        )
-
         # BigQuery connector supports two configuration versions for backward compatibility:
         # v2 (current): Uses 'defaultDataset' with simpler topic:dataset mapping
         # v1 (legacy): Uses 'datasets' with regex-based topic-to-dataset mapping
-        # 
+        #
         # This dual support is necessary because:
         # 1. Many production deployments still use v1 configuration format
         # 2. Breaking changes would require coordinated upgrades across environments
         # 3. v1 supports more complex topic routing that some users depend on
-        
+
         if "defaultDataset" in connector_manifest.config:
             # v2 configuration: simpler, recommended approach
             defaultDataset: str = connector_manifest.config["defaultDataset"]
@@ -348,7 +374,6 @@ class BigQuerySinkConnector(BaseConnector):
                 sanitizeTopics=sanitizeTopics.lower() == "true",
                 version="v2",
                 transforms=transforms,
-                regex_router=regex_router,
             )
         else:
             # v1 configuration: legacy format with regex-based dataset mapping
@@ -364,14 +389,15 @@ class BigQuerySinkConnector(BaseConnector):
                 target_platform="bigquery",
                 sanitizeTopics=sanitizeTopics.lower() == "true",
                 transforms=transforms,
-                regex_router=regex_router,
             )
 
     def get_list(self, property: str) -> Iterable[Tuple[str, str]]:
         entries = parse_comma_separated_list(property)
         for entry in entries:
             if "=" not in entry:
-                logger.warning(f"Invalid key=value mapping format: '{entry}'. Expected 'key=value'.")
+                logger.warning(
+                    f"Invalid key=value mapping format: '{entry}'. Expected 'key=value'."
+                )
                 continue
             try:
                 key, val = entry.rsplit("=", 1)  # Split only on last equals sign
@@ -390,11 +416,61 @@ class BigQuerySinkConnector(BaseConnector):
         return None
 
     def sanitize_table_name(self, table_name: str) -> str:
-        table_name = re.sub("[^a-zA-Z0-9_]", "_", table_name)
-        if re.match("^[^a-zA-Z_].*", table_name):
-            table_name = "_" + table_name
+        """
+        Sanitize table name for BigQuery compatibility following Kafka Connect BigQuery connector logic.
 
-        return table_name
+        Implementation follows the official BigQuery Kafka Connect connector sanitization behavior:
+        - BigQuery allows only specific characters for dataset and table names
+        - All invalid characters are replaced by underscores
+        - If the resulting name would start with a digit, an underscore is prepended
+
+        References:
+        - Aiven BigQuery Connector: https://github.com/Aiven-Open/bigquery-connector-for-apache-kafka
+        - Confluent BigQuery Connector: https://github.com/confluentinc/kafka-connect-bigquery
+        - BigQuery Naming Rules: https://cloud.google.com/bigquery/docs/tables#table_naming
+
+        BigQuery table naming rules:
+        - Must contain only letters (a-z, A-Z), numbers (0-9), and underscores (_)
+        - Must start with a letter or underscore
+        - Maximum 1024 characters
+
+        Args:
+            table_name: The original table name to sanitize
+
+        Returns:
+            Sanitized table name that follows BigQuery naming conventions
+
+        Raises:
+            ValueError: If the input table_name is empty or results in an empty string after sanitization
+        """
+        import re
+
+        if not table_name or not table_name.strip():
+            raise ValueError("Table name cannot be empty")
+
+        # Follow the exact Confluent BigQuery connector sanitization logic:
+        # 1. Replace all invalid characters with underscores
+        # 2. If name starts with digit or other invalid character, prepend underscore
+        # This matches the actual Confluent connector implementation
+
+        # Step 1: Replace all invalid characters with underscores
+        sanitized = re.sub(r"[^a-zA-Z0-9_]", "_", table_name.strip())
+
+        # Step 2: If name doesn't start with letter or underscore, prepend underscore
+        if sanitized and re.match(r"^[^a-zA-Z_].*", sanitized):
+            sanitized = f"_{sanitized}"
+
+        # If sanitization resulted in empty string, raise error
+        if not sanitized:
+            raise ValueError(
+                f"Table name '{table_name}' cannot be sanitized to a valid BigQuery table name"
+            )
+
+        # Truncate if too long (BigQuery table name limit is 1024 characters)
+        if len(sanitized) > 1024:
+            sanitized = sanitized[:1024].rstrip("_")
+
+        return sanitized
 
     def get_dataset_table_for_topic(
         self, topic: str, parser: BQParser
@@ -449,10 +525,13 @@ class BigQuerySinkConnector(BaseConnector):
         target_platform: str = parser.target_platform
         project: str = parser.project
 
-        for topic in self.connector_manifest.topic_names:
-            # Apply RegexRouter transformations using the RegexRouterTransform class
-            transformed_topic: str = parser.regex_router.apply_transforms(topic)
+        # Apply transforms to all topics
+        topic_list = list(self.connector_manifest.topic_names)
+        transformed_topics = _apply_transforms_to_topics(
+            topic_list, self.connector_manifest.config
+        )
 
+        for original_topic, transformed_topic in zip(topic_list, transformed_topics):
             # Use the transformed topic to determine dataset/table
             dataset_table: Optional[str] = self.get_dataset_table_for_topic(
                 transformed_topic, parser
@@ -467,7 +546,7 @@ class BigQuerySinkConnector(BaseConnector):
 
             lineages.append(
                 KafkaConnectLineage(
-                    source_dataset=topic,  # Keep original topic as source
+                    source_dataset=original_topic,  # Keep original topic as source
                     source_platform=KAFKA,
                     target_dataset=target_dataset,
                     target_platform=target_platform,
@@ -476,6 +555,10 @@ class BigQuerySinkConnector(BaseConnector):
         return lineages
 
 
-BIGQUERY_SINK_CONNECTOR_CLASS = "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
-S3_SINK_CONNECTOR_CLASS = "io.confluent.connect.s3.S3SinkConnector"
-SNOWFLAKE_SINK_CONNECTOR_CLASS = "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+BIGQUERY_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
+)
+S3_SINK_CONNECTOR_CLASS: Final[str] = "io.confluent.connect.s3.S3SinkConnector"
+SNOWFLAKE_SINK_CONNECTOR_CLASS: Final[str] = (
+    "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+)

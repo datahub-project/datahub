@@ -42,8 +42,8 @@ class TestRegexRouterTransform:
         config: Dict[str, str] = {"connector.class": "some.connector"}
         transform: RegexRouterTransform = RegexRouterTransform(config)
 
-        result: str = transform.apply_transforms("test-topic")
-        assert result == "test-topic"
+        result: List[str] = transform.apply(["test-topic"])
+        assert result == ["test-topic"]
 
     def test_non_regex_router_transforms(self) -> None:
         """Test when transforms exist but none are RegexRouter."""
@@ -54,77 +54,79 @@ class TestRegexRouterTransform:
         }
         transform: RegexRouterTransform = RegexRouterTransform(config)
 
-        result: str = transform.apply_transforms("test-topic")
-        assert result == "test-topic"
+        result: List[str] = transform.apply(["test-topic"])
+        assert result == ["test-topic"]
 
     def test_single_regex_router_transform(self) -> None:
         """Test single RegexRouter transformation."""
-        config: Dict[str, str] = {
-            "transforms": "TableNameTransformation",
-            "transforms.TableNameTransformation.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.TableNameTransformation.regex": ".*",
-            "transforms.TableNameTransformation.replacement": "my_sink_table",
+        # Extract transform-specific configuration
+        transform_config = {
+            "name": "TableNameTransformation",
+            "type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "regex": ".*",
+            "replacement": "my_sink_table",
         }
-        transform: RegexRouterTransform = RegexRouterTransform(config)
+        transform: RegexRouterTransform = RegexRouterTransform(transform_config)
 
-        result: str = transform.apply_transforms("source-topic")
-        assert result == "my_sink_table"
+        result: List[str] = transform.apply(["source-topic"])
+        assert result == ["my_sink_table"]
 
     def test_multiple_regex_router_transforms(self) -> None:
         """Test multiple RegexRouter transformations applied in sequence."""
-        config: Dict[str, str] = {
-            "transforms": "First,Second",
-            "transforms.First.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.First.regex": "user-(.*)",
-            "transforms.First.replacement": "customer_$1",
-            "transforms.Second.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.Second.regex": "customer_(.*)",
-            "transforms.Second.replacement": "final_$1",
+        # Test with multiple transforms by applying them sequentially
+        first_transform_config = {
+            "name": "First",
+            "type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "regex": "user-(.*)",
+            "replacement": "customer_$1",
         }
-        transform: RegexRouterTransform = RegexRouterTransform(config)
+        second_transform_config = {
+            "name": "Second",
+            "type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "regex": "customer_(.*)",
+            "replacement": "final_$1",
+        }
+        first_transform = RegexRouterTransform(first_transform_config)
+        second_transform = RegexRouterTransform(second_transform_config)
 
-        result: str = transform.apply_transforms("user-events")
-        assert result == "final_events"
+        # Apply first transform
+        intermediate_result = first_transform.apply(["user-events"])
+        # Apply second transform to the result
+        result = second_transform.apply(intermediate_result)
+        assert result == ["final_events"]
 
     def test_mysql_source_config_example(self) -> None:
         """Test the specific MySQL source configuration from the example."""
-        config: Dict[str, str] = {
-            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
-            "mode": "incrementing",
-            "incrementing.column.name": "id",
-            "tasks.max": "1",
-            "connection.url": "${env:MYSQL_CONNECTION_URL}",
-            "transforms": "TotalReplacement",
-            "transforms.TotalReplacement.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.TotalReplacement.regex": ".*(book)",
-            "transforms.TotalReplacement.replacement": "my-new-topic-$1",
+        # Extract transform-specific configuration
+        transform_config = {
+            "name": "TotalReplacement",
+            "type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "regex": ".*(book)",
+            "replacement": "my-new-topic-$1",
         }
-        transform: RegexRouterTransform = RegexRouterTransform(config)
+        transform: RegexRouterTransform = RegexRouterTransform(transform_config)
 
         # Test with a topic that matches the pattern
-        result: str = transform.apply_transforms("library-book")
-        assert result == "my-new-topic-book"
+        result: List[str] = transform.apply(["library-book"])
+        assert result == ["my-new-topic-book"]
 
         # Test with a topic that doesn't match
-        result = transform.apply_transforms("user-data")
-        assert result == "user-data"  # Should remain unchanged
+        result = transform.apply(["user-data"])
+        assert result == ["user-data"]  # Should remain unchanged
 
     def test_mixed_transforms(self) -> None:
         """Test mix of RegexRouter and other transforms."""
-        config: Dict[str, str] = {
-            "transforms": "NonRouter,Router,AnotherNonRouter",
-            "transforms.NonRouter.type": "org.apache.kafka.connect.transforms.InsertField",
-            "transforms.NonRouter.field": "timestamp",
-            "transforms.Router.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.Router.regex": "events-(.*)",
-            "transforms.Router.replacement": "processed_$1",
-            "transforms.AnotherNonRouter.type": "org.apache.kafka.connect.transforms.MaskField",
-            "transforms.AnotherNonRouter.fields": "sensitive",
+        # Extract just the RegexRouter transform configuration
+        transform_config = {
+            "name": "Router",
+            "type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "regex": "events-(.*)",
+            "replacement": "processed_$1",
         }
-        transform: RegexRouterTransform = RegexRouterTransform(config)
+        transform: RegexRouterTransform = RegexRouterTransform(transform_config)
 
-        result: str = transform.apply_transforms("events-user")
-        assert result == "processed_user"
+        result: List[str] = transform.apply(["events-user"])
+        assert result == ["processed_user"]
 
     def test_invalid_regex_pattern(self) -> None:
         """Test handling of invalid regex patterns."""
@@ -137,34 +139,36 @@ class TestRegexRouterTransform:
         transform: RegexRouterTransform = RegexRouterTransform(config)
 
         # Should not crash and return original topic
-        result: str = transform.apply_transforms("test-topic")
-        assert result == "test-topic"
+        result: List[str] = transform.apply(["test-topic"])
+        assert result == ["test-topic"]
 
     def test_empty_replacement(self) -> None:
         """Test with empty replacement string."""
-        config: Dict[str, str] = {
-            "transforms": "EmptyReplace",
-            "transforms.EmptyReplace.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.EmptyReplace.regex": "prefix-(.*)",
-            "transforms.EmptyReplace.replacement": "",
+        # Extract transform-specific configuration
+        transform_config = {
+            "name": "EmptyReplace",
+            "type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "regex": "prefix-(.*)",
+            "replacement": "",
         }
-        transform: RegexRouterTransform = RegexRouterTransform(config)
+        transform: RegexRouterTransform = RegexRouterTransform(transform_config)
 
-        result: str = transform.apply_transforms("prefix-suffix")
-        assert result == ""
+        result: List[str] = transform.apply(["prefix-suffix"])
+        assert result == [""]
 
     def test_whitespace_in_transform_names(self) -> None:
         """Test handling of whitespace in transform names."""
-        config: Dict[str, str] = {
-            "transforms": " Transform1 , Transform2 ",
-            "transforms.Transform1.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.Transform1.regex": "test-(.*)",
-            "transforms.Transform1.replacement": "result_$1",
+        # Extract transform-specific configuration
+        transform_config = {
+            "name": "Transform1",
+            "type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "regex": "test-(.*)",
+            "replacement": "result_$1",
         }
-        transform: RegexRouterTransform = RegexRouterTransform(config)
+        transform: RegexRouterTransform = RegexRouterTransform(transform_config)
 
-        result: str = transform.apply_transforms("test-data")
-        assert result == "result_data"
+        result: List[str] = transform.apply(["test-data"])
+        assert result == ["result_data"]
 
 
 class TestBigQuerySinkConnector:
@@ -855,11 +859,11 @@ class TestPlatformDetection:
         from datahub.ingestion.source.kafka_connect.common import (
             ConnectorTopicHandlerRegistry,
         )
-        
+
         config = KafkaConnectSourceConfig()
         report = KafkaConnectSourceReport()
         registry = ConnectorTopicHandlerRegistry(config, report)
-        
+
         assert registry.get_platform_for_connector("PostgresCdcSource") == "postgres"
         assert registry.get_platform_for_connector("PostgresCdcSourceV2") == "postgres"
         assert registry.get_platform_for_connector("PostgresSink") == "postgres"
@@ -869,11 +873,11 @@ class TestPlatformDetection:
         from datahub.ingestion.source.kafka_connect.common import (
             ConnectorTopicHandlerRegistry,
         )
-        
+
         config = KafkaConnectSourceConfig()
         report = KafkaConnectSourceReport()
         registry = ConnectorTopicHandlerRegistry(config, report)
-        
+
         assert registry.get_platform_for_connector("MySqlSource") == "mysql"
         assert registry.get_platform_for_connector("MySqlSink") == "mysql"
 
@@ -882,11 +886,11 @@ class TestPlatformDetection:
         from datahub.ingestion.source.kafka_connect.common import (
             ConnectorTopicHandlerRegistry,
         )
-        
+
         config = KafkaConnectSourceConfig()
         report = KafkaConnectSourceReport()
         registry = ConnectorTopicHandlerRegistry(config, report)
-        
+
         assert registry.get_platform_for_connector("SnowflakeSink") == "snowflake"
 
     def test_platform_connector_detection_fallback(self) -> None:
@@ -894,19 +898,23 @@ class TestPlatformDetection:
         from datahub.ingestion.source.kafka_connect.common import (
             ConnectorTopicHandlerRegistry,
         )
-        
+
         config = KafkaConnectSourceConfig()
         report = KafkaConnectSourceReport()
         registry = ConnectorTopicHandlerRegistry(config, report)
-        
+
         assert (
             registry.get_platform_for_connector(
                 "io.confluent.connect.jdbc.JdbcSourceConnector"
             )
             == "unknown"
         )
-        assert registry.get_platform_for_connector("com.mysql.cj.jdbc.Driver") == "mysql"
-        assert registry.get_platform_for_connector("org.postgresql.Driver") == "postgres"
+        assert (
+            registry.get_platform_for_connector("com.mysql.cj.jdbc.Driver") == "mysql"
+        )
+        assert (
+            registry.get_platform_for_connector("org.postgresql.Driver") == "postgres"
+        )
         assert (
             registry.get_platform_for_connector(
                 "net.snowflake.client.jdbc.SnowflakeDriver"
@@ -919,17 +927,22 @@ class TestPlatformDetection:
         from datahub.ingestion.source.kafka_connect.common import (
             ConnectorTopicHandlerRegistry,
         )
-        
+
         config = KafkaConnectSourceConfig()
         report = KafkaConnectSourceReport()
         registry = ConnectorTopicHandlerRegistry(config, report)
-        
+
         assert (
             registry.get_platform_for_connector("com.unknown.connector.SomeConnector")
             == "unknown"  # Contains "unknown" keyword
         )
-        assert registry.get_platform_for_connector("") == "unknown"  # Empty string falls through to unknown
-        assert registry.get_platform_for_connector("com.example.CustomConnector") == "unknown"  # No recognized keywords
+        assert (
+            registry.get_platform_for_connector("") == "unknown"
+        )  # Empty string falls through to unknown
+        assert (
+            registry.get_platform_for_connector("com.example.CustomConnector")
+            == "unknown"
+        )  # No recognized keywords
 
 
 class TestFullConnectorConfigValidation:
@@ -1811,10 +1824,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-sink",
-            type="sink", 
-            config=sink_config,
-            tasks=[]
+            name="test-sink", type="sink", config=sink_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -1843,10 +1853,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-sink",
-            type="sink", 
-            config=sink_config,
-            tasks=[]
+            name="test-sink", type="sink", config=sink_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -1874,10 +1881,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-sink",
-            type="sink", 
-            config=sink_config,
-            tasks=[]
+            name="test-sink", type="sink", config=sink_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -1905,17 +1909,16 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-sink",
-            type="sink", 
-            config=sink_config,
-            tasks=[]
+            name="test-sink", type="sink", config=sink_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
         assert result == []
 
     @patch("requests.Session.get")
-    def test_derive_topics_from_table_config_platform_style(self, mock_get: Mock) -> None:
+    def test_derive_topics_from_table_config_platform_style(
+        self, mock_get: Mock
+    ) -> None:
         """Test deriving topics from table configuration with platform connector."""
         from datahub.ingestion.source.kafka_connect.kafka_connect import (
             KafkaConnectSource,
@@ -1937,10 +1940,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-source",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-source", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -1972,10 +1972,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-source",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-source", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2006,10 +2003,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-source",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-source", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2019,7 +2013,9 @@ class TestEnvironmentSpecificTopicRetrieval:
         assert "app-products" in result
 
     @patch("requests.Session.get")
-    def test_derive_topics_from_table_config_quoted_identifiers(self, mock_get: Mock) -> None:
+    def test_derive_topics_from_table_config_quoted_identifiers(
+        self, mock_get: Mock
+    ) -> None:
         """Test deriving topics from tables with quoted identifiers."""
         from datahub.ingestion.source.kafka_connect.kafka_connect import (
             KafkaConnectSource,
@@ -2041,16 +2037,13 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-source",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-source", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
         assert len(result) == 2
-        assert 'sys-public.user table' in result
-        assert 'sys-schema2.order-data' in result
+        assert "sys-public.user table" in result
+        assert "sys-schema2.order-data" in result
 
     @patch("requests.Session.get")
     def test_derive_source_topics_platform_jdbc_no_transforms(
@@ -2078,10 +2071,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-connector",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-connector", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2115,10 +2105,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-connector",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-connector", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2156,10 +2143,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-connector",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-connector", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2189,10 +2173,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-connector",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-connector", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2221,10 +2202,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-connector",
-            type="source", 
-            config=connector_config,
-            tasks=[]
+            name="test-connector", type="source", config=connector_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2257,7 +2235,9 @@ class TestEnvironmentSpecificTopicRetrieval:
         mock_connector = Mock()
         mock_connector.name = "test-connector"
         mock_connector.type = "source"
-        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+        mock_connector.config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"
+        }
 
         # For self-hosted when API fails, we return empty list (no fallback)
         result = source._get_connector_topics(mock_connector)
@@ -2272,16 +2252,14 @@ class TestEnvironmentSpecificTopicRetrieval:
             KafkaConnectSource,
         )
 
-        # Mock connection test and /topics API response success  
+        # Mock connection test and /topics API response success
         def mock_get_side_effect(url: str, **kwargs: Any) -> Mock:
             response = Mock()
             if "/topics" in url:
                 # Mock /connectors/{name}/topics response for self-hosted
                 response.raise_for_status.return_value = None
                 response.json.return_value = {
-                    "test-connector": {
-                        "topics": ["runtime-topic1", "runtime-topic2"]
-                    }
+                    "test-connector": {"topics": ["runtime-topic1", "runtime-topic2"]}
                 }
             else:
                 # Connection test success
@@ -2298,7 +2276,9 @@ class TestEnvironmentSpecificTopicRetrieval:
         mock_connector = Mock()
         mock_connector.name = "test-connector"
         mock_connector.type = "source"
-        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+        mock_connector.config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"
+        }
 
         # Call the method to get topics
         result = source._get_connector_topics(mock_connector)
@@ -2328,10 +2308,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-sink",
-            type="sink", 
-            config=sink_config,
-            tasks=[]
+            name="test-sink", type="sink", config=sink_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2361,10 +2338,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="test-source",
-            type="source", 
-            config=source_config,
-            tasks=[]
+            name="test-source", type="source", config=source_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2402,10 +2376,7 @@ class TestEnvironmentSpecificTopicRetrieval:
 
         # Create connector manifest for the new handler approach
         connector_manifest = ConnectorManifest(
-            name="outbox-cashout-dev",
-            type="source", 
-            config=outbox_config,
-            tasks=[]
+            name="outbox-cashout-dev", type="source", config=outbox_config, tasks=[]
         )
         result = source._get_topics_from_connector_config(connector_manifest)
 
@@ -2474,7 +2445,7 @@ class TestConfluentCloudDetection:
         # Disable the feature flag
         config = KafkaConnectSourceConfig(
             connect_uri="http://localhost:8083",
-            use_connect_topics_api=False  # Explicitly disabled
+            use_connect_topics_api=False,  # Explicitly disabled
         )
         source = KafkaConnectSource(config, Mock())
 
@@ -2482,7 +2453,9 @@ class TestConfluentCloudDetection:
         mock_connector = Mock()
         mock_connector.name = "test-connector"
         mock_connector.type = "source"
-        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+        mock_connector.config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"
+        }
 
         result = source._get_connector_topics(mock_connector)
 
@@ -2503,9 +2476,7 @@ class TestConfluentCloudDetection:
                 # Mock /connectors/{name}/topics response for self-hosted
                 response.raise_for_status.return_value = None
                 response.json.return_value = {
-                    "test-connector": {
-                        "topics": ["api-topic1", "api-topic2"]
-                    }
+                    "test-connector": {"topics": ["api-topic1", "api-topic2"]}
                 }
             else:
                 # Connection test success
@@ -2518,7 +2489,7 @@ class TestConfluentCloudDetection:
         # Enable the feature flag (default behavior)
         config = KafkaConnectSourceConfig(
             connect_uri="http://localhost:8083",
-            use_connect_topics_api=True  # Explicitly enabled
+            use_connect_topics_api=True,  # Explicitly enabled
         )
         source = KafkaConnectSource(config, Mock())
 
@@ -2526,10 +2497,510 @@ class TestConfluentCloudDetection:
         mock_connector = Mock()
         mock_connector.name = "test-connector"
         mock_connector.type = "source"
-        mock_connector.config = {"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"}
+        mock_connector.config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector"
+        }
 
         result = source._get_connector_topics(mock_connector)
 
         # Should return topics from API when feature flag is enabled
         assert result == ["api-topic1", "api-topic2"]
 
+
+class TestBigQuerySinkConnectorSanitization:
+    """Test BigQuery sink connector table name sanitization following Kafka Connect logic."""
+
+    def setup_method(self) -> None:
+        """Set up test fixtures."""
+        self.manifest = ConnectorManifest(
+            name="test-bq-sink",
+            type="sink",
+            config={
+                "project": "test-project",
+                "defaultDataset": "test_dataset",
+                "sanitizeTopics": "true",
+            },
+            tasks=[],
+        )
+
+        self.config = KafkaConnectSourceConfig()
+        self.report = KafkaConnectSourceReport()
+        self.connector = BigQuerySinkConnector(self.manifest, self.config, self.report)
+
+    def test_valid_table_names_unchanged(self) -> None:
+        """Test that valid table names are left unchanged."""
+        test_cases = [
+            "valid_table",
+            "Valid_Table123",
+            "table123",
+            "_valid_table",
+            "table_name_123",
+            "UPPERCASE_TABLE",
+            "mixedCase_Table_123",
+        ]
+
+        for table_name in test_cases:
+            result = self.connector.sanitize_table_name(table_name)
+            assert result == table_name, (
+                f"Valid name '{table_name}' should remain unchanged, got '{result}'"
+            )
+
+    def test_invalid_character_replacement(self) -> None:
+        """Test replacement of invalid characters with underscores."""
+        test_cases = [
+            # (input, expected_output)
+            ("topic-with-dashes", "topic_with_dashes"),
+            ("topic.with.dots", "topic_with_dots"),
+            ("topic with spaces", "topic_with_spaces"),
+            ("topic@special#chars$", "topic_special_chars_"),
+            ("topic/with\\slashes", "topic_with_slashes"),
+            ("topic+with=symbols", "topic_with_symbols"),
+            ("topic(with)parentheses", "topic_with_parentheses"),
+            ("topic[with]brackets", "topic_with_brackets"),
+            ("topic{with}braces", "topic_with_braces"),
+            ("topic,with;punctuation:", "topic_with_punctuation_"),
+            ("topic!with?exclamation", "topic_with_exclamation"),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"'{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_numeric_start_handling(self) -> None:
+        """Test prepending underscore for names starting with digits."""
+        test_cases = [
+            # (input, expected_output)
+            ("123numeric", "_123numeric"),
+            ("9test", "_9test"),
+            ("0table", "_0table"),
+            ("2023_events", "_2023_events"),
+            ("1_table", "_1_table"),
+            ("42answer", "_42answer"),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"'{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_consecutive_underscore_cleanup(self) -> None:
+        """Test removal of consecutive underscores."""
+        test_cases = [
+            # (input, expected_output) - matches actual Confluent connector behavior
+            ("multiple___underscores", "multiple___underscores"),
+            ("table____name", "table____name"),
+            ("a_____b", "a_____b"),
+            ("leading____and____trailing", "leading____and____trailing"),
+            ("_____many_underscores_____", "_____many_underscores_____"),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"'{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_leading_trailing_underscore_removal(self) -> None:
+        """Test removal of leading and trailing underscores (except for digit handling)."""
+        test_cases = [
+            # (input, expected_output) - matches actual Confluent connector behavior
+            ("__leading_underscores", "__leading_underscores"),
+            ("trailing_underscores__", "trailing_underscores__"),
+            ("__both_sides__", "__both_sides__"),
+            ("_single_leading", "_single_leading"),
+            ("single_trailing_", "single_trailing_"),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"'{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_digit_handling_preserves_underscore(self) -> None:
+        """Test that digit-handling underscore is preserved even during cleanup."""
+        test_cases = [
+            # (input, expected_output) - basic Confluent behavior: replace chars + prepend underscore for digits
+            ("123___table___", "_123___table___"),
+            ("9__test__", "_9__test__"),
+            ("0___event___data___", "_0___event___data___"),
+            (
+                "___123___",
+                "___123___",  # Starts with underscore, not digit, so no prepend needed
+            ),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"'{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_complex_mixed_cases(self) -> None:
+        """Test complex cases with multiple sanitization rules applied."""
+        test_cases = [
+            # (input, expected_output) - matches actual Confluent connector behavior
+            ("123-topic.with@special", "_123_topic_with_special"),
+            ("user-events-2023", "user_events_2023"),
+            ("9user@events#2023$data", "_9user_events_2023_data"),
+            (
+                "___123--.topic..name___",
+                "___123___topic__name___",
+            ),  # Real Confluent behavior
+            ("2023/user-data@domain.com", "_2023_user_data_domain_com"),
+            (
+                "order_events-2023!@#$%",
+                "order_events_2023_____",
+            ),  # Real Confluent behavior
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"'{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_empty_input_raises_error(self) -> None:
+        """Test that empty input raises ValueError."""
+        invalid_inputs = ["", "   ", "\t\n", "  \t  "]
+
+        for invalid_input in invalid_inputs:
+            with pytest.raises(ValueError, match="Table name cannot be empty"):
+                self.connector.sanitize_table_name(invalid_input)
+
+    def test_all_invalid_chars_becomes_underscores(self) -> None:
+        """Test that input with only invalid characters becomes underscores (Confluent behavior)."""
+        test_cases = [
+            # (input, expected_output) - matches actual Confluent connector behavior
+            ("___", "___"),
+            ("@#$%", "____"),
+            ("---", "___"),
+            ("...", "___"),
+            ("!!!", "___"),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"'{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_length_truncation(self) -> None:
+        """Test that overly long names are truncated to BigQuery's 1024 character limit."""
+        # Create a name longer than 1024 characters
+        long_name = "a" * 1030  # 1030 characters
+
+        result = self.connector.sanitize_table_name(long_name)
+
+        # Should be truncated to 1024 characters
+        assert len(result) == 1024, f"Expected length 1024, got {len(result)}"
+        assert result == "a" * 1024, (
+            "Should be truncated to exactly 1024 'a' characters"
+        )
+
+    def test_length_truncation_with_trailing_underscores(self) -> None:
+        """Test that long names with underscores stay as-is (Confluent behavior)."""
+        # Create a name that becomes exactly 1024 chars + trailing underscores after sanitization
+        long_name = (
+            "a" * 1020 + "____"
+        )  # Will become 1024 chars, no truncation in simple Confluent behavior
+
+        result = self.connector.sanitize_table_name(long_name)
+
+        # Simple Confluent behavior - no truncation, keeps all characters
+        assert len(result) == 1024, f"Expected length 1024, got {len(result)}"
+        assert result == "a" * 1020 + "____", (
+            "Should be 1020 'a' characters + 4 underscores (no truncation in basic Confluent behavior)"
+        )
+
+    def test_real_world_topic_names(self) -> None:
+        """Test sanitization with realistic Kafka topic names."""
+        test_cases = [
+            # Common real-world patterns
+            ("user.events", "user_events"),
+            ("order-processing", "order_processing"),
+            ("payment_notifications", "payment_notifications"),
+            ("inventory.stock.updates", "inventory_stock_updates"),
+            ("user-profile-updates", "user_profile_updates"),
+            ("event.stream.v2", "event_stream_v2"),
+            ("api.gateway.logs", "api_gateway_logs"),
+            ("metrics-collector-data", "metrics_collector_data"),
+            ("2023.audit.logs", "_2023_audit_logs"),
+            ("db.change.events", "db_change_events"),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"Real-world case: '{input_name}' should become '{expected}', got '{result}'"
+            )
+
+    def test_kafka_connect_compatibility(self) -> None:
+        """Test that our implementation matches official Kafka Connect BigQuery connector behavior."""
+        # These test cases are based on the official Kafka Connect BigQuery connector documentation
+        # Reference: https://github.com/Aiven-Open/bigquery-connector-for-apache-kafka
+        test_cases = [
+            # Official documented behavior: "All invalid characters are replaced by underscores"
+            ("topic-name", "topic_name"),
+            ("topic.name", "topic_name"),
+            ("topic name", "topic_name"),
+            # Official documented behavior: "If the resulting name would start with a digit, an underscore is prepended"
+            ("1topic", "_1topic"),
+            ("2023-events", "_2023_events"),
+            ("9data", "_9data"),
+            # Combined cases
+            ("123.topic-name", "_123_topic_name"),
+            ("user@events#123", "user_events_123"),
+        ]
+
+        for input_name, expected in test_cases:
+            result = self.connector.sanitize_table_name(input_name)
+            assert result == expected, (
+                f"Kafka Connect compatibility: '{input_name}' should become '{expected}', got '{result}'"
+            )
+
+
+class TestCloudTransformPipeline:
+    """Test the new Cloud connector transform-aware functionality."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.config = KafkaConnectSourceConfig()
+        self.report = KafkaConnectSourceReport()
+
+    def test_get_source_tables_from_config_single_table(self):
+        """Test extracting single table from Cloud connector config."""
+        manifest = ConnectorManifest(
+            name="test-cloud-single",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "table.name": "public.users",
+            },
+            tasks=[],
+            topic_names=["user-events"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        source_tables = connector._get_source_tables_from_config()
+
+        assert source_tables == ["public.users"]
+
+    def test_get_source_tables_from_config_multi_table(self):
+        """Test extracting multiple tables from Cloud connector config."""
+        manifest = ConnectorManifest(
+            name="test-cloud-multi",
+            type="source",
+            config={
+                "connector.class": "MySqlSource",
+                "table.include.list": "public.users,public.orders,public.products",
+            },
+            tasks=[],
+            topic_names=["users", "orders", "products"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        source_tables = connector._get_source_tables_from_config()
+
+        assert source_tables == ["public.users", "public.orders", "public.products"]
+
+    def test_get_source_tables_from_config_query_mode(self):
+        """Test that query-based connectors return empty list."""
+        manifest = ConnectorManifest(
+            name="test-cloud-query",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "query": "SELECT * FROM complex_join_view",
+            },
+            tasks=[],
+            topic_names=["query-results"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        source_tables = connector._get_source_tables_from_config()
+
+        assert source_tables == []
+
+    def test_apply_forward_transforms_with_regex_router(self):
+        """Test forward transform application with RegexRouter."""
+        manifest = ConnectorManifest(
+            name="test-cloud-transform",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "test-host.com",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "database.server.name": "prod-db",
+                "table.include.list": "public.users,public.orders",
+                "transforms": "route",
+                "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.route.regex": "prod-db\\.public\\.(.*)",
+                "transforms.route.replacement": "clean-$1",
+            },
+            tasks=[],
+            topic_names=["clean-users", "clean-orders"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        parser = connector.get_parser(manifest)
+        source_tables = ["public.users", "public.orders"]
+
+        expected_topics = connector._apply_forward_transforms(source_tables, parser)
+
+        # Should generate original topics first, then apply transforms
+        # Original: prod-db.public.users, prod-db.public.orders
+        # After RegexRouter: clean-users, clean-orders (if Java regex available)
+        assert len(expected_topics) == 2
+        assert "users" in expected_topics[0]  # Should contain transformed table name
+        assert "orders" in expected_topics[1]  # Should contain transformed table name
+
+    def test_cloud_transform_integration_with_topic_filtering(self):
+        """Test complete cloud transform integration with topic filtering."""
+        # Simulate cluster with many topics, only some belong to this connector
+        all_topics = [
+            "clean-users",  # This connector's topics (after transforms)
+            "clean-orders",  # This connector's topics (after transforms)
+            "other-app-data",  # Other connector's topics
+            "system-logs",  # Other connector's topics
+            "metrics",  # Other connector's topics
+        ]
+
+        manifest = ConnectorManifest(
+            name="test-cloud-integration",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "test-host.com",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "database.server.name": "prod-db",
+                "table.include.list": "public.users,public.orders",
+                "transforms": "route",
+                "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.route.regex": "prod-db\\.public\\.(.*)",
+                "transforms.route.replacement": "clean-$1",
+            },
+            tasks=[],
+            topic_names=all_topics,  # Cloud gets ALL cluster topics
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        parser = connector.get_parser(manifest)
+
+        # Test the new cloud transform method
+        lineages = connector._extract_lineages_cloud_with_transforms(all_topics, parser)
+
+        # Should create lineages only for topics that this connector produces
+        # and that actually exist in the cluster
+        assert len(lineages) <= 2  # At most 2 lineages for 2 tables
+
+        # Check that lineages are created for the right topics
+        target_topics = [lineage.target_dataset for lineage in lineages]
+        for topic in target_topics:
+            assert topic in all_topics  # Must be actual topics from cluster
+            assert topic not in [
+                "other-app-data",
+                "system-logs",
+                "metrics",
+            ]  # Not from other connectors
+
+    def test_cloud_fallback_to_existing_strategies(self):
+        """Test that Cloud connectors fall back to existing strategies when transforms fail."""
+        manifest = ConnectorManifest(
+            name="test-cloud-fallback",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "test-host",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "database.server.name": "prod-db",
+                "table.include.list": "public.users,public.orders",
+                # No transforms - should use config-based mapping
+            },
+            tasks=[],
+            topic_names=["prod-db.public.users", "prod-db.public.orders"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        parser = connector.get_parser(manifest)
+
+        # Should detect 1:1 mapping and use config-based extraction
+        has_mapping = connector._has_one_to_one_topic_mapping()
+        assert has_mapping is True
+
+        # Should use fallback strategies
+        lineages = connector._extract_lineages_cloud_environment(parser)
+        assert len(lineages) == 2  # Should create lineages using fallback method
+
+    def test_cloud_transform_with_no_matching_topics(self):
+        """Test Cloud transform when predicted topics don't exist in cluster."""
+        all_topics = [
+            "other-app-data",  # No topics from this connector
+            "system-logs",
+            "metrics",
+        ]
+
+        manifest = ConnectorManifest(
+            name="test-cloud-no-match",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "test-host",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "database.server.name": "prod-db",
+                "table.include.list": "public.users,public.orders",
+                "transforms": "route",
+                "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.route.regex": "prod-db\\.public\\.(.*)",
+                "transforms.route.replacement": "clean-$1",
+            },
+            tasks=[],
+            topic_names=all_topics,
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        parser = connector.get_parser(manifest)
+
+        # Should return empty list when no predicted topics match cluster topics
+        lineages = connector._extract_lineages_cloud_with_transforms(all_topics, parser)
+        assert lineages == []
+
+    def test_cloud_transform_preserves_schema_information(self):
+        """Test that Cloud transform preserves full table names with schema."""
+        manifest = ConnectorManifest(
+            name="test-cloud-schema",
+            type="source",
+            config={
+                "connector.class": "PostgresCdcSource",
+                "database.hostname": "test-host",
+                "database.port": "5432",
+                "database.dbname": "testdb",
+                "database.server.name": "prod-db",
+                "table.include.list": "public.users,inventory.products",  # Different schemas
+                "transforms": "route",
+                "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.route.regex": "prod-db\\.(.*)",
+                "transforms.route.replacement": "clean-$1",
+            },
+            tasks=[],
+            topic_names=["clean-public.users", "clean-inventory.products"],
+        )
+
+        connector = ConfluentJDBCSourceConnector(manifest, self.config, self.report)
+        parser = connector.get_parser(manifest)
+
+        # Extract source tables - should preserve schema
+        source_tables = connector._get_source_tables_from_config()
+        assert "public.users" in source_tables
+        assert "inventory.products" in source_tables
+
+        # Forward transforms should preserve schema in topic generation
+        expected_topics = connector._apply_forward_transforms(source_tables, parser)
+        assert len(expected_topics) == 2
