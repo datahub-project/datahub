@@ -14,7 +14,9 @@ import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
-import { Entity, OwnerEntityType } from '@types';
+import { Entity, EntityType, OwnerEntityType, OwnershipType } from '@types';
+import { UpdatedDomain } from '@app/domainV2/DomainsContext';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
@@ -56,9 +58,10 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-    const [placeholderOwners, setPlaceholderOwners] = useState<Entity[]>([]);
     const { user } = useUserContext();
-    const [initialized, setInitialized] = useState(false);
+    
+    // Simply provide current user as placeholder - OwnersSection will handle auto-selection
+    const placeholderOwners = user ? [user] : [];
 
     // Sync local state with form when owners change
     useEffect(() => {
@@ -70,28 +73,14 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
         setSelectedOwnerUrns(ownerUrns);
     }, []);
 
-    // Set current user as placeholder owner when component mounts
-    useEffect(() => {
-        if (user?.urn && placeholderOwners.length === 0 && !initialized) {
-            const currentUserEntity = user;
-            setPlaceholderOwners([currentUserEntity]);
-            // Automatically select the current user
-            setSelectedOwnerUrns([user.urn]);
-            setInitialized(true);
-        }
-    }, [user, placeholderOwners.length, initialized]);
+
 
     const onCreateDomain = () => {
-        // Create owner input objects from selected owner URNs
-        const ownerInputs = selectedOwnerUrns.map((urn) => {
-            // Determine owner type from URN (CorpGroup URNs typically contain 'corpGroup')
-            const ownerEntityType = urn.includes('corpGroup') ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
-
-            return {
-                ownerUrn: urn,
-                ownerEntityType,
-            };
-        });
+        console.log('🔥 CreateDomainModal.onCreateDomain: FINAL selectedOwnerUrns =', selectedOwnerUrns);
+        
+        // Create owner input objects from selected owner URNs using utility
+        const ownerInputs = createOwnerInputs(selectedOwnerUrns);
+        console.log('🔥 CreateDomainModal.onCreateDomain: FINAL ownerInputs =', ownerInputs);
 
         createDomainMutation({
             variables: {

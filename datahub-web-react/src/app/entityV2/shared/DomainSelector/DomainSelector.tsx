@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
@@ -7,18 +7,14 @@ import { useListDomainsLazyQuery, useListDomainsQuery } from '@src/graphql/domai
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
 import { Domain, Entity, EntityType } from '@src/types.generated';
+import { 
+    buildEntityCache, 
+    isEntityResolutionRequired, 
+    entitiesToNestedSelectOptions,
+    mergeSelectedNestedOptions 
+} from '@app/entityV2/shared/utils/selectorUtils';
 
-// Utility functions for entity caching, similar to EntitySearchSelect
-const buildCache = (entities: Entity[]) => {
-    const cache = new Map<string, Entity>();
-    entities.forEach((entity) => cache.set(entity.urn, entity));
-    return cache;
-};
 
-const isResolutionRequired = (urns: string[], cache: Map<string, Entity>) => {
-    const uncachedUrns = urns.filter((urn) => !cache.has(urn));
-    return uncachedUrns.length > 0;
-};
 
 type DomainSelectorProps = {
     selectedDomains: string[];
@@ -49,7 +45,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
 
     // Bootstrap by resolving all URNs that are not in the cache yet
     useEffect(() => {
-        if (selectedDomains.length > 0 && isResolutionRequired(selectedDomains, entityCache)) {
+        if (selectedDomains.length > 0 && isEntityResolutionRequired(selectedDomains, entityCache)) {
             getEntities({ variables: { urns: selectedDomains } });
         }
     }, [selectedDomains, entityCache, getEntities]);
@@ -58,7 +54,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     useEffect(() => {
         if (resolvedEntitiesData && resolvedEntitiesData.entities?.length) {
             const entities: Entity[] = (resolvedEntitiesData?.entities as Entity[]) || [];
-            setEntityCache(buildCache(entities));
+            setEntityCache(buildEntityCache(entities));
         }
     }, [resolvedEntitiesData]);
 
@@ -72,29 +68,11 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         },
     });
 
-    // Convert selected domain URNs to NestedSelectOption format using hydrated entities
-    const initialOptions = selectedDomains.map((urn: string) => {
-        const domain = entityCache.get(urn) as Domain;
-        if (domain) {
-            return {
-                value: domain.urn,
-                label: entityRegistry.getDisplayName(domain.type, domain),
-                id: domain.urn,
-                parentId: domain.parentDomains?.domains?.[0]?.urn,
-                entity: domain,
-            };
-        }
-        // Fallback option when entity isn't hydrated yet - prevents jitter
-        // Extract domain name from URN (e.g., "urn:li:domain:engineering" -> "engineering")
-        const domainName = urn.split(':').pop() || urn;
-        return {
-            value: urn,
-            label: domainName, // Temporary label until entity is resolved
-            id: urn,
-            parentId: undefined,
-            entity: undefined,
-        };
-    });
+    // Convert selected domain URNs to NestedSelectOption format using utility
+    // Use useMemo to prevent unnecessary recalculations and ensure NestedSelect properly syncs
+    const initialOptions = useMemo(() => {
+        return entitiesToNestedSelectOptions(selectedDomains, entityCache, entityRegistry);
+    }, [selectedDomains, entityCache, entityRegistry]);
 
     const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
 
@@ -156,7 +134,12 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         }
     }
 
-    const defaultOptions = [...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label));
+    // Merge options to ensure selected domains remain visible
+    const baseOptions = [...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label));
+    const searchOptions = [...autoCompleteOptions].sort((a, b) => a.label.localeCompare(b.label));
+    
+    const defaultOptions = mergeSelectedNestedOptions(baseOptions, initialOptions);
+    const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
 
     return (
         <div style={{ width: '100%' }}>
@@ -164,7 +147,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
                 label={label}
                 placeholder={placeholder}
                 searchPlaceholder="Search all domains..."
-                options={useSearch ? autoCompleteOptions : defaultOptions}
+                options={useSearch ? searchOptionsWithSelected : defaultOptions}
                 initialValues={initialOptions}
                 loadData={handleLoad}
                 onSearch={handleSearch}

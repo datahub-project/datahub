@@ -1,5 +1,5 @@
 import { Text } from '@components';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
@@ -11,6 +11,7 @@ import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { CorpUser, Entity, EntityType, Owner, OwnerEntityType } from '@types';
+import { deduplicateEntities, entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
 
 // Interface for pending owner
 export interface PendingOwner {
@@ -77,7 +78,7 @@ interface Props {
 
 /**
  * Component for owner selection and management using standard components
- * The goal is to replace shared/owners/OwnersSection.tsx with this component.
+ * The goal is to replace sharedV2/owners/OwnersSection.tsx with this component.
  */
 const OwnersSection = ({
     selectedOwnerUrns,
@@ -92,17 +93,19 @@ const OwnersSection = ({
     const entityRegistry = useEntityRegistryV2();
     const [selectedOwnerEntities, setSelectedOwnerEntities] = useState<Entity[]>([]);
     const [initialized, setInitialized] = useState(false);
+    const hasAutoSelectedRef = useRef(false);
 
-    // Auto-select placeholder owners when first provided (only once)
+    // Auto-select placeholder owners ONLY ONCE on initial render when no owners are selected
     useEffect(() => {
+        if (placeholderOwners && placeholderOwners.length > 0 && !hasAutoSelectedRef.current && selectedOwnerUrns.length === 0) {
+            const placeholderUrns = placeholderOwners.map((owner) => owner.urn);
+            setSelectedOwnerUrns(placeholderUrns);
+            hasAutoSelectedRef.current = true;
+        }
+        
+        // Mark as initialized when we have placeholders
         if (placeholderOwners && placeholderOwners.length > 0 && !initialized) {
-            // Only auto-select if the current selection is empty (initial state)
-            const currentSelection = selectedOwnerUrns.length === 0;
-            if (currentSelection) {
-                const placeholderUrns = placeholderOwners.map((owner) => owner.urn);
-                setSelectedOwnerUrns(placeholderUrns);
-            }
-            setInitialized(true); // Mark as initialized regardless of whether we auto-selected
+            setInitialized(true);
         }
     }, [placeholderOwners, selectedOwnerUrns.length, setSelectedOwnerUrns, initialized]);
 
@@ -123,17 +126,38 @@ const OwnersSection = ({
         recommendedData ||
         [];
 
-    // Combine search results with placeholder owners
-    const allResults = [...(placeholderOwners || []), ...searchResults];
+    // Sync selectedOwnerEntities with selectedOwnerUrns from parent
+    useEffect(() => {
+        const currentSelectedUrns = selectedOwnerEntities.map(e => e.urn).sort().join(',');
+        const newSelectedUrns = selectedOwnerUrns.sort().join(',');
+        
+        // Only update if the URNs have actually changed
+        if (currentSelectedUrns !== newSelectedUrns) {
+            const entities = selectedOwnerUrns
+                .map((urn) => {
+                    // Try to find in all available sources
+                    return (
+                        (placeholderOwners || []).find((e) => e.urn === urn) ||
+                        searchResults.find((e) => e.urn === urn) ||
+                        selectedOwnerEntities.find((e) => e.urn === urn)
+                    );
+                })
+                .filter(Boolean) as Entity[];
+            
+            setSelectedOwnerEntities(entities);
+        }
+    }, [selectedOwnerUrns, placeholderOwners, searchResults, selectedOwnerEntities]);
 
-    const finalResults = allResults.filter((res) => !existingOwners.map((owner) => owner.owner.urn).includes(res.urn));
+    // Use utility to deduplicate entities from all sources
+    const allOptionsEntities = deduplicateEntities({
+        placeholderEntities: placeholderOwners,
+        searchResults,
+        selectedEntities: selectedOwnerEntities,
+        existingEntityUrns: existingOwners.map((owner) => owner.owner.urn),
+    });
 
-    // Convert entities to SelectOption format
-    const selectOptions: SelectOption[] = finalResults.map((entity) => ({
-        value: entity.urn,
-        label: entityRegistry.getDisplayName(entity.type, entity),
-        description: entity.type === EntityType.CorpUser ? (entity as any)?.properties?.email : undefined,
-    }));
+    // Convert entities to SelectOption format using utility
+    const selectOptions = entitiesToSelectOptions(allOptionsEntities, entityRegistry);
 
     // Handle search
     const handleSearch = (query: string) => {
@@ -178,7 +202,7 @@ const OwnersSection = ({
 
         const newEntities = newValues
             .map((urn) => {
-                return finalResults.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn);
+                return allOptionsEntities.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn);
             })
             .filter(Boolean) as Entity[];
 
@@ -212,7 +236,7 @@ const OwnersSection = ({
                     isDisabled={!canEdit}
                     width="full"
                     renderCustomOptionText={(option) => {
-                        const entity = finalResults.find((e) => e.urn === option.value);
+                        const entity = allOptionsEntities.find((e) => e.urn === option.value);
                         return entity ? renderOwnerEntity(entity) : option.label;
                     }}
                 />
