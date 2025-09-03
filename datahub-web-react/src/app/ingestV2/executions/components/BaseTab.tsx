@@ -11,7 +11,7 @@ export const SectionHeader = styled(Typography.Title)`
     &&&& {
         padding: 0px;
         margin: 0px;
-        margin-bottom: 12px;
+        margin-bottom: 0px;
     }
 `;
 
