@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package test.fields.v1;
+
+import "protobuf/test/meta/fields/v1/fields.proto";
+
+message Action {
+  // Unique ID of the action.
+  string id = 1 [
+    json_name = "id",
+    (test.meta.fields.v1.metadata) = {semantic_type: SEMANTIC_TYPE_UUID}
+  ];
+
+  // Name of the action.
+  string name = 2 [
+    json_name = "name",
+    (test.meta.fields.v1.metadata) = {semantic_type: SEMANTIC_TYPE_STRING}
+  ];
+
+  // Description of the action.
+  string description = 3 [
+    json_name = "description",
+    (test.meta.fields.v1.metadata) = {semantic_type: SEMANTIC_TYPE_STRING}
+  ];
+
+  // Version of the action.
+  int32 version = 4 [
+    json_name = "version",
+    (test.meta.fields.v1.metadata) = {semantic_type: SEMANTIC_TYPE_INTEGER}
+  ];
+
+  // Whether the action is enabled.
+  bool enabled = 5 [
+    json_name = "enabled",
+    (test.meta.fields.v1.metadata) = {semantic_type: SEMANTIC_TYPE_BOOLEAN}
+  ];
+
+  // Created timestamp.
+  int64 created_at = 6 [
+    json_name = "created_at",
+    (test.meta.fields.v1.metadata) = {semantic_type: SEMANTIC_TYPE_TIMESTAMP}
+  ];
+
+  // Updated timestamp.
+  int64 updated_at = 7 [
+    json_name = "updated_at",
+    (test.meta.fields.v1.metadata) = {semantic_type: SEMANTIC_TYPE_TIMESTAMP}
+  ];
+}

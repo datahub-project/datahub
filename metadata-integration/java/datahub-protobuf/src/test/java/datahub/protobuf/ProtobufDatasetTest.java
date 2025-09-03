@@ -727,4 +727,193 @@ public class ProtobufDatasetTest {
             .findFirst()
             .orElseThrow());
   }
+
+  @Test
+  public void messageFields() throws IOException {
+    ProtobufDataset test = getTestProtobufDataset("protobuf", "messageFields");
+
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test.fields.v1.Action,TEST)",
+        test.getDatasetUrn().toString());
+
+    SchemaMetadata testMetadata = test.getSchemaMetadata();
+
+    assertEquals(1, testMetadata.getVersion());
+    assertEquals(7, testMetadata.getFields().size());
+
+    assertEquals("Action", extractAspect(test.getDatasetMCPs().get(0), "name"));
+    assertEquals(
+        "test.fields.v1.Action", extractAspect(test.getDatasetMCPs().get(0), "qualifiedName"));
+
+    // Test UUID field with semantic type annotation
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=string].id")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNativeDataType("string")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Unique ID of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals("[version=2.0].[type=test_fields_v1_Action].[type=string].id"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test string field with semantic type annotation
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=string].name")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNativeDataType("string")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Name of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals("[version=2.0].[type=test_fields_v1_Action].[type=string].name"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test string field with description
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=string].description")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new StringType())))
+            .setNativeDataType("string")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Description of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_fields_v1_Action].[type=string].description"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test integer field with semantic type annotation
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=int].version")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new NumberType())))
+            .setNativeDataType("int32")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Version of the action.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals("[version=2.0].[type=test_fields_v1_Action].[type=int].version"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test boolean field with semantic type annotation
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=boolean].enabled")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new BooleanType())))
+            .setNativeDataType("bool")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Whether the action is enabled.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_fields_v1_Action].[type=boolean].enabled"))
+            .findFirst()
+            .orElseThrow());
+
+    // Test timestamp fields with semantic type annotation
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=long].created_at")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new NumberType())))
+            .setNativeDataType("int64")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Created timestamp.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_fields_v1_Action].[type=long].created_at"))
+            .findFirst()
+            .orElseThrow());
+
+    assertEquals(
+        new SchemaField()
+            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=long].updated_at")
+            .setType(
+                new SchemaFieldDataType()
+                    .setType(SchemaFieldDataType.Type.create(new NumberType())))
+            .setNativeDataType("int64")
+            .setNullable(true)
+            .setIsPartOfKey(false)
+            .setDescription("Updated timestamp.")
+            .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray()))
+            .setGlossaryTerms(
+                new GlossaryTerms()
+                    .setTerms(new GlossaryTermAssociationArray())
+                    .setAuditStamp(TEST_AUDIT_STAMP)),
+        testMetadata.getFields().stream()
+            .filter(
+                f ->
+                    f.getFieldPath()
+                        .equals(
+                            "[version=2.0].[type=test_fields_v1_Action].[type=long].updated_at"))
+            .findFirst()
+            .orElseThrow());
+  }
 }
