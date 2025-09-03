@@ -5,6 +5,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 import dataclasses
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
@@ -427,21 +428,62 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
 
             query = f"""
-                SELECT
-                    entity_type, entity_id,
-                    source_table_full_name, source_type, source_path,
-                    target_table_full_name, target_type,
-                    max(event_time) as last_updated
-                FROM system.access.table_lineage
+                WITH mapping AS (
+                    SELECT
+                        table_catalog,
+                        table_catalog || '.' || table_schema || '.' || table_name AS table_full_name,
+                        storage_path
+                    FROM system.information_schema.tables
+                    WHERE table_type = 'EXTERNAL'
+                ),
+                grouped AS (
+                    SELECT
+                        entity_type, entity_id,
+                        source_table_catalog, source_table_full_name, source_type, source_path,
+                        target_table_catalog, target_table_full_name, target_type, target_path,
+                        max(event_time) as last_updated
+                    FROM system.access.table_lineage
+                    WHERE
+                        (
+                            -- filter early, as well as after joining to the external table mapping,
+                            -- because it makes the query faster. Databricks does not seem to be able
+                            -- to push the predicate down this far automatically.
+                            target_table_catalog = %(catalog)s
+                            OR target_type = 'PATH'
+                            OR source_table_catalog = %(catalog)s
+                            OR source_type = 'PATH'
+                        )
+                        {additional_where}
+                    GROUP BY
+                        entity_type, entity_id,
+                        source_table_catalog, source_table_full_name, source_type, source_path,
+                        target_table_catalog, target_table_full_name, target_type, target_path
+                )
+                SELECT * FROM (
+                    SELECT
+                        entity_type, entity_id,
+                        COALESCE(source_table_catalog, source_mapping.table_catalog) AS source_table_catalog,
+                        COALESCE(source_table_full_name, source_mapping.table_full_name) AS source_table_full_name,
+                        source_type, source_path,
+                        COALESCE(target_table_catalog, target_mapping.table_catalog) AS target_table_catalog,
+                        COALESCE(target_table_full_name, target_mapping.table_full_name) AS target_table_full_name,
+                        target_type,
+                        last_updated
+                    FROM grouped
+                    LEFT JOIN mapping AS target_mapping
+                    ON
+                        target_type = 'PATH'
+                        AND rtrim('/', target_path) = rtrim('/', target_mapping.storage_path)
+                    LEFT JOIN mapping AS source_mapping
+                    ON
+                        source_type = 'PATH'
+                        AND rtrim('/', source_path) = rtrim('/', source_mapping.storage_path)
+                )
                 WHERE
-                    (target_table_catalog = %s or source_table_catalog = %s)
-                    {additional_where}
-                GROUP BY
-                    entity_type, entity_id,
-                    source_table_full_name, source_type, source_path,
-                    target_table_full_name, target_type
+                    target_table_catalog = %(catalog)s
+                    OR source_table_catalog = %(catalog)s
                 """
-            rows = self._execute_sql_query(query, [catalog, catalog])
+            rows = self._execute_sql_query(query, {"catalog": catalog})
 
             result_dict: FileBackedDict[TableLineageInfo] = FileBackedDict()
             for row in rows:
@@ -452,6 +494,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 source_type = row["source_type"]
                 source_path = row["source_path"]
                 last_updated = row["last_updated"]
+
+                if entity_id == '552742158728756':
+                    logger.debug(f"{row}")
 
                 # Initialize TableLineageInfo for both source and target tables if they're in our catalog
                 for table_name in [source_full_name, target_full_name]:
@@ -466,7 +511,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if target_full_name and target_full_name.startswith(f"{catalog}."):
                     # Handle table upstreams
                     if (
-                        source_type in ["TABLE", "VIEW"]
+                        source_type in ["PATH", "TABLE", "VIEW"]
+                        and source_full_name
                         and source_full_name != target_full_name
                     ):
                         upstream = TableUpstream(
@@ -534,13 +580,62 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
 
             query = f"""
+                WITH mapping AS (
+                    SELECT
+                        table_catalog,
+                        table_schema,
+                        table_name,
+                        storage_path
+                    FROM system.information_schema.tables
+                    WHERE table_type = 'EXTERNAL'
+                ),
+                grouped AS (
+                    SELECT
+                        entity_type, entity_id,
+                        source_table_catalog, source_table_schema, source_table_name, source_type, source_path, source_column_name,
+                        target_table_catalog, target_table_schema, target_table_name, target_type, target_path, target_column_name,
+                        max(event_time) as last_updated
+                    FROM system.access.column_lineage
+                    WHERE
+                        (
+                            -- filter early, as well as after joining to the external table mapping,
+                            -- because it makes the query faster. Databricks does not seem to be able
+                            -- to push the predicate down this far automatically.
+                            target_table_catalog = %(catalog)s
+                            OR target_type = 'PATH'
+                        )
+                        {additional_where}
+                    GROUP BY
+                        entity_type, entity_id,
+                        source_table_catalog, source_table_schema, source_table_name, source_type, source_path, source_column_name,
+                        target_table_catalog, target_table_schema, target_table_name, target_type, target_path, target_column_name
+                )
                 SELECT
-                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
-                    target_table_schema, target_table_name, target_column_name,
-                    max(event_time) as last_updated
-                FROM system.access.column_lineage
+                    *
+                FROM (
+                    SELECT
+                        entity_type, entity_id,
+                        COALESCE(source_table_catalog, source_mapping.table_catalog) AS source_table_catalog,
+                        COALESCE(source_table_schema, source_mapping.table_schema) AS source_table_schema,
+                        COALESCE(source_table_name, source_mapping.table_name) AS source_table_name,
+                        source_type, source_column_name,
+                        COALESCE(target_table_catalog, target_mapping.table_catalog) AS target_table_catalog,
+                        COALESCE(target_table_schema, target_mapping.table_schema) AS target_table_schema,
+                        COALESCE(target_table_name, target_mapping.table_name) AS target_table_name,
+                        target_type, target_column_name,
+                        last_updated
+                    FROM grouped
+                    LEFT JOIN mapping AS target_mapping
+                    ON
+                        target_type = 'PATH'
+                        AND rtrim('/', target_path) = rtrim('/', target_mapping.storage_path)
+                    LEFT JOIN mapping AS source_mapping
+                    ON
+                        source_type = 'PATH'
+                        AND rtrim('/', source_path) = rtrim('/', source_mapping.storage_path)
+                )
                 WHERE
-                    target_table_catalog = %s
+                    target_table_catalog = %(catalog)s
                     AND target_table_schema IS NOT NULL
                     AND target_table_name IS NOT NULL
                     AND target_column_name IS NOT NULL
@@ -548,12 +643,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     AND source_table_schema IS NOT NULL
                     AND source_table_name IS NOT NULL
                     AND source_column_name IS NOT NULL
-                    {additional_where}
-                GROUP BY
-                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
-                    target_table_schema, target_table_name, target_column_name
                 """
-            rows = self._execute_sql_query(query, [catalog])
+            rows = self._execute_sql_query(query, {"catalog": catalog})
 
             result_dict: FileBackedDict[Dict[str, dict]] = FileBackedDict()
             for row in rows:
@@ -990,7 +1081,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
+    def _execute_sql_query(self, query: str, params: Union[List[Any], Dict[str, Any]] = ()) -> List[Row]:
         """Execute SQL query using databricks-sql connector for better performance"""
         logger.debug(f"Executing SQL query with {len(params)} parameters")
         if logger.isEnabledFor(logging.DEBUG):
@@ -1036,10 +1127,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 connect(**self._sql_connection_params) as connection,
                 connection.cursor() as cursor,
             ):
-                cursor.execute(query, list(params))
+                start_time = time.time()
+                cursor.execute(query, params)
                 rows = cursor.fetchall()
+                end_time = time.time()
                 logger.debug(
-                    f"SQL query executed successfully, returned {len(rows)} rows"
+                    f"SQL query executed successfully in {end_time - start_time:f}s, returned {len(rows)} rows"
                 )
                 return rows
 
