@@ -1047,7 +1047,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 uniqueUserPercentileLast30Days=int(
                     row.get("distinct_user_rank_percentile", 0) or 0
                 ),
-                writeCountLast30Days=int(row.get("write_rank_percentile", 0) or 0)
+                writeCountLast30Days=int(row.get("write_count", 0) or 0)
                 if not self.config.disable_write_usage
                 else None,
                 writeCountPercentileLast30Days=int(

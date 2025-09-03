@@ -7,6 +7,7 @@ import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/uti
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
 import FieldDescription from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
 import { FieldDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDetails';
+import FieldLogicalSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldLogicalSection';
 import FieldTags from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
 import FieldTerms from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
 import SampleValuesSection from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SampleValuesSection';
@@ -77,6 +78,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             refetch={delayedRefetchNotes}
                         />
                         {!!notes?.length && <StyledDivider />}
+                        <FieldLogicalSection expandedField={expandedField} />
                         <FieldDescription expandedField={expandedField} editableFieldInfo={editableFieldInfo} />
                         <FieldTags
                             expandedField={expandedField}

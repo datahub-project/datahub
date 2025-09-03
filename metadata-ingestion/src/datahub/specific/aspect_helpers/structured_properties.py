@@ -70,3 +70,30 @@ class HasStructuredPropertiesPatch(MetadataPatchProposal):
             ),
         )
         return self
+
+    def set_structured_property_manual(
+        self, property: StructuredPropertyValueAssignmentClass
+    ) -> Self:
+        """Add or update a structured property, using a StructuredPropertyValueAssignmentClass object."""
+
+        self.remove_structured_property(property.propertyUrn)
+        self._add_patch(
+            StructuredPropertiesClass.ASPECT_NAME,
+            "add",
+            path=("properties", property.propertyUrn),
+            value=property,
+        )
+        return self
+
+    def add_structured_property_manual(
+        self, property: StructuredPropertyValueAssignmentClass
+    ) -> Self:
+        """Add a structured property, using a StructuredPropertyValueAssignmentClass object."""
+
+        self._add_patch(
+            StructuredPropertiesClass.ASPECT_NAME,
+            "add",
+            path=("properties", property.propertyUrn),
+            value=property,
+        )
+        return self

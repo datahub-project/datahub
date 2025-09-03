@@ -128,6 +128,8 @@ class ActionStageReport(BaseModel):
 
     status: Optional[StageStatus] = None
 
+    warnings: list[str] = []
+
     def start(self) -> None:
         self.start_time = int(datetime.now().timestamp() * 1000)
         self.status = StageStatus.RUNNING

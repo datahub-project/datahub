@@ -6,6 +6,7 @@ from datahub_integrations.actions.remote_action_runner import (
     DEFAULT_EXECUTOR_ID,
     RemoteActionRunner,
 )
+from datahub_integrations.actions.stats_util import Stage
 
 
 @pytest.fixture
@@ -26,11 +27,11 @@ def test_run_action(remote_action_runner: RemoteActionRunner, mock_graph: Mock) 
     remote_action_runner.start_running_ingestion_source = Mock()  # type: ignore
 
     # Run the action
-    remote_action_runner.run_action("test_urn", {}, DEFAULT_EXECUTOR_ID)
+    remote_action_runner.run_action("test_urn", {}, DEFAULT_EXECUTOR_ID, Stage.LIVE)
 
     # Assert the correct methods were called
     remote_action_runner.try_create_remote_action_ingestion_source.assert_called_once_with(
-        "test_urn", {}, DEFAULT_EXECUTOR_ID
+        "test_urn", {}, DEFAULT_EXECUTOR_ID, Stage.LIVE
     )
     remote_action_runner.start_running_ingestion_source.assert_called_once_with(
         "test_ingestion_urn"
@@ -71,7 +72,7 @@ def test_try_create_remote_action_ingestion_source(
 
     # Run the method
     urn = remote_action_runner.try_create_remote_action_ingestion_source(
-        "test_urn", {}, DEFAULT_EXECUTOR_ID
+        "test_urn", {}, DEFAULT_EXECUTOR_ID, Stage.LIVE
     )
 
     # Assert the URN is returned and the necessary methods were called
@@ -80,7 +81,7 @@ def test_try_create_remote_action_ingestion_source(
         "test_urn"
     )
     remote_action_runner.build_remote_ingestion_source_recipe_json.assert_called_once_with(
-        "test_urn", {}
+        "test_urn", {}, Stage.LIVE
     )
     remote_action_runner.upsert_remote_ingestion_source.assert_called_once_with(
         "test_ingestion_urn", "test_recipe", DEFAULT_EXECUTOR_ID
