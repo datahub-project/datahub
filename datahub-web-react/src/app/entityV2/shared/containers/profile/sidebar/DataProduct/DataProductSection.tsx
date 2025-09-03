@@ -1,6 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -10,6 +10,7 @@ import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
@@ -28,6 +29,7 @@ interface Props {
 
 export default function DataProductSection({ readOnly }: Props) {
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [showRemoveModal, setShowRemoveModal] = useState(false);
     const { entityData, urn } = useEntityData();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [dataProduct, setDataProduct] = useState<DataProduct | null>(null);
@@ -60,20 +62,6 @@ export default function DataProductSection({ readOnly }: Props) {
             });
     }
 
-    const onRemoveDataProduct = () => {
-        Modal.confirm({
-            title: `Confirm Data Product Removal`,
-            content: `Are you sure you want to remove this data product?`,
-            onOk() {
-                removeDataProduct();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
         <>
             <SidebarSection
@@ -87,7 +75,7 @@ export default function DataProductSection({ readOnly }: Props) {
                                 readOnly={readOnly}
                                 onClose={(e) => {
                                     e.preventDefault();
-                                    onRemoveDataProduct();
+                                    setShowRemoveModal(true);
                                 }}
                                 fontSize={12}
                             />
@@ -114,6 +102,13 @@ export default function DataProductSection({ readOnly }: Props) {
                     setDataProduct={setDataProduct}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showRemoveModal}
+                handleClose={() => setShowRemoveModal(false)}
+                handleConfirm={removeDataProduct}
+                modalTitle="Confirm Data Product Removal"
+                modalText="Are you sure you want to remove this data product?"
+            />
         </>
     );
 }

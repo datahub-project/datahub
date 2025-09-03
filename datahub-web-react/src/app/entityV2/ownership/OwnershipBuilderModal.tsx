@@ -1,25 +1,15 @@
-import { Form, Input, Modal, Typography, message, notification } from 'antd';
+import { Form, Input, Typography, message, notification } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { OwnershipTypeBuilderState } from '@app/entityV2/ownership/table/types';
-import { Button } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 
 import { useCreateOwnershipTypeMutation, useUpdateOwnershipTypeMutation } from '@graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@types';
 
 const NAME_INPUT_TEST_ID = 'ownership-type-name-input';
 const DESCRIPTION_INPUT_TEST_ID = 'ownership-type-description-input';
-
-const TitleContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-`;
-
-const TitleText = styled(Typography.Text)`
-    font-size: 14px;
-    font-weight: 700;
-`;
 
 const FormItemContainer = styled.div`
     display: flex;
@@ -33,17 +23,6 @@ const FormItemTitle = styled(Typography.Text)`
 
 const StyledFormItem = styled(Form.Item)`
     margin-bottom: 8px;
-`;
-
-const SaveButtonContainer = styled.div`
-    width: 100%;
-    display: flex;
-    justify-content: right;
-    margin-top: 12px;
-`;
-
-const CancelButton = styled(Button)`
-    margin-right: 12px;
 `;
 
 type Props = {
@@ -168,12 +147,22 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
         <Modal
             open={isOpen}
             onCancel={onClose}
-            title={
-                <TitleContainer>
-                    <TitleText>{titleText}</TitleText>
-                </TitleContainer>
-            }
-            footer={null}
+            title={titleText}
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                    buttonDataTestId: 'ownership-builder-cancel',
+                },
+                {
+                    type: 'submit',
+                    text: 'Save',
+                    onClick: onUpsert,
+                    disabled: !ownershipTypeBuilderState.name,
+                    buttonDataTestId: 'ownership-builder-save',
+                },
+            ]}
         >
             <Form form={form}>
                 <FormItemContainer>
@@ -211,19 +200,6 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
                     </StyledFormItem>
                 </FormItemContainer>
             </Form>
-            <SaveButtonContainer>
-                <CancelButton data-testid="ownership-builder-cancel" variant="text" color="gray" onClick={onClose}>
-                    Cancel
-                </CancelButton>
-                <Button
-                    data-testid="ownership-builder-save"
-                    disabled={!ownershipTypeBuilderState.name}
-                    onClick={onUpsert}
-                    type="submit"
-                >
-                    Save
-                </Button>
-            </SaveButtonContainer>
         </Modal>
     );
 };
