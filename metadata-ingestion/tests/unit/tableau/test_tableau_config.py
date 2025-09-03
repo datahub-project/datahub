@@ -1,4 +1,5 @@
 import re
+from copy import deepcopy
 from typing import Dict
 from unittest import mock
 
@@ -54,7 +55,7 @@ default_config = {
 def test_value_error_projects_and_project_pattern(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
-    new_config = default_config.copy()
+    new_config = deepcopy(default_config)
     new_config["projects"] = ["default"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
 
@@ -66,7 +67,7 @@ def test_value_error_projects_and_project_pattern(
 
 
 def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
-    new_config = default_config.copy()
+    new_config = deepcopy(default_config)
     del new_config["projects"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
     new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
@@ -79,28 +80,28 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
 
 
 def test_ingest_hidden_assets_bool():
-    config_dict = default_config.copy()
+    config_dict = deepcopy(default_config)
     config_dict["ingest_hidden_assets"] = False
     config = TableauConfig.parse_obj(config_dict)
     assert config.ingest_hidden_assets is False
 
 
 def test_ingest_hidden_assets_list():
-    config_dict = default_config.copy()
+    config_dict = deepcopy(default_config)
     config_dict["ingest_hidden_assets"] = ["dashboard"]
     config = TableauConfig.parse_obj(config_dict)
     assert config.ingest_hidden_assets == ["dashboard"]
 
 
 def test_ingest_hidden_assets_multiple():
-    config_dict = default_config.copy()
+    config_dict = deepcopy(default_config)
     config_dict["ingest_hidden_assets"] = ["dashboard", "worksheet"]
     config = TableauConfig.parse_obj(config_dict)
     assert config.ingest_hidden_assets == ["dashboard", "worksheet"]
 
 
 def test_ingest_hidden_assets_invalid():
-    config = default_config.copy()
+    config = deepcopy(default_config)
     config["ingest_hidden_assets"] = ["worksheet", "invalid"]
     with pytest.raises(
         ValidationError,
@@ -120,7 +121,7 @@ def test_ingest_hidden_assets_invalid():
 def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
 
-    config_dict = default_config.copy()
+    config_dict = deepcopy(default_config)
 
     del config_dict["stateful_ingestion"]
     del config_dict["projects"]

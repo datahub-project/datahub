@@ -3,6 +3,7 @@ import logging
 import re
 import time
 from collections import OrderedDict, defaultdict
+from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -651,6 +652,11 @@ class TableauConfig(
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
+        # In-place update of the input dict would cause state contamination. This was discovered through test failures
+        # in test_hex.py where the same dict is reused.
+        # So a copy is performed first.
+        values = deepcopy(values)
+
         projects = values.get("projects")
         project_pattern = values.get("project_pattern")
         project_path_pattern = values.get("project_path_pattern")
