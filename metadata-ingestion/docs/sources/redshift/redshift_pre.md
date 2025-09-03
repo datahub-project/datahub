@@ -107,7 +107,7 @@ shows up correctly after datashare consumer namespace is ingested.
 
 ### Profiling
 
-Profiling runs sql queries on the redshift cluster to get statistics about the tables. To be able to do that, the user needs to have read access to the tables that should be profiled.
+Profiling runs sql queries on the redshift cluster to get statistics about the tables. In order to do that, the user needs to have read access on the tables that should be profiled.
 
 If you don't want to grant read access to the tables you can enable table level profiling which will get table statistics without reading the data.
 
