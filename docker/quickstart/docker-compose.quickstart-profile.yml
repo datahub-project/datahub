@@ -210,6 +210,7 @@ services:
     - quickstart-frontend
     - quickstart-storage
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
@@ -220,6 +221,7 @@ services:
     - debug-elasticsearch
     - debug-backend-aws
     - debug-aws
+    - debug-cdc
     command:
     - --character-set-server=utf8mb4
     - --collation-server=utf8mb4_bin
@@ -260,15 +262,20 @@ services:
     - quickstart-frontend
     - quickstart-storage
     - quickstart-consumers
+    - quickstart-consumers-cdc
     depends_on:
       mysql:
         condition: service_healthy
         required: true
     environment:
+      CDC_MCL_PROCESSING_ENABLED: 'true'
+      CDC_PASSWORD: datahub_cdc
+      CDC_USER: datahub_cdc
       DATAHUB_DB_NAME: datahub
       MYSQL_HOST: mysql
       MYSQL_PASSWORD: datahub
       MYSQL_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: datahub
       MYSQL_USERNAME: datahub
     hostname: mysql-setup
     image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION}
@@ -286,6 +293,7 @@ services:
     - quickstart-cassandra
     - quickstart-postgres
     - quickstart-consumers
+    - quickstart-consumers-cdc
     - debug
     - debug-min
     - debug-datahub-actions
@@ -297,6 +305,7 @@ services:
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
+    - debug-cdc
     deploy:
       resources:
         limits:
@@ -338,6 +347,7 @@ services:
     - quickstart-cassandra
     - quickstart-postgres
     - quickstart-consumers
+    - quickstart-consumers-cdc
     depends_on:
       opensearch:
         condition: service_healthy

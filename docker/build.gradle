@@ -71,12 +71,21 @@ ext {
                     modules: backend_profile_modules + [':datahub-frontend'],
                     isDebug: true
             ],
+            'quickstartCDC': [
+                    profile: 'quickstart-consumers-cdc',
+                    modules: backend_profile_modules + [':datahub-frontend'],
+            ],
+            'quickstartCDCDebug': [
+                    profile: 'debug-cdc',
+                    modules: backend_profile_modules + [':datahub-frontend'],
+                    isDebug: true,
+            ],
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                           ':metadata-jobs:mce-consumer-job',
-                                                                          ':metadata-jobs:mae-consumer-job',
-                                                                          ':datahub-actions'],
+                                                                          ':metadata-jobs:mae-consumer-job'
+                                                                          ], //':datahub-actions'
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"

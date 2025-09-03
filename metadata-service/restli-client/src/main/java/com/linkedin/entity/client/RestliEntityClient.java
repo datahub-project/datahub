@@ -7,6 +7,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
@@ -53,6 +54,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.LineageFlags;
@@ -1214,6 +1216,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     final RunsDoRollbackRequestBuilder requestBuilder =
         RUNS_REQUEST_BUILDERS.actionRollback().runIdParam(runId).dryRunParam(false);
     sendClientRequest(requestBuilder, opContext);
+  }
+
+  @Override
+  public boolean produceMCL(
+      @Nonnull OperationContext opContext,
+      @Nullable RecordTemplate oldAspect,
+      @Nullable SystemMetadata oldSystemMetadata,
+      RecordTemplate newAspect,
+      SystemMetadata newSystemMetadata,
+      @Nullable MetadataChangeProposal mcp,
+      Urn entityUrn,
+      AuditStamp auditStamp,
+      AspectSpec aspectSpec) {
+    return false; // TODO
   }
 
   // TODO: Refactor QueryUtils inside of metadata-io to extract these methods into a single shared

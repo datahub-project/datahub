@@ -4,6 +4,7 @@ import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToAsp
 import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSystemAspectMap;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -699,4 +701,18 @@ public interface EntityClient {
         batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect),
         opContext.getEntityRegistry());
   }
+
+  /*
+   Produce an MCL event required pre-processing and if the aspect requires MCLs.
+  */
+  boolean produceMCL(
+      @Nonnull OperationContext opContext,
+      @Nullable RecordTemplate oldAspect,
+      @Nullable SystemMetadata oldSystemMetadata,
+      RecordTemplate newAspect,
+      SystemMetadata newSystemMetadata,
+      @Nullable MetadataChangeProposal mcp,
+      Urn entityUrn,
+      AuditStamp auditStamp,
+      AspectSpec aspectSpec);
 }

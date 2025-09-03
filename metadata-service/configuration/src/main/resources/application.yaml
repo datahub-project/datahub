@@ -218,6 +218,31 @@ platformAnalytics:
     aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
     userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
+mclProcessing:
+  cdcSource:
+    enabled: ${CDC_MCL_PROCESSING_ENABLED:true} # Enable CDC Processing.
+    converter: com.datahub.cdc.MySQLToMCLConverter
+    configureSource: true # Set to false if externally configured. 
+    type: debezium-kafka-connector  # Only supported type for now.
+    debeziumConfig: # Debezium-specific configuration
+      name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
+      url: ${KAFKA_CONNECT_URL:http://kafka-connect:8083}
+      config:
+        connector.class: io.debezium.connector.mysql.MySqlConnector
+        # Below are defaults injected by DebeziumCDCSetupStep.
+        # any additional configs can be added here and are applied on top of the defaults.
+        #database.include.list: datahub
+        #tables.include.list: "*.metadata_aspects_v2"
+        #schema.history.internal.kafka.bootstrap.servers: broker:29092
+        #topic.prefix: datahub
+        #transforms: unwrap,setKey
+        #transforms.unwrap.type: io.debezium.transforms.ExtractNewRecordState
+        #transforms.setKey.type: org.apache.kafka.connect.transforms.ValueToKey
+        #transforms.setKey.fields: urn
+        #transforms.setKey.predicate: aspectsTablePredicate
+        #predicates: aspectsTablePredicate
+        #predicates.aspectsTablePredicate.type: org.apache.kafka.connect.transforms.predicates.TopicNameMatches
+        #predicates.aspectsTablePredicate.pattern: "*.metadata_aspects_v2"
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
@@ -430,6 +455,10 @@ kafka:
       name: ${FAILED_METADATA_CHANGE_EVENT_NAME:FailedMetadataChangeEvent_v4}
       enabled: false
 
+    cdcTopic:
+      name: ${CDC_TOPIC_NAME:datahub.datahub.metadata_aspect_v2}
+      enabled: ${CDC_MCL_PROCESSING_ENABLED:true}
+
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
@@ -450,6 +479,16 @@ kafka:
         serializer: ${KAFKA_SERDE_EVENT_VALUE_SERIALIZER:io.confluent.kafka.serializers.KafkaAvroSerializer}
         deserializer: ${KAFKA_SERDE_EVENT_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
         delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:io.confluent.kafka.serializers.KafkaAvroDeserializer}
+    cdc:
+      key:
+        serializer: ${KAFKA_SERDE_CDC_KEY_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_CDC_KEY_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_CDC_KEY_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+      value:
+        serializer: ${KAFKA_SERDE_EVENT_VALUE_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_EVENT_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+
   producer:
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}

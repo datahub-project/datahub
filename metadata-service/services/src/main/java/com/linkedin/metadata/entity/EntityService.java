@@ -491,7 +491,16 @@ public interface EntityService<U extends ChangeMCP> {
     return alwaysProduceMCLAsync(opContext, urn, aspectSpec, metadataChangeLog);
   }
 
-  // RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
+  Optional<Pair<Future<?>, Boolean>> conditionallyProduceMCLAsync(
+      @Nonnull OperationContext opContext,
+      @Nullable RecordTemplate oldAspect,
+      @Nullable SystemMetadata oldSystemMetadata,
+      RecordTemplate newAspect,
+      SystemMetadata newSystemMetadata,
+      @Nullable MetadataChangeProposal mcp,
+      Urn entityUrn,
+      AuditStamp auditStamp,
+      AspectSpec aspectSpec);
 
   @Deprecated
   void ingestEntities(

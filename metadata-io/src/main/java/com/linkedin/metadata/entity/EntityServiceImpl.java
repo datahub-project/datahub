@@ -898,15 +898,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
 
     // Produce MCLs & run side effects
-    List<UpdateAspectResult> mclResults =
-        emitMCL(opContext, ingestResults.getUpdateAspectResults(), emitMCL);
-    processPostCommitMCLSideEffects(
-        opContext, mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
+    // List<UpdateAspectResult> mclResults =
+    //    emitMCL(opContext, ingestResults.getUpdateAspectResults(), emitMCL);
+    // processPostCommitMCLSideEffects(
+    //    opContext,
+    // mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
 
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
 
-    return mclResults;
+    return ingestResults.getUpdateAspectResults();
   }
 
   /**
@@ -2161,6 +2162,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         || ChangeType.UPDATE.equals(changeType);
   }
 
+  @Override
   public Optional<Pair<Future<?>, Boolean>> conditionallyProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nullable RecordTemplate oldAspect,

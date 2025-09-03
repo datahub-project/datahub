@@ -290,6 +290,12 @@ services:
         condition: service_completed_successfully
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
+    environment:
+      <<: *datahub-system-update-dev-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
     profiles:
       - debug-consumers
   system-update-debug-elasticsearch:

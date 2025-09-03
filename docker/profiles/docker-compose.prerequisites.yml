@@ -12,6 +12,7 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
+  - quickstart-consumers-cdc
 x-mysql-profiles-dev: &mysql-profiles-dev
   - debug
   - debug-min
@@ -22,12 +23,14 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
+  - debug-cdc
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
+  - quickstart-consumers-cdc
   - debug
   - debug-min
   - debug-datahub-actions
@@ -38,7 +41,7 @@ x-mysql-profiles: &mysql-profiles
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
-
+  - debug-cdc
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
 x-postgres-profiles-dev: &postgres-profiles-dev
@@ -69,6 +72,7 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
+  - quickstart-consumers-cdc
 x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug
   - debug-min
@@ -81,6 +85,7 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
+  - debug-cdc
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -90,6 +95,7 @@ x-opensearch-profiles: &opensearch-profiles
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
+  - quickstart-consumers-cdc
   - debug
   - debug-min
   - debug-datahub-actions
@@ -101,6 +107,7 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
+  - debug-cdc
 
 # AWS Infra profiles
 x-profiles-aws: &aws-profiles
@@ -117,6 +124,7 @@ x-profiles-quickstart: &profiles-quickstart
   - quickstart-cassandra
   - quickstart-postgres
   - quickstart-consumers
+  - quickstart-consumers-cdc
 x-profiles-dev: &profiles-dev
   - debug
   - debug-min
@@ -130,6 +138,7 @@ x-profiles-dev: &profiles-dev
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
+  - debug-cdc
 
 services:
   mysql:
@@ -153,7 +162,10 @@ services:
     profiles: *mysql-profiles-quickstart
     hostname: mysql-setup
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
-    env_file: mysql-setup/env/docker.env
+    env_file:
+      - mysql-setup/env/docker.env
+    environment:
+      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}  # TODO: Change to env_file
     depends_on:
       mysql:
         condition: service_healthy
@@ -279,6 +291,36 @@ services:
       timeout: 5s
     volumes:
       - broker:/var/lib/kafka/data/
+  kafka-connect:
+    hostname: kafka-connect
+    container_name: kafka_connect
+    image: debezium/connect:2.7.3.Final
+    #image: quay.io/debezium/connect:3.2
+    profiles:
+      - debug-consumers
+      - quickstart-consumers
+    ports:
+      - '8083:8083'
+    depends_on:
+      kafka-broker:
+        condition: service_healthy
+    environment:
+      - ENABLE_APICURIO_CONVERTERS=true
+      #- LOG_LEVEL=DEBUG
+      - BOOTSTRAP_SERVERS=broker:29092
+      - GROUP_ID=datahub_connect
+      - CONFIG_STORAGE_TOPIC=${CDC_CONFIG_STORAGE_TOPIC:-datahub_cdc_configs}
+      - OFFSET_STORAGE_TOPIC=${CDC_CONFIG_OFFSETS_TOPIC:-datahub_cdc_offsets}
+      - STATUS_STORAGE_TOPIC=${CDC_CONFIG_STATUS_TOPIC:-datahub_cdc_statuses}
+      - CONFIG_STORAGE_REPLICATION_FACTOR=1
+      - OFFSET_STORAGE_REPLICATION_FACTOR=1
+      - STATUS_STORAGE_REPLICATION_FACTOR=1
+    healthcheck:
+      test: curl -f http://localhost:8083/connectors
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
   elasticsearch:
     profiles: *elasticsearch-profiles
     hostname: search

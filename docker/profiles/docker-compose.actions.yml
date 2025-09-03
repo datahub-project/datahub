@@ -52,6 +52,7 @@ services:
     <<: *datahub-actions-service
     profiles:
       - quickstart-consumers
+      - quickstart-consumers-cdc
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
@@ -87,7 +88,7 @@ services:
   datahub-actions-debug-consumers:
     <<: *datahub-actions-service-dev
     profiles:
-      - debug-consumers
+      - debug-consumers-disable
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
