@@ -81,6 +81,7 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
                 "input": {
                     "start": 0,
                     "count": INGESTION_SOURCES_BATCH_SIZE,
+                    "filters": [{"field": "type", "condition": "EXISTS"}],
                 }
             },
         )
