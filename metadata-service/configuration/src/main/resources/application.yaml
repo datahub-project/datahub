@@ -228,6 +228,44 @@ platformAnalytics:
     aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
     userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
+mclProcessing:
+  cdcSource:
+    enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
+    converter: ${CDC_SOURCE_CONVERTER:com.datahub.cdc.MySQLToMCLConverter}
+    configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
+    type: debezium-kafka-connector  # Only supported type for now.
+    debeziumConfig: # Debezium-specific configuration
+      name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
+      url: ${CDC_KAFKA_CONNECT_URL:http://kafka-connect:8083}
+      requestTimeoutMillis: ${CDC_KAFKA_CONNECT_REQUEST_TIMEOUT:10000} # request timeout for config rest API calls.
+      config:
+        connector.class: ${DEBEZIUM_CONNECTOR_CLASS:io.debezium.connector.mysql.MySqlConnector}
+        tasks.max: 1
+        topic.prefix: datahub
+        table.include.list: ".*metadata_aspect_v2"
+        database.server.id: 184001 # unique db ID per connector instance
+        database.user: ${CDC_USER:datahub_cdc}
+        database.password: ${CDC_PASSWORD:datahub_cdc}
+        database.include.list: ${DATAHUB_DB_NAME:datahub}
+        database.dbname: ${DATAHUB_DB_NAME:datahub} # This is required for PG only
+        plugin.name: ${DEBEZIUM_PLUGIN_NAME:decoderbufs} # Use pgoutput for PostgreSQL, decoderbufs for others
+        schema.history.internal.kafka.topic: datahub.schema-changes
+        value.converter.schemas.enable: false
+        key.converter: org.apache.kafka.connect.storage.StringConverter
+        value.converter: org.apache.kafka.connect.json.JsonConverter
+        message.key.columns: datahub.metadata_aspect_v2:urn
+        transforms: route
+        transforms.route.type: org.apache.kafka.connect.transforms.RegexRouter
+        transforms.route.regex: ".*metadata_aspect_v2"
+        transforms.route.replacement: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
+        # Default configs injected by System Update. Any additional configs are applied on top of these.
+        # Below are inferred from db connection config and injected by DebeziumCDCSetupStep.
+        #datahub.hostname
+        #database.port
+
+        # Below are inferred from available kafka configs
+        #schema.history.internal.kafka.bootstrap.servers: broker:29092
+        #schema.history.internal.internal.kafka.topic: datahub.schema-changes
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
@@ -427,6 +465,10 @@ kafka:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
       enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
+    cdcTopic:
+      name: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
+      enabled: ${CDC_MCL_PROCESSING_ENABLED:false}
+
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:
       name: ${METADATA_AUDIT_EVENT_NAME:MetadataAuditEvent_v4}
@@ -460,6 +502,16 @@ kafka:
         serializer: ${KAFKA_SERDE_EVENT_VALUE_SERIALIZER:io.confluent.kafka.serializers.KafkaAvroSerializer}
         deserializer: ${KAFKA_SERDE_EVENT_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
         delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:io.confluent.kafka.serializers.KafkaAvroDeserializer}
+    cdc:
+      key:
+        serializer: ${KAFKA_SERDE_CDC_KEY_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_CDC_KEY_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_CDC_KEY_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+      value:
+        serializer: ${KAFKA_SERDE_EVENT_VALUE_SERIALIZER:org.apache.kafka.common.serialization.StringSerializer}
+        deserializer: ${KAFKA_SERDE_EVENT_VALUE_DESERIALIZER:org.springframework.kafka.support.serializer.ErrorHandlingDeserializer}
+        delegateDeserializer: ${KAFKA_SERDE_EVENT_VALUE_DELEGATE_DESERIALIZER:org.apache.kafka.common.serialization.StringDeserializer}
+
   producer:
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
@@ -725,6 +777,7 @@ featureFlags:
   lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true} # Enables in-memory cache for searchAcrossLineage query
   graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
+  cdcModeChangeLog: ${CDC_MCL_PROCESSING_ENABLED:false} # Enables CDCs to be used to generate MCLs. When false, GMS generates MCLs based on MCPs
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
   readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.

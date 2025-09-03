@@ -218,6 +218,11 @@ public interface AspectDao {
 
   int deleteUrn(@Nullable TransactionContext txContext, @Nonnull final String urn);
 
+  int deleteUrn(
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final String keyAspect);
+
   @Nonnull
   ListResult<String> listLatestAspectMetadata(
       @Nonnull final String entityName,

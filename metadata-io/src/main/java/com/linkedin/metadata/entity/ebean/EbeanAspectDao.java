@@ -269,6 +269,26 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
+  public int deleteUrn(
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final String keyAspect) {
+    validateConnection();
+    int nonKeyCount =
+        server
+            .createQuery(EbeanAspectV2.class)
+            .where()
+            .eq(EbeanAspectV2.URN_COLUMN, urn)
+            .ne(EbeanAspectV2.ASPECT_COLUMN, keyAspect)
+            .delete();
+
+    int keyCount =
+        server.createQuery(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).delete();
+
+    return nonKeyCount + keyCount;
+  }
+
+  @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
       @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {

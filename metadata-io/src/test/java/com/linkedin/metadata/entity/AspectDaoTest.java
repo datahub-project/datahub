@@ -470,6 +470,11 @@ public class AspectDaoTest {
     }
 
     @Override
+    public int deleteUrn(TransactionContext txContext, String urn, String keyAspect) {
+      return 0;
+    }
+
+    @Override
     public ListResult<String> listLatestAspectMetadata(
         String entityName, String aspectName, int start, int pageSize) {
       return null;

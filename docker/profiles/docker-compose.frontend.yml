@@ -62,6 +62,13 @@ services:
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
+  frontend-quickstart-consumers-cdc:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      system-update-quickstart-cdc:
+        condition: service_completed_successfully
   frontend-debug:
     <<: *datahub-frontend-service-dev
     profiles:
@@ -112,6 +119,13 @@ services:
       - debug-consumers
     depends_on:
       system-update-debug-consumers:
+        condition: service_completed_successfully
+  frontend-debug-consumers-cdc:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      system-update-debug-consumers-cdc:
         condition: service_completed_successfully
   frontend-debug-neo4j:
     <<: *datahub-frontend-service-dev
