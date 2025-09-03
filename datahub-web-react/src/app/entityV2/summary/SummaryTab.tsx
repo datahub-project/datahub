@@ -6,8 +6,9 @@ import Links from '@app/entityV2/summary/links/Links';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
 import { StyledDivider } from '@app/entityV2/summary/styledComponents';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
-import { PageTemplateSurfaceType } from '@types';
 import Template from '@app/homeV3/template/Template';
+
+import { PageTemplateSurfaceType } from '@types';
 
 const SummaryWrapper = styled.div`
     padding: 16px 20px;

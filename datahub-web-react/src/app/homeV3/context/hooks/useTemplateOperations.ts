@@ -237,7 +237,15 @@ export function useTemplateOperations(
                 }
             });
         },
-        [upsertPageTemplateMutation, updateUserHomePageSettings, setPersonalTemplate, showToast],
+        [
+            upsertPageTemplateMutation,
+            updateUserHomePageSettings,
+            setPersonalTemplate,
+            showToast,
+            templateType,
+            updateAssetSettings,
+            urn,
+        ],
     );
 
     const resetTemplateToDefault = () => {

@@ -1,3 +1,4 @@
+import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -8,6 +9,14 @@ import {
     removeModuleFromRows,
     validateModuleMoveConstraints,
 } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
+import {
+    TemplateUpdateContext,
+    getTemplateToUpdate,
+    handleValidationError,
+    persistTemplateChanges,
+    updateTemplateStateOptimistically,
+    validateTemplateAvailability,
+} from '@app/homeV3/context/hooks/utils/templateOperationUtils';
 import { AddModuleInput, MoveModuleInput, RemoveModuleInput, UpsertModuleInput } from '@app/homeV3/context/types';
 import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
@@ -19,16 +28,6 @@ import {
     useUpsertPageModuleMutation,
 } from '@graphql/template.generated';
 import { EntityType, PageModuleScope } from '@types';
-import {
-    TemplateUpdateContext,
-    getTemplateToUpdate,
-    updateTemplateStateOptimistically,
-    persistTemplateChanges,
-    handleValidationError,
-    validateTemplateAvailability,
-} from './utils/templateOperationUtils';
-
-
 
 // Helper functions for input validation
 const validateAddModuleInput = (input: AddModuleInput): string | null => {
@@ -185,7 +184,7 @@ export function useModuleOperations(
 
             const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate)) return;
+            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             // Handle module addition with size mismatch detection
             const updatedTemplate = handleModuleAdditionWithSizeMismatch(
@@ -221,7 +220,7 @@ export function useModuleOperations(
 
             const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate)) return;
+            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             // Update template state
             const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position, true);
@@ -384,7 +383,7 @@ export function useModuleOperations(
 
             const { module, fromPosition, toPosition, insertNewRow } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
-            if (!validateTemplateAvailability(templateToUpdate)) return;
+            if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             // Validate move constraints
             const constraintError = validateModuleMoveConstraints(templateToUpdate, fromPosition, toPosition);

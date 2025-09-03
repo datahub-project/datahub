@@ -45,6 +45,7 @@ export function useTemplateState(templateType: PageTemplateSurfaceType) {
         areTemplatesInitialized,
         settings.globalHomePageSettings?.defaultTemplate,
         user?.settings?.homePage?.pageTemplate,
+        templateType,
     ]);
 
     // setting default and local templates for asset summary page
@@ -53,7 +54,7 @@ export function useTemplateState(templateType: PageTemplateSurfaceType) {
             setGlobalTemplate(getDefaultSummaryPageTemplate(entityType));
             setPersonalTemplate(entityData?.settings?.assetSummary?.templates?.[0].template || null);
         }
-    }, [areTemplatesInitialized, entityType, entityData]);
+    }, [areTemplatesInitialized, entityType, entityData, templateType]);
 
     const [isEditingGlobalTemplate, setIsEditingGlobalTemplate] = useState(false);
 

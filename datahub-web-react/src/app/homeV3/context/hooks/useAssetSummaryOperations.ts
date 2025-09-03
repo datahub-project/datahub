@@ -1,22 +1,23 @@
 import { useCallback, useMemo } from 'react';
 
-import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
-import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.generated';
-import { SummaryElement, SummaryElementType } from '@types';
 import {
     TemplateUpdateContext,
     getTemplateToUpdate,
-    updateTemplateStateOptimistically,
-    persistTemplateChanges,
     handleValidationError,
+    persistTemplateChanges,
+    updateTemplateStateOptimistically,
     validateTemplateAvailability,
-} from './utils/templateOperationUtils';
+} from '@app/homeV3/context/hooks/utils/templateOperationUtils';
 import {
-    validatePosition,
     validateArrayBounds,
     validateElementType,
+    validatePosition,
     validateStructuredProperty,
-} from './utils/validationUtils';
+} from '@app/homeV3/context/hooks/utils/validationUtils';
+
+import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
+import { PageTemplateFragment, SummaryElementFragment } from '@graphql/template.generated';
+import { SummaryElement, SummaryElementType } from '@types';
 
 // Types for summary element operations
 export interface SummaryElementWithId extends SummaryElement {
@@ -141,7 +142,7 @@ export function useAssetSummaryOperations(
             if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             const currentSummaryElements = templateToUpdate.properties?.assetSummary?.summaryElements || [];
-            
+
             const boundsError = validateArrayBounds(position, currentSummaryElements.length, 'removal');
             if (handleValidationError(boundsError, 'removeSummaryElement')) return;
 
@@ -180,7 +181,7 @@ export function useAssetSummaryOperations(
             if (!validateTemplateAvailability(templateToUpdate) || !templateToUpdate) return;
 
             const currentSummaryElements = templateToUpdate.properties?.assetSummary?.summaryElements || [];
-            
+
             const boundsError = validateArrayBounds(input.position, currentSummaryElements.length, 'replacement');
             if (handleValidationError(boundsError, 'replaceSummaryElement')) return;
 

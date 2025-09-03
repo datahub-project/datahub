@@ -1,15 +1,15 @@
 fragment AssetSettingsFields on AssetSettings {
-	assetSummary {
-		templates {
-			template {
-				...PageTemplate
-			}
-		}
-	}
+    assetSummary {
+        templates {
+            template {
+                ...PageTemplate
+            }
+        }
+    }
 }
 
 mutation updateAssetSettings($input: UpdateAssetSettingsInput!) {
     updateAssetSettings(input: $input) {
-		...AssetSettingsFields
-	}
+        ...AssetSettingsFields
+    }
 }

@@ -1,4 +1,5 @@
 import { message } from 'antd';
+
 import { PageTemplateFragment } from '@graphql/template.generated';
 
 /**

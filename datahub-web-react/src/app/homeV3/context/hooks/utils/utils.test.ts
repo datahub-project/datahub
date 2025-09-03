@@ -1,10 +1,6 @@
-import { getDefaultSummaryPageTemplate } from './utils';
-import {
-    EntityType,
-    PageTemplateScope,
-    PageTemplateSurfaceType,
-    SummaryElementType,
-} from '@types';
+import { getDefaultSummaryPageTemplate } from '@app/homeV3/context/hooks/utils/utils';
+
+import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
 describe('getDefaultSummaryPageTemplate', () => {
     it('should return correct template for Domain entity type', () => {
@@ -169,20 +165,20 @@ describe('getDefaultSummaryPageTemplate', () => {
         const glossaryTermResult = getDefaultSummaryPageTemplate(EntityType.GlossaryTerm);
 
         // Domain should have 2 elements
-        expect(domainResult.properties.assetSummary.summaryElements).toHaveLength(2);
+        expect(domainResult?.properties?.assetSummary?.summaryElements).toHaveLength(2);
 
         // DataProduct should have 5 elements (most comprehensive)
-        expect(dataProductResult.properties.assetSummary.summaryElements).toHaveLength(5);
+        expect(dataProductResult?.properties?.assetSummary?.summaryElements).toHaveLength(5);
 
         // GlossaryTerm should have 3 elements
-        expect(glossaryTermResult.properties.assetSummary.summaryElements).toHaveLength(3);
+        expect(glossaryTermResult?.properties?.assetSummary?.summaryElements).toHaveLength(3);
 
         // Verify they're actually different
-        expect(domainResult.properties.assetSummary.summaryElements).not.toEqual(
-            dataProductResult.properties.assetSummary.summaryElements,
+        expect(domainResult?.properties?.assetSummary?.summaryElements).not.toEqual(
+            dataProductResult?.properties?.assetSummary?.summaryElements,
         );
-        expect(domainResult.properties.assetSummary.summaryElements).not.toEqual(
-            glossaryTermResult.properties.assetSummary.summaryElements,
+        expect(domainResult?.properties?.assetSummary?.summaryElements).not.toEqual(
+            glossaryTermResult?.properties?.assetSummary?.summaryElements,
         );
     });
 });

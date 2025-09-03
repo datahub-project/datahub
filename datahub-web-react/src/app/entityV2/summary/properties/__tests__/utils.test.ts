@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { AssetProperty, PropertyType } from '@app/entityV2/summary/properties/types';
+import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { assetPropertyToMenuItem, mapSummaryElement } from '@app/entityV2/summary/properties/utils';
 
 import { SummaryElementFragment } from '@graphql/template.generated';
@@ -17,7 +17,7 @@ describe('assetPropertyToMenuItem', () => {
     it('should convert an AssetProperty to a MenuItemType with key', () => {
         const assetProperty: AssetProperty = {
             key: 'testKey',
-            type: PropertyType.Domain,
+            type: SummaryElementType.Domain,
             name: 'Test Name',
             icon: 'testIcon',
         };
@@ -32,20 +32,20 @@ describe('assetPropertyToMenuItem', () => {
 
     it('should use type as key if key is not provided', () => {
         const assetProperty: AssetProperty = {
-            type: PropertyType.Domain,
+            type: SummaryElementType.Domain,
             name: 'Test Name',
             icon: 'testIcon',
         };
 
         const menuItem = assetPropertyToMenuItem(assetProperty, mockOnMenuItemClick);
 
-        expect(menuItem.key).toBe(PropertyType.Domain);
+        expect(menuItem.key).toBe(SummaryElementType.Domain);
     });
 
     it('should call onMenuItemClick with the assetProperty when onClick is triggered', () => {
         const assetProperty: AssetProperty = {
             key: 'testKey',
-            type: PropertyType.Domain,
+            type: SummaryElementType.Domain,
             name: 'Test Name',
             icon: 'testIcon',
         };
@@ -145,7 +145,7 @@ describe('mapSummaryElement', () => {
                 urn: 'urn:li:structuredProperty:test',
                 type: 'STRING' as any,
                 displayName: 'Test Property',
-            };
+            } as any;
 
             const summaryElement: SummaryElementFragment = {
                 __typename: 'SummaryElement',
@@ -233,7 +233,7 @@ describe('mapSummaryElement', () => {
                 urn: 'urn:li:structuredProperty:test',
                 type: 'STRING' as any,
                 displayName: 'Test Property',
-            };
+            } as any;
 
             const summaryElement: SummaryElementFragment = {
                 __typename: 'SummaryElement',
