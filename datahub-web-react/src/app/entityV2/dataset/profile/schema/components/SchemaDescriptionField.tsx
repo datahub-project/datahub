@@ -98,6 +98,7 @@ const StyledViewer = styled(Editor)`
 const DescriptionWrapper = styled.span`
     display: inline-flex;
     align-items: center;
+    width: 100%;
 `;
 
 const AddModalWrapper = styled.div``;
