@@ -201,7 +201,7 @@ export const UserAndGroupList = () => {
             dataIndex: 'name',
             key: ENTITY_NAME_FIELD,
             minWidth: '30%',
-            sorter: true,
+            sorter: false,
             render: (user: UserListItem) => <UserNameCell user={user} />,
         },
         {
@@ -244,18 +244,6 @@ export const UserAndGroupList = () => {
                         : null;
 
                 const currentRoleUrn = userRole?.urn || invitationRole || NO_ROLE_URN;
-
-                // Show the invited role for users with pending invitations
-                if (invitationRole && user.invitationStatus?.status === 'SENT') {
-                    const invitedRole = selectRoleOptions.find((role: DataHubRole) => role.urn === invitationRole);
-                    const roleName = invitedRole?.name || 'Unknown Role';
-                    return (
-                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <span style={{ color: '#1890ff' }}>{roleName}</span>
-                        </div>
-                    );
-                }
-
                 const currentRole = selectRoleOptions.find((role) => role.urn === currentRoleUrn);
 
                 return (
@@ -271,6 +259,7 @@ export const UserAndGroupList = () => {
                             placeholder={NO_ROLE_TEXT}
                             size="md"
                             width="fit-content"
+                            disabled={Boolean(invitationRole && user.invitationStatus?.status === 'SENT')}
                         />
                     </div>
                 );
