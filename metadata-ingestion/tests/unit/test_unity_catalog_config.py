@@ -207,9 +207,7 @@ def test_databricks_api_page_size_zero_allowed():
 
 def test_databricks_api_page_size_negative_invalid():
     """Test that databricks_api_page_size rejects negative values."""
-    with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
-    ):
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
         UnityCatalogSourceConfig.parse_obj(
             {
                 "token": "token",
@@ -219,9 +217,7 @@ def test_databricks_api_page_size_negative_invalid():
             }
         )
 
-    with pytest.raises(
-        ValueError, match="ensure this value is greater than or equal to 0"
-    ):
+    with pytest.raises(ValueError, match="Input should be greater than or equal to 0"):
         UnityCatalogSourceConfig.parse_obj(
             {
                 "token": "token",
