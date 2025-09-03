@@ -1,12 +1,24 @@
 import { renderHook } from '@testing-library/react-hooks';
 
-import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
+import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { EditableSchemaMetadata, EntityType, SchemaField, SchemaFieldDataType, Tag } from '@src/types.generated';
 
+const mockUseBaseEntity = vi.hoisted(() => vi.fn());
+
+vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
+    const original = await importOriginal<object>();
+    return {
+        ...original,
+        useBaseEntity: mockUseBaseEntity,
+    };
+});
+
 describe('useExtractFieldTagsInfo', () => {
+    const dummySchemaFieldUrn = 'urn:li:schemaField:testField';
+
     const testTag: Tag = {
-        urn: 'urn:testField',
+        urn: 'urn:li:tag:testTagName',
         type: EntityType.Tag,
         name: 'testTagName',
         properties: {
@@ -15,7 +27,7 @@ describe('useExtractFieldTagsInfo', () => {
     };
 
     const testTag2: Tag = {
-        urn: 'urn:testField2',
+        urn: 'urn:li:tag:testTagName2',
         type: EntityType.Tag,
         name: 'testTagName2',
         properties: {
@@ -24,7 +36,7 @@ describe('useExtractFieldTagsInfo', () => {
     };
 
     const testTag3: Tag = {
-        urn: 'urn:testField3',
+        urn: 'urn:li:tag:testTagName3',
         type: EntityType.Tag,
         name: 'testTagName3',
         properties: {
@@ -33,7 +45,7 @@ describe('useExtractFieldTagsInfo', () => {
     };
 
     const extraTag: Tag = {
-        urn: 'urn:extraField',
+        urn: 'urn:li:tag:extraTagName',
         type: EntityType.Tag,
         name: 'extraTagName',
         properties: {
@@ -50,7 +62,7 @@ describe('useExtractFieldTagsInfo', () => {
                 globalTags: {
                     tags: [
                         {
-                            associatedUrn: 'urn:li:globalTags:test.testTagName',
+                            associatedUrn: dummySchemaFieldUrn,
                             tag: testTag,
                         },
                     ],
@@ -66,7 +78,7 @@ describe('useExtractFieldTagsInfo', () => {
                 globalTags: {
                     tags: [
                         {
-                            associatedUrn: 'urn:li:globalTags:test.testTagName',
+                            associatedUrn: dummySchemaFieldUrn,
                             tag: testTag,
                         },
                     ],
@@ -77,7 +89,7 @@ describe('useExtractFieldTagsInfo', () => {
                 globalTags: {
                     tags: [
                         {
-                            associatedUrn: 'urn:li:globalTags:test.extraTagName',
+                            associatedUrn: dummySchemaFieldUrn,
                             tag: extraTag,
                         },
                     ],
@@ -98,7 +110,7 @@ describe('useExtractFieldTagsInfo', () => {
         globalTags: {
             tags: [
                 {
-                    associatedUrn: 'urn:li:globalTag:test.testTagName',
+                    associatedUrn: dummySchemaFieldUrn,
                     tag: testTag,
                 },
             ],
@@ -115,7 +127,7 @@ describe('useExtractFieldTagsInfo', () => {
             tags: {
                 tags: [
                     {
-                        associatedUrn: testTag.urn,
+                        associatedUrn: dummySchemaFieldUrn,
                         tag: testTag,
                     },
                 ],
@@ -130,23 +142,15 @@ describe('useExtractFieldTagsInfo', () => {
 
     const emptyBaseEntity = {};
 
-    const { mockedUseBaseEntity } = vi.hoisted(() => {
-        return { mockedUseBaseEntity: vi.fn() };
-    });
-
-    vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
-        const original = await importOriginal<object>();
-        return {
-            ...original,
-            useBaseEntity: vi.fn(() => mockedUseBaseEntity()),
-        };
-    });
-
     beforeAll(() => {
         expect(pathMatchesExact('testField', 'testField')).toBe(true);
         expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
         expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
         expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
+    });
+
+    beforeEach(() => {
+        mockUseBaseEntity.mockReturnValue(emptyBaseEntity);
     });
 
     afterEach(() => {
@@ -194,7 +198,6 @@ describe('useExtractFieldTagsInfo', () => {
     });
 
     it('should extract all tags when they were provided in both schema and editable metadata, but exclude duplicates', () => {
-        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
             .current;
 
@@ -225,7 +228,7 @@ describe('useExtractFieldTagsInfo', () => {
             editableSchemaFieldInfo: [
                 {
                     fieldPath: 'testField',
-                    globalTags: { tags: [{ tag: testTag2, associatedUrn: testTag2.urn }] },
+                    globalTags: { tags: [{ tag: testTag2, associatedUrn: dummySchemaFieldUrn }] },
                 },
             ],
         };
@@ -233,7 +236,7 @@ describe('useExtractFieldTagsInfo', () => {
 
         const schemaField: SchemaField = {
             ...directSchemaField,
-            globalTags: { tags: [{ tag: testTag3, associatedUrn: testTag3.urn }] },
+            globalTags: { tags: [{ tag: testTag3, associatedUrn: dummySchemaFieldUrn }] },
         };
         const { directTags, editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(schemaField);
 
@@ -247,7 +250,6 @@ describe('useExtractFieldTagsInfo', () => {
     });
 
     it('should not extract any tags when they are not provided', () => {
-        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
             .current;
 
@@ -260,8 +262,6 @@ describe('useExtractFieldTagsInfo', () => {
     });
 
     it('should extract extra uneditable tags from fields that match the field path insensitive to V2', () => {
-        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
-
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(editableSchemaMetadataWithExtraTags))
             .result.current;
 

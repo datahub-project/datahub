@@ -1,4 +1,5 @@
 import { renderHook } from '@testing-library/react-hooks';
+import { beforeEach } from 'vitest';
 
 import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
@@ -10,9 +11,21 @@ import {
     SchemaFieldDataType,
 } from '@src/types.generated';
 
+const mockUseBaseEntity = vi.hoisted(() => vi.fn());
+
+vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
+    const original = await importOriginal<object>();
+    return {
+        ...original,
+        useBaseEntity: mockUseBaseEntity,
+    };
+});
+
 describe('useExtractFieldTermsInfo', () => {
+    const dummySchemaFieldUrn = 'urn:li:schemaField:testField';
+
     const testTerm: GlossaryTerm = {
-        urn: 'urn:testField',
+        urn: 'urn:li:glossaryTerm:testTermName',
         type: EntityType.GlossaryTerm,
         name: 'testTermName',
         hierarchicalName: 'test.testTermName',
@@ -24,7 +37,7 @@ describe('useExtractFieldTermsInfo', () => {
     };
 
     const testTerm2: GlossaryTerm = {
-        urn: 'urn:testField2',
+        urn: 'urn:li:glossaryTerm:testTermName2',
         type: EntityType.GlossaryTerm,
         name: 'testTermName2',
         hierarchicalName: 'test.testTermName2',
@@ -36,7 +49,7 @@ describe('useExtractFieldTermsInfo', () => {
     };
 
     const testTerm3: GlossaryTerm = {
-        urn: 'urn:testField3',
+        urn: 'urn:li:glossaryTerm:testTermName3',
         type: EntityType.GlossaryTerm,
         name: 'testTermName3',
         hierarchicalName: 'test.testTermName3',
@@ -48,7 +61,7 @@ describe('useExtractFieldTermsInfo', () => {
     };
 
     const extraTerm: GlossaryTerm = {
-        urn: 'urn:extraField',
+        urn: 'urn:li:glossaryTerm:extraTermName',
         type: EntityType.GlossaryTerm,
         name: 'extraTermName',
         hierarchicalName: 'test.extraTermName',
@@ -68,7 +81,7 @@ describe('useExtractFieldTermsInfo', () => {
                 glossaryTerms: {
                     terms: [
                         {
-                            associatedUrn: 'urn:li:globalTerms:test.testTermName',
+                            associatedUrn: dummySchemaFieldUrn,
                             term: testTerm,
                         },
                     ],
@@ -84,7 +97,7 @@ describe('useExtractFieldTermsInfo', () => {
                 glossaryTerms: {
                     terms: [
                         {
-                            associatedUrn: 'urn:li:globalTerms:test.testTermName',
+                            associatedUrn: dummySchemaFieldUrn,
                             term: testTerm,
                         },
                     ],
@@ -95,7 +108,7 @@ describe('useExtractFieldTermsInfo', () => {
                 glossaryTerms: {
                     terms: [
                         {
-                            associatedUrn: 'urn:li:globalTerms:test.extraTermName',
+                            associatedUrn: dummySchemaFieldUrn,
                             term: extraTerm,
                         },
                     ],
@@ -116,7 +129,7 @@ describe('useExtractFieldTermsInfo', () => {
         glossaryTerms: {
             terms: [
                 {
-                    associatedUrn: 'urn:li:globalTerm:test.testTermName',
+                    associatedUrn: dummySchemaFieldUrn,
                     term: testTerm,
                 },
             ],
@@ -133,7 +146,7 @@ describe('useExtractFieldTermsInfo', () => {
             glossaryTerms: {
                 terms: [
                     {
-                        associatedUrn: testTerm.urn,
+                        associatedUrn: dummySchemaFieldUrn,
                         term: testTerm,
                     },
                 ],
@@ -148,23 +161,15 @@ describe('useExtractFieldTermsInfo', () => {
 
     const emptyBaseEntity = {};
 
-    const { mockedUseBaseEntity } = vi.hoisted(() => {
-        return { mockedUseBaseEntity: vi.fn() };
-    });
-
-    vi.mock('@src/app/entity/shared/EntityContext', async (importOriginal) => {
-        const original = await importOriginal<object>();
-        return {
-            ...original,
-            useBaseEntity: vi.fn(() => mockedUseBaseEntity()),
-        };
-    });
-
     beforeAll(() => {
         expect(pathMatchesExact('testField', 'testField')).toBe(true);
         expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
         expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
         expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
+    });
+
+    beforeEach(() => {
+        mockUseBaseEntity.mockReturnValue(emptyBaseEntity);
     });
 
     afterEach(() => {
@@ -212,7 +217,6 @@ describe('useExtractFieldTermsInfo', () => {
     });
 
     it('should extract all terms when they were provided in both schema and editable metadata, but exclude duplicates', () => {
-        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
         const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata))
             .result.current;
 
@@ -244,7 +248,7 @@ describe('useExtractFieldTermsInfo', () => {
             editableSchemaFieldInfo: [
                 {
                     fieldPath: 'testField',
-                    glossaryTerms: { terms: [{ term: testTerm2, associatedUrn: testTerm2.urn }] },
+                    glossaryTerms: { terms: [{ term: testTerm2, associatedUrn: dummySchemaFieldUrn }] },
                 },
             ],
         };
@@ -253,7 +257,7 @@ describe('useExtractFieldTermsInfo', () => {
 
         const schemaField: SchemaField = {
             ...directSchemaField,
-            glossaryTerms: { terms: [{ term: testTerm3, associatedUrn: testTerm3.urn }] },
+            glossaryTerms: { terms: [{ term: testTerm3, associatedUrn: dummySchemaFieldUrn }] },
         };
         const { directTerms, editableTerms, uneditableTerms, numberOfTerms } = extractFieldTermsInfo(schemaField);
 
@@ -267,7 +271,6 @@ describe('useExtractFieldTermsInfo', () => {
     });
 
     it('should not extract any terms when they are not provided', () => {
-        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
         const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata))
             .result.current;
 
@@ -280,8 +283,6 @@ describe('useExtractFieldTermsInfo', () => {
     });
 
     it('should extract extra uneditable terms from fields that match the field path insensitive to V2', () => {
-        mockedUseBaseEntity.mockReturnValue(emptyBaseEntity);
-
         const extractFieldTermsInfo = renderHook(() =>
             useExtractFieldGlossaryTermsInfo(editableSchemaMetadataWithExtraTerms),
         ).result.current;
