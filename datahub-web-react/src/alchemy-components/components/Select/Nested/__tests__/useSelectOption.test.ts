@@ -433,7 +433,7 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
         const { result } = renderHook(() =>
             useNestedOption({
                 ...singleSelectProps,
-                option: option, // Testing parent option
+                option, // Testing parent option
                 selectedOptions: [childOption], // Child is selected
                 implicitlySelectChildren: true,
                 areParentsSelectable: true,
