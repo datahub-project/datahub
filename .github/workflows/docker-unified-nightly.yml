@@ -23,14 +23,12 @@ env:
   # To add/remove images, just update this list and all operations will automatically include them
   DATAHUB_IMAGES: |
     datahub-gms
-    datahub-frontend
     datahub-mce-consumer
     datahub-mae-consumer
     datahub-actions
     datahub-upgrade
     datahub-mysql-setup
     datahub-postgres-setup
-    datahub-kafka-setup
     datahub-elasticsearch-setup
     datahub-frontend-react
 
