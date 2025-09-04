@@ -1,7 +1,8 @@
-import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Entity, OwnerEntityType, OwnershipType, EntityType } from '@types';
+
+import { Entity, EntityType, OwnerEntityType, OwnershipType } from '@types';
 
 /**
  * Entity caching utilities
@@ -34,29 +35,25 @@ export const deduplicateEntities = ({
     existingEntityUrns = [],
 }: DeduplicateEntitiesOptions): Entity[] => {
     // Combine all entity sources
-    const allEntitySources = [
-        ...placeholderEntities,
-        ...searchResults,
-        ...selectedEntities,
-    ];
+    const allEntitySources = [...placeholderEntities, ...searchResults, ...selectedEntities];
 
     // Deduplicate by URN and exclude existing entities
     // BUT always include selected entities (they must remain in options for removal)
     const existingUrnsSet = new Set(existingEntityUrns);
-    const selectedUrnsSet = new Set(selectedEntities.map(e => e.urn));
+    const selectedUrnsSet = new Set(selectedEntities.map((e) => e.urn));
     const seenUrns = new Set<string>();
-    
+
     return allEntitySources.filter((entity) => {
         // Skip if already seen, unless it's a selected entity that must be included
         if (seenUrns.has(entity.urn)) {
             return false;
         }
-        
+
         // Skip existing entities (but not selected ones)
         if (existingUrnsSet.has(entity.urn) && !selectedUrnsSet.has(entity.urn)) {
             return false;
         }
-        
+
         seenUrns.add(entity.urn);
         return true;
     });
@@ -65,7 +62,10 @@ export const deduplicateEntities = ({
 /**
  * Convert entities to SelectOption format
  */
-export const entitiesToSelectOptions = (entities: Entity[], entityRegistry: ReturnType<typeof useEntityRegistryV2>): SelectOption[] => {
+export const entitiesToSelectOptions = (
+    entities: Entity[],
+    entityRegistry: ReturnType<typeof useEntityRegistryV2>,
+): SelectOption[] => {
     return entities.map((entity) => ({
         value: entity.urn,
         label: entityRegistry.getDisplayName(entity.type, entity),
@@ -77,9 +77,9 @@ export const entitiesToSelectOptions = (entities: Entity[], entityRegistry: Retu
  * Convert entities to NestedSelectOption format with fallback labels
  */
 export const entitiesToNestedSelectOptions = (
-    entityUrns: string[], 
-    entityCache: Map<string, Entity>, 
-    entityRegistry: ReturnType<typeof useEntityRegistryV2>
+    entityUrns: string[],
+    entityCache: Map<string, Entity>,
+    entityRegistry: ReturnType<typeof useEntityRegistryV2>,
 ): NestedSelectOption[] => {
     return entityUrns.map((urn: string) => {
         const entity = entityCache.get(urn);
@@ -92,7 +92,7 @@ export const entitiesToNestedSelectOptions = (
                 entity,
             };
         }
-        
+
         // Fallback option when entity isn't hydrated yet
         // Extract name from URN (e.g., "urn:li:domain:engineering" -> "engineering")
         const entityName = urn.split(':').pop() || urn;
@@ -125,15 +125,10 @@ export const createOwnerInputs = (selectedOwnerUrns: string[]) => {
 /**
  * Merge selected entities into options to ensure they remain visible during search
  */
-export const mergeSelectedIntoOptions = <T extends { value: string }>(
-    options: T[], 
-    selectedOptions: T[]
-): T[] => {
-    const optionUrns = new Set(options.map(option => option.value));
-    const selectedNotInOptions = selectedOptions.filter(
-        selected => !optionUrns.has(selected.value)
-    );
-    
+export const mergeSelectedIntoOptions = <T extends { value: string }>(options: T[], selectedOptions: T[]): T[] => {
+    const optionUrns = new Set(options.map((option) => option.value));
+    const selectedNotInOptions = selectedOptions.filter((selected) => !optionUrns.has(selected.value));
+
     return [...options, ...selectedNotInOptions];
 };
 
@@ -141,13 +136,11 @@ export const mergeSelectedIntoOptions = <T extends { value: string }>(
  * Specialized version for NestedSelectOption merging
  */
 export const mergeSelectedNestedOptions = (
-    options: NestedSelectOption[], 
-    selectedOptions: NestedSelectOption[]
+    options: NestedSelectOption[],
+    selectedOptions: NestedSelectOption[],
 ): NestedSelectOption[] => {
-    const optionUrns = new Set(options.map(option => option.value));
-    const selectedNotInOptions = selectedOptions.filter(
-        selected => !optionUrns.has(selected.value)
-    );
-    
+    const optionUrns = new Set(options.map((option) => option.value));
+    const selectedNotInOptions = selectedOptions.filter((selected) => !optionUrns.has(selected.value));
+
     return [...options, ...selectedNotInOptions];
 };

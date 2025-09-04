@@ -1,17 +1,16 @@
 import { Text } from '@components';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { deduplicateEntities, entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
 import { CorpUser, Entity, EntityType, Owner, OwnerEntityType } from '@types';
-import { deduplicateEntities, entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
 
 // Interface for pending owner
 export interface PendingOwner {
@@ -97,12 +96,17 @@ const OwnersSection = ({
 
     // Auto-select placeholder owners ONLY ONCE on initial render when no owners are selected
     useEffect(() => {
-        if (placeholderOwners && placeholderOwners.length > 0 && !hasAutoSelectedRef.current && selectedOwnerUrns.length === 0) {
+        if (
+            placeholderOwners &&
+            placeholderOwners.length > 0 &&
+            !hasAutoSelectedRef.current &&
+            selectedOwnerUrns.length === 0
+        ) {
             const placeholderUrns = placeholderOwners.map((owner) => owner.urn);
             setSelectedOwnerUrns(placeholderUrns);
             hasAutoSelectedRef.current = true;
         }
-        
+
         // Mark as initialized when we have placeholders
         if (placeholderOwners && placeholderOwners.length > 0 && !initialized) {
             setInitialized(true);
@@ -121,16 +125,22 @@ const OwnersSection = ({
     ]);
 
     // Get results from the recommendations or autocomplete
-    const searchResults: Array<Entity> =
-        autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) ||
-        recommendedData ||
-        [];
+    const searchResults: Array<Entity> = useMemo(() => {
+        return (
+            autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) ||
+            recommendedData ||
+            []
+        );
+    }, [autocompleteData?.autoCompleteForMultiple?.suggestions, recommendedData]);
 
     // Sync selectedOwnerEntities with selectedOwnerUrns from parent
     useEffect(() => {
-        const currentSelectedUrns = selectedOwnerEntities.map(e => e.urn).sort().join(',');
+        const currentSelectedUrns = selectedOwnerEntities
+            .map((e) => e.urn)
+            .sort()
+            .join(',');
         const newSelectedUrns = selectedOwnerUrns.sort().join(',');
-        
+
         // Only update if the URNs have actually changed
         if (currentSelectedUrns !== newSelectedUrns) {
             const entities = selectedOwnerUrns
@@ -143,7 +153,7 @@ const OwnersSection = ({
                     );
                 })
                 .filter(Boolean) as Entity[];
-            
+
             setSelectedOwnerEntities(entities);
         }
     }, [selectedOwnerUrns, placeholderOwners, searchResults, selectedOwnerEntities]);
@@ -202,7 +212,9 @@ const OwnersSection = ({
 
         const newEntities = newValues
             .map((urn) => {
-                return allOptionsEntities.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn);
+                return (
+                    allOptionsEntities.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn)
+                );
             })
             .filter(Boolean) as Entity[];
 

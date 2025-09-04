@@ -4,9 +4,10 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import OwnersSection from '@app/domainV2/OwnersSection';
 import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
+import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -14,9 +15,7 @@ import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
-import { Entity, EntityType, OwnerEntityType, OwnershipType } from '@types';
-import { UpdatedDomain } from '@app/domainV2/DomainsContext';
-import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
+import { EntityType } from '@types';
 
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
@@ -59,7 +58,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [form] = Form.useForm();
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
     const { user } = useUserContext();
-    
+
     // Simply provide current user as placeholder - OwnersSection will handle auto-selection
     const placeholderOwners = user ? [user] : [];
 
@@ -73,14 +72,9 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
         setSelectedOwnerUrns(ownerUrns);
     }, []);
 
-
-
     const onCreateDomain = () => {
-        console.log('🔥 CreateDomainModal.onCreateDomain: FINAL selectedOwnerUrns =', selectedOwnerUrns);
-        
         // Create owner input objects from selected owner URNs using utility
         const ownerInputs = createOwnerInputs(selectedOwnerUrns);
-        console.log('🔥 CreateDomainModal.onCreateDomain: FINAL ownerInputs =', ownerInputs);
 
         createDomainMutation({
             variables: {

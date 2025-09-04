@@ -1,15 +1,17 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { EntityType, OwnerEntityType, OwnershipType } from '@types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import {
     buildEntityCache,
-    isEntityResolutionRequired,
-    deduplicateEntities,
-    entitiesToSelectOptions,
-    entitiesToNestedSelectOptions,
     createOwnerInputs,
+    deduplicateEntities,
+    entitiesToNestedSelectOptions,
+    entitiesToSelectOptions,
+    isEntityResolutionRequired,
     mergeSelectedIntoOptions,
     mergeSelectedNestedOptions,
-} from '../selectorUtils';
+} from '@app/entityV2/shared/utils/selectorUtils';
+
+import { EntityType, OwnerEntityType, OwnershipType } from '@types';
 
 // Mock entities for testing
 const mockUser1 = {
@@ -22,7 +24,7 @@ const mockUser1 = {
 };
 
 const mockUser2 = {
-    urn: 'urn:li:corpuser:user2', 
+    urn: 'urn:li:corpuser:user2',
     type: EntityType.CorpUser,
     properties: {
         displayName: 'User Two',
@@ -101,7 +103,7 @@ describe('selectorUtils', () => {
         it('should return true when cache is missing some URNs', () => {
             const cache = new Map();
             cache.set('urn:li:corpuser:user1', mockUser1);
-            
+
             const urns = ['urn:li:corpuser:user1', 'urn:li:corpuser:user2'];
             const result = isEntityResolutionRequired(urns, cache);
 
@@ -112,7 +114,7 @@ describe('selectorUtils', () => {
             const cache = new Map();
             cache.set('urn:li:corpuser:user1', mockUser1);
             cache.set('urn:li:corpuser:user2', mockUser2);
-            
+
             const urns = ['urn:li:corpuser:user1', 'urn:li:corpuser:user2'];
             const result = isEntityResolutionRequired(urns, cache);
 
@@ -139,10 +141,10 @@ describe('selectorUtils', () => {
             const result = deduplicateEntities(options);
 
             expect(result).toHaveLength(3);
-            expect(result.map(e => e.urn)).toEqual([
+            expect(result.map((e) => e.urn)).toEqual([
                 'urn:li:corpuser:user1',
-                'urn:li:corpuser:user2', 
-                'urn:li:corpGroup:group1'
+                'urn:li:corpuser:user2',
+                'urn:li:corpGroup:group1',
             ]);
         });
 
@@ -208,10 +210,7 @@ describe('selectorUtils', () => {
             const entities = [mockUser1];
             entitiesToSelectOptions(entities, mockEntityRegistry as any);
 
-            expect(mockEntityRegistry.getDisplayName).toHaveBeenCalledWith(
-                EntityType.CorpUser,
-                mockUser1
-            );
+            expect(mockEntityRegistry.getDisplayName).toHaveBeenCalledWith(EntityType.CorpUser, mockUser1);
         });
     });
 
@@ -219,7 +218,7 @@ describe('selectorUtils', () => {
         it('should convert cached entities to NestedSelectOption format', () => {
             const cache = new Map();
             cache.set('urn:li:domain:engineering', mockDomain1);
-            
+
             const urns = ['urn:li:domain:engineering'];
             const result = entitiesToNestedSelectOptions(urns, cache, mockEntityRegistry as any);
 
@@ -260,10 +259,7 @@ describe('selectorUtils', () => {
 
     describe('createOwnerInputs', () => {
         it('should create owner inputs with correct types', () => {
-            const urns = [
-                'urn:li:corpuser:user1',
-                'urn:li:corpGroup:group1',
-            ];
+            const urns = ['urn:li:corpuser:user1', 'urn:li:corpGroup:group1'];
 
             const result = createOwnerInputs(urns);
 
@@ -307,13 +303,11 @@ describe('selectorUtils', () => {
             const result = mergeSelectedIntoOptions(options, selected);
 
             expect(result).toHaveLength(3);
-            expect(result.map(o => o.value)).toEqual(['option1', 'option2', 'option3']);
+            expect(result.map((o) => o.value)).toEqual(['option1', 'option2', 'option3']);
         });
 
         it('should not duplicate options already present', () => {
-            const options = [
-                { value: 'option1', label: 'Option 1' },
-            ];
+            const options = [{ value: 'option1', label: 'Option 1' }];
             const selected = [
                 { value: 'option1', label: 'Option 1' }, // Already in options
             ];
@@ -326,7 +320,7 @@ describe('selectorUtils', () => {
 
         it('should handle empty arrays', () => {
             expect(mergeSelectedIntoOptions([], [])).toHaveLength(0);
-            
+
             const options = [{ value: 'option1', label: 'Option 1' }];
             expect(mergeSelectedIntoOptions(options, [])).toEqual(options);
             expect(mergeSelectedIntoOptions([], options)).toEqual(options);
@@ -335,17 +329,13 @@ describe('selectorUtils', () => {
 
     describe('mergeSelectedNestedOptions', () => {
         it('should merge selected nested options', () => {
-            const options = [
-                { value: 'domain1', label: 'Domain 1', id: 'domain1' },
-            ];
-            const selected = [
-                { value: 'domain2', label: 'Domain 2', id: 'domain2' },
-            ];
+            const options = [{ value: 'domain1', label: 'Domain 1', id: 'domain1' }];
+            const selected = [{ value: 'domain2', label: 'Domain 2', id: 'domain2' }];
 
             const result = mergeSelectedNestedOptions(options, selected);
 
             expect(result).toHaveLength(2);
-            expect(result.map(o => o.value)).toEqual(['domain1', 'domain2']);
+            expect(result.map((o) => o.value)).toEqual(['domain1', 'domain2']);
         });
 
         it('should not duplicate nested options', () => {

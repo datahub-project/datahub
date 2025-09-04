@@ -1,20 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+import {
+    buildEntityCache,
+    entitiesToNestedSelectOptions,
+    isEntityResolutionRequired,
+    mergeSelectedNestedOptions,
+} from '@app/entityV2/shared/utils/selectorUtils';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useListDomainsLazyQuery, useListDomainsQuery } from '@src/graphql/domain.generated';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
-import { Domain, Entity, EntityType } from '@src/types.generated';
-import { 
-    buildEntityCache, 
-    isEntityResolutionRequired, 
-    entitiesToNestedSelectOptions,
-    mergeSelectedNestedOptions 
-} from '@app/entityV2/shared/utils/selectorUtils';
-
-
+import { Entity, EntityType } from '@src/types.generated';
 
 type DomainSelectorProps = {
     selectedDomains: string[];
@@ -137,7 +135,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     // Merge options to ensure selected domains remain visible
     const baseOptions = [...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label));
     const searchOptions = [...autoCompleteOptions].sort((a, b) => a.label.localeCompare(b.label));
-    
+
     const defaultOptions = mergeSelectedNestedOptions(baseOptions, initialOptions);
     const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
 
