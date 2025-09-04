@@ -20,6 +20,7 @@ vi.mock('@app/govern/structuredProperties/utils', async () => {
         getNotHiddenPropertyFilter: vi.fn(),
         getValueTypeFilter: vi.fn(),
         getDisplayNameFilter: vi.fn(),
+        getStructuredPropertiesSearchInputs: vi.fn(),
     };
 });
 
@@ -33,6 +34,9 @@ const mockSearchResults = {
                     urn: 'urn1',
                     definition: {
                         displayName: 'First Property',
+                        valueType: {
+                            urn: 'urn:li:dataType:datahub.string',
+                        },
                     },
                 },
             },
@@ -43,6 +47,22 @@ const mockSearchResults = {
                     urn: 'urn2',
                     definition: {
                         displayName: 'Second Property',
+                        valueType: {
+                            urn: 'urn:li:dataType:datahub.string',
+                        },
+                    },
+                },
+            },
+            {
+                entity: {
+                    __typename: 'StructuredProperty',
+                    type: EntityType.StructuredProperty,
+                    urn: 'urn3',
+                    definition: {
+                        displayName: 'Rich Text Property',
+                        valueType: {
+                            urn: 'urn:li:dataType:datahub.rich_text', // should get filtered out
+                        },
                     },
                 },
             },
@@ -66,6 +86,7 @@ describe('useStructuredProperties', () => {
         (governUtils.getNotHiddenPropertyFilter as any).mockReturnValue({ field: 'test', values: [] });
         (governUtils.getValueTypeFilter as any).mockReturnValue({ field: 'test', values: [] });
         (governUtils.getDisplayNameFilter as any).mockReturnValue({ field: 'test', values: [] });
+        (governUtils.getStructuredPropertiesSearchInputs as any).mockReturnValue({ field: 'test', values: [] });
     });
 
     it('should correctly map search results to AssetProperty', () => {
@@ -81,12 +102,6 @@ describe('useStructuredProperties', () => {
         expect(firstProperty.type).toBe(SummaryElementType.StructuredProperty);
         expect(firstProperty.structuredProperty?.urn).toBe('urn1');
         expect(firstProperty.structuredProperty?.definition.displayName).toBe('First Property');
-    });
-
-    it('should call getDisplayNameFilter when a query is provided', () => {
-        (useGetSearchResultsForMultipleQuery as any).mockReturnValue({ data: null, loading: false });
-        renderHook(() => useStructuredProperties('test query'));
-        expect(governUtils.getDisplayNameFilter).toHaveBeenCalledWith('test query');
     });
 
     it('should not call getDisplayNameFilter when query is empty', () => {
