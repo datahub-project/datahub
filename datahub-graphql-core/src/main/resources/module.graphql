@@ -243,6 +243,10 @@ enum DataHubPageModuleType {
   Module displaying child data products of a given domain
   """
   DATA_PRODUCTS
+  """
+  Module displaying the related terms of a given glossary term
+  """
+  RELATED_TERMS
 }
 
 """

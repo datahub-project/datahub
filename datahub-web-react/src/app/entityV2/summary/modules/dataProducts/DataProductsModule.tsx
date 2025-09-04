@@ -21,7 +21,7 @@ export default function DataProductsModule(props: ModuleProps) {
 
     const history = useHistory();
 
-    const navigateToAssetsTab = () => {
+    const navigateToDataProductsTab = () => {
         history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Data Products`);
     };
 
@@ -29,13 +29,13 @@ export default function DataProductsModule(props: ModuleProps) {
         <LargeModule
             {...props}
             loading={loading}
-            onClickViewAll={navigateToAssetsTab}
+            onClickViewAll={navigateToDataProductsTab}
             dataTestId="data-products-module"
         >
             <InfiniteScrollList<Entity>
                 fetchData={fetchEntities}
                 renderItem={(entity) => (
-                    <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
+                    <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.DataProducts} />
                 )}
                 pageSize={DEFAULT_PAGE_SIZE}
                 emptyState={
@@ -44,7 +44,7 @@ export default function DataProductsModule(props: ModuleProps) {
                         title="No Data Products"
                         description="Create a data product underneath this domain to see it in this list"
                         linkText="Create some data products for this domain"
-                        onLinkClick={navigateToAssetsTab}
+                        onLinkClick={navigateToDataProductsTab}
                     />
                 }
                 totalItemCount={total}

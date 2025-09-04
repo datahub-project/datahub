@@ -2,6 +2,7 @@ import {
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
     DATA_PRODUCTS_MODULE,
+    RELATED_TERMS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
@@ -27,7 +28,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:
-            rows = [{ modules: [ASSETS_MODULE] }];
+            rows = [{ modules: [ASSETS_MODULE, RELATED_TERMS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN];
             break;
         case EntityType.GlossaryNode:

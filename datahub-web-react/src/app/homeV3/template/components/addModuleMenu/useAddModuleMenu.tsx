@@ -71,6 +71,17 @@ export const DATA_PRODUCTS_MODULE: PageModuleFragment = {
     },
 };
 
+export const RELATED_TERMS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:related_terms',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Related Terms',
+        type: DataHubPageModuleType.RelatedTerms,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const { entityType } = useEntityData();
     const {
@@ -261,6 +272,23 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-data-products-module',
         };
 
+        const relatedTerms = {
+            name: 'RelatedTerms',
+            key: 'relatedTerms',
+            label: (
+                <MenuItem
+                    description="View the related terms inside of this glossary term"
+                    title="Related Terms"
+                    icon="FileText"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(RELATED_TERMS_MODULE);
+            },
+            'data-testid': 'add-related-terms-module',
+        };
+
         const defaultHomeModules = [yourAssets, domains];
         // TODO: make this a function to pull out and write unit tests for
         let defaultSummaryModules = [assets];
@@ -268,6 +296,8 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             defaultSummaryModules = [...defaultSummaryModules, childHierarchy, dataProducts];
         } else if (entityType === EntityType.GlossaryNode) {
             defaultSummaryModules = [childHierarchy];
+        } else if (entityType === EntityType.GlossaryTerm) {
+            defaultSummaryModules = [...defaultSummaryModules, relatedTerms];
         }
 
         const finalDefaultModules =
@@ -313,12 +343,14 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 'data-testid': 'home-default-modules',
             };
 
-            items.push({
-                key: 'sharedModulesGroup',
-                label: <GroupItem title="Shared" />,
-                type: 'group',
-                children: [homeDefaults],
-            });
+            if (templateType === PageTemplateSurfaceType.HomePage) {
+                items.push({
+                    key: 'sharedModulesGroup',
+                    label: <GroupItem title="Shared" />,
+                    type: 'group',
+                    children: [homeDefaults],
+                });
+            }
         }
 
         return { items };
