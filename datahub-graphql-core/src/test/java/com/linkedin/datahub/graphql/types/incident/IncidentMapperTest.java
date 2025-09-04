@@ -127,14 +127,14 @@ public class IncidentMapperTest {
         com.linkedin.datahub.graphql.generated.IncidentSourceType.ASSERTION_FAILURE.toString());
     assertEquals(incident.getSource().getSource().getUrn(), assertionUrn.toString());
     assertEquals(
-        incident.getStatus().getState().toString(),
+        incident.getIncidentStatus().getState().toString(),
         com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE.toString());
     assertEquals(
-        incident.getStatus().getStage().toString(),
+        incident.getIncidentStatus().getStage().toString(),
         com.linkedin.datahub.graphql.generated.IncidentStage.INVESTIGATION.toString());
-    assertEquals(incident.getStatus().getMessage(), "This incident is open.");
-    assertEquals(incident.getStatus().getLastUpdated().getTime().longValue(), 1000L);
-    assertEquals(incident.getStatus().getLastUpdated().getActor(), userUrn.toString());
+    assertEquals(incident.getIncidentStatus().getMessage(), "This incident is open.");
+    assertEquals(incident.getIncidentStatus().getLastUpdated().getTime().longValue(), 1000L);
+    assertEquals(incident.getIncidentStatus().getLastUpdated().getActor(), userUrn.toString());
     assertEquals(incident.getCreated().getTime().longValue(), 1000L);
     assertEquals(incident.getCreated().getActor(), userUrn.toString());
     assertEquals(incident.getAssignees().size(), 2);
