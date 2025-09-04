@@ -2,8 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { navigateToDomainEntities } from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
-import { DOMAINS_FILTER_NAME, ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { FIELD_GLOSSARY_TERMS_FILTER_NAME, GLOSSARY_TERMS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -11,7 +10,7 @@ import { Entity, EntityType } from '@types';
 
 const NUMBER_OF_ASSETS_TO_FETCH = 10;
 
-export const useGetDomainAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
+export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
     const { urn, entityType } = useEntityData();
     const history = useHistory();
 
@@ -23,13 +22,11 @@ export const useGetDomainAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => 
                 count,
                 filters: [
                     {
-                        field: ENTITY_FILTER_NAME,
-                        values: [EntityType.DataProduct],
-                        value: EntityType.DataProduct,
-                        negated: true,
+                        field: GLOSSARY_TERMS_FILTER_NAME,
+                        values: [urn],
                     },
                     {
-                        field: DOMAINS_FILTER_NAME,
+                        field: FIELD_GLOSSARY_TERMS_FILTER_NAME,
                         values: [urn],
                     },
                 ],
@@ -46,7 +43,7 @@ export const useGetDomainAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => 
         refetch,
     } = useGetSearchResultsForMultipleQuery({
         variables: getInputVariables(0, initialCount),
-        skip: entityType !== EntityType.Domain,
+        skip: entityType !== EntityType.GlossaryTerm,
         fetchPolicy: 'cache-first',
     });
 
@@ -75,7 +72,7 @@ export const useGetDomainAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => 
     );
 
     const navigateToAssetsTab = () => {
-        navigateToDomainEntities(urn, entityType, history, entityRegistry);
+        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Related Assets`);
     };
 
     return { originEntities, entities, loading, error, total, fetchAssets, navigateToAssetsTab };

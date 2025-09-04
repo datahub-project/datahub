@@ -1,6 +1,7 @@
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useGetDataProductAssets } from '@app/entityV2/summary/modules/assets/useGetDataProductAssets';
 import { useGetDomainAssets } from '@app/entityV2/summary/modules/assets/useGetDomainAssets';
+import { useGetTermAssets } from '@app/entityV2/summary/modules/assets/useGetTermAssets';
 
 import { EntityType } from '@types';
 
@@ -22,6 +23,13 @@ export function useGetAssets() {
         navigateToAssetsTab: navigateToDataProductAssetsTab,
     } = useGetDataProductAssets(NUMBER_OF_ASSETS_TO_FETCH);
 
+    const {
+        loading: termAssetsLoading,
+        fetchAssets: fetchTermAssets,
+        total: termAssetsTotal,
+        navigateToAssetsTab: navigateToTermAssetsTab,
+    } = useGetTermAssets(NUMBER_OF_ASSETS_TO_FETCH);
+
     let fetchAssets;
     let loading;
     let total;
@@ -39,6 +47,12 @@ export function useGetAssets() {
             loading = dataProductAssetsLoading;
             total = dataProductAssetsTotal;
             navigateToAssetsTab = navigateToDataProductAssetsTab;
+            break;
+        case EntityType.GlossaryTerm:
+            fetchAssets = fetchTermAssets;
+            loading = termAssetsLoading;
+            total = termAssetsTotal;
+            navigateToAssetsTab = navigateToTermAssetsTab;
             break;
         default:
             break;

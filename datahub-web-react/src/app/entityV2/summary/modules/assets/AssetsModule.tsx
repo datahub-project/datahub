@@ -15,12 +15,12 @@ export default function AssetsModule(props: ModuleProps) {
     const { loading, fetchAssets, total, navigateToAssetsTab } = useGetAssets();
 
     return (
-        <LargeModule {...props} loading={loading} onClickViewAll={navigateToAssetsTab} dataTestId="your-assets-module">
-            <div data-testid="user-owned-entities">
+        <LargeModule {...props} loading={loading} onClickViewAll={navigateToAssetsTab} dataTestId="assets-module">
+            <div data-testid="entity-assets">
                 <InfiniteScrollList<Entity>
                     fetchData={fetchAssets}
                     renderItem={(entity) => (
-                        <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
+                        <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.Assets} />
                     )}
                     pageSize={DEFAULT_PAGE_SIZE}
                     emptyState={
