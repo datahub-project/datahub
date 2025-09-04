@@ -105,6 +105,7 @@ dependencies {
   // Bridge any Log4j2 usage to SLF4J during tests to avoid Log4j core on classpath
   testRuntimeOnly 'org.apache.logging.log4j:log4j-to-slf4j:2.20.0'
   testImplementation 'net.datafaker:datafaker:1.9.0'
+  testImplementation externalDependency.awaitility
 
   testImplementation project(':metadata-test-util:java')
   testImplementation(testFixtures(project(":entity-registry")))

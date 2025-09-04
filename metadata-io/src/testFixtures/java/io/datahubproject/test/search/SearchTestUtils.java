@@ -39,6 +39,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -50,6 +51,7 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.awaitility.Awaitility;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
 
@@ -443,5 +445,42 @@ public class SearchTestUtils {
         10,
         predicateJson);
   }
+
   /* END SAAS ONLY */
+
+  /**
+   * Generic method to wait for data availability using a custom verification function. This method
+   * uses Awaitility to retry the verification function until it returns true or the timeout is
+   * reached.
+   *
+   * @param verificationFunction The function to call for verification (should return true when data
+   *     is ready)
+   * @param maxWaitTimeSeconds Maximum time to wait in seconds
+   * @param errorMessage The error message to throw if data isn't available within the timeout
+   */
+  public static void waitForDataAvailability(
+      DataAvailabilityChecker verificationFunction, int maxWaitTimeSeconds, String errorMessage) {
+
+    try {
+      Awaitility.await()
+          .timeout(Duration.ofSeconds(maxWaitTimeSeconds))
+          .pollInterval(Duration.ofSeconds(1))
+          .until(
+              () -> {
+                try {
+                  return verificationFunction.check();
+                } catch (Exception e) {
+                  return false;
+                }
+              });
+    } catch (org.awaitility.core.ConditionTimeoutException e) {
+      throw new RuntimeException(errorMessage, e);
+    }
+  }
+
+  /** Functional interface for data availability checking. */
+  @FunctionalInterface
+  public interface DataAvailabilityChecker {
+    boolean check() throws Exception;
+  }
 }
