@@ -1,5 +1,6 @@
+import os
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -9,6 +10,7 @@ from datahub.ingestion.source.unity.proxy import (
     TableUpstream,
     UnityCatalogApiProxy,
 )
+from datahub.ingestion.source.unity.proxy_patch import _basic_proxy_auth_header
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
@@ -98,6 +100,7 @@ class TestUnityCatalogProxy:
                 "entity_type": "TABLE",
                 "entity_id": "entity_1",
                 "source_table_full_name": "other_catalog.schema.source_table",
+                "source_path": None,
                 "source_type": "TABLE",
                 "target_table_full_name": "test_catalog.schema.target_table",
                 "target_type": "TABLE",
@@ -107,7 +110,8 @@ class TestUnityCatalogProxy:
             {
                 "entity_type": "TABLE",
                 "entity_id": "path_1",
-                "source_table_full_name": "s3://bucket/path/to/file",
+                "source_table_full_name": None,
+                "source_path": "s3://bucket/path/to/file",
                 "source_type": "PATH",
                 "target_table_full_name": "test_catalog.schema.external_target",
                 "target_type": "TABLE",
@@ -118,6 +122,7 @@ class TestUnityCatalogProxy:
                 "entity_type": "NOTEBOOK",
                 "entity_id": "notebook_123",
                 "source_table_full_name": None,
+                "source_path": None,
                 "source_type": None,
                 "target_table_full_name": "test_catalog.schema.downstream_table",
                 "target_type": "TABLE",
@@ -128,6 +133,7 @@ class TestUnityCatalogProxy:
                 "entity_type": "NOTEBOOK",
                 "entity_id": "notebook_456",
                 "source_table_full_name": "test_catalog.schema.upstream_table",
+                "source_path": None,
                 "source_type": "TABLE",
                 "target_table_full_name": None,
                 "target_type": None,
@@ -1221,3 +1227,64 @@ class TestUnityCatalogProxy:
         assert result.aliases == ["prod", "latest"]
         assert result.description == "Version 1"
         assert result.created_by == "test_user"
+
+
+class TestUnityCatalogProxyAuthentication:
+    def test_basic_proxy_auth_header(self):
+        proxy_url = "http://user:pass@proxy.example.com:8080"
+        auth_info = _basic_proxy_auth_header(proxy_url)
+
+        assert auth_info is not None
+        assert auth_info["proxy_url"] == "http://proxy.example.com:8080"
+        assert auth_info["auth_string"] == "user:pass"
+        assert "proxy-authorization" in auth_info["proxy_headers"]
+
+    def test_basic_proxy_auth_header_no_credentials(self):
+        proxy_url = "http://proxy.example.com:8080"
+        auth_info = _basic_proxy_auth_header(proxy_url)
+        assert auth_info is None
+
+    @patch("datahub.ingestion.source.unity.proxy.connect")
+    def test_execute_sql_query_with_proxy(self, mock_connect):
+        mock_connection = MagicMock()
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall.return_value = [("result",)]
+        mock_connection.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value.__enter__.return_value = mock_connection
+
+        with (
+            patch.dict(
+                os.environ,
+                {"HTTPS_PROXY": "http://user:pass@proxy.com:8080"},
+                clear=True,
+            ),
+            patch("datahub.ingestion.source.unity.proxy.WorkspaceClient") as mock_ws,
+        ):
+            mock_client = MagicMock()
+            mock_client.config.host = "https://test.databricks.com"
+            mock_client.config.token = "test-token"
+            mock_ws.return_value = mock_client
+
+            proxy = UnityCatalogApiProxy(
+                workspace_url="https://test.databricks.com",
+                personal_access_token="test-token",
+                warehouse_id="test-warehouse",
+                report=UnityCatalogReport(),
+            )
+
+            result = proxy._execute_sql_query("SELECT * FROM test_table")
+            assert result == [("result",)]
+            mock_connect.assert_called_once()
+
+    def test_apply_databricks_proxy_fix(self):
+        with patch("datahub.ingestion.source.unity.proxy_patch.logger") as mock_logger:
+            from datahub.ingestion.source.unity.proxy_patch import (
+                apply_databricks_proxy_fix,
+            )
+
+            apply_databricks_proxy_fix()
+
+            log_calls = [call.args[0] for call in mock_logger.info.call_args_list]
+            assert any(
+                "databricks-sql proxy authentication fix" in msg for msg in log_calls
+            )
