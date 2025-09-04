@@ -136,6 +136,62 @@
     }
   },
   {
+    "urn": "urn:li:dataHubPolicy:view-public-entities",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": true,
+        "allGroups": false,
+        "users": []
+      },
+      "resources": {
+        "allResources": false,
+        "filter": {
+          "criteria": [
+            {
+              "field": "RESOURCE_TYPE",
+              "values": [
+                "dataPlatform",
+                "tag",
+                "structuredProperty",
+                "corpuser",
+                "corpGroup",
+                "dataHubRole",
+                "post",
+                "dataHubStepState",
+                "dataHubView",
+                "query",
+                "ownershipType",
+                "businessAttribute",
+                "dataContract",
+                "assertion",
+                "incident",
+                "dataHubPersona",
+                "dataHubAction",
+                "dataType",
+                "entityType",
+                "form",
+                "dataHubPageTemplate",
+                "dataHubPageModule",
+                "platformResource",
+                "dataPlatformInstance"
+              ],
+              "condition": "EQUALS"
+            }
+          ]
+        }
+      },
+      "privileges": [
+        "VIEW_ENTITY_PAGE"
+      ],
+      "displayName": "All Users - View Public Entities",
+      "description": "Grants entity view to public entities. This cannot be adjusted.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
+  },
+  {
     "urn": "urn:li:dataHubPolicy:view-dataset-sensitive",
     "info": {
       "actors": {
