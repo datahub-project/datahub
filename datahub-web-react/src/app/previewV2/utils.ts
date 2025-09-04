@@ -156,10 +156,10 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
 }
 
 export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
-    const [batchSetbatchSetAppl] = useBatchSetApplicationMutation();
+    const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
 
     function handleApplication(urn) {
-        batchSetbatchSetAppl({ variables: { input: { resourceUrns: [urn] } } })
+        batchSetApplicationMutation({ variables: { input: { resourceUrns: [urn] } } })
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
