@@ -141,7 +141,10 @@
         "resourceOwners": false,
         "allUsers": true,
         "allGroups": false,
-        "users": [],
+        "users": []
+      },
+      "resources": {
+        "allResources": false,
         "filter": {
           "criteria": [
             {
@@ -169,9 +172,8 @@
                 "form",
                 "dataHubPageTemplate",
                 "dataHubPageModule",
-                "dataHubConnection",
                 "platformResource",
-                "dataHubPolicy"
+                "dataPlatformInstance"
               ],
               "condition": "EQUALS"
             }
@@ -179,11 +181,10 @@
         }
       },
       "privileges": [
-        "VIEW_ENTITY_PAGE",
-        "GET_ENTITY_PRIVILEGE"
+        "VIEW_ENTITY_PAGE"
       ],
       "displayName": "All Users - View Public Entities",
-      "description": "Grants entity view to public entities",
+      "description": "Grants entity view to public entities. This cannot be adjusted.",
       "state": "ACTIVE",
       "type": "METADATA",
       "editable": false
