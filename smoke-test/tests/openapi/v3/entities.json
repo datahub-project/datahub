@@ -196,6 +196,61 @@
     "request": {
       "url": "/openapi/v3/entity/scroll",
       "params": {
+        "count": "1"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["vert"],
+                  "condition": "CONTAIN"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:vertexai",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "vertexai"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "vertexai",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "vertexai",
+                "logoUrl": "/assets/platforms/vertexai.png"
+              }
+            }
+          }
+        ],
+        "totalCount": 2
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
         "pitKeepAlive": "1m",
         "count": "1",
         "query": "qualifiedName:entities\\.datasetSingle*",
