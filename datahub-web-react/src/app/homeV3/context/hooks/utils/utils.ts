@@ -1,3 +1,5 @@
+import { ASSETS_MODULE } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
+
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
 import {
     DataHubPageModuleType,
@@ -35,15 +37,15 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
 
     switch (entityType) {
         case EntityType.Domain:
-            modules = [domainsModule];
+            modules = [domainsModule, ASSETS_MODULE];
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.DataProduct:
-            modules = [domainsModule];
+            modules = [domainsModule, ASSETS_MODULE];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:
-            modules = [domainsModule];
+            modules = [domainsModule, ASSETS_MODULE];
             summaryElements = [CREATED, OWNERS, DOMAIN];
             break;
         case EntityType.GlossaryNode:

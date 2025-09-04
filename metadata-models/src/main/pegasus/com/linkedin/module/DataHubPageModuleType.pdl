@@ -28,4 +28,8 @@ enum DataHubPageModuleType {
    * Module displaying the top domains
    */
   DOMAINS
+  /**
+   * Module displaying the assets of parent entity
+   */
+  ASSETS
 }
