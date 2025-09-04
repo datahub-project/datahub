@@ -57,6 +57,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     }, [resolvedEntitiesData]);
 
     const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    
     const { data } = useListDomainsQuery({
         variables: {
             input: {
@@ -140,25 +141,23 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
 
     return (
-        <div style={{ width: '100%' }}>
-            <NestedSelect
-                label={label}
-                placeholder={placeholder}
-                searchPlaceholder="Search all domains..."
-                options={useSearch ? searchOptionsWithSelected : defaultOptions}
-                initialValues={initialOptions}
-                loadData={handleLoad}
-                onSearch={handleSearch}
-                onUpdate={handleUpdate}
-                width="full"
-                isMultiSelect={isMultiSelect}
-                showSearch
-                implicitlySelectChildren={false}
-                areParentsSelectable
-                shouldAlwaysSyncParentValues
-                hideParentCheckbox={false}
-            />
-        </div>
+        <NestedSelect
+            label={label}
+            placeholder={placeholder}
+            searchPlaceholder="Search all domains..."
+            options={useSearch ? searchOptionsWithSelected : defaultOptions}
+            initialValues={initialOptions}
+            loadData={handleLoad}
+            onSearch={handleSearch}
+            onUpdate={handleUpdate}
+            width="full"
+            isMultiSelect={isMultiSelect}
+            showSearch
+            implicitlySelectChildren={false}
+            areParentsSelectable
+            shouldAlwaysSyncParentValues
+            hideParentCheckbox={false}
+        />
     );
 };
 

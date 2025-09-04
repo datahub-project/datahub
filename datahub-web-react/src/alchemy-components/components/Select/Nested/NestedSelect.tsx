@@ -59,7 +59,7 @@ export const selectDefaults: SelectProps = {
     isDisabled: false,
     isReadOnly: false,
     isRequired: false,
-    isMultiSelect: false,
+    isMultiSelect: true,
     width: 255,
     height: 425,
     shouldDisplayConfirmationFooter: false,

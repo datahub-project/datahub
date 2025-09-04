@@ -104,9 +104,9 @@ public class OwnerUtils {
               ? OwnershipType.valueOf(input.getType().toString())
               : OwnershipType.NONE;
       final Urn ownershipTypeUrn =
-              input.getOwnershipTypeUrn() != null
-                      ? UrnUtils.getUrn(input.getOwnershipTypeUrn())
-                      : UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name()));
+          input.getOwnershipTypeUrn() != null
+              ? UrnUtils.getUrn(input.getOwnershipTypeUrn())
+              : UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name()));
       OwnerServiceUtils.addOwnerToAspect(
           ownershipAspect,
           UrnUtils.getUrn(input.getOwnerUrn()),
