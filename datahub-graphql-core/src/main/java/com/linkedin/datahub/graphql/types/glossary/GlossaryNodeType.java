@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_NODE_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
@@ -52,7 +53,8 @@ public class GlossaryNodeType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
-          ASSET_SETTINGS_ASPECT_NAME);
+          ASSET_SETTINGS_ASPECT_NAME,
+          INSTITUTIONAL_MEMORY_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
@@ -67,6 +69,12 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         (glossaryNode, dataMap) ->
             glossaryNode.setOwnership(
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (glossaryNode, dataMap) ->
+            glossaryNode.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
