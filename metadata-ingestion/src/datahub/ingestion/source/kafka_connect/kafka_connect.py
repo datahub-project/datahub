@@ -1,3 +1,4 @@
+import base64
 import logging
 from functools import lru_cache
 from typing import Dict, Iterable, List, Optional
@@ -26,7 +27,6 @@ from datahub.ingestion.source.kafka_connect.common import (
     SINK,
     SOURCE,
     ConnectorManifest,
-    ConnectorTopicHandlerRegistry,
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
@@ -73,14 +73,24 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             }
         )
 
-        # Test the connection
-        if self.config.username is not None and self.config.password is not None:
+        # Test the connection using appropriate credentials
+        connect_username, connect_password = self.config.get_connect_credentials()
+        if connect_username is not None and connect_password is not None:
             logger.info(
                 f"Connecting to {self.config.connect_uri} with Authentication..."
             )
-            self.session.auth = (self.config.username, self.config.password)
+            # Set up Basic Authentication for Connect API (requests handles the encoding automatically)
+            self.session.auth = (connect_username, connect_password)
+        else:
+            # For Confluent Cloud, authentication is required
+            if self._detect_confluent_cloud():
+                raise ValueError(
+                    "Confluent Cloud detected but no Connect API credentials provided. "
+                    "Confluent Cloud requires authentication credentials for API access."
+                )
 
-        test_response = self.session.get(f"{self.config.connect_uri}/connectors")
+        effective_uri = self.config.get_effective_connect_uri()
+        test_response = self.session.get(f"{effective_uri}/connectors")
         test_response.raise_for_status()
         logger.info(f"Connection to {self.config.connect_uri} is ok")
 
@@ -93,10 +103,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         else:
             logger.info("Detected self-hosted Kafka Connect - using runtime topics API")
 
-        # Initialize connector handler registry for modular topic resolution
-        self._topic_handler_registry = ConnectorTopicHandlerRegistry(
-            self.config, self.report
-        )
+        # Note: Removed topic handler registry - topic resolution moved to connector registry
 
         # Initialize enhanced Confluent Cloud components
         self._topic_cache = KafkaTopicCache()  # Simple cache for single ingestion run
@@ -112,14 +119,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def get_connectors_manifest(self) -> Iterable[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API."""
+        effective_uri = self.config.get_effective_connect_uri()
         connector_response = self.session.get(
-            f"{self.config.connect_uri}/connectors",
+            f"{effective_uri}/connectors",
         )
 
         payload = connector_response.json()
 
         for connector_name in payload:
-            connector_url = f"{self.config.connect_uri}/connectors/{connector_name}"
+            connector_url = f"{effective_uri}/connectors/{connector_name}"
             connector_manifest = self._get_connector_manifest(
                 connector_name, connector_url
             )
@@ -161,15 +169,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             if not lineages and connector_manifest.type == SOURCE:
                 lineages = self._handle_generic_source_connector(connector_manifest)
                 if lineages:
-                    # Create a generic connector instance for flow property bag
-                    from datahub.ingestion.source.kafka_connect.source_connectors import (
-                        ConfigDrivenSourceConnector,
+                    # Extract flow property bag using registry (no direct imports needed)
+                    flow_property_bag = connector_manifest.extract_flow_property_bag(
+                        self.config, self.report
                     )
-
-                    connector_instance = ConfigDrivenSourceConnector(
-                        connector_manifest, self.config, self.report
-                    )
-                    flow_property_bag = connector_instance.extract_flow_property_bag()
 
             if lineages:
                 connector_manifest.lineages = lineages
@@ -188,18 +191,20 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         self, connector_manifest: ConnectorManifest
     ) -> List[KafkaConnectLineage]:
         """Handle generic source connectors that need access to config.generic_connectors."""
+        # Handle generic connectors - use registry to avoid direct imports
+        from datahub.ingestion.source.kafka_connect.connector_registry import (
+            ConnectorRegistry,
+        )
+
         if any(
             connector.connector_name == connector_manifest.name
             for connector in self.config.generic_connectors
         ):
-            from datahub.ingestion.source.kafka_connect.source_connectors import (
-                ConfigDrivenSourceConnector,
-            )
-
-            connector_instance = ConfigDrivenSourceConnector(
+            connector = ConnectorRegistry.get_connector_for_manifest(
                 connector_manifest, self.config, self.report
             )
-            return connector_instance.extract_lineages()
+            if connector:
+                return connector.extract_lineages()
         return []
 
     def _handle_unsupported_connector(
@@ -239,8 +244,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def _get_connector_tasks(self, connector_name: str) -> List[Dict[str, dict]]:
         try:
+            effective_uri = self.config.get_effective_connect_uri()
             response = self.session.get(
-                f"{self.config.connect_uri}/connectors/{connector_name}/tasks",
+                f"{effective_uri}/connectors/{connector_name}/tasks",
             )
             response.raise_for_status()
         except Exception as e:
@@ -253,11 +259,21 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def _detect_confluent_cloud(self) -> bool:
         """
-        Detect if we're running against Confluent Cloud based on the connect_uri.
+        Detect if we're running against Confluent Cloud.
 
-        Confluent Cloud URIs follow the pattern:
-        https://api.confluent.cloud/connect/v1/environments/{env-id}/clusters/{cluster-id}
+        Detection logic:
+        1. If environment_id and cluster_id are explicitly configured, assume Confluent Cloud
+        2. Otherwise, check if connect_uri follows Confluent Cloud pattern:
+           https://api.confluent.cloud/connect/v1/environments/{env-id}/clusters/{cluster-id}
         """
+        # Explicit Confluent Cloud configuration takes precedence
+        if (
+            self.config.confluent_cloud_environment_id
+            and self.config.confluent_cloud_cluster_id
+        ):
+            return True
+
+        # Fallback to URI-based detection
         uri = self.config.connect_uri.lower()
         return "api.confluent.cloud" in uri and "/connect/v1/" in uri
 
@@ -320,8 +336,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     def _get_topics_self_hosted(self, connector_name: str) -> List[str]:
         """Get topics using the original runtime /topics API (self-hosted only)."""
         try:
+            effective_uri = self.config.get_effective_connect_uri()
             response = self.session.get(
-                f"{self.config.connect_uri}/connectors/{connector_name}/topics"
+                f"{effective_uri}/connectors/{connector_name}/topics"
             )
             response.raise_for_status()
 
@@ -410,12 +427,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # Check if we have Kafka-specific credentials configured
             if self.config.kafka_api_key and self.config.kafka_api_secret:
                 # Use Kafka-specific API credentials with Basic auth
-                import base64
-
-                credentials = base64.b64encode(
-                    f"{self.config.kafka_api_key}:{self.config.kafka_api_secret}".encode()
-                ).decode()
-                headers["Authorization"] = f"Basic {credentials}"
+                headers["Authorization"] = self._create_basic_auth_header(
+                    self.config.kafka_api_key, self.config.kafka_api_secret
+                )
                 logger.debug("Using dedicated Kafka API credentials for authentication")
 
             # Fallback to reusing Connect credentials (same API key/secret in Confluent Cloud)
@@ -529,7 +543,8 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
     def _get_connector_names_for_endpoint_discovery(self) -> List[str]:
         """Get list of connector names for endpoint discovery."""
-        response = self.session.get(f"{self.config.connect_uri}/connectors")
+        effective_uri = self.config.get_effective_connect_uri()
+        response = self.session.get(f"{effective_uri}/connectors")
         response.raise_for_status()
         return response.json()
 
@@ -551,8 +566,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
     ) -> Optional[str]:
         """Extract Kafka endpoint from a single connector configuration."""
         try:
+            effective_uri = self.config.get_effective_connect_uri()
             connector_response = self.session.get(
-                f"{self.config.connect_uri}/connectors/{connector_name}"
+                f"{effective_uri}/connectors/{connector_name}"
             )
             connector_response.raise_for_status()
             connector_data = connector_response.json()
@@ -641,52 +657,20 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         self, connector_manifest: ConnectorManifest
     ) -> List[str]:
         """
-        Get topics from connector configuration using modular handler approach.
+        Get topics from connector configuration using registry approach.
 
-        This uses the connector handler registry to find the appropriate handler
-        for the specific connector type and delegates topic extraction to it.
+        This delegates topic extraction to the connector registry to avoid circular imports.
         """
-        try:
-            connector_class = connector_manifest.config.get("connector.class", "")
-            handler = self._topic_handler_registry.get_handler_for_connector(
-                connector_class
-            )
-
-            if handler:
-                topics = handler.get_topics_from_config(connector_manifest)
-                logger.debug(
-                    f"Handler {handler.__class__.__name__} extracted {len(topics)} topics for {connector_manifest.name}: {topics}"
-                )
-                return topics
-            else:
-                logger.warning(
-                    f"No handler found for connector class '{connector_class}' for {connector_manifest.name}"
-                )
-                return []
-
-        except Exception as e:
-            logger.debug(
-                f"Failed to get topics from config for connector {connector_manifest.name}: {e}"
-            )
-            return []
-
-    def _get_topic_fields_for_connector(
-        self, connector_type: str, connector_class: str
-    ) -> List[str]:
-        """Get the appropriate topic fields to check based on connector type and class using modular handlers."""
-        handler = self._topic_handler_registry.get_handler_for_connector(
-            connector_class
+        from datahub.ingestion.source.kafka_connect.connector_registry import (
+            ConnectorRegistry,
         )
 
-        if handler:
-            return handler.get_topic_fields_for_connector(connector_type)
-        else:
-            # Fallback for unknown connectors
-            return ["topics", "kafka.topic", "topic.prefix"]
+        return ConnectorRegistry.get_topics_from_config(
+            connector_manifest, self.config, self.report
+        )
 
-    def get_platform_from_connector_class(self, connector_class: str) -> str:
-        """Get the platform for the given connector class using modular handlers."""
-        return self._topic_handler_registry.get_platform_for_connector(connector_class)
+    # Note: _get_topic_fields_for_connector and get_platform_from_connector_class removed
+    # These are now handled directly by connector implementations via the registry
 
     def _get_cached_kafka_topics(self) -> List[str]:
         """Get all Kafka topics using enhanced caching for Confluent Cloud."""
@@ -717,15 +701,20 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             logger.warning(f"Failed to get cached consumer groups: {e}")
             return {}
 
+    def _create_basic_auth_header(self, username: str, password: str) -> str:
+        """Create a Basic Auth header value."""
+        credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+        return f"Basic {credentials}"
+
     def _get_kafka_auth_headers(self) -> Optional[Dict[str, str]]:
         """Get authentication headers for Kafka REST API."""
-        if self.config.kafka_api_key and self.config.kafka_api_secret:
-            import base64
-
-            credentials = base64.b64encode(
-                f"{self.config.kafka_api_key}:{self.config.kafka_api_secret}".encode()
-            ).decode()
-            return {"Authorization": f"Basic {credentials}"}
+        kafka_username, kafka_password = self.config.get_kafka_credentials()
+        if kafka_username and kafka_password:
+            return {
+                "Authorization": self._create_basic_auth_header(
+                    kafka_username, kafka_password
+                )
+            }
         return None
 
     def construct_flow_workunit(self, connector: ConnectorManifest) -> MetadataWorkUnit:

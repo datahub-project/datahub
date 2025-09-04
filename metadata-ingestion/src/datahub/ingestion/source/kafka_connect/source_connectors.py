@@ -11,7 +11,6 @@ from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     BaseConnector,
     ConnectorManifest,
-    ConnectorTopicHandlerRegistry,
     KafkaConnectLineage,
     get_dataset_name,
     has_three_level_hierarchy,
@@ -27,6 +26,9 @@ from datahub.ingestion.source.kafka_connect.connector_constants import (
     KNOWN_NON_TOPIC_ROUTING_TRANSFORMS,
     KNOWN_TOPIC_ROUTING_TRANSFORMS,
     REGEXROUTER_TRANSFORM,
+)
+from datahub.ingestion.source.kafka_connect.transform_plugins import (
+    get_transform_pipeline,
 )
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -783,6 +785,36 @@ class ConfluentJDBCSourceConnector(BaseConnector):
 
         return tables
 
+    def get_topics_from_config(self) -> List[str]:
+        """Extract expected topics from JDBC connector configuration."""
+        try:
+            # Try to get full parser for topic prefix
+            try:
+                parser = self.get_parser(self.connector_manifest)
+                topic_prefix = parser.topic_prefix
+            except Exception:
+                # Fall back to direct config access if parser fails
+                config = self.connector_manifest.config
+                topic_prefix = config.get("topic.prefix", "")
+
+            table_ids = self.get_table_names()
+
+            # JDBC topics follow pattern: {topic_prefix}{table_name}
+            topics = []
+            for table_id in table_ids:
+                # Use table name (not schema.table) for topic generation
+                table_name = table_id.table
+                if topic_prefix:
+                    topic_name = f"{topic_prefix}{table_name}"
+                else:
+                    topic_name = table_name
+                topics.append(topic_name)
+
+            return topics
+        except Exception as e:
+            logger.debug(f"Failed to derive topics from JDBC connector config: {e}")
+            return []
+
     def extract_flow_property_bag(self) -> Dict[str, str]:
         flow_property_bag = {
             k: v
@@ -1264,9 +1296,22 @@ class ConfluentJDBCSourceConnector(BaseConnector):
     ) -> List[KafkaConnectLineage]:
         """Extract lineages using simple transform application."""
 
-        # Apply simple regex transforms from the connector config
+        # Apply transforms using the unified transform pipeline
         config = self.connector_manifest.config
-        transformed_topics = self._apply_simple_transforms_to_topics(topics, config)
+        transform_result = get_transform_pipeline().apply_forward(topics, config)
+        transformed_topics = transform_result.topics
+
+        # Log any warnings from transform processing
+        for warning in transform_result.warnings:
+            self.report.warning(
+                f"Transform warning for {self.connector_manifest.name}: {warning}"
+            )
+
+        if transform_result.fallback_used:
+            self.report.info(
+                f"Complex transforms detected in {self.connector_manifest.name}. "
+                f"Consider using 'generic_connectors' config for explicit mappings."
+            )
 
         # Create lineages based on transform results
         lineages = []
@@ -1296,90 +1341,6 @@ class ConfluentJDBCSourceConnector(BaseConnector):
             lineages.append(lineage)
 
         return lineages
-
-    def _apply_simple_transforms_to_topics(
-        self, topics: List[str], config: Dict[str, str]
-    ) -> List[str]:
-        """Apply RegexRouter transforms to topic list - simple and direct."""
-        # Get the transforms parameter
-        transforms_param: str = config.get("transforms", "")
-        if not transforms_param:
-            return topics
-
-        # Parse transform names
-        from datahub.ingestion.source.kafka_connect.common import (
-            parse_comma_separated_list,
-        )
-
-        transform_names = parse_comma_separated_list(transforms_param)
-
-        # Apply each transform in order
-        result_topics = topics[:]  # Copy original list
-
-        for transform_name in transform_names:
-            if not transform_name:
-                continue
-
-            # Get transform type
-            transform_type_key = f"transforms.{transform_name}.type"
-            transform_type = config.get(transform_type_key, "")
-
-            # Only handle RegexRouter transforms (the main one we care about)
-            if transform_type in [
-                "org.apache.kafka.connect.transforms.RegexRouter",
-                "io.confluent.connect.cloud.transforms.TopicRegexRouter",
-            ]:
-                # Get regex config
-                regex_key = f"transforms.{transform_name}.regex"
-                replacement_key = f"transforms.{transform_name}.replacement"
-
-                regex_pattern = config.get(regex_key, "")
-                replacement = config.get(replacement_key, "")
-
-                if regex_pattern and replacement:
-                    # Apply regex transform to all topics
-                    new_topics = []
-                    for topic in result_topics:
-                        try:
-                            # Use Java regex for exact Kafka Connect compatibility
-                            from java.util.regex import Pattern
-
-                            transform_regex = Pattern.compile(regex_pattern)
-                            matcher = transform_regex.matcher(topic)
-
-                            if matcher.matches():
-                                transformed_topic = str(
-                                    matcher.replaceFirst(replacement)
-                                )
-                                logger.debug(
-                                    f"RegexRouter: {topic} -> {transformed_topic}"
-                                )
-                                new_topics.append(transformed_topic)
-                            else:
-                                logger.debug(f"RegexRouter: {topic} (no match)")
-                                new_topics.append(topic)
-
-                        except ImportError:
-                            logger.warning(
-                                f"Java regex library not available for RegexRouter transform. "
-                                f"Cannot apply pattern '{regex_pattern}' to topic '{topic}'. "
-                                f"Returning original topic name."
-                            )
-                            new_topics.append(topic)
-
-                        except Exception as e:
-                            logger.warning(
-                                f"RegexRouter failed for topic '{topic}' with pattern '{regex_pattern}' "
-                                f"and replacement '{replacement}': {e}"
-                            )
-                            new_topics.append(topic)
-
-                    result_topics = new_topics
-                    logger.debug(
-                        f"Applied transform {transform_name}: {regex_pattern} -> {replacement}"
-                    )
-
-        return result_topics
 
     def _create_direct_lineages_from_topics(
         self, topics: List[str], parser: JdbcParser
@@ -1436,17 +1397,19 @@ class ConfluentJDBCSourceConnector(BaseConnector):
     def _derive_topics_from_config(self) -> List[str]:
         """Extract topics directly from connector configuration - most reliable approach."""
         config = self.connector_manifest.config
-        connector_class = config.get("connector.class", "")
 
-        # Use the handler registry for configuration-based topic derivation
-        handler_registry = ConnectorTopicHandlerRegistry(self.config, self.report)
-        handler = handler_registry.get_handler_for_connector(connector_class)
+        # Use the connector registry for configuration-based topic derivation
+        from datahub.ingestion.source.kafka_connect.connector_registry import (
+            ConnectorRegistry,
+        )
 
-        if handler:
-            config_topics = handler.get_topics_from_config(self.connector_manifest)
-            if config_topics:
-                # Apply predictable transforms to get final topic names
-                return self._apply_predictable_transforms(config_topics, config)
+        config_topics = ConnectorRegistry.get_topics_from_config(
+            self.connector_manifest, self.config, self.report
+        )
+
+        if config_topics:
+            # Apply predictable transforms to get final topic names
+            return self._apply_predictable_transforms(config_topics, config)
 
         return []
 
@@ -1969,8 +1932,8 @@ class DebeziumSourceConnector(BaseConnector):
     ) -> DebeziumParser:
         connector_class = connector_manifest.config.get(CONNECTOR_CLASS, "")
 
-        # Use handler to get platform instead of duplicating logic
-        platform = self.get_platform_from_connector_class(connector_class)
+        # Map connector class to platform
+        platform = self._get_platform_from_connector_class(connector_class)
 
         # Map handler platform to parser platform (handler uses "sqlserver", parser expects "mssql")
         parser_platform = "mssql" if platform == "sqlserver" else platform
@@ -1985,6 +1948,38 @@ class DebeziumSourceConnector(BaseConnector):
             server_name=self.get_server_name(connector_manifest),
             database_name=database_name,
         )
+
+    def get_topics_from_config(self) -> List[str]:
+        """Extract expected topics from Debezium connector configuration."""
+        try:
+            parser = self.get_parser(self.connector_manifest)
+            config = self.connector_manifest.config
+            server_name = parser.server_name or ""
+
+            # Extract table names from configuration
+            table_config = config.get("table.include.list") or config.get(
+                "table.whitelist"
+            )
+            if not table_config:
+                logger.debug("No table configuration found in Debezium connector")
+                return []
+
+            table_names = parse_comma_separated_list(table_config)
+
+            # Debezium topics follow pattern: {server_name}.{table} where table includes schema
+            topics = []
+            for table_name in table_names:
+                if server_name:
+                    # Table name already includes schema prefix (e.g., "public.users")
+                    topic_name = f"{server_name}.{table_name}"
+                else:
+                    topic_name = table_name
+                topics.append(topic_name)
+
+            return topics
+        except Exception as e:
+            logger.debug(f"Failed to derive topics from Debezium connector config: {e}")
+            return []
 
     def _get_database_name_for_platform(
         self, platform: str, config: Dict[str, str]
@@ -2006,6 +2001,26 @@ class DebeziumSourceConnector(BaseConnector):
         else:
             # postgres, oracle, db2 use database.dbname
             return config.get("database.dbname")
+
+    def _get_platform_from_connector_class(self, connector_class: str) -> str:
+        """Map Debezium connector class to platform name."""
+        # Map based on well-known Debezium connector classes
+        if "mysql" in connector_class.lower():
+            return "mysql"
+        elif "postgres" in connector_class.lower():
+            return "postgres"
+        elif "sqlserver" in connector_class.lower():
+            return "sqlserver"
+        elif "oracle" in connector_class.lower():
+            return "oracle"
+        elif "db2" in connector_class.lower():
+            return "db2"
+        elif "mongodb" in connector_class.lower():
+            return "mongodb"
+        elif "vitess" in connector_class.lower():
+            return "vitess"
+        else:
+            return "unknown"
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         lineages: List[KafkaConnectLineage] = list()

@@ -1,7 +1,6 @@
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Final, List, Optional, Type
+from typing import Dict, Final, List, Optional
 
 from pydantic.fields import Field
 
@@ -25,6 +24,76 @@ KAFKA: Final[str] = "kafka"
 SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
+
+# Default connection settings
+DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
+
+
+class ConnectorConfigKeys:
+    """Centralized configuration keys to avoid magic strings throughout the codebase."""
+
+    # Core connector configuration
+    CONNECTOR_CLASS: Final[str] = "connector.class"
+
+    # Topic configuration
+    TOPICS: Final[str] = "topics"
+    TOPICS_REGEX: Final[str] = "topics.regex"
+    KAFKA_TOPIC: Final[str] = "kafka.topic"
+    TOPIC: Final[str] = "topic"
+    TOPIC_PREFIX: Final[str] = "topic.prefix"
+
+    # JDBC configuration
+    CONNECTION_URL: Final[str] = "connection.url"
+    TABLE_INCLUDE_LIST: Final[str] = "table.include.list"
+    TABLE_WHITELIST: Final[str] = "table.whitelist"
+    QUERY: Final[str] = "query"
+    MODE: Final[str] = "mode"
+
+    # Debezium/CDC configuration
+    DATABASE_SERVER_NAME: Final[str] = "database.server.name"
+    DATABASE_HOSTNAME: Final[str] = "database.hostname"
+    DATABASE_PORT: Final[str] = "database.port"
+    DATABASE_DBNAME: Final[str] = "database.dbname"
+    DATABASE_INCLUDE_LIST: Final[str] = "database.include.list"
+
+    # Kafka configuration
+    KAFKA_ENDPOINT: Final[str] = "kafka.endpoint"
+    BOOTSTRAP_SERVERS: Final[str] = "bootstrap.servers"
+    KAFKA_BOOTSTRAP_SERVERS: Final[str] = "kafka.bootstrap.servers"
+
+    # BigQuery configuration
+    PROJECT: Final[str] = "project"
+    DEFAULT_DATASET: Final[str] = "defaultDataset"
+    DATASETS: Final[str] = "datasets"
+    TOPICS_TO_TABLES: Final[str] = "topicsToTables"
+    SANITIZE_TOPICS: Final[str] = "sanitizeTopics"
+    KEYFILE: Final[str] = "keyfile"
+
+    # Snowflake configuration
+    SNOWFLAKE_DATABASE_NAME: Final[str] = "snowflake.database.name"
+    SNOWFLAKE_SCHEMA_NAME: Final[str] = "snowflake.schema.name"
+    SNOWFLAKE_TOPIC2TABLE_MAP: Final[str] = "snowflake.topic2table.map"
+    SNOWFLAKE_PRIVATE_KEY: Final[str] = "snowflake.private.key"
+    SNOWFLAKE_PRIVATE_KEY_PASSPHRASE: Final[str] = "snowflake.private.key.passphrase"
+
+    # S3 configuration
+    S3_BUCKET_NAME: Final[str] = "s3.bucket.name"
+    TOPICS_DIR: Final[str] = "topics.dir"
+    AWS_ACCESS_KEY_ID: Final[str] = "aws.access.key.id"
+    AWS_SECRET_ACCESS_KEY: Final[str] = "aws.secret.access.key"
+    S3_SSE_CUSTOMER_KEY: Final[str] = "s3.sse.customer.key"
+    S3_PROXY_PASSWORD: Final[str] = "s3.proxy.password"
+
+    # MongoDB configuration
+
+    # Transform configuration
+    TRANSFORMS: Final[str] = "transforms"
+
+    # Authentication configuration
+    VALUE_CONVERTER_BASIC_AUTH_USER_INFO: Final[str] = (
+        "value.converter.basic.auth.user.info"
+    )
+
 
 # Confluent Cloud connector class names
 # References:
@@ -76,7 +145,7 @@ class KafkaConnectSourceConfig(
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
     connect_uri: str = Field(
-        default="http://localhost:8083/", description="URI to connect to."
+        default=DEFAULT_CONNECT_URI, description="URI to connect to."
     )
     username: Optional[str] = Field(default=None, description="Kafka Connect username.")
     password: Optional[str] = Field(default=None, description="Kafka Connect password.")
@@ -145,7 +214,70 @@ class KafkaConnectSourceConfig(
         "Only needed if you want to use separate credentials for the Kafka API.",
     )
 
+    # Confluent Cloud specific configuration
+    confluent_cloud_environment_id: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud environment ID (e.g., 'env-xyz123'). "
+        "When specified along with confluent_cloud_cluster_id, the connect_uri will be automatically constructed. "
+        "This is the recommended approach for Confluent Cloud instead of manually constructing the full URI.",
+    )
+
+    confluent_cloud_cluster_id: Optional[str] = Field(
+        default=None,
+        description="Confluent Cloud Kafka Connect cluster ID (e.g., 'lkc-abc123'). "
+        "When specified along with confluent_cloud_environment_id, the connect_uri will be automatically constructed. "
+        "This is the recommended approach for Confluent Cloud instead of manually constructing the full URI.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    def get_connect_credentials(self) -> tuple[Optional[str], Optional[str]]:
+        """Get the appropriate credentials for Connect API access."""
+        return self.username, self.password
+
+    def get_kafka_credentials(self) -> tuple[Optional[str], Optional[str]]:
+        """Get the appropriate credentials for Kafka REST API access."""
+        if self.kafka_api_key and self.kafka_api_secret:
+            return self.kafka_api_key, self.kafka_api_secret
+        # Fall back to Connect credentials (username/password)
+        return self.username, self.password
+
+    @staticmethod
+    def construct_confluent_cloud_uri(environment_id: str, cluster_id: str) -> str:
+        """
+        Construct Confluent Cloud Connect URI from environment and cluster IDs.
+
+        Args:
+            environment_id: Confluent Cloud environment ID (e.g., 'env-xyz123')
+            cluster_id: Confluent Cloud cluster ID (e.g., 'lkc-abc456')
+
+        Returns:
+            Fully constructed Confluent Cloud Connect URI
+        """
+        return (
+            f"https://api.confluent.cloud/connect/v1/"
+            f"environments/{environment_id}/"
+            f"clusters/{cluster_id}"
+        )
+
+    def get_effective_connect_uri(self) -> str:
+        """
+        Get the effective Connect URI, constructing from Confluent Cloud IDs if provided.
+
+        Returns:
+            The URI to use for connecting to Kafka Connect
+        """
+        # Auto-construct URI if both Confluent Cloud IDs are provided and using default URI
+        if (
+            self.confluent_cloud_environment_id
+            and self.confluent_cloud_cluster_id
+            and self.connect_uri == DEFAULT_CONNECT_URI
+        ):
+            return self.construct_confluent_cloud_uri(
+                self.confluent_cloud_environment_id, self.confluent_cloud_cluster_id
+            )
+
+        return self.connect_uri
 
 
 @dataclass
@@ -187,90 +319,32 @@ class ConnectorManifest:
     def extract_lineages(
         self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
     ) -> List[KafkaConnectLineage]:
-        """Extract lineages for this connector using appropriate connector class."""
-        connector_class_type = self._get_connector_class_type()
-        if not connector_class_type:
-            return []
+        """Extract lineages for this connector using connector registry."""
+        from datahub.ingestion.source.kafka_connect.connector_registry import (
+            ConnectorRegistry,
+        )
 
-        # Create instance and extract
-        connector_instance = connector_class_type(self, config, report)
-        return connector_instance.extract_lineages()
+        return ConnectorRegistry.extract_lineages(self, config, report)
 
     def extract_flow_property_bag(
         self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
     ) -> Optional[Dict[str, str]]:
-        """Extract flow property bag for this connector using appropriate connector class."""
-        connector_class_type = self._get_connector_class_type()
-        if not connector_class_type:
-            return None
-
-        # Create instance and extract
-        connector_instance = connector_class_type(self, config, report)
-        return connector_instance.extract_flow_property_bag()
-
-    def _get_connector_class_type(self) -> Optional[Type["BaseConnector"]]:
-        """Factory method to determine appropriate connector class based on connector type and class."""
-        connector_class_value = self.config.get(CONNECTOR_CLASS) or ""
-
-        # Determine connector class type
-        if self.type == SOURCE:
-            return self._get_source_connector_type(connector_class_value)
-        elif self.type == SINK:
-            return self._get_sink_connector_type(connector_class_value)
-
-        return None
-
-    def _get_source_connector_type(
-        self, connector_class_value: str
-    ) -> Optional[Type["BaseConnector"]]:
-        """Get appropriate source connector class type."""
-        # Import here to avoid circular imports
-        from datahub.ingestion.source.kafka_connect.source_connectors import (
-            DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
-            JDBC_SOURCE_CONNECTOR_CLASS,
-            MONGO_SOURCE_CONNECTOR_CLASS,
-            ConfluentJDBCSourceConnector,
-            DebeziumSourceConnector,
-            MongoSourceConnector,
+        """Extract flow property bag for this connector using connector registry."""
+        from datahub.ingestion.source.kafka_connect.connector_registry import (
+            ConnectorRegistry,
         )
 
-        # JDBC source connector lineages (both Platform and Cloud)
-        if (
-            connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS
-            or connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
-        ):
-            return ConfluentJDBCSourceConnector
-        elif connector_class_value.startswith(DEBEZIUM_SOURCE_CONNECTOR_PREFIX):
-            return DebeziumSourceConnector
-        elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
-            return MongoSourceConnector
+        return ConnectorRegistry.extract_flow_property_bag(self, config, report)
 
-        # Check for generic connectors - this would need access to config.generic_connectors
-        # For now, we'll handle this in the calling code since we need access to the config
-        return None
-
-    def _get_sink_connector_type(
-        self, connector_class_value: str
-    ) -> Optional[Type["BaseConnector"]]:
-        """Get appropriate sink connector class type."""
-        # Import here to avoid circular imports
-        from datahub.ingestion.source.kafka_connect.sink_connectors import (
-            BIGQUERY_SINK_CONNECTOR_CLASS,
-            S3_SINK_CONNECTOR_CLASS,
-            SNOWFLAKE_SINK_CONNECTOR_CLASS,
-            BigQuerySinkConnector,
-            ConfluentS3SinkConnector,
-            SnowflakeSinkConnector,
+    def get_topics_from_config(
+        self, config: "KafkaConnectSourceConfig", report: "KafkaConnectSourceReport"
+    ) -> List[str]:
+        """Extract topics from connector configuration using connector registry."""
+        from datahub.ingestion.source.kafka_connect.connector_registry import (
+            ConnectorRegistry,
         )
 
-        if connector_class_value == BIGQUERY_SINK_CONNECTOR_CLASS:
-            return BigQuerySinkConnector
-        elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
-            return ConfluentS3SinkConnector
-        elif connector_class_value == SNOWFLAKE_SINK_CONNECTOR_CLASS:
-            return SnowflakeSinkConnector
-
-        return None
+        return ConnectorRegistry.get_topics_from_config(self, config, report)
 
 
 def remove_prefix(text: str, prefix: str) -> str:
@@ -465,78 +539,7 @@ def get_platform_instance(
     return instance_name
 
 
-class ConnectorTopicHandler(ABC):
-    """Abstract base class for connector-specific topic resolution logic."""
-
-    def __init__(
-        self, config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
-    ):
-        self.config = config
-        self.report = report
-
-    @abstractmethod
-    def get_topics_from_config(
-        self, connector_manifest: ConnectorManifest
-    ) -> List[str]:
-        """Extract topics from connector configuration using connector-specific logic."""
-        pass
-
-    @abstractmethod
-    def supports_connector_class(self, connector_class: str) -> bool:
-        """Check if this handler supports the given connector class."""
-        pass
-
-    @abstractmethod
-    def get_platform(self, connector_class: str) -> str:
-        """Get the source platform for this connector type."""
-        pass
-
-    def get_topic_fields_for_connector(self, connector_type: str) -> List[str]:
-        """Get list of config fields that may contain topic information for this connector."""
-        return ["topics", "kafka.topic"]
-
-    def handle_extraction_error(
-        self, error: Exception, connector_name: str, operation: str
-    ) -> List[str]:
-        """Standard error handling for topic extraction failures."""
-        logger.warning(f"Failed to {operation} for connector {connector_name}: {error}")
-        return []
-
-    def validate_transforms_compatibility(self, config: Dict[str, str]) -> bool:
-        """
-        Validate that transforms can be properly applied.
-
-        Proactively checks for Java regex library availability and warns
-        if RegexRouter transforms will be skipped.
-        """
-        transforms_param = config.get("transforms", "")
-        if not transforms_param:
-            return True  # No transforms to validate
-
-        # Check if any RegexRouter transforms are configured
-        has_regex_router = False
-        transform_names = parse_comma_separated_list(transforms_param)
-
-        for transform_name in transform_names:
-            transform_type_key = f"transforms.{transform_name}.type"
-            transform_type = config.get(transform_type_key, "")
-            if "RegexRouter" in transform_type:
-                has_regex_router = True
-                break
-
-        if has_regex_router:
-            try:
-                from java.util.regex import Pattern  # noqa: F401
-
-                return True
-            except ImportError:
-                logger.warning(
-                    "Java regex library unavailable - RegexRouter transforms will be skipped. "
-                    "This may result in incorrect topic name predictions for lineage extraction."
-                )
-                return False
-
-        return True
+# Removed: ConnectorTopicHandler abstraction - logic moved directly to BaseConnector subclasses
 
 
 def transform_connector_config(
@@ -559,265 +562,40 @@ def has_three_level_hierarchy(platform: str) -> bool:
 
 @dataclass
 class BaseConnector:
+    """
+    Simplified base class for connector-specific lineage extraction.
+
+    Each connector type (JDBC, Debezium, S3, etc.) has its own subclass that implements:
+    - extract_lineages(): Creates lineage mappings from source to Kafka topics
+    - get_topics_from_config(): Extracts topic names from connector configuration
+    - supports_connector_class(): Checks if this connector handles the given class
+    """
+
     connector_manifest: ConnectorManifest
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
 
-    def __post_init__(self) -> None:
-        """Initialize handler registry for platform detection."""
-        self._handler_registry = ConnectorTopicHandlerRegistry(self.config, self.report)
-
-    def get_platform_from_connector_class(self, connector_class: str) -> str:
-        """Get the platform for the given connector class using modular handlers."""
-        return self._handler_registry.get_platform_for_connector(connector_class)
-
     def extract_lineages(self) -> List[KafkaConnectLineage]:
+        """Extract lineage mappings for this connector. Override in subclasses."""
         return []
 
     def extract_flow_property_bag(self) -> Optional[Dict[str, str]]:
+        """Extract flow properties for this connector. Override in subclasses."""
         return None
 
-    def infer_mappings(
-        self,
-        all_topics: Optional[List[str]] = None,
-        consumer_groups: Optional[Dict[str, List[str]]] = None,
-    ) -> List[KafkaConnectLineage]:
-        """
-        Infer direct mappings for improved lineage extraction.
-
-        This method provides enhanced lineage discovery by analyzing runtime data
-        from the Kafka cluster to find additional topic-to-source mappings that
-        may not be apparent from connector configuration alone.
-
-        Enhanced features:
-        - Cross-references connector configs with actual Kafka topics
-        - Handles complex transform scenarios with runtime topic discovery
-        - Supports pattern matching for dynamic topic names
-        - Provides fallback mechanisms for edge cases
-
-        Args:
-            all_topics: Complete list of topics from Kafka cluster (used by source connectors)
-            consumer_groups: Dict mapping consumer group names to their assigned topics (used by sink connectors)
-
-        Returns:
-            List of inferred lineage mappings with enhanced accuracy
-
-        Note:
-            Subclasses should override this method and use whichever parameters are relevant
-            for their connector type (source connectors use all_topics, sink connectors use consumer_groups).
-        """
-        return []  # Base implementation - override in connector subclasses
-
-
-class TopicResolver:
-    """
-    Unified topic resolution for all connector types and environments.
-
-    Consolidates topic resolution logic that was previously scattered across
-    multiple files and classes. Provides a single interface for:
-    - Confluent Cloud topic resolution via Kafka REST API
-    - Self-hosted topic resolution via Connect API
-    - Configuration-based topic derivation as fallback
-    """
-
-    def __init__(
-        self, config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
-    ):
-        self.config = config
-        self.report = report
-        self._handler_registry = ConnectorTopicHandlerRegistry(config, report)
-
-    def resolve_topics(self, connector: ConnectorManifest) -> List[str]:
-        """
-        Resolve topics for a connector using the most appropriate method.
-
-        Resolution strategy:
-        1. Use API-based resolution if available and enabled
-        2. Fall back to configuration-based resolution using connector handlers
-        3. Return empty list if resolution fails
-        """
-        try:
-            # Try API-based resolution first if enabled
-            if self.config.use_connect_topics_api:
-                api_topics = self._resolve_api_topics(connector)
-                if api_topics:
-                    return api_topics
-
-            # Fall back to configuration-based resolution
-            return self._resolve_config_topics(connector)
-
-        except Exception as e:
-            logger.warning(
-                f"Topic resolution failed for connector {connector.name}: {e}"
-            )
-            return []
-
-    def _resolve_api_topics(self, connector: ConnectorManifest) -> List[str]:
-        """Resolve topics using hybrid validation strategy."""
-        try:
-            # 1. Predict topics from configuration
-            predicted_topics = self._resolve_config_topics(connector)
-
-            # 2. Get all topics from Kafka cluster (if available)
-            all_kafka_topics = self._get_all_kafka_topics()
-            if not all_kafka_topics:
-                # No cluster access, return config predictions
-                return predicted_topics
-
-            # 3. Validate predictions against actual Kafka topics
-            existing_predicted = [t for t in predicted_topics if t in all_kafka_topics]
-
-            # 4. Find additional topics by pattern matching
-            pattern_topics = self._find_topics_by_pattern(connector, all_kafka_topics)
-
-            # 5. Combine and deduplicate
-            final_topics = list(set(existing_predicted + pattern_topics))
-
-            logger.info(
-                f"Topic resolution for {connector.name}: {len(predicted_topics)} predicted, "
-                f"{len(existing_predicted)} validated, {len(pattern_topics)} pattern-matched, "
-                f"{len(final_topics)} final"
-            )
-
-            return final_topics
-
-        except Exception as e:
-            logger.warning(f"API topic resolution failed for {connector.name}: {e}")
-            return self._resolve_config_topics(connector)
-
-    def _get_all_kafka_topics(self) -> List[str]:
-        """Get all topics from Kafka cluster using available APIs."""
-        # This would integrate with existing Kafka REST API logic
-        # For now, return empty - will be implemented with actual API calls
+    def get_topics_from_config(self) -> List[str]:
+        """Extract topics from connector configuration. Override in subclasses."""
         return []
 
-    def _find_topics_by_pattern(
-        self, connector: ConnectorManifest, all_topics: List[str]
-    ) -> List[str]:
-        """Find topics that match connector patterns in the complete topic list."""
-        config = connector.config
-        matching_topics = []
+    @staticmethod
+    def supports_connector_class(connector_class: str) -> bool:
+        """Check if this connector handles the given class. Override in subclasses."""
+        return False
 
-        # Look for topic prefix patterns
-        topic_prefix = config.get("topic.prefix", "") or config.get(
-            "database.server.name", ""
-        )
-        if topic_prefix:
-            pattern_topics = [t for t in all_topics if t.startswith(topic_prefix)]
-            matching_topics.extend(pattern_topics)
-
-        # Look for regex patterns if specified
-        topics_regex = config.get("topics.regex")
-        if topics_regex:
-            try:
-                import re
-
-                regex_pattern = re.compile(topics_regex)
-                regex_topics = [t for t in all_topics if regex_pattern.match(t)]
-                matching_topics.extend(regex_topics)
-            except Exception as e:
-                logger.warning(
-                    f"Failed to apply topics.regex pattern '{topics_regex}': {e}"
-                )
-
-        return list(set(matching_topics))
-
-    def _resolve_config_topics(self, connector: ConnectorManifest) -> List[str]:
-        """Resolve topics from connector configuration using handlers."""
-        connector_class = connector.config.get("connector.class", "")
-        handler = self._handler_registry.get_handler_for_connector(connector_class)
-
-        if handler:
-            return handler.get_topics_from_config(connector)
-        else:
-            logger.warning(f"No handler found for connector class: {connector_class}")
-            return []
-
-    def _is_confluent_cloud(self, connector: ConnectorManifest) -> bool:
-        """Check if this is a Confluent Cloud connector."""
-        connector_class = connector.config.get("connector.class", "")
-        return connector_class in CLOUD_JDBC_SOURCE_CLASSES + CLOUD_SINK_CLASSES
+    @staticmethod
+    def get_platform(connector_class: str) -> str:
+        """Get the platform for this connector type. Override in subclasses."""
+        return "unknown"
 
 
-class ConnectorTopicHandlerRegistry:
-    """Registry for connector topic handlers with automatic selection."""
-
-    def __init__(
-        self, config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
-    ):
-        self.config = config
-        self.report = report
-        self._handlers: List[ConnectorTopicHandler] = []
-        self._register_default_handlers()
-
-    def _register_default_handlers(self) -> None:
-        """
-        Register all built-in connector handlers.
-
-        HANDLER REGISTRATION COMPLEXITY RATIONALE:
-
-        The handler registration order and structure reflect real-world Kafka Connect deployment patterns:
-
-        1. **Order Dependency**: Specific handlers must be registered before generic ones
-           - JDBCSourceTopicHandler handles standard JDBC connectors
-           - CloudJDBCSourceTopicHandler handles Confluent Cloud variants
-           - GenericConnectorTopicHandler provides fallback for unknown types
-
-        2. **Dynamic Loading**: Handlers are imported at runtime to avoid circular dependencies
-           - Each handler may depend on common utilities
-           - Common module cannot directly import handlers
-
-        3. **Extensibility**: Registry pattern allows custom handler registration
-           - Users can register additional connector types
-           - Maintains backward compatibility with existing connectors
-
-        This pattern is complex but necessary to support the diverse ecosystem of
-        Kafka Connect connectors across different deployment environments.
-        """
-        # Import here to avoid circular imports
-        from datahub.ingestion.source.kafka_connect.handlers import (
-            BigQuerySinkTopicHandler,
-            CloudJDBCSourceTopicHandler,
-            DebeziumSourceTopicHandler,
-            GenericConnectorTopicHandler,
-            JDBCSourceTopicHandler,
-            MongoSourceTopicHandler,
-            S3SinkTopicHandler,
-            SnowflakeSinkTopicHandler,
-        )
-
-        # Order matters: specific handlers first, generic handler last as fallback
-        self._handlers = [
-            # Source connector handlers (order by specificity)
-            JDBCSourceTopicHandler(self.config, self.report),
-            DebeziumSourceTopicHandler(self.config, self.report),
-            MongoSourceTopicHandler(self.config, self.report),
-            CloudJDBCSourceTopicHandler(self.config, self.report),
-            # Specific sink connector handlers
-            BigQuerySinkTopicHandler(self.config, self.report),
-            S3SinkTopicHandler(self.config, self.report),
-            SnowflakeSinkTopicHandler(self.config, self.report),
-            # Generic fallback handler for all unknown connectors (source and sink)
-            GenericConnectorTopicHandler(self.config, self.report),
-        ]
-
-    def get_handler_for_connector(
-        self, connector_class: str
-    ) -> Optional[ConnectorTopicHandler]:
-        """Get the appropriate handler for the given connector class."""
-        for handler in self._handlers:
-            if handler.supports_connector_class(connector_class):
-                return handler
-        return None
-
-    def register_handler(self, handler: ConnectorTopicHandler) -> None:
-        """Register a custom connector handler."""
-        self._handlers.append(handler)
-
-    def get_platform_for_connector(self, connector_class: str) -> str:
-        """Get the platform for the given connector class using handlers."""
-        handler = self.get_handler_for_connector(connector_class)
-        if handler:
-            return handler.get_platform(connector_class)
-        else:
-            return "unknown"
+# Removed: TopicResolver and ConnectorTopicHandlerRegistry - logic moved directly to BaseConnector subclasses

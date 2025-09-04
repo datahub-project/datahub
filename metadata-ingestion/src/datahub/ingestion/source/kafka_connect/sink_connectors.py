@@ -6,119 +6,16 @@ from typing import Dict, Final, Iterable, List, Optional, Tuple
 from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     BaseConnector,
+    ConnectorConfigKeys,
     ConnectorManifest,
     KafkaConnectLineage,
     parse_comma_separated_list,
 )
+from datahub.ingestion.source.kafka_connect.transform_plugins import (
+    get_transform_pipeline,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class BaseTransform:
-    """Base class for Kafka Connect transforms."""
-
-    def __init__(self, config: Dict[str, str]):
-        self.config = config
-
-    def apply(self, current_topics: List[str]) -> List[str]:
-        """Apply the transform to the current topics."""
-        raise NotImplementedError("Subclasses must implement apply method")
-
-
-class RegexRouterTransform(BaseTransform):
-    """Kafka Connect RegexRouter transform."""
-
-    def apply(self, current_topics: List[str]) -> List[str]:
-        """Apply RegexRouter transform to rename topics."""
-        regex_pattern = self.config.get("regex", "")
-        replacement = self.config.get("replacement", "")
-
-        if not regex_pattern or replacement is None:
-            logger.warning("RegexRouter missing regex or replacement pattern")
-            return current_topics
-
-        transformed_topics = []
-        for topic in current_topics:
-            try:
-                # Use Java regex for exact Kafka Connect compatibility
-                from java.util.regex import Pattern
-
-                transform_regex = Pattern.compile(regex_pattern)
-                matcher = transform_regex.matcher(topic)
-
-                if matcher.matches():
-                    transformed_topic = str(matcher.replaceFirst(replacement))
-                    logger.debug(f"RegexRouter: {topic} -> {transformed_topic}")
-                    transformed_topics.append(transformed_topic)
-                else:
-                    logger.debug(f"RegexRouter: {topic} (no match)")
-                    transformed_topics.append(topic)
-
-            except ImportError:
-                logger.warning(
-                    f"Java regex library not available for RegexRouter transform. "
-                    f"Cannot apply pattern '{regex_pattern}' to topic '{topic}'. "
-                    f"Returning original topic name."
-                )
-                transformed_topics.append(topic)
-
-            except Exception as e:
-                logger.warning(
-                    f"RegexRouter failed for topic '{topic}' with pattern '{regex_pattern}' "
-                    f"and replacement '{replacement}': {e}"
-                )
-                transformed_topics.append(topic)
-
-        return transformed_topics
-
-
-def _apply_transforms_to_topics(topics: List[str], config: Dict[str, str]) -> List[str]:
-    """Apply transforms to topic list using proper Transform classes."""
-    # Get the transforms parameter
-    transforms_param: str = config.get("transforms", "")
-    if not transforms_param:
-        return topics
-
-    # Parse transform names
-    transform_names = parse_comma_separated_list(transforms_param)
-
-    # Known transform types
-    TRANSFORM_CLASSES = {
-        "org.apache.kafka.connect.transforms.RegexRouter": RegexRouterTransform,
-        "io.confluent.connect.cloud.transforms.TopicRegexRouter": RegexRouterTransform,
-    }
-
-    # Build transform pipeline
-    transforms = []
-    for transform_name in transform_names:
-        if not transform_name:
-            continue
-
-        # Get transform configuration
-        transform_config = {"name": transform_name}
-        transform_prefix = f"transforms.{transform_name}."
-
-        for key, value in config.items():
-            if key.startswith(transform_prefix):
-                config_key = key[len(transform_prefix) :]
-                transform_config[config_key] = value
-
-        # Create transform instance only for known types
-        transform_type = transform_config.get("type", "")
-        transform_class = TRANSFORM_CLASSES.get(transform_type)
-
-        if transform_class:
-            transform_instance = transform_class(transform_config)
-            transforms.append(transform_instance)
-        else:
-            logger.debug(f"Skipping unsupported transform type: {transform_type}")
-
-    # Apply transforms in sequence
-    result_topics = topics[:]
-    for transform in transforms:
-        result_topics = transform.apply(result_topics)
-
-    return result_topics
 
 
 @dataclass
@@ -148,6 +45,17 @@ class ConfluentS3SinkConnector(BaseConnector):
             topics=connector_manifest.topic_names,
         )
 
+    def get_topics_from_config(self) -> List[str]:
+        """Extract topics from S3 sink connector configuration."""
+        config = self.connector_manifest.config
+
+        # S3 sink connectors use 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        return []
+
     def extract_flow_property_bag(self) -> Dict[str, str]:
         # Mask/Remove properties that may reveal credentials
         flow_property_bag: Dict[str, str] = {
@@ -171,9 +79,22 @@ class ConfluentS3SinkConnector(BaseConnector):
 
             # Apply transforms to all topics
             topic_list = list(parser.topics)
-            transformed_topics = _apply_transforms_to_topics(
+            transform_result = get_transform_pipeline().apply_forward(
                 topic_list, self.connector_manifest.config
             )
+            transformed_topics = transform_result.topics
+
+            # Log any warnings from transform processing
+            for warning in transform_result.warnings:
+                self.report.warning(
+                    f"Transform warning for {self.connector_manifest.name}: {warning}"
+                )
+
+            if transform_result.fallback_used:
+                self.report.info(
+                    f"Complex transforms detected in {self.connector_manifest.name}. "
+                    f"Consider using 'generic_connectors' config for explicit mappings."
+                )
 
             lineages: List[KafkaConnectLineage] = list()
             for original_topic, transformed_topic in zip(
@@ -258,9 +179,10 @@ class SnowflakeSinkConnector(BaseConnector):
 
         # Apply transforms to get final topic names
         topic_list = list(connector_manifest.topic_names)
-        transformed_topics = _apply_transforms_to_topics(
+        transform_result = get_transform_pipeline().apply_forward(
             topic_list, connector_manifest.config
         )
+        transformed_topics = transform_result.topics
 
         topics_to_tables: Dict[str, str] = {}
         # Extract lineage for only those topics whose data ingestion started
@@ -281,6 +203,17 @@ class SnowflakeSinkConnector(BaseConnector):
             schema_name=schema_name,
             topics_to_tables=topics_to_tables,
         )
+
+    def get_topics_from_config(self) -> List[str]:
+        """Extract topics from Snowflake sink connector configuration."""
+        config = self.connector_manifest.config
+
+        # Snowflake sink connectors use 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        return []
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
         # For all snowflake sink connector properties, refer below link
@@ -505,6 +438,17 @@ class BigQuerySinkConnector(BaseConnector):
             table = self.sanitize_table_name(table)
         return f"{dataset}.{table}"
 
+    def get_topics_from_config(self) -> List[str]:
+        """Extract topics from BigQuery sink connector configuration."""
+        config = self.connector_manifest.config
+
+        # BigQuery sink connectors use 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        return []
+
     def extract_flow_property_bag(self) -> Dict[str, str]:
         # Mask/Remove properties that may reveal credentials
         flow_property_bag: Dict[str, str] = {
@@ -527,9 +471,22 @@ class BigQuerySinkConnector(BaseConnector):
 
         # Apply transforms to all topics
         topic_list = list(self.connector_manifest.topic_names)
-        transformed_topics = _apply_transforms_to_topics(
+        transform_result = get_transform_pipeline().apply_forward(
             topic_list, self.connector_manifest.config
         )
+        transformed_topics = transform_result.topics
+
+        # Log any warnings from transform processing
+        for warning in transform_result.warnings:
+            self.report.warning(
+                f"Transform warning for {self.connector_manifest.name}: {warning}"
+            )
+
+        if transform_result.fallback_used:
+            self.report.info(
+                f"Complex transforms detected in {self.connector_manifest.name}. "
+                f"Consider using 'generic_connectors' config for explicit mappings."
+            )
 
         for original_topic, transformed_topic in zip(topic_list, transformed_topics):
             # Use the transformed topic to determine dataset/table
