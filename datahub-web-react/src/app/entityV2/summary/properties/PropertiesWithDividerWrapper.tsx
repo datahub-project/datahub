@@ -11,7 +11,7 @@ export default function PropertiesWithDividerWrapper() {
     const { summaryElements, isTemplateEditable } = usePageTemplateContext();
 
     // Do not show properties section at all when there are no properties
-    // and the current user has no permissions to manage properties
+    // and the current user has no permissions to manage properties.
     if (!summaryElements?.length && !isTemplateEditable) return null;
 
     return (
