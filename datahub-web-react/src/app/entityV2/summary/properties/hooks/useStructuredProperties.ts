@@ -62,7 +62,9 @@ export default function useStructuredProperties(query: string | undefined) {
             ((data?.searchAcrossEntities?.searchResults ?? [])
                 .map((result) => result.entity)
                 .filter(isStructuredProperty)
-                .filter((property) => SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES.includes(property.definition.valueType.urn))
+                .filter((property) =>
+                    SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES.includes(property.definition.valueType.urn),
+                )
                 ?.map((structuredProperty) => ({
                     key: structuredProperty.urn,
                     name: structuredProperty.definition.displayName ?? '',
