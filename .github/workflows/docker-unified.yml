@@ -212,6 +212,9 @@ jobs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
+      - uses: gradle/actions/setup-gradle@v3 # Use the official Gradle setup action
+        with:
+          gradle-version: 6.0 # Specify your Gradle version
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -259,7 +262,7 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
         run: |
-          ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew --scan :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
