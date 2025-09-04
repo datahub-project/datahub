@@ -23,6 +23,7 @@ from freezegun import freeze_time
 from polars import DataType
 from polars.datatypes import DataTypeClass
 
+from acryl_datahub_cloud.datahub_usage_reporting.excluded import EXCLUDED_PATTERNS
 from datahub.ingestion.api.common import PipelineContext
 
 if TYPE_CHECKING:
@@ -99,6 +100,7 @@ def test_search_search_score_with_zero_usage_percentile() -> None:
         generate_patch=False,
         disable_write_usage=False,
         set_upstream_table_max_modification_time_for_views=True,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
@@ -164,6 +166,7 @@ def test_search_search_score_with_zero_freshness() -> None:
         disable_write_usage=False,
         generate_patch=False,
         set_upstream_table_max_modification_time_for_views=True,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
@@ -288,6 +291,7 @@ def test_dataset_usage(
         use_server_side_aggregation=True,
         disable_write_usage=False,
         generate_patch=False,
+        excluded_platforms=EXCLUDED_PATTERNS,
     )
     tmp_path = pathlib.Path(tempfile.mkdtemp("usage_feature_reporter_test"))
     pipeline_config_dict: Dict[str, Any] = {
@@ -338,6 +342,7 @@ def test_dataset_usage_with_ranking_factors(
         disable_write_usage=False,
         set_upstream_table_max_modification_time_for_views=True,
         generate_patch=False,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
@@ -431,6 +436,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled(
         disable_write_usage=True,
         set_upstream_table_max_modification_time_for_views=True,
         generate_patch=True,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
@@ -513,6 +519,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
         set_upstream_table_max_modification_time_for_views=True,
         generate_patch=True,
         lookback_days=30,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
@@ -595,6 +602,7 @@ def test_dashboard_usage_with_ranking_factors_patch_enabled(
         disable_write_usage=True,
         set_upstream_table_max_modification_time_for_views=True,
         generate_patch=True,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
@@ -677,6 +685,7 @@ def test_dashboard_increremental_usage_with_ranking_factors_patch_enabled(
         disable_write_usage=True,
         set_upstream_table_max_modification_time_for_views=True,
         generate_patch=True,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),
@@ -760,6 +769,7 @@ def test_query_usage_with_ranking_factors_patch_enabled(
         disable_write_usage=True,
         set_upstream_table_max_modification_time_for_views=True,
         generate_patch=True,
+        excluded_platforms=EXCLUDED_PATTERNS,
         ranking_policy=RankingPolicy(
             freshness_factors=[
                 FreshnessFactor(age_in_days=[0, 7], value=3.6),

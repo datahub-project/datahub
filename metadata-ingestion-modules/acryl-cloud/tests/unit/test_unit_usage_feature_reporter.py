@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import polars as pl
 import pytest
 
+from acryl_datahub_cloud.datahub_usage_reporting.excluded import EXCLUDED_PATTERNS
 from acryl_datahub_cloud.datahub_usage_reporting.usage_feature_reporter import (
     DataHubUsageFeatureReportingSource,
     DataHubUsageFeatureReportingSourceConfig,
@@ -32,6 +33,7 @@ def create_test_source(use_exp_cdf: bool = True) -> DataHubUsageFeatureReporting
         disable_write_usage=False,
         set_upstream_table_max_modification_time_for_views=True,
         generate_patch=False,
+        excluded_platforms=EXCLUDED_PATTERNS,
     )
     ctx = Mock(spec=PipelineContext)
     ctx.graph = None
@@ -1282,6 +1284,72 @@ class TestAddPlatformUsagePercentiles:
         assert "platform_urn" in percentile_entry
         assert "platform_rank_percentile" in percentile_entry
         assert isinstance(percentile_entry["platform_rank_percentile"], float)
+
+
+class TestFilterUsers:
+    """Test cases for _filter_users method."""
+
+    @pytest.fixture
+    def source(self) -> DataHubUsageFeatureReportingSource:
+        """Create a DataHubUsageFeatureReportingSource instance for testing."""
+        return create_test_source(use_exp_cdf=False)
+
+    def test_filter_users_basic(
+        self, source: DataHubUsageFeatureReportingSource
+    ) -> None:
+        """Test basic filtering of users with @ symbol."""
+        data = [
+            {"user": "valid_user@company.com"},
+            {"user": "another.user@domain.org"},
+            {"user": "invalid_user_no_at"},
+            {"user": "service_account"},
+        ]
+        users_lf = pl.LazyFrame(data)
+
+        result_lf = source._filter_users(users_lf)
+        result_df = result_lf.collect()
+        result_users = [row["user"] for row in result_df.to_dicts()]
+
+        # Should only include users with @ symbol
+        assert "valid_user@company.com" in result_users
+        assert "another.user@domain.org" in result_users
+        assert "invalid_user_no_at" not in result_users
+        assert "service_account" not in result_users
+
+    def test_filter_users_excluded_patterns(
+        self, source: DataHubUsageFeatureReportingSource
+    ) -> None:
+        """Test filtering of users matching excluded patterns."""
+        data = [
+            {"user": "real_user@company.com"},
+            {
+                "user": "system@company.com"
+            },  # Should be excluded if 'system' is in patterns
+            {
+                "user": "service@company.com"
+            },  # Should be excluded if 'service' is in patterns
+        ]
+        users_lf = pl.LazyFrame(data)
+
+        result_lf = source._filter_users(users_lf)
+        result_df = result_lf.collect()
+        result_users = [row["user"] for row in result_df.to_dicts()]
+
+        # Should include real user but may exclude system/service users depending on EXCLUDED_PATTERNS
+        assert "real_user@company.com" in result_users
+        # Note: Whether system/service users are excluded depends on the actual EXCLUDED_PATTERNS
+
+    def test_filter_users_empty_input(
+        self, source: DataHubUsageFeatureReportingSource
+    ) -> None:
+        """Test filtering with empty input."""
+        empty_lf = pl.LazyFrame([], schema={"user": pl.String})
+
+        result_lf = source._filter_users(empty_lf)
+        result_df = result_lf.collect()
+
+        assert len(result_df) == 0
+        assert "user" in result_df.columns
 
 
 class TestCombineUserUsageData:

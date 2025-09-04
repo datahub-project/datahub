@@ -22,6 +22,7 @@ from polars.datatypes import DataTypeClass
 from pydantic import Field
 from scipy.stats import expon
 
+from acryl_datahub_cloud.datahub_usage_reporting.excluded import EXCLUDED_PATTERNS
 from acryl_datahub_cloud.datahub_usage_reporting.query_builder import QueryBuilder
 from acryl_datahub_cloud.datahub_usage_reporting.usage_feature_patch_builder import (
     UsageFeaturePatchBuilder,
@@ -194,6 +195,11 @@ class DataHubUsageFeatureReportingSourceConfig(
     generate_patch: bool = Field(
         True,
         description="Flag to generate MCP patch for usage features.'",
+    )
+
+    excluded_platforms: List[str] = Field(
+        EXCLUDED_PATTERNS,
+        description="List of platforms to exclude from usage statistics collection. This is done to avoid invite user functionality to be filled with service accounts.",
     )
 
 
@@ -1573,6 +1579,15 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             polars.col("platform_usage_pairs").fill_null(polars.lit([]))
         )
 
+    def _filter_users(self, users_lf: polars.LazyFrame) -> polars.LazyFrame:
+        filter_condition = polars.col("user").str.contains("@")
+        for pattern in self.config.excluded_platforms:
+            filter_condition = filter_condition & ~polars.col("user").str.contains(
+                pattern
+            )
+
+        return users_lf.filter(filter_condition)
+
     def _combine_user_totals(
         self,
         dataset_usage_lf: polars.LazyFrame,
@@ -1581,13 +1596,17 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     ) -> polars.LazyFrame:
         """Combine user totals and top_datasets_map from all sources."""
         # Collect all unique users in one operation
-        all_users_lf = polars.concat(
-            [
-                dataset_usage_lf.select("user"),
-                dashboard_usage_lf.select("user"),
-                chart_usage_lf.select("user"),
-            ]
-        ).unique()
+        all_users_lf = (
+            polars.concat(
+                [
+                    dataset_usage_lf.select("user"),
+                    dashboard_usage_lf.select("user"),
+                    chart_usage_lf.select("user"),
+                ]
+            )
+            .unique()
+            .pipe(self._filter_users)
+        )
 
         return (
             all_users_lf.join(
