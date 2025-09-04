@@ -42,7 +42,6 @@
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
         "MANAGE_HOME_PAGE_TEMPLATES",
-        "MANAGE_ASSET_SUMMARY",
         "GET_METADATA_CHANGE_LOG_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
@@ -81,7 +80,8 @@
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EXECUTE_ENTITY"
+        "EXECUTE_ENTITY",
+        "MANAGE_ASSET_SUMMARY"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
