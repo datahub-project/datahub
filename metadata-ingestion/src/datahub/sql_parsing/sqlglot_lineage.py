@@ -543,16 +543,17 @@ def _select_statement_cll(
     root_scope: sqlglot.optimizer.Scope,
     column_resolver: _ColumnResolver,
     output_table: Optional[_TableName],
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
     try:
-        # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
         ]
         logger.debug("output columns: %s", [col[0] for col in output_columns])
-        for output_col, original_col_expression in output_columns:
+
+        for output_col, _original_col_expression in output_columns:
             if not output_col or output_col == "*":
                 # If schema information is available, the * will be expanded to the actual columns.
                 # Otherwise, we can't process it.
@@ -576,13 +577,11 @@ def _select_statement_cll(
                 trim_selects=False,
                 # We don't need to pass the schema in here, since we've already qualified the columns.
             )
-            # import pathlib
-            # pathlib.Path("sqlglot.html").write_text(
-            #     str(lineage_node.to_html(dialect=dialect))
-            # )
 
             # Generate SELECT lineage.
-            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
+            direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
+                lineage_node, table_name_schema_mapping
+            )
 
             # Fuzzy resolve the output column.
             original_col_expression = lineage_node.expression
@@ -601,7 +600,7 @@ def _select_statement_cll(
             if original_col_expression.type:
                 output_col_type = original_col_expression.type
 
-            # Fuzzy resolve upstream columns.
+            # Resolve upstream columns - table names should already be qualified from placeholder processing
             direct_resolved_col_upstreams = {
                 _ColumnRef(
                     table=edge.table,
@@ -706,12 +705,17 @@ def _column_level_lineage(
         root_scope=root_scope,
         column_resolver=column_resolver,
         output_table=downstream_table,
+        table_name_schema_mapping=table_name_schema_mapping,
     )
 
     joins: Optional[List[_JoinInfo]] = None
     try:
         # List join clauses.
-        joins = _list_joins(dialect=dialect, root_scope=root_scope)
+        joins = _list_joins(
+            dialect=dialect,
+            root_scope=root_scope,
+            table_name_schema_mapping=table_name_schema_mapping,
+        )
         logger.debug("Joins: %s", joins)
     except Exception as e:
         # This is a non-fatal error, so we can continue.
@@ -726,6 +730,7 @@ def _column_level_lineage(
 
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
+    table_name_schema_mapping: Optional[Dict[_TableName, SchemaInfo]] = None,
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
@@ -755,6 +760,37 @@ def _get_direct_raw_col_upstreams(
             direct_raw_col_upstreams.add(
                 _ColumnRef(table=table_ref, column=normalized_col)
             )
+        elif isinstance(node.expression, sqlglot.exp.Placeholder) and node.name != "*":
+            # Handle placeholder expressions from lateral joins.
+            #
+            # In newer SQLGlot versions, columns from lateral subqueries appear as sqlglot.exp.Placeholder
+            # expressions instead of regular table references. This is critical for lateral join column lineage.
+            #
+            # Example: In "SELECT t2.value FROM t1, LATERAL (SELECT value FROM t2 WHERE t1.id = t2.id) t2"
+            # The "t2.value" column reference creates a placeholder with name like '"my_table2"."value"'
+            # which we need to parse to establish the lineage: output.value <- my_table2.value
+            #
+            # Without this handling, lateral join column lineage would be incomplete/missing.
+            try:
+                parsed = sqlglot.parse_one(node.name)
+                if isinstance(parsed, sqlglot.exp.Column) and parsed.table:
+                    table_ref = _TableName.from_sqlglot_table(
+                        sqlglot.parse_one(parsed.table, into=sqlglot.exp.Table)
+                    )
+                    
+                    # Qualify the table reference immediately if schema mapping is available
+                    if table_name_schema_mapping and not (table_ref.database or table_ref.db_schema):
+                        for qualified_name in table_name_schema_mapping:
+                            if qualified_name.table == table_ref.table:
+                                table_ref = qualified_name
+                                break
+                    
+                    column_name = getattr(parsed.this, "name", str(parsed.this))
+                    direct_raw_col_upstreams.add(
+                        _ColumnRef(table=table_ref, column=column_name)
+                    )
+            except Exception:
+                pass
         else:
             # This branch doesn't matter. For example, a count(*) column would go here, and
             # we don't get any column-level lineage for that.
@@ -857,14 +893,15 @@ def _get_raw_col_upstreams_for_expression(
             trim_selects=False,
         )
 
-        return _get_direct_raw_col_upstreams(node)
+        return _get_direct_raw_col_upstreams(node, None)
     finally:
         scope.expression = original_expression
 
 
 def _list_joins(
-        dialect: sqlglot.Dialect,
-        root_scope: sqlglot.optimizer.Scope,
+    dialect: sqlglot.Dialect,
+    root_scope: sqlglot.optimizer.Scope,
+    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
 ) -> List[_JoinInfo]:
     # TODO: Add a confidence tracker here.
 
@@ -894,6 +931,8 @@ def _list_joins(
                     scope=scope,
                 )
 
+            # We don't need to check for `using` here because it's normalized to `on`
+            # by the sqlglot optimizer.
             on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
             if on_clause:
                 joined_columns = _get_raw_col_upstreams_for_expression(
@@ -908,9 +947,18 @@ def _list_joins(
                     )
                     continue
 
+                # When we have an `on` clause, we only want to include tables whose columns are
+                # involved in the join condition. Without this, a statement like this:
+                #   WITH cte_alias AS (select t1.id, t1.user_id, t2.other_col from t1 join t2 on t1.id = t2.id)
+                #   SELECT * FROM users
+                #   JOIN cte_alias ON users.id = cte_alias.user_id
+                # would incorrectly include t2 as part of the left side tables.
                 left_side_tables = OrderedSet(left_side_tables & unique_tables)
                 right_side_tables = OrderedSet(right_side_tables & unique_tables)
             else:
+                # Some joins (cross join, lateral join, etc.) don't have an ON clause.
+                # In those cases, we have some best-effort logic at least extract the
+                # tables involved.
                 joined_columns = OrderedSet()
 
                 if not left_side_tables and not right_side_tables:
@@ -920,6 +968,9 @@ def _list_joins(
                     )
                     continue
                 elif len(left_side_tables | right_side_tables) == 1:
+                    # When we don't have an ON clause, we're more strict about the
+                    # minimum number of tables we need to resolve to avoid false positives.
+                    # On the off chance someone is doing a self-cross-join, we'll miss it.
                     logger.debug(
                         "Skipping join because we couldn't resolve enough tables from the join operands: %s",
                         join.sql(dialect=dialect),
@@ -936,79 +987,50 @@ def _list_joins(
                 )
             )
 
-        # PART 2: Handle LATERAL constructs using getattr for reserved words
-        try:
-            lateral_nodes = list(scope.expression.find_all(sqlglot.exp.Lateral))
-
-            for lateral in lateral_nodes:
-                try:
-                    # Left side: Get the main table from FROM clause (the outer query table)
-                    left_side_tables: OrderedSet[_TableName] = OrderedSet()
-
-                    # Find the main FROM table (not inside LATERAL)
-                    if hasattr(scope.expression, 'from_') and scope.expression.from_:
-                        from_clause = scope.expression.from_
-                        if isinstance(from_clause.this, sqlglot.exp.Table):
-                            left_side_tables.add(_TableName.from_sqlglot_table(from_clause.this))
-
-                    # Right side: Extract from LATERAL structure
-                    # Path: lateral.this (Subquery) -> .this (Select) -> .from.this (Table)
-                    right_side_tables: OrderedSet[_TableName] = OrderedSet()
-
-                    # Use getattr to access 'from' (reserved word)
-                    if (lateral.this and
-                            lateral.this.this and
-                            getattr(lateral.this.this, 'from', None) and
-                            getattr(lateral.this.this, 'from').this):
-
-                        # Navigate: lateral.this.this.from.this
-                        from_clause = getattr(lateral.this.this, 'from')
-                        lateral_table = from_clause.this
-                        if isinstance(lateral_table, sqlglot.exp.Table):
-                            right_side_tables.add(_TableName.from_sqlglot_table(lateral_table))
-
-                    # For LATERAL, right side also includes correlated references (left side tables)
-                    # This matches expected test behavior: right_tables = [my_table2, my_table1]
-                    right_side_tables.update(left_side_tables)
-
-                    # Extract join columns from WHERE clause
-                    # Path: lateral.this.this.where.this (EQ expression)
-                    joined_columns = OrderedSet()
-                    if (lateral.this and
-                            lateral.this.this and
-                            getattr(lateral.this.this, 'where', None) and
-                            getattr(lateral.this.this, 'where').this):
-
-                        try:
-                            where_clause = getattr(lateral.this.this, 'where')
-                            where_expr = where_clause.this
-                            where_columns = _get_raw_col_upstreams_for_expression(
-                                select=where_expr,
-                                dialect=dialect,
-                                scope=scope
-                            )
-                            joined_columns.update(where_columns)
-                        except Exception as e:
-                            logger.debug(f"Error extracting LATERAL WHERE columns: {e}")
-
-                    # Create the LATERAL join info
-                    if left_side_tables and right_side_tables:
-                        joins.append(
-                            _JoinInfo(
-                                join_type="LATERAL JOIN",
-                                left_tables=list(left_side_tables),
-                                right_tables=list(right_side_tables),
-                                on_clause=None,  # LATERAL uses WHERE, not ON
-                                columns_involved=list(sorted(joined_columns)),
-                            )
+        # Handle LATERAL constructs
+        for lateral in scope.expression.find_all(sqlglot.exp.Lateral):
+            try:
+                # Get tables from non-lateral FROM clauses
+                left_tables: OrderedSet[_TableName] = OrderedSet()
+                for from_clause in scope.find_all(sqlglot.exp.From):
+                    if not isinstance(from_clause.this, sqlglot.exp.Lateral):
+                        left_tables.update(
+                            _get_join_side_tables(from_clause.this, dialect, scope)
                         )
 
-                except Exception as e:
-                    logger.debug(f"Error processing LATERAL node: {e}")
-                    continue
+                # Get tables from lateral subquery
+                right_tables: OrderedSet[_TableName] = OrderedSet()
+                if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
+                    right_tables.update(
+                        _TableName.from_sqlglot_table(t)
+                        for t in lateral.this.find_all(sqlglot.exp.Table)
+                    )
 
-        except Exception as e:
-            logger.debug(f"LATERAL detection failed: {e}")
+                # Qualify unqualified table names
+                def qualify(table_ref: _TableName) -> _TableName:
+                    if table_ref.database or table_ref.db_schema:
+                        return table_ref
+                    for qualified_name in table_name_schema_mapping:
+                        if qualified_name.table == table_ref.table:
+                            return qualified_name
+                    return table_ref
+
+                qualified_left = OrderedSet(qualify(t) for t in left_tables)
+                qualified_right = OrderedSet(qualify(t) for t in right_tables)
+                qualified_right.update(qualified_left)
+
+                if qualified_left and qualified_right:
+                    joins.append(
+                        _JoinInfo(
+                            join_type="LATERAL JOIN",
+                            left_tables=list(qualified_left),
+                            right_tables=list(qualified_right),
+                            on_clause=None,
+                            columns_involved=[],
+                        )
+                    )
+            except Exception as e:
+                logger.debug(f"Failed to process LATERAL node: {e}")
 
     return joins
 
@@ -1247,25 +1269,30 @@ def _translate_internal_joins(
 ) -> List[JoinInfo]:
     joins = []
     for raw_join in raw_joins:
-        joins.append(
-            JoinInfo(
-                join_type=raw_join.join_type,
-                left_tables=[
-                    table_name_urn_mapping[table] for table in raw_join.left_tables
-                ],
-                right_tables=[
-                    table_name_urn_mapping[table] for table in raw_join.right_tables
-                ],
-                on_clause=raw_join.on_clause,
-                columns_involved=[
-                    ColumnRef(
-                        table=table_name_urn_mapping[col.table],
-                        column=col.column,
-                    )
-                    for col in raw_join.columns_involved
-                ],
+        try:
+            joins.append(
+                JoinInfo(
+                    join_type=raw_join.join_type,
+                    left_tables=[
+                        table_name_urn_mapping[table] for table in raw_join.left_tables
+                    ],
+                    right_tables=[
+                        table_name_urn_mapping[table] for table in raw_join.right_tables
+                    ],
+                    on_clause=raw_join.on_clause,
+                    columns_involved=[
+                        ColumnRef(
+                            table=table_name_urn_mapping[col.table],
+                            column=col.column,
+                        )
+                        for col in raw_join.columns_involved
+                    ],
+                )
             )
-        )
+        except KeyError as e:
+            # Skip joins that reference tables we can't resolve (e.g., from CTE subqueries)
+            logger.debug(f"Skipping join with unresolvable table: {e}")
+            continue
     return joins
 
 

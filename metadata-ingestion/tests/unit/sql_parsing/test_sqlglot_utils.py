@@ -9,12 +9,12 @@ from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 from datahub.sql_parsing.sqlglot_utils import (
+    PLACEHOLDER_NORMALIZATION_REGEXP,
     generalize_query,
     generalize_query_fast,
     get_dialect,
     get_query_fingerprint,
     is_dialect_instance,
-    PLACEHOLDER_NORMALIZATION_REGEXP,
 )
 
 
@@ -174,10 +174,9 @@ def test_query_generalization(
     if mode in {QueryGeneralizationTestMode.FULL, QueryGeneralizationTestMode.BOTH}:
         assert generalize_query(query, dialect=dialect) == expected
     if mode in {QueryGeneralizationTestMode.FAST, QueryGeneralizationTestMode.BOTH}:
-        assert (
-            generalize_query_fast(query, dialect=dialect, change_table_names=True)
-            == re.sub(PLACEHOLDER_NORMALIZATION_REGEXP, "?", expected)
-        )
+        assert generalize_query_fast(
+            query, dialect=dialect, change_table_names=True
+        ) == re.sub(PLACEHOLDER_NORMALIZATION_REGEXP, "?", expected)
 
 
 def test_query_fingerprint():
