@@ -57,7 +57,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     }, [resolvedEntitiesData]);
 
     const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    
+
     const { data } = useListDomainsQuery({
         variables: {
             input: {
