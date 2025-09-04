@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
@@ -99,8 +101,24 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
             String domainUrn =
                 _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
-            OwnerUtils.addCreatorAsOwner(
-                context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
+
+            if (input.getOwners() != null && !input.getOwners().isEmpty()) {
+              input.getOwners().stream()
+                  .forEach(
+                      (ownerInput) ->
+                          OwnerUtils.validateOwner(
+                              context.getOperationContext(), ownerInput, _entityService));
+              OwnerUtils.addOwnersToResources(
+                  context.getOperationContext(),
+                  input.getOwners(),
+                  ImmutableList.of(new ResourceRefInput(domainUrn, null, null)),
+                  UrnUtils.getUrn(context.getActorUrn()),
+                  _entityService);
+            } else {
+              // No owners specified. Default to current user.
+              OwnerUtils.addCreatorAsOwner(
+                  context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
+            }
             return domainUrn;
           } catch (DataHubGraphQLException e) {
             throw e;

@@ -165,7 +165,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
             let newStagedOptions: OptionType[];
             if (stagedOptions.find((o) => o.value === option.value)) {
                 newStagedOptions = stagedOptions.filter((o) => o.value !== option.value);
+            } else if (!isMultiSelect) {
+                // Single selection: replace all options with just this one
+                newStagedOptions = [option];
             } else {
+                // Multi selection: add to existing options
                 newStagedOptions = [...stagedOptions, option];
             }
             setStagedOptions(newStagedOptions);
@@ -178,14 +182,23 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
 
     const addOptions = useCallback(
         (optionsToAdd: OptionType[]) => {
-            const existingValues = new Set(stagedOptions.map((option) => option.value));
-            const filteredOptionsToAdd = optionsToAdd.filter((option) => !existingValues.has(option.value));
-            if (filteredOptionsToAdd.length) {
-                const newStagedOptions = [...stagedOptions, ...filteredOptionsToAdd];
-                setStagedOptions(newStagedOptions);
+            if (!isMultiSelect) {
+                // Single selection: take only the first option
+                const firstOption = optionsToAdd[0];
+                if (firstOption) {
+                    setStagedOptions([firstOption]);
+                }
+            } else {
+                // Multi selection: add to existing options
+                const existingValues = new Set(stagedOptions.map((option) => option.value));
+                const filteredOptionsToAdd = optionsToAdd.filter((option) => !existingValues.has(option.value));
+                if (filteredOptionsToAdd.length) {
+                    const newStagedOptions = [...stagedOptions, ...filteredOptionsToAdd];
+                    setStagedOptions(newStagedOptions);
+                }
             }
         },
-        [stagedOptions],
+        [stagedOptions, isMultiSelect],
     );
 
     const removeOptions = useCallback(

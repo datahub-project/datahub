@@ -1,6 +1,7 @@
 query getMe {
     me {
         corpUser {
+            type
             urn
             username
             info {

@@ -103,11 +103,15 @@ public class OwnerUtils {
           input.getType() != null
               ? OwnershipType.valueOf(input.getType().toString())
               : OwnershipType.NONE;
+      final Urn ownershipTypeUrn =
+              input.getOwnershipTypeUrn() != null
+                      ? UrnUtils.getUrn(input.getOwnershipTypeUrn())
+                      : UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name()));
       OwnerServiceUtils.addOwnerToAspect(
           ownershipAspect,
           UrnUtils.getUrn(input.getOwnerUrn()),
           com.linkedin.common.OwnershipType.valueOf(ownershipType.toString()),
-          UrnUtils.getUrn(input.getOwnershipTypeUrn()),
+          ownershipTypeUrn,
           OwnershipSourceType.MANUAL);
     }
     return buildMetadataChangeProposalWithUrn(
