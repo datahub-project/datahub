@@ -2,11 +2,11 @@ import { Editor } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import DescriptionActionsBar from '@app/entityV2/summary/documentation/DescriptionActionsBar';
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EmptyDescription from '@app/entityV2/summary/documentation/EmptyDescription';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
@@ -47,8 +47,7 @@ export default function AboutContent() {
         handleCancel,
         emptyDescriptionText,
     } = useDescriptionUtils();
-    const { entityData } = useEntityData();
-    const canEditDescription = !!entityData?.privileges?.canEditDescription;
+    const canEditDescription = useDocumentationPermission();
 
     let content;
 

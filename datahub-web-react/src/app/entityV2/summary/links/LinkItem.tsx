@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
-import { useGetLinkPermissions } from '@app/entityV2/summary/links/useGetLinkPermissions';
+import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -46,7 +46,7 @@ type Props = {
 
 export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, setShowEditLinkModal }: Props) {
     const entityRegistry = useEntityRegistryV2();
-    const hasLinkPermissions = useGetLinkPermissions();
+    const hasLinkPermissions = useLinkPermission();
 
     const createdBy = link.actor;
 

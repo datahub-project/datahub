@@ -3,12 +3,9 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 
 import { EntityType } from '@types';
 
-export function useGetLinkPermissions() {
+export function useCanUpdateGlossaryEntity() {
     const { entityData, entityType } = useEntityData();
     const user = useUserContext();
-
-    // Edit links permission
-    const canEditLinks = !!entityData?.privileges?.canEditLinks;
 
     const canManageGlossaries = !!user?.platformPrivileges?.manageGlossaries;
     const canManageChildren = !!entityData?.privileges?.canManageChildren;
@@ -18,7 +15,5 @@ export function useGetLinkPermissions() {
         (entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) &&
         (canManageGlossaries || canManageChildren);
 
-    const hasLinkPermissions = canEditLinks || canUpdateGlossaryEntity;
-
-    return hasLinkPermissions;
+    return canUpdateGlossaryEntity;
 }
