@@ -28,6 +28,8 @@ x-datahub-integrations-service: &datahub-integrations-service
   image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-head}
   ports:
     - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
+  environment:
+    DEBUGPY_ENABLED: "false" # integration service actions spawn multiple processes, all of which compete over a single port 5004
   env_file:
     - datahub-integrations-service/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
@@ -38,10 +40,11 @@ x-datahub-integrations-service-dev: &datahub-integrations-service-dev
   image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-debug}
   ports:
     - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
-    - ${DATAHUB_MAPPED_INTEGRATIONS_DEBUG_PORT:-5004}:5004
+    # - ${DATAHUB_MAPPED_INTEGRATIONS_DEBUG_PORT:-5004}:5004
   environment: &datahub-integrations-service-dev-env
     PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
     EXTRA_UVICORN_ARGS: "--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src --reload-dir /datahub-actions/src"
+    DEBUGPY_ENABLED: "false" # integration service actions spawn multiple processes, all of which compete over a single port 5004
   volumes:
     - ./datahub-integrations-service/start.sh:/start_datahub_integrations_service.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
