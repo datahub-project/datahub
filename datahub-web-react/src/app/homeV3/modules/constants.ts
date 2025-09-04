@@ -44,17 +44,6 @@ export const CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.AssetCollection,
 ];
 
-export const ADD_MODULE_MENU_SECTION_CUSTOM_LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
-    DataHubPageModuleType.Domains,
-    DataHubPageModuleType.OwnedAssets,
-    DataHubPageModuleType.AssetCollection,
-];
-
-export const DEFAULT_GLOBAL_MODULE_TYPES: DataHubPageModuleType[] = [
-    DataHubPageModuleType.OwnedAssets,
-    DataHubPageModuleType.Domains,
-];
-
 export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.OwnedAssets,
     DataHubPageModuleType.Domains,
@@ -62,6 +51,9 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
     DataHubPageModuleType.Assets,
+    DataHubPageModuleType.ChildHierarchy,
+    DataHubPageModuleType.RelatedTerms,
+    DataHubPageModuleType.DataProducts,
 ];
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];
