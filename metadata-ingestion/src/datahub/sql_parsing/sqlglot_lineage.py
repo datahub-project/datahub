@@ -544,6 +544,8 @@ def _select_statement_cll(
     column_resolver: _ColumnResolver,
     output_table: Optional[_TableName],
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
@@ -580,7 +582,11 @@ def _select_statement_cll(
 
             # Generate SELECT lineage.
             direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
-                lineage_node, table_name_schema_mapping
+                lineage_node,
+                table_name_schema_mapping,
+                dialect,
+                default_db,
+                default_schema,
             )
 
             # Fuzzy resolve the output column.
@@ -706,6 +712,8 @@ def _column_level_lineage(
         column_resolver=column_resolver,
         output_table=downstream_table,
         table_name_schema_mapping=table_name_schema_mapping,
+        default_db=default_db,
+        default_schema=default_schema,
     )
 
     joins: Optional[List[_JoinInfo]] = None
@@ -731,6 +739,9 @@ def _column_level_lineage(
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
     table_name_schema_mapping: Optional[Dict[_TableName, SchemaInfo]] = None,
+    dialect: Optional[sqlglot.Dialect] = None,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
 ) -> OrderedSet[_ColumnRef]:
     # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
     direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
@@ -777,14 +788,17 @@ def _get_direct_raw_col_upstreams(
                     table_ref = _TableName.from_sqlglot_table(
                         sqlglot.parse_one(parsed.table, into=sqlglot.exp.Table)
                     )
-                    
-                    # Qualify the table reference immediately if schema mapping is available
-                    if table_name_schema_mapping and not (table_ref.database or table_ref.db_schema):
-                        for qualified_name in table_name_schema_mapping:
-                            if qualified_name.table == table_ref.table:
-                                table_ref = qualified_name
-                                break
-                    
+
+                    if (
+                        not (table_ref.database or table_ref.db_schema)
+                        and dialect is not None
+                    ):
+                        table_ref = table_ref.qualified(
+                            dialect=dialect,
+                            default_db=default_db,
+                            default_schema=default_schema,
+                        )
+
                     column_name = getattr(parsed.this, "name", str(parsed.this))
                     direct_raw_col_upstreams.add(
                         _ColumnRef(table=table_ref, column=column_name)
@@ -893,7 +907,7 @@ def _get_raw_col_upstreams_for_expression(
             trim_selects=False,
         )
 
-        return _get_direct_raw_col_upstreams(node, None)
+        return _get_direct_raw_col_upstreams(node, None, dialect, None, None)
     finally:
         scope.expression = original_expression
 
