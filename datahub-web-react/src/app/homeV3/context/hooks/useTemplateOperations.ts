@@ -135,7 +135,7 @@ export function useTemplateOperations(
 
             return newTemplate;
         },
-        [],
+        [templateType],
     );
 
     // Helper function to remove a module from template
@@ -253,6 +253,7 @@ export function useTemplateOperations(
             templateType,
             updateAssetSettings,
             urn,
+            refetch,
         ],
     );
 

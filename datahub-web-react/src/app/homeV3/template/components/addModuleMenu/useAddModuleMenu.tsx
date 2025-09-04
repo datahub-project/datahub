@@ -354,7 +354,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         }
 
         return { items };
-    }, [globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule]);
+    }, [globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule, entityType, templateType]);
 
     return menu;
 }

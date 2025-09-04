@@ -15,7 +15,7 @@ const TAGS = { elementType: SummaryElementType.Tags };
 const GLOSSARY_TERMS = { elementType: SummaryElementType.GlossaryTerms };
 
 export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTemplateFragment {
-    let rows: { modules: PageModuleFragment[] }[] = [];
+    let rows: { modules: PageModuleFragment[] }[] = [{ modules: [] }];
     let summaryElements: SummaryElement[] = [];
 
     switch (entityType) {

@@ -180,7 +180,7 @@ export function useModuleOperations(
                 },
             };
         },
-        [],
+        [templateType],
     );
 
     // Updates template state with a new module and updates the appropriate template on the backend
@@ -200,6 +200,7 @@ export function useModuleOperations(
                 module,
                 position,
                 updateTemplateWithModule,
+                templateType,
                 isEditingModule,
             );
 
@@ -216,7 +217,7 @@ export function useModuleOperations(
                 isPersonal,
             });
         },
-        [context, isEditingModule, updateTemplateWithModule],
+        [context, isEditingModule, updateTemplateWithModule, templateType],
     );
 
     // Removes a module from the template state and updates the appropriate template on the backend
@@ -348,6 +349,7 @@ export function useModuleOperations(
                                 moduleFragment,
                                 position,
                                 updateTemplateWithModule,
+                                templateType,
                                 false,
                             );
 
@@ -379,6 +381,7 @@ export function useModuleOperations(
             context,
             removeModuleFromTemplate,
             updateTemplateWithModule,
+            templateType,
         ],
     );
 

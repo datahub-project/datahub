@@ -2,6 +2,7 @@ import { useAppConfig } from '@app/useAppConfig';
 
 export function useShowHomePageRedesign() {
     const appConfig = useAppConfig();
+    return true;
     const { showHomePageRedesign } = appConfig.config.featureFlags;
 
     if (appConfig.loaded) {

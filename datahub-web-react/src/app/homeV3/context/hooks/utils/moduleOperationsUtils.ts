@@ -228,6 +228,7 @@ export function handleModuleAdditionWithSizeMismatch(
         position: ModulePositionInput,
         isEditing: boolean,
     ) => PageTemplateFragment | null,
+    templateType: PageTemplateSurfaceType,
     isEditingModule = false,
 ): PageTemplateFragment | null {
     // Check for size mismatch and adjust position if needed
@@ -244,6 +245,7 @@ export function handleModuleAdditionWithSizeMismatch(
             module,
             adjustedPosition,
             adjustedPosition.rowIndex!,
+            templateType,
             true, // insertNewRow = true
         );
 

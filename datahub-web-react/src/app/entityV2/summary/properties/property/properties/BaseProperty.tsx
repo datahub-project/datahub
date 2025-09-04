@@ -120,7 +120,7 @@ export default function BaseProperty<T>({
                 </PillWrapper>
             </Popover>
         );
-    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue, property.name]);
+    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue]);
 
     return (
         <PropertyWrapper>
