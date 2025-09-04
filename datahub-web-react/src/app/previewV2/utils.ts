@@ -4,6 +4,7 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 
+import { useBatchSetApplicationMutation } from '@graphql/application.generated';
 import { useRemoveTermMutation, useUnsetDomainMutation } from '@graphql/mutations.generated';
 import { BrowsePathV2, GlobalTags, Owner } from '@types';
 
@@ -152,6 +153,45 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
     };
 
     return { removeDataProduct };
+}
+
+export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
+    const [batchSetbatchSetAppl] = useBatchSetApplicationMutation();
+
+    function handleApplication(urn) {
+        batchSetbatchSetAppl({ variables: { input: { resourceUrns: [urn] } } })
+            .then(() => {
+                setTimeout(() => {
+                    setShouldRefetchEmbeddedListSearch(true);
+                    message.success({ content: 'Removed Application.', duration: 2 });
+                }, 2000);
+            })
+            .catch((e: unknown) => {
+                message.destroy();
+                if (e instanceof Error) {
+                    message.error({
+                        content: `Failed to remove application: ${e.message}`,
+                        duration: 3,
+                    });
+                }
+            });
+    }
+
+    const removeApplication = (urn) => {
+        Modal.confirm({
+            title: `Confirm Application Removal`,
+            content: `Are you sure you want to remove this application?`,
+            onOk() {
+                handleApplication(urn);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
+    return { removeApplication };
 }
 
 export const isDefaultBrowsePath = (browsePaths: BrowsePathV2) => {
