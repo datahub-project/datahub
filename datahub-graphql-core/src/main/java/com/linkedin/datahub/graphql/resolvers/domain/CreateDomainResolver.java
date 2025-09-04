@@ -114,10 +114,6 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
                   ImmutableList.of(new ResourceRefInput(domainUrn, null, null)),
                   UrnUtils.getUrn(context.getActorUrn()),
                   _entityService);
-            } else {
-              // No owners specified. Default to current user.
-              OwnerUtils.addCreatorAsOwner(
-                  context, domainUrn, OwnerEntityType.CORP_USER, _entityService);
             }
             return domainUrn;
           } catch (DataHubGraphQLException e) {

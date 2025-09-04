@@ -331,20 +331,6 @@ public class CreateDomainResolverTest {
     Mockito.when(mockClient.ingestProposal(any(), any(), Mockito.eq(false)))
         .thenReturn(TEST_DOMAIN_URN.toString());
 
-    // Mock ownership type URNs that OwnerUtils.addActorAsOwner checks for
-    Mockito.when(
-            mockService.exists(
-                any(),
-                Mockito.eq(UrnUtils.getUrn("urn:li:ownershipType:__system__technical_owner")),
-                Mockito.eq(true)))
-        .thenReturn(true);
-    Mockito.when(
-            mockService.exists(
-                any(),
-                Mockito.eq(UrnUtils.getUrn("urn:li:ownershipType:__system__none")),
-                Mockito.eq(true)))
-        .thenReturn(true);
-
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -385,10 +371,6 @@ public class CreateDomainResolverTest {
             any(),
             Mockito.argThat(new CreateDomainProposalMatcher(domainProposal)),
             Mockito.eq(false));
-
-    // Verify current user is added as owner when no owners provided
-    // The EntityService.ingestProposal is called with AspectsBatch, not individual proposals
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(any(), any(), Mockito.eq(false));
   }
 
   @Test
