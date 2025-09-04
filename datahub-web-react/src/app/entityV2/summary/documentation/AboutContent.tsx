@@ -6,6 +6,7 @@ import DescriptionActionsBar from '@app/entityV2/summary/documentation/Descripti
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EmptyDescription from '@app/entityV2/summary/documentation/EmptyDescription';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
@@ -46,6 +47,7 @@ export default function AboutContent() {
         handleCancel,
         emptyDescriptionText,
     } = useDescriptionUtils();
+    const canEditDescription = useDocumentationPermission();
 
     let content;
 
@@ -71,7 +73,15 @@ export default function AboutContent() {
     }
     return (
         <>
-            <DescriptionContainer onClick={() => setIsEditing(true)}>{content}</DescriptionContainer>
+            <DescriptionContainer
+                onClick={() => {
+                    if (canEditDescription) {
+                        setIsEditing(true);
+                    }
+                }}
+            >
+                {content}
+            </DescriptionContainer>
             {isEditing && (
                 <DescriptionActionsBar
                     onCancel={handleCancel}
