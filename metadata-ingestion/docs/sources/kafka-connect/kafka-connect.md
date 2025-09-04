@@ -19,21 +19,43 @@ source:
 #### Confluent Cloud  
 Uses comprehensive transform pipeline support with Kafka REST API v3 topic validation and config-based fallback:
 
+**Recommended approach using environment and cluster IDs:**
+```yml
+source:
+  type: kafka-connect
+  config:
+    # Auto-construct URI from environment and cluster IDs (recommended)
+    confluent_cloud_environment_id: "env-xyz123"   # Your Confluent Cloud environment ID
+    confluent_cloud_cluster_id: "lkc-abc456"       # Your Kafka Connect cluster ID
+    
+    # Standard credentials for Kafka Connect API
+    username: "your-connect-api-key"        # API key for Kafka Connect access
+    password: "your-connect-api-secret"     # API secret for Kafka Connect access
+    
+    # Optional: Separate credentials for Kafka REST API (if different from Connect API)
+    kafka_api_key: "your-kafka-api-key"            # API key for Kafka REST API access  
+    kafka_api_secret: "your-kafka-api-secret"      # API secret for Kafka REST API access
+    
+    # Optional: Dedicated Kafka REST endpoint for comprehensive topic retrieval  
+    kafka_rest_endpoint: "https://pkc-xxxxx.region.provider.confluent.cloud"
+    
+    # use_connect_topics_api: true  # Default - enables comprehensive topic retrieval
+```
+
+**Alternative approach using full URI (legacy):**
 ```yml
 source:
   type: kafka-connect
   config:
     # Confluent Cloud Connect URI - automatically detected
     connect_uri: "https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-abc456"
-    username: "your-api-key"      # Confluent Cloud API key (shared for both Connect and Kafka)
-    password: "your-api-secret"   # Confluent Cloud API secret (shared for both Connect and Kafka)
+    username: "your-connect-api-key"         # API key for Kafka Connect
+    password: "your-connect-api-secret"      # API secret for Kafka Connect
+    kafka_api_key: "your-kafka-api-key"     # API key for Kafka REST API (if different)
+    kafka_api_secret: "your-kafka-api-secret" # API secret for Kafka REST API (if different)
     
     # Optional: Dedicated Kafka REST endpoint for comprehensive topic retrieval  
     kafka_rest_endpoint: "https://pkc-xxxxx.region.provider.confluent.cloud"
-    # kafka_api_key: "separate-kafka-key"     # Optional: Use different credentials for Kafka API
-    # kafka_api_secret: "separate-kafka-secret" # Optional: Use different credentials for Kafka API
-    
-    # use_connect_topics_api: true  # Default - enables comprehensive topic retrieval with credential reuse
 ```
 
 **Enhanced Transform Pipeline Support:**
@@ -52,10 +74,11 @@ DataHub now provides comprehensive transform pipeline support for Confluent Clou
 - **Schema preservation** maintains full table names with schema information
 
 **Configuration Options:**
-- **Auto-derivation (recommended)**: DataHub finds Kafka REST endpoint automatically from connector configs
+- **Environment/Cluster IDs (recommended)**: Use `confluent_cloud_environment_id` and `confluent_cloud_cluster_id` for automatic URI construction
+- **Auto-derivation**: DataHub finds Kafka REST endpoint automatically from connector configs
 - **Manual endpoint**: Specify `kafka_rest_endpoint` if auto-derivation doesn't work
-- **Shared credentials**: Use `username`/`password` for both Connect and Kafka APIs
-- **Separate credentials (rare)**: Use `kafka_api_key`/`kafka_api_secret` for dedicated access
+- **Separate credentials (typical)**: Use `connect_api_key`/`connect_api_secret` for Connect API and `kafka_api_key`/`kafka_api_secret` for Kafka REST API
+- **Legacy credentials**: Use `username`/`password` for Connect API (falls back for Kafka API if separate credentials not provided)
 
 #### Air-gapped or Performance-Optimized Environments
 Disable topic discovery entirely for environments where API access is not available or not needed:
