@@ -26,13 +26,13 @@ env:
     datahub-frontend
     datahub-mce-consumer
     datahub-mae-consumer
-    datahub-ingestion
     datahub-actions
     datahub-upgrade
     datahub-mysql-setup
     datahub-postgres-setup
     datahub-kafka-setup
     datahub-elasticsearch-setup
+    datahub-frontend-react
 
 permissions:
   contents: read
