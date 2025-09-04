@@ -46,8 +46,22 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     );
 
     const isSelected = useMemo(
-        () => !!selectedOptions.find((o) => o.value === option.value),
-        [selectedOptions, option.value],
+        () =>
+            !!selectedOptions.find((o) => o.value === option.value) ||
+            (!areParentsSelectable &&
+                !!option.isParent &&
+                !!selectableChildren.length &&
+                areAllChildrenSelected &&
+                !areAnyUnselectableChildrenUnexpanded),
+        [
+            selectedOptions,
+            areAllChildrenSelected,
+            areAnyUnselectableChildrenUnexpanded,
+            areParentsSelectable,
+            option.isParent,
+            option.value,
+            selectableChildren.length,
+        ],
     );
 
     const isImplicitlySelected = useMemo(
@@ -108,16 +122,11 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
             selectChildrenImplicitly();
         } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
             if (!isMultiSelect) {
-                // Single selection behavior: replace all selections with just this option
                 setSelectedOptions([option]);
-            } else if (implicitlySelectChildren) {
-                // Multi-selection with implicit children: add parent + children or just children
+            } else {
                 const optionsToAdd =
                     option.isParent && !areParentsSelectable ? selectableChildren : [option, ...selectableChildren];
                 addOptions(optionsToAdd);
-            } else {
-                // Multi-selection without implicit children: add only the clicked option
-                addOptions([option]);
             }
         } else if (areAllChildrenSelected) {
             removeOptions([option, ...selectableChildren]);
