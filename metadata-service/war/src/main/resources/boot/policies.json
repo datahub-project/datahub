@@ -42,7 +42,8 @@
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
         "MANAGE_HOME_PAGE_TEMPLATES",
-        "MANAGE_ASSET_SUMMARY"
+        "MANAGE_ASSET_SUMMARY",
+        "GET_METADATA_CHANGE_LOG_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -199,7 +200,8 @@
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
-        "MANAGE_HOME_PAGE_TEMPLATES"
+        "MANAGE_HOME_PAGE_TEMPLATES",
+        "GET_METADATA_CHANGE_LOG_EVENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
