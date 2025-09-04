@@ -7,7 +7,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -126,9 +126,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     partialConfiguration.setUrnFactor(0.7f);
 
     testQueryConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder()
+        TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
-                TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .maxTermBucketSize(20)
                     .exactMatch(exactMatchConfiguration)
                     .wordGram(wordGramConfiguration)
@@ -1076,7 +1076,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         SearchRequestHandler.getBuilder(
             operationContext,
             TestEntitySpecBuilder.getSpec(),
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             null,
             QueryFilterRewriteChain.EMPTY,
             limitConfig);
@@ -1132,7 +1132,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         SearchRequestHandler.getBuilder(
             operationContext,
             TestEntitySpecBuilder.getSpec(),
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             null,
             QueryFilterRewriteChain.EMPTY,
             strictConfig);
@@ -1190,7 +1190,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         SearchRequestHandler.getBuilder(
             operationContext,
             TestEntitySpecBuilder.getSpec(),
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             null,
             QueryFilterRewriteChain.EMPTY,
             limitConfig);

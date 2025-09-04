@@ -16,6 +16,7 @@ import { jsonToYaml } from '@app/ingestV2/source/utils';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
+import { IngestionSource } from '@types';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -102,10 +103,20 @@ interface Props {
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
+    selectedSource?: IngestionSource;
 }
 
 function RecipeForm(props: Props) {
-    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
+    const {
+        state,
+        isEditing,
+        displayRecipe,
+        sourceConfigs,
+        setStagedRecipe,
+        onClickNext,
+        goToPrevious,
+        selectedSource,
+    } = props;
     const { type } = state;
     const version = state.config?.version;
     const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
@@ -171,6 +182,7 @@ function RecipeForm(props: Props) {
                                 recipe={displayRecipe}
                                 sourceConfigs={sourceConfigs}
                                 version={version}
+                                selectedSource={selectedSource}
                             />
                         </TestConnectionWrapper>
                     )}

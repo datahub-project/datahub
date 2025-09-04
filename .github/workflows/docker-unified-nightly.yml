@@ -1,0 +1,504 @@
+name: Nightly Docker Test
+# This workflow tests against the latest head/master Docker images from DockerHub
+# and if tests pass, tags them as nightly and daily for publishing
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  # Docker registry configuration
+  # DOCKER_REGISTRY: Set to 'docker.io' for DockerHub, or your custom registry domain
+  # DOCKER_REPOSITORY: Set to your organization/username (e.g., 'acryldata' for DockerHub)
+  DOCKER_REGISTRY: "docker.io"
+  DOCKER_REPOSITORY: "acryldata"
+  DOCKER_CACHE: "DEPOT"
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+  # Centralized list of DataHub images to work with
+  # To add/remove images, just update this list and all operations will automatically include them
+  DATAHUB_IMAGES: |
+    datahub-gms
+    datahub-frontend
+    datahub-mce-consumer
+    datahub-mae-consumer
+    datahub-ingestion
+    datahub-actions
+    datahub-upgrade
+    datahub-mysql-setup
+    datahub-postgres-setup
+    datahub-kafka-setup
+    datahub-elasticsearch-setup
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup:
+    runs-on: depot-ubuntu-24.04-small
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      date_tag: ${{ steps.tag.outputs.date_tag }}
+      docker-login: ${{ steps.docker-login.outputs.docker-login }}
+      publish: ${{ steps.publish.outputs.publish }}
+      python_release_version: ${{ steps.tag.outputs.python_release_version }}
+      branch_name: ${{ steps.tag.outputs.branch_name }}
+      repository_name: ${{ steps.tag.outputs.repository_name }}
+      test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
+      use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
+      uv_cache_key: ${{ steps.uv-cache-key.outputs.uv_cache_key }}
+      uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
+      yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
+      yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+      - name: Compute Tag
+        id: tag
+        env:
+          GITHUB_REF_FALLBACK: ${{ github.ref }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: |
+          source .github/scripts/docker_helpers.sh
+          # Get current date in YYYY-MM-DD format
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          {
+            echo "tag=nightly"
+            echo "date_tag=nightly-${CURRENT_DATE}"
+            echo "python_release_version=$(get_python_docker_release_v)"
+            echo "branch_name=${GITHUB_REF#refs/heads/}"
+            echo "repository_name=${GITHUB_REPOSITORY#*/}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Check whether docker login is possible
+        id: docker-login
+        env:
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_USERNAME != '' && secrets.ACRYL_DOCKER_PASSWORD != '' }}
+        run: |
+          echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
+          echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether publishing enabled
+        id: publish
+        env:
+          ENABLE_PUBLISH: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+        run: |
+          echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
+          echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
+
+      - name: Determine runner type
+        id: set-runner
+        run: |
+          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
+            echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
+            echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute UV Cache Key
+        id: uv-cache-key
+        run: |
+          echo "uv_cache_key=docker-unified-nightly-${{ runner.os }}-uv-${{ hashFiles(
+            './datahub-actions/pyproject.toml',
+            './datahub-actions/setup.py',
+            './smoke-test/requirements.txt',
+            './smoke-test/pyproject.toml',
+            './metadata-ingestion/pyproject.toml',
+            './metadata-ingestion/setup.py') }}" >> "$GITHUB_OUTPUT"
+          echo "uv_cache_key_prefix=docker-unified-nightly-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Yarn Cache Key
+        id: yarn-cache-key
+        run: |
+          echo "yarn_cache_key=docker-unified-nightly-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
+          echo "yarn_cache_key_prefix=docker-unified-nightly-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
+
+  smoke_test_lint:
+    name: Lint on smoke tests
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: setup
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Run lint on smoke test
+        run: |
+          python ./.github/scripts/check_python_package.py
+          ./gradlew :smoke-test:pythonLint
+          ./gradlew :smoke-test:cypressLint
+
+  smoke_test_matrix:
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: setup
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      cypress_batch_count: ${{ steps.set-batch-count.outputs.cypress_batch_count }}
+      python_batch_count: ${{ steps.set-batch-count.outputs.python_batch_count }}
+    steps:
+      - id: set-batch-count
+        run: |
+          if [[ "${{ needs.setup.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
+            echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
+          else
+            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: set-matrix
+        run: |
+          python_batch_count=${{ steps.set-batch-count.outputs.python_batch_count }}
+          python_matrix='{"test_strategy":"pytests","batch":"0","batch_count":"'"$python_batch_count"'"}'
+          for ((i=1;i<python_batch_count;i++)); do
+            python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
+          done
+
+          cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
+          cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
+          for ((i=1;i<cypress_batch_count;i++)); do
+            cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
+          done
+
+          includes="$python_matrix,$cypress_matrix"
+          echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
+          
+          # Validate matrix output
+          if [ -z "$includes" ]; then
+            echo "Error: Matrix is empty"
+            exit 1
+          fi
+
+  smoke_test:
+    name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
+    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    needs: [setup, smoke_test_matrix]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
+    if: ${{ needs.smoke_test_matrix.outputs.matrix != '[]' }}
+    env:
+      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
+      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
+    steps:
+      - name: Free up disk space
+        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
+
+      - name: Set up Depot CLI
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        uses: depot/setup-action@v1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' && env.DOCKER_REGISTRY == 'docker.io' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Pull head images from registry
+        run: |
+          # Pull the latest head/master images from registry
+          failed_pulls=0
+          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+            if [ -n "$image" ]; then
+              echo "Pulling ${{ env.DOCKER_REPOSITORY }}/$image:head"
+              if ! docker pull "${{ env.DOCKER_REPOSITORY }}/$image:head"; then
+                echo "Failed to pull ${{ env.DOCKER_REPOSITORY }}/$image:head"
+                failed_pulls=$((failed_pulls + 1))
+              else
+                # Re-tag the head image with the nightly tag for smoke tests
+                echo "Tagging ${{ env.DOCKER_REPOSITORY }}/$image:head as ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+                docker tag "${{ env.DOCKER_REPOSITORY }}/$image:head" "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+              fi
+            fi
+          done
+          
+          if [ $failed_pulls -gt 0 ]; then
+            echo "Warning: $failed_pulls images failed to pull"
+          fi
+          
+          docker images
+
+      - name: run quickstart
+        env:
+          DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DOCKER_REPOSITORY }}/datahub-actions:head
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
+          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+        run: |
+          ./smoke-test/run-quickstart.sh
+
+      - name: Disk Check
+        run: df -h . && docker images
+
+      - name: Disable ES Disk Threshold
+        run: |
+          curl -XPUT "http://localhost:9200/_cluster/settings" \
+          -H 'Content-Type: application/json' -d'{
+            "persistent": {
+              "cluster": {
+                "routing": {
+                  "allocation.disk.threshold_enabled": false
+                }
+              }
+            }
+          }'
+
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      - name: Build datahub cli
+        run: |
+          ./gradlew :metadata-ingestion:install
+
+      - name: Smoke test
+        env:
+          RUN_QUICKSTART: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: ${{ matrix.test_strategy }}
+          BATCH_COUNT: ${{ matrix.batch_count }}
+          BATCH_NUMBER: ${{ matrix.batch }}
+        run: |
+          echo "$DATAHUB_VERSION"
+          ./gradlew --stop
+          ./smoke-test/smoke.sh
+
+      - name: Disk Check
+        run: df -h . && docker images
+
+      - name: store logs
+        if: failure()
+        run: |
+          docker ps -a
+          TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
+          source .github/scripts/docker_logs.sh
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          path: "docker_logs/*.log"
+          retention-days: 5
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          path: smoke-test/tests/cypress/cypress/screenshots/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+            !**/binary/**
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/cache/save@v4
+        if: ${{ matrix.batch == '0' }}
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+
+      - uses: actions/cache/save@v4
+        if: ${{ matrix.batch == '0' }}
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+
+  # Tag and push head images as nightly after smoke tests pass
+  tag_and_push_images:
+    name: Tag and push head images as nightly
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: [setup, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+
+      - name: Check if smoke tests passed
+        run: |
+          # Check the overall result of the matrix job
+          # Matrix jobs can have mixed results, so we check for any failures
+          if [[ "${{ needs.smoke_test.result }}" == "failure" ]]; then
+            echo "Smoke tests failed, skipping image tagging and pushing"
+            exit 1
+          elif [[ "${{ needs.smoke_test.result }}" == "cancelled" ]]; then
+            echo "Smoke tests were cancelled, skipping image tagging and pushing"
+            exit 1
+          else
+            echo "Smoke tests completed successfully, proceeding with image tagging and pushing"
+          fi
+
+      - name: Validate registry configuration
+        run: |
+          if [[ -z "${{ env.DOCKER_REGISTRY }}" || -z "${{ env.DOCKER_REPOSITORY }}" ]]; then
+            echo "Error: DOCKER_REGISTRY and DOCKER_REPOSITORY must be set"
+            exit 1
+          fi
+          
+          # Validate that required secrets are available for the target registry
+          if [[ "${{ env.DOCKER_REGISTRY }}" == "docker.io" ]]; then
+            if [[ -z "${{ secrets.ACRYL_DOCKER_USERNAME }}" || -z "${{ secrets.ACRYL_DOCKER_PASSWORD }}" ]]; then
+              echo "Error: DockerHub credentials required but not provided"
+              exit 1
+            fi
+          fi
+          
+          echo "Using registry: ${{ env.DOCKER_REGISTRY }}"
+          echo "Using repository: ${{ env.DOCKER_REPOSITORY }}"
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        if: ${{ env.DOCKER_REGISTRY == 'docker.io' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Pull head images
+        run: |
+          failed_pulls=0
+          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+            if [ -n "$image" ]; then
+              echo "Pulling ${{ env.DOCKER_REPOSITORY }}/$image:head"
+              if ! docker pull "${{ env.DOCKER_REPOSITORY }}/$image:head"; then
+                echo "Failed to pull ${{ env.DOCKER_REPOSITORY }}/$image:head"
+                failed_pulls=$((failed_pulls + 1))
+              fi
+            fi
+          done
+          
+          if [ $failed_pulls -gt 0 ]; then
+            echo "Warning: $failed_pulls images failed to pull"
+          fi
+
+      - name: Tag images with nightly and daily tags
+        run: |
+          # Tag all images with nightly and daily tags
+          failed_tags=0
+          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+            if [ -n "$image" ]; then
+              echo "Tagging ${{ env.DOCKER_REPOSITORY }}/$image:head as ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+              if ! docker tag "${{ env.DOCKER_REPOSITORY }}/$image:head" "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"; then
+                echo "Failed to tag ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+                failed_tags=$((failed_tags + 1))
+              fi
+              
+              echo "Tagging ${{ env.DOCKER_REPOSITORY }}/$image:head as ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
+              if ! docker tag "${{ env.DOCKER_REPOSITORY }}/$image:head" "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"; then
+                echo "Failed to tag ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
+                failed_tags=$((failed_tags + 1))
+              fi
+            fi
+          done
+          
+          if [ $failed_tags -gt 0 ]; then
+            echo "Warning: $failed_tags tags failed to create"
+          fi
+
+      - name: Push tagged images to registry
+        run: |
+          # Push all nightly tags
+          failed_pushes=0
+          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+            if [ -n "$image" ]; then
+              echo "Pushing ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+              if ! docker push "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"; then
+                echo "Failed to push ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+                failed_pushes=$((failed_pushes + 1))
+              fi
+            fi
+          done
+          
+          # Push all daily tags
+          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+            if [ -n "$image" ]; then
+              echo "Pushing ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
+              if ! docker push "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"; then
+                echo "Failed to push ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
+                failed_pushes=$((failed_pushes + 1))
+              fi
+            fi
+          done
+          
+          if [ $failed_pushes -gt 0 ]; then
+            echo "Warning: $failed_pushes pushes failed"
+          fi
+
+      - name: Show pushed images
+        run: |
+          echo "Successfully tagged and pushed images:"
+          docker images | grep ${{ env.DOCKER_REPOSITORY }}

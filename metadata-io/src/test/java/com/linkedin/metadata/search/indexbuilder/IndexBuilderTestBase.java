@@ -1,10 +1,10 @@
 package com.linkedin.metadata.search.indexbuilder;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
@@ -44,6 +44,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   @Nonnull
   protected abstract RestHighLevelClient getSearchClient();
 
+  @Nonnull
+  protected abstract ElasticSearchConfiguration getElasticSearchConfiguration();
+
   private IndicesClient _indexClient;
   protected static final String TEST_INDEX_NAME = "esindex_builder_test";
   private ESIndexBuilder testDefaultBuilder;
@@ -65,7 +68,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
     testReplicasBuilder =
         new ESIndexBuilder(
@@ -78,7 +81,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
   }
 
@@ -180,7 +183,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
     // index one doc
     IndexRequest indexRequest =
@@ -222,7 +225,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
     // reindex
     ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -257,7 +260,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
     nsecBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
     String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
@@ -286,7 +289,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
     // reindex
     ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -325,7 +328,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             true,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
 
     // No mappings
@@ -398,7 +401,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
 
     // add new replicas
@@ -430,7 +433,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
 
     // add new shard setting
@@ -472,7 +475,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 true,
                 false,
                 false,
-                TEST_ES_SEARCH_CONFIG,
+                getElasticSearchConfiguration(),
                 gitVersion),
             new ESIndexBuilder(
                 getSearchClient(),
@@ -484,7 +487,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 true,
                 false,
                 false,
-                TEST_ES_SEARCH_CONFIG,
+                getElasticSearchConfiguration(),
                 gitVersion),
             new ESIndexBuilder(
                 getSearchClient(),
@@ -496,7 +499,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 false,
                 false,
                 false,
-                TEST_ES_SEARCH_CONFIG,
+                getElasticSearchConfiguration(),
                 gitVersion),
             new ESIndexBuilder(
                 getSearchClient(),
@@ -508,7 +511,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 false,
                 false,
                 false,
-                TEST_ES_SEARCH_CONFIG,
+                getElasticSearchConfiguration(),
                 gitVersion));
 
     for (ESIndexBuilder builder : noReindexBuilders) {
@@ -554,7 +557,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             true,
             false,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchConfiguration(),
             gitVersion);
 
     ReindexConfig reindexConfigNoIndexBefore =

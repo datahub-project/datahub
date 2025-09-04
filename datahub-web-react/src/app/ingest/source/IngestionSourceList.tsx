@@ -262,6 +262,8 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
             .then(() => {
                 analytics.event({
                     type: EventType.ExecuteIngestionSourceEvent,
+                    sourceType: focusSource?.type,
+                    sourceUrn: focusSource?.urn,
                 });
                 message.success({
                     content: `Successfully submitted ingestion execution request!`,
@@ -303,6 +305,7 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
+                        sourceUrn: focusSourceUrn,
                         interval: input.schedule?.interval,
                     });
                     message.success({
@@ -350,6 +353,7 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                         analytics.event({
                             type: EventType.CreateIngestionSourceEvent,
                             sourceType: input.type,
+                            sourceUrn: newSource.urn,
                             interval: input.schedule?.interval,
                         });
                         message.success({

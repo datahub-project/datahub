@@ -474,3 +474,6 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
+
+// :docker:build builds all docker images.
+build.dependsOn buildImagesallImages

@@ -4,6 +4,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFI
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.indexbuilder.IndexBuilderTestBase;
 import com.linkedin.metadata.version.GitVersion;
@@ -26,6 +27,12 @@ public class IndexBuilderElasticSearchTest extends IndexBuilderTestBase {
   @Override
   protected RestHighLevelClient getSearchClient() {
     return _searchClient;
+  }
+
+  @NotNull
+  @Override
+  protected ElasticSearchConfiguration getElasticSearchConfiguration() {
+    return TEST_ES_SEARCH_CONFIG;
   }
 
   @Test

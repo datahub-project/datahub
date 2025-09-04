@@ -1,4 +1,4 @@
-package com.linkedin.metadata.graph.elastic;
+package com.linkedin.metadata.graph.elastic.utils;
 
 import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_DESTINATION_STATUS;
 import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_DESTINATION_URN_FIELD;
@@ -8,18 +8,57 @@ import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_VIA;
 import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_FIELD_VIA_STATUS;
 import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_SOURCE_STATUS;
 import static com.linkedin.metadata.aspect.models.graph.Edge.EDGE_SOURCE_URN_FIELD;
-import static com.linkedin.metadata.graph.elastic.ESGraphQueryDAO.*;
+import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
+import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.TermQueryBuilder;
 
 @Slf4j
 public class GraphFilterUtils {
+
+  /**
+   * Builds an aggregation filter for lineage queries based on relationship direction and edge info.
+   * This method creates a filter that matches edges with specific relationship types and entity
+   * types based on whether the query is for outgoing or incoming relationships.
+   *
+   * @param pair A pair containing the entity type and edge information
+   * @param direction The direction of the relationship (OUTGOING or INCOMING)
+   * @return A BoolQueryBuilder with the appropriate filters applied
+   */
+  public static BoolQueryBuilder getAggregationFilter(
+      Pair<String, EdgeInfo> pair, RelationshipDirection direction) {
+    BoolQueryBuilder subFilter = QueryBuilders.boolQuery();
+    TermQueryBuilder relationshipTypeTerm =
+        QueryBuilders.termQuery(RELATIONSHIP_TYPE, pair.getValue().getType()).caseInsensitive(true);
+    subFilter.filter(relationshipTypeTerm);
+
+    String sourceType;
+    String destinationType;
+    if (direction.equals(RelationshipDirection.OUTGOING)) {
+      sourceType = pair.getKey();
+      destinationType = pair.getValue().getOpposingEntityType();
+    } else {
+      sourceType = pair.getValue().getOpposingEntityType();
+      destinationType = pair.getKey();
+    }
+
+    TermQueryBuilder sourceTypeTerm =
+        QueryBuilders.termQuery(SOURCE_TYPE, sourceType).caseInsensitive(true);
+    subFilter.filter(sourceTypeTerm);
+    TermQueryBuilder destinationTypeTerm =
+        QueryBuilders.termQuery(DESTINATION_TYPE, destinationType).caseInsensitive(true);
+    subFilter.filter(destinationTypeTerm);
+    return subFilter;
+  }
 
   public static QueryBuilder getUrnStatusQuery(
       @Nonnull EdgeUrnType edgeUrnType, @Nonnull final Urn urn, @Nonnull Boolean removed) {
