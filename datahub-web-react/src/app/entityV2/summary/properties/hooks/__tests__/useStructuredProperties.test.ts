@@ -3,12 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import useStructuredProperties from '@app/entityV2/summary/properties/hooks/useStructuredProperties';
-import { PropertyType } from '@app/entityV2/summary/properties/types';
 import * as governUtils from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import { EntityType, SummaryElementType } from '@types';
 
 vi.mock('@app/entity/shared/EntityContext');
 vi.mock('@app/useEntityRegistry');
@@ -79,8 +78,9 @@ describe('useStructuredProperties', () => {
         const firstProperty = result.current.structuredProperties[0];
         expect(firstProperty.name).toBe('First Property');
         expect(firstProperty.key).toBe('urn1');
-        expect(firstProperty.type).toBe(PropertyType.StructuredProperty);
-        expect(firstProperty.structuredPropertyUrn).toBe('urn1');
+        expect(firstProperty.type).toBe(SummaryElementType.StructuredProperty);
+        expect(firstProperty.structuredProperty?.urn).toBe('urn1');
+        expect(firstProperty.structuredProperty?.definition.displayName).toBe('First Property');
     });
 
     it('should call getDisplayNameFilter when a query is provided', () => {

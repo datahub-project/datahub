@@ -23,16 +23,14 @@ env:
   # To add/remove images, just update this list and all operations will automatically include them
   DATAHUB_IMAGES: |
     datahub-gms
-    datahub-frontend
     datahub-mce-consumer
     datahub-mae-consumer
-    datahub-ingestion
     datahub-actions
     datahub-upgrade
     datahub-mysql-setup
     datahub-postgres-setup
-    datahub-kafka-setup
     datahub-elasticsearch-setup
+    datahub-frontend-react
 
 permissions:
   contents: read
@@ -266,6 +264,10 @@ jobs:
               if ! docker pull "${{ env.DOCKER_REPOSITORY }}/$image:head"; then
                 echo "Failed to pull ${{ env.DOCKER_REPOSITORY }}/$image:head"
                 failed_pulls=$((failed_pulls + 1))
+              else
+                # Re-tag the head image with the nightly tag for smoke tests
+                echo "Tagging ${{ env.DOCKER_REPOSITORY }}/$image:head as ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+                docker tag "${{ env.DOCKER_REPOSITORY }}/$image:head" "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
               fi
             fi
           done
