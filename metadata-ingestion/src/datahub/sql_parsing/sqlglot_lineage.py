@@ -1009,31 +1009,31 @@ def _list_joins(
         for lateral in scope.expression.find_all(sqlglot.exp.Lateral):
             try:
                 # Get tables from non-lateral FROM clauses
-                left_tables: OrderedSet[_TableName] = OrderedSet()
+                qualified_left: OrderedSet[_TableName] = OrderedSet()
                 for from_clause in scope.find_all(sqlglot.exp.From):
                     if not isinstance(from_clause.this, sqlglot.exp.Lateral):
-                        left_tables.update(
-                            _get_join_side_tables(from_clause.this, dialect, scope)
+                        qualified_left.update(
+                            t.qualified(
+                                dialect=dialect,
+                                default_db=default_db,
+                                default_schema=default_schema,
+                            )
+                            for t in _get_join_side_tables(
+                                from_clause.this, dialect, scope
+                            )
                         )
 
                 # Get tables from lateral subquery
-                right_tables: OrderedSet[_TableName] = OrderedSet()
+                qualified_right: OrderedSet[_TableName] = OrderedSet()
                 if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
-                    right_tables.update(
-                        _TableName.from_sqlglot_table(t)
+                    qualified_right.update(
+                        _TableName.from_sqlglot_table(t).qualified(
+                            dialect=dialect,
+                            default_db=default_db,
+                            default_schema=default_schema,
+                        )
                         for t in lateral.this.find_all(sqlglot.exp.Table)
                     )
-
-                # Qualify unqualified table names
-                def qualify(table_ref: _TableName) -> _TableName:
-                    return table_ref.qualified(
-                        dialect=dialect,
-                        default_db=default_db,
-                        default_schema=default_schema,
-                    )
-
-                qualified_left = OrderedSet(qualify(t) for t in left_tables)
-                qualified_right = OrderedSet(qualify(t) for t in right_tables)
                 qualified_right.update(qualified_left)
 
                 if qualified_left and qualified_right:
