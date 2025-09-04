@@ -16,10 +16,10 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useUpdateIncidentStatusMutation } from '@graphql/mutations.generated';
 import { useGetUserQuery } from '@graphql/user.generated';
-import { EntityType, IncidentState, IncidentType } from '@types';
+import { EntityType, Incident, IncidentState, IncidentType } from '@types';
 
 type Props = {
-    incident: any;
+    incident: Incident;
     refetch?: () => Promise<any>;
 };
 
@@ -154,17 +154,17 @@ export default function IncidentListItem({ incident, refetch }: Props) {
 
     // Fetching the most recent actor's data.
     const { data: createdActor } = useGetUserQuery({
-        variables: { urn: incident.created.actor, groupsCount: 0 },
+        variables: { urn: incident.created.actor || '', groupsCount: 0 },
         fetchPolicy: 'cache-first',
     });
     const { data: lastUpdatedActor } = useGetUserQuery({
-        variables: { urn: incident.status.lastUpdated.actor, groupsCount: 0 },
+        variables: { urn: incident.incidentStatus.lastUpdated.actor || '', groupsCount: 0 },
         fetchPolicy: 'cache-first',
     });
 
     // Converting the created time into UTC
-    const createdDate = incident.created.time && new Date(incident.created.time);
-    const lastModifiedDate = incident.status.lastUpdated.time && new Date(incident.status.lastUpdated.time);
+    const createdDate = new Date(incident.created.time).getTime();
+    const lastModifiedDate = new Date(incident.incidentStatus.lastUpdated.time).getTime();
 
     // Updating the incident status on button click
     const updateIncidentStatus = (state: IncidentState, resolvedMessage: string) => {
@@ -223,19 +223,19 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <TitleContainer>
                                 <IncidentTitle>{incident.title}</IncidentTitle>
                                 <IncidentTypeTag>
-                                    {incident.type === IncidentType.Custom
+                                    {incident.incidentType === IncidentType.Custom
                                         ? incident.customType
-                                        : getNameFromType(incident.type)}
+                                        : getNameFromType(incident.incidentType)}
                                 </IncidentTypeTag>
                             </TitleContainer>
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
-                                <MarkdownViewer source={incident?.description} />
-                                {incident.status.state === IncidentState.Resolved ? (
+                                <MarkdownViewer source={incident?.description || ''} />
+                                {incident.incidentStatus.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
                                         <IncidentDescriptionText>
-                                            {incident?.status?.message || 'No additional details'}
+                                            {incident?.incidentStatus?.message || 'No additional details'}
                                         </IncidentDescriptionText>
                                     </>
                                 ) : null}
@@ -259,22 +259,24 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             </DescriptionContainer>
                         </div>
                     </IncidentHeaderContainer>
-                    {incident.status.state === IncidentState.Resolved ? (
+                    {incident.incidentStatus.state === IncidentState.Resolved ? (
                         <IncidentResolvedTextContainer>
                             <Popover
                                 overlayStyle={{ maxWidth: 240 }}
                                 placement="left"
                                 title={<Typography.Text strong>Note</Typography.Text>}
                                 content={
-                                    incident?.status?.message === null ? (
+                                    incident?.incidentStatus?.message === null ? (
                                         <Typography.Text type="secondary">No additional details</Typography.Text>
                                     ) : (
-                                        <Typography.Text type="secondary">{incident?.status?.message}</Typography.Text>
+                                        <Typography.Text type="secondary">
+                                            {incident?.incidentStatus?.message}
+                                        </Typography.Text>
                                     )
                                 }
                             >
                                 <IncidentResolvedText>
-                                    {incident?.status?.lastUpdated && (
+                                    {incident?.incidentStatus?.lastUpdated && (
                                         <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
                                             Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
                                         </Tooltip>
