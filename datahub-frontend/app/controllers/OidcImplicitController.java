@@ -5,6 +5,7 @@ import static auth.sso.SsoConfigs.OIDC_ENABLED_CONFIG_PATH;
 import static auth.sso.oidc.OidcConfigs.OIDC_IMPLICIT_ENABLED;
 import static utils.FrontendConstants.OIDC_IMPLICIT_LOGIN;
 
+import auth.AuthUtils;
 import auth.CookieConfigs;
 import auth.sso.oidc.OidcConfigs;
 import client.AuthServiceClient;
@@ -12,15 +13,24 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.aspect.CorpUserAspect;
+import com.linkedin.metadata.aspect.CorpUserAspectArray;
+import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
 import com.nimbusds.jwt.SignedJWT;
 import com.typesafe.config.Config;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Date;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
+import javax.inject.Named;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.credentials.OidcCredentials;
@@ -36,6 +46,7 @@ import play.mvc.Results;
  * Exchanges implicit oidc token for session cookie with client-side only validation This approach
  * is used when the identity provider endpoints are not accessible from the backend controller.
  */
+@Slf4j
 public class OidcImplicitController extends Controller {
 
   public static final String AUTH_VERBOSE_LOGGING = "auth.verbose.logging";
@@ -50,6 +61,13 @@ public class OidcImplicitController extends Controller {
 
   @Inject AuthServiceClient authClient;
   @Inject OidcClient oidcClient;
+
+  @Inject
+  @Named("systemOperationContext")
+  @Nonnull
+  OperationContext systemOperationContext;
+
+  @Inject @Nonnull SystemEntityClient entityClient;
 
   @Inject
   public OidcImplicitController(@Nonnull Config configs) {
@@ -156,6 +174,9 @@ public class OidcImplicitController extends Controller {
       // Create user URN (trim email to avoid whitespace issues)
       final Urn userUrn = new CorpuserUrn(email.trim());
       final String userUrnString = userUrn.toString();
+
+      CorpUserSnapshot extractedUser = extractUser((CorpuserUrn) userUrn, claimsSet, email);
+      provisionUser(systemOperationContext, extractedUser, entityClient);
 
       // Generate session token
       final String sessionToken =
@@ -356,5 +377,45 @@ public class OidcImplicitController extends Controller {
       logger.error("Error extracting email from claims", e);
       return null;
     }
+  }
+
+  public CorpUserSnapshot extractUser(CorpuserUrn urn, JWTClaimsSet claims, String email) {
+    log.debug(String.format("Attempting to extract user from JWT claims %s", claims.toString()));
+    final CorpUserSnapshot corpUserSnapshot = new CorpUserSnapshot();
+
+    try {
+      String firstName = claims.getClaimAsString("given_name");
+      String lastName = claims.getClaimAsString("family_name");
+      String fullName = null;
+      if (firstName != null && lastName != null) {
+        fullName = String.format("%s %s", firstName, lastName);
+      }
+
+      // Create the CorpUserInfo aspect with the available information
+      final CorpUserInfo userInfo = new CorpUserInfo();
+      userInfo.setActive(true);
+      userInfo.setFirstName(firstName, SetMode.IGNORE_NULL);
+      userInfo.setLastName(lastName, SetMode.IGNORE_NULL);
+      userInfo.setEmail(email, SetMode.IGNORE_NULL);
+      userInfo.setDisplayName(fullName, SetMode.IGNORE_NULL);
+
+      // Create the CorpUserSnapshot
+      corpUserSnapshot.setUrn(urn);
+      final CorpUserAspectArray aspects = new CorpUserAspectArray();
+      aspects.add(CorpUserAspect.create(userInfo));
+      corpUserSnapshot.setAspects(aspects);
+    } catch (Exception e) {
+      log.error("Error extracting user details from claims", e);
+    }
+
+    return corpUserSnapshot;
+  }
+
+  /** Protected method to provision user - can be mocked in tests */
+  protected void provisionUser(
+      @Nonnull OperationContext opContext,
+      CorpUserSnapshot corpUserSnapshot,
+      SystemEntityClient systemEntityClient) {
+    AuthUtils.tryProvisionUser(opContext, corpUserSnapshot, systemEntityClient);
   }
 }

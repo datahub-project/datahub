@@ -6,6 +6,7 @@ import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
 import static utils.FrontendConstants.SSO_LOGIN;
 
+import auth.AuthUtils;
 import auth.CookieConfigs;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
@@ -257,7 +258,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
         if (oidcConfigs.isJitProvisioningEnabled()) {
           log.debug("Just-in-time provisioning is enabled. Beginning provisioning process...");
           CorpUserSnapshot extractedUser = extractUser(corpUserUrn, profile);
-          tryProvisionUser(opContext, extractedUser);
+          AuthUtils.tryProvisionUser(opContext, extractedUser, systemEntityClient);
           if (oidcConfigs.isExtractGroupsEnabled()) {
             // Extract groups & provision them.
             List<CorpGroupSnapshot> extractedGroups = extractGroups(profile);
@@ -490,41 +491,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
         new UrnArray(
             extractedGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())));
     return groupMembershipAspect;
-  }
-
-  private void tryProvisionUser(
-      @Nonnull OperationContext opContext, CorpUserSnapshot corpUserSnapshot) {
-
-    log.debug(String.format("Attempting to provision user with urn %s", corpUserSnapshot.getUrn()));
-
-    // 1. Check if this user already exists.
-    try {
-      final Entity corpUser = systemEntityClient.get(opContext, corpUserSnapshot.getUrn());
-      final CorpUserSnapshot existingCorpUserSnapshot = corpUser.getValue().getCorpUserSnapshot();
-
-      log.debug(String.format("Fetched GMS user with urn %s", corpUserSnapshot.getUrn()));
-
-      // If we find more than the key aspect, then the entity "exists".
-      if (existingCorpUserSnapshot.getAspects().size() <= 1) {
-        log.debug(
-            String.format(
-                "Extracted user that does not yet exist %s. Provisioning...",
-                corpUserSnapshot.getUrn()));
-        // 2. The user does not exist. Provision them.
-        final Entity newEntity = new Entity();
-        newEntity.setValue(Snapshot.create(corpUserSnapshot));
-        systemEntityClient.update(opContext, newEntity);
-        log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
-      }
-      log.debug(
-          String.format(
-              "User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
-      // Otherwise, the user exists. Skip provisioning.
-    } catch (RemoteInvocationException e) {
-      // Failing provisioning is something worth throwing about.
-      throw new RuntimeException(
-          String.format("Failed to provision user with urn %s.", corpUserSnapshot.getUrn()), e);
-    }
   }
 
   private void tryProvisionGroups(

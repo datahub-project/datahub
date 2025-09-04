@@ -3,16 +3,17 @@ package controllers;
 import static auth.sso.SsoConfigs.OIDC_ENABLED_CONFIG_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static play.test.Helpers.contentAsString;
 import static utils.FrontendConstants.OIDC_IMPLICIT_LOGIN;
 
 import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSSigner;
@@ -24,12 +25,14 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.pac4j.oidc.client.OidcClient;
 import play.libs.Json;
 import play.mvc.Http;
@@ -42,6 +45,8 @@ public class OidcImplicitControllerTest {
   private AuthServiceClient mockAuthClient;
   private OidcClient mockOidcClient;
   private Config config;
+  private OperationContext mockContext;
+  private SystemEntityClient mockEntityClient;
 
   private RSAKey rsaKey;
   private JWSSigner signer;
@@ -81,15 +86,19 @@ public class OidcImplicitControllerTest {
     // Mock dependencies
     mockAuthClient = mock(AuthServiceClient.class);
     mockOidcClient = mock(OidcClient.class);
+    mockContext = mock(OperationContext.class);
+    mockEntityClient = mock(SystemEntityClient.class);
 
     // Set up mocks
     when(mockAuthClient.generateSessionTokenForUser(anyString(), eq(OIDC_IMPLICIT_LOGIN)))
         .thenReturn(TEST_TOKEN);
 
     // Create controller with mocks
-    controller = new OidcImplicitController(config);
+    controller = spy(new OidcImplicitController(config));
     controller.authClient = mockAuthClient;
     controller.oidcClient = mockOidcClient;
+    controller.systemOperationContext = mockContext;
+    controller.entityClient = mockEntityClient;
   }
 
   @Test
@@ -121,6 +130,13 @@ public class OidcImplicitControllerTest {
 
     // Create HTTP request
     Http.RequestBuilder request = Helpers.fakeRequest().method("POST").bodyJson(requestBody);
+
+    Mockito.doReturn(mock(CorpUserSnapshot.class))
+        .when(controller)
+        .extractUser(any(CorpuserUrn.class), any(JWTClaimsSet.class), anyString());
+
+    // Mock the new protected method
+    doNothing().when(controller).provisionUser(any(), any(), any());
 
     // Call the controller method
     Result result = controller.exchangeTokenForSession(request.build());

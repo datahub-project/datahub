@@ -1,6 +1,12 @@
 package auth;
 
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.entity.Entity;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.r2.RemoteInvocationException;
+import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -155,6 +161,43 @@ public class AuthUtils {
               "Invalid AUTH_COOKIE_SAME_SITE value: %s. Using LAX instead.", sameSiteValue),
           e);
       return Http.Cookie.SameSite.LAX;
+    }
+  }
+
+  public static void tryProvisionUser(
+      @Nonnull OperationContext opContext,
+      CorpUserSnapshot corpUserSnapshot,
+      EntityClient systemEntityClient) {
+
+    log.debug(String.format("Attempting to provision user with urn %s", corpUserSnapshot.getUrn()));
+
+    // 1. Check if this user already exists.
+    try {
+      final Entity corpUser = systemEntityClient.get(opContext, corpUserSnapshot.getUrn());
+      final CorpUserSnapshot existingCorpUserSnapshot = corpUser.getValue().getCorpUserSnapshot();
+
+      log.debug(String.format("Fetched GMS user with urn %s", corpUserSnapshot.getUrn()));
+
+      // If we find more than the key aspect, then the entity "exists".
+      if (existingCorpUserSnapshot.getAspects().size() <= 1) {
+        log.debug(
+            String.format(
+                "Extracted user that does not yet exist %s. Provisioning...",
+                corpUserSnapshot.getUrn()));
+        // 2. The user does not exist. Provision them.
+        final Entity newEntity = new Entity();
+        newEntity.setValue(Snapshot.create(corpUserSnapshot));
+        systemEntityClient.update(opContext, newEntity);
+        log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
+      }
+      log.debug(
+          String.format(
+              "User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
+      // Otherwise, the user exists. Skip provisioning.
+    } catch (RemoteInvocationException e) {
+      // Failing provisioning is something worth throwing about.
+      throw new RuntimeException(
+          String.format("Failed to provision user with urn %s.", corpUserSnapshot.getUrn()), e);
     }
   }
 }
