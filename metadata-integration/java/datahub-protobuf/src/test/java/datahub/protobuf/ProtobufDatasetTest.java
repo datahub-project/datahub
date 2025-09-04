@@ -728,12 +728,18 @@ public class ProtobufDatasetTest {
             .orElseThrow());
   }
 
+  /**
+   * Test that verifies protobuf fields are faithfully ingested with their standard metadata. This
+   * test focuses on ensuring that field information (names, types, etc.) is correctly extracted and
+   * preserved during ingestion. Custom field options, if present, are ignored and do not affect the
+   * field metadata that gets stored.
+   */
   @Test
-  public void messageFields() throws IOException {
-    ProtobufDataset test = getTestProtobufDataset("protobuf", "messageFields");
+  public void messageCustomFieldOptions() throws IOException {
+    ProtobufDataset test = getTestProtobufDataset("protobuf", "messageCustomFieldOptions");
 
     assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:kafka,test.fields.v1.Action,TEST)",
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test.customFieldOptions.v1.Action,TEST)",
         test.getDatasetUrn().toString());
 
     SchemaMetadata testMetadata = test.getSchemaMetadata();
@@ -743,12 +749,13 @@ public class ProtobufDatasetTest {
 
     assertEquals("Action", extractAspect(test.getDatasetMCPs().get(0), "name"));
     assertEquals(
-        "test.fields.v1.Action", extractAspect(test.getDatasetMCPs().get(0), "qualifiedName"));
+        "test.customFieldOptions.v1.Action",
+        extractAspect(test.getDatasetMCPs().get(0), "qualifiedName"));
 
-    // Test UUID field with semantic type annotation
+    // Test that standard protobuf field metadata is preserved (custom field options are ignored)
     assertEquals(
         new SchemaField()
-            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=string].id")
+            .setFieldPath("[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].id")
             .setType(
                 new SchemaFieldDataType()
                     .setType(SchemaFieldDataType.Type.create(new StringType())))
@@ -765,14 +772,16 @@ public class ProtobufDatasetTest {
             .filter(
                 f ->
                     f.getFieldPath()
-                        .equals("[version=2.0].[type=test_fields_v1_Action].[type=string].id"))
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].id"))
             .findFirst()
             .orElseThrow());
 
-    // Test string field with semantic type annotation
+    // Test string field - standard protobuf metadata preserved
     assertEquals(
         new SchemaField()
-            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=string].name")
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].name")
             .setType(
                 new SchemaFieldDataType()
                     .setType(SchemaFieldDataType.Type.create(new StringType())))
@@ -789,14 +798,16 @@ public class ProtobufDatasetTest {
             .filter(
                 f ->
                     f.getFieldPath()
-                        .equals("[version=2.0].[type=test_fields_v1_Action].[type=string].name"))
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].name"))
             .findFirst()
             .orElseThrow());
 
     // Test string field with description
     assertEquals(
         new SchemaField()
-            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=string].description")
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].description")
             .setType(
                 new SchemaFieldDataType()
                     .setType(SchemaFieldDataType.Type.create(new StringType())))
@@ -814,14 +825,15 @@ public class ProtobufDatasetTest {
                 f ->
                     f.getFieldPath()
                         .equals(
-                            "[version=2.0].[type=test_fields_v1_Action].[type=string].description"))
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=string].description"))
             .findFirst()
             .orElseThrow());
 
-    // Test integer field with semantic type annotation
+    // Test integer field - standard protobuf metadata preserved
     assertEquals(
         new SchemaField()
-            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=int].version")
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=int].version")
             .setType(
                 new SchemaFieldDataType()
                     .setType(SchemaFieldDataType.Type.create(new NumberType())))
@@ -838,14 +850,16 @@ public class ProtobufDatasetTest {
             .filter(
                 f ->
                     f.getFieldPath()
-                        .equals("[version=2.0].[type=test_fields_v1_Action].[type=int].version"))
+                        .equals(
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=int].version"))
             .findFirst()
             .orElseThrow());
 
-    // Test boolean field with semantic type annotation
+    // Test boolean field - standard protobuf metadata preserved
     assertEquals(
         new SchemaField()
-            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=boolean].enabled")
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=boolean].enabled")
             .setType(
                 new SchemaFieldDataType()
                     .setType(SchemaFieldDataType.Type.create(new BooleanType())))
@@ -863,14 +877,15 @@ public class ProtobufDatasetTest {
                 f ->
                     f.getFieldPath()
                         .equals(
-                            "[version=2.0].[type=test_fields_v1_Action].[type=boolean].enabled"))
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=boolean].enabled"))
             .findFirst()
             .orElseThrow());
 
-    // Test timestamp fields with semantic type annotation
+    // Test timestamp fields - standard protobuf metadata preserved
     assertEquals(
         new SchemaField()
-            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=long].created_at")
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].created_at")
             .setType(
                 new SchemaFieldDataType()
                     .setType(SchemaFieldDataType.Type.create(new NumberType())))
@@ -888,13 +903,14 @@ public class ProtobufDatasetTest {
                 f ->
                     f.getFieldPath()
                         .equals(
-                            "[version=2.0].[type=test_fields_v1_Action].[type=long].created_at"))
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].created_at"))
             .findFirst()
             .orElseThrow());
 
     assertEquals(
         new SchemaField()
-            .setFieldPath("[version=2.0].[type=test_fields_v1_Action].[type=long].updated_at")
+            .setFieldPath(
+                "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].updated_at")
             .setType(
                 new SchemaFieldDataType()
                     .setType(SchemaFieldDataType.Type.create(new NumberType())))
@@ -912,7 +928,7 @@ public class ProtobufDatasetTest {
                 f ->
                     f.getFieldPath()
                         .equals(
-                            "[version=2.0].[type=test_fields_v1_Action].[type=long].updated_at"))
+                            "[version=2.0].[type=test_customFieldOptions_v1_Action].[type=long].updated_at"))
             .findFirst()
             .orElseThrow());
   }
