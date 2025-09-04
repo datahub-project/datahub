@@ -2,6 +2,7 @@ import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManag
 
 import { GetExternalRolesQuery } from '@graphql/dataset.generated';
 import { GetMeQuery } from '@graphql/me.generated';
+import { EntityType } from '@types';
 
 describe('handleAccessRoles', () => {
     it('should properly map the externalroles and loggedin user', () => {
@@ -32,6 +33,7 @@ describe('handleAccessRoles', () => {
         const GetMeQueryUser: GetMeQuery = {
             me: {
                 corpUser: {
+                    type: EntityType.CorpUser,
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     info: {
@@ -118,6 +120,7 @@ describe('handleAccessRoles', () => {
         const GetMeQueryUser: GetMeQuery = {
             me: {
                 corpUser: {
+                    type: EntityType.CorpUser,
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     info: {
@@ -212,6 +215,7 @@ describe('handleAccessRoles', () => {
         const GetMeQueryUser: GetMeQuery = {
             me: {
                 corpUser: {
+                    type: EntityType.CorpUser,
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     info: {
