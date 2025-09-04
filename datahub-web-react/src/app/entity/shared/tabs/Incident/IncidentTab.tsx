@@ -74,15 +74,6 @@ export const IncidentTab = () => {
     const filteredIncidents = allIncidents.filter(
         (incident) => !selectedIncidentState || incident.incidentStatus?.state === selectedIncidentState,
     );
-    const incidentList = filteredIncidents?.map((incident) => ({
-        urn: incident?.urn,
-        created: incident.created,
-        customType: incident.customType,
-        description: incident.description,
-        status: incident.incidentStatus,
-        type: incident?.incidentType,
-        title: incident?.title,
-    }));
 
     return (
         <>
@@ -130,7 +121,7 @@ export const IncidentTab = () => {
                                 />
                             ),
                         }}
-                        dataSource={incidentList}
+                        dataSource={filteredIncidents}
                         renderItem={(item: any) => <IncidentListItem refetch={refetch} incident={item} />}
                     />
                 </IncidentList>

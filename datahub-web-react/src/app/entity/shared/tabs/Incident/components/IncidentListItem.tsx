@@ -158,13 +158,13 @@ export default function IncidentListItem({ incident, refetch }: Props) {
         fetchPolicy: 'cache-first',
     });
     const { data: lastUpdatedActor } = useGetUserQuery({
-        variables: { urn: incident.incidentStatus.lastUpdated.actor || '', groupsCount: 0 },
+        variables: { urn: incident.incidentStatus?.lastUpdated.actor || '', groupsCount: 0 },
         fetchPolicy: 'cache-first',
     });
 
     // Converting the created time into UTC
     const createdDate = new Date(incident.created.time).getTime();
-    const lastModifiedDate = new Date(incident.incidentStatus.lastUpdated.time).getTime();
+    const lastModifiedDate = new Date(incident.incidentStatus?.lastUpdated.time || incident.created.time).getTime();
 
     // Updating the incident status on button click
     const updateIncidentStatus = (state: IncidentState, resolvedMessage: string) => {
@@ -231,7 +231,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
                                 <MarkdownViewer source={incident?.description || ''} />
-                                {incident.incidentStatus.state === IncidentState.Resolved ? (
+                                {incident.incidentStatus?.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
                                         <IncidentDescriptionText>
@@ -259,7 +259,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             </DescriptionContainer>
                         </div>
                     </IncidentHeaderContainer>
-                    {incident.incidentStatus.state === IncidentState.Resolved ? (
+                    {incident.incidentStatus?.state === IncidentState.Resolved ? (
                         <IncidentResolvedTextContainer>
                             <Popover
                                 overlayStyle={{ maxWidth: 240 }}

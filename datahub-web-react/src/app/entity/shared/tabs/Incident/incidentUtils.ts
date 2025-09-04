@@ -116,7 +116,7 @@ export const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
     };
     incidents.forEach((assertion) => {
         if (incidents.length) {
-            const resultType = assertion.incidentStatus.state;
+            const resultType = assertion.incidentStatus?.state;
             if (IncidentState.Active === resultType) {
                 summary.activeIncident++;
             }
