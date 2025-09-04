@@ -723,6 +723,8 @@ def _column_level_lineage(
             dialect=dialect,
             root_scope=root_scope,
             table_name_schema_mapping=table_name_schema_mapping,
+            default_db=default_db,
+            default_schema=default_schema,
         )
         logger.debug("Joins: %s", joins)
     except Exception as e:
@@ -916,6 +918,8 @@ def _list_joins(
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
 ) -> List[_JoinInfo]:
     # TODO: Add a confidence tracker here.
 
@@ -1022,12 +1026,11 @@ def _list_joins(
 
                 # Qualify unqualified table names
                 def qualify(table_ref: _TableName) -> _TableName:
-                    if table_ref.database or table_ref.db_schema:
-                        return table_ref
-                    for qualified_name in table_name_schema_mapping:
-                        if qualified_name.table == table_ref.table:
-                            return qualified_name
-                    return table_ref
+                    return table_ref.qualified(
+                        dialect=dialect,
+                        default_db=default_db,
+                        default_schema=default_schema,
+                    )
 
                 qualified_left = OrderedSet(qualify(t) for t in left_tables)
                 qualified_right = OrderedSet(qualify(t) for t in right_tables)
