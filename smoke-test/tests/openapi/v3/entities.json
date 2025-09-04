@@ -113,7 +113,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]"
       ],
       "json": {
         "entities": [
@@ -188,7 +189,8 @@
               }
             }
           }
-        ]
+        ],
+        "totalCount": 1
       }
     }
   },
@@ -267,6 +269,7 @@
     "response": {
       "exclude_regex_paths": [
         "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
         "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['auditStamp'\\]",
