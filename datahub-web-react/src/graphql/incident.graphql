@@ -1,3 +1,124 @@
+fragment relatedAssetPreview on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        origin
+        uri
+        platform {
+            ...platformFields
+        }
+        editableProperties {
+            name
+            description
+        }
+        platformNativeType
+        properties {
+            name
+            description
+            customProperties {
+                key
+                value
+            }
+        }
+    }
+    ... on Dashboard {
+        urn
+        type
+        tool
+        dashboardId
+        properties {
+            name
+            description
+            externalUrl
+            access
+            lastModified {
+                time
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Chart {
+        urn
+        type
+        tool
+        chartId
+        properties {
+            name
+            description
+            externalUrl
+            type
+            access
+            lastModified {
+                time
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataFlow {
+        urn
+        type
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLFeatureTable {
+        urn
+        type
+        name
+        description
+        featureTableProperties {
+            description
+            mlFeatures {
+                urn
+            }
+            mlPrimaryKeys {
+                urn
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLModel {
+        name
+        description
+        origin
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        origin
+        description
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+}
+
 fragment incidentFields on Incident {
     incidentType
     customType
@@ -39,14 +160,14 @@ fragment incidentFields on Incident {
         }
     }
     entity {
-        ...entityPreview
+        ...relatedAssetPreview
     }
     linkedAssets: relationships(
         input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000, includeSoftDelete: false }
     ) {
         relationships {
             entity {
-                ...entityPreview
+                ...relatedAssetPreview
             }
         }
     }
