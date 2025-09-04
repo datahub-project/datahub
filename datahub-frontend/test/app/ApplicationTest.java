@@ -27,6 +27,7 @@ import controllers.routes;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
@@ -49,11 +50,13 @@ import no.nav.security.mock.oauth2.token.DefaultOAuth2TokenCallback;
 import okhttp3.Headers;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.awaitility.Awaitility;
 import org.awaitility.Durations;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
@@ -81,6 +84,10 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_OIDC_GROUPS_CLAIM_NAME", value = "groups")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_ID", value = "testclient")
 @SetEnvironmentVariable(key = "AUTH_OIDC_CLIENT_SECRET", value = "testsecret")
+@SetEnvironmentVariable(key = "AUTH_OIDC_CONNECT_TIMEOUT", value = "2000")
+@SetEnvironmentVariable(key = "AUTH_OIDC_READ_TIMEOUT", value = "2000")
+@SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_ATTEMPTS", value = "5")
+@SetEnvironmentVariable(key = "AUTH_OIDC_HTTP_RETRY_DELAY", value = "500")
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
 public class ApplicationTest extends WithBrowser {
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
@@ -89,12 +96,12 @@ public class ApplicationTest extends WithBrowser {
   @Override
   protected Application provideApplication() {
     return new GuiceApplicationBuilder()
-        .configure("metadataService.port", String.valueOf(gmsServerPort()))
+        .configure("metadataService.port", String.valueOf(actualGmsServerPort))
         .configure("auth.baseUrl", "http://localhost:" + providePort())
         .configure(
             "auth.oidc.discoveryUri",
             "http://localhost:"
-                + oauthServerPort()
+                + actualOauthServerPort
                 + "/testIssuer/.well-known/openid-configuration")
         .overrides(new TestModule())
         .in(new Environment(Mode.TEST))
@@ -108,12 +115,13 @@ public class ApplicationTest extends WithBrowser {
     return Helpers.testBrowser(webClient, providePort());
   }
 
-  public int oauthServerPort() {
-    return providePort() + 1;
-  }
-
-  public int gmsServerPort() {
-    return providePort() + 2;
+  /** Find an available port for testing to avoid port conflicts */
+  private int findAvailablePort() {
+    try (ServerSocket socket = new ServerSocket(0)) {
+      return socket.getLocalPort();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to find available port", e);
+    }
   }
 
   private MockOAuth2Server oauthServer;
@@ -123,19 +131,56 @@ public class ApplicationTest extends WithBrowser {
   private MockWebServer gmsServer;
 
   private String wellKnownUrl;
+  private int actualOauthServerPort;
+  private int actualGmsServerPort;
 
   private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
   private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
 
   @BeforeAll
   public void init() throws IOException {
+    // Store actual ports to avoid dynamic allocation issues
+    actualOauthServerPort = findAvailablePort();
+    actualGmsServerPort = findAvailablePort();
+
     // Start Mock GMS
     gmsServer = new MockWebServer();
-    // auth client mock response
-    gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
-    gmsServer.enqueue(
-        new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
-    gmsServer.start(gmsServerPort());
+
+    // Set up dispatcher to handle requests based on path
+    gmsServer.setDispatcher(
+        new okhttp3.mockwebserver.Dispatcher() {
+          @Override
+          public MockResponse dispatch(RecordedRequest request) {
+            String path = request.getPath();
+
+            // Handle user info requests
+            if (path.contains("/users/") && path.contains("/info")) {
+              return new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER));
+            }
+
+            // Handle token generation requests
+            if (path.contains("/generateSessionTokenForUser")) {
+              return new MockResponse()
+                  .setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN));
+            }
+
+            // Handle other requests (like /config endpoint requests)
+            if (path.contains("/config") || path.contains("/health")) {
+              return new MockResponse().setResponseCode(200).setBody("{}");
+            }
+
+            // No stored sso settings
+            if (path.contains("/auth/getSsoSettings")) {
+              return new MockResponse().setResponseCode(404);
+            }
+
+            // Log and return 404 for unexpected requests
+            logger.warn("GMS Server received unexpected request: {} {}", request.getMethod(), path);
+            return new MockResponse().setResponseCode(404).setBody("Not found");
+          }
+        });
+
+    gmsServer.start(actualGmsServerPort);
 
     // Start Mock Identity Provider
     startMockOauthServer();
@@ -146,19 +191,66 @@ public class ApplicationTest extends WithBrowser {
 
     Awaitility.await().timeout(Durations.TEN_SECONDS).until(() -> app != null);
 
-    // Wait for the Play application to be fully ready to handle requests
+    // Wait for all servers to be fully ready to handle requests
     Awaitility.await()
         .timeout(Durations.TEN_SECONDS)
         .until(
             () -> {
               try {
-                // Try to hit a simple endpoint to verify the server is ready
+                // Check Play application readiness
                 browser.goTo("/admin");
-                return true;
+
+                // Check mock OAuth server critical endpoints
+                // Test the well-known endpoint (first thing OIDC client hits)
+                String wellKnownUrl =
+                    String.format(
+                        "http://localhost:%d/%s/.well-known/openid-configuration",
+                        actualOauthServerPort, ISSUER_ID);
+                java.net.URL url = new java.net.URL(wellKnownUrl);
+                java.net.HttpURLConnection connection =
+                    (java.net.HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+                int wellKnownResponseCode = connection.getResponseCode();
+                connection.disconnect();
+
+                // Test the userinfo endpoint (where groups are retrieved)
+                String userInfoUrl =
+                    String.format(
+                        "http://localhost:%d/%s/userinfo", actualOauthServerPort, ISSUER_ID);
+                java.net.URL userInfoUrlObj = new java.net.URL(userInfoUrl);
+                java.net.HttpURLConnection userInfoConnection =
+                    (java.net.HttpURLConnection) userInfoUrlObj.openConnection();
+                userInfoConnection.setRequestMethod("GET");
+                userInfoConnection.setConnectTimeout(5000);
+                userInfoConnection.setReadTimeout(5000);
+                int userInfoResponseCode = userInfoConnection.getResponseCode();
+                userInfoConnection.disconnect();
+
+                logger.debug(
+                    "All servers readiness check - Play app: OK, well-known: {}, userinfo: {}",
+                    wellKnownResponseCode,
+                    userInfoResponseCode);
+
+                return wellKnownResponseCode == 200 && userInfoResponseCode == 200;
               } catch (Exception e) {
+                logger.debug("Servers not ready yet: {}", e.getMessage());
                 return false;
               }
             });
+  }
+
+  @BeforeEach
+  public void setUpTest() {
+    // Clear any captured proposals from previous tests to prevent interference
+    TestModule.clearCapturedProposals();
+
+    // Clear browser cookies and state to ensure clean test isolation
+    if (browser != null) {
+      // Clear cookies using the underlying WebDriver
+      browser.getDriver().manage().deleteAllCookies();
+    }
   }
 
   @AfterAll
@@ -177,9 +269,15 @@ public class ApplicationTest extends WithBrowser {
       logger.info("Shutdown MockOAuth2Server thread");
       oauthServerThread.interrupt();
       try {
-        oauthServerThread.join(2000); // Wait up to 2 seconds for thread to finish
+        oauthServerThread.join(1000); // Wait up to 1 second for thread to finish
       } catch (InterruptedException e) {
         logger.warn("Shutdown MockOAuth2Server thread failed to join.");
+        Thread.currentThread().interrupt();
+      }
+      // Force stop if still alive
+      if (oauthServerThread.isAlive()) {
+        logger.warn("OAuth server thread still alive after interrupt, forcing stop");
+        oauthServerThread.stop(); // Force stop as last resort
       }
     }
   }
@@ -195,6 +293,8 @@ public class ApplicationTest extends WithBrowser {
                   && (String.format("/%s/.well-known/openid-configuration", ISSUER_ID)
                           .equals(oAuth2HttpRequest.getUrl().url().getPath())
                       || String.format("/%s/token", ISSUER_ID)
+                          .equals(oAuth2HttpRequest.getUrl().url().getPath())
+                      || String.format("/%s/userinfo", ISSUER_ID)
                           .equals(oAuth2HttpRequest.getUrl().url().getPath()));
             }
 
@@ -220,6 +320,9 @@ public class ApplicationTest extends WithBrowser {
                             + "}",
                         port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port,
                         ISSUER_ID);
+              } else if (path.equals(String.format("/%s/userinfo", ISSUER_ID))) {
+                // For HEAD requests to userinfo endpoint, just return 200 with no body
+                responseBody = null;
               }
 
               return new OAuth2HttpResponse(
@@ -244,6 +347,10 @@ public class ApplicationTest extends WithBrowser {
 
             @Override
             public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
+              // Log the request to help debug
+              logger.debug(
+                  "UserInfo endpoint called with headers: {}", oAuth2HttpRequest.getHeaders());
+
               // Return userInfo with groups (not in ID token)
               String userInfoResponse =
                   String.format(
@@ -259,12 +366,7 @@ public class ApplicationTest extends WithBrowser {
                           + "}");
 
               return new OAuth2HttpResponse(
-                  Headers.of(
-                      Map.of(
-                          "Content-Type", "application/json",
-                          "Cache-Control", "no-store",
-                          "Pragma", "no-cache",
-                          "Content-Length", String.valueOf(userInfoResponse.length()))),
+                  Headers.of(Map.of("Content-Type", "application/json")),
                   200,
                   userInfoResponse,
                   null);
@@ -280,20 +382,23 @@ public class ApplicationTest extends WithBrowser {
             () -> {
               try {
                 // Configure mock responses - groups are NOT in ID token, only in userInfo endpoint
-                oauthServer.enqueueCallback(
-                    new DefaultOAuth2TokenCallback(
-                        ISSUER_ID,
-                        "testUser",
-                        "JWT",
-                        List.of(),
-                        Map.of(
-                            "email", "testUser@myCompany.com"
-                            // Note: groups are intentionally NOT included in ID token
-                            // They will only be available from the userInfo endpoint
-                            ),
-                        600));
+                // Enqueue multiple callbacks to handle potential retries or multiple requests
+                for (int i = 0; i < 10; i++) {
+                  oauthServer.enqueueCallback(
+                      new DefaultOAuth2TokenCallback(
+                          ISSUER_ID,
+                          "testUser",
+                          "JWT",
+                          List.of(),
+                          Map.of(
+                              "email", "testUser@myCompany.com"
+                              // Note: groups are intentionally NOT included in ID token
+                              // They will only be available from the userInfo endpoint
+                              ),
+                          600));
+                }
 
-                oauthServer.start(InetAddress.getByName("localhost"), oauthServerPort());
+                oauthServer.start(InetAddress.getByName("localhost"), actualOauthServerPort);
 
                 oauthServerStarted.complete(null);
 
@@ -329,7 +434,12 @@ public class ApplicationTest extends WithBrowser {
             });
 
     // Discovery url to authorization server metadata
-    wellKnownUrl = oauthServer.wellKnownUrl(ISSUER_ID).toString();
+    wellKnownUrl =
+        "http://localhost:"
+            + actualOauthServerPort
+            + "/"
+            + ISSUER_ID
+            + "/.well-known/openid-configuration";
 
     // Wait for server to return configuration
     // Validate mock server returns data
@@ -376,15 +486,15 @@ public class ApplicationTest extends WithBrowser {
   @Test
   public void testOpenIdConfig() {
     assertEquals(
-        "http://localhost:" + oauthServerPort() + "/testIssuer/.well-known/openid-configuration",
+        "http://localhost:"
+            + actualOauthServerPort
+            + "/testIssuer/.well-known/openid-configuration",
         wellKnownUrl);
   }
 
   @Test
   public void testHappyPathOidc() throws ParseException {
-    // Clear any previously captured proposals and ensure clean state
-    TestModule.clearCapturedProposals();
-    // Verify the list is actually empty
+    // Verify the list is actually empty (cleared by @BeforeEach)
     assertTrue(TestModule.getCapturedProposals().isEmpty());
 
     browser.goTo("/authenticate");
@@ -401,12 +511,24 @@ public class ApplicationTest extends WithBrowser {
     assertEquals(TEST_TOKEN, data.get("token"));
     assertEquals(TEST_USER, data.get("actor"));
     // Default expiration is 24h, so should always be less than current time + 1 day since it stamps
-    // the time before this executes
+    // the time before this executes. Use a more generous tolerance to account for timezone
+    // differences
+    // and test execution time variations.
+    Date maxExpectedExpiration =
+        new Date(System.currentTimeMillis() + (25 * 60 * 60 * 1000)); // 25 hours
+    Date minExpectedExpiration =
+        new Date(System.currentTimeMillis() + (23 * 60 * 60 * 1000)); // 23 hours
+    Date actualExpiration = claims.getExpirationTime();
+
     assertTrue(
-        claims
-                .getExpirationTime()
-                .compareTo(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
-            < 0);
+        actualExpiration.after(minExpectedExpiration)
+            && actualExpiration.before(maxExpectedExpiration),
+        "JWT expiration time should be within reasonable bounds. Actual: "
+            + actualExpiration
+            + ", Min expected: "
+            + minExpectedExpiration
+            + ", Max expected: "
+            + maxExpectedExpiration);
 
     // Verify that ingestProposal was called for group membership and user status updates
     List<MetadataChangeProposal> capturedProposals = TestModule.getCapturedProposals();

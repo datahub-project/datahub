@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import AddLinkButton from '@app/entityV2/summary/links/AddLinkButton';
 import LinksList from '@app/entityV2/summary/links/LinksList';
+import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 
 const LinksSection = styled.div`
     display: flex;
@@ -11,10 +12,12 @@ const LinksSection = styled.div`
 `;
 
 export default function Links() {
+    const hasLinkPermissions = useLinkPermission();
+
     return (
         <LinksSection>
             <LinksList />
-            <AddLinkButton />
+            {hasLinkPermissions && <AddLinkButton />}
         </LinksSection>
     );
 }
