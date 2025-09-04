@@ -37,7 +37,7 @@ const DOMAINS_MODULE: PageModuleFragment = {
     },
 };
 
-const ASSETS_MODULE: PageModuleFragment = {
+export const ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:assets',
     type: EntityType.DatahubPageModule,
     properties: {
