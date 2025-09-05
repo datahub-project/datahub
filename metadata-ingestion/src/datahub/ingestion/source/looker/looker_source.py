@@ -1466,73 +1466,85 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def extract_independent_looks(self) -> Iterable[Union[Container, Chart]]:
         """
-        Emit entities for looks which are not part of any Dashboard
+        Emit entities for Looks which are not part of any Dashboard.
+
+        Returns: Containers for the folders and ancestors folders and Charts for the looks
         """
         if self.source_config.extract_independent_looks is False:
             return
 
-        self.reporter.report_stage_start("extract_independent_looks")
+        with self.reporter.report_stage("extract_independent_looks"):
+            logger.debug("Extracting Looks not part of any Dashboard")
 
-        logger.debug("Extracting looks not part of Dashboard")
-        look_fields: List[str] = [
-            "id",
-            "title",
-            "description",
-            "query_id",
-            "folder",
-            "user_id",
-        ]
-        query_fields: List[str] = [
-            "id",
-            "view",
-            "model",
-            "dynamic_fields",
-            "filters",
-            "fields",
-            "slug",
-        ]
+            look_fields: List[str] = [
+                "id",
+                "title",
+                "description",
+                "query_id",
+                "folder",
+                "user_id",
+            ]
+            query_fields: List[str] = [
+                "id",
+                "view",
+                "model",
+                "dynamic_fields",
+                "filters",
+                "fields",
+                "slug",
+            ]
 
-        all_looks: List[Look] = self.looker_api.all_looks(
-            fields=look_fields, soft_deleted=self.source_config.include_deleted
-        )
-        for look in all_looks:
-            if look.id in self.reachable_look_registry:
-                # This look is reachable from the Dashboard
-                continue
+            all_looks: List[Look] = self.looker_api.all_looks(
+                fields=look_fields, soft_deleted=self.source_config.include_deleted
+            )
 
-            if look.query_id is None:
-                logger.info(f"query_id is None for look {look.title}({look.id})")
-                continue
-
-            if self.source_config.skip_personal_folders:
-                if look.folder is not None and (
-                    look.folder.is_personal or look.folder.is_personal_descendant
-                ):
-                    self.reporter.info(
-                        title="Dropped Look",
-                        message="Dropped due to being a personal folder",
-                        context=f"Look ID: {look.id}",
-                    )
-
-                    assert look.id, "Looker id is null"
-                    self.reporter.report_charts_dropped(look.id)
+            for look in all_looks:
+                # Skip looks that are already referenced from a dashboard
+                if look.id is None:
+                    logger.warning("Encountered Look with no ID, skipping.")
                     continue
 
-            if look.id is not None:
-                query: Optional[Query] = self.looker_api.get_look(
-                    look.id, fields=["query"]
-                ).query
-                # Only include fields that are in the query_fields list
-                query = Query(
-                    **{
-                        key: getattr(query, key)
-                        for key in query_fields
-                        if hasattr(query, key)
-                    }
-                )
+                if look.id in self.reachable_look_registry:
+                    continue
 
-            dashboard_element: Optional[LookerDashboardElement] = (
-                self._get_looker_dashboard_element(
+                if look.query_id is None:
+                    logger.info(f"query_id is None for look {look.title}({look.id})")
+                    continue
+
+                # Skip looks in personal folders if configured
+                if self.source_config.skip_personal_folders:
+                    if look.folder is not None and (
+                        look.folder.is_personal or look.folder.is_personal_descendant
+                    ):
+                        self.reporter.info(
+                            title="Dropped Look",
+                            message="Dropped due to being a personal folder",
+                            context=f"Look ID: {look.id}",
+                        )
+
+                        self.reporter.report_charts_dropped(look.id)
+                        continue
+
+                # Fetch the Look's query and filter to allowed fields
+                query: Optional[Query] = None
+                try:
+                    look_with_query = self.looker_api.get_look(
+                        look.id, fields=["query"]
+                    )
+                    query_obj = getattr(look_with_query, "query", None)
+                    if query_obj:
+                        query = Query(
+                            **{
+                                key: getattr(query_obj, key)
+                                for key in query_fields
+                                if hasattr(query_obj, key)
+                            }
+                        )
+                except Exception as exc:
+                    logger.warning(f"Failed to fetch query for Look {look.id}: {exc}")
+                    continue
+
+                dashboard_element = self._get_looker_dashboard_element(
                     DashboardElement(
                         id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes),
                         # we add the "looks_" prefix to look.id.
@@ -1541,19 +1553,18 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         look_id=look.id,
                         dashboard_id=None,  # As this is an independent look
                         look=LookWithQuery(
-                            query=query, folder=look.folder, user_id=look.user_id
+                            query=query,
+                            folder=getattr(look, "folder", None),
+                            user_id=getattr(look, "user_id", None),
                         ),
-                    ),
-                )
-            )
-
-            if dashboard_element is not None:
-                logger.debug(f"Emitting MCPS for look {look.title}({look.id})")
-                yield from self.emit_independent_looks_entities(
-                    dashboard_element=dashboard_element
+                    )
                 )
 
-        self.reporter.report_stage_end("extract_independent_looks")
+                if dashboard_element is not None:
+                    logger.debug(f"Emitting MCPs for look {look.title}({look.id})")
+                    yield from self.emit_independent_looks_entities(
+                        dashboard_element=dashboard_element
+                    )
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """
@@ -1663,9 +1674,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
             )
 
-        # Extract independent look here, so that explore of this look would get consider in _make_explore_metadata_events
+        # Extract independent looks first, so their explores are considered in _make_explore_containers.
         yield from self.extract_independent_looks()
 
+        # Process explore containers and yield them.
         with self.reporter.report_stage("explore_metadata"):
             for container in self._make_explore_containers():
                 yield container
@@ -1690,7 +1702,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 for usage_mcp in usage_mcps:
                     yield usage_mcp.as_workunit()
 
-        # Dump looker user resource mappings.
+        # Ingest looker user resource mapping workunits.
         logger.info("Ingesting looker user resource mapping workunits")
         with self.reporter.report_stage("user_resource_extraction"):
             yield from auto_workunit(
