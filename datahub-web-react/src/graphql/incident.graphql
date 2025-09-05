@@ -182,6 +182,16 @@ fragment incidentResultFields on EntityIncidentsResult {
         urn
         type
         ...incidentFields
+        # for backward compatibility
+        status {
+            state
+            stage
+            message
+            lastUpdated {
+                time
+                actor
+            }
+        }
     }
 }
 

@@ -130,6 +130,9 @@ public class IncidentMapperTest {
         incident.getIncidentStatus().getState().toString(),
         com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE.toString());
     assertEquals(
+        incident.getStatus().getState().toString(),
+        com.linkedin.datahub.graphql.generated.IncidentState.ACTIVE.toString());
+    assertEquals(
         incident.getIncidentStatus().getStage().toString(),
         com.linkedin.datahub.graphql.generated.IncidentStage.INVESTIGATION.toString());
     assertEquals(incident.getIncidentStatus().getMessage(), "This incident is open.");

@@ -63,6 +63,7 @@ public class IncidentMapper {
       }
       if (info.hasStatus()) {
         result.setIncidentStatus(mapStatus(context, info.getStatus()));
+        result.setStatus(mapStatus(context, info.getStatus()));
       }
       result.setCreated(AuditStampMapper.map(context, info.getCreated()));
     } else {
