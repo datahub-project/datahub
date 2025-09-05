@@ -272,7 +272,8 @@ public class PageModuleServiceTest {
     String[] defaultModuleUrns = {
       "urn:li:dataHubPageModule:your_assets",
       "urn:li:dataHubPageModule:your_subscriptions",
-      "urn:li:dataHubPageModule:top_domains"
+      "urn:li:dataHubPageModule:top_domains",
+      "urn:li:dataHubPageModule:assets"
     };
 
     for (String defaultModuleUrn : defaultModuleUrns) {

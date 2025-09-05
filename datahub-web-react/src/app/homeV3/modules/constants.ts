@@ -29,6 +29,7 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:your_assets',
     'urn:li:dataHubPageModule:your_subscriptions',
     'urn:li:dataHubPageModule:top_domains',
+    'urn:li:dataHubPageModule:assets',
 ];
 
 export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
@@ -57,6 +58,7 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.AssetCollection,
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
+    DataHubPageModuleType.Assets,
 ];
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];

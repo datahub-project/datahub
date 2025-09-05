@@ -37,7 +37,8 @@ public class PageModuleService {
       List.of(
           "urn:li:dataHubPageModule:your_assets",
           "urn:li:dataHubPageModule:your_subscriptions",
-          "urn:li:dataHubPageModule:top_domains");
+          "urn:li:dataHubPageModule:top_domains",
+          "urn:li:dataHubPageModule:assets");
 
   public PageModuleService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;
