@@ -101,6 +101,7 @@ import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutors
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.RevokeUserInvitationResolver;
 import com.linkedin.datahub.graphql.resolvers.role.SendUserInvitationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.UserInvitationService;
 import com.linkedin.datahub.graphql.resolvers.semantic.SemanticSearchAcrossEntitiesResolver;
@@ -544,7 +545,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new SendFormNotificationRequestResolver(this.entityClient))
                 .dataFetcher(
                     "sendUserInvitations",
-                    new SendUserInvitationsResolver(this.userInvitationService)));
+                    new SendUserInvitationsResolver(this.userInvitationService))
+                .dataFetcher(
+                    "revokeUserInvitation",
+                    new RevokeUserInvitationResolver(
+                        this.entityClient, this.entityService, this.inviteTokenService)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {

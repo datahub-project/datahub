@@ -252,4 +252,38 @@ public class InviteTokenService {
               }
             });
   }
+
+  /**
+   * Invalidate an invitation token by deleting the token entity. This is used for individual tokens
+   * when an invitation is revoked.
+   *
+   * @param opContext Operation context
+   * @param inviteTokenStr The invitation token string to invalidate
+   */
+  public void revokeInviteToken(
+      @Nonnull OperationContext opContext, @Nonnull final String inviteTokenStr) throws Exception {
+    try {
+      Urn inviteTokenUrn = getInviteTokenUrn(inviteTokenStr);
+
+      // Check if token exists before attempting to delete
+      if (isInviteTokenValid(opContext, inviteTokenUrn)) {
+        _entityClient.deleteEntity(opContext, inviteTokenUrn);
+        log.info(
+            "Successfully invalidated invitation token: {}", hashedTokenForLogging(inviteTokenStr));
+      } else {
+        log.warn(
+            "Invitation token not found or already invalid: {}",
+            hashedTokenForLogging(inviteTokenStr));
+      }
+    } catch (Exception e) {
+      log.error(
+          "Failed to invalidate invitation token: {}", hashedTokenForLogging(inviteTokenStr), e);
+      throw e;
+    }
+  }
+
+  /** Helper method to safely log hashed token for debugging without exposing the actual token */
+  private String hashedTokenForLogging(String token) {
+    return _secretService.hashString(token).substring(0, 8) + "...";
+  }
 }

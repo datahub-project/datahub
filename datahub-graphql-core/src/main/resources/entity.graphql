@@ -862,6 +862,11 @@ type Mutation {
   ): SendUserInvitationsResult
 
   """
+  Revoke a user invitation and invalidate the invitation token
+  """
+  revokeUserInvitation(userUrn: String!): Boolean!
+
+  """
   Create a post
   """
   createPost(input: CreatePostInput!): Boolean

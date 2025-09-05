@@ -136,6 +136,10 @@ mutation sendUserInvitations($input: SendUserInvitationsInput!) {
     }
 }
 
+mutation revokeUserInvitation($userUrn: String!) {
+    revokeUserInvitation(userUrn: $userUrn)
+}
+
 mutation acceptRole($input: AcceptRoleInput!) {
     acceptRole(input: $input)
 }

@@ -9,6 +9,7 @@ import { ColorValues } from '@components/theme/config';
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
 import { UserListItem } from '@app/identity/user/UserAndGroupList.hooks';
+import { useRevokeUserInvitationMutation } from '@app/identity/user/hooks/useRevokeUserInvitation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Avatar, Button, Dropdown, Pill, Text, Tooltip, colors } from '@src/alchemy-components';
 
@@ -237,6 +238,7 @@ export const UserActionsMenu = ({
     onDelete,
     refetch,
 }: UserActionsMenuProps) => {
+    const [revokeUserInvitation] = useRevokeUserInvitationMutation();
     const [sendUserInvitationsMutation] = useSendUserInvitationsMutation();
 
     const { onDeleteEntity } = useDeleteEntity(
@@ -247,11 +249,38 @@ export const UserActionsMenu = ({
         false,
         true,
     );
+
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManagePolicies && isNativeUser;
+    const isInvitedUser = user.invitationStatus?.status === 'SENT';
+
+    // Custom delete handler for invited users
+    const handleDeleteWithInvitationRevoke = async () => {
+        if (isInvitedUser) {
+            try {
+                // First revoke the invitation and invalidate the token
+                const revokeResult = await revokeUserInvitation({
+                    variables: { userUrn: user.urn },
+                });
+
+                if (revokeResult.data?.revokeUserInvitation) {
+                    message.success('Invitation revoked and token invalidated');
+                    // Then delete the user
+                    onDelete(user.urn);
+                } else {
+                    message.error('Failed to revoke invitation');
+                }
+            } catch (error: any) {
+                message.error(`Failed to revoke invitation: ${error.message || 'Unknown error'}`);
+                console.error('Error revoking invitation:', error);
+            }
+        } else {
+            // For non-invited users, use the standard delete flow
+            onDeleteEntity();
+        }
+    };
 
     // Check if user has pending invitation
-    const isInvitedUser = user.invitationStatus?.status === 'SENT';
     const canResendInvitation = canManagePolicies && isInvitedUser;
 
     const handleResendInvitation = async () => {
@@ -342,7 +371,7 @@ export const UserActionsMenu = ({
                     Delete User
                 </span>
             ),
-            onClick: onDeleteEntity,
+            onClick: handleDeleteWithInvitationRevoke,
         },
     ];
 

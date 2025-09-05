@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { message } from 'antd';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
 import { UserActionsMenu } from '@app/identity/user/UserAndGroupList.components';
+import { REVOKE_USER_INVITATION_MUTATION } from '@app/identity/user/hooks/useRevokeUserInvitation';
+import { fireEvent, render, screen, waitFor } from '@utils/test-utils/customRender';
 
 import { CorpUser } from '@types';
 
@@ -85,6 +86,19 @@ vi.mock('@app/entity/view/menu/item/styledComponent', () => ({
 
 const mockMessage = message as ReturnType<typeof vi.mocked<typeof message>>;
 
+// GraphQL Mocks
+const createMockRevokeUserInvitationMutation = (success = true) => ({
+    request: {
+        query: REVOKE_USER_INVITATION_MUTATION,
+        variables: { userUrn: 'urn:li:corpuser:invited' },
+    },
+    result: {
+        data: {
+            revokeUserInvitation: success,
+        },
+    },
+});
+
 describe('UserActionsMenu', () => {
     const mockRefetch = vi.fn();
     const mockOnResetPassword = vi.fn();
@@ -152,6 +166,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             expect(screen.getByTestId('resend-invitation-menu-item')).toBeInTheDocument();
@@ -167,6 +182,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             expect(screen.getByTestId('resend-invitation-menu-item')).toBeInTheDocument();
@@ -182,6 +198,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             expect(screen.getByTestId('resend-invitation-menu-item')).toBeInTheDocument();
@@ -205,6 +222,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             const resendButton = screen.getByTestId('resend-invitation-menu-item');
@@ -252,6 +270,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             const resendButton = screen.getByTestId('resend-invitation-menu-item');
@@ -281,6 +300,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             const resendButton = screen.getByTestId('resend-invitation-menu-item');
@@ -308,6 +328,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             const resendButton = screen.getByTestId('resend-invitation-menu-item');
@@ -331,6 +352,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             expect(screen.getByTestId('menu-item-reset')).toBeInTheDocument();
@@ -345,6 +367,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             expect(screen.getByTestId('menu-item-copyurn')).toBeInTheDocument();
@@ -359,6 +382,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             expect(screen.getByTestId('menu-item-delete')).toBeInTheDocument();
@@ -379,6 +403,7 @@ describe('UserActionsMenu', () => {
                     onDelete={mockOnDelete}
                     refetch={mockRefetch}
                 />,
+                { apolloMocks: [createMockRevokeUserInvitationMutation()] },
             );
 
             // Verify resend invitation is available with Repeat phosphor icon
