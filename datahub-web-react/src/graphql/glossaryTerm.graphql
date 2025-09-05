@@ -101,6 +101,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
             ...formsFields
         }
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 

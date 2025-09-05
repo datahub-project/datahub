@@ -61,9 +61,7 @@ describe('useDescriptionUtils', () => {
     it('should initialize hook state correctly', () => {
         const { result } = renderHook(() => useDescriptionUtils());
 
-        expect(result.current.initialDescription).toBe(description);
         expect(result.current.updatedDescription).toBe(description);
-        expect(result.current.isEditing).toBe(false);
         expect(result.current.emptyDescriptionText).toBe(`Write a description for this ${entityName.toLowerCase()}`);
     });
 
@@ -77,43 +75,7 @@ describe('useDescriptionUtils', () => {
 
         rerender();
 
-        expect(result.current.initialDescription).toBe(newDescription);
         expect(result.current.updatedDescription).toBe(newDescription);
-    });
-
-    it('should reset isEditing to false when urn changes', () => {
-        const { result, rerender } = renderHook(() => useDescriptionUtils());
-
-        act(() => {
-            result.current.setIsEditing(true);
-        });
-        expect(result.current.isEditing).toBe(true);
-
-        (useEntityData as Mock).mockReturnValue({
-            entityData: { description },
-            urn: 'urn:li:entity:456',
-            entityType,
-        });
-
-        rerender();
-
-        expect(result.current.isEditing).toBe(false);
-    });
-
-    it('should reset updatedDescription and disable editing on handleCancel', () => {
-        const { result } = renderHook(() => useDescriptionUtils());
-
-        act(() => {
-            result.current.setUpdatedDescription('Some edited text');
-            result.current.setIsEditing(true);
-        });
-
-        act(() => {
-            result.current.handleCancel();
-        });
-
-        expect(result.current.updatedDescription).toBe(result.current.initialDescription);
-        expect(result.current.isEditing).toBe(false);
     });
 
     it('should call legacy update method when updateEntity exists on handleDescriptionUpdate', async () => {
@@ -154,7 +116,6 @@ describe('useDescriptionUtils', () => {
         });
 
         expect(refetchMockDelayed).toHaveBeenCalled();
-        expect(result.current.isEditing).toBe(false);
     });
 
     it('should return correct emptyDescriptionText placeholder', () => {

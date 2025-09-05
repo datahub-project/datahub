@@ -248,6 +248,7 @@ entities:
       - forms
       - testResults
       - displayProperties
+      - assetSettings
   - name: container
     doc: A container of related data assets.
     category: core
@@ -299,6 +300,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - assetSettings
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -312,6 +314,7 @@ entities:
       - testResults
       - subTypes
       - displayProperties
+      - assetSettings
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -604,6 +607,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - assetSettings
   - name: application
     category: core
     keyAspect: applicationKey
