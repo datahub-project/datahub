@@ -321,7 +321,8 @@
     },
     "response": {
       "exclude_regex_paths": [
-        "root\\['scrollId'\\]"
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]"
       ],
       "json": {
         "entities": [
