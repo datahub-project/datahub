@@ -294,6 +294,15 @@ class DBTCommonConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
     )
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for database (i.e. project_id) to filter in ingestion.",
+    )
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for schema to filter in ingestion. Specify regex to only match the schema name. "
+        "e.g. to match all tables in schema analytics, use the regex 'analytics'",
+    )
     meta_mapping: Dict = Field(
         default={},
         description="mapping rules that will be executed against dbt meta properties. Refer to the section below on dbt meta automated mappings.",
@@ -1018,15 +1027,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             all_nodes_map,
         )
 
-    def _is_allowed_node(self, key: str) -> bool:
-        return self.config.node_name_pattern.allowed(key)
+    def _is_allowed_node(self, node: DBTNode) -> bool:
+        return (
+            self.config.node_name_pattern.allowed(node.dbt_name)
+            and (not node.schema or self.config.schema_pattern.allowed(node.schema))
+            and (
+                not node.database or self.config.database_pattern.allowed(node.database)
+            )
+        )
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes: List[DBTNode] = []
         for node in all_nodes:
             key = node.dbt_name
 
-            if not self._is_allowed_node(key):
+            if not self._is_allowed_node(node):
                 self.report.nodes_filtered.append(key)
                 continue
 
@@ -1119,7 +1134,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             schema_nodes.add(dbt_name)
 
         for dbt_name in all_nodes_map:
-            if self._is_allowed_node(dbt_name):
+            if self._is_allowed_node(all_nodes_map.get(dbt_name)):
                 add_node_to_cll_list(dbt_name)
 
         return schema_nodes, cll_nodes
