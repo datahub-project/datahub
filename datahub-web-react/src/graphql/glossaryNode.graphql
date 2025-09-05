@@ -35,6 +35,9 @@ fragment glossaryNodeFields on GlossaryNode {
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
         ...autoRenderAspectFields
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields
@@ -51,6 +54,9 @@ fragment glossaryNodeFields on GlossaryNode {
         ...displayPropertiesFields
     }
     ...notes
+    settings {
+        ...AssetSettingsFields
+    }
 }
 
 query getGlossaryNode($urn: String!) {
