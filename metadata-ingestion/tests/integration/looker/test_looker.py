@@ -433,7 +433,7 @@ def setup_mock_dashboard_with_usage(
         dashboard_elements=[
             DashboardElement(
                 id="2",
-                type="",
+                type="vis",
                 subtitle_text="Some text",
                 query=Query(
                     model="data",
