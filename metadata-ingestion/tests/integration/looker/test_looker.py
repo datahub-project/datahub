@@ -1674,7 +1674,8 @@ def test_group_label_tags(pytestconfig, tmp_path, mock_time):
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore_with_group_label(mocked_client)
-
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
         output_file = tmp_path / "looker_group_label_mces.json"
 
