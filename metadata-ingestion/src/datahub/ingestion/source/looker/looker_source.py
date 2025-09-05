@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+from dataclasses import dataclass
 from json import JSONDecodeError
 from typing import (
     Any,
@@ -80,8 +81,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata._internal_schema_classes import EmbedClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    AuditStamp,
-    ChangeAuditStamps,
     DataPlatformInstance,
     Status,
 )
@@ -102,6 +101,17 @@ from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DashboardProcessingResult:
+    """Result of processing a single dashboard."""
+
+    entities: List[Entity]
+    dashboard_usage: Optional[looker_usage.LookerDashboardForUsage]
+    dashboard_id: str
+    start_time: datetime.datetime
+    end_time: datetime.datetime
 
 
 @platform_name("Looker")
@@ -702,12 +712,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             dashboard is None
             and dashboard_element.folder_path is not None
             and dashboard_element.folder is not None
-        ):  # independent look
+        ):  # Independent look
             chart_parent_container = [
                 "Folders",
                 *self._get_folder_ancestors_urn_entries(dashboard_element.folder),
             ]
 
+        # Determine chart ownership
         chart_ownership: Optional[OwnershipClass] = None
         if dashboard is not None:
             ownership = self.get_ownership(dashboard)
@@ -754,13 +765,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     )
                 },
                 description=dashboard_element.description or "",
-                display_name=dashboard_element.title,
+                display_name=dashboard_element.title,  # title is (deprecated) using display_name
                 extra_aspects=chart_extra_aspects if chart_extra_aspects else None,
                 input_datasets=dashboard_element.get_view_urns(self.source_config),
-                last_modified=datetime.datetime.fromtimestamp(
-                    self._get_change_audit_stamps(dashboard).lastModified.time
-                    / 1000  # convert milliseconds to seconds
-                ),
+                last_modified=self._get_last_modified_time(dashboard),
                 name=dashboard_element.get_urn_element_id(),
                 owners=chart_ownership.owners if chart_ownership is not None else None,
                 parent_container=chart_parent_container
@@ -825,16 +833,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     self.source_config.external_base_url
                 ),
                 description=looker_dashboard.description or "",
-                display_name=looker_dashboard.title,  # title (deprecated) is the display name
+                display_name=looker_dashboard.title,  # title is (deprecated) using display_name
                 extra_aspects=dashboard_extra_aspects
                 if dashboard_extra_aspects
                 else None,
-                last_modified=datetime.datetime.fromtimestamp(
-                    self._get_change_audit_stamps(looker_dashboard).lastModified.time
-                    / 1000  # convert milliseconds to seconds
-                )
-                if looker_dashboard.last_updated_at
-                else None,
+                last_modified=self._get_last_modified_time(looker_dashboard),
                 name=looker_dashboard.get_urn_dashboard_id(),
                 owners=dashboard_ownership.owners
                 if dashboard_ownership is not None
@@ -1033,49 +1036,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 return ownership
         return None
 
-    def _get_change_audit_stamps(
+    def _get_last_modified_time(
         self, looker_dashboard: Optional[LookerDashboard]
-    ) -> ChangeAuditStamps:
-        change_audit_stamp: ChangeAuditStamps = ChangeAuditStamps()
-
+    ) -> Optional[datetime.datetime]:
         if looker_dashboard is None:
-            return change_audit_stamp
-
-        if looker_dashboard.created_at is not None:
-            change_audit_stamp.created.time = round(
-                looker_dashboard.created_at.timestamp() * 1000
-            )
-        if looker_dashboard.owner is not None:
-            owner_urn = looker_dashboard.owner.get_urn(
-                self.source_config.strip_user_ids_from_email
-            )
-            if owner_urn:
-                change_audit_stamp.created.actor = owner_urn
-        if looker_dashboard.last_updated_at is not None:
-            change_audit_stamp.lastModified.time = round(
-                looker_dashboard.last_updated_at.timestamp() * 1000
-            )
-        if looker_dashboard.last_updated_by is not None:
-            updated_by_urn = looker_dashboard.last_updated_by.get_urn(
-                self.source_config.strip_user_ids_from_email
-            )
-            if updated_by_urn:
-                change_audit_stamp.lastModified.actor = updated_by_urn
-        if (
-            looker_dashboard.is_deleted
-            and looker_dashboard.deleted_by is not None
-            and looker_dashboard.deleted_at is not None
-        ):
-            deleter_urn = looker_dashboard.deleted_by.get_urn(
-                self.source_config.strip_user_ids_from_email
-            )
-            if deleter_urn:
-                change_audit_stamp.deleted = AuditStamp(
-                    actor=deleter_urn,
-                    time=round(looker_dashboard.deleted_at.timestamp() * 1000),
-                )
-
-        return change_audit_stamp
+            return None
+        if looker_dashboard.last_updated_at is None:
+            return None
+        return looker_dashboard.last_updated_at
 
     def _get_looker_folder(self, folder: Union[Folder, FolderBase]) -> LookerFolder:
         assert folder.id
@@ -1270,61 +1238,37 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             aspect=input_fields_aspect,
         )
 
-    def process_dashboard(
-        self, dashboard_id: str, fields: List[str]
-    ) -> Tuple[
-        List[Entity],
-        Optional[looker_usage.LookerDashboardForUsage],
-        str,
-        datetime.datetime,
-        datetime.datetime,
-    ]:
-        """
-        Process a single dashboard and return the metadata workunits
-        """
-
-        start_time = datetime.datetime.now()
-        assert dashboard_id is not None
-
-        # Filter out dashboards that are not allowed by the dashboard_pattern
+    def _should_skip_dashboard_by_pattern(self, dashboard_id: str) -> bool:
+        """Check if dashboard should be skipped based on dashboard pattern."""
         if not self.source_config.dashboard_pattern.allowed(dashboard_id):
             self.reporter.report_dashboards_dropped(dashboard_id)
-            return [], None, dashboard_id, start_time, datetime.datetime.now()
+            return True
+        return False
 
-        # Fetch the dashboard object from the Looker API
-        try:
-            dashboard_object: Dashboard = self.looker_api.dashboard(
-                dashboard_id=dashboard_id,
-                fields=fields,
+    def _should_skip_personal_folder_dashboard(
+        self, dashboard_object: Dashboard
+    ) -> bool:
+        """Check if dashboard should be skipped due to being in personal folder."""
+        if not self.source_config.skip_personal_folders:
+            return False
+
+        if dashboard_object.folder is not None and (
+            dashboard_object.folder.is_personal
+            or dashboard_object.folder.is_personal_descendant
+        ):
+            self.reporter.info(
+                title="Dropped Dashboard",
+                message="Dropped due to being a personal folder",
+                context=f"Dashboard ID: {dashboard_object.id}",
             )
-        except (SDKError, DeserializeError) as e:
-            # A looker dashboard could be deleted in between the list and the get
-            self.reporter.report_warning(
-                title="Failed to fetch dashboard from the Looker API",
-                message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
-                context=f"Dashboard ID: {dashboard_id}",
-                exc=e,
-            )
-            return [], None, dashboard_id, start_time, datetime.datetime.now()
+            self.reporter.report_dashboards_dropped(dashboard_object.id)
+            return True
+        return False
 
-        # Skip dashboard if skip_personal_folders is enabled and that it is in personal folders
-        if self.source_config.skip_personal_folders:
-            if dashboard_object.folder is not None and (
-                dashboard_object.folder.is_personal
-                or dashboard_object.folder.is_personal_descendant
-            ):
-                self.reporter.info(
-                    title="Dropped Dashboard",
-                    message="Dropped due to being a personal folder",
-                    context=f"Dashboard ID: {dashboard_id}",
-                )
-                self.reporter.report_dashboards_dropped(dashboard_id)
-                return [], None, dashboard_id, start_time, datetime.datetime.now()
-
-        looker_dashboard = self._get_looker_dashboard(dashboard_object)
-
-        # Start building list of entities
-        entities: List[Entity] = []
+    def _should_skip_dashboard_by_folder_path(
+        self, looker_dashboard: LookerDashboard
+    ) -> bool:
+        """Check if dashboard should be skipped based on folder path pattern."""
         if (
             looker_dashboard.folder_path is not None
             and not self.source_config.folder_path_pattern.allowed(
@@ -1334,29 +1278,104 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             logger.debug(
                 f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
             )
-            # TODO: Why are you not adding to the reports_dropped?
-            return [], None, dashboard_id, start_time, datetime.datetime.now()
+            self.reporter.report_dashboards_dropped(looker_dashboard.id)
+            return True
+        return False
 
+    def _fetch_dashboard_from_api(
+        self, dashboard_id: str, fields: List[str]
+    ) -> Optional[Dashboard]:
+        """Fetch dashboard object from Looker API with error handling."""
+        try:
+            return self.looker_api.dashboard(
+                dashboard_id=dashboard_id,
+                fields=fields,
+            )
+        except (SDKError, DeserializeError) as e:
+            self.reporter.report_warning(
+                title="Failed to fetch dashboard from the Looker API",
+                message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
+                context=f"Dashboard ID: {dashboard_id}",
+                exc=e,
+            )
+            return None
+
+    def _create_empty_result(
+        self, dashboard_id: str, start_time: datetime.datetime
+    ) -> DashboardProcessingResult:
+        """Create an empty result for skipped or failed dashboard processing."""
+        return DashboardProcessingResult(
+            entities=[],
+            dashboard_usage=None,
+            dashboard_id=dashboard_id,
+            start_time=start_time,
+            end_time=datetime.datetime.now(),
+        )
+
+    def process_dashboard(
+        self, dashboard_id: str, fields: List[str]
+    ) -> DashboardProcessingResult:
+        """
+        Process a single dashboard and return the metadata workunits.
+
+        Args:
+            dashboard_id: The ID of the dashboard to process
+            fields: List of fields to fetch from the Looker API
+
+        Returns:
+            DashboardProcessingResult containing entities, usage data, and timing information
+        """
+        start_time = datetime.datetime.now()
+
+        if dashboard_id is None:
+            raise ValueError("Dashboard ID cannot be None")
+
+        # Skip dashboard if it doesn't match the allowed dashboard pattern
+        if self._should_skip_dashboard_by_pattern(dashboard_id):
+            return self._create_empty_result(dashboard_id, start_time)
+
+        # Fetch dashboard from API
+        dashboard_object = self._fetch_dashboard_from_api(dashboard_id, fields)
+        if dashboard_object is None:
+            return self._create_empty_result(dashboard_id, start_time)
+
+        # Check if dashboard should be skipped due to personal folder
+        if self._should_skip_personal_folder_dashboard(dashboard_object):
+            return self._create_empty_result(dashboard_id, start_time)
+
+        # Convert to internal representation
+        looker_dashboard = self._get_looker_dashboard(dashboard_object)
+
+        # Check folder path pattern
+        if self._should_skip_dashboard_by_folder_path(looker_dashboard):
+            return self._create_empty_result(dashboard_id, start_time)
+
+        # Build entities list
+        entities: List[Entity] = []
+
+        # Add folder containers if dashboard has a folder
         if looker_dashboard.folder:
             entities.extend(
                 list(self._get_folder_and_ancestors_containers(looker_dashboard.folder))
             )
 
+        # Add dashboard and chart entities
         entities.extend(list(self._make_dashboard_and_chart_entities(looker_dashboard)))
 
+        # Report successful processing
         self.reporter.report_dashboards_scanned()
 
-        # generate usage tracking object
+        # Generate usage tracking object
         dashboard_usage = looker_usage.LookerDashboardForUsage.from_dashboard(
             dashboard_object
         )
 
-        return (
-            entities,
-            dashboard_usage,
-            dashboard_id,
-            start_time,
-            datetime.datetime.now(),
+        return DashboardProcessingResult(
+            entities=entities,
+            dashboard_usage=dashboard_usage,
+            dashboard_id=dashboard_id,
+            start_time=start_time,
+            end_time=datetime.datetime.now(),
         )
 
     def _get_folder_and_ancestors_containers(
@@ -1537,34 +1556,46 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.report_stage_end("extract_independent_looks")
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
-        self.reporter.report_stage_start("list_dashboards")
-        dashboards = self.looker_api.all_dashboards(fields="id")
-        deleted_dashboards = (
-            self.looker_api.search_dashboards(fields="id", deleted="true")
-            if self.source_config.include_deleted
-            else []
-        )
-        if deleted_dashboards != []:
-            logger.debug(f"Deleted Dashboards = {deleted_dashboards}")
+        """
+        Note: Returns Entities from SDKv2 where possible else MCPs only.
+        """
+        with self.reporter.report_stage("list_dashboards"):
+            # Fetch all dashboards (not deleted)
+            dashboards = self.looker_api.all_dashboards(fields="id")
 
-        dashboard_ids = [dashboard_base.id for dashboard_base in dashboards]
-        dashboard_ids.extend(
-            [deleted_dashboard.id for deleted_dashboard in deleted_dashboards]
-        )
-        selected_dashboard_ids: List[Optional[str]] = []
-        for id in dashboard_ids:
-            if id is None:
-                continue
-            if not self.source_config.dashboard_pattern.allowed(id):
-                self.reporter.report_dashboards_dropped(id)
+            # Optionally fetch deleted dashboards if configured
+            if self.source_config.include_deleted:
+                deleted_dashboards = self.looker_api.search_dashboards(
+                    fields="id", deleted="true"
+                )
             else:
-                selected_dashboard_ids.append(id)
-        dashboard_ids = selected_dashboard_ids
-        self.reporter.report_stage_end("list_dashboards")
-        self.reporter.report_total_dashboards(len(dashboard_ids))
+                deleted_dashboards = []
 
-        # List dashboard fields to extract for processing
-        fields = [
+            if deleted_dashboards:
+                logger.debug(f"Deleted Dashboards = {deleted_dashboards}")
+
+            # Collect all dashboard IDs (including deleted if applicable)
+            dashboard_ids = [dashboard.id for dashboard in dashboards]
+            dashboard_ids.extend([dashboard.id for dashboard in deleted_dashboards])
+
+            # Filter dashboard IDs based on the allowed pattern
+            filtered_dashboard_ids: List[str] = []
+            for dashboard_id in dashboard_ids:
+                if dashboard_id is None:
+                    continue
+                if not self.source_config.dashboard_pattern.allowed(dashboard_id):
+                    self.reporter.report_dashboards_dropped(dashboard_id)
+                else:
+                    filtered_dashboard_ids.append(dashboard_id)
+
+            # Use the filtered list for further processing
+            dashboard_ids = filtered_dashboard_ids
+
+            # Report the total number of dashboards to be processed
+            self.reporter.report_total_dashboards(len(dashboard_ids))
+
+        # Define the fields to extract for each dashboard
+        dashboard_fields = [
             "id",
             "title",
             "dashboard_elements",
@@ -1580,41 +1611,47 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             "deleted_at",
             "deleter_id",
         ]
-        if self.source_config.extract_usage_history:
-            fields += [
-                "favorite_count",
-                "view_count",
-                "last_viewed_at",
-            ]
 
+        # Add usage-related fields if usage history extraction is enabled
+        if self.source_config.extract_usage_history:
+            dashboard_fields.extend(
+                [
+                    "favorite_count",
+                    "view_count",
+                    "last_viewed_at",
+                ]
+            )
+
+        # Store dashboards for which usage stats will be extracted
         looker_dashboards_for_usage: List[looker_usage.LookerDashboardForUsage] = []
 
+        # Process dashboard and chart metadata
         with self.reporter.report_stage("dashboard_chart_metadata"):
+            dashboard_jobs = (
+                (dashboard_id, dashboard_fields)
+                for dashboard_id in dashboard_ids
+                if dashboard_id is not None
+            )
             for job in BackpressureAwareExecutor.map(
                 self.process_dashboard,
-                (
-                    (dashboard_id, fields)
-                    for dashboard_id in dashboard_ids
-                    if dashboard_id is not None
-                ),
+                dashboard_jobs,
                 max_workers=self.source_config.max_threads,
             ):
-                (
-                    work_units,
-                    dashboard_usage,
-                    dashboard_id,
-                    start_time,
-                    end_time,
-                ) = job.result()
+                result: DashboardProcessingResult = job.result()
+
                 logger.debug(
-                    f"Running time of process_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
+                    f"Running time of process_dashboard for {result.dashboard_id} = {(result.end_time - result.start_time).total_seconds()}"
                 )
-                self.reporter.report_upstream_latency(start_time, end_time)
+                self.reporter.report_upstream_latency(
+                    result.start_time, result.end_time
+                )
 
-                yield from work_units
-                if dashboard_usage is not None:
-                    looker_dashboards_for_usage.append(dashboard_usage)
+                yield from result.entities
 
+                if result.dashboard_usage is not None:
+                    looker_dashboards_for_usage.append(result.dashboard_usage)
+
+        # Warn if owner extraction was enabled but no emails could be found
         if (
             self.source_config.extract_owners
             and self.reporter.resolved_user_ids > 0
