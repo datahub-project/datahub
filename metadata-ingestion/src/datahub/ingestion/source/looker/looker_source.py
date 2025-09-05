@@ -1010,7 +1010,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         for chart_event in chart_events:
             # Use chart.urn to ensure uniqueness based on the chart's URN property
             # Also, update the set of processed chart urns
-            if str(chart_event.urn) not in str(self.chart_urns):
+            if str(chart_event.urn) not in self.chart_urns:
                 self.chart_urns.add(str(chart_event.urn))
                 unique_chart_entities.append(chart_event)
 
