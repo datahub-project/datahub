@@ -21,7 +21,7 @@ const Content = styled.div`
 const ValuesWrapper = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 `;
 
 const PopoverValueWrapper = styled(ValuesWrapper)`
@@ -93,9 +93,6 @@ export default function BaseProperty<T>({
 
         const popoverContent = (
             <PopoverWrapper>
-                <Text color="gray" weight="bold" size="sm">
-                    {property.name}
-                </Text>
                 <PopoverValueWrapper>
                     {valuesToShowInPopover.map((item) =>
                         renderValueInTooltip ? renderValueInTooltip(item) : renderValue(item),
@@ -123,19 +120,12 @@ export default function BaseProperty<T>({
                 </PillWrapper>
             </Popover>
         );
-    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue, property.name]);
+    }, [valuesToShowInPopover, renderValueInTooltip, restItemsPillBorderType, renderValue]);
 
     return (
         <PropertyWrapper>
             <Menu items={menuItems} trigger={['click']} disabled={!isTemplateEditable}>
-                <Title
-                    weight="bold"
-                    color="gray"
-                    size="sm"
-                    colorLevel={1700}
-                    $clickable={isTemplateEditable}
-                    type="div"
-                >
+                <Title weight="bold" color="gray" size="sm" colorLevel={600} $clickable={isTemplateEditable} type="div">
                     {property.name}
                 </Title>
             </Menu>

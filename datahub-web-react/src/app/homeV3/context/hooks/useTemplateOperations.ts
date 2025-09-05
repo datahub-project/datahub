@@ -57,7 +57,7 @@ export function useTemplateOperations(
     personalTemplate: PageTemplateFragment | null,
     templateType: PageTemplateSurfaceType,
 ) {
-    const { urn } = useEntityContext();
+    const { urn, refetch } = useEntityContext();
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
     const [updateAssetSettings] = useUpdateAssetSettingsMutation();
@@ -118,7 +118,13 @@ export function useTemplateOperations(
                     }
 
                     // Insert module into the rows at given position
-                    newRows = insertModuleIntoRows(newRows, module, { ...position, moduleIndex }, rowIndex);
+                    newRows = insertModuleIntoRows(
+                        newRows,
+                        module,
+                        { ...position, moduleIndex },
+                        rowIndex,
+                        templateType,
+                    );
                 }
             }
 
@@ -129,7 +135,7 @@ export function useTemplateOperations(
 
             return newTemplate;
         },
-        [],
+        [templateType],
     );
 
     // Helper function to remove a module from template
@@ -232,8 +238,10 @@ export function useTemplateOperations(
                         setPersonalTemplate(data.upsertPageTemplate);
                         updateAssetSettings({
                             variables: { input: { urn, summary: { template: data.upsertPageTemplate.urn } } },
-                        });
+                        }).then(() => refetch?.());
                     }
+                } else {
+                    refetch?.(); // updates entityData that gets cached on a profile page for summary tab
                 }
             });
         },
@@ -245,6 +253,7 @@ export function useTemplateOperations(
             templateType,
             updateAssetSettings,
             urn,
+            refetch,
         ],
     );
 

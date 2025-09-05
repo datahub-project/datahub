@@ -118,6 +118,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -171,6 +172,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -219,6 +221,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false,
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -268,6 +271,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false,
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -359,6 +363,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -433,6 +438,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -506,6 +512,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -574,6 +581,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -629,6 +637,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -684,6 +693,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -741,6 +751,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -804,6 +815,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -850,6 +862,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -890,6 +903,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -936,6 +950,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -988,6 +1003,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1036,6 +1052,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1084,6 +1101,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1134,6 +1152,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1187,6 +1206,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1232,6 +1252,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false,
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -1333,6 +1354,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false,
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -1390,6 +1412,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false,
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -1447,6 +1470,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false,
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -1571,6 +1595,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         true, // isEditingModule = true
                         mockGlobalModuleToEdit, // originalModuleData = global module
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1691,6 +1716,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         true, // isEditingModule = true
                         mockGlobalModuleToEdit, // originalModuleData = global module
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1779,6 +1805,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         true, // isEditingModule = true
                         mockPersonalModuleToEdit, // originalModuleData = personal module
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1867,6 +1894,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         true, // isEditingModule = true
                         mockGlobalModuleToEdit, // originalModuleData = global module
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -1998,6 +2026,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -2027,6 +2056,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -2055,6 +2085,7 @@ describe('useModuleOperations', () => {
                     mockUpsertTemplate,
                     false, // isEditingModule
                     null, // originalModuleData
+                    PageTemplateSurfaceType.HomePage,
                 ),
             );
 
@@ -2087,6 +2118,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null, // originalModuleData
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 {
                     initialProps: {
@@ -2122,6 +2154,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null, // originalModuleData
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 {
                     initialProps: {
@@ -2181,6 +2214,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -2265,6 +2299,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         false,
                         null,
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 
@@ -2361,6 +2396,7 @@ describe('useModuleOperations', () => {
                         mockUpsertTemplate,
                         true, // isEditingModule
                         mockGlobalModuleToEdit, // originalModuleData
+                        PageTemplateSurfaceType.HomePage,
                     ),
                 );
 

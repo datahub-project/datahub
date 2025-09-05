@@ -1,4 +1,9 @@
 import { getDefaultSummaryPageTemplate } from '@app/homeV3/context/hooks/utils/utils';
+import {
+    ASSETS_MODULE,
+    CHILD_HIERARCHY_MODULE,
+    DATA_PRODUCTS_MODULE,
+} from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
@@ -16,7 +21,7 @@ describe('getDefaultSummaryPageTemplate', () => {
                 surface: {
                     surfaceType: PageTemplateSurfaceType.AssetSummary,
                 },
-                rows: [{ modules: expect.any(Array) }],
+                rows: [{ modules: [ASSETS_MODULE, CHILD_HIERARCHY_MODULE] }, { modules: [DATA_PRODUCTS_MODULE] }],
                 assetSummary: {
                     summaryElements: [
                         { elementType: SummaryElementType.Created },
@@ -57,7 +62,7 @@ describe('getDefaultSummaryPageTemplate', () => {
         });
 
         // Verify modules array has content (but don't test specific content since it will change)
-        expect(result.properties.rows[0].modules).toHaveLength(2);
+        expect(result.properties.rows[0].modules).toHaveLength(1);
     });
 
     it('should return correct template for GlossaryTerm entity type', () => {
@@ -138,7 +143,6 @@ describe('getDefaultSummaryPageTemplate', () => {
 
     it('should always return consistent base template properties', () => {
         const entityTypes = [
-            EntityType.Domain,
             EntityType.DataProduct,
             EntityType.GlossaryTerm,
             EntityType.GlossaryNode,
@@ -153,7 +157,11 @@ describe('getDefaultSummaryPageTemplate', () => {
             expect(result.type).toBe(EntityType.DatahubPageTemplate);
             expect(result.properties.visibility.scope).toBe(PageTemplateScope.Personal);
             expect(result.properties.surface.surfaceType).toBe(PageTemplateSurfaceType.AssetSummary);
-            expect(result.properties.rows).toHaveLength(1);
+            if (entityType === EntityType.Domain) {
+                expect(result.properties.rows).toHaveLength(2);
+            } else {
+                expect(result.properties.rows).toHaveLength(1);
+            }
             expect(result.properties.rows[0]).toHaveProperty('modules');
             expect(result.properties.assetSummary).toHaveProperty('summaryElements');
         });

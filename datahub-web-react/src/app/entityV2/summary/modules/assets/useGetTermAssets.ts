@@ -20,15 +20,9 @@ export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
                 query: '*',
                 start,
                 count,
-                filters: [
-                    {
-                        field: GLOSSARY_TERMS_FILTER_NAME,
-                        values: [urn],
-                    },
-                    {
-                        field: FIELD_GLOSSARY_TERMS_FILTER_NAME,
-                        values: [urn],
-                    },
+                orFilters: [
+                    { and: [{ field: GLOSSARY_TERMS_FILTER_NAME, values: [urn] }] },
+                    { and: [{ field: FIELD_GLOSSARY_TERMS_FILTER_NAME, values: [urn] }] },
                 ],
                 searchFlags: { skipCache: true },
             },
