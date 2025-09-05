@@ -301,9 +301,10 @@ jobs:
 
       - name: Build Saas Images (Publish - ECR)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass.
+        # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
+        # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
 
       - name: Capture build Id
         id: capture-build-id
@@ -715,7 +716,7 @@ jobs:
           path: ${{ github.workspace }}/build
 
       - name: Push images from depot builder
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
           depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
             TARGET=$(echo "$line" | jq -r '.target')
@@ -724,23 +725,23 @@ jobs:
             depot push --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target $TARGET --tag $TAG
           done
 
-# OSS Only
-#  deploy_datahub_head:
-#    name: Deploy to Datahub HEAD
-#    runs-on: ubuntu-latest
-#    needs: [setup, smoke_test_lint, smoke_test, publish_images]
-#    steps:
-#      - uses: aws-actions/configure-aws-credentials@v4
-#        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
-#        with:
-#          aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
-#          aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
-#          aws-region: us-west-2
-#      - uses: isbang/sqs-action@v0.2.0
-#        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
-#        with:
-#          sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
-#          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'
+  # OSS Only
+  #  deploy_datahub_head:
+  #    name: Deploy to Datahub HEAD
+  #    runs-on: ubuntu-latest
+  #    needs: [setup, smoke_test_lint, smoke_test, publish_images]
+  #    steps:
+  #      - uses: aws-actions/configure-aws-credentials@v4
+  #        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
+  #        with:
+  #          aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
+  #          aws-secret-access-key: ${{ secrets.AWS_SQS_ACCESS_KEY }}
+  #          aws-region: us-west-2
+  #      - uses: isbang/sqs-action@v0.2.0
+  #        if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
+  #        with:
+  #          sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
+  #          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'
 
   # Acryl Saas Only
   sync_deployments:
