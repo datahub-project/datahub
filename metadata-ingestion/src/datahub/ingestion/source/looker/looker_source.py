@@ -1240,13 +1240,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             aspect=input_fields_aspect,
         )
 
-    def _should_skip_dashboard_by_pattern(self, dashboard_id: str) -> bool:
-        """Check if dashboard should be skipped based on dashboard pattern."""
-        if not self.source_config.dashboard_pattern.allowed(dashboard_id):
-            self.reporter.report_dashboards_dropped(dashboard_id)
-            return True
-        return False
-
     def _should_skip_personal_folder_dashboard(
         self, dashboard_object: Dashboard
     ) -> bool:
@@ -1331,10 +1324,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         if dashboard_id is None:
             raise ValueError("Dashboard ID cannot be None")
-
-        # Skip dashboard if it doesn't match the allowed dashboard pattern
-        if self._should_skip_dashboard_by_pattern(dashboard_id):
-            return self._create_empty_result(dashboard_id, start_time)
 
         # Fetch dashboard from API
         dashboard_object = self._fetch_dashboard_from_api(dashboard_id, fields)
