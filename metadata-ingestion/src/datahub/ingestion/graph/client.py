@@ -972,7 +972,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
-                $includeSoftDeleted: Boolean!) {
+                $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
                     query: $query,
