@@ -3,14 +3,25 @@ import { useCallback } from 'react';
 import { useEmailInvitations } from '@app/identity/user/useEmailInvitations';
 import { useInviteTokens } from '@app/identity/user/useInviteTokens';
 import { useRoleManagement } from '@app/identity/user/useRoleManagement';
-import { useUserRecommendations } from '@app/identity/user/useUserRecommendations';
+import { UseUserRecommendationsOptions, useUserRecommendations } from '@app/identity/user/useUserRecommendations';
 
-export function useInviteUsersModal() {
+interface UseInviteUsersModalOptions extends UseUserRecommendationsOptions {
+    modalOpen?: boolean;
+}
+
+export function useInviteUsersModal(options?: UseInviteUsersModalOptions) {
+    const { modalOpen = false, ...recommendationsOptions } = options || {};
+
     // Use focused hooks
     const roleManagement = useRoleManagement();
     const emailInvitations = useEmailInvitations();
     const inviteTokens = useInviteTokens(roleManagement.selectedRole);
-    const userRecommendations = useUserRecommendations();
+
+    // Only load recommendations when modal is open
+    const userRecommendations = useUserRecommendations({
+        ...recommendationsOptions,
+        skip: !modalOpen, // Skip query when modal is closed
+    });
 
     // Enhanced role selection handler that updates invited users
     const onSelectEmailInviteRole = useCallback(
@@ -65,6 +76,9 @@ export function useInviteUsersModal() {
         handleEmailInputChange: emailInvitations.handleEmailInputChange,
         handleEmailInputKeyPress,
 
+        // Expose the raw email invitations object for direct access
+        emailInvitations,
+
         // Invite tokens
         inviteToken: inviteTokens.inviteToken,
         inviteLink: inviteTokens.inviteLink,
@@ -72,6 +86,7 @@ export function useInviteUsersModal() {
 
         // User recommendations
         recommendedUsers: userRecommendations.recommendedUsers,
+        refetchRecommendations: userRecommendations.refetch,
 
         // Modal management
         resetModalState,

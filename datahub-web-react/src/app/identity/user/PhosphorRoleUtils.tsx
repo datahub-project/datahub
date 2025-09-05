@@ -13,7 +13,7 @@ export const mapRoleToPhosphorIcon = (roleName: string) => {
         case 'Editor':
             return <Icon icon="PencilSimple" source="phosphor" size="xl" />;
         case 'Reader':
-            return <Icon icon="Eye" source="phosphor" size="xl" />;
+            return <Icon icon="BookOpen" source="phosphor" size="xl" />;
         default:
             return <Icon icon="User" source="phosphor" size="xl" />;
     }

@@ -171,6 +171,21 @@ describe('InviteUsersModal', () => {
         handleEmailInputChange: vi.fn(),
         handleEmailInputKeyPress: vi.fn(),
         resetModalState: vi.fn(),
+        emailInvitations: {
+            emailInput: '',
+            invitedUsers: [],
+            emailValidationError: '',
+            handleSendInvitations: vi.fn(),
+            handleEmailInputChange: vi.fn(),
+            handleEmailInputKeyPress: vi.fn(),
+            onSelectEmailInviteRole: vi.fn(),
+            sendInvitationToEmail: vi.fn(),
+            loading: false,
+            updateInvitedUsersRole: vi.fn(),
+            resetEmailInvitations: vi.fn(),
+            setEmailInput: vi.fn(),
+        },
+        refetchRecommendations: vi.fn(),
     };
 
     const defaultProps = {
@@ -187,14 +202,14 @@ describe('InviteUsersModal', () => {
         it('should render modal when open is true', () => {
             render(<InviteUsersModal {...defaultProps} />);
 
-            expect(screen.getByText('Invite Users')).toBeInTheDocument();
+            expect(screen.getByRole('dialog', { name: /Invite Users/i })).toBeInTheDocument();
             expect(screen.getByText(/Anyone with this link can join DataHub/)).toBeInTheDocument();
         });
 
         it('should not render modal content when open is false', () => {
             render(<InviteUsersModal {...defaultProps} open={false} />);
 
-            expect(screen.queryByText('Invite Users')).not.toBeInTheDocument();
+            expect(screen.queryByRole('dialog', { name: /Invite Users/i })).not.toBeInTheDocument();
         });
 
         it('should render both sections: Share Link and Input emails', () => {
@@ -552,7 +567,7 @@ describe('InviteUsersModal', () => {
         it('should have proper modal title', () => {
             render(<InviteUsersModal {...defaultProps} />);
 
-            expect(screen.getByText('Invite Users')).toBeInTheDocument();
+            expect(screen.getByRole('dialog', { name: /Invite Users/i })).toBeInTheDocument();
         });
 
         it('should have tooltips for role selection', () => {

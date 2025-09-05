@@ -60,6 +60,10 @@ export const InvitedUsersSection = styled.div`
     margin-top: 1px;
 `;
 
+export const InviteUsersTabsSection = styled.div`
+    margin-bottom: 4px;
+`;
+
 export const InvitedUsersLabel = styled(SectionTitle)`
     color: ${colors.gray[1700]};
 `;
@@ -118,6 +122,8 @@ export const ValidationErrorText = styled.div`
 export const EmailInputSection = styled.div`
     display: flex;
     flex-direction: column;
+    margin-top: 24px;
+    margin-bottom: 4px;
 `;
 
 export const WarningIconContainer = styled.div`
