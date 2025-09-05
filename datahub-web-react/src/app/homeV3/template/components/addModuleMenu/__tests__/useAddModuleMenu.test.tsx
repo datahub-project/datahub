@@ -140,7 +140,7 @@ describe('useAddModuleMenu', () => {
         // Check "Default by DataHub" group
         expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[1]?.children).toHaveLength(2);
+        expect(items?.[1]?.children).toHaveLength(3);
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
         // @ts-expect-error SubMenuItem should have children

@@ -1,3 +1,8 @@
+import { AssetProperty } from '@app/entityV2/summary/properties/types';
+import {
+    AddSummaryElementInput,
+    ReplaceSummaryElementInput,
+} from '@app/homeV3/context/hooks/useAssetSummaryOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
@@ -47,6 +52,7 @@ export interface MoveModuleInput {
 
 // Context state shape
 export type PageTemplateContextState = {
+    isTemplateEditable: boolean;
     personalTemplate: PageTemplateFragment | null;
     globalTemplate: PageTemplateFragment | null;
     template: PageTemplateFragment | null;
@@ -63,4 +69,9 @@ export type PageTemplateContextState = {
     resetTemplateToDefault: () => void;
     reloadHomepageModules: boolean;
     setReloadHomepageModules: (val: boolean) => void;
+    // Asset summary operations
+    summaryElements?: AssetProperty[];
+    addSummaryElement: (input: AddSummaryElementInput) => void;
+    removeSummaryElement: (position: number) => void;
+    replaceSummaryElement: (input: ReplaceSummaryElementInput) => void;
 };

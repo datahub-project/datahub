@@ -2,9 +2,9 @@ import { Button, Menu } from '@components';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
-import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useAddPropertyMenuItems';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 const StyledButton = styled(Button)`
     // prevent horizontal stretching of the button
@@ -13,14 +13,14 @@ const StyledButton = styled(Button)`
 
 export default function AddPropertyButton() {
     const [isOpened, setIsOpened] = useState<boolean>(false);
-    const { add } = useAssetPropertiesContext();
+    const { addSummaryElement } = usePageTemplateContext();
 
     const onAddProperty = useCallback(
         (property: AssetProperty) => {
-            add(property);
+            addSummaryElement({ elementType: property.type, structuredProperty: property.structuredProperty });
             setIsOpened(false);
         },
-        [add],
+        [addSummaryElement],
     );
 
     const menuItems = useAddPropertyMenuItems(onAddProperty);
