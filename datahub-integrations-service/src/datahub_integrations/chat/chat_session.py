@@ -403,6 +403,7 @@ class ChatSession:
             tool = self.tool_map[tool_name]
             with timer, with_datahub_client(self.client):
                 result = tool.run(arguments=tool_request.tool_input)
+
         except Exception as e:
             error = f"{type(e).__name__}: {e}"
             self._add_message(

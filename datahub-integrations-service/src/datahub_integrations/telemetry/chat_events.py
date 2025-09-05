@@ -51,6 +51,9 @@ class ChatbotInteractionEvent(BaseEvent):
     response_error: Optional[str] = None
     response_generation_duration_sec: float
     chat_session_id: Optional[str]  # datahub internal
+
+    is_limited_history: Optional[bool] = None
+
     # TODO: referenced_urns: List[str] = Field(default_factory=list)
 
 

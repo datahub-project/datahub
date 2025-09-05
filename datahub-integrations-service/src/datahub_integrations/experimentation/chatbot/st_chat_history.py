@@ -1,5 +1,6 @@
+import json
+
 import streamlit as st
-import tiktoken
 from typing_extensions import assert_never
 
 from datahub_integrations.chat.chat_history import (
@@ -12,15 +13,13 @@ from datahub_integrations.chat.chat_history import (
     ToolResultError,
 )
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+from datahub_integrations.experimentation.chatbot.eval_helpers import get_token_count
 from datahub_integrations.slack.utils.numbers import abbreviate_number
 
 
 def _token_count(text: str) -> str:
-    """Count tokens in text and return abbreviated count with 'tokens' suffix."""
-    # This is just an approximation since different models have different tokenizers.
-    encoding = tiktoken.encoding_for_model("gpt-4o")
-    token_count = len(encoding.encode(text))
-    return f"{abbreviate_number(token_count)} tokens"
+    count = get_token_count(text)
+    return f"{abbreviate_number(count)} tokens"
 
 
 def st_chat_history(
@@ -75,7 +74,7 @@ def st_chat_history(
                     st.caption(
                         f"Calling `{message.tool_name}` tool · {_token_count(str(message.tool_input))}"
                     )
-                    st.code(str(message.tool_input), language="json")
+                    st.code(json.dumps(message.tool_input), language="json")
         elif isinstance(message, ToolResultError):
             if show_thinking:
                 with st.chat_message("tool", avatar="❌"):

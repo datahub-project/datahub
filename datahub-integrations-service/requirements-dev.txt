@@ -115,6 +115,10 @@ azure-identity==1.21.0
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+beautifulsoup4==4.13.5
+    # via nbconvert
+bleach==6.2.0
+    # via nbconvert
 blinker==1.9.0
     # via
     #   flask
@@ -286,6 +290,8 @@ decorator==5.2.1
     # via ipython
 deepdiff==8.4.2
     # via acryl-datahub
+defusedxml==0.7.1
+    # via nbconvert
 deprecated==1.2.14
     # via
     #   -r requirements.txt
@@ -591,6 +597,7 @@ jinja2==3.1.3
     #   flask
     #   litellm
     #   mlflow
+    #   nbconvert
     #   pydeck
 jiter==0.10.0
     # via
@@ -641,7 +648,10 @@ jupyter-core==4.12.0
     # via
     #   ipykernel
     #   jupyter-client
+    #   nbconvert
     #   nbformat
+jupyterlab-pygments==0.3.0
+    # via nbconvert
 kiwisolver==1.4.8
     # via matplotlib
 litellm==1.75.9
@@ -683,6 +693,7 @@ markupsafe==2.1.5
     #   -r requirements.txt
     #   jinja2
     #   mako
+    #   nbconvert
     #   werkzeug
 matplotlib==3.10.1
     # via
@@ -701,6 +712,8 @@ mdurl==0.1.2
     # via
     #   -r requirements.txt
     #   markdown-it-py
+mistune==3.1.4
+    # via nbconvert
 mixpanel==4.10.1
     # via
     #   -r requirements.txt
@@ -752,10 +765,15 @@ mypy-extensions==1.0.0
     #   reactpy
     #   typing-inspect
 nbclient==0.6.3
-    # via papermill
+    # via
+    #   nbconvert
+    #   papermill
+nbconvert==7.16.6
+    # via acryl-datahub-integrations (pyproject.toml)
 nbformat==5.10.4
     # via
     #   nbclient
+    #   nbconvert
     #   papermill
 nest-asyncio==1.6.0
     # via
@@ -824,6 +842,7 @@ packaging==24.0
     #   ipykernel
     #   matplotlib
     #   mlflow-skinny
+    #   nbconvert
     #   pytest
     #   snowflake-connector-python
     #   sqlalchemy-bigquery
@@ -840,6 +859,8 @@ pandas==2.2.3
     #   seaborn
     #   streamlit
     #   streamlit-aggrid
+pandocfilters==1.5.1
+    # via nbconvert
 papermill==2.6.0
     # via acryl-datahub-integrations (pyproject.toml)
 parse==1.20.2
@@ -980,6 +1001,7 @@ pygments==2.19.2
     #   -r requirements.txt
     #   ipython
     #   ipython-pygments-lexers
+    #   nbconvert
     #   rich
 pyjwt==2.8.0
     # via
@@ -1228,6 +1250,8 @@ sortedcontainers==2.4.0
     # via
     #   -r requirements.txt
     #   snowflake-connector-python
+soupsieve==2.8
+    # via beautifulsoup4
 sqlalchemy==1.4.52
     # via
     #   -r requirements.txt
@@ -1300,6 +1324,8 @@ tiktoken==0.11.0
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   litellm
+tinycss2==1.4.0
+    # via bleach
 tokenizers==0.21.4
     # via
     #   -r requirements.txt
@@ -1338,6 +1364,7 @@ traitlets==5.14.3
     #   jupyter-core
     #   matplotlib-inline
     #   nbclient
+    #   nbconvert
     #   nbformat
 typeguard==4.2.1
     # via
@@ -1364,6 +1391,7 @@ typing-extensions==4.13.2
     #   anyio
     #   azure-core
     #   azure-identity
+    #   beautifulsoup4
     #   exceptiongroup
     #   fastapi
     #   graphene
@@ -1436,6 +1464,10 @@ wcmatch==10.0
     #   acryl-datahub
 wcwidth==0.2.13
     # via prompt-toolkit
+webencodings==0.5.1
+    # via
+    #   bleach
+    #   tinycss2
 websockets==12.0
     # via
     #   -r requirements.txt

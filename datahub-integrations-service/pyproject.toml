@@ -87,6 +87,7 @@ dev = [
 	"typer",
 	# Iteration
 	"papermill",
+	"nbconvert",
 	"json5",
 	"streamlit",
 	"streamlit-aggrid",

@@ -102,6 +102,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     channel_id = event.channel_id
     response_ts = None
     chat_session_id = None
+    is_limited_history = None
 
     timer = PerfTimer()
     timer.start()
@@ -138,7 +139,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 logger.warning(f"Failed to update progress message: {str(e)}")
 
         # Process the actual response
-        chat_session = _build_chat_session(app.client, event)
+        chat_session, is_limited_history = _build_chat_session(app.client, event)
         chat_session_id = chat_session.session_id
         message, followup_questions = _generate_mention_response(
             chat_session, event, progress_callback, response_ts
@@ -176,6 +177,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 response_contents=message,
                 response_generation_duration_sec=timer.elapsed_seconds(),
                 chat_session_id=chat_session_id,
+                is_limited_history=is_limited_history,
             )
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
@@ -203,6 +205,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 response_error=f"{type(e).__name__}: {str(e)}",
                 response_generation_duration_sec=timer.elapsed_seconds(),
                 chat_session_id=chat_session_id,
+                is_limited_history=is_limited_history,
             )
         )
 
@@ -242,7 +245,9 @@ def _update_slack_history_cache(
     thread_history.add_thinking(response_ts, new_messages)
 
 
-def _build_chat_session(client: WebClient, event: SlackMentionEvent) -> ChatSession:
+def _build_chat_session(
+    client: WebClient, event: SlackMentionEvent
+) -> Tuple[ChatSession, bool]:
     message_text = event.message_text
     thread_ts = event.thread_ts
     logger.info(f"App mention message: {message_text} in thread {thread_ts}")
@@ -274,7 +279,7 @@ def _build_chat_session(client: WebClient, event: SlackMentionEvent) -> ChatSess
         history=history,
     )
 
-    return chat_session
+    return chat_session, thread_history.is_limited_history()
 
 
 class FeedbackPayload(BaseModel):

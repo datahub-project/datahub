@@ -1,8 +1,10 @@
 import contextlib
 import contextvars
 import functools
+import html
 import inspect
 import pathlib
+import re
 from typing import (
     Any,
     Awaitable,
@@ -25,10 +27,85 @@ from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
 from datahub.utilities.ordered_set import OrderedSet
 from fastmcp import FastMCP
+from loguru import logger
 from pydantic import BaseModel
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
+DESCRIPTION_LENGTH_HARD_LIMIT = 1000
+
+
+def sanitize_html_content(text: str) -> str:
+    """Remove HTML tags and decode HTML entities from text."""
+    if not text:
+        return text
+
+    # Remove HTML tags (including img tags)
+    text = re.sub(r"<[^>]+>", "", text)
+
+    # Decode HTML entities
+    text = html.unescape(text)
+
+    return text.strip()
+
+
+def truncate_with_ellipsis(text: str, max_length: int, suffix: str = "...") -> str:
+    """Truncate text to max_length and add suffix if truncated."""
+    if not text or len(text) <= max_length:
+        return text
+
+    # Account for suffix length
+    actual_max = max_length - len(suffix)
+    return text[:actual_max] + suffix
+
+
+def sanitize_markdown_content(text: str) -> str:
+    """Remove markdown-style embeds that contain encoded data from text, but preserve alt text."""
+    if not text:
+        return text
+
+    # Remove markdown embeds with data URLs (base64 encoded content) but preserve alt text
+    # Pattern: ![alt text](data:image/type;base64,encoded_data) -> alt text
+    text = re.sub(r"!\[([^\]]*)\]\(data:[^)]+\)", r"\1", text)
+
+    return text.strip()
+
+
+def sanitize_and_truncate_description(text: str, max_length: int) -> str:
+    """Sanitize HTML content and truncate to specified length."""
+    if not text:
+        return text
+
+    try:
+        # First sanitize HTML content
+        sanitized = sanitize_html_content(text)
+
+        # Then sanitize markdown content (preserving alt text)
+        sanitized = sanitize_markdown_content(sanitized)
+
+        # Then truncate if needed
+        return truncate_with_ellipsis(sanitized, max_length)
+    except Exception as e:
+        logger.warning(f"Error sanitizing and truncating description: {e}")
+        return text[:max_length] if len(text) > max_length else text
+
+
+def truncate_descriptions(
+    data: dict | list, max_length: int = DESCRIPTION_LENGTH_HARD_LIMIT
+) -> None:
+    """
+    Recursively truncates values of keys named 'description' in a dictionary in place.
+    """
+    # TODO: path-aware truncate, for different length limits per entity type
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if key == "description" and isinstance(value, str):
+                data[key] = sanitize_and_truncate_description(value, max_length)
+            elif isinstance(value, (dict, list)):
+                truncate_descriptions(value)
+    elif isinstance(data, list):
+        for item in data:
+            truncate_descriptions(item)
 
 
 # See https://github.com/jlowin/fastmcp/issues/864#issuecomment-3103678258
@@ -96,7 +173,7 @@ def _execute_graphql(
     )
 
 
-def _inject_urls_for_urns(
+def inject_urls_for_urns(
     graph: DataHubGraph, response: Any, json_paths: List[str]
 ) -> None:
     if not _is_datahub_cloud(graph):
@@ -112,7 +189,7 @@ def _inject_urls_for_urns(
                 item.update(new_item)
 
 
-def _maybe_convert_to_schema_field_urn(urn: str, column: Optional[str]) -> str:
+def maybe_convert_to_schema_field_urn(urn: str, column: Optional[str]) -> str:
     if column is not None:
         maybe_dataset_urn = Urn.from_string(urn)
         if not isinstance(maybe_dataset_urn, DatasetUrn):
@@ -131,7 +208,7 @@ entity_details_fragment_gql = (
 queries_gql = (pathlib.Path(__file__).parent / "gql/queries.gql").read_text()
 
 
-def _clean_gql_response(response: Any) -> Any:
+def clean_gql_response(response: Any) -> Any:
     if isinstance(response, dict):
         banned_keys = {
             "__typename",
@@ -141,19 +218,19 @@ def _clean_gql_response(response: Any) -> Any:
         for k, v in response.items():
             if k in banned_keys or v is None or v == []:
                 continue
-            cleaned_v = _clean_gql_response(v)
+            cleaned_v = clean_gql_response(v)
             if cleaned_v is not None and cleaned_v != {}:
                 cleaned_response[k] = cleaned_v
 
         return cleaned_response
     elif isinstance(response, list):
-        return [_clean_gql_response(item) for item in response]
+        return [clean_gql_response(item) for item in response]
     else:
         return response
 
 
-def _clean_get_entity_response(raw_response: dict) -> dict:
-    response = _clean_gql_response(raw_response)
+def clean_get_entity_response(raw_response: dict) -> dict:
+    response = clean_gql_response(raw_response)
 
     if response and (schema_metadata := response.get("schemaMetadata")):
         # Remove empty platformSchema to reduce response clutter
@@ -191,9 +268,10 @@ def get_entity(urn: str) -> dict:
         operation_name="GetEntity",
     )["entity"]
 
-    _inject_urls_for_urns(client._graph, result, [""])
+    inject_urls_for_urns(client._graph, result, [""])
+    truncate_descriptions(result)
 
-    return _clean_get_entity_response(result)
+    return clean_get_entity_response(result)
 
 
 @mcp.tool(
@@ -274,7 +352,7 @@ def search(
         response.pop("searchResults", None)
         response.pop("count", None)
 
-    return _clean_gql_response(response)
+    return clean_gql_response(response)
 
 
 @mcp.tool(
@@ -286,7 +364,7 @@ def get_dataset_queries(
 ) -> dict:
     client = get_datahub_client()
 
-    urn = _maybe_convert_to_schema_field_urn(urn, column)
+    urn = maybe_convert_to_schema_field_urn(urn, column)
 
     entities_filter = FilterDsl.custom_filter(
         field="entities", condition="EQUAL", values=[urn]
@@ -310,7 +388,7 @@ def get_dataset_queries(
         if query.get("subjects"):
             query["subjects"] = _deduplicate_subjects(query["subjects"])
 
-    return _clean_gql_response(result)
+    return clean_gql_response(result)
 
 
 def _deduplicate_subjects(subjects: list[dict]) -> list[str]:
@@ -374,7 +452,7 @@ class AssetLineageAPI:
             "searchFlags": {"skipHighlighting": True, "maxAggValues": 3},
         }
         if asset_lineage_directive.upstream:
-            result["upstreams"] = _clean_gql_response(
+            result["upstreams"] = clean_gql_response(
                 _execute_graphql(
                     self.graph,
                     query=entity_details_fragment_gql,
@@ -388,7 +466,7 @@ class AssetLineageAPI:
                 )["searchAcrossLineage"]
             )
         if asset_lineage_directive.downstream:
-            result["downstreams"] = _clean_gql_response(
+            result["downstreams"] = clean_gql_response(
                 _execute_graphql(
                     self.graph,
                     query=entity_details_fragment_gql,
@@ -430,7 +508,7 @@ def get_lineage(
 
     lineage_api = AssetLineageAPI(client._graph)
 
-    urn = _maybe_convert_to_schema_field_urn(urn, column)
+    urn = maybe_convert_to_schema_field_urn(urn, column)
     asset_lineage_directive = AssetLineageDirective(
         urn=urn,
         upstream=upstream,
@@ -439,5 +517,6 @@ def get_lineage(
         extra_filters=filters,
     )
     lineage = lineage_api.get_lineage(asset_lineage_directive)
-    _inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
+    inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
+    truncate_descriptions(lineage)
     return lineage

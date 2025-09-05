@@ -3,6 +3,7 @@ import urllib.parse
 from functools import lru_cache
 from typing import List, Tuple
 
+import tiktoken
 from datahub.ingestion.graph.links import make_url_for_urn
 from loguru import logger
 
@@ -12,6 +13,14 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
 )
 from datahub_integrations.experimentation.docs_generation.metrics import extract_links
+
+
+def get_token_count(text: str) -> int:
+    """Count tokens in text and return abbreviated count with 'tokens' suffix."""
+    # This is just an approximation since different models have different tokenizers.
+    encoding = tiktoken.encoding_for_model("gpt-4o")
+    token_count = len(encoding.encode(text))
+    return token_count
 
 
 def _extract_urns_from_dict(data: dict) -> List[str]:
@@ -77,8 +86,10 @@ def extract_response_from_history(history: ChatHistory) -> str | None:
             if (
                 isinstance(message, ToolResult)
                 and message.tool_request.tool_name == "respond_to_user"
+                and isinstance(message.result, dict)
+                and "text" in message.result
             ):
-                return message.tool_request.tool_input["response"]
+                return message.result["text"]
             elif len(history.messages) == 2 and isinstance(message, AssistantMessage):
                 return message.text
         return None

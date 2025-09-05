@@ -122,7 +122,9 @@
           "response": "Here's information about the customer analytics resources:\n\n**Dashboard:** The [Customer Analytics Dashboard](https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atableau%2Ccustomer_analytics_dashboard%2CPROD%29) provides executive-level customer insights.\n\n**Team:** Maintained by the [Analytics Team](https://company.acryl.io/user/urn%3Ali%3Acorpuser%3Aanalytics.team%40company.com) who specializes in customer data analysis.\n\n**Domain:** This dashboard belongs to the [Customer Analytics Domain](https://company.acryl.io/domain/urn%3Ali%3Adomain%3Acustomer-analytics-domain-789) which manages all customer-related analytics assets.\n\n**Data Source:** The dashboard pulls data from the [customer_metrics](https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Canalytics.customer_metrics%2CPROD%29) table in Snowflake."
         }
       },
-      "result": "Response sent to user"
+      "result": {
+        "text": "Here's information about the customer analytics resources:\n\n**Dashboard:** The [Customer Analytics Dashboard](https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atableau%2Ccustomer_analytics_dashboard%2CPROD%29) provides executive-level customer insights.\n\n**Team:** Maintained by the [Analytics Team](https://company.acryl.io/user/urn%3Ali%3Acorpuser%3Aanalytics.team%40company.com) who specializes in customer data analysis.\n\n**Domain:** This dashboard belongs to the [Customer Analytics Domain](https://company.acryl.io/domain/urn%3Ali%3Adomain%3Acustomer-analytics-domain-789) which manages all customer-related analytics assets.\n\n**Data Source:** The dashboard pulls data from the [customer_metrics](https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Canalytics.customer_metrics%2CPROD%29) table in Snowflake."
+      }
     }
   ],
   "extra_properties": {}

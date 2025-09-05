@@ -8,6 +8,7 @@
    BEDROCK_AWS_ACCESS_KEY_ID=
    BEDROCK_AWS_SECRET_ACCESS_KEY=
    BEDROCK_AWS_REGION=
+   DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
    ```
 3. Start local mlflow server
    `python3 -m mlflow server --host 127.0.0.1 --port 9090`

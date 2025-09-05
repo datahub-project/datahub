@@ -23,6 +23,26 @@ fragment SearchEntityInfo on Entity {
       name
     }
   }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+  ... on GlossaryNode {
+    properties {
+      name
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+    }
+  }
+  ... on DataProduct {
+    properties {
+      name
+    }
+  }
 }
 
 fragment FacetEntityInfo on Entity {

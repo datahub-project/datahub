@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.telemetry.telemetry import TIMEOUT, _default_global_properties
 from loguru import logger
 from mixpanel import Consumer, Mixpanel
@@ -20,6 +21,11 @@ MIXPANEL_TOKEN = "7cee38380de7a8469069c040a1fee320"
 # Default is False - integrations service should depend on GMS to write to Mixpanel
 SEND_MIXPANEL_EVENTS_ENV = "DATAHUB_INTEGRATIONS_SEND_MIXPANEL_EVENTS"
 
+# Environment variable to control whether to send events directly to Mixpanel
+# Default is True - integrations service should always send telemetry events to GMS
+# This is used primarily to skip telemetry during ai experiments.
+SEND_TELEMETRY_EVENTS_ENV = "DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS"
+
 # Check the environment variable once at module load time
 # Default is False - only send to Mixpanel if explicitly enabled
 SEND_MIXPANEL_EVENTS = os.environ.get(SEND_MIXPANEL_EVENTS_ENV, "").lower() in (
@@ -27,6 +33,8 @@ SEND_MIXPANEL_EVENTS = os.environ.get(SEND_MIXPANEL_EVENTS_ENV, "").lower() in (
     "1",
     "yes",
 )
+
+SEND_TELEMETRY_EVENTS = get_boolean_env_variable(SEND_TELEMETRY_EVENTS_ENV, True)
 
 telemetry_client = Mixpanel(
     MIXPANEL_TOKEN,
@@ -99,6 +107,10 @@ def track_saas_event(
     Args:
         event: The event to track. Must be a subclass of BaseEvent.
     """
+    if not SEND_TELEMETRY_EVENTS:
+        logger.debug("Skipping telemetry as environment variable is not set")
+        return
+
     # Include the timestamp in ISO format in the properties
     # The TrackingService will handle the conversion to the appropriate format
     # for each destination (Mixpanel and Kafka)
