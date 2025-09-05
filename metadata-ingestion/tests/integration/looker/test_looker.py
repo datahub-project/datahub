@@ -394,7 +394,7 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
         dashboard_elements=[
             DashboardElement(
                 id="2",
-                type="",
+                type="vis",
                 subtitle_text="Some text",
                 query=Query(
                     model="data",
@@ -405,7 +405,7 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
             ),
             DashboardElement(
                 id="10",
-                type="",
+                type="vis",
                 subtitle_text="Some other text",
                 query=Query(
                     model="bogus data",
