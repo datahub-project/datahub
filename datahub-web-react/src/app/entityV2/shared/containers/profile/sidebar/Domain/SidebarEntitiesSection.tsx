@@ -40,7 +40,7 @@ const ViewAllButton = styled.div`
 `;
 
 const SidebarEntitiesSection = () => {
-    const { urn, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const { entityState } = useEntityContext();
     const history = useHistory();
@@ -59,7 +59,9 @@ const SidebarEntitiesSection = () => {
     }, [shouldRefetch, entityState, refetch]);
 
     const contentsSummary = data?.aggregateAcrossEntities && getContentsSummary(data.aggregateAcrossEntities as any);
-    const contentsCount = contentsSummary?.total || 0;
+    // Use the direct entity count from entityData instead of aggregated facet count to ensure consistency
+    // This ensures the count matches what's shown in other parts of the UI like tabs and preview cards
+    const contentsCount = (entityData as any)?.entities?.total || 0;
     const hasContents = contentsCount > 0;
 
     return (

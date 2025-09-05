@@ -38,7 +38,7 @@ export const ContentsSection = () => {
     const { entityState } = useEntityContext();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { urn, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
     const { data, loading, refetch } = useGetDomainEntitySummaryQuery({
         variables: {
             urn,
@@ -46,7 +46,9 @@ export const ContentsSection = () => {
     });
 
     const contentsSummary = data?.aggregateAcrossEntities && getContentsSummary(data.aggregateAcrossEntities as any);
-    const contentsCount = contentsSummary?.total || 0;
+    // Use the direct entity count from entityData instead of aggregated facet count to ensure consistency
+    // This ensures the count matches what's shown in other parts of the UI like tabs and preview cards
+    const contentsCount = (entityData as any)?.entities?.total || 0;
     const hasContents = contentsCount > 0;
 
     const shouldRefetch = entityState?.shouldRefetchContents;
