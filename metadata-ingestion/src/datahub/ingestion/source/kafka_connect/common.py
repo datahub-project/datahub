@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List, Optional
 
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, LaxStr
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
@@ -29,7 +29,7 @@ CONNECTOR_CLASS = "connector.class"
 class ProvidedConfig(ConfigModel):
     provider: str
     path_key: str
-    value: str
+    value: LaxStr
 
 
 class GenericConnectorConfig(ConfigModel):
