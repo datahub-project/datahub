@@ -160,6 +160,13 @@ type Query {
   listUsers(input: ListUsersInput!): ListUsersResult
 
   """
+  Get user recommendations based on usage metrics
+  """
+  getUserRecommendations(
+    input: GetUserRecommendationsInput!
+  ): GetUserRecommendationsResult
+
+  """
   List all DataHub Groups
   """
   listGroups(input: ListGroupsInput!): ListGroupsResult
@@ -10674,6 +10681,66 @@ type ListUsersResult {
 
   """
   The users themselves
+  """
+  users: [CorpUser!]!
+}
+
+"""
+Usage metrics fields available for sorting user recommendations
+"""
+enum UserUsageSortField {
+  """
+  Sort by total usage count in the past 30 days
+  """
+  USAGE_TOTAL_PAST_30_DAYS
+
+  """
+  Sort by usage percentile in the past 30 days
+  """
+  USAGE_PERCENTILE_PAST_30_DAYS
+}
+
+"""
+Input required when getting user recommendations
+"""
+input GetUserRecommendationsInput {
+  """
+  The maximum number of users to be returned (default: 6)
+  """
+  limit: Int
+
+  """
+  Field to sort recommendations by (default: USAGE_TOTAL_PAST_30_DAYS)
+  """
+  sortBy: UserUsageSortField
+
+  """
+  Optional platform filter to find users with usage on specific platform
+  """
+  platformFilter: String
+}
+
+"""
+The result obtained when getting user recommendations
+"""
+type GetUserRecommendationsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of users in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of users in the result set
+  """
+  total: Int!
+
+  """
+  The recommended users
   """
   users: [CorpUser!]!
 }

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useGetUserRecommendationsQuery } from '@graphql/user.generated';
+import { UserUsageSortField } from '@types';
 
 const MAX_RECOMMENDED_USERS = 100;
 
@@ -9,16 +10,17 @@ export function useUserRecommendations() {
     const { data: userRecommendationsData } = useGetUserRecommendationsQuery({
         variables: {
             input: {
-                start: 0,
-                count: MAX_RECOMMENDED_USERS,
+                limit: MAX_RECOMMENDED_USERS,
+                sortBy: UserUsageSortField.UsageTotalPast_30Days,
+                platformFilter: null,
             },
         },
         fetchPolicy: 'cache-first',
     });
 
     const recommendedUsers = useMemo(() => {
-        return userRecommendationsData?.listUsers?.users || [];
-    }, [userRecommendationsData?.listUsers?.users]);
+        return userRecommendationsData?.getUserRecommendations?.users || [];
+    }, [userRecommendationsData]);
 
     return {
         recommendedUsers,
