@@ -1139,6 +1139,8 @@ def test_file_path_in_view_naming_pattern(
         )
         setup_mock_look(mocked_client)
         setup_mock_external_project_view_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
 
