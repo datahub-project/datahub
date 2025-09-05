@@ -233,12 +233,12 @@ import {
 import {
     AZURE,
     CSV,
+    DATABRICKS,
     DBT_CLOUD,
     MYSQL,
     OKTA,
     POWER_BI,
     SAC,
-    UNITY_CATALOG,
     VERTICA,
 } from '@app/ingestV2/source/builder/constants';
 import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
@@ -471,7 +471,7 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
-    [UNITY_CATALOG]: {
+    [DATABRICKS]: {
         fields: [WORKSPACE_URL, TOKEN],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,
