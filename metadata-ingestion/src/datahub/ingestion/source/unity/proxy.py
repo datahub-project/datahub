@@ -8,7 +8,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -495,7 +495,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 source_path = row["source_path"]
                 last_updated = row["last_updated"]
 
-                if entity_id == '552742158728756':
+                if entity_id == "552742158728756":
                     logger.debug(f"{row}")
 
                 # Initialize TableLineageInfo for both source and target tables if they're in our catalog
@@ -1081,7 +1081,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def _execute_sql_query(self, query: str, params: Union[List[Any], Dict[str, Any]] = ()) -> List[Row]:
+    def _execute_sql_query(
+        self, query: str, params: Union[List[Any], Dict[str, Any]] = ()
+    ) -> List[Row]:
         """Execute SQL query using databricks-sql connector for better performance"""
         logger.debug(f"Executing SQL query with {len(params)} parameters")
         if logger.isEnabledFor(logging.DEBUG):

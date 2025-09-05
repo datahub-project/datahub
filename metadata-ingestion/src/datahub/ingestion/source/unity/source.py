@@ -651,7 +651,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
-                yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
         if ownership:
             patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
