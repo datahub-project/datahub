@@ -1,8 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import AboutSection from '@app/entityV2/summary/documentation/AboutSection';
-import Links from '@app/entityV2/summary/links/Links';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
 import { StyledDivider } from '@app/entityV2/summary/styledComponents';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
@@ -22,14 +22,12 @@ interface Props {
 }
 
 export default function SummaryTab({ properties }: { properties?: Props }) {
-    const hideLinksButton = properties?.hideLinksButton;
-
+    const { urn } = useEntityData();
     return (
         <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
             <SummaryWrapper>
                 <PropertiesHeader />
-                <AboutSection />
-                {!hideLinksButton && <Links />}
+                <AboutSection hideLinksButton={!!properties?.hideLinksButton} key={urn} />
                 <StyledDivider />
                 <Template />
             </SummaryWrapper>

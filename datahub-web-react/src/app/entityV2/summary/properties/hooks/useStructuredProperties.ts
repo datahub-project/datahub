@@ -3,19 +3,11 @@ import { useMemo } from 'react';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES } from '@app/entityV2/summary/properties/constants';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
-import {
-    getDisplayNameFilter,
-    getEntityTypesPropertyFilter,
-    getNotHiddenPropertyFilter,
-    getValueTypeFilter,
-    isStructuredProperty,
-} from '@app/govern/structuredProperties/utils';
+import { getStructuredPropertiesSearchInputs, isStructuredProperty } from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType, SummaryElementType } from '@types';
-
-const MAX_PROPERTIES = 20;
+import { SummaryElementType } from '@types';
 
 export default function useStructuredProperties(query: string | undefined) {
     const { entityType } = useEntityData();
@@ -59,27 +51,9 @@ export default function useStructuredProperties(query: string | undefined) {
 
     // SEARCH API
 
-    const inputs = {
-        types: [EntityType.StructuredProperty],
-        query: '*',
-        start: 0,
-        count: MAX_PROPERTIES,
-        searchFlags: { skipCache: true },
-        orFilters: [
-            {
-                and: [
-                    getEntityTypesPropertyFilter(entityRegistry, false, entityType),
-                    getNotHiddenPropertyFilter(),
-                    getValueTypeFilter(SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES),
-                    ...(preprocessedQuery ? [getDisplayNameFilter(preprocessedQuery)] : []),
-                ],
-            },
-        ],
-    };
-
     const { data, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
-            input: inputs,
+            input: getStructuredPropertiesSearchInputs(entityRegistry, entityType, '', preprocessedQuery),
         },
         fetchPolicy: 'cache-first',
     });
@@ -89,6 +63,9 @@ export default function useStructuredProperties(query: string | undefined) {
             ((data?.searchAcrossEntities?.searchResults ?? [])
                 .map((result) => result.entity)
                 .filter(isStructuredProperty)
+                .filter((property) =>
+                    SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES.includes(property.definition.valueType.urn),
+                )
                 ?.map((structuredProperty) => ({
                     key: structuredProperty.urn,
                     name: structuredProperty.definition.displayName ?? '',
