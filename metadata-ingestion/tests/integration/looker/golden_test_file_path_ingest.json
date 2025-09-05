@@ -91,7 +91,6 @@
         "lastRunId": "no-run-id-provided"
     }
 },
-
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
@@ -102,6 +101,22 @@
             "typeNames": [
                 "Look"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
         }
     },
     "systemMetadata": {
@@ -138,7 +153,22 @@
         "lastRunId": "no-run-id-provided"
     }
 },
-
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:691314a7b63628684d62a14861d057a8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
 {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
@@ -350,6 +380,22 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:looker"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
     "changeType": "UPSERT",
@@ -403,7 +449,6 @@
         "lastRunId": "no-run-id-provided"
     }
 },
-
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
@@ -531,24 +576,6 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePaths",
-    "aspect": {
-        "json": {
-            "paths": [
-                "/Folders/Shared/foo"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
     "changeType": "UPSERT",
@@ -558,40 +585,25 @@
             "customProperties": {},
             "title": "foo",
             "description": "lorem ipsum",
-            "charts": [
-                "urn:li:chart:(looker,dashboard_elements.2)"
+            "charts": [],
+            "chartEdges": [
+                {
+                    "destinationUrn": "urn:li:chart:(looker,dashboard_elements.2)"
+                }
             ],
             "datasets": [],
             "dashboards": [],
             "lastModified": {
                 "created": {
-                    "time": 1586847600000,
+                    "time": 0,
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1586847600000,
-                    "actor": "urn:li:corpuser:unknown"
+                    "time": 1586847600,
+                    "actor": "urn:li:corpuser:datahub"
                 }
             },
             "dashboardUrl": "https://looker.company.com/dashboards/1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePaths",
-    "aspect": {
-        "json": {
-            "paths": [
-                "/Folders/Shared"
-            ]
         }
     },
     "systemMetadata": {
