@@ -1988,6 +1988,11 @@ type Actor {
   List of users for which the role is provisioned
   """
   users: [RoleUser!]
+
+  """
+  List of groups for which the role is provisioned
+  """
+  groups: [RoleGroup!]
 }
 
 type RoleUser {
@@ -1995,6 +2000,13 @@ type RoleUser {
   Linked corp user of a role
   """
   user: CorpUser!
+}
+
+type RoleGroup {
+  """
+  Linked corp group of a role
+  """
+  group: CorpGroup!
 }
 
 type RoleProperties {

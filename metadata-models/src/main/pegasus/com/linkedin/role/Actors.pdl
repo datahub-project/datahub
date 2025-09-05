@@ -2,7 +2,7 @@ namespace com.linkedin.role
 
 
 /**
- * Provisioned users of a role
+ * Provisioned users and groups of a role
  */
 @Aspect = {
   "name": "actors"
@@ -13,5 +13,10 @@ record Actors {
    * List of provisioned users of a role
    */
   users: optional array[RoleUser]
+  
+  /**
+   * List of provisioned groups of a role
+   */
+  groups: optional array[RoleGroup]
 
 }
