@@ -1293,6 +1293,8 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multi_model_explores(mocked_client)
         setup_mock_multi_model_explores(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
