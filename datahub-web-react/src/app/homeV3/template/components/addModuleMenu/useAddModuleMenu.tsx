@@ -37,6 +37,17 @@ const DOMAINS_MODULE: PageModuleFragment = {
     },
 };
 
+export const ASSETS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:assets',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Assets',
+        type: DataHubPageModuleType.Assets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const {
         addModule,
@@ -168,11 +179,28 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-domains-module',
         };
 
+        const assets = {
+            name: 'Assets',
+            key: 'assets',
+            label: (
+                <MenuItem
+                    description="Related Assets tagged with the parent entity"
+                    title="Assets"
+                    icon="Database"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(ASSETS_MODULE);
+            },
+            'data-testid': 'add-assets-module',
+        };
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Default" />,
             type: 'group',
-            children: [yourAssets, domains],
+            children: [yourAssets, domains, assets],
         });
 
         // Add global custom modules if available
