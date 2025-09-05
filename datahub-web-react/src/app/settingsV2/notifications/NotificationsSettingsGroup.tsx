@@ -10,7 +10,7 @@ import {
     ScenarioSettingsSection,
     ScenarioSettingsSectionTitle,
 } from '@app/settingsV2/notifications/styledComponents';
-import { NOTIFICATION_SINKS, NotificationGroup, NotificationSink } from '@app/settingsV2/notifications/types';
+import { NotificationGroup, NotificationSink } from '@app/settingsV2/notifications/types';
 import { NotificationScenarioType, NotificationSetting } from '@src/types.generated';
 
 type Props = {
@@ -21,6 +21,7 @@ type Props = {
     refetch: () => void;
     notificationOptionsEnabled: boolean;
     openNotificationOptions: (type: NotificationScenarioType) => void;
+    enabledSinks: NotificationSink[];
     isSinkEnabled: (sink: NotificationSink) => boolean;
 };
 
@@ -32,6 +33,7 @@ export const NotificationSettingsGroup = ({
     refetch,
     notificationOptionsEnabled,
     openNotificationOptions,
+    enabledSinks,
     isSinkEnabled,
 }: Props) => {
     return (
@@ -44,7 +46,7 @@ export const NotificationSettingsGroup = ({
                             <ScenarioSetting key={notif.type}>
                                 <NotificationTypeDescription>{notif.description}</NotificationTypeDescription>
                                 <ScenarioSettingValues>
-                                    {NOTIFICATION_SINKS.map((sink) => (
+                                    {enabledSinks.map((sink) => (
                                         <NotificationSettingValue
                                             sink={sink}
                                             disabled={!isSinkEnabled(sink)}

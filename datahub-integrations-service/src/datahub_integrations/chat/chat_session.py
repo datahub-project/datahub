@@ -438,6 +438,8 @@ class ChatSession:
             logger.info(f"Generating tool call {i} for session {self.session_id}")
             self._generate_tool_call()
 
+            if not self.history.messages:
+                raise ChatSessionError("No messages in chat history")
             last_message = self.history.messages[-1]
             if self.is_respond_to_user(last_message):
                 logger.info(

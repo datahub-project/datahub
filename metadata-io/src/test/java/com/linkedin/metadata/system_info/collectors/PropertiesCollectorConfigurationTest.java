@@ -892,6 +892,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "notifications.sinks[0].type",
           "notifications.sinks[1].type",
           "notifications.sinks[2].type",
+          "notifications.sinks[3].type",
           "recommendationService.mostPopular.offline",
           "recommendationService.topTags.offline",
           "recommendationService.topTerms.offline",

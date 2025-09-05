@@ -7,14 +7,20 @@ from datahub.testing.pytest_hooks import (  # noqa: F401
     pytest_addoption,
 )
 
-with unittest.mock.patch("datahub.ingestion.graph.client.DataHubGraph") as mock:
+try:
+    with unittest.mock.patch("datahub.ingestion.graph.client.DataHubGraph") as mock:
+        os.environ["DATAHUB_GMS_PROTOCOL"] = "http"
+        os.environ["DATAHUB_GMS_HOST"] = "example.com"
+        os.environ["DATAHUB_GMS_PORT"] = "8080"
+
+        # The app module initializes a global graph object. We need to mock that object
+        # here so that it doesn't fail when testing it's connection.
+        import datahub_integrations.app  # noqa: F401
+except ImportError:
+    # Fallback if DataHubGraph import fails
     os.environ["DATAHUB_GMS_PROTOCOL"] = "http"
     os.environ["DATAHUB_GMS_HOST"] = "example.com"
     os.environ["DATAHUB_GMS_PORT"] = "8080"
-
-    # The app module initializes a global graph object. We need to mock that object
-    # here so that it doesn't fail when testing it's connection.
-    import datahub_integrations.app  # noqa: F401
 
 
 @pytest.fixture(scope="session")

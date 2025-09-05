@@ -181,6 +181,10 @@ const useUpsertSubscription = ({
         email: {
             subscription: { channel: emailChannel, saveAsDefault: emailSaveAsDefault },
         },
+        teams: {
+            subscription: { channel: teamsChannel, saveAsDefault: teamsSaveAsDefault },
+            selectedResult: teamsSelectedResult,
+        },
     } = useDrawerState();
 
     const [createSubscription] = useCreateSubscriptionMutation();
@@ -207,6 +211,29 @@ const useUpsertSubscription = ({
             !emailSaveAsDefault && emailChannel
                 ? {
                       email: emailChannel,
+                  }
+                : undefined,
+        teamsSettings:
+            !teamsSaveAsDefault && teamsChannel
+                ? {
+                      // TODO: Will need to change to use "pre-existing user binding" instead of letting user select a user here
+                      user:
+                          teamsSelectedResult?.type === 'user'
+                              ? {
+                                    azureUserId: teamsSelectedResult.id,
+                                    email: teamsSelectedResult.email,
+                                    displayName: teamsSelectedResult.displayName,
+                                }
+                              : undefined,
+                      channels:
+                          teamsSelectedResult?.type === 'channel'
+                              ? [
+                                    {
+                                        id: teamsChannel,
+                                        name: teamsSelectedResult.displayName,
+                                    },
+                                ]
+                              : undefined,
                   }
                 : undefined,
     };

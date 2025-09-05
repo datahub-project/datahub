@@ -6,13 +6,60 @@ from confluent_kafka import Consumer, KafkaError
 
 from tests.utils import (
     delete_urns_from_file,
-    execute_gql,
+    execute_gql_with_retry,
     get_kafka_broker_url,
     ingest_file_via_rest,
 )
 
 # Test action requests that will be created during tests
 CREATED_ACTION_REQUEST_URNS: list[str] = []
+
+
+def wait_for_workflow_request_ready(auth_session, action_request_urn, timeout=30):
+    """Poll until workflow request is ready for review"""
+    list_query = """
+    query listActionRequests($input: ListActionRequestsInput!) {
+        listActionRequests(input: $input) {
+            actionRequests {
+                urn
+                params {
+                    workflowFormRequest {
+                        workflowUrn
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    start_time = time.time()
+    print(f"Waiting for workflow request {action_request_urn} to be ready...")
+
+    while time.time() - start_time < timeout:
+        try:
+            variables = {"input": {"start": 0, "count": 100}}
+            response = execute_gql_with_retry(auth_session, list_query, variables)
+
+            if "errors" not in response:
+                action_requests = (
+                    response.get("data", {})
+                    .get("listActionRequests", {})
+                    .get("actionRequests", [])
+                )
+                # Check if our request exists
+                for request in action_requests:
+                    if request.get("urn") == action_request_urn:
+                        print(f"✓ Workflow request {action_request_urn} is ready")
+                        return True
+
+        except Exception as e:
+            print(f"Polling attempt failed: {e}")
+
+        time.sleep(1)
+
+    raise TimeoutError(
+        f"Workflow request {action_request_urn} not ready after {timeout}s"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -182,7 +229,7 @@ def test_workflow_request_creation_event(auth_session):
         }
 
         print(f"Creating workflow request with unique_id: {unique_id}")
-        response = execute_gql(auth_session, create_query, variables)
+        response = execute_gql_with_retry(auth_session, create_query, variables)
 
         assert "errors" not in response
         assert response["data"]["createActionWorkflowFormRequest"] is not None
@@ -263,7 +310,7 @@ def test_workflow_request_review_event(auth_session):
         }
 
         print(f"Creating workflow request for review test with unique_id: {unique_id}")
-        response = execute_gql(auth_session, create_query, variables)
+        response = execute_gql_with_retry(auth_session, create_query, variables)
 
         assert "errors" not in response
         action_request_urn = response["data"]["createActionWorkflowFormRequest"]
@@ -271,8 +318,8 @@ def test_workflow_request_review_event(auth_session):
 
         print(f"Created workflow request: {action_request_urn}")
 
-        # Wait a moment for the creation event to be processed
-        time.sleep(2)
+        # Wait for the workflow request to be ready for review
+        wait_for_workflow_request_ready(auth_session, action_request_urn)
 
         # Review the workflow request
         review_query = """
@@ -290,7 +337,9 @@ def test_workflow_request_review_event(auth_session):
         }
 
         print(f"Reviewing workflow request: {action_request_urn}")
-        review_response = execute_gql(auth_session, review_query, review_variables)
+        review_response = execute_gql_with_retry(
+            auth_session, review_query, review_variables
+        )
 
         assert "errors" not in review_response
         assert review_response["data"]["reviewActionWorkflowFormRequest"] is True
@@ -369,7 +418,7 @@ def test_workflow_request_completion_event(auth_session):
         print(
             f"Creating workflow request for completion test with unique_id: {unique_id}"
         )
-        response = execute_gql(auth_session, create_query, variables)
+        response = execute_gql_with_retry(auth_session, create_query, variables)
 
         assert "errors" not in response
         action_request_urn = response["data"]["createActionWorkflowFormRequest"]
@@ -396,7 +445,9 @@ def test_workflow_request_completion_event(auth_session):
         }
 
         print(f"Completing workflow request: {action_request_urn}")
-        review_response = execute_gql(auth_session, review_query, review_variables)
+        review_response = execute_gql_with_retry(
+            auth_session, review_query, review_variables
+        )
 
         assert "errors" not in review_response
         assert review_response["data"]["reviewActionWorkflowFormRequest"] is True
@@ -487,7 +538,7 @@ def test_workflow_lifecycle_events_comprehensive(auth_session):
         print(
             f"Starting comprehensive workflow lifecycle test with unique_id: {unique_id}"
         )
-        response = execute_gql(auth_session, create_query, variables)
+        response = execute_gql_with_retry(auth_session, create_query, variables)
 
         assert "errors" not in response
         action_request_urn = response["data"]["createActionWorkflowFormRequest"]
@@ -512,7 +563,9 @@ def test_workflow_lifecycle_events_comprehensive(auth_session):
         }
 
         print("2. Reviewing/completing workflow request...")
-        review_response = execute_gql(auth_session, review_query, review_variables)
+        review_response = execute_gql_with_retry(
+            auth_session, review_query, review_variables
+        )
 
         assert "errors" not in review_response
         assert review_response["data"]["reviewActionWorkflowFormRequest"] is True

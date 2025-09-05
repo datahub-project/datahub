@@ -11,6 +11,7 @@ import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
+import com.linkedin.event.notification.settings.TeamsNotificationSettings;
 import com.linkedin.subscription.EntityChangeDetails;
 import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.EntityChangeDetailsFilter;
@@ -129,6 +130,11 @@ public class SubscriptionResolverUtils {
           mapEmailNotificationSettings(notificationSettings.getEmailSettings()));
     }
 
+    if (notificationSettings.getTeamsSettings() != null) {
+      result.setTeamsSettings(
+          mapTeamsNotificationSettings(notificationSettings.getTeamsSettings()));
+    }
+
     return result;
   }
 
@@ -155,6 +161,47 @@ public class SubscriptionResolverUtils {
     if (emailSettings.getEmail() != null) {
       result.setEmail(emailSettings.getEmail());
     }
+    return result;
+  }
+
+  @Nonnull
+  public static TeamsNotificationSettings mapTeamsNotificationSettings(
+      @Nonnull
+          com.linkedin.datahub.graphql.generated.TeamsNotificationSettingsInput teamsSettings) {
+    final TeamsNotificationSettings result = new TeamsNotificationSettings();
+    if (teamsSettings.getUser() != null) {
+      com.linkedin.settings.global.TeamsUser user = new com.linkedin.settings.global.TeamsUser();
+      if (teamsSettings.getUser().getTeamsUserId() != null) {
+        user.setTeamsUserId(teamsSettings.getUser().getTeamsUserId());
+      }
+      if (teamsSettings.getUser().getAzureUserId() != null) {
+        user.setAzureUserId(teamsSettings.getUser().getAzureUserId());
+      }
+      if (teamsSettings.getUser().getEmail() != null) {
+        user.setEmail(teamsSettings.getUser().getEmail());
+      }
+      if (teamsSettings.getUser().getDisplayName() != null) {
+        user.setDisplayName(teamsSettings.getUser().getDisplayName());
+      }
+      result.setUser(user);
+    }
+    if (teamsSettings.getChannels() != null && !teamsSettings.getChannels().isEmpty()) {
+      com.linkedin.settings.global.TeamsChannelArray channelArray =
+          new com.linkedin.settings.global.TeamsChannelArray();
+      for (com.linkedin.datahub.graphql.generated.TeamsChannelInput channelInput :
+          teamsSettings.getChannels()) {
+        com.linkedin.settings.global.TeamsChannel channel =
+            new com.linkedin.settings.global.TeamsChannel();
+        channel.setId(channelInput.getId());
+        if (channelInput.getName() != null) {
+          channel.setName(channelInput.getName());
+        }
+        channel.setLastUpdated(System.currentTimeMillis());
+        channelArray.add(channel);
+      }
+      result.setChannels(channelArray);
+    }
+
     return result;
   }
 

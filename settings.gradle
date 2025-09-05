@@ -95,6 +95,7 @@ include ':metadata-integration:java:datahub-schematron:cli'
 include ':metadata-service:iceberg-catalog'
 include ':metadata-service:events-service'
 include ':datahub-actions'
+include 'datahub-cloud-router'
 
 buildCache {
     def depotSecret = System.getenv('DEPOT_TOKEN');

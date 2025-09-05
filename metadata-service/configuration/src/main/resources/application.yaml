@@ -671,6 +671,8 @@ notifications:
       enabled: ${EMAIL_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
     - type: com.datahub.notification.proxy.SlackProxySink
       enabled: ${SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
+    - type: com.datahub.notification.proxy.TeamsProxySink
+      enabled: ${TEAMS_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED:true}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:
@@ -922,6 +924,8 @@ featureFlags:
   # Enables the documentation forms feature and shows/hides everything for it in the UI
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false}
   # Enables the email notifications feature.
+  teamsNotificationsEnabled: ${TEAMS_NOTIFICATIONS_ENABLED:false}
+  # Enables the Teams notifications feature.
   slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:true}
   # Enables the ability to configure slack bot tokens via the integrations settings UI
   slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true}

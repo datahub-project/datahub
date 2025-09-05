@@ -130,6 +130,7 @@ jobs:
           ./gradlew -PwithCoverage :datahub-frontend:build :datahub-web-react:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          NODE_OPTIONS: --max-old-space-size=4096
       - name: Gradle build (and test) for integrations-service
         if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
         run: |

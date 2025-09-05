@@ -1,5 +1,7 @@
 import { Key } from 'react';
 
+import { TeamsSearchResult } from '@app/shared/subscribe/drawer/teams-search-client';
+
 import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '@types';
 
 export const ChannelSelections = {
@@ -26,6 +28,16 @@ export type EmailState = {
         saveAsDefault: boolean;
     };
 };
+
+export type TeamsState = {
+    enabled: boolean;
+    channelSelection: ChannelSelection;
+    subscription: {
+        channel?: string;
+        saveAsDefault: boolean;
+    };
+    selectedResult?: TeamsSearchResult | null;
+};
 export type State = {
     edited: boolean;
     isPersonal: boolean;
@@ -37,6 +49,10 @@ export type State = {
         email: {
             channel?: string;
         };
+        teams: {
+            channel?: string;
+            channelName?: string;
+        };
     };
     notificationTypes: {
         checkedKeys: Array<Key>;
@@ -47,6 +63,7 @@ export type State = {
     notificationSinkTypes: Array<NotificationSinkType>;
     slack: SlackState;
     email: EmailState;
+    teams: TeamsState;
 };
 
 export type InitializeActionPayload = {
@@ -57,6 +74,10 @@ export type InitializeActionPayload = {
     emailSinkEnabled: boolean;
     emailSubscriptionChannel?: string;
     emailSettingsChannel?: string;
+    teamsSinkEnabled: boolean;
+    teamsSubscriptionChannel?: string;
+    teamsSettingsChannel?: string;
+    teamsSettingsChannelName?: string;
     entityType: EntityType;
     subscription?: DataHubSubscription;
     forSubResource?: {
@@ -77,6 +98,11 @@ export const ActionTypes = {
     SET_EMAIL_CHANNEL_SELECTION: 'SET_EMAIL_CHANNEL_SELECTION',
     SET_EMAIL_SUBSCRIPTION_CHANNEL: 'SET_EMAIL_SUBSCRIPTION_CHANNEL',
     SET_EMAIL_SAVE_AS_DEFAULT: 'SET_EMAIL_SAVE_AS_DEFAULT',
+    SET_TEAMS_ENABLED: 'SET_TEAMS_ENABLED',
+    SET_TEAMS_CHANNEL_SELECTION: 'SET_TEAMS_CHANNEL_SELECTION',
+    SET_TEAMS_SUBSCRIPTION_CHANNEL: 'SET_TEAMS_SUBSCRIPTION_CHANNEL',
+    SET_TEAMS_SAVE_AS_DEFAULT: 'SET_TEAMS_SAVE_AS_DEFAULT',
+    SET_TEAMS_OBJECT: 'SET_TEAMS_OBJECT',
     SET_SUBSCRIBE_TO_UPSTREAM: 'SET_SUBSCRIBE_TO_UPSTREAM,',
     SET_NOTIFICATION_TYPES: 'SET_NOTIFICATION_TYPES',
     SET_EXPANDED_NOTIFICATION_TYPES: 'SET_EXPANDED_NOTIFICATION_TYPES',
@@ -95,6 +121,11 @@ export type Action =
     | { type: typeof ActionTypes.SET_EMAIL_CHANNEL_SELECTION; payload: ChannelSelection }
     | { type: typeof ActionTypes.SET_EMAIL_SUBSCRIPTION_CHANNEL; payload: string }
     | { type: typeof ActionTypes.SET_EMAIL_SAVE_AS_DEFAULT; payload: boolean }
+    | { type: typeof ActionTypes.SET_TEAMS_ENABLED; payload: boolean }
+    | { type: typeof ActionTypes.SET_TEAMS_CHANNEL_SELECTION; payload: ChannelSelection }
+    | { type: typeof ActionTypes.SET_TEAMS_SUBSCRIPTION_CHANNEL; payload: string }
+    | { type: typeof ActionTypes.SET_TEAMS_SAVE_AS_DEFAULT; payload: boolean }
+    | { type: typeof ActionTypes.SET_TEAMS_OBJECT; payload: TeamsState }
     | { type: typeof ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM; payload: boolean }
     | { type: typeof ActionTypes.SET_NOTIFICATION_TYPES; payload: Array<Key> }
     | { type: typeof ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES; payload: Array<Key> }

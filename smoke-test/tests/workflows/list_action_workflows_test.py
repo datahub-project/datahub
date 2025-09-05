@@ -1,6 +1,10 @@
 import pytest
 
-from tests.utils import delete_urns_from_file, execute_gql, ingest_file_via_rest
+from tests.utils import (
+    delete_urns_from_file,
+    execute_gql_with_retry,
+    ingest_file_via_rest,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -38,7 +42,7 @@ def test_list_all_workflows(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -79,7 +83,7 @@ def test_list_workflows_filtered_by_category(auth_session):
     # Test filtering by ACCESS type
     variables = {"input": {"start": 0, "count": 50, "category": "ACCESS"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -125,7 +129,7 @@ def test_list_workflows_filtered_by_custom_category(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -171,7 +175,7 @@ def test_list_workflows_filtered_by_entrypoint_type(auth_session):
     # Test filtering by ENTITY_PROFILE entrypoint
     variables = {"input": {"start": 0, "count": 50, "entrypointType": "ENTITY_PROFILE"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -216,7 +220,7 @@ def test_list_workflows_filtered_by_entity_type(auth_session):
 
     variables = {"input": {"start": 0, "count": 50, "entityType": "DATASET"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -254,7 +258,7 @@ def test_list_workflows_pagination(auth_session):
     # Get first page
     variables = {"input": {"start": 0, "count": 2}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -267,7 +271,7 @@ def test_list_workflows_pagination(auth_session):
     # Test pagination - get next page if there are more results
     if result["total"] > 2:
         variables["input"]["start"] = 2
-        response = execute_gql(auth_session, list_query, variables)
+        response = execute_gql_with_retry(auth_session, list_query, variables)
 
         assert "errors" not in response
         result = response["data"]["listActionWorkflows"]
@@ -304,7 +308,7 @@ def test_list_workflows_with_group_resolution(auth_session):
 
     variables = {"input": {"start": 0, "count": 50}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -361,7 +365,7 @@ def test_list_workflows_empty_result(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -426,7 +430,7 @@ def test_list_workflows_with_condition_field(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
@@ -582,7 +586,7 @@ def test_list_workflows_with_comprehensive_trigger_verification(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]

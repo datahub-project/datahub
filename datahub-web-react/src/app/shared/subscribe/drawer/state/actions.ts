@@ -6,6 +6,7 @@ import {
     ChannelSelection,
     InitializeActionPayload,
     SlackState,
+    TeamsState,
 } from '@app/shared/subscribe/drawer/state/types';
 
 const useDrawerActions = () => {
@@ -48,6 +49,21 @@ const useDrawerActions = () => {
             },
             setWholeEmailObject: (payload: SlackState) => {
                 dispatch({ type: ActionTypes.SET_EMAIL_OBJECT, payload });
+            },
+            setTeamsEnabled: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_TEAMS_ENABLED, payload });
+            },
+            setTeamsChannelSelection: (payload: ChannelSelection) => {
+                dispatch({ type: ActionTypes.SET_TEAMS_CHANNEL_SELECTION, payload });
+            },
+            setTeamsSubscriptionChannel: (payload: string) => {
+                dispatch({ type: ActionTypes.SET_TEAMS_SUBSCRIPTION_CHANNEL, payload });
+            },
+            setTeamsSaveAsDefault: (payload: boolean) => {
+                dispatch({ type: ActionTypes.SET_TEAMS_SAVE_AS_DEFAULT, payload });
+            },
+            setWholeTeamsObject: (payload: TeamsState) => {
+                dispatch({ type: ActionTypes.SET_TEAMS_OBJECT, payload });
             },
             setSubscribeToUpstream: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM, payload });

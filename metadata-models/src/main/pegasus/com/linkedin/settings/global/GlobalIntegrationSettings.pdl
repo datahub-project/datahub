@@ -13,4 +13,9 @@ record GlobalIntegrationSettings {
    * Email integration settings.
    */
   emailSettings: optional EmailIntegrationSettings
+
+  /**
+   * Teams integration settings.
+   */
+  teamsSettings: optional TeamsIntegrationSettings
 }

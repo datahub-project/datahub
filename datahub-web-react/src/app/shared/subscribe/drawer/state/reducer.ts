@@ -3,7 +3,7 @@ import uniq from 'lodash/uniq';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settings/personal/notifications/constants';
 import { Action, ActionTypes, ChannelSelections, State } from '@app/shared/subscribe/drawer/state/types';
 
-import { NotificationSinkType, SubscriptionType } from '@types';
+import { EntityChangeType, NotificationSinkType, SubscriptionType } from '@types';
 
 export const createInitialState = (): State => ({
     edited: false,
@@ -11,6 +11,7 @@ export const createInitialState = (): State => ({
     settings: {
         slack: {},
         email: {},
+        teams: {},
     },
     notificationTypes: {
         checkedKeys: [],
@@ -33,6 +34,14 @@ export const createInitialState = (): State => ({
             saveAsDefault: false,
         },
     },
+    teams: {
+        enabled: false,
+        channelSelection: ChannelSelections.SUBSCRIPTION,
+        subscription: {
+            saveAsDefault: false,
+        },
+        selectedResult: null,
+    },
 });
 
 export const reducer = (state: State, action: Action): State => {
@@ -42,12 +51,16 @@ export const reducer = (state: State, action: Action): State => {
                 isPersonal,
                 slackSinkEnabled,
                 emailSinkEnabled,
+                teamsSinkEnabled,
                 subscription,
                 forSubResource,
                 slackSubscriptionChannel,
                 slackSettingsChannel,
                 emailSubscriptionChannel,
                 emailSettingsChannel,
+                teamsSubscriptionChannel,
+                teamsSettingsChannel,
+                teamsSettingsChannelName,
                 settingsSinkTypes,
             } = action.payload;
 
@@ -59,7 +72,7 @@ export const reducer = (state: State, action: Action): State => {
                   )
                 : subscription?.entityChangeTypes;
 
-            const entityChangeTypes =
+            let entityChangeTypes =
                 relevantEntityChangeDetails
                     // Do not mark it as checked if this is the asset subscription view and there's filters on this type
                     ?.filter((details) => forSubResource?.assertion || !details.filter?.includeAssertions)
@@ -68,6 +81,38 @@ export const reducer = (state: State, action: Action): State => {
 
             if (slackSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Slack);
             if (emailSinkEnabled && !subscription) notificationSinkTypes.push(NotificationSinkType.Email);
+            if (teamsSinkEnabled && !subscription) {
+                notificationSinkTypes.push(NotificationSinkType.Teams);
+                // Auto-select ALL notification types when Teams is enabled for the first time
+                if (entityChangeTypes.length === 0) {
+                    entityChangeTypes = [
+                        // Entity deprecation
+                        EntityChangeType.Deprecated,
+                        // Assertion changes
+                        EntityChangeType.AssertionFailed,
+                        EntityChangeType.AssertionPassed,
+                        EntityChangeType.AssertionError,
+                        // Incident changes
+                        EntityChangeType.IncidentRaised,
+                        EntityChangeType.IncidentResolved,
+                        // Schema changes
+                        EntityChangeType.OperationColumnAdded,
+                        EntityChangeType.OperationColumnRemoved,
+                        EntityChangeType.OperationColumnModified,
+                        // Ownership changes
+                        EntityChangeType.OwnerAdded,
+                        EntityChangeType.OwnerRemoved,
+                        // Glossary term changes
+                        EntityChangeType.GlossaryTermAdded,
+                        EntityChangeType.GlossaryTermRemoved,
+                        EntityChangeType.GlossaryTermProposed,
+                        // Tag changes
+                        EntityChangeType.TagAdded,
+                        EntityChangeType.TagRemoved,
+                        EntityChangeType.TagProposed,
+                    ];
+                }
+            }
 
             // Slack specific logic.
             const isSlackAndSubscriptionEnabled =
@@ -87,6 +132,15 @@ export const reducer = (state: State, action: Action): State => {
                     ? ChannelSelections.SETTINGS
                     : ChannelSelections.SUBSCRIPTION;
 
+            // Teams specific logic.
+            const isTeamsAndSubscriptionEnabled =
+                teamsSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Teams);
+
+            const teamsChannelSelection =
+                !!teamsSettingsChannel && !teamsSubscriptionChannel
+                    ? ChannelSelections.SETTINGS
+                    : ChannelSelections.SUBSCRIPTION;
+
             // TODO: once we implement upstream subscriptions.
             const hasUpstreamSubscription =
                 ENABLE_UPSTREAM_NOTIFICATIONS &&
@@ -103,6 +157,10 @@ export const reducer = (state: State, action: Action): State => {
                     },
                     email: {
                         channel: emailSettingsChannel,
+                    },
+                    teams: {
+                        channel: teamsSettingsChannel,
+                        channelName: teamsSettingsChannelName,
                     },
                 },
                 notificationTypes: {
@@ -129,6 +187,52 @@ export const reducer = (state: State, action: Action): State => {
                         channel: emailSubscriptionChannel,
                         saveAsDefault: !emailSettingsChannel && !subscription,
                     },
+                },
+                teams: {
+                    ...state.teams,
+                    enabled: isTeamsAndSubscriptionEnabled,
+                    channelSelection: teamsChannelSelection,
+                    subscription: {
+                        channel: teamsSubscriptionChannel,
+                        saveAsDefault: !teamsSettingsChannel && !subscription,
+                    },
+                    selectedResult: (() => {
+                        const teamsSettings = subscription?.notificationConfig?.notificationSettings?.teamsSettings;
+
+                        // Check if it's a user subscription
+                        if (teamsSettings?.user?.azureUserId || teamsSettings?.user?.email) {
+                            const teamsUser = teamsSettings.user;
+                            return {
+                                id: teamsUser.azureUserId || teamsUser.email!,
+                                displayName: teamsUser.displayName || teamsUser.email || teamsUser.azureUserId!,
+                                type: 'user' as const,
+                                email: teamsUser.email || teamsUser.azureUserId!,
+                            };
+                        }
+
+                        // Check if it's a channel subscription
+                        if (teamsSettings?.channels?.[0]) {
+                            const channel = teamsSettings.channels[0];
+                            return {
+                                id: channel.id,
+                                displayName: channel.name || channel.id,
+                                type: 'channel' as const,
+                                teamName: channel.name || 'Unknown Team',
+                            };
+                        }
+
+                        // Fallback: try teamsSubscriptionChannel
+                        if (teamsSubscriptionChannel) {
+                            return {
+                                id: teamsSubscriptionChannel,
+                                displayName: teamsSubscriptionChannel,
+                                type: 'channel' as const,
+                                teamName: 'Unknown Team',
+                            };
+                        }
+
+                        return null;
+                    })(),
                 },
             };
         }
@@ -270,6 +374,78 @@ export const reducer = (state: State, action: Action): State => {
                 ...state,
                 edited: true,
                 email: action.payload,
+            };
+        }
+        /** Teams-specific reducers */
+        case ActionTypes.SET_TEAMS_ENABLED: {
+            const newNotificationSinkTypes = uniq(
+                action.payload
+                    ? [...state.notificationSinkTypes, NotificationSinkType.Teams]
+                    : state.notificationSinkTypes.filter((type) => type !== NotificationSinkType.Teams),
+            );
+            return {
+                ...state,
+                edited: true,
+                notificationSinkTypes: newNotificationSinkTypes,
+                teams: {
+                    ...state.teams,
+                    enabled: action.payload,
+                },
+            };
+        }
+        case ActionTypes.SET_TEAMS_CHANNEL_SELECTION: {
+            const newSelectedResult = action.payload === ChannelSelections.SETTINGS ? null : state.teams.selectedResult;
+            const newChannel =
+                action.payload === ChannelSelections.SETTINGS ? undefined : state.teams.subscription.channel;
+
+            return {
+                ...state,
+                edited: true,
+                teams: {
+                    ...state.teams,
+                    channelSelection: action.payload,
+                    // Clear selectedResult when switching back to SETTINGS mode to prevent using stale channel/user data
+                    selectedResult: newSelectedResult,
+                    subscription: {
+                        ...state.teams.subscription,
+                        // Clear subscription channel when switching to settings mode
+                        channel: newChannel,
+                    },
+                },
+            };
+        }
+        case ActionTypes.SET_TEAMS_SUBSCRIPTION_CHANNEL: {
+            return {
+                ...state,
+                edited: true,
+                teams: {
+                    ...state.teams,
+                    subscription: {
+                        ...state.teams.subscription,
+                        channel: action.payload,
+                    },
+                },
+            };
+        }
+        case ActionTypes.SET_TEAMS_SAVE_AS_DEFAULT: {
+            return {
+                ...state,
+                edited: true,
+                teams: {
+                    ...state.teams,
+                    subscription: {
+                        ...state.teams.subscription,
+                        saveAsDefault: action.payload,
+                    },
+                },
+            };
+        }
+        /** set whole teams object */
+        case ActionTypes.SET_TEAMS_OBJECT: {
+            return {
+                ...state,
+                edited: true,
+                teams: action.payload,
             };
         }
         case ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM: {

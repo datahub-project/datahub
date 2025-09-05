@@ -4,16 +4,15 @@ import AcrylInstances from '@app/settings/platform/acryl/AcrylInstances';
 import { SlackIntegration } from '@app/settings/platform/slack/SlackIntegration';
 import { SnowflakeIntegration } from '@app/settings/platform/snowflake/SnowflakeIntegration';
 import { OidcIntegration } from '@app/settings/platform/sso/OidcIntegration';
+import { TeamsIntegration } from '@app/settings/platform/teams/TeamsIntegration';
 
 import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '@types';
 
-// import teamsLogo from '../../../images/teamslogo.png';
 import acrylLogo from '@images/acryl-dark-mark.svg';
 import oidcLogo from '@images/oidclogo.png';
 import slackLogo from '@images/slacklogo.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
-
-// import { TeamsIntegration } from './teams/TeamsIntegration';
+import teamsLogo from '@images/teamslogo.png';
 
 /**
  * SSO
@@ -42,13 +41,13 @@ const SLACK_INTEGRATION = {
 /**
  * Teams Integrations
  */
-// const TEAMS_INTEGRATION = {
-//    id: 'microsoft-teams',
-//    name: 'Microsoft Teams',
-//    img: teamsLogo,
-//    description: 'Notify Teams channels when important things happen',
-//    content: <TeamsIntegration />,
-// };
+const TEAMS_INTEGRATION = {
+    id: 'microsoft-teams',
+    name: 'Teams',
+    img: teamsLogo,
+    description: 'Notify Teams channels when important things happen',
+    content: <TeamsIntegration />,
+};
 
 /**
  * Acryl Instance Integrations
@@ -75,7 +74,7 @@ const SNOWFLAKE_INTEGRATION = {
 
 export const SUPPORTED_INTEGRATIONS = [
     SLACK_INTEGRATION,
-    // TEAMS_INTEGRATION, -- Uncheck when backend is complete.
+    TEAMS_INTEGRATION,
     ACRYL_INSTANCE_INTEGRATION,
     SNOWFLAKE_INTEGRATION,
 ];
@@ -204,7 +203,15 @@ export const EMAIL_SINK = {
     options: true,
 };
 
-export const NOTIFICATION_SINKS = [SLACK_SINK, EMAIL_SINK];
+export const TEAMS_SINK = {
+    type: NotificationSinkType.Teams,
+    id: TEAMS_INTEGRATION.id,
+    name: TEAMS_INTEGRATION.name,
+    img: TEAMS_INTEGRATION.img,
+    options: true,
+};
+
+export const NOTIFICATION_SINKS = [SLACK_SINK, TEAMS_SINK, EMAIL_SINK];
 
 export type FormattedNotificationSetting = {
     type: NotificationScenarioType;

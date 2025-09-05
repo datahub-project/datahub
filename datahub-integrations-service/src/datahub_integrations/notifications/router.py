@@ -7,6 +7,7 @@ from datahub_integrations.notifications.constants import (
     EMAIL_SINK_ENABLED,
     NOTIFICATIONS_ENABLED,
     SLACK_SINK_ENABLED,
+    TEAMS_SINK_ENABLED,
 )
 from datahub_integrations.notifications.sinks.email.email_sink import (
     EmailNotificationSink,
@@ -19,6 +20,9 @@ from datahub_integrations.notifications.sinks.sink_manager import (
 from datahub_integrations.notifications.sinks.slack.slack_sink import (
     SlackNotificationSink,
 )
+from datahub_integrations.notifications.sinks.teams.teams_sink import (
+    TeamsNotificationSink,
+)
 
 router = fastapi.APIRouter()
 
@@ -29,6 +33,9 @@ if EMAIL_SINK_ENABLED:
 
 if SLACK_SINK_ENABLED:
     sinks.append(SlackNotificationSink())
+
+if TEAMS_SINK_ENABLED:
+    sinks.append(TeamsNotificationSink())
 
 sink_manager = NotificationSinkManager(
     sinks=sinks,

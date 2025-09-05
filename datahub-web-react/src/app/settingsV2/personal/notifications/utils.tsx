@@ -3,8 +3,8 @@ import difference from 'lodash/difference';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
+import { EMAIL_SINK, SLACK_SINK, TEAMS_SINK } from '@app/settingsV2/notifications/types';
 import { useAppConfig } from '@app/useAppConfig';
-import { EMAIL_SINK, SLACK_SINK } from '@src/app/settings/platform/types';
 
 import {
     useUpdateGroupNotificationSettingsMutation,
@@ -157,6 +157,13 @@ export const isSinkEnabled = (
                 appConfig?.featureFlags?.emailNotificationsEnabled &&
                 actorSettings?.sinkTypes?.includes(NotificationSinkType.Email)
             );
+        case TEAMS_SINK.id: {
+            // Feature flag acts as a master switch - if disabled, Teams is completely hidden
+            // regardless of existing configuration
+            const featureFlagEnabled = appConfig?.featureFlags?.teamsNotificationsEnabled || false;
+
+            return featureFlagEnabled && actorSettings?.sinkTypes?.includes(NotificationSinkType.Teams);
+        }
         default:
             return false;
     }

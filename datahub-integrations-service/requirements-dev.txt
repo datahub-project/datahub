@@ -108,6 +108,7 @@ azure-core==1.33.0
     # via
     #   -r requirements.txt
     #   azure-identity
+    #   msrest
 azure-identity==1.21.0
     # via
     #   -r requirements.txt
@@ -118,6 +119,30 @@ blinker==1.9.0
     # via
     #   flask
     #   streamlit
+botbuilder-core==4.17.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+botbuilder-schema==4.17.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+    #   botbuilder-core
+    #   botframework-connector
+    #   botframework-streaming
+botframework-connector==4.17.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+    #   botbuilder-core
+    #   botframework-streaming
+botframework-streaming==4.17.0
+    # via
+    #   -r requirements.txt
+    #   botbuilder-core
 boto3==1.38.23
     # via
     #   -r requirements.txt
@@ -157,6 +182,7 @@ certifi==2024.2.2
     #   -r requirements.txt
     #   httpcore
     #   httpx
+    #   msrest
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
@@ -548,6 +574,10 @@ ipython==9.2.0
     # via ipykernel
 ipython-pygments-lexers==1.1.1
     # via ipython
+isodate==0.7.2
+    # via
+    #   -r requirements.txt
+    #   msrest
 itsdangerous==2.2.0
     # via flask
 jedi==0.19.2
@@ -579,6 +609,10 @@ jsonpatch==1.33
     # via
     #   -r requirements.txt
     #   reactpy
+jsonpickle==1.4.2
+    # via
+    #   -r requirements.txt
+    #   botbuilder-core
 jsonpointer==2.4
     # via
     #   -r requirements.txt
@@ -691,11 +725,17 @@ msal==1.32.3
     #   acryl-datahub
     #   acryl-datahub-integrations
     #   azure-identity
+    #   botframework-connector
     #   msal-extensions
 msal-extensions==1.3.1
     # via
     #   -r requirements.txt
     #   azure-identity
+msrest==0.7.1
+    # via
+    #   -r requirements.txt
+    #   botbuilder-schema
+    #   botframework-connector
 multidict==6.0.5
     # via
     #   -r requirements.txt
@@ -741,6 +781,7 @@ oauthlib==3.2.2
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
+    #   requests-oauthlib
 openai==1.101.0
     # via
     #   -r requirements.txt
@@ -943,6 +984,7 @@ pygments==2.19.2
 pyjwt==2.8.0
     # via
     #   -r requirements.txt
+    #   botframework-connector
     #   msal
     #   pygithub
     #   snowflake-connector-python
@@ -972,9 +1014,12 @@ pytest==8.3.5
     # via
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub
+    #   pytest-asyncio
     #   pytest-cov
     #   pytest-docker
     #   pytest-timeout
+pytest-asyncio==1.0.0
+    # via acryl-datahub-integrations (pyproject.toml)
 pytest-cov==5.0.0
     # via acryl-datahub-integrations (pyproject.toml)
 pytest-docker==3.2.0
@@ -1076,10 +1121,12 @@ requests==2.31.0
     #   mixpanel
     #   mlflow-skinny
     #   msal
+    #   msrest
     #   papermill
     #   pygithub
     #   reactpy
     #   requests-file
+    #   requests-oauthlib
     #   snowflake-connector-python
     #   streamlit
     #   tiktoken
@@ -1087,6 +1134,10 @@ requests-file==2.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+requests-oauthlib==2.0.0
+    # via
+    #   -r requirements.txt
+    #   msrest
 rich==14.0.0
     # via
     #   -r requirements.txt
@@ -1352,6 +1403,7 @@ tzdata==2024.1
 urllib3==1.26.18
     # via
     #   -r requirements.txt
+    #   botbuilder-schema
     #   botocore
     #   databricks-sql-connector
     #   docker

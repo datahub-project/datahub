@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settings/personal/notifications/constants';
-import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '@app/settings/platform/types';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK, TEAMS_SINK } from '@app/settings/platform/types';
 import { isSinkEnabled } from '@app/settings/utils';
 import Footer from '@app/shared/subscribe/drawer/section/Footer';
 import NotificationRecipientSection from '@app/shared/subscribe/drawer/section/NotificationRecipientSection';
@@ -17,8 +17,10 @@ import {
     selectEmailSubscriptionChannel,
     selectIsEmailEnabled,
     selectIsSlackEnabled,
+    selectIsTeamsEnabled,
     selectShouldTurnOnEmailInSettings,
     selectShouldTurnOnSlackInSettings,
+    selectShouldTurnOnTeamsInSettings,
     selectSlackSaveAsDefault,
     selectSlackSubscriptionChannel,
     useDrawerSelector,
@@ -31,12 +33,21 @@ import {
     getEmailSubscriptionChannel,
     getSlackSettingsChannel,
     getSlackSubscriptionChannel,
+    getTeamsSettingsChannel,
+    getTeamsSettingsChannelName,
+    getTeamsSubscriptionChannel,
 } from '@app/shared/subscribe/drawer/utils';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetLineageCountsQuery } from '@graphql/lineage.generated';
 import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
-import { Assertion, DataHubSubscription, EntityType, NotificationSinkType } from '@types';
+import {
+    Assertion,
+    DataHubSubscription,
+    EntityType,
+    NotificationSinkType,
+    TeamsNotificationSettingsInput,
+} from '@types';
 
 const SubscribeDrawer = styled(Drawer)`
     .ant-drawer-body {
@@ -109,6 +120,7 @@ const SubscriptionDrawerContent = ({
 
     const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
     const emailSinkSupported = globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
+    const teamsSinkSupported = globallyEnabledSinks.some((sink) => sink.id === TEAMS_SINK.id);
 
     // Slack selectors
     const slackChannel = useDrawerSelector(selectSlackSubscriptionChannel);
@@ -121,6 +133,10 @@ const SubscriptionDrawerContent = ({
     const emailSaveAsDefault = useDrawerSelector(selectEmailSaveAsDefault);
     const emailEnabled = useDrawerSelector(selectIsEmailEnabled);
     const shouldTurnOnEmailInSettings = useDrawerSelector(selectShouldTurnOnEmailInSettings);
+
+    // Teams selectors
+    const teamsEnabled = useDrawerSelector(selectIsTeamsEnabled);
+    const shouldTurnOnTeamsInSettings = useDrawerSelector(selectShouldTurnOnTeamsInSettings);
 
     const actions = useDrawerActions();
 
@@ -156,7 +172,7 @@ const SubscriptionDrawerContent = ({
     const showBottomDrawerSection = isPersonal || (groupUrn && canManageSubscription);
 
     // Retrieve the default settings for the user for each sink type.
-    const { slackSettings, emailSettings, sinkTypes, updateSinkSettings } = useActorSinkSettings({
+    const { slackSettings, emailSettings, teamsSettings, sinkTypes, updateSinkSettings } = useActorSinkSettings({
         isPersonal,
         groupUrn,
     });
@@ -169,11 +185,17 @@ const SubscriptionDrawerContent = ({
     const emailSettingsChannel = getEmailSettingsChannel(isPersonal, emailSettings);
     const emailSubscriptionChannel = getEmailSubscriptionChannel(isPersonal, subscription);
 
+    // Teams initial configs.
+    const teamsSettingsChannel = getTeamsSettingsChannel(isPersonal, teamsSettings) || undefined;
+    const teamsSettingsChannelName = getTeamsSettingsChannelName(isPersonal, teamsSettings) || undefined;
+    const teamsSubscriptionChannel = getTeamsSubscriptionChannel(isPersonal, subscription) || undefined;
+
     useEffect(() => {
         actions.initialize({
             isPersonal,
             slackSinkEnabled: slackSinkSupported,
             emailSinkEnabled: emailSinkSupported,
+            teamsSinkEnabled: teamsSinkSupported,
             entityType,
             subscription,
             forSubResource,
@@ -181,6 +203,9 @@ const SubscriptionDrawerContent = ({
             slackSettingsChannel,
             emailSubscriptionChannel,
             emailSettingsChannel,
+            teamsSubscriptionChannel,
+            teamsSettingsChannel,
+            teamsSettingsChannelName,
             settingsSinkTypes: sinkTypes,
         });
     }, [
@@ -191,8 +216,12 @@ const SubscriptionDrawerContent = ({
         slackSubscriptionChannel,
         emailSettingsChannel,
         emailSubscriptionChannel,
+        teamsSettingsChannel,
+        teamsSettingsChannelName,
+        teamsSubscriptionChannel,
         slackSinkSupported,
         emailSinkSupported,
+        teamsSinkSupported,
         subscription,
         sinkTypes,
         forSubResource,
@@ -202,7 +231,11 @@ const SubscriptionDrawerContent = ({
         upsertSubscription();
 
         const shouldUpdateNotificationSettings =
-            slackSaveAsDefault || emailSaveAsDefault || shouldTurnOnSlackInSettings || shouldTurnOnEmailInSettings;
+            slackSaveAsDefault ||
+            emailSaveAsDefault ||
+            shouldTurnOnSlackInSettings ||
+            shouldTurnOnEmailInSettings ||
+            shouldTurnOnTeamsInSettings;
 
         if (shouldUpdateNotificationSettings) {
             const newSinkTypes: NotificationSinkType[] = [];
@@ -213,6 +246,10 @@ const SubscriptionDrawerContent = ({
 
             if (emailEnabled) {
                 newSinkTypes.push(NotificationSinkType.Email);
+            }
+
+            if (teamsEnabled) {
+                newSinkTypes.push(NotificationSinkType.Teams);
             }
 
             // New slack settings
@@ -233,9 +270,14 @@ const SubscriptionDrawerContent = ({
                 newEmailSettings = emailChannel ? { email: emailChannel } : undefined;
             }
 
+            // Teams settings - never save to personal settings, only for this subscription
+            // Use empty settings since we don't save as default anymore
+            const newTeamsSettings: TeamsNotificationSettingsInput = {};
+
             updateSinkSettings({
                 slackSettings: newSlackSettings,
                 emailSettings: newEmailSettings,
+                teamsSettings: newTeamsSettings,
                 sinkTypes: newSinkTypes || [],
             });
         }

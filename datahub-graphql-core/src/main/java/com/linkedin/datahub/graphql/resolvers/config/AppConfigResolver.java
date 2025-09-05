@@ -301,6 +301,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setMetadataShareEnabled(_featureFlags.isMetadataShareEnabled())
             .setDocumentationFormsEnabled(_featureFlags.isDocumentationFormsEnabled())
             .setEmailNotificationsEnabled(_featureFlags.isEmailNotificationsEnabled())
+            .setTeamsNotificationsEnabled(_featureFlags.isTeamsNotificationsEnabled())
             .setFormCreationEnabled(_featureFlags.isFormCreationEnabled())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
             .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())

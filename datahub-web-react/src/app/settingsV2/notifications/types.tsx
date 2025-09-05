@@ -1,4 +1,4 @@
-import { SLACK_INTEGRATION } from '@app/settingsV2/platform/types';
+import { SLACK_INTEGRATION, TEAMS_INTEGRATION } from '@app/settingsV2/platform/types';
 import { NotificationScenarioType, NotificationSettingValue, NotificationSinkType } from '@src/types.generated';
 
 /**
@@ -27,7 +27,15 @@ export const EMAIL_SINK = {
     options: true,
 };
 
-export const NOTIFICATION_SINKS = [SLACK_SINK, EMAIL_SINK];
+export const TEAMS_SINK = {
+    type: NotificationSinkType.Teams,
+    id: TEAMS_INTEGRATION.id,
+    name: TEAMS_INTEGRATION.name,
+    img: TEAMS_INTEGRATION.img,
+    options: true,
+};
+
+export const NOTIFICATION_SINKS = [SLACK_SINK, TEAMS_SINK, EMAIL_SINK];
 
 export type FormattedNotificationSetting = {
     type: NotificationScenarioType;

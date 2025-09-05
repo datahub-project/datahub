@@ -1,43 +1,37 @@
+import json
+import os
 import pathlib
 import tempfile
 from typing import Optional
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-    StatusClass,
-    DataHubConnectionDetailsClass,
-    DataHubConnectionDetailsTypeClass,
-    DataHubJsonConnectionClass,
-    TimeStampClass,
-)
+
+# import boto library
+import boto3
+from datahub.configuration.common import ConnectionModel
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import (
     get_default_graph,
     get_url_and_token,
-    DatahubClientConfig,
 )
 from datahub.ingestion.sink.datahub_rest import (
     DatahubRestSink,
     DatahubRestSinkConfig,
     RecordEnvelope,
 )
-from datahub.ingestion.api.common import PipelineContext
-from datahub_integrations.analytics.s3.connection import S3Connection, S3StaticCreds
-from datahub_integrations.graphql.connection import save_connection_json
-from fake_form_data import FakeFormData
 from datahub.ingestion.source.datahub_reporting.datahub_form_reporting import (
     DataHubFormReportingData,
 )
-from datahub.configuration.common import ConnectionModel
-from datahub.ingestion.api.sink import NoopWriteCallback
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    StatusClass,
+    TimeStampClass,
+)
+from fake_form_data import FakeFormData
 
-# import boto library
-import boto3
-import sys
-import os
-import pandas as pd
-import json
-
+from datahub_integrations.analytics.s3.connection import S3Connection, S3StaticCreds
+from datahub_integrations.graphql.connection import save_connection_json
 
 default_file_path = {
     "local": tempfile.gettempdir() + "/data/forms_verification_data",

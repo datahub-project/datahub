@@ -123,6 +123,7 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion-examples\//,
     /^metadata-ingestion-modules\/acryl-cloud\/README.md/,
     /^datahub-integrations-service\/README.md/,
+    /^datahub-integrations-service\/scripts\/teams\/README.md/, // Internal Teams setup documentation
     /^datahub-executor\/README.md/,
     /^docker\/(?!README\.md|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^gradle\/docker\/README\.md/,

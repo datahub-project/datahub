@@ -52,6 +52,9 @@ outputs:
   datahub-executor-change:
     description: "Datahub executor code has changed"
     value: ${{ steps.filter.outputs.datahub-executor == 'true' || steps.trigger.outputs.trigger == 'manual' }}
+  datahub-cloud-router-change:
+    description: "Datahub Cloud Router code has changed"
+    value: ${{ steps.filter.outputs.datahub-cloud-router == 'true' || steps.trigger.outputs.trigger == 'manual' }}
 runs:
   using: "composite"
   steps:
@@ -101,6 +104,7 @@ runs:
           backend-saas:
             - "datahub-executor/**"
             - "datahub-integrations-service/**"
+            - "datahub-cloud-router/**"
           kafka-setup:
             - "docker/kafka-setup/**"
           mysql-setup:
@@ -128,3 +132,6 @@ runs:
             - "metadata-models/**"
             - "docker/datahub-ingestion-**"
             - "docker/datahub-executor/**"
+          datahub-cloud-router:
+            - "docker/datahub-cloud-router/**"
+            - "datahub-cloud-router/**"

@@ -2,7 +2,7 @@ import pytest
 
 from tests.utils import (
     delete_urns_from_file,
-    execute_gql,
+    execute_gql_with_retry,
     get_root_urn,
     ingest_file_via_rest,
 )
@@ -41,7 +41,7 @@ def test_delete_action_workflow_success(auth_session):
     list_variables = {"input": {"start": 0, "count": 20}}
 
     # Verify workflow exists before deletion
-    response = execute_gql(auth_session, list_query, list_variables)
+    response = execute_gql_with_retry(auth_session, list_query, list_variables)
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
 
@@ -59,7 +59,7 @@ def test_delete_action_workflow_success(auth_session):
 
     delete_variables = {"input": {"urn": workflow_urn}}
 
-    response = execute_gql(auth_session, delete_query, delete_variables)
+    response = execute_gql_with_retry(auth_session, delete_query, delete_variables)
 
     # Should succeed
     assert "errors" not in response
@@ -67,7 +67,7 @@ def test_delete_action_workflow_success(auth_session):
     print(f"✓ Successfully deleted workflow: {workflow_urn}")
 
     # Verify workflow no longer exists by listing workflows again
-    response = execute_gql(auth_session, list_query, list_variables)
+    response = execute_gql_with_retry(auth_session, list_query, list_variables)
     assert "errors" not in response
     assert response["data"]["listActionWorkflows"]
 
@@ -96,7 +96,7 @@ def test_delete_action_workflow_not_found(auth_session):
 
     delete_variables = {"input": {"urn": non_existent_urn}}
 
-    response = execute_gql(auth_session, delete_query, delete_variables)
+    response = execute_gql_with_retry(auth_session, delete_query, delete_variables)
 
     # Should return an error since the workflow doesn't exist
     assert "errors" in response
@@ -117,7 +117,7 @@ def test_delete_action_workflow_invalid_urn_format(auth_session):
 
     delete_variables = {"input": {"urn": invalid_urn}}
 
-    response = execute_gql(auth_session, delete_query, delete_variables)
+    response = execute_gql_with_retry(auth_session, delete_query, delete_variables)
 
     # Should return an error due to invalid URN format
     assert "errors" in response
@@ -150,7 +150,7 @@ def test_delete_action_workflow_multiple_deletions(auth_session):
 
     list_variables = {"input": {"start": 0, "count": 20}}
 
-    response = execute_gql(auth_session, list_query, list_variables)
+    response = execute_gql_with_retry(auth_session, list_query, list_variables)
     assert "errors" not in response
     workflows_initial = response["data"]["listActionWorkflows"]["workflows"]
     initial_urns = [w["urn"] for w in workflows_initial]
@@ -172,7 +172,7 @@ def test_delete_action_workflow_multiple_deletions(auth_session):
     for workflow_urn in workflow_urns:
         delete_variables = {"input": {"urn": workflow_urn}}
 
-        response = execute_gql(auth_session, delete_query, delete_variables)
+        response = execute_gql_with_retry(auth_session, delete_query, delete_variables)
         assert "errors" not in response
         assert response["data"]["deleteActionWorkflow"] is True
         deleted_count += 1
@@ -181,7 +181,7 @@ def test_delete_action_workflow_multiple_deletions(auth_session):
         )
 
     # Verify all workflows are deleted
-    response = execute_gql(auth_session, list_query, list_variables)
+    response = execute_gql_with_retry(auth_session, list_query, list_variables)
     assert "errors" not in response
     workflows_final = response["data"]["listActionWorkflows"]["workflows"]
     final_urns = [w["urn"] for w in workflows_final]
@@ -259,7 +259,7 @@ def test_delete_action_workflow_with_special_characters(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, upsert_variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, upsert_variables)
     assert "errors" not in response
     created_workflow = response["data"]["upsertActionWorkflow"]
     created_urn = created_workflow["urn"]
@@ -274,7 +274,7 @@ def test_delete_action_workflow_with_special_characters(auth_session):
 
     delete_variables = {"input": {"urn": created_urn}}
 
-    response = execute_gql(auth_session, delete_query, delete_variables)
+    response = execute_gql_with_retry(auth_session, delete_query, delete_variables)
     assert "errors" not in response
     assert response["data"]["deleteActionWorkflow"] is True
     print(f"✓ Successfully deleted workflow with special characters: {created_urn}")
@@ -298,7 +298,7 @@ def test_delete_action_workflow_with_special_characters(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, list_variables)
+    response = execute_gql_with_retry(auth_session, list_query, list_variables)
     assert "errors" not in response
     workflows = response["data"]["listActionWorkflows"]["workflows"]
     workflow_urns = [w["urn"] for w in workflows]

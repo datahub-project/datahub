@@ -24,7 +24,7 @@ public class NotificationSinkHook implements PlatformEventHook {
   @Autowired
   public NotificationSinkHook(
       @Nonnull final NotificationSinkManager sinkManager,
-      @Value("${notifications.enabled}") boolean enabled) {
+      @Value("${notifications.enabled:false}") boolean enabled) {
     this._sinkManager = sinkManager;
     this.enabled = enabled;
   }

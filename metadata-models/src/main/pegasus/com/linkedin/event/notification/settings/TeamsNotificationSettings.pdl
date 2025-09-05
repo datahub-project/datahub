@@ -1,0 +1,20 @@
+namespace com.linkedin.event.notification.settings
+
+import com.linkedin.settings.global.TeamsChannel
+import com.linkedin.settings.global.TeamsUser
+
+/**
+ * Microsoft Teams Notification settings for an actor.
+ */
+record TeamsNotificationSettings {
+    /**
+     * Optional structured user information with cached metadata.
+     * Supports both Azure AD user ID and Teams user ID with cached display name.
+     */
+    user: optional TeamsUser
+
+    /**
+     * Optional list of structured channels with cached metadata
+     */
+    channels: optional array[TeamsChannel]
+}

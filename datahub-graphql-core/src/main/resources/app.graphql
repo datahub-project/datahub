@@ -800,6 +800,11 @@ type GlobalIntegrationSettings {
   Email-related settings.
   """
   emailSettings: EmailIntegrationSettings
+
+  """
+  Teams-related settings.
+  """
+  teamsSettings: TeamsIntegrationSettings
 }
 
 """
@@ -831,6 +836,31 @@ type EmailIntegrationSettings {
   A default email to send global notifications to.
   """
   defaultEmail: String
+}
+
+"""
+Teams channel information.
+"""
+type TeamsChannel {
+  """
+  The Teams channel ID (internal Teams identifier).
+  """
+  id: String!
+
+  """
+  The Teams channel display name (cached value, may be stale).
+  """
+  name: String
+}
+
+"""
+Teams integration settings.
+"""
+type TeamsIntegrationSettings {
+  """
+  A default Teams channel to route notifications to.
+  """
+  defaultChannel: TeamsChannel
 }
 
 """
@@ -1152,6 +1182,11 @@ input UpdateGlobalIntegrationSettingsInput {
   Input required to update Email Integration Settings. If not provided, existing settings will remain.
   """
   emailSettings: UpdateEmailIntegrationSettingsInput
+
+  """
+  Input required to update Teams Integration Settings. If not provided, existing settings will remain.
+  """
+  teamsSettings: UpdateTeamsIntegrationSettingsInput
 }
 
 """
@@ -1183,6 +1218,31 @@ input UpdateEmailIntegrationSettingsInput {
   A default email to send global notifications to
   """
   defaultEmail: String
+}
+
+"""
+Teams channel input.
+"""
+input TeamsChannelInput {
+  """
+  The Teams channel ID (required).
+  """
+  id: String!
+
+  """
+  The Teams channel display name (optional, will be resolved if not provided).
+  """
+  name: String
+}
+
+"""
+Input required to update Teams settings.
+"""
+input UpdateTeamsIntegrationSettingsInput {
+  """
+  A default Teams channel to route notifications to.
+  """
+  defaultChannel: TeamsChannelInput
 }
 
 """
@@ -1463,6 +1523,11 @@ type FeatureFlagsConfig {
   Enables email notifications
   """
   emailNotificationsEnabled: Boolean!
+
+  """
+  Enables Teams notifications
+  """
+  teamsNotificationsEnabled: Boolean!
 
   """
   Enables the ability to configure slack bot tokens via the integrations settings UI

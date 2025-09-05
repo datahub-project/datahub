@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ConnectionTestNotificationGenerator extends BaseMclNotificationGenerator {
 
   private final Urn SLACK_CONNECTION_URN = UrnUtils.getUrn(Constants.SLACK_CONNECTION_ID);
+  private final Urn TEAMS_CONNECTION_URN = UrnUtils.getUrn(Constants.TEAMS_CONNECTION_ID);
   private final boolean isEnabled;
 
   public ConnectionTestNotificationGenerator(
@@ -98,6 +99,8 @@ public class ConnectionTestNotificationGenerator extends BaseMclNotificationGene
 
     if (connectionUrn.equals(SLACK_CONNECTION_URN)) {
       sendNewSlackTestEventNotification(requestUrn, requestInput);
+    } else if (connectionUrn.equals(TEAMS_CONNECTION_URN)) {
+      sendNewTeamsTestEventNotification(requestUrn, requestInput);
     } else {
       log.warn(String.format("No test event handler for connection with urn %s", connectionUrn));
     }
@@ -138,6 +141,56 @@ public class ConnectionTestNotificationGenerator extends BaseMclNotificationGene
           channel ->
               notificationRecipients.add(
                   builder.buildRecipient(NotificationRecipientType.SLACK_CHANNEL, channel, null)));
+    }
+
+    final Map<String, String> templateParams = new HashMap<>();
+    templateParams.put("title", title);
+    templateParams.put("body", body);
+    templateParams.put(
+        Constants.NOTIFICATION_CONNECTION_TEST_EXECUTION_REQUEST_URN_PARAM_KEY,
+        requestUrn.toString());
+    templateParams.put("requestName", Constants.NOTIFICATION_CONNECTION_TEST_REQUEST_TEMPLATE_NAME);
+    final NotificationRequest notificationRequest =
+        buildNotificationRequest(
+            NotificationTemplateType.CUSTOM.name(), templateParams, notificationRecipients);
+    sendNotificationRequest(notificationRequest);
+  }
+
+  private void sendNewTeamsTestEventNotification(
+      @Nonnull final Urn requestUrn, @Nonnull final ExecutionRequestInput requestInput) {
+    StringMap args = requestInput.getArgs();
+    String title = args.get("title");
+    String body = args.get("body");
+    String teamsChannelsJSON = args.get("channelsJSON");
+    StringArray teamsChannels =
+        teamsChannelsJSON != null ? JSON.deserialize(teamsChannelsJSON, StringArray.class) : null;
+    String teamsUserHandle = args.get("userHandle");
+    if (Objects.isNull(title) || Objects.isNull(body)) {
+      log.warn(
+          String.format(
+              "Execution request for teams connection missing title or body in the args, requestUrn=%s. Skipping notification generation.",
+              requestUrn));
+      return;
+    }
+    if (Objects.isNull(teamsChannels) && Objects.isNull(teamsUserHandle)) {
+      log.warn(
+          String.format(
+              "Execution request for teams connection must have channel or userHandle defined in the args, requestUrn=%s. Skipping notification generation.",
+              requestUrn));
+      return;
+    }
+
+    final NotificationRecipientBuilder builder =
+        _recipientBuilders.getBuilder(NotificationSinkType.TEAMS);
+    final Set<NotificationRecipient> notificationRecipients = new HashSet<>();
+    if (!Objects.isNull(teamsUserHandle)) {
+      notificationRecipients.add(
+          builder.buildRecipient(NotificationRecipientType.TEAMS_DM, teamsUserHandle, null));
+    } else {
+      teamsChannels.forEach(
+          channel ->
+              notificationRecipients.add(
+                  builder.buildRecipient(NotificationRecipientType.TEAMS_CHANNEL, channel, null)));
     }
 
     final Map<String, String> templateParams = new HashMap<>();

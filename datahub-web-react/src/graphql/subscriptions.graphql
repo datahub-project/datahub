@@ -91,6 +91,19 @@ fragment subscriptionFields on DataHubSubscription {
             emailSettings {
                 email
             }
+            teamsSettings {
+                user {
+                    teamsUserId
+                    azureUserId
+                    email
+                    displayName
+                    lastUpdated
+                }
+                channels {
+                    id
+                    name
+                }
+            }
         }
     }
 }

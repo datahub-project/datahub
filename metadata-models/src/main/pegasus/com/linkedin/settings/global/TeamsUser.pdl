@@ -1,0 +1,37 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Teams user information with cached display name and multiple ID support.
+ * Follows the same caching pattern as TeamsChannel for consistency.
+ */
+record TeamsUser {
+  /**
+   * The Teams user ID (internal Teams identifier).
+   * This is the primary identifier used for Teams messaging.
+   */
+  teamsUserId: optional string
+
+  /**
+   * The Azure AD user ID (Azure Active Directory object ID).
+   * This is the primary identifier for Azure AD operations and Microsoft Graph API calls.
+   */
+  azureUserId: optional string
+
+  /**
+   * The user's email address (fallback identifier).
+   * Used when other IDs are not available or for email-based user resolution.
+   */
+  email: optional string
+
+  /**
+   * The user's display name (cached value, may be stale).
+   * Retrieved from Microsoft Graph API and cached for performance.
+   */
+  displayName: optional string
+
+  /**
+   * The timestamp when the cached display name was last updated.
+   * Used for TTL-based cache invalidation (milliseconds since epoch).
+   */
+  lastUpdated: optional long
+}

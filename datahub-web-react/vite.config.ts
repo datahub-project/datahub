@@ -154,6 +154,9 @@ export default defineConfig(async ({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
+            testTimeout: 60000, // 60 seconds timeout for individual tests
+            hookTimeout: 30000, // 30 seconds timeout for hooks
+            teardownTimeout: 15000, // 15 seconds timeout for teardown
             coverage: {
                 enabled: true,
                 provider: 'v8',

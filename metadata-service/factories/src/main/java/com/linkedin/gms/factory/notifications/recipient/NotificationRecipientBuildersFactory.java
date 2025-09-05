@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.notifications.recipient;
 import com.datahub.notification.recipient.EmailNotificationRecipientBuilder;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.datahub.notification.recipient.TeamsNotificationRecipientBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.event.notification.NotificationSinkType;
 import javax.annotation.Nonnull;
@@ -15,7 +16,8 @@ import org.springframework.context.annotation.Import;
 @Configuration
 @Import({
   SlackNotificationRecipientBuilderFactory.class,
-  EmailNotificationRecipientBuilderFactory.class
+  EmailNotificationRecipientBuilderFactory.class,
+  TeamsNotificationRecipientBuilderFactory.class
 })
 public class NotificationRecipientBuildersFactory {
   @Autowired
@@ -26,12 +28,17 @@ public class NotificationRecipientBuildersFactory {
   @Qualifier("emailNotificationRecipientBuilder")
   private EmailNotificationRecipientBuilder emailNotificationRecipientBuilder;
 
+  @Autowired
+  @Qualifier("teamsNotificationRecipientBuilder")
+  private TeamsNotificationRecipientBuilder teamsNotificationRecipientBuilder;
+
   @Bean(name = "notificationRecipientBuilders")
   @Nonnull
   protected NotificationRecipientBuilders getInstance() {
     return new NotificationRecipientBuilders(
         ImmutableMap.of(
             NotificationSinkType.SLACK, this.slackNotificationRecipientBuilder,
-            NotificationSinkType.EMAIL, this.emailNotificationRecipientBuilder));
+            NotificationSinkType.EMAIL, this.emailNotificationRecipientBuilder,
+            NotificationSinkType.TEAMS, this.teamsNotificationRecipientBuilder));
   }
 }

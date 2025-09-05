@@ -7,3 +7,4 @@
   "installCommand": "./docs-website/vercel-setup.sh",
   "outputDirectory": "docs-website/build"
 }
+

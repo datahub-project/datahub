@@ -1,11 +1,13 @@
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
+
 import click
 import requests
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from loguru import logger
-from fake_form_data import FormSnapshotColumns
 from datahub.ingestion.graph.client import get_default_graph
+from fake_form_data import FormSnapshotColumns
+from loguru import logger
+
 
 class AnalyticsService:
     
@@ -312,7 +314,7 @@ def resolve_query(query, params) -> dict[str, Any]:
 def main(gql, query, args):
     integrations_service = IntegrationsService()
     graphql_service = DataHubGraphQL()
-    params = dict(zip(args[::2], args[1::2]))
+    params = dict(zip(args[::2], args[1::2], strict=False))
     # Example usage
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:datahub,local_parquet,PROD)"
     queries = {q: resolve_query(q, params) for q in query}

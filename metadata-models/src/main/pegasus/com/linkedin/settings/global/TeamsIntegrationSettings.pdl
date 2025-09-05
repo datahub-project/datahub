@@ -1,0 +1,35 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.Urn
+
+/**
+ * Teams integration settings.
+ */
+record TeamsIntegrationSettings {
+  /**
+   * Whether the Teams integration is enabled or not.
+   * Deprecated! This is no longer used in favor of using the connections abstraction.
+   * If a connection is present, then this is enabled.
+   */
+  @deprecated
+  enabled: boolean = true
+
+  /**
+   * An encrypted bot token.
+   * Deprecated! This is no longer used in favor of using the connections abstraction.
+   */
+  @deprecated
+  encryptedBotToken: optional string
+
+  /**
+   * A default Teams channel to use.
+   * Deprecated! Use defaultChannel instead.
+   */
+  @deprecated
+  defaultChannelName: optional string
+
+  /**
+   * A default Teams channel to route notifications to.
+   */
+  defaultChannel: optional TeamsChannel
+}

@@ -3,7 +3,7 @@ import pytest
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import (
     delete_urns_from_file,
-    execute_gql,
+    execute_gql_with_retry,
     get_root_urn,
     ingest_file_via_rest,
 )
@@ -41,7 +41,7 @@ def find_reviewable_request(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, list_variables)
+    response = execute_gql_with_retry(auth_session, list_query, list_variables)
 
     if "errors" in response or not response.get("data", {}).get(
         "listActionRequests", {}
@@ -104,7 +104,7 @@ def test_review_action_workflow_request_unauthorized_user(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     # This should fail with an authorization error
     assert "errors" in response, "Expected authorization error for unauthorized user"
@@ -150,7 +150,7 @@ def test_review_action_workflow_request_direct_user_assignment(auth_session):
         "input": {"start": 0, "count": 50, "type": "WORKFLOW_FORM_REQUEST"}
     }
 
-    list_response = execute_gql(auth_session, list_query, list_variables)
+    list_response = execute_gql_with_retry(auth_session, list_query, list_variables)
     assert "errors" not in list_response
 
     # Find test-request-1 where admin is directly assigned
@@ -174,7 +174,7 @@ def test_review_action_workflow_request_direct_user_assignment(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     assert "errors" not in response, f"Review failed: {response.get('errors', [])}"
     assert response["data"]["reviewActionWorkflowFormRequest"]
@@ -201,7 +201,7 @@ def test_review_action_workflow_request_group_assignment(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     # This may fail if admin is not actually in the test-access-reviewers group
     # In a real test environment, we'd set up the group membership properly
@@ -251,7 +251,9 @@ def test_review_action_workflow_request_approval(auth_session):
         }
     }
 
-    before_response = execute_gql(auth_session, status_query, status_variables)
+    before_response = execute_gql_with_retry(
+        auth_session, status_query, status_variables
+    )
 
     assert "errors" not in before_response, (
         f"Query failed: {before_response.get('errors', [])}"
@@ -287,13 +289,15 @@ def test_review_action_workflow_request_approval(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     assert "errors" not in response, f"Approval failed: {response.get('errors', [])}"
     assert response["data"]["reviewActionWorkflowFormRequest"]
 
     # Verify the request state after review
-    after_response = execute_gql(auth_session, status_query, status_variables)
+    after_response = execute_gql_with_retry(
+        auth_session, status_query, status_variables
+    )
 
     assert "errors" not in after_response, (
         f"Query failed: {after_response.get('errors', [])}"
@@ -349,7 +353,7 @@ def test_review_action_workflow_request_rejection(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     assert "errors" not in response, f"Rejection failed: {response.get('errors', [])}"
     assert response["data"]["reviewActionWorkflowFormRequest"]
@@ -381,7 +385,7 @@ def test_review_action_workflow_request_without_comment(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     assert "errors" not in response, (
         f"Review without comment failed: {response.get('errors', [])}"
@@ -424,7 +428,7 @@ def test_review_action_workflow_request_multi_step_first_approval(auth_session):
         "input": {"start": 0, "count": 50, "type": "WORKFLOW_FORM_REQUEST"}
     }
 
-    list_response = execute_gql(auth_session, list_query, list_variables)
+    list_response = execute_gql_with_retry(auth_session, list_query, list_variables)
     assert "errors" not in list_response
 
     # Find the multi-step request
@@ -453,7 +457,7 @@ def test_review_action_workflow_request_multi_step_first_approval(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     if "errors" in response:
         # This might fail if the test user is not assigned to this step
@@ -470,7 +474,9 @@ def test_review_action_workflow_request_multi_step_first_approval(auth_session):
         wait_for_writes_to_sync()
 
         # Verify the request moved to the next step
-        updated_response = execute_gql(auth_session, list_query, list_variables)
+        updated_response = execute_gql_with_retry(
+            auth_session, list_query, list_variables
+        )
         if "data" in updated_response:
             for request in updated_response["data"]["listActionRequests"][
                 "actionRequests"
@@ -508,7 +514,7 @@ def test_review_action_workflow_request_invalid_urn(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     assert "errors" in response
     print(f"✓ Correctly handled invalid URN: {response['errors'][0]['message']}")
@@ -532,7 +538,7 @@ def test_review_action_workflow_request_invalid_result(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     assert "errors" in response
     print(f"✓ Correctly handled invalid result: {response['errors'][0]['message']}")
@@ -563,7 +569,9 @@ def test_review_action_workflow_request_comprehensive_flow(auth_session):
         }
     }
 
-    review_response = execute_gql(auth_session, review_mutation, review_variables)
+    review_response = execute_gql_with_retry(
+        auth_session, review_mutation, review_variables
+    )
 
     assert "errors" not in review_response, (
         f"Review failed: {review_response.get('errors', [])}"
@@ -600,7 +608,7 @@ def test_review_action_workflow_request_comprehensive_flow(auth_session):
         }
     }
 
-    final_response = execute_gql(auth_session, list_query, list_variables)
+    final_response = execute_gql_with_retry(auth_session, list_query, list_variables)
 
     assert "errors" not in final_response
     final_requests = final_response["data"]["listActionRequests"]["actionRequests"]
@@ -644,7 +652,7 @@ def test_review_action_workflow_request_with_comment(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, review_mutation, variables)
+    response = execute_gql_with_retry(auth_session, review_mutation, variables)
 
     assert "errors" not in response, (
         f"Review with comment failed: {response.get('errors', [])}"

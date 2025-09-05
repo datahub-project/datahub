@@ -8,6 +8,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.TeamsChannelInput;
 import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
@@ -15,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.UpdateGlobalSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateOidcSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateTeamsIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.integration.IntegrationsService;
@@ -28,6 +30,8 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SlackIntegrationSettings;
 import com.linkedin.settings.global.SsoSettings;
+import com.linkedin.settings.global.TeamsChannel;
+import com.linkedin.settings.global.TeamsIntegrationSettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
@@ -132,6 +136,14 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       updateEmailIntegrationSettings(existingEmailSettings, update.getEmailSettings());
       existingSettings.setEmailSettings(existingEmailSettings);
     }
+    if (update.getTeamsSettings() != null) {
+      TeamsIntegrationSettings existingTeamsSettings =
+          existingSettings.hasTeamsSettings()
+              ? existingSettings.getTeamsSettings()
+              : new TeamsIntegrationSettings();
+      updateTeamsIntegrationSettings(existingTeamsSettings, update.getTeamsSettings());
+      existingSettings.setTeamsSettings(existingTeamsSettings);
+    }
   }
 
   private void updateSlackIntegrationSettings(
@@ -181,6 +193,32 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       final EmailIntegrationSettings existingSettings,
       final UpdateEmailIntegrationSettingsInput update) {
     existingSettings.setDefaultEmail(update.getDefaultEmail(), SetMode.IGNORE_NULL);
+  }
+
+  private void updateTeamsIntegrationSettings(
+      final TeamsIntegrationSettings existingSettings,
+      final UpdateTeamsIntegrationSettingsInput update) {
+    existingSettings.setEnabled(true);
+    if (update.getDefaultChannel() != null) {
+      TeamsChannel defaultChannel =
+          existingSettings.hasDefaultChannel()
+              ? existingSettings.getDefaultChannel()
+              : new TeamsChannel();
+      updateTeamsChannel(defaultChannel, update.getDefaultChannel());
+      existingSettings.setDefaultChannel(defaultChannel);
+    }
+  }
+
+  private void updateTeamsChannel(
+      final TeamsChannel existingChannel, final TeamsChannelInput update) {
+    if (update.getId() != null) {
+      existingChannel.setId(update.getId());
+    }
+    if (update.getName() != null) {
+      existingChannel.setName(update.getName(), SetMode.IGNORE_NULL);
+      // TODO: Set lastUpdated timestamp for TTL cache invalidation
+      // This would require adding a lastUpdated field to the PDL model
+    }
   }
 
   private void updateGlobalNotificationSettings(

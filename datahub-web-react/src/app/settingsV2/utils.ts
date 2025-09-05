@@ -1,4 +1,4 @@
-import { EMAIL_SINK, SLACK_SINK } from '@app/settingsV2/notifications/types';
+import { EMAIL_SINK, SLACK_SINK, TEAMS_SINK } from '@app/settingsV2/notifications/types';
 
 import { AccessTokenDuration, AccessTokenType, AppConfig, GlobalSettings } from '@types';
 
@@ -60,7 +60,32 @@ export const isSinkEnabled = (
         }
         case EMAIL_SINK.id:
             return appConfig?.featureFlags?.emailNotificationsEnabled || false;
+        case TEAMS_SINK.id: {
+            // Feature flag acts as a master switch - if disabled, Teams is completely hidden
+            const featureEnabled = appConfig?.featureFlags?.teamsNotificationsEnabled || false;
+            if (!featureEnabled) {
+                return false;
+            }
+
+            // For Teams, platform configuration is checked via DataHubConnection, not GlobalSettings
+            // This check is now handled at the component level using useIsTeamsPlatformConfigured
+            // Return feature flag status - actual platform config check happens in components
+            return featureEnabled;
+        }
         default:
             return false;
     }
+};
+
+// New helper function to check if Teams feature is enabled but platform not configured
+export const isTeamsFeatureEnabledButNotConfigured = (
+    settings?: Partial<GlobalSettings> | null,
+    appConfig?: Partial<AppConfig> | null,
+) => {
+    const featureEnabled = appConfig?.featureFlags?.teamsNotificationsEnabled || false;
+
+    // Keep existing check for backward compatibility with old webhook integration
+    const platformConfigured = isPresent(settings?.integrationSettings?.teamsSettings?.defaultChannel?.id);
+
+    return featureEnabled && !platformConfigured;
 };

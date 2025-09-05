@@ -1,0 +1,7 @@
+include README.md
+include requirements.txt
+include LICENSE
+recursive-include datahub *.py
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+

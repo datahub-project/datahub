@@ -1,0 +1,41 @@
+# Microsoft Graph API permissions required for DataHub Teams bot
+# This file defines the target permissions using human-readable names
+# The script will resolve these to the appropriate GUIDs automatically
+
+microsoft_graph:
+  resource_name: "Microsoft Graph"
+  
+  # Delegated permissions (Scope) - permissions that require user sign-in
+  delegated_permissions:
+    - name: "User.Read"
+      description: "Read user profile information"
+      
+    - name: "profile" 
+      description: "Access user's basic profile"
+      
+    - name: "openid"
+      description: "Sign in and read user profile"
+
+  # Application permissions (Role) - permissions that work without user sign-in
+  application_permissions:
+    - name: "Team.ReadBasic.All"
+      description: "Read basic team information"
+      required_for: "Finding teams for channel search"
+      
+    - name: "Channel.ReadBasic.All"
+      description: "Read basic channel information"
+      required_for: "Searching channels within teams"
+      
+    - name: "TeamsActivity.Send"
+      description: "Send Teams activity feed notifications"
+      required_for: "Sending activity feed notifications to users"
+      
+    - name: "User.ReadBasic.All"
+      description: "Read basic user information"
+      required_for: "Resolving user information for notifications"
+
+# Configuration notes:
+# - Permission names are resolved to GUIDs automatically using Microsoft Graph metadata
+# - All permissions require admin consent
+# - Restart integration service after permission changes to refresh tokens
+# - These permissions enable Teams channel search and messaging functionality

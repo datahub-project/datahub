@@ -67,9 +67,12 @@ task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
   inputs.files(
     yarnInstall.inputs.files,
     file('codegen.yml'),
-    project.fileTree(dir: "../datahub-graphql-core/src/main/resources/", include: "*.graphql"),
+    project.fileTree(dir: "../datahub-graphql-core/src/main/resources/", include: "**/*.graphql"),
     project.fileTree(dir: "src", include: "**/*.graphql"),
   )
+  
+  // Add git branch as input - forces regeneration when branch changes
+  inputs.property("gitBranch", getGitBranchName())
 
   outputs.files(
     project.fileTree(dir: "src", include: "**/*.generated.ts"),
@@ -178,7 +181,7 @@ task yarnBuildStoryBook(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) 
 }
 
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
+  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap-only' :'build-only']
 
   outputs.cacheIf { true }
   inputs.files(
@@ -290,3 +293,17 @@ jar {
   archiveClassifier = 'assets'
 }
 build.dependsOn jar
+
+def getGitBranchName() {
+  try {
+    def stdout = new ByteArrayOutputStream()
+    exec {
+      commandLine 'git', 'branch', '--show-current'
+      standardOutput = stdout
+    }
+    return stdout.toString().trim()
+  } catch (Exception e) {
+    // Fallback for older git versions or non-git environments
+    return "unknown"
+  }
+}

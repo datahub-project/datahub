@@ -38,6 +38,7 @@ public class Constants {
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
   public static final String DATA_TYPE_URN_PREFIX = "urn:li:dataType:";
   public static final String SLACK_CONNECTION_ID = "urn:li:dataHubConnection:__system_slack-0";
+  public static final String TEAMS_CONNECTION_ID = "urn:li:dataHubConnection:__system_teams-0";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
       STRUCTURED_PROPERTY_MAPPING_FIELD + ".";

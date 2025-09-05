@@ -62,6 +62,7 @@ public class FeatureFlags {
   private boolean metadataShareEnabled = false;
   private boolean documentationFormsEnabled = false;
   private boolean emailNotificationsEnabled = false;
+  private boolean teamsNotificationsEnabled = false;
   private boolean runAssertionsEnabled = false;
   private boolean broadcastNewIncidentUpdatesEnabled = false;
   private boolean separateSiblingsLineageByDefault = false;

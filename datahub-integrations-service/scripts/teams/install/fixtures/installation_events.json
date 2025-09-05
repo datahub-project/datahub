@@ -1,0 +1,193 @@
+{
+  "personal_install": {
+    "type": "conversationUpdate",
+    "membersAdded": [
+      {
+        "id": "28:datahub-bot-id",
+        "name": "DataHub"
+      }
+    ],
+    "conversation": {
+      "id": "29:personal-conversation-id-123",
+      "conversationType": "personal", 
+      "tenantId": "5ff2a251-a73c-4122-af7d-871fd744c752"
+    },
+    "from": {
+      "id": "29:test-user-aad-id",
+      "name": "Test User"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:00:00.000Z",
+    "localTimestamp": "2024-01-15T10:00:00.000Z",
+    "id": "event-id-personal-install"
+  },
+  
+  "team_install": {
+    "type": "conversationUpdate",
+    "membersAdded": [
+      {
+        "id": "28:datahub-bot-id",
+        "name": "DataHub"
+      }
+    ],
+    "conversation": {
+      "id": "19:W0_JnTr3YBkTQZGhrwRhbV9QnOKEbsS49n95VI1X-dI1@thread.tacv2",
+      "conversationType": "channel",
+      "tenantId": "5ff2a251-a73c-4122-af7d-871fd744c752"
+    },
+    "from": {
+      "id": "29:admin-user-aad-id",
+      "name": "Team Admin"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:05:00.000Z", 
+    "localTimestamp": "2024-01-15T10:05:00.000Z",
+    "id": "event-id-team-install"
+  },
+
+  "channel_install": {
+    "type": "conversationUpdate",
+    "membersAdded": [
+      {
+        "id": "28:datahub-bot-id",
+        "name": "DataHub"
+      }
+    ],
+    "conversation": {
+      "id": "19:abcd1234@thread.tacv2",
+      "conversationType": "channel",
+      "tenantId": "abc123"
+    },
+    "from": {
+      "id": "29:channel-admin-aad-id",
+      "name": "Channel Admin"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:10:00.000Z",
+    "localTimestamp": "2024-01-15T10:10:00.000Z", 
+    "id": "event-id-channel-install"
+  },
+
+  "group_chat_install": {
+    "type": "conversationUpdate",
+    "membersAdded": [
+      {
+        "id": "28:datahub-bot-id",
+        "name": "DataHub"
+      }
+    ],
+    "conversation": {
+      "id": "19:group-chat-thread-id@thread.v2",
+      "conversationType": "groupChat",
+      "tenantId": "5ff2a251-a73c-4122-af7d-871fd744c752"
+    },
+    "from": {
+      "id": "29:group-member-aad-id",
+      "name": "Group Member"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:15:00.000Z",
+    "localTimestamp": "2024-01-15T10:15:00.000Z",
+    "id": "event-id-group-chat-install"
+  },
+
+  "wrong_tenant_install": {
+    "type": "conversationUpdate",
+    "membersAdded": [
+      {
+        "id": "28:datahub-bot-id",
+        "name": "DataHub"
+      }
+    ],
+    "conversation": {
+      "id": "19:W0_JnTr3YBkTQZGhrwRhbV9QnOKEbsS49n95VI1X-dI1@thread.tacv2",
+      "conversationType": "channel", 
+      "tenantId": "different-tenant-id-wrong"
+    },
+    "from": {
+      "id": "29:wrong-tenant-user-id",
+      "name": "Wrong Tenant User"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:20:00.000Z",
+    "localTimestamp": "2024-01-15T10:20:00.000Z",
+    "id": "event-id-wrong-tenant"
+  },
+
+  "malformed_event": {
+    "type": "conversationUpdate",
+    "membersAdded": [
+      {
+        "id": "28:datahub-bot-id"
+      }
+    ],
+    "conversation": {
+      "id": "missing-tenant-conversation",
+      "conversationType": "channel"
+    },
+    "from": {
+      "id": "29:malformed-user"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:25:00.000Z",
+    "id": "event-id-malformed"
+  },
+
+  "bot_removal": {
+    "type": "conversationUpdate",
+    "membersRemoved": [
+      {
+        "id": "28:datahub-bot-id", 
+        "name": "DataHub"
+      }
+    ],
+    "conversation": {
+      "id": "19:removed-from-here@thread.tacv2",
+      "conversationType": "channel",
+      "tenantId": "5ff2a251-a73c-4122-af7d-871fd744c752"
+    },
+    "from": {
+      "id": "29:admin-removing-bot",
+      "name": "Admin"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "localTimestamp": "2024-01-15T10:30:00.000Z",
+    "id": "event-id-bot-removal"
+  },
+
+  "multiple_members_added": {
+    "type": "conversationUpdate",
+    "membersAdded": [
+      {
+        "id": "28:datahub-bot-id",
+        "name": "DataHub"
+      },
+      {
+        "id": "29:another-user-id",
+        "name": "Another User"
+      }
+    ],
+    "conversation": {
+      "id": "19:multi-member-thread@thread.tacv2",
+      "conversationType": "channel",
+      "tenantId": "5ff2a251-a73c-4122-af7d-871fd744c752"
+    },
+    "from": {
+      "id": "29:admin-adding-multiple",
+      "name": "Multi Admin"
+    },
+    "serviceUrl": "https://smba.trafficmanager.net/amer/",
+    "channelId": "msteams",
+    "timestamp": "2024-01-15T10:35:00.000Z",
+    "localTimestamp": "2024-01-15T10:35:00.000Z",
+    "id": "event-id-multi-member"
+  }
+}

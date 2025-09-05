@@ -22,12 +22,20 @@ export function selectEmail(state: State) {
     return state.email;
 }
 
+export function selectTeams(state: State) {
+    return state.teams;
+}
+
 export function selectSlackSubscription(state: State) {
     return selectSlack(state).subscription;
 }
 
 export function selectEmailSubscription(state: State) {
     return selectEmail(state).subscription;
+}
+
+export function selectTeamsSubscription(state: State) {
+    return selectTeams(state).subscription;
 }
 
 export function selectSettings(state: State) {
@@ -102,12 +110,52 @@ export function selectEmailSaveAsDefault(state: State) {
     return selectEmailSubscription(state).saveAsDefault;
 }
 
+export function selectTeamsSubscriptionChannel(state: State) {
+    return selectTeamsSubscription(state).channel;
+}
+
+export function selectTeamsSettingsChannel(state: State) {
+    return selectSettings(state).teams.channel;
+}
+
+export function selectTeamsSettingsChannelName(state: State) {
+    return selectSettings(state).teams.channelName;
+}
+
+export function selectTeamsChannelSelection(state: State) {
+    return selectTeams(state).channelSelection;
+}
+
+export function selectIsTeamsSubscriptionChannelSelection(state: State) {
+    return selectTeamsChannelSelection(state) === ChannelSelections.SUBSCRIPTION;
+}
+
+export function selectIsTeamsSettingsChannelSelection(state: State) {
+    return selectTeamsChannelSelection(state) === ChannelSelections.SETTINGS;
+}
+
+export function selectHasTeams(state: State) {
+    return selectIsTeamsSubscriptionChannelSelection(state) && !!selectTeamsSubscriptionChannel(state);
+}
+
+export function selectTeamsSaveAsDefault(state: State) {
+    return selectTeamsSubscription(state).saveAsDefault;
+}
+
+export function selectTeamsSelectedResult(state: State) {
+    return selectTeams(state).selectedResult;
+}
+
 export function selectIsSlackEnabled(state: State) {
     return selectSlack(state).enabled;
 }
 
 export function selectIsEmailEnabled(state: State) {
     return selectEmail(state).enabled;
+}
+
+export function selectIsTeamsEnabled(state: State) {
+    return selectTeams(state).enabled;
 }
 
 export function selectCheckedKeys(state: State) {
@@ -144,6 +192,18 @@ export function selectShouldShowUpdateSlackSettingsWarning(state: State) {
 export function selectShouldShowUpdateEmailSettingsWarning(state: State) {
     const shouldTurnOnEmailInSettings = selectShouldTurnOnEmailInSettings(state);
     return shouldTurnOnEmailInSettings;
+}
+
+// if the user's teams sink is disabled but they're enabling it for this susbcription, turn it back on for them
+export function selectShouldTurnOnTeamsInSettings(state: State) {
+    const isTeamsEnabled = selectIsTeamsEnabled(state);
+    const settings = selectSettings(state);
+    return isTeamsEnabled && !settings.sinkTypes?.includes(NotificationSinkType.Teams);
+}
+
+export function selectShouldShowUpdateTeamsSettingsWarning(state: State) {
+    const shouldTurnOnTeamsInSettings = selectShouldTurnOnTeamsInSettings(state);
+    return shouldTurnOnTeamsInSettings;
 }
 
 export function selectHasEnabledSink(state: State) {

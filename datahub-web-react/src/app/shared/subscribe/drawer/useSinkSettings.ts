@@ -14,11 +14,14 @@ import {
     NotificationSinkType,
     SlackNotificationSettings,
     SlackNotificationSettingsInput,
+    TeamsNotificationSettings,
+    TeamsNotificationSettingsInput,
 } from '@types';
 
 export interface UpdateSettingsInput {
     slackSettings?: SlackNotificationSettingsInput;
     emailSettings?: EmailNotificationSettingsInput;
+    teamsSettings?: TeamsNotificationSettingsInput;
     sinkTypes: NotificationSinkType[];
 }
 
@@ -52,10 +55,16 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
         ? userNotificationSettings?.getUserNotificationSettings?.sinkTypes
         : groupNotificationSettings?.getGroupNotificationSettings?.sinkTypes;
 
-    const onUpdateUserNotificationSettings = ({ emailSettings, slackSettings, sinkTypes }: UpdateSettingsInput) => {
+    const onUpdateUserNotificationSettings = ({
+        emailSettings,
+        slackSettings,
+        teamsSettings,
+        sinkTypes,
+    }: UpdateSettingsInput) => {
         return updateUserNotificationSettingsFunction({
             slackSettings,
             emailSettings,
+            teamsSettings,
             baseSinkTypes,
             sinkTypes,
             updateUserNotificationSettings,
@@ -63,11 +72,17 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
         });
     };
 
-    const onUpdateGroupNotificationSettings = ({ emailSettings, slackSettings, sinkTypes }: UpdateSettingsInput) => {
+    const onUpdateGroupNotificationSettings = ({
+        emailSettings,
+        slackSettings,
+        teamsSettings,
+        sinkTypes,
+    }: UpdateSettingsInput) => {
         return updateGroupNotificationSettingsFunction({
             groupUrn: groupUrn || '',
             slackSettings,
             emailSettings,
+            teamsSettings,
             baseSinkTypes,
             sinkTypes,
             updateGroupNotificationSettings,
@@ -93,6 +108,15 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
         ? { userHandle: origSlackSettings.userHandle, channels: origSlackSettings.channels }
         : undefined;
 
+    const origTeamsSettings = isPersonal
+        ? (userNotificationSettings?.getUserNotificationSettings?.teamsSettings as TeamsNotificationSettings)
+        : (groupNotificationSettings?.getGroupNotificationSettings?.teamsSettings as TeamsNotificationSettings);
+
+    // To remove __typename field in result, which gets rejected when updating, we must do this
+    const teamsSettings = origTeamsSettings
+        ? { user: origTeamsSettings.user, channels: origTeamsSettings.channels }
+        : undefined;
+
     const notificationSettings = isPersonal
         ? userNotificationSettings?.getUserNotificationSettings
         : groupNotificationSettings?.getGroupNotificationSettings;
@@ -106,6 +130,7 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
     return {
         emailSettings,
         slackSettings,
+        teamsSettings,
         updateSinkSettings,
         sinkTypes: baseSinkTypes,
         notificationSettings,

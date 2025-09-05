@@ -1,0 +1,22 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Teams channel information with cached display name.
+ */
+record TeamsChannel {
+  /**
+   * The Teams channel ID (internal Teams identifier).
+   */
+  id: string
+
+  /**
+   * The Teams channel display name (cached value, may be stale).
+   */
+  name: optional string
+
+  /**
+   * The timestamp when the cached name was last updated.
+   * Used for TTL-based cache invalidation.
+   */
+  lastUpdated: optional long
+}

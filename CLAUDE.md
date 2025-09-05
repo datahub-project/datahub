@@ -29,6 +29,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cd datahub-web-react && yarn start                     # Frontend dev server
 ```
 
+## Testing
+
+### Running Single Cypress Test Locally
+
+```bash
+cd smoke-test
+python3 -m venv venv
+source venv/bin/activate
+
+pip install --upgrade pip wheel setuptools
+pip install -r requirements.txt
+
+(cd ..; ./gradlew :smoke-test:yarnInstall)
+export CYPRESS_ADMIN_USERNAME=${ADMIN_USERNAME:-admin}   # datahub for oss
+export CYPRESS_ADMIN_PASSWORD=${ADMIN_PASSWORD:-mypass}  # datahub for oss
+
+# Ingest any data you may need to run the tests here.
+../gradlew :smoke-test:cypressData
+# datahub ingest -c example_to_datahub_rest.yml
+# datahub ingest -c example_siblings_to_datahub_rest.yml
+
+cd tests/cypress
+npx cypress run --spec cypress/e2e/settings/manage_group_subscription.js --headed
+
+# If you want to just open up cypress run this instead
+cd tests/cypress
+npx cypress open
+# Then you can Select E2E tests -> Electron ->
+# and finally select the test you want to run
+
+# To run against local frontend:
+# Change cypress.config.js line 22 to http://localhost:3000/
+```
+
 ## Architecture Overview
 
 DataHub is a **schema-first, event-driven metadata platform** with three core layers:

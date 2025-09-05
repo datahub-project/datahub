@@ -1,0 +1,175 @@
+{
+  "test_scenarios": [
+    {
+      "id": "basic_personal_install",
+      "name": "Basic Personal Install",
+      "description": "Test basic personal scope installation",
+      "teams_url": "https://teams.microsoft.com/l/chat/19%3Apersonal-chat-id/conversations?tenantId=5ff2a251-a73c-4122-af7d-871fd744c752",
+      "installation_event": "personal_install",
+      "expected_outcome": {
+        "installation_matched": true,
+        "tenant_id_match": true,
+        "conversation_type_match": true,
+        "welcome_message_sent": true,
+        "status": "connected"
+      },
+      "validation_checks": [
+        "tenant_id_present",
+        "conversation_type_personal",
+        "installation_matched",
+        "welcome_message_sent"
+      ]
+    },
+    {
+      "id": "team_url_matching",
+      "name": "Team URL Matching",
+      "description": "Test team installation with URL matching",
+      "teams_url": "https://teams.microsoft.com/l/team/19%3AW0_JnTr3YBkTQZGhrwRhbV9QnOKEbsS49n95VI1X-dI1%40thread.tacv2/conversations?groupId=f9c825f5-7295-48a4-a154-ad4ce71f8ef2&tenantId=5ff2a251-a73c-4122-af7d-871fd744c752",
+      "installation_event": "team_install",
+      "expected_outcome": {
+        "installation_matched": true,
+        "tenant_id_match": true,
+        "thread_id_match": true,
+        "url_parsed_correctly": true,
+        "welcome_message_sent": true,
+        "status": "connected"
+      },
+      "validation_checks": [
+        "tenant_id_matches",
+        "thread_id_matches", 
+        "url_parsed_correctly",
+        "installation_matched",
+        "welcome_message_sent"
+      ]
+    },
+    {
+      "id": "channel_install_test",
+      "name": "Channel Installation",
+      "description": "Test channel-specific installation",
+      "teams_url": "https://teams.microsoft.com/l/channel/19%3Aabcd1234/General?groupId=xyz123&tenantId=abc123",
+      "installation_event": "channel_install",
+      "expected_outcome": {
+        "installation_matched": true,
+        "tenant_id_match": true,
+        "thread_id_match": true,
+        "channel_name_parsed": true,
+        "welcome_message_sent": true,
+        "status": "connected"
+      },
+      "validation_checks": [
+        "tenant_id_matches",
+        "thread_id_matches",
+        "channel_name_parsed",
+        "installation_matched",
+        "welcome_message_sent"
+      ]
+    },
+    {
+      "id": "tenant_mismatch_error",
+      "name": "Tenant Mismatch Error",
+      "description": "Test error handling when tenant IDs don't match",
+      "teams_url": "https://teams.microsoft.com/l/team/19%3AW0_JnTr3YBkTQZGhrwRhbV9QnOKEbsS49n95VI1X-dI1%40thread.tacv2/conversations?groupId=f9c825f5-7295-48a4-a154-ad4ce71f8ef2&tenantId=5ff2a251-a73c-4122-af7d-871fd744c752",
+      "installation_event": "wrong_tenant_install",
+      "expected_outcome": {
+        "installation_matched": false,
+        "tenant_id_match": false,
+        "error_logged": true,
+        "status": "pending"
+      },
+      "validation_checks": [
+        "tenant_id_mismatch_detected",
+        "installation_not_matched", 
+        "error_handled_gracefully",
+        "status_remains_pending"
+      ]
+    },
+    {
+      "id": "url_parsing_edge_cases",
+      "name": "URL Parsing Edge Cases",
+      "description": "Test URL parsing with special characters and encoding",
+      "teams_url": "https://teams.microsoft.com/l/channel/19%3Aspecial%40chars%23here/Dev%20Channel?groupId=dev-group-123&tenantId=acryl-tenant-456",
+      "installation_event": "channel_install",
+      "expected_outcome": {
+        "installation_matched": true,
+        "url_parsed_correctly": true,
+        "special_chars_handled": true,
+        "encoding_handled": true,
+        "status": "connected"
+      },
+      "validation_checks": [
+        "url_parsing_success",
+        "special_characters_decoded",
+        "spaces_in_channel_name_handled",
+        "installation_matched"
+      ]
+    },
+    {
+      "id": "malformed_event_handling",
+      "name": "Malformed Event Handling", 
+      "description": "Test handling of malformed installation events",
+      "teams_url": "https://teams.microsoft.com/l/team/19%3Atest/conversations?groupId=test-group&tenantId=test-tenant",
+      "installation_event": "malformed_event",
+      "expected_outcome": {
+        "installation_matched": false,
+        "error_logged": true,
+        "graceful_failure": true,
+        "status": "pending"
+      },
+      "validation_checks": [
+        "malformed_event_detected",
+        "error_handled_gracefully",
+        "no_crash_occurred",
+        "status_remains_pending"
+      ]
+    },
+    {
+      "id": "bot_removal_handling",
+      "name": "Bot Removal Handling",
+      "description": "Test handling of bot removal events",
+      "teams_url": "https://teams.microsoft.com/l/team/19%3Aremoved-from-here/conversations?groupId=remove-group&tenantId=5ff2a251-a73c-4122-af7d-871fd744c752",
+      "installation_event": "bot_removal",
+      "expected_outcome": {
+        "installation_updated": true,
+        "status": "disconnected",
+        "cleanup_performed": true,
+        "removal_logged": true
+      },
+      "validation_checks": [
+        "bot_removal_detected",
+        "installation_status_updated",
+        "cleanup_performed",
+        "removal_logged"
+      ]
+    },
+    {
+      "id": "concurrent_installations",
+      "name": "Concurrent Installations",
+      "description": "Test multiple simultaneous installation attempts",
+      "teams_url": "https://teams.microsoft.com/l/team/19%3Aconcurrent-test/conversations?groupId=concurrent-group&tenantId=5ff2a251-a73c-4122-af7d-871fd744c752",
+      "installation_event": "team_install",
+      "expected_outcome": {
+        "installation_matched": true,
+        "no_race_conditions": true,
+        "thread_safety_maintained": true,
+        "status": "connected"
+      },
+      "validation_checks": [
+        "concurrent_handling_success",
+        "no_race_conditions",
+        "thread_safety_maintained",
+        "installation_matched"
+      ]
+    }
+  ],
+  "default_config": {
+    "timeout_ms": 30000,
+    "retry_attempts": 3,
+    "validation_delay_ms": 1000,
+    "cleanup_after_test": true
+  },
+  "test_metadata": {
+    "created_date": "2024-01-15",
+    "version": "1.0",
+    "description": "Teams installation test scenarios covering URL parsing, event handling, and error conditions"
+  }
+}

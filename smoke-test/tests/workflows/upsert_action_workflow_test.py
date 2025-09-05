@@ -4,7 +4,7 @@ import pytest
 
 from tests.utils import (
     delete_urns_from_file,
-    execute_gql,
+    execute_gql_with_retry,
     get_root_urn,
     ingest_file_via_rest,
 )
@@ -130,7 +130,7 @@ def test_upsert_create_new_workflow(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     assert "errors" not in response
     assert response["data"]["upsertActionWorkflow"] is not None
@@ -265,7 +265,7 @@ def test_upsert_update_existing_workflow(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     assert "errors" not in response
     assert response["data"]["upsertActionWorkflow"]
@@ -381,7 +381,7 @@ def test_upsert_custom_workflow(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     assert "errors" not in response
     assert response["data"]["upsertActionWorkflow"]
@@ -555,7 +555,7 @@ def test_upsert_workflow_with_complex_reviewers(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     assert "errors" not in response
     assert response["data"]["upsertActionWorkflow"] is not None
@@ -687,7 +687,7 @@ def test_upsert_workflow_invalid_user_urn(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     # Should return an error due to invalid URN format
     assert "errors" in response
@@ -743,7 +743,7 @@ def test_upsert_workflow_invalid_group_urn(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     # Should return an error due to invalid URN format
     assert "errors" in response
@@ -798,7 +798,7 @@ def test_upsert_workflow_invalid_workflow_urn(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     # Should return an error due to invalid URN format
     assert "errors" in response
@@ -820,7 +820,7 @@ def test_upsert_workflow_missing_required_fields(auth_session):
     # Missing required fields like name, category, trigger, steps
     variables = {"input": {"description": "Test workflow with missing required fields"}}
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     # Should return an error due to missing required fields
     assert "errors" in response
@@ -874,7 +874,7 @@ def test_upsert_workflow_empty_fields_array(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     # Should succeed - empty arrays are valid
     assert "errors" not in response
@@ -1010,7 +1010,7 @@ def test_upsert_workflow_with_complex_fields(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     assert "errors" not in response
     assert response["data"]["upsertActionWorkflow"]
@@ -1080,7 +1080,7 @@ def test_upsert_workflow_with_complex_fields(auth_session):
 def test_upsert_workflow_invalid_urn(auth_session):
     """Test that invalid URN format returns an error"""
 
-    response = execute_gql(
+    response = execute_gql_with_retry(
         auth_session,
         """
     mutation upsertActionWorkflow($input: UpsertActionWorkflowInput!) {
@@ -1119,7 +1119,7 @@ def test_upsert_workflow_invalid_urn(auth_session):
 def test_upsert_workflow_missing_required_field(auth_session):
     """Test that missing required fields are caught by GraphQL schema validation"""
 
-    response = execute_gql(
+    response = execute_gql_with_retry(
         auth_session,
         """
     mutation upsertActionWorkflow($input: UpsertActionWorkflowInput!) {
@@ -1151,7 +1151,7 @@ def test_upsert_workflow_missing_required_field(auth_session):
 def test_upsert_workflow_empty_steps_array(auth_session):
     """Test that empty steps array is accepted (server allows it)"""
 
-    response = execute_gql(
+    response = execute_gql_with_retry(
         auth_session,
         """
     mutation upsertActionWorkflow($input: UpsertActionWorkflowInput!) {
@@ -1195,7 +1195,7 @@ def test_upsert_workflow_invalid_enum_values(auth_session):
 
     # This test verifies that GraphQL schema validation catches invalid enum values
     # before they reach the server resolver
-    response = execute_gql(
+    response = execute_gql_with_retry(
         auth_session,
         """
     mutation upsertActionWorkflow($input: UpsertActionWorkflowInput!) {
@@ -1227,7 +1227,7 @@ def test_upsert_workflow_invalid_enum_values(auth_session):
 def test_upsert_workflow_empty_entrypoints_array(auth_session):
     """Test that empty entrypoints array is accepted (server allows it)"""
 
-    response = execute_gql(
+    response = execute_gql_with_retry(
         auth_session,
         """
     mutation upsertActionWorkflow($input: UpsertActionWorkflowInput!) {
@@ -1273,7 +1273,7 @@ def test_upsert_workflow_empty_entrypoints_array(auth_session):
 def test_upsert_workflow_empty_actors(auth_session):
     """Test that step with empty actors is accepted (server allows it)"""
 
-    response = execute_gql(
+    response = execute_gql_with_retry(
         auth_session,
         """
     mutation upsertActionWorkflow($input: UpsertActionWorkflowInput!) {
@@ -1422,7 +1422,7 @@ def test_upsert_workflow_with_condition_field(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, upsert_query, variables)
+    response = execute_gql_with_retry(auth_session, upsert_query, variables)
 
     assert "errors" not in response
     assert response["data"]["upsertActionWorkflow"] is not None

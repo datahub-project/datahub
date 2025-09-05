@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.TeamsNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateUserNotificationSettingsInput;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
@@ -17,6 +18,7 @@ import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
+import com.linkedin.event.notification.settings.TeamsNotificationSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.settings.NotificationSettingMap;
@@ -88,6 +90,47 @@ public class UpdateUserNotificationSettingsResolver
               notificationSettings.setEmailSettings(emailNotificationSettings);
             }
 
+            final TeamsNotificationSettingsInput teamsNotificationSettingsInput =
+                notificationSettingsInput.getTeamsSettings();
+            if (teamsNotificationSettingsInput != null) {
+              com.linkedin.settings.global.TeamsUser user = null;
+              if (teamsNotificationSettingsInput.getUser() != null) {
+                user = new com.linkedin.settings.global.TeamsUser();
+                if (teamsNotificationSettingsInput.getUser().getTeamsUserId() != null) {
+                  user.setTeamsUserId(teamsNotificationSettingsInput.getUser().getTeamsUserId());
+                }
+                if (teamsNotificationSettingsInput.getUser().getAzureUserId() != null) {
+                  user.setAzureUserId(teamsNotificationSettingsInput.getUser().getAzureUserId());
+                }
+                if (teamsNotificationSettingsInput.getUser().getEmail() != null) {
+                  user.setEmail(teamsNotificationSettingsInput.getUser().getEmail());
+                }
+                if (teamsNotificationSettingsInput.getUser().getDisplayName() != null) {
+                  user.setDisplayName(teamsNotificationSettingsInput.getUser().getDisplayName());
+                }
+              }
+
+              java.util.List<com.linkedin.settings.global.TeamsChannel> channels = null;
+              if (teamsNotificationSettingsInput.getChannels() != null) {
+                channels =
+                    teamsNotificationSettingsInput.getChannels().stream()
+                        .map(
+                            channelInput -> {
+                              com.linkedin.settings.global.TeamsChannel channel =
+                                  new com.linkedin.settings.global.TeamsChannel();
+                              channel.setId(channelInput.getId());
+                              if (channelInput.getName() != null) {
+                                channel.setName(channelInput.getName());
+                              }
+                              return channel;
+                            })
+                        .collect(java.util.stream.Collectors.toList());
+              }
+              final TeamsNotificationSettings teamsNotificationSettings =
+                  _settingsService.createTeamsNotificationSettings(user, channels);
+              notificationSettings.setTeamsSettings(teamsNotificationSettings);
+            }
+
             if (input.getNotificationSettings().getSettings() != null) {
               NotificationSettingMap newSettings =
                   NotificationSettingMapMapper.mapNotificationSettingInputList(
@@ -107,8 +150,8 @@ public class UpdateUserNotificationSettingsResolver
             return NotificationSettingsMapper.map(context, notificationSettings);
           } catch (Exception e) {
             throw new RuntimeException(
-                String.format(
-                    "Failed to update notification settings for user %s", userUrnString, e));
+                String.format("Failed to update notification settings for user %s", userUrnString),
+                e);
           }
         },
         this.getClass().getSimpleName(),

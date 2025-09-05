@@ -7,6 +7,19 @@ query getUserNotificationSettings {
         emailSettings {
             email
         }
+        teamsSettings {
+            user {
+                teamsUserId
+                azureUserId
+                email
+                displayName
+                lastUpdated
+            }
+            channels {
+                id
+                name
+            }
+        }
         settings {
             type
             value
@@ -26,6 +39,12 @@ query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
         }
         emailSettings {
             email
+        }
+        teamsSettings {
+            channels {
+                id
+                name
+            }
         }
         settings {
             type
@@ -47,6 +66,19 @@ mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsIn
         emailSettings {
             email
         }
+        teamsSettings {
+            user {
+                teamsUserId
+                azureUserId
+                email
+                displayName
+                lastUpdated
+            }
+            channels {
+                id
+                name
+            }
+        }
         settings {
             type
             value
@@ -66,6 +98,12 @@ mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettings
         }
         emailSettings {
             email
+        }
+        teamsSettings {
+            channels {
+                id
+                name
+            }
         }
         settings {
             type
@@ -88,6 +126,12 @@ query getGlobalSettings {
             }
             emailSettings {
                 defaultEmail
+            }
+            teamsSettings {
+                defaultChannel {
+                    id
+                    name
+                }
             }
         }
         notificationSettings {
@@ -124,6 +168,12 @@ query getIntegrationSettings {
             }
             emailSettings {
                 defaultEmail
+            }
+            teamsSettings {
+                defaultChannel {
+                    id
+                    name
+                }
             }
         }
     }

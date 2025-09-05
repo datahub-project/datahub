@@ -1,0 +1,149 @@
+/**
+ * Copyright 2021 Acryl Data, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java' // required for versioning
+}
+
+apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: '../gradle/docker/docker.gradle'
+
+ext {
+    python_executable = 'python3'
+    venv_name = 'venv'
+    python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "${version}")
+    docker_repo = 'datahub-cloud-router'
+}
+
+task installUv(type: Exec) {
+    commandLine 'bash', '-c', """
+        if ! command -v uv &> /dev/null; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+        else
+            echo "uv is already installed"
+        fi
+    """
+}
+
+task environmentSetup(type: Exec, dependsOn: installUv) {
+    def sentinel_file = "${venv_name}/.uv_venv_environment_sentinel"
+    inputs.file file('pyproject.toml')
+    outputs.file(sentinel_file)
+    commandLine 'bash', '-c',
+        "uv venv --python 3.11 --allow-existing venv && " +
+        "touch ${sentinel_file}"
+}
+
+task installPackage(type: Exec, dependsOn: environmentSetup) {
+    inputs.files(
+        file('pyproject.toml'),
+        file('scripts/sync.sh'),
+        file('requirements.txt'),
+        file('requirements-dev.txt'),
+        fileTree(dir: 'src', include: '**/*.py'),
+    )
+    outputs.file("${venv_name}/.build_install_sentinel")
+
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "./scripts/sync.sh && " +
+        "touch ${venv_name}/.build_install_sentinel"
+}
+
+task install(dependsOn: [installPackage])
+
+task installDev(dependsOn: [install])
+
+def typeCheckDirs = "src/datahub/ tests/"
+def lintDirs = "src/datahub/ tests/"
+
+// Override the default coverage args to use 'src/datahub' instead of 'src'
+ext.get_coverage_args = { test_name = "" ->
+  def coverage_file_name = "coverage-${project.name}${test_name}.xml"
+  def base_path = "${rootProject.buildDir}/coverage-reports/${rootProject.relativePath(project.projectDir)}/"
+  return "--cov-report xml:${base_path}/${coverage_file_name} --cov=src/datahub"
+}
+
+task lint(type: Exec, dependsOn: installDev) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "ruff check ${lintDirs} && " +
+        "ruff format --check ${lintDirs} && " +
+        "PYTHONPATH=src mypy ${typeCheckDirs}"
+}
+
+task lintFix(type: Exec, dependsOn: installDev) {
+    commandLine 'bash', '-c',
+        "set +x && source ${venv_name}/bin/activate && set -x && " +
+        "ruff check --fix ${lintDirs} && " +
+        "ruff format ${lintDirs}"
+}
+
+task pytest(type: Exec, dependsOn: installDev) {
+    commandLine 'bash', '-x', '-c',
+        "PYTHONPATH=src ${venv_name}/bin/pytest ${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+test.finalizedBy(pytest)
+
+task cleanPythonCache(type: Exec) {
+    commandLine 'bash', '-x', '-c',
+        "find src/datahub -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+build.dependsOn install
+check.dependsOn lint
+check.dependsOn test
+
+clean {
+    delete venv_name
+    delete 'build'
+    delete 'dist'
+    delete '*.egg-info'
+}
+clean.dependsOn cleanPythonCache
+
+docker {
+    name "${docker_registry}/${docker_repo}:${versionTag}"
+    dockerfile file("${rootProject.projectDir}/docker/datahub-cloud-router/Dockerfile")
+    files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
+        include "docker/datahub-cloud-router/*"
+        include "docker/snippets/*"
+        include "datahub-cloud-router/src/**"
+        include "datahub-cloud-router/scripts/sync.sh"
+        include "datahub-cloud-router/pyproject.toml"
+        include "datahub-cloud-router/requirements*"
+        include "python-build/**"
+
+    }.exclude {
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+    }
+    additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
+
+    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version]
+
+    // Add build args if they are defined (needed for some CI or enterprise environments)
+    if (project.hasProperty('pipMirrorUrl')) {
+        dockerBuildArgs.PIP_MIRROR_URL = project.getProperty('pipMirrorUrl')
+    }
+    if (project.hasProperty('debianAptRepositoryUrl')) {
+        dockerBuildArgs.DEBIAN_REPO_URL = project.getProperty('debianAptRepositoryUrl')
+    }
+
+    buildArgs(dockerBuildArgs)
+    debugBuildArgs = [APP_ENV:  'dev']
+}

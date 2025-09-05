@@ -5,11 +5,23 @@ export const getDestinationId = (
 ): string => {
     let destination = 'no destination specified';
     if (config.integration === 'slack') {
-        const { channels, userHandle } = config.destinationSettings;
-        if (channels?.length) {
-            destination = channels.join(', ');
-        } else if (userHandle) {
-            destination = userHandle;
+        const slackSettings = config.destinationSettings as any; // Type assertion needed due to union type
+        if (slackSettings.channels?.length) {
+            destination = slackSettings.channels.join(', ');
+        } else if (slackSettings.userHandle) {
+            destination = slackSettings.userHandle;
+        }
+    } else if (config.integration === 'teams') {
+        const teamsSettings = config.destinationSettings as any; // Type assertion needed due to union type
+        if (teamsSettings.channels?.length) {
+            destination = teamsSettings.channels.map((channel) => channel.name || channel.id).join(', ');
+        } else if (teamsSettings.user) {
+            // Use display name if available, otherwise fall back to Azure user ID or email
+            destination =
+                teamsSettings.user.displayName ||
+                teamsSettings.user.azureUserId ||
+                teamsSettings.user.email ||
+                'Teams user';
         }
     }
 

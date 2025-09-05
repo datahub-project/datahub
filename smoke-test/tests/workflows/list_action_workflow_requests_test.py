@@ -2,7 +2,7 @@ import pytest
 
 from tests.utils import (
     delete_urns_from_file,
-    execute_gql,
+    execute_gql_with_retry,
     get_root_urn,
     ingest_file_via_rest,
 )
@@ -79,7 +79,7 @@ def test_list_all_action_workflow_requests(auth_session):
 
     variables = {"input": {"start": 0, "count": 50, "type": "WORKFLOW_FORM_REQUEST"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionRequests"]
@@ -205,7 +205,7 @@ def test_list_action_workflow_requests_filtered_by_entity(auth_session):
         }
     }
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionRequests"]
@@ -262,7 +262,7 @@ def test_list_action_workflow_requests_with_field_values(auth_session):
 
     variables = {"input": {"start": 0, "count": 50, "type": "WORKFLOW_FORM_REQUEST"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionRequests"]
@@ -330,7 +330,7 @@ def test_list_action_workflow_requests_with_access_expiration(auth_session):
 
     variables = {"input": {"start": 0, "count": 50, "type": "WORKFLOW_FORM_REQUEST"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionRequests"]
@@ -370,7 +370,7 @@ def test_list_action_workflow_requests_pagination(auth_session):
     # Get first page
     variables = {"input": {"start": 0, "count": 3, "type": "WORKFLOW_FORM_REQUEST"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionRequests"]
@@ -383,7 +383,7 @@ def test_list_action_workflow_requests_pagination(auth_session):
     # Test pagination - get next page if there are more results
     if result["total"] > 3:
         variables["input"]["start"] = 3
-        response = execute_gql(auth_session, list_query, variables)
+        response = execute_gql_with_retry(auth_session, list_query, variables)
 
         assert "errors" not in response
         result = response["data"]["listActionRequests"]
@@ -412,7 +412,7 @@ def test_list_action_workflow_requests_empty_result(auth_session):
     # Filter by a non-existent type that should return no results
     variables = {"input": {"start": 0, "count": 50, "type": "NON_EXISTENT_TYPE"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     # This should either return an error (invalid type) or empty results
     if "errors" in response:
@@ -448,7 +448,7 @@ def test_list_action_workflow_requests_error_handling(auth_session):
     # Test with invalid count (negative)
     variables = {"input": {"start": 0, "count": -1, "type": "WORKFLOW_FORM_REQUEST"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     # Should handle gracefully or return an error
     if "errors" in response:
@@ -518,7 +518,7 @@ def test_list_action_workflow_requests_comprehensive(auth_session):
 
     variables = {"input": {"start": 0, "count": 50, "type": "WORKFLOW_FORM_REQUEST"}}
 
-    response = execute_gql(auth_session, list_query, variables)
+    response = execute_gql_with_retry(auth_session, list_query, variables)
 
     assert "errors" not in response
     assert response["data"]["listActionRequests"]
