@@ -1007,11 +1007,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # # Step 2: Emit metadata events for the Dashboard itself.
         # Create a set of unique chart entities for dashboard input lineage based in chart.urn
         unique_chart_entities: List[Chart] = []
-        seen_urns: Set[str] = set()
         for chart_event in chart_events:
             # Use chart.urn to ensure uniqueness based on the chart's URN property
-            if chart_event.urn not in seen_urns:
-                seen_urns.add(chart_event.urn)
+            # Also, update the set of processed chart urns
+            if str(chart_event.urn) not in str(self.chart_urns):
+                self.chart_urns.add(str(chart_event.urn))
                 unique_chart_entities.append(chart_event)
 
         dashboard_events = self._make_dashboard_entities(
