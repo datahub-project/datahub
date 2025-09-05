@@ -719,11 +719,7 @@ def _column_level_lineage(
     joins: Optional[List[_JoinInfo]] = None
     try:
         # List join clauses.
-        joins = _list_joins(
-            dialect=dialect,
-            root_scope=root_scope,
-            table_name_schema_mapping=table_name_schema_mapping,
-        )
+        joins = _list_joins(dialect=dialect, root_scope=root_scope)
         logger.debug("Joins: %s", joins)
     except Exception as e:
         # This is a non-fatal error, so we can continue.
@@ -918,7 +914,6 @@ def _get_raw_col_upstreams_for_expression(
 def _list_joins(
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
-    table_name_schema_mapping: Dict[_TableName, SchemaInfo],
 ) -> List[_JoinInfo]:
     # TODO: Add a confidence tracker here.
 
@@ -1006,36 +1001,33 @@ def _list_joins(
 
         # Handle LATERAL constructs
         for lateral in scope.expression.find_all(sqlglot.exp.Lateral):
-            try:
-                # Get tables from non-lateral FROM clauses
-                qualified_left: OrderedSet[_TableName] = OrderedSet()
-                for from_clause in scope.find_all(sqlglot.exp.From):
-                    if not isinstance(from_clause.this, sqlglot.exp.Lateral):
-                        qualified_left.update(
-                            _get_join_side_tables(from_clause.this, dialect, scope)
-                        )
-
-                # Get tables from lateral subquery
-                qualified_right: OrderedSet[_TableName] = OrderedSet()
-                if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
-                    qualified_right.update(
-                        _TableName.from_sqlglot_table(t)
-                        for t in lateral.this.find_all(sqlglot.exp.Table)
+            # Get tables from non-lateral FROM clauses
+            qualified_left: OrderedSet[_TableName] = OrderedSet()
+            for from_clause in scope.find_all(sqlglot.exp.From):
+                if not isinstance(from_clause.this, sqlglot.exp.Lateral):
+                    qualified_left.update(
+                        _get_join_side_tables(from_clause.this, dialect, scope)
                     )
-                qualified_right.update(qualified_left)
 
-                if qualified_left and qualified_right:
-                    joins.append(
-                        _JoinInfo(
-                            join_type="LATERAL JOIN",
-                            left_tables=list(qualified_left),
-                            right_tables=list(qualified_right),
-                            on_clause=None,
-                            columns_involved=[],
-                        )
+            # Get tables from lateral subquery
+            qualified_right: OrderedSet[_TableName] = OrderedSet()
+            if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
+                qualified_right.update(
+                    _TableName.from_sqlglot_table(t)
+                    for t in lateral.this.find_all(sqlglot.exp.Table)
+                )
+            qualified_right.update(qualified_left)
+
+            if qualified_left and qualified_right:
+                joins.append(
+                    _JoinInfo(
+                        join_type="LATERAL JOIN",
+                        left_tables=list(qualified_left),
+                        right_tables=list(qualified_right),
+                        on_clause=None,
+                        columns_involved=[],
                     )
-            except Exception as e:
-                logger.debug(f"Failed to process LATERAL node: {e}")
+                )
 
     return joins
 
