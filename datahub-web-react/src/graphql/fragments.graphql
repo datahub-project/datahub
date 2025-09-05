@@ -969,6 +969,12 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 fragment entitySchemaFieldFields on SchemaField {
@@ -1564,6 +1570,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
@@ -1789,6 +1796,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
+    canManageAssetSummary
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {

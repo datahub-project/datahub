@@ -68,6 +68,7 @@ import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortBuilder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
@@ -88,6 +89,44 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Nonnull
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
+
+  @BeforeClass
+  public void verifyDataAvailability() {
+    // Wait for sample data to be available before running tests
+    // This verifies that the basic search functionality works and returns expected counts
+    Map<String, Integer> expectedTypes =
+        Map.of(
+            "dataset", 13,
+            "chart", 0,
+            "container", 2,
+            "dashboard", 0,
+            "tag", 0,
+            "mlmodel", 0);
+
+    waitForDataAvailability(
+        () -> {
+          SearchResult testResult =
+              searchAcrossEntities(getOperationContext(), getSearchService(), "test");
+
+          // Check if we get the expected entity counts
+          for (Map.Entry<String, Integer> entry : expectedTypes.entrySet()) {
+            long actualCount =
+                testResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .filter(entity -> entry.getKey().equals(entity.getEntityType()))
+                    .count();
+
+            if (actualCount != entry.getValue()) {
+              return false;
+            }
+          }
+          return true;
+        },
+        30, // Wait up to 30 seconds
+        String.format(
+            "Sample data not available after 30 seconds. Expected entity counts: %s",
+            expectedTypes));
+  }
 
   @Test
   public void testSearchFieldConfig() throws IOException {
