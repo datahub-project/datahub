@@ -924,6 +924,8 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multiple_charts(mocked_client)
         setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         pipeline_run1 = Pipeline.create(looker_source_config(output_file_name))
         pipeline_run1.run()
