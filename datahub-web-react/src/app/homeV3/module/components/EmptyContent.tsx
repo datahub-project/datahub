@@ -19,8 +19,7 @@ const Container = styled.div`
     align-items: center;
 
     p {
-        text-align: justify;
-        text-align-last: center;
+        text-align: center;
         width: 80%;
     }
 `;
