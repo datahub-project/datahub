@@ -1489,7 +1489,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1512,7 +1512,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1535,7 +1535,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1600,9 +1600,9 @@ def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_gra
         mock_sdk.return_value = mocked_client
 
         setup_mock_dashboard_with_folder(mocked_client)
-
         setup_mock_explore(mocked_client)
-
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         setup_mock_look(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
