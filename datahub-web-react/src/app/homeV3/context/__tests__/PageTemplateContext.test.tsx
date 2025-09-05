@@ -194,6 +194,7 @@ describe('PageTemplateContext', () => {
                 mockUpsertTemplate,
                 false,
                 null,
+                PageTemplateSurfaceType.HomePage,
             );
         });
 
@@ -297,6 +298,7 @@ describe('PageTemplateContext', () => {
                 mockUpsertTemplate,
                 false,
                 null,
+                PageTemplateSurfaceType.HomePage,
             );
         });
 

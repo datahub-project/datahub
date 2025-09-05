@@ -28,7 +28,6 @@ const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
 `;
 
 const DescriptionContainer = styled.div`
-    width: max-content;
     max-width: 100%;
 `;
 

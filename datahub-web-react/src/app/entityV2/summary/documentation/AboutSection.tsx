@@ -6,7 +6,7 @@ import AboutContent from '@app/entityV2/summary/documentation/AboutContent';
 export default function AboutSection() {
     return (
         <>
-            <Text weight="bold" color="gray" colorLevel={600}>
+            <Text weight="bold" color="gray" colorLevel={600} size="sm">
                 About
             </Text>
             <AboutContent />

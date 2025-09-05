@@ -1,18 +1,16 @@
 import { useCallback, useMemo } from 'react';
-import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { FIELD_GLOSSARY_TERMS_FILTER_NAME, GLOSSARY_TERMS_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { DOMAINS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Entity, EntityType } from '@types';
 
-const NUMBER_OF_ASSETS_TO_FETCH = 10;
+const MAX_ASSETS_TO_FETCH = 50;
 
-export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
-    const { urn, entityType } = useEntityData();
-    const history = useHistory();
+export const useGetChildDataProducts = (initialCount = MAX_ASSETS_TO_FETCH) => {
+    const { urn } = useEntityData();
 
     const getInputVariables = useCallback(
         (start: number, count: number) => ({
@@ -20,9 +18,13 @@ export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
                 query: '*',
                 start,
                 count,
-                orFilters: [
-                    { and: [{ field: GLOSSARY_TERMS_FILTER_NAME, values: [urn] }] },
-                    { and: [{ field: FIELD_GLOSSARY_TERMS_FILTER_NAME, values: [urn] }] },
+                types: [EntityType.DataProduct],
+                filters: [
+                    {
+                        field: DOMAINS_FILTER_NAME,
+                        value: urn,
+                        values: [urn],
+                    },
                 ],
                 searchFlags: { skipCache: true },
             },
@@ -37,8 +39,7 @@ export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
         refetch,
     } = useGetSearchResultsForMultipleQuery({
         variables: getInputVariables(0, initialCount),
-        skip: entityType !== EntityType.GlossaryTerm,
-        fetchPolicy: 'cache-first',
+        skip: !urn,
     });
 
     const entityRegistry = useEntityRegistryV2();
@@ -52,7 +53,7 @@ export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
     const loading = searchLoading || !data;
 
     // For fetching paginated entities based on start and count
-    const fetchAssets = useCallback(
+    const fetchEntities = useCallback(
         async (start: number, count: number): Promise<Entity[]> => {
             if (start === 0) {
                 return originEntities;
@@ -65,9 +66,5 @@ export const useGetTermAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => {
         [refetch, getInputVariables, originEntities],
     );
 
-    const navigateToAssetsTab = () => {
-        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Related Assets`);
-    };
-
-    return { originEntities, entities, loading, error, total, fetchAssets, navigateToAssetsTab };
+    return { originEntities, entities, loading, error, total, fetchEntities };
 };

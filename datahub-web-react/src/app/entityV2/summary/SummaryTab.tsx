@@ -28,8 +28,11 @@ export default function SummaryTab({ properties }: { properties?: Props }) {
         <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
             <SummaryWrapper>
                 <PropertiesHeader />
-                <AboutSection />
-                {!hideLinksButton && <Links />}
+                {/* div prevents 16px gap inside of about and links sections */}
+                <div>
+                    <AboutSection />
+                    {!hideLinksButton && <Links />}
+                </div>
                 <StyledDivider />
                 <Template />
             </SummaryWrapper>

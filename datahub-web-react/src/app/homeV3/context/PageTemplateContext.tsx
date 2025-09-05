@@ -53,6 +53,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         upsertTemplate,
         moduleModalState.isEditing,
         moduleModalState.initialState,
+        templateType,
     );
 
     // Asset summary operations
@@ -74,6 +75,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             personalTemplate,
             globalTemplate,
             template,
+            templateType,
             isEditingGlobalTemplate,
             setIsEditingGlobalTemplate,
             setPersonalTemplate,
@@ -98,6 +100,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             personalTemplate,
             globalTemplate,
             template,
+            templateType,
             isEditingGlobalTemplate,
             setIsEditingGlobalTemplate,
             setPersonalTemplate,
