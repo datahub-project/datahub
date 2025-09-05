@@ -86,7 +86,7 @@ public class KafkaTraceReaderFactory {
     traceExecutorService = Executors.newFixedThreadPool(threadPoolSize);
     if (metricUtils != null) {
       MicrometerMetricsRegistry.registerExecutorMetrics(
-          "api-trace", this.traceExecutorService, metricUtils.getRegistry().orElse(null));
+          "api-trace", this.traceExecutorService, metricUtils.getRegistry());
     }
     return traceExecutorService;
   }

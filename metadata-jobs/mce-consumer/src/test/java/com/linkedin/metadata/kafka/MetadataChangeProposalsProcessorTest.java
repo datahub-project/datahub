@@ -48,7 +48,6 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -348,7 +347,7 @@ public class MetadataChangeProposalsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set timestamp to simulate queue time
     long messageTimestamp = System.currentTimeMillis() - 3000; // 3 seconds ago
@@ -390,7 +389,7 @@ public class MetadataChangeProposalsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Create MCP
     MetadataChangeProposal mcp = createSimpleMCP();
@@ -452,7 +451,7 @@ public class MetadataChangeProposalsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Create MCP that will fail
     MetadataChangeProposal mcp = new MetadataChangeProposal();
@@ -493,7 +492,7 @@ public class MetadataChangeProposalsProcessorTest {
   @Test
   public void testMicrometerMetricsAbsentWhenRegistryNotPresent() throws Exception {
     // Configure the mock metricUtils to return empty Optional (no registry)
-    when(metricUtils.getRegistry()).thenReturn(Optional.empty());
+    when(metricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
 
     // Create MCP
     MetadataChangeProposal mcp = createSimpleMCP();
@@ -518,7 +517,7 @@ public class MetadataChangeProposalsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Create MCP
     MetadataChangeProposal mcp = createSimpleMCP();

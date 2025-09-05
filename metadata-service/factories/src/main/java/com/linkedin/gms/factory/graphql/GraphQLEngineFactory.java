@@ -317,7 +317,7 @@ public class GraphQLEngineFactory {
         GraphQLConcurrencyUtils.setExecutorService(graphQLWorkerPool);
     if (metricUtils != null) {
       MicrometerMetricsRegistry.registerExecutorMetrics(
-          "graphql", graphqlExecutorService, metricUtils.getRegistry().orElse(null));
+          "graphql", graphqlExecutorService, metricUtils.getRegistry());
     }
 
     return graphQLWorkerPool;
