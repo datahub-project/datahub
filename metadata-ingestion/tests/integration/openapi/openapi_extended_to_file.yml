@@ -1,0 +1,13 @@
+source:
+  type: openapi
+  config:
+    name: test_openapi_extended
+    url: https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/
+    swagger_file: v3.0/api-with-examples.yaml
+    get_operations_only: false  # Enable processing of PUT, POST, PATCH methods
+
+
+sink:
+  type: file
+  config:
+    filename: "/tmp/openapi_extended_mces.json"

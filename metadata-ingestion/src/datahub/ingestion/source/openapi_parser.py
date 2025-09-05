@@ -128,7 +128,7 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
-def get_endpoints(sw_dict: dict) -> dict:
+def get_endpoints(sw_dict: dict, get_operations_only: bool = True) -> dict:
     """
     Get all the URLs, together with their description and the tags
     """
@@ -148,6 +148,10 @@ def get_endpoints(sw_dict: dict) -> dict:
                 "options",
                 "head",
             ]:
+                continue
+            
+            # Filter methods based on get_operations_only setting
+            if get_operations_only and method.lower() != "get":
                 continue
 
             responses = method_spec.get("responses", {})
@@ -172,12 +176,69 @@ def get_endpoints(sw_dict: dict) -> dict:
             example_data = check_for_api_example_data(base_res, p_k)
             if example_data:
                 url_details[p_k]["data"] = example_data
+            
+            # Extract schema fields from OpenAPI definition
+            schema_fields = extract_schema_from_response(base_res, sw_dict)
+            if schema_fields:
+                url_details[p_k]["schema_fields"] = schema_fields
 
             # checking whether there are defined parameters to execute the call...
             if "parameters" in p_o[method]:
                 url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))
+
+
+def extract_schema_from_response(base_res: dict, sw_dict: dict) -> List[str]:
+    """
+    Extract schema fields from OpenAPI response definition
+    """
+    fields = []
+    
+    if "content" in base_res:
+        res_cont = base_res["content"]
+        if "application/json" in res_cont:
+            json_content = res_cont["application/json"]
+            if "schema" in json_content:
+                schema = json_content["schema"]
+                fields = extract_fields_from_schema(schema, sw_dict)
+    
+    return fields
+
+
+def extract_fields_from_schema(schema: dict, sw_dict: dict, prefix: str = "") -> List[str]:
+    """
+    Recursively extract field paths from OpenAPI schema definition
+    """
+    fields = []
+    
+    if "$ref" in schema:
+        # Handle schema references
+        ref_path = schema["$ref"]
+        if ref_path.startswith("#/components/schemas/"):
+            schema_name = ref_path.split("/")[-1]
+            if "components" in sw_dict and "schemas" in sw_dict["components"]:
+                if schema_name in sw_dict["components"]["schemas"]:
+                    referenced_schema = sw_dict["components"]["schemas"][schema_name]
+                    fields.extend(extract_fields_from_schema(referenced_schema, sw_dict, prefix))
+    
+    elif schema.get("type") == "object":
+        if "properties" in schema:
+            for prop_name, prop_schema in schema["properties"].items():
+                field_path = f"{prefix}.{prop_name}".strip(".")
+                fields.append(field_path)
+                
+                # Recursively handle nested objects
+                if prop_schema.get("type") == "object" or "$ref" in prop_schema:
+                    fields.extend(extract_fields_from_schema(prop_schema, sw_dict, field_path))
+    
+    elif schema.get("type") == "array":
+        if "items" in schema:
+            items_schema = schema["items"]
+            if items_schema.get("type") == "object" or "$ref" in items_schema:
+                fields.extend(extract_fields_from_schema(items_schema, sw_dict, prefix))
+    
+    return fields
 
 
 def check_for_api_example_data(base_res: dict, key: str) -> dict:

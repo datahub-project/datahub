@@ -4,6 +4,7 @@ source:
     name: test_endpoint # this name will appear in DatHub
     url: https://test_endpoint.com/
     swagger_file: classicapi/doc/swagger.json  # where to search for the OpenApi definitions
+    get_operations_only: true  # Set to false to process PUT, POST, PATCH methods as well
 
     # option 1: bearer token
     bearer_token: "<token>"

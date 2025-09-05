@@ -3,7 +3,12 @@ The dataset metadata should be defined directly in the Swagger file, section `["
 ## Capabilities
 
 This plugin reads the swagger file where the endpoints are defined, reads example data if provided (for any method), or searches for
-data for the endpoints which do not have example data and accept a `GET` call.
+data for the endpoints which do not have example data and accept a `GET` call. 
+
+**New in this version:**
+- Support for `PUT`, `POST`, and `PATCH` methods (in addition to `GET`)
+- JSON schema extraction directly from OpenAPI/Swagger definitions
+- Configurable method filtering with `get_operations_only` parameter
 
 For every selected endpoint defined in the `paths` section,
 the tool searches whether the metadata are already defined.
@@ -33,6 +38,8 @@ paths:
 then this plugin has all the information needed to create the dataset in DataHub.
 
 In case there is no example defined, the plugin will try to get the metadata directly from the endpoint, if it is a `GET` method.
+For non-GET methods (`PUT`, `POST`, `PATCH`), the plugin will extract schema information from the OpenAPI definition itself, if available.
+
 So, if in your swagger file you have
 
 ```yaml
@@ -93,6 +100,34 @@ it will try to put a number one (1) at the parameter place
     https://test_endpoint.com/colors/1
 
 and this URL will be called to get back the needed metadata.
+
+### HTTP Method Support
+
+By default, the plugin processes only `GET` methods to avoid making potentially destructive API calls. You can enable processing of `PUT`, `POST`, and `PATCH` methods by setting `get_operations_only` to `false`:
+
+```yaml
+source:
+  type: openapi
+  config:
+    name: my_api
+    url: https://api.example.com/
+    swagger_file: openapi.json
+    get_operations_only: false  # Enable processing of PUT, POST, PATCH methods
+```
+
+When `get_operations_only` is `false`, the plugin will:
+- Process all HTTP methods defined in the OpenAPI specification
+- Extract schema information from OpenAPI definitions for non-GET methods
+- Not make actual API calls for non-GET methods (to avoid side effects)
+
+### JSON Schema Extraction
+
+The plugin now automatically extracts field information from OpenAPI schema definitions when available. This works for:
+- Response schemas defined in the OpenAPI specification
+- Referenced schemas using `$ref` (e.g., `#/components/schemas/User`)
+- Nested object structures and arrays
+
+This provides better metadata coverage even when example data is not available or when actual API calls cannot be made.
 
 ## Config details
 
