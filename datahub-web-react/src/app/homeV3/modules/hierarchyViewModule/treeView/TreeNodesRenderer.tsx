@@ -15,8 +15,8 @@ const Wrapper = styled.div`
 
 const InlineBlockWrapper = styled.div<{ $hasExpanded: boolean }>`
     display: inline-block;
-    min-width: calc(100% - 20px);
-    ${(props) => !props.$hasExpanded && 'width: calc(100% - 20px);'}
+    min-width: calc(100% - 0px);
+    ${(props) => !props.$hasExpanded && 'width: calc(100% - 0px);'}
 `;
 
 export default function TreeNodesRenderer() {

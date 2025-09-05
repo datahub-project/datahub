@@ -75,7 +75,8 @@ kafka_common = {
     # With the release of 2.8.1, confluent-kafka only released a source distribution,
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
-    "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
+    # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
+    "confluent_kafka[schemaregistry,avro]>=2.10.1",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -370,6 +371,9 @@ databricks = {
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
+    # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
+    # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
+    # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
     "databricks-sql-connector>=2.8.0,<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -392,7 +396,12 @@ superset_common = {
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
-    "datahub-kafka": kafka_common,
+    "datahub-kafka": {
+        # At some moment, we decoupled from using here kafka_common
+        # That's becuase kafka_common has more strict lower bound versions that conflict with airflow depedency constraints
+        "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
+        "fastavro>=1.2.0",
+    },
     "datahub-rest": rest_common,
     "sync-file-emitter": {"filelock"},
     "datahub-lite": {
@@ -454,6 +463,7 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    "excel": {"openpyxl>=3.1.5", "pandas", *aws_common, *abs_base, *cachetools_lib, *data_lake_profiling},
     "cassandra": {
         "cassandra-driver>=3.28.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -721,6 +731,7 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
+            "mssql-odbc"
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -741,6 +752,7 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
+            "excel",
             "feast",
             "hana",
             "hive",
@@ -751,6 +763,7 @@ full_test_dev_requirements = {
             "mongodb",
             "slack",
             "mssql",
+            "mssql-odbc",
             "mysql",
             "mariadb",
             "redash",
@@ -785,6 +798,7 @@ entry_points = {
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
+        "excel = datahub.ingestion.source.excel.source:ExcelSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",

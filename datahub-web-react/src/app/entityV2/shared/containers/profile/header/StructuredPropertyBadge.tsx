@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import { filterForAssetBadge } from '@app/entityV2/shared/containers/profile/header/utils';
 import { mapStructuredPropertyToPropertyRow } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { Pill, Text, Tooltip, colors } from '@src/alchemy-components';
 import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
@@ -43,6 +44,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
 
     if (!badgeStructuredProperty) return null;
 
+    const attribution = propRow?.attribution;
     const propertyValue = propRow?.values[0]?.value;
     const relatedDescription = propRow?.structuredProperty?.definition?.allowedValues?.find(
         (v) => getStructuredPropertyValue(v.value) === propertyValue,
@@ -58,7 +60,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
                     <Text color="gray" size="sm" weight="bold">
                         Value
                     </Text>
-                    <Text color="gray">{propRow?.values[0]?.value}</Text>
+                    <Text color="gray">{propertyValue}</Text>
                 </ValueContainer>
                 {relatedDescription && (
                     <ValueContainer>
@@ -68,6 +70,7 @@ const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
                         <Text color="gray">{relatedDescription}</Text>
                     </ValueContainer>
                 )}
+                {attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
             </TooltipContainer>
         );
     };

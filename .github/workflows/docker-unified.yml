@@ -1,8 +1,6 @@
 name: Docker Build, Scan, Test
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 0 * * *" # Run at midnight UTC every day
   push:
     branches:
       - master
@@ -107,7 +105,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
+               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -215,7 +213,7 @@ jobs:
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
@@ -265,8 +263,10 @@ jobs:
 
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
+        # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
 
       - name: Capture build Id
         id: capture-build-id
@@ -275,7 +275,16 @@ jobs:
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
 
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
-          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
+          echo "matrix=$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '{"target":.target | keys}')" >> $GITHUB_OUTPUT
+
+      - name: Save build Metadata
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-metadata-${{ needs.setup.outputs.tag }}
+          path: |
+            ${{ github.workspace }}/build/build-metadata.json
+            ${{ github.workspace }}/build/bake-spec-allImages.json
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/master' }}
@@ -299,7 +308,7 @@ jobs:
     name: Scan images for vulnerabilities
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
-    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
@@ -557,10 +566,62 @@ jobs:
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
 
+  publish_images:
+    name: Push images after tests pass
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: [setup, smoke_test, base_build]
+    if: ${{ always() && !failure() && !cancelled() }}
+    steps:
+      - name: Check if tests have passed
+        id: tests_passed
+        run: |
+          # Check the overall result of the matrix job
+          # Matrix jobs can have mixed results, so we check for any failures
+          if [[ "${{ needs.smoke_test.result }}" == "failure" ]]; then
+            echo "Smoke tests failed, skipping image pushing"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          elif [[ "${{ needs.smoke_test.result }}" == "cancelled" ]]; then
+            echo "Smoke tests were cancelled, skipping image pushing"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "Smoke tests completed successfully, proceeding with image pushing"
+            echo "tests_passed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Depot CLI
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' }}
+        uses: depot/setup-action@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Download build Metadata
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: build-metadata-${{ needs.setup.outputs.tag }}
+          path: ${{ github.workspace }}/build
+
+      - name: Push images from depot builder
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        run: |
+          depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
+            TARGET=$(echo "$line" | jq -r '.target')
+            TAG=$(echo "$line" | jq -r '.tags')
+
+            depot push --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target $TARGET --tag $TAG
+          done
+
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test_lint, smoke_test]
+    needs: [setup, smoke_test_lint, smoke_test, publish_images]
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
