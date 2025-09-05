@@ -723,8 +723,6 @@ def _column_level_lineage(
             dialect=dialect,
             root_scope=root_scope,
             table_name_schema_mapping=table_name_schema_mapping,
-            default_db=default_db,
-            default_schema=default_schema,
         )
         logger.debug("Joins: %s", joins)
     except Exception as e:
@@ -785,12 +783,15 @@ def _get_direct_raw_col_upstreams(
             #
             # Without this handling, lateral join column lineage would be incomplete/missing.
             try:
-                parsed = sqlglot.parse_one(node.name)
+                parsed = sqlglot.parse_one(node.name, dialect=dialect)
                 if isinstance(parsed, sqlglot.exp.Column) and parsed.table:
                     table_ref = _TableName.from_sqlglot_table(
-                        sqlglot.parse_one(parsed.table, into=sqlglot.exp.Table)
+                        sqlglot.parse_one(
+                            parsed.table, into=sqlglot.exp.Table, dialect=dialect
+                        )
                     )
 
+                    # Only qualify if this appears to be a real table reference (not a temporary construct)
                     if (
                         not (table_ref.database or table_ref.db_schema)
                         and dialect is not None
@@ -918,8 +919,6 @@ def _list_joins(
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
     table_name_schema_mapping: Dict[_TableName, SchemaInfo],
-    default_db: Optional[str] = None,
-    default_schema: Optional[str] = None,
 ) -> List[_JoinInfo]:
     # TODO: Add a confidence tracker here.
 
@@ -1013,25 +1012,14 @@ def _list_joins(
                 for from_clause in scope.find_all(sqlglot.exp.From):
                     if not isinstance(from_clause.this, sqlglot.exp.Lateral):
                         qualified_left.update(
-                            t.qualified(
-                                dialect=dialect,
-                                default_db=default_db,
-                                default_schema=default_schema,
-                            )
-                            for t in _get_join_side_tables(
-                                from_clause.this, dialect, scope
-                            )
+                            _get_join_side_tables(from_clause.this, dialect, scope)
                         )
 
                 # Get tables from lateral subquery
                 qualified_right: OrderedSet[_TableName] = OrderedSet()
                 if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
                     qualified_right.update(
-                        _TableName.from_sqlglot_table(t).qualified(
-                            dialect=dialect,
-                            default_db=default_db,
-                            default_schema=default_schema,
-                        )
+                        _TableName.from_sqlglot_table(t)
                         for t in lateral.this.find_all(sqlglot.exp.Table)
                     )
                 qualified_right.update(qualified_left)
