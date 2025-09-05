@@ -21,10 +21,10 @@ public class MetricUtils {
   public static final String DROPWIZARD_METRIC = "dwizMetric";
   public static final String DROPWIZARD_NAME = "dwizName";
 
-  /* Micrometer */
+  /* Micrometer. See https://prometheus.io/docs/practices/naming/ */
   public static final String KAFKA_MESSAGE_QUEUE_TIME = "kafka.message.queue.time";
   public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
-  public static final String DATAHUB_REQUEST_COUNT = "datahub.request.count";
+  public static final String DATAHUB_REQUEST_COUNT = "datahub_request_count";
 
   /* OpenTelemetry */
   public static final String CACHE_HIT_ATTR = "cache.hit";
