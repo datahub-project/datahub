@@ -269,6 +269,8 @@ def get_query_fingerprint_debug(
         if not fast:
             dialect = get_dialect(platform)
             expression_sql = generalize_query(expression, dialect=dialect)
+            # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
+            expression_sql = PLACEHOLDER_NORMALIZATION_REGEXP.sub("?", expression_sql)
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
     except (ValueError, sqlglot.errors.SqlglotError) as e:
