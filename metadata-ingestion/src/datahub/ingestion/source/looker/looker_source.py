@@ -19,6 +19,7 @@ from typing import (
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
 from looker_sdk.sdk.api40.models import (
+    Dashboard as LookerAPIDashboard,
     DashboardElement,
     Folder,
     FolderBase,
@@ -97,7 +98,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
-from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.sdk.entity import Entity
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
@@ -729,7 +730,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if ownership is not None:
                 chart_ownership = ownership
 
-        chart_extra_aspects: List[ExtraAspectsType] = []
+        chart_extra_aspects: List[Any] = []
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
             self.source_config.extract_embed_urls
@@ -790,7 +791,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         # Extra Aspects not yet supported in the Dashboard entity class SDKv2
-        dashboard_extra_aspects: List[ExtraAspectsType] = []
+        dashboard_extra_aspects: List[Any] = []
 
         # Embed URL aspect
         if (
@@ -867,7 +868,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def _make_explore_containers(
         self,
-    ) -> Iterable[Container]:
+    ) -> Iterable[Union[Container, MetadataChangeProposalWrapper]]:
         if not self.source_config.emit_used_explores_only:
             explores_to_fetch = list(self.list_all_explores())
         else:
@@ -1058,7 +1059,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ]
         return "/".join(ancestors + [folder.name])
 
-    def _get_looker_dashboard(self, dashboard: Dashboard) -> LookerDashboard:
+    def _get_looker_dashboard(self, dashboard: LookerAPIDashboard) -> LookerDashboard:
         self.reporter.accessed_dashboards += 1
         if dashboard.folder is None:
             logger.debug(f"{dashboard.id} has no folder")
@@ -1241,7 +1242,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
     def _should_skip_personal_folder_dashboard(
-        self, dashboard_object: Dashboard
+        self, dashboard_object: LookerAPIDashboard
     ) -> bool:
         """Check if dashboard should be skipped due to being in personal folder."""
         if not self.source_config.skip_personal_folders:
@@ -1256,6 +1257,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 message="Dropped due to being a personal folder",
                 context=f"Dashboard ID: {dashboard_object.id}",
             )
+            assert dashboard_object.id is not None
             self.reporter.report_dashboards_dropped(dashboard_object.id)
             return True
         return False
@@ -1273,13 +1275,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             logger.debug(
                 f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
             )
+            assert looker_dashboard.id is not None
             self.reporter.report_dashboards_dropped(looker_dashboard.id)
             return True
         return False
 
     def _fetch_dashboard_from_api(
         self, dashboard_id: str, fields: List[str]
-    ) -> Optional[Dashboard]:
+    ) -> Optional[LookerAPIDashboard]:
         """Fetch dashboard object from Looker API with error handling."""
         try:
             return self.looker_api.dashboard(
@@ -1326,7 +1329,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             raise ValueError("Dashboard ID cannot be None")
 
         # Fetch dashboard from API
-        dashboard_object = self._fetch_dashboard_from_api(dashboard_id, fields)
+        dashboard_object: Optional[LookerAPIDashboard] = self._fetch_dashboard_from_api(
+            dashboard_id, fields
+        )
         if dashboard_object is None:
             return self._create_empty_result(dashboard_id, start_time)
 
@@ -1335,7 +1340,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             return self._create_empty_result(dashboard_id, start_time)
 
         # Convert to internal representation
-        looker_dashboard = self._get_looker_dashboard(dashboard_object)
+        looker_dashboard: LookerDashboard = self._get_looker_dashboard(dashboard_object)
 
         # Check folder path pattern
         if self._should_skip_dashboard_by_folder_path(looker_dashboard):
@@ -1571,12 +1576,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 logger.debug(f"Deleted Dashboards = {deleted_dashboards}")
 
             # Collect all dashboard IDs (including deleted if applicable)
-            dashboard_ids = [dashboard.id for dashboard in dashboards]
-            dashboard_ids.extend([dashboard.id for dashboard in deleted_dashboards])
+            all_dashboard_ids: List[Optional[str]] = [
+                dashboard.id for dashboard in dashboards
+            ]
+            all_dashboard_ids.extend([dashboard.id for dashboard in deleted_dashboards])
 
             # Filter dashboard IDs based on the allowed pattern
             filtered_dashboard_ids: List[str] = []
-            for dashboard_id in dashboard_ids:
+            for dashboard_id in all_dashboard_ids:
                 if dashboard_id is None:
                     continue
                 if not self.source_config.dashboard_pattern.allowed(dashboard_id):
@@ -1585,7 +1592,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                     filtered_dashboard_ids.append(dashboard_id)
 
             # Use the filtered list for further processing
-            dashboard_ids = filtered_dashboard_ids
+            dashboard_ids: List[str] = filtered_dashboard_ids
 
             # Report the total number of dashboards to be processed
             self.reporter.report_total_dashboards(len(dashboard_ids))
@@ -1667,7 +1674,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # Process explore containers and yield them.
         with self.reporter.report_stage("explore_metadata"):
             for container in self._make_explore_containers():
-                yield container
+                if isinstance(container, MetadataChangeProposalWrapper):
+                    yield container.as_workunit()
+                else:
+                    yield container
 
         if (
             self.source_config.tag_measures_and_dimensions
