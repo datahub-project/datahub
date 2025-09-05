@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.test.query.schemafield.TestsSchemaFieldUtils.*;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Documentation;
+import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.entity.EntityResponse;
@@ -53,7 +55,7 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
       ImmutableSet.of(SCHEMA_METADATA_ASPECT_NAME, EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
 
   private static final Set<String> SCHEMA_FIELD_ASPECT_NAMES =
-      ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME);
+      ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME, DOCUMENTATION_ASPECT_NAME);
 
   @Override
   public boolean isEligible(@Nonnull final String entityType, @Nonnull final TestQuery query) {
@@ -131,12 +133,20 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
       results.add(String.valueOf(schemaMetadata.getFields().size()));
     }
 
-    // Case 2: Schema Field Query
+    // Case 2: Schema Field Query - includes documentation aspect
     if (SCHEMA_FIELDS_PROPERTY.equals(query.getQuery())) {
-      results.addAll(
-          schemaMetadata.getFields().stream()
-              .map(field -> buildSerializedSchemaField(field, editableSchemaMetadata))
-              .collect(Collectors.toList()));
+      Set<Urn> schemaFieldUrns = getSchemaFieldUrns(schemaMetadata, urn);
+      Map<Urn, EntityResponse> schemaFieldResponses =
+          retrieveRequiredSchemaFieldAspects(opContext, schemaFieldUrns, query);
+
+      // Build serialized schema field objects with documentation aspect
+      for (SchemaField field : schemaMetadata.getFields()) {
+        Urn fieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(urn, field.getFieldPath());
+        EntityResponse fieldResponse = schemaFieldResponses.get(fieldUrn);
+        List<String> fieldDocumentation = extractDocumentationAspect(fieldResponse);
+
+        results.add(buildSerializedSchemaField(field, editableSchemaMetadata, fieldDocumentation));
+      }
     }
 
     // Case 3: Query for a structured property on schemaFields, returns filtered list from all
@@ -144,7 +154,7 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
     if (isStructuredPropertySchemaFieldQuery(query)) {
       Set<Urn> schemaFieldUrns = getSchemaFieldUrns(schemaMetadata, urn);
       List<String> filteredResults =
-          getStructuredPropertyNames(opContext, schemaFieldUrns).stream()
+          getStructuredPropertyNames(opContext, schemaFieldUrns, query).stream()
               .filter(structuredPropUrn -> query.getQuery().contains(structuredPropUrn))
               .collect(Collectors.toList());
       // Currently only supports checking on all schemaFields, if individual fields
@@ -155,7 +165,7 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
     // Case 4: Query for the set of structured properties shared by all schema fields
     if (isSharedStructuredPropertySchemaFieldQuery(query)) {
       Set<Urn> schemaFieldUrns = getSchemaFieldUrns(schemaMetadata, urn);
-      results.addAll(getSharedStructuredPropertyNames(opContext, schemaFieldUrns));
+      results.addAll(getSharedStructuredPropertyNames(opContext, schemaFieldUrns, query));
     }
 
     return new TestQueryResponse(results);
@@ -169,9 +179,10 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   }
 
   private List<String> getStructuredPropertyNames(
-      @Nonnull OperationContext opContext, Set<Urn> urns) {
+      @Nonnull OperationContext opContext, Set<Urn> urns, @Nonnull final TestQuery query) {
     Set<String> results = new HashSet<>();
-    Map<Urn, EntityResponse> responseMap = retrieveSchemaFieldAspects(opContext, urns);
+    Map<Urn, EntityResponse> responseMap =
+        retrieveRequiredSchemaFieldAspects(opContext, urns, query);
     responseMap.forEach(
         (urn, response) ->
             results.addAll(extractPropertyNames(extractStructuredProperties(response))));
@@ -179,9 +190,10 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   }
 
   private List<String> getSharedStructuredPropertyNames(
-      @Nonnull OperationContext opContext, Set<Urn> urns) {
+      @Nonnull OperationContext opContext, Set<Urn> urns, @Nonnull final TestQuery query) {
     Set<String> results = new HashSet<>();
-    Map<Urn, EntityResponse> responseMap = retrieveSchemaFieldAspects(opContext, urns);
+    Map<Urn, EntityResponse> responseMap =
+        retrieveRequiredSchemaFieldAspects(opContext, urns, query);
     List<Pair<Urn, StructuredProperties>> structuredPropertiesMap =
         responseMap.entrySet().stream()
             .map(entry -> new Pair<>(entry.getKey(), extractStructuredProperties(entry.getValue())))
@@ -204,11 +216,37 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
     return new ArrayList<>(results);
   }
 
-  private Map<Urn, EntityResponse> retrieveSchemaFieldAspects(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
+  /** Determine what aspects are needed based on the query type */
+  private Set<String> getRequiredAspects(@Nonnull final TestQuery query) {
+    Set<String> aspects = new HashSet<>();
+
+    // Check if documentation is needed
+    if (SCHEMA_FIELDS_PROPERTY.equals(query.getQuery())) {
+      aspects.add(DOCUMENTATION_ASPECT_NAME);
+    }
+
+    // Check if structured properties are needed
+    if (isStructuredPropertySchemaFieldQuery(query)
+        || isSharedStructuredPropertySchemaFieldQuery(query)) {
+      aspects.add(STRUCTURED_PROPERTIES_ASPECT_NAME);
+    }
+
+    // If no specific aspects are needed, return all available aspects
+    if (aspects.isEmpty()) {
+      aspects.addAll(SCHEMA_FIELD_ASPECT_NAMES);
+    }
+
+    return aspects;
+  }
+
+  /** Retrieve schema field aspects efficiently based on query requirements */
+  private Map<Urn, EntityResponse> retrieveRequiredSchemaFieldAspects(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull final TestQuery query) {
+    Set<String> requiredAspects = getRequiredAspects(query);
+
     try {
       return entityService.getEntitiesV2(
-          opContext, SCHEMA_FIELD_ENTITY_NAME, urns, SCHEMA_FIELD_ASPECT_NAMES);
+          opContext, SCHEMA_FIELD_ENTITY_NAME, urns, requiredAspects);
     } catch (URISyntaxException e) {
       log.error("Error while fetching aspects for urns {}", urns, e);
       throw new RuntimeException(String.format("Error while fetching aspects for urns %s", urns));
@@ -216,7 +254,8 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   }
 
   @Nullable
-  private SchemaMetadata extractSchemaMetadata(@Nullable final EntityResponse entityResponse) {
+  private static SchemaMetadata extractSchemaMetadata(
+      @Nullable final EntityResponse entityResponse) {
     if (entityResponse != null
         && entityResponse.getAspects().containsKey(SCHEMA_METADATA_ASPECT_NAME)) {
       return new SchemaMetadata(
@@ -226,7 +265,7 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   }
 
   @Nullable
-  private StructuredProperties extractStructuredProperties(
+  private static StructuredProperties extractStructuredProperties(
       @Nullable final EntityResponse entityResponse) {
     if (entityResponse != null
         && entityResponse.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
@@ -236,7 +275,8 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
     return null;
   }
 
-  private List<String> extractPropertyNames(@Nullable StructuredProperties structuredProperties) {
+  private static List<String> extractPropertyNames(
+      @Nullable StructuredProperties structuredProperties) {
     if (structuredProperties == null) {
       return Collections.emptyList();
     }
@@ -248,7 +288,7 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   }
 
   @Nullable
-  private EditableSchemaMetadata extractEditableSchemaMetadata(
+  private static EditableSchemaMetadata extractEditableSchemaMetadata(
       @Nullable final EntityResponse entityResponse) {
     if (entityResponse != null
         && entityResponse
@@ -265,7 +305,28 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   }
 
   @Nullable
-  private String getEditableDescription(
+  private static List<String> extractDocumentationAspect(
+      @Nullable final EntityResponse entityResponse) {
+    if (entityResponse != null
+        && entityResponse.getAspects().containsKey(Constants.DOCUMENTATION_ASPECT_NAME)) {
+
+      Documentation documentation =
+          new Documentation(
+              entityResponse
+                  .getAspects()
+                  .get(Constants.DOCUMENTATION_ASPECT_NAME)
+                  .getValue()
+                  .data());
+
+      return documentation.getDocumentations().stream()
+          .map(DocumentationAssociation::getDocumentation)
+          .collect(Collectors.toList());
+    }
+    return null;
+  }
+
+  @Nullable
+  private static String getEditableDescription(
       @Nonnull final String fieldPath,
       @Nullable final EditableSchemaMetadata editableSchemaMetadata) {
     if (editableSchemaMetadata == null) {
@@ -282,13 +343,15 @@ public class SchemaFieldEvaluator extends BaseQueryEvaluator {
   }
 
   @Nonnull
-  private String buildSerializedSchemaField(
+  private static String buildSerializedSchemaField(
       @Nonnull final SchemaField field,
-      @Nullable final EditableSchemaMetadata editableSchemaMetadata) {
+      @Nullable final EditableSchemaMetadata editableSchemaMetadata,
+      @Nullable final List<String> documentation) {
     return TestsSchemaFieldUtils.serializeSchemaField(
         new com.linkedin.metadata.test.query.schemafield.SchemaField(
             field.getFieldPath(),
             field.getDescription(),
-            getEditableDescription(field.getFieldPath(), editableSchemaMetadata)));
+            getEditableDescription(field.getFieldPath(), editableSchemaMetadata),
+            documentation));
   }
 }
