@@ -1,3 +1,4 @@
+# We cannot use entityPreview here because it will cause a circular dependency
 fragment relatedAssetPreview on Entity {
     urn
     type
