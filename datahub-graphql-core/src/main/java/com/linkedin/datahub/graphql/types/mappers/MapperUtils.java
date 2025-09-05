@@ -37,11 +37,17 @@ public class MapperUtils {
 
   public static SearchResult mapResult(
       @Nullable final QueryContext context, SearchEntity searchEntity) {
+    // Map the score from backend SearchEntity (Double) to generated Java type (Float)
+    // Note: Our GraphQL code generator is configured to map GraphQL Float to Java Float (32-bit)
+    // instead of Double (64-bit) for consistency with existing code
+    Float score = searchEntity.getScore() != null ? searchEntity.getScore().floatValue() : null;
+
     return new SearchResult(
         UrnToEntityMapper.map(context, searchEntity.getEntity()),
         getInsightsFromFeatures(searchEntity.getFeatures()),
         getMatchedFieldEntry(context, searchEntity.getMatchedFields()),
-        getExtraProperties(searchEntity.getExtraFields()));
+        getExtraProperties(searchEntity.getExtraFields()),
+        score);
   }
 
   private static List<ExtraProperty> getExtraProperties(@Nullable StringMap extraFields) {
@@ -131,6 +137,15 @@ public class MapperUtils {
       com.linkedin.metadata.search.SearchSuggestion suggestion) {
     return new SearchSuggestion(
         suggestion.getText(), suggestion.getScore(), Math.toIntExact(suggestion.getFrequency()));
+  }
+
+  public static ResolvedAuditStamp mapResolvedAuditStamp(AuditStamp auditStamp) {
+    final ResolvedAuditStamp resolvedAuditStamp = new ResolvedAuditStamp();
+    final CorpUser emptyCreatedUser = new CorpUser();
+    emptyCreatedUser.setUrn(auditStamp.getActor().toString());
+    resolvedAuditStamp.setActor(emptyCreatedUser);
+    resolvedAuditStamp.setTime(auditStamp.getTime());
+    return resolvedAuditStamp;
   }
 
   public static EntityPath mapPath(@Nullable final QueryContext context, UrnArray path) {
