@@ -23,6 +23,34 @@ authentication:
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
+    - type: com.datahub.authentication.authenticator.LegacyTokenAuthenticator
+      configs:
+        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
+        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+    # OAuth/OIDC JWT token authenticator for service accounts
+    # Uses static configuration only (no dynamic GlobalSettings)
+    - type: com.datahub.authentication.authenticator.DataHubOAuthAuthenticator
+      configs:
+        # Enable/disable OAuth authentication
+        enabled: ${OAUTH_AUTHENTICATOR_ENABLED:true}
+
+        # Trusted JWT issuers - must match the 'iss' claim in JWT tokens (comma-separated)
+        trustedIssuers: ${OAUTH_TRUSTED_ISSUERS:}
+
+        # Allowed audiences - must match the 'aud' claim in JWT tokens (comma-separated)
+        allowedAudiences: ${OAUTH_ALLOWED_AUDIENCES:}
+        
+        # Option 1: Direct JWKS URI for fetching JWT signing keys
+        jwksUri: ${OAUTH_JWKS_URI:}
+        
+        # Option 2: Discovery URI to auto-derive JWKS URI (alternative to jwksUri)
+        # discoveryUri: ${OAUTH_DISCOVERY_URI:https://integrator-4994945.okta.com/oauth2/ausv69q0g6zGuKYEz697}
+        
+        # JWT claim to use as user identifier (defaults to 'sub')
+        userIdClaim: ${OAUTH_USER_ID_CLAIM:sub}
+        
+        # JWT signing algorithm (defaults to 'RS256')
+        algorithm: ${OAUTH_ALGORITHM:RS256}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
       configs:
         guestUser: ${GUEST_AUTHENTICATION_USER:guest}
@@ -364,7 +392,7 @@ kafka:
 
   topics:
     # Topic Dictionary Configuration - merged directly into topics section
-    # Each topic can be created by iterating through this dictionary  
+    # Each topic can be created by iterating through this dictionary
     # The key name matches the programmatic identifier used in code
     metadataChangeProposal:
       name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}

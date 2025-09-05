@@ -1,0 +1,12 @@
+namespace com.linkedin.settings.global
+
+/**
+ * An OAuth Provider. This provides information required to validate inbound
+ * requests with OAuth 2.0 bearer tokens.
+ */
+record OAuthProvider {
+    name: string
+    jwksUri: string
+    issuer: string
+    audience: string
+}
