@@ -6,7 +6,7 @@ import {
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, PageModuleScope, PageTemplateSurfaceType } from '@types';
 
 // Input types for the methods
 export interface UpsertModuleInput {
@@ -57,6 +57,7 @@ export type PageTemplateContextState = {
     globalTemplate: PageTemplateFragment | null;
     template: PageTemplateFragment | null;
     isEditingGlobalTemplate: boolean;
+    templateType: PageTemplateSurfaceType;
     setIsEditingGlobalTemplate: (val: boolean) => void;
     setPersonalTemplate: (template: PageTemplateFragment | null) => void;
     setGlobalTemplate: (template: PageTemplateFragment | null) => void;

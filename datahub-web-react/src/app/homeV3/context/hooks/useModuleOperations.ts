@@ -27,7 +27,7 @@ import {
     useDeletePageModuleMutation,
     useUpsertPageModuleMutation,
 } from '@graphql/template.generated';
-import { EntityType, PageModuleScope } from '@types';
+import { EntityType, PageModuleScope, PageTemplateSurfaceType } from '@types';
 
 // Helper functions for input validation
 const validateAddModuleInput = (input: AddModuleInput): string | null => {
@@ -113,6 +113,7 @@ export function useModuleOperations(
     ) => Promise<any>,
     isEditingModule: boolean,
     originalModuleData: PageModuleFragment | null,
+    templateType: PageTemplateSurfaceType,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
     const [deletePageModule] = useDeletePageModuleMutation();
@@ -161,7 +162,14 @@ export function useModuleOperations(
             const adjustedRowIndex = calculateAdjustedRowIndex(fromPosition, toRowIndex, wasRowRemoved);
 
             // Step 3: Insert module into new position
-            const finalRows = insertModuleIntoRows(updatedRows, module, toPosition, adjustedRowIndex, insertNewRow);
+            const finalRows = insertModuleIntoRows(
+                updatedRows,
+                module,
+                toPosition,
+                adjustedRowIndex,
+                templateType,
+                insertNewRow,
+            );
 
             // Step 4: Return updated template
             return {
@@ -172,7 +180,7 @@ export function useModuleOperations(
                 },
             };
         },
-        [],
+        [templateType],
     );
 
     // Updates template state with a new module and updates the appropriate template on the backend
@@ -192,6 +200,7 @@ export function useModuleOperations(
                 module,
                 position,
                 updateTemplateWithModule,
+                templateType,
                 isEditingModule,
             );
 
@@ -208,7 +217,7 @@ export function useModuleOperations(
                 isPersonal,
             });
         },
-        [context, isEditingModule, updateTemplateWithModule],
+        [context, isEditingModule, updateTemplateWithModule, templateType],
     );
 
     // Removes a module from the template state and updates the appropriate template on the backend
@@ -340,6 +349,7 @@ export function useModuleOperations(
                                 moduleFragment,
                                 position,
                                 updateTemplateWithModule,
+                                templateType,
                                 false,
                             );
 
@@ -371,6 +381,7 @@ export function useModuleOperations(
             context,
             removeModuleFromTemplate,
             updateTemplateWithModule,
+            templateType,
         ],
     );
 
