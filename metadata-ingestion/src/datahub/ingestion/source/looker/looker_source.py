@@ -1470,101 +1470,95 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         Returns: Containers for the folders and ancestors folders and Charts for the looks
         """
-        if self.source_config.extract_independent_looks is False:
-            return
+        logger.debug("Extracting Looks not part of any Dashboard")
 
-        with self.reporter.report_stage("extract_independent_looks"):
-            logger.debug("Extracting Looks not part of any Dashboard")
+        look_fields: List[str] = [
+            "id",
+            "title",
+            "description",
+            "query_id",
+            "folder",
+            "user_id",
+        ]
+        query_fields: List[str] = [
+            "id",
+            "view",
+            "model",
+            "dynamic_fields",
+            "filters",
+            "fields",
+            "slug",
+        ]
 
-            look_fields: List[str] = [
-                "id",
-                "title",
-                "description",
-                "query_id",
-                "folder",
-                "user_id",
-            ]
-            query_fields: List[str] = [
-                "id",
-                "view",
-                "model",
-                "dynamic_fields",
-                "filters",
-                "fields",
-                "slug",
-            ]
+        all_looks: List[Look] = self.looker_api.all_looks(
+            fields=look_fields, soft_deleted=self.source_config.include_deleted
+        )
 
-            all_looks: List[Look] = self.looker_api.all_looks(
-                fields=look_fields, soft_deleted=self.source_config.include_deleted
+        for look in all_looks:
+            # Skip looks that are already referenced from a dashboard
+            if look.id is None:
+                logger.warning("Encountered Look with no ID, skipping.")
+                continue
+
+            if look.id in self.reachable_look_registry:
+                continue
+
+            if look.query_id is None:
+                logger.info(f"query_id is None for look {look.title}({look.id})")
+                continue
+
+            # Skip looks in personal folders if configured
+            if self.source_config.skip_personal_folders:
+                if look.folder is not None and (
+                    look.folder.is_personal or look.folder.is_personal_descendant
+                ):
+                    self.reporter.info(
+                        title="Dropped Look",
+                        message="Dropped due to being a personal folder",
+                        context=f"Look ID: {look.id}",
+                    )
+
+                    self.reporter.report_charts_dropped(look.id)
+                    continue
+
+            # Fetch the Look's query and filter to allowed fields
+            query: Optional[Query] = None
+            try:
+                look_with_query = self.looker_api.get_look(look.id, fields=["query"])
+                query_obj = getattr(look_with_query, "query", None)
+                if query_obj:
+                    query = Query(
+                        **{
+                            key: getattr(query_obj, key)
+                            for key in query_fields
+                            if hasattr(query_obj, key)
+                        }
+                    )
+            except Exception as exc:
+                logger.warning(f"Failed to fetch query for Look {look.id}: {exc}")
+                continue
+
+            dashboard_element = self._get_looker_dashboard_element(
+                DashboardElement(
+                    id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes),
+                    # we add the "looks_" prefix to look.id.
+                    title=look.title,
+                    subtitle_text=look.description,
+                    look_id=look.id,
+                    dashboard_id=None,  # As this is an independent look
+                    look=LookWithQuery(
+                        query=query,
+                        folder=getattr(look, "folder", None),
+                        user_id=getattr(look, "user_id", None),
+                    ),
+                )
             )
 
-            for look in all_looks:
-                # Skip looks that are already referenced from a dashboard
-                if look.id is None:
-                    logger.warning("Encountered Look with no ID, skipping.")
-                    continue
-
-                if look.id in self.reachable_look_registry:
-                    continue
-
-                if look.query_id is None:
-                    logger.info(f"query_id is None for look {look.title}({look.id})")
-                    continue
-
-                # Skip looks in personal folders if configured
-                if self.source_config.skip_personal_folders:
-                    if look.folder is not None and (
-                        look.folder.is_personal or look.folder.is_personal_descendant
-                    ):
-                        self.reporter.info(
-                            title="Dropped Look",
-                            message="Dropped due to being a personal folder",
-                            context=f"Look ID: {look.id}",
-                        )
-
-                        self.reporter.report_charts_dropped(look.id)
-                        continue
-
-                # Fetch the Look's query and filter to allowed fields
-                query: Optional[Query] = None
-                try:
-                    look_with_query = self.looker_api.get_look(
-                        look.id, fields=["query"]
-                    )
-                    query_obj = getattr(look_with_query, "query", None)
-                    if query_obj:
-                        query = Query(
-                            **{
-                                key: getattr(query_obj, key)
-                                for key in query_fields
-                                if hasattr(query_obj, key)
-                            }
-                        )
-                except Exception as exc:
-                    logger.warning(f"Failed to fetch query for Look {look.id}: {exc}")
-                    continue
-
-                dashboard_element = self._get_looker_dashboard_element(
-                    DashboardElement(
-                        id=f"looks_{look.id}",  # to avoid conflict with non-standalone looks (element.id prefixes),
-                        # we add the "looks_" prefix to look.id.
-                        title=look.title,
-                        subtitle_text=look.description,
-                        look_id=look.id,
-                        dashboard_id=None,  # As this is an independent look
-                        look=LookWithQuery(
-                            query=query,
-                            folder=getattr(look, "folder", None),
-                            user_id=getattr(look, "user_id", None),
-                        ),
-                    )
+            if dashboard_element is not None:
+                logger.debug(f"Emitting MCPs for look {look.title}({look.id})")
+                yield from self.emit_independent_looks_entities(
+                    dashboard_element=dashboard_element
                 )
-
-                if dashboard_element is not None:
-                    logger.debug(f"Emitting MCPs for look {look.title}({look.id})")
-                    yield from self.emit_independent_looks_entities(
-                        dashboard_element=dashboard_element
-                    )
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """
@@ -1675,7 +1669,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             )
 
         # Extract independent looks first, so their explores are considered in _make_explore_containers.
-        yield from self.extract_independent_looks()
+        if self.source_config.extract_independent_looks:
+            with self.reporter.report_stage("extract_independent_looks"):
+                yield from self.extract_independent_looks()
 
         # Process explore containers and yield them.
         with self.reporter.report_stage("explore_metadata"):
