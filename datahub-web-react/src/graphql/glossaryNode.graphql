@@ -54,6 +54,9 @@ fragment glossaryNodeFields on GlossaryNode {
         ...displayPropertiesFields
     }
     ...notes
+    settings {
+        ...AssetSettingsFields
+    }
 }
 
 query getGlossaryNode($urn: String!) {

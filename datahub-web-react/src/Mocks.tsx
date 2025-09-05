@@ -85,6 +85,7 @@ export const entityPrivileges: EntityPrivileges = {
     canViewDatasetUsage: true,
     canViewDatasetProfile: true,
     canViewDatasetOperations: true,
+    canManageAssetSummary: true,
     __typename: 'EntityPrivileges',
 };
 

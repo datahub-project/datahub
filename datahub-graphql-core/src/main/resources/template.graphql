@@ -45,6 +45,11 @@ type DataHubPageTemplateProperties {
   rows: [DataHubPageTemplateRow!]!
 
   """
+  The optional info for asset summaries. Should be populated if surfaceType is ASSET_SUMMARY
+  """
+  assetSummary: DataHubPageTemplateAssetSummary
+
+  """
   Info about the surface area of the product that this template is deployed in
   """
   surface: DataHubPageTemplateSurface!
@@ -93,6 +98,10 @@ enum PageTemplateSurfaceType {
   This template applies to what to display on the home page for users.
   """
   HOME_PAGE
+  """
+  This template applies to what to display on asset summary pages
+  """
+  ASSET_SUMMARY
 }
 
 """
@@ -120,6 +129,43 @@ enum PageTemplateScope {
 }
 
 """
+The page template info for asset summaries
+"""
+type DataHubPageTemplateAssetSummary {
+  """
+  The list of properties shown on an asset summary page header.
+  """
+  summaryElements: [SummaryElement!]
+}
+
+"""
+Info for a given asset summary element
+"""
+type SummaryElement {
+  """
+  The type of element/property
+  """
+  elementType: SummaryElementType!
+
+  """
+  The structured property associated with this summary element if it is a STRUCTURED_PROPERTY type
+  """
+  structuredProperty: StructuredPropertyEntity
+}
+
+"""
+Different types of elements in asset summaries
+"""
+enum SummaryElementType {
+  CREATED
+  TAGS
+  GLOSSARY_TERMS
+  OWNERS
+  DOMAIN
+  STRUCTURED_PROPERTY
+}
+
+"""
 Input for adding or updating a DataHubPageTemplate entity
 """
 input UpsertPageTemplateInput {
@@ -132,6 +178,11 @@ input UpsertPageTemplateInput {
   The rows of a page template
   """
   rows: [PageTemplateRowInput!]!
+
+  """
+  The optional info for asset summaries on this template
+  """
+  assetSummary: PageTemplateAssetSummaryInput
 
   """
   The scope of the template ie. is it personal or global
@@ -162,4 +213,29 @@ input DeletePageTemplateInput {
   The URN of the page template to delete
   """
   urn: String!
+}
+
+"""
+The optional info for asset summaries on this template
+"""
+input PageTemplateAssetSummaryInput {
+  """
+  A list of summary element objects for what to store on asset summaries
+  """
+  summaryElements: [SummaryElementInput!]!
+}
+
+"""
+A summary element object for what to store on asset summaries
+"""
+input SummaryElementInput {
+  """
+  The summary element type
+  """
+  elementType: SummaryElementType!
+
+  """
+  The optional urn of the structured property for this element if elementType is STRUCTURED_PROPERTY
+  """
+  structuredPropertyUrn: String
 }
