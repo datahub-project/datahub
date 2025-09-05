@@ -16,6 +16,7 @@ const ShowMoreWrapper = styled.div`
 const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     max-width: 100%;
     position: relative;
+    flex: 1;
     ${(props) =>
         props.lineLimit &&
         props.lineLimit <= 1 &&
@@ -36,6 +37,7 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
     word-wrap: break-word;
     overflow-x: hidden;
     overflow-y: ${(props) => (props.scrollableY ? 'auto' : 'hidden')};
+    flex: 1;
 `;
 
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
