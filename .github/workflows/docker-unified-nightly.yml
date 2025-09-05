@@ -5,7 +5,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
-  push:
 
 concurrency:
   group: ${{ github.workflow }}
@@ -123,7 +122,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | tr '\n' ' ')"
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
           echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
 
@@ -280,7 +279,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | tr '\n' ' ')"
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
           echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
 
@@ -477,7 +476,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | tr '\n' ' ')"
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
           echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
 
