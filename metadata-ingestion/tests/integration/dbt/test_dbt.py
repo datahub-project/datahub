@@ -276,6 +276,37 @@ class DbtTestConfig:
                 "enable_meta_mapping": False,
             },
         ),
+        DbtTestConfig(
+            "dbt-test-with-schema-pattern",
+            "dbt_test_with_schema_pattern_mces.json",
+            "dbt_test_with_schema_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "schema_pattern": {"allow": ["dbt_postgres"]},
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-database-pattern",
+            "dbt_test_with_database_pattern_mces.json",
+            "dbt_test_with_database_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "database_pattern": {"allow": ["pagila"]},
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-combined-patterns",
+            "dbt_test_with_combined_patterns_mces.json",
+            "dbt_test_with_combined_patterns_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "node_name_pattern": {
+                    "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
+                },
+                "schema_pattern": {"allow": ["dbt_postgres"]},
+                "database_pattern": {"allow": ["pagila"]},
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
