@@ -179,7 +179,7 @@ OwnerInputType: TypeAlias = Union[
     Tuple[ActorUrn, OwnershipTypeType],
     models.OwnerClass,
 ]
-OwnersInputType: TypeAlias = List[OwnerInputType]
+OwnersInputType: TypeAlias = Sequence[OwnerInputType]
 
 
 class HasOwnership(Entity):
@@ -280,7 +280,9 @@ class HasOwnership(Entity):
 # If you pass in a ContainerKey, we can use parent_key() to build the browse path.
 # If you pass in a list of urns, we'll use that as the browse path. Any non-urn strings
 # will be treated as raw ids.
-ParentContainerInputType: TypeAlias = Union["Container", ContainerKey, List[UrnOrStr]]
+ParentContainerInputType: TypeAlias = Union[
+    "Container", ContainerKey, Sequence[UrnOrStr]
+]
 
 
 class HasContainer(Entity):
@@ -399,7 +401,7 @@ class HasContainer(Entity):
 
 
 TagInputType: TypeAlias = Union[str, TagUrn, models.TagAssociationClass]
-TagsInputType: TypeAlias = List[TagInputType]
+TagsInputType: TypeAlias = Sequence[TagInputType]
 
 
 class HasTags(Entity):
@@ -454,7 +456,7 @@ class HasTags(Entity):
 TermInputType: TypeAlias = Union[
     str, GlossaryTermUrn, models.GlossaryTermAssociationClass
 ]
-TermsInputType: TypeAlias = List[TermInputType]
+TermsInputType: TypeAlias = Sequence[TermInputType]
 
 
 class HasTerms(Entity):
