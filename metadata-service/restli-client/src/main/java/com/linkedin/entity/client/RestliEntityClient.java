@@ -145,7 +145,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             new ThreadPoolExecutor.CallerRunsPolicy());
     if (metricUtils != null) {
       MicrometerMetricsRegistry.registerExecutorMetrics(
-          "entity-client-get", this.batchGetV2Pool, metricUtils.getRegistry().orElse(null));
+          "entity-client-get", this.batchGetV2Pool, metricUtils.getRegistry());
     }
     this.batchIngestPool =
         new ThreadPoolExecutor(
@@ -158,7 +158,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             new ThreadPoolExecutor.CallerRunsPolicy());
     if (metricUtils != null) {
       MicrometerMetricsRegistry.registerExecutorMetrics(
-          "entity-client-ingest", this.batchIngestPool, metricUtils.getRegistry().orElse(null));
+          "entity-client-ingest", this.batchIngestPool, metricUtils.getRegistry());
     }
   }
 

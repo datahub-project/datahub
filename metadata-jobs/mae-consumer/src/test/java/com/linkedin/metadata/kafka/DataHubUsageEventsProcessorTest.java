@@ -346,7 +346,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID via reflection
     setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
@@ -397,7 +397,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
@@ -466,7 +466,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
@@ -507,7 +507,7 @@ public class DataHubUsageEventsProcessorTest {
   @Test
   public void testMicrometerMetricsAbsentWhenRegistryNotPresent() {
     // Configure the mock metricUtils to return empty Optional (no registry)
-    when(metricUtils.getRegistry()).thenReturn(Optional.empty());
+    when(metricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");
@@ -541,7 +541,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set a custom consumer group ID
     String customConsumerGroup = "custom-usage-event-consumer";
@@ -583,7 +583,7 @@ public class DataHubUsageEventsProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "datahub-usage-event-consumer-job-client");

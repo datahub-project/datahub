@@ -422,7 +422,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID via reflection
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -469,7 +469,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -534,7 +534,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -578,7 +578,7 @@ public class PlatformEventProcessorTest {
   @Test
   public void testMicrometerMetricsAbsentWhenRegistryNotPresent() throws Exception {
     // Configure the mock metricUtils to return empty Optional (no registry)
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.empty());
+    when(mockMetricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -608,7 +608,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set a custom consumer group ID
     String customConsumerGroup = "custom-platform-event-consumer";
@@ -645,7 +645,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");
@@ -705,7 +705,7 @@ public class PlatformEventProcessorTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     // Configure the mock metricUtils to return the registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Set the consumer group ID
     setConsumerGroupId(processor, "generic-platform-event-job-client");

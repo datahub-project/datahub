@@ -41,6 +41,7 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.trace.Tracer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -261,7 +262,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   public void setUp() {
     // Set up default mock behaviors
     when(graphService.supportsMultiHop()).thenReturn(true);
-    when(metricUtils.getRegistry()).thenReturn(java.util.Optional.empty());
+    when(metricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
   }
 
   @Test

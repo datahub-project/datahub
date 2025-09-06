@@ -76,17 +76,13 @@ public class DataHubUsageEventsProcessor {
                     // TODO: include priority level when available
                     metricUtils
                         .getRegistry()
-                        .ifPresent(
-                            meterRegistry -> {
-                              meterRegistry
-                                  .timer(
-                                      MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                                      "topic",
-                                      consumerRecord.topic(),
-                                      "consumer.group",
-                                      datahubUsageEventConsumerGroupId)
-                                  .record(Duration.ofMillis(queueTimeMs));
-                            });
+                        .timer(
+                            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                            "topic",
+                            consumerRecord.topic(),
+                            "consumer.group",
+                            datahubUsageEventConsumerGroupId)
+                        .record(Duration.ofMillis(queueTimeMs));
                   });
           final String record = consumerRecord.value();
 
