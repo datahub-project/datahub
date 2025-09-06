@@ -394,7 +394,7 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
         dashboard_elements=[
             DashboardElement(
                 id="2",
-                type="",
+                type="vis",
                 subtitle_text="Some text",
                 query=Query(
                     model="data",
@@ -405,7 +405,7 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
             ),
             DashboardElement(
                 id="10",
-                type="",
+                type="vis",
                 subtitle_text="Some other text",
                 query=Query(
                     model="bogus data",
@@ -433,7 +433,7 @@ def setup_mock_dashboard_with_usage(
         dashboard_elements=[
             DashboardElement(
                 id="2",
-                type="",
+                type="vis",
                 subtitle_text="Some text",
                 query=Query(
                     model="data",
@@ -924,6 +924,8 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multiple_charts(mocked_client)
         setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         pipeline_run1 = Pipeline.create(looker_source_config(output_file_name))
         pipeline_run1.run()
@@ -1137,6 +1139,8 @@ def test_file_path_in_view_naming_pattern(
         )
         setup_mock_look(mocked_client)
         setup_mock_external_project_view_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
 
@@ -1289,6 +1293,8 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multi_model_explores(mocked_client)
         setup_mock_multi_model_explores(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -1483,7 +1489,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1506,7 +1512,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1529,7 +1535,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1594,9 +1600,9 @@ def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_gra
         mock_sdk.return_value = mocked_client
 
         setup_mock_dashboard_with_folder(mocked_client)
-
         setup_mock_explore(mocked_client)
-
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         setup_mock_look(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -1668,7 +1674,8 @@ def test_group_label_tags(pytestconfig, tmp_path, mock_time):
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore_with_group_label(mocked_client)
-
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
         output_file = tmp_path / "looker_group_label_mces.json"
 
