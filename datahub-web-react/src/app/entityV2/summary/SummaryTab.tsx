@@ -1,10 +1,14 @@
-import { colors } from '@components';
-import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import AboutSection from '@app/entityV2/summary/documentation/AboutSection';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
+import { StyledDivider } from '@app/entityV2/summary/styledComponents';
+import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
+import Template from '@app/homeV3/template/Template';
+
+import { PageTemplateSurfaceType } from '@types';
 
 const SummaryWrapper = styled.div`
     padding: 16px 20px;
@@ -13,18 +17,20 @@ const SummaryWrapper = styled.div`
     gap: 16px;
 `;
 
-const StyledDivider = styled(Divider)`
-    margin: 0;
-    color: ${colors.gray[100]};
-`;
+interface Props {
+    hideLinksButton?: boolean;
+}
 
-export default function SummaryTab() {
+export default function SummaryTab({ properties }: { properties?: Props }) {
+    const { urn } = useEntityData();
     return (
-        <SummaryWrapper>
-            <PropertiesHeader />
-            <StyledDivider />
-            <AboutSection />
-            <StyledDivider />
-        </SummaryWrapper>
+        <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
+            <SummaryWrapper>
+                <PropertiesHeader />
+                <AboutSection hideLinksButton={!!properties?.hideLinksButton} key={urn} />
+                <StyledDivider />
+                <Template />
+            </SummaryWrapper>
+        </PageTemplateProvider>
     );
 }

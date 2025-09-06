@@ -332,17 +332,21 @@ Reference Links:
 
 #### Graph Search Configuration
 
-| Environment Variable                            | Default | Description                                  | Components |
-| ----------------------------------------------- | ------- | -------------------------------------------- | ---------- |
-| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`    | `50`    | Graph DAO timeout seconds                    | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`         | `1000`  | Graph DAO batch size                         | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`  | `false` | Allow path retraversal for all paths         | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`    | `true`  | Boost graph edges with via nodes             | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`     | `false` | Enable soft delete tracking of URNs on edges | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`   | `20`    | Maximum hops to traverse lineage graph       | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`    | `1000`  | Maximum hops to traverse for impact analysis | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS` | `32`    | Maximum parallel lineage graph queries       | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION` | `true`  | Reduce query nesting if possible             | GMS        |
+| Environment Variable                                        | Default | Description                                                                     | Components |
+| ----------------------------------------------------------- | ------- | ------------------------------------------------------------------------------- | ---------- |
+| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`                | `50`    | Graph DAO timeout seconds                                                       | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`                     | `1000`  | Graph DAO batch size                                                            | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`              | `false` | Allow path retraversal for all paths                                            | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`                | `true`  | Boost graph edges with via nodes                                                | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`                 | `false` | Enable soft delete tracking of URNs on edges                                    | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`               | `20`    | Maximum hops to traverse lineage graph                                          | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`                | `1000`  | Maximum hops to traverse for impact analysis (impact.maxHops)                   | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000` | Maximum number of relationships for impact analysis (impact.maxRelations)       | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `2`     | Number of slices for parallel search operations (impact.slices)                 | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`    | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive) | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`    | Maximum parallel lineage graph queries                                          | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`  | Reduce query nesting if possible                                                | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`  | Enable creation of point in time snapshots for graph queries                    | GMS        |
 
 ### Neo4j Configuration
 

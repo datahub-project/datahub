@@ -1,8 +1,10 @@
 package com.linkedin.metadata.graph.search.elasticsearch;
 
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.search.SearchGraphServiceTestBase;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchSuite;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -43,6 +45,12 @@ public class SearchGraphServiceElasticSearchTest extends SearchGraphServiceTestB
   @Override
   protected String getElasticSearchImplementation() {
     return ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+  }
+
+  @NotNull
+  @Override
+  protected ElasticSearchConfiguration getElasticSearchConfiguration() {
+    return TEST_ES_SEARCH_CONFIG;
   }
 
   @Test

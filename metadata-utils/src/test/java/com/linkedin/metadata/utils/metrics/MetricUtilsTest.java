@@ -400,4 +400,72 @@ public class MetricUtilsTest {
     assertEquals(result[1], 500.0);
     assertEquals(result[2], 1000.0);
   }
+
+  @Test
+  public void testIncrementMicrometerBasicFunctionality() {
+    String metricName = "test.micrometer.counter";
+    double incrementValue = 2.5;
+
+    metricUtils.incrementMicrometer(metricName, incrementValue);
+
+    Counter counter = meterRegistry.counter(metricName);
+    assertNotNull(counter);
+    assertEquals(counter.count(), incrementValue);
+  }
+
+  @Test
+  public void testIncrementMicrometerWithTags() {
+    String metricName = "test.micrometer.tagged";
+    double incrementValue = 1.0;
+
+    metricUtils.incrementMicrometer(metricName, incrementValue, "env", "prod", "service", "api");
+
+    Counter counter = meterRegistry.counter(metricName, "env", "prod", "service", "api");
+    assertNotNull(counter);
+    assertEquals(counter.count(), incrementValue);
+  }
+
+  @Test
+  public void testIncrementMicrometerCachingBehavior() {
+    String metricName = "test.cache.counter";
+
+    // First call should create the counter
+    metricUtils.incrementMicrometer(metricName, 1.0);
+    Counter counter1 = meterRegistry.counter(metricName);
+    assertEquals(counter1.count(), 1.0);
+
+    // Second call should reuse the same counter
+    metricUtils.incrementMicrometer(metricName, 2.0);
+    Counter counter2 = meterRegistry.counter(metricName);
+    assertSame(counter1, counter2); // Should be the exact same object due to caching
+    assertEquals(counter2.count(), 3.0); // 1.0 + 2.0
+  }
+
+  @Test
+  public void testIncrementMicrometerDifferentTagsCacheSeparately() {
+    String metricName = "test.cache.tags";
+
+    // Create counters with different tags
+    metricUtils.incrementMicrometer(metricName, 1.0, "env", "prod");
+    metricUtils.incrementMicrometer(metricName, 2.0, "env", "dev");
+
+    Counter prodCounter = meterRegistry.counter(metricName, "env", "prod");
+    Counter devCounter = meterRegistry.counter(metricName, "env", "dev");
+
+    assertNotSame(prodCounter, devCounter); // Different cache entries
+    assertEquals(prodCounter.count(), 1.0);
+    assertEquals(devCounter.count(), 2.0);
+  }
+
+  @Test
+  public void testIncrementMicrometerMultipleIncrementsOnSameCounter() {
+    String metricName = "test.multiple.increments";
+
+    metricUtils.incrementMicrometer(metricName, 1.0, "type", "request");
+    metricUtils.incrementMicrometer(metricName, 3.0, "type", "request");
+    metricUtils.incrementMicrometer(metricName, 2.0, "type", "request");
+
+    Counter counter = meterRegistry.counter(metricName, "type", "request");
+    assertEquals(counter.count(), 6.0); // 1.0 + 3.0 + 2.0
+  }
 }

@@ -1,7 +1,8 @@
 package com.linkedin.metadata.search;
 
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG_WITH_PIT;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
@@ -141,11 +142,11 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
     ElasticSearchConfiguration esConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder().implementation(getElasticSearchImplementation()).build();
+        TEST_OS_SEARCH_CONFIG.toBuilder().implementation(getElasticSearchImplementation()).build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
-            false,
+            esConfig.getSearch().isPointInTimeCreationEnabled(),
             getElasticSearchImplementation(),
             esConfig,
             null,
@@ -175,11 +176,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   @Nonnull
   private ElasticSearchService buildPITEntitySearchService() {
     ElasticSearchConfiguration esConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder().implementation(getElasticSearchImplementation()).build();
+        TEST_OS_SEARCH_CONFIG_WITH_PIT.toBuilder()
+            .implementation(getElasticSearchImplementation())
+            .build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
-            true,
+            esConfig.getSearch().isPointInTimeCreationEnabled(),
             getElasticSearchImplementation(),
             esConfig,
             null,

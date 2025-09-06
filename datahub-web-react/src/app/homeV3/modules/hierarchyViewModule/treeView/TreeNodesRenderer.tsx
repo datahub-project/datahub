@@ -15,8 +15,8 @@ const Wrapper = styled.div`
 
 const InlineBlockWrapper = styled.div<{ $hasExpanded: boolean }>`
     display: inline-block;
-    min-width: calc(100% - 20px);
-    ${(props) => !props.$hasExpanded && 'width: calc(100% - 20px);'}
+    min-width: calc(100% - 0px);
+    ${(props) => !props.$hasExpanded && 'width: calc(100% - 0px);'}
 `;
 
 export default function TreeNodesRenderer() {
@@ -35,7 +35,7 @@ export default function TreeNodesRenderer() {
 
     return (
         <InlineBlockWrapper $hasExpanded={hasAnyExpanded}>
-            <Wrapper>
+            <Wrapper data-testid="hierarchy-module-nodes">
                 {loadRootNodes ? (
                     <NodesLoaderWrapper
                         trigger={loadingTriggerType}

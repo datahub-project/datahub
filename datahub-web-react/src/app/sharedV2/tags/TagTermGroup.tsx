@@ -11,12 +11,17 @@ import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';
 import Term from '@app/sharedV2/tags/term/Term';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Tooltip } from '@src/alchemy-components';
 
 import { Domain as DomainEntity, EntityType, GlobalTags, GlossaryTerms } from '@types';
 
 type Props = {
+    numberOfTags?: number;
+    directTags?: GlobalTags | null;
     uneditableTags?: GlobalTags | null;
     editableTags?: GlobalTags | null;
+    numberOfTerms?: number;
+    directGlossaryTerms?: GlossaryTerms | null;
     editableGlossaryTerms?: GlossaryTerms | null;
     uneditableGlossaryTerms?: GlossaryTerms | null;
     domain?: DomainEntity | undefined | null;
@@ -42,10 +47,12 @@ const NoElementButton = styled.div`
     :not(:last-child) {
         margin-right: 8px;
     }
+
     margin: 0px;
     padding: 0px;
     flex-basis: 100%;
     color: ${REDESIGN_COLORS.DARK_GREY};
+
     :hover {
         cursor: pointer;
         color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
@@ -94,6 +101,7 @@ const AddText = styled.span`
     font-size: 12px;
     font-weight: 500;
     line-height: 16px;
+
     :hover {
         color: ${REDESIGN_COLORS.LINK_HOVER_BLUE};
     }
@@ -102,6 +110,8 @@ const AddText = styled.span`
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 export default function TagTermGroup({
+    numberOfTags,
+    directTags,
     uneditableTags,
     editableTags,
     canRemove,
@@ -111,6 +121,8 @@ export default function TagTermGroup({
     buttonProps,
     onOpenModal,
     maxShow,
+    numberOfTerms,
+    directGlossaryTerms,
     uneditableGlossaryTerms,
     editableGlossaryTerms,
     domain,
@@ -128,12 +140,15 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length;
+    const tagsEmpty = !directTags?.tags?.length && !editableTags?.tags?.length && !uneditableTags?.tags?.length;
 
-    const termsEmpty = !editableGlossaryTerms?.terms?.length && !uneditableGlossaryTerms?.terms?.length;
+    const termsEmpty =
+        !directGlossaryTerms?.terms?.length &&
+        !editableGlossaryTerms?.terms?.length &&
+        !uneditableGlossaryTerms?.terms?.length;
 
-    const tagsLength = (editableTags?.tags?.length ?? 0) + (uneditableTags?.tags?.length ?? 0);
-    const termsLength = (editableGlossaryTerms?.terms?.length ?? 0) + (uneditableGlossaryTerms?.terms?.length ?? 0);
+    const tagsLength = numberOfTags ?? 0;
+    const termsLength = numberOfTerms ?? 0;
 
     let renderedTags = 0;
     let renderedTerms = 0;
@@ -176,6 +191,27 @@ export default function TagTermGroup({
                     />
                 );
             })}
+            {directGlossaryTerms?.terms?.map((term) => {
+                renderedTerms += 1;
+                if (showOneAndCount && renderedTerms === 2) {
+                    return <Count>{`+${termsLength - 1}`}</Count>;
+                }
+                if (showOneAndCount && renderedTerms > 2) return null;
+                return (
+                    <Term
+                        term={term}
+                        entityUrn={entityUrn}
+                        entitySubresource={undefined}
+                        canRemove={canRemove}
+                        readOnly={readOnly}
+                        highlightText={highlightText}
+                        onOpenModal={onOpenModal}
+                        refetch={refetch}
+                        fontSize={fontSize}
+                        showOneAndCount={showOneAndCount}
+                    />
+                );
+            })}
             {editableGlossaryTerms?.terms?.map((term) => {
                 renderedTerms += 1;
                 if (showOneAndCount && renderedTerms === 2) {
@@ -198,7 +234,7 @@ export default function TagTermGroup({
                 );
             })}
 
-            {/* uneditable tags are provided by ingestion pipelines exclusively  */}
+            {/* uneditable tags are provided by ingestion pipelines or merged in from v2 fields  */}
 
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
@@ -213,11 +249,36 @@ export default function TagTermGroup({
                 if (maxShow && renderedTags > maxShow) return null;
 
                 return (
+                    <Tooltip title="This tag is managed within another platform">
+                        <Tag
+                            tag={tag}
+                            entityUrn={entityUrn}
+                            entitySubresource={entitySubresource}
+                            canRemove={false}
+                            readOnly={readOnly}
+                            highlightText={highlightText}
+                            onOpenModal={onOpenModal}
+                            refetch={refetch}
+                            fontSize={fontSize}
+                            showOneAndCount={showOneAndCount}
+                        />
+                    </Tooltip>
+                );
+            })}
+            {directTags?.tags?.map((tag) => {
+                renderedTags += 1;
+                if (showOneAndCount && renderedTags === 2) {
+                    return <Count>{`+${tagsLength - 1}`}</Count>;
+                }
+                if (showOneAndCount && renderedTags > 2) return null;
+                if (maxShow && renderedTags > maxShow) return null;
+
+                return (
                     <Tag
                         tag={tag}
                         entityUrn={entityUrn}
-                        entitySubresource={entitySubresource}
-                        canRemove={false}
+                        entitySubresource={undefined}
+                        canRemove={canRemove}
                         readOnly={readOnly}
                         highlightText={highlightText}
                         onOpenModal={onOpenModal}

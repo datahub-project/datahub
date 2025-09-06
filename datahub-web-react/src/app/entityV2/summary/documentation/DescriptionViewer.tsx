@@ -11,10 +11,11 @@ const Wrapper = styled.div<{ expanded: boolean }>`
     transition: max-height 0.3s ease;
 `;
 
-const ContentContainer = styled.div<{ expanded: boolean }>`
-    overflow: ${({ expanded }) => (expanded ? 'visible' : 'hidden')};
-    ${({ expanded }) =>
-        !expanded &&
+const ContentContainer = styled.div<{ $expanded: boolean; $hasMore: boolean }>`
+    overflow: ${({ $expanded }) => ($expanded ? 'visible' : 'hidden')};
+    ${({ $expanded, $hasMore }) =>
+        !$expanded &&
+        $hasMore &&
         `
             -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 90%, rgba(0,0,0,0) 100%);
             mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 90%, rgba(0,0,0,0) 100%);
@@ -23,6 +24,7 @@ const ContentContainer = styled.div<{ expanded: boolean }>`
 
 const StyledButton = styled(Button)`
     align-self: center;
+    margin-bottom: 16px;
 `;
 
 interface Props {
@@ -43,7 +45,7 @@ export default function DescriptionViewer({ children }: Props) {
 
     return (
         <Wrapper expanded={isExpanded}>
-            <ContentContainer ref={contentRef} expanded={isExpanded}>
+            <ContentContainer ref={contentRef} $expanded={isExpanded} $hasMore={hasMore}>
                 {children}
             </ContentContainer>
             {hasMore && (

@@ -1,17 +1,20 @@
 package auth.sso.oidc.custom;
 
+import auth.sso.oidc.OidcConfigs;
 import org.pac4j.core.util.CommonHelper;
 import org.pac4j.oidc.client.OidcClient;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.extractor.OidcCredentialsExtractor;
 import org.pac4j.oidc.logout.OidcLogoutActionBuilder;
 import org.pac4j.oidc.logout.processor.OidcLogoutProcessor;
-import org.pac4j.oidc.profile.creator.OidcProfileCreator;
 
 public class CustomOidcClient extends OidcClient {
 
-  public CustomOidcClient(OidcConfiguration configuration) {
+  private final OidcConfigs oidcConfigs;
+
+  public CustomOidcClient(OidcConfiguration configuration, OidcConfigs oidcConfigs) {
     super(configuration);
+    this.oidcConfigs = oidcConfigs;
   }
 
   @Override
@@ -29,10 +32,15 @@ public class CustomOidcClient extends OidcClient {
 
     // Initialize default authenticator if not set
     if (getAuthenticator() == null || forceReinit) {
-      setAuthenticatorIfUndefined(new CustomOidcAuthenticator(this));
+      if (forceReinit) {
+        setAuthenticator(new CustomOidcAuthenticator(this, oidcConfigs));
+      } else {
+        setAuthenticatorIfUndefined(new CustomOidcAuthenticator(this, oidcConfigs));
+      }
     }
 
-    setProfileCreatorIfUndefined(new OidcProfileCreator(getConfiguration(), this));
+    setProfileCreatorIfUndefined(
+        new CustomOidcProfileCreator(getConfiguration(), this, oidcConfigs));
     setLogoutProcessorIfUndefined(
         new OidcLogoutProcessor(getConfiguration(), findSessionLogoutHandler()));
     setLogoutActionBuilderIfUndefined(new OidcLogoutActionBuilder(getConfiguration()));

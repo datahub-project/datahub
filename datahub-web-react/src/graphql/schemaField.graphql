@@ -25,6 +25,12 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
     parent {
         urn
         type

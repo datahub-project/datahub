@@ -83,6 +83,7 @@ export const EditorContainer = styled.div`
         line-height: 1.5;
         white-space: pre-wrap;
         margin: 0;
+        color: ${colors.gray[600]};
 
         a {
             font-weight: 500;

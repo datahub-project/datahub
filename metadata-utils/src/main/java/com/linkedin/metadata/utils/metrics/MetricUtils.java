@@ -24,6 +24,7 @@ public class MetricUtils {
   /* Micrometer */
   public static final String KAFKA_MESSAGE_QUEUE_TIME = "kafka.message.queue.time";
   public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
+  public static final String DATAHUB_REQUEST_COUNT = "datahub.request.count";
 
   /* OpenTelemetry */
   public static final String CACHE_HIT_ATTR = "cache.hit";
@@ -47,6 +48,7 @@ public class MetricUtils {
   private static final Map<String, DistributionSummary> legacyHistogramCache =
       new ConcurrentHashMap<>();
   private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
+  private static final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
   // For state-based gauges (like throttled state)
   private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
@@ -100,6 +102,57 @@ public class MetricUtils {
                               .register(meterRegistry));
               counter.increment(increment);
             });
+  }
+
+  /**
+   * Increment a counter using Micrometer metrics library.
+   *
+   * @param metricName The name of the metric
+   * @param increment The value to increment by
+   * @param tags The tags to associate with the metric (can be empty)
+   */
+  public void incrementMicrometer(String metricName, double increment, String... tags) {
+    getRegistry()
+        .ifPresent(
+            meterRegistry -> {
+              // Create a cache key that includes both metric name and tags
+              String cacheKey = createCacheKey(metricName, tags);
+              Counter counter =
+                  micrometerCounterCache.computeIfAbsent(
+                      cacheKey, key -> meterRegistry.counter(metricName, tags));
+              counter.increment(increment);
+            });
+  }
+
+  /**
+   * Creates a cache key for a metric with its tags.
+   *
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>No tags: {@code createCacheKey("datahub.request.count")} returns {@code
+   *       "datahub.request.count"}
+   *   <li>With tags: {@code createCacheKey("datahub.request.count", "user_category", "regular",
+   *       "agent_class", "browser")} returns {@code
+   *       "datahub.request.count|user_category=regular|agent_class=browser"}
+   * </ul>
+   *
+   * @param metricName the name of the metric
+   * @param tags the tags to associate with the metric (key-value pairs)
+   * @return a string key that uniquely identifies this metric+tags combination
+   */
+  private String createCacheKey(String metricName, String... tags) {
+    if (tags.length == 0) {
+      return metricName;
+    }
+
+    StringBuilder keyBuilder = new StringBuilder(metricName);
+    for (int i = 0; i < tags.length; i += 2) {
+      if (i + 1 < tags.length) {
+        keyBuilder.append("|").append(tags[i]).append("=").append(tags[i + 1]);
+      }
+    }
+    return keyBuilder.toString();
   }
 
   /**

@@ -6,6 +6,9 @@ query getDomain($urn: String!) {
         properties {
             name
             description
+            createdOn {
+                time
+            }
         }
         parentDomains {
             ...parentDomainsFields
@@ -45,6 +48,9 @@ query getDomain($urn: String!) {
         }
         ...domainEntitiesFields
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 

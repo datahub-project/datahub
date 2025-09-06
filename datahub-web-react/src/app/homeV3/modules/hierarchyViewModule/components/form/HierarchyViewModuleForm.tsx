@@ -24,7 +24,12 @@ export default function HierarchyViewModuleForm() {
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Choose a name for your module" isRequired />
+                <Input
+                    label="Name"
+                    placeholder="Choose a name for your module"
+                    isRequired
+                    data-testid="hierarchy-module-name"
+                />
             </FormItem>
 
             <SelectAssetsSection />

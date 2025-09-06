@@ -101,7 +101,7 @@ logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Disabled by default. ",
+    "Disabled by default.",
 )
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(

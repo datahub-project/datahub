@@ -441,13 +441,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             tables = self.fetch_tables_for_schema(
                 snowflake_schema, db_name, schema_name
             )
+        if self.config.include_views:
+            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
+
+        if self.config.include_tables:
             db_tables[schema_name] = tables
             yield from self._process_tables(
                 tables, snowflake_schema, db_name, schema_name
             )
 
         if self.config.include_views:
-            views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
             yield from self._process_views(
                 views, snowflake_schema, db_name, schema_name
             )

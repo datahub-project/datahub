@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p><strong>Town Hall August 21:</strong> The Latest in DataHub Lineage</p><a href="https://events.datahub.com/august-town-hall-2025?utm_source=webinar&utm_medium=&utm_campaign=17099074-FY25-Q3-Town-Hall" target="_blank" class="button"><div>Save your spot<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><p><strong>CONTEXT:</strong> The Metadata and AI Summit 10/29</p><a href="https://datahub.com/context/?utm_source=event&utm_medium=&utm_campaign=16839686-FY25-Q4-EVENT-CONTEXT-MAIS&utm_term=docs" target="_blank" class="button"><div>Register<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,

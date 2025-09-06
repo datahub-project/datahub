@@ -1,5 +1,8 @@
 package io.datahubproject.test.search;
 
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
@@ -20,6 +23,7 @@ import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
@@ -34,6 +38,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -45,6 +50,7 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.awaitility.Awaitility;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
 
@@ -59,26 +65,32 @@ public class SearchTestUtils {
   public static SearchServiceConfiguration TEST_SEARCH_SERVICE_CONFIG =
       SearchServiceConfiguration.builder().limit(TEST_1K_LIMIT_CONFIG).build();
 
-  public static ElasticSearchConfiguration TEST_ES_SEARCH_CONFIG =
+  // Base configuration for tests
+  private static final ElasticSearchConfiguration BASE_TEST_CONFIG =
       ElasticSearchConfiguration.builder()
+          .implementation(ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH)
           .search(
-              new SearchConfiguration() {
-                {
-                  setGraph(
-                      new GraphQueryConfiguration() {
-                        {
-                          setBatchSize(1000);
-                          setTimeoutSeconds(10);
-                          setEnableMultiPathSearch(true);
-                          setBoostViaNodes(true);
-                          setImpactMaxHops(1000);
-                          setLineageMaxHops(20);
-                          setMaxThreads(1);
-                          setQueryOptimization(true);
-                        }
-                      });
-                }
-              })
+              SearchConfiguration.builder()
+                  .pointInTimeCreationEnabled(false) // Disable PIT for search entities by default
+                  .graph(
+                      GraphQueryConfiguration.builder()
+                          .batchSize(1000)
+                          .timeoutSeconds(5)
+                          .enableMultiPathSearch(true)
+                          .boostViaNodes(true)
+                          .impact(
+                              ImpactConfiguration.builder()
+                                  .maxHops(1000)
+                                  .maxRelations(100)
+                                  .slices(2)
+                                  .keepAlive("5m")
+                                  .build())
+                          .lineageMaxHops(20)
+                          .maxThreads(1)
+                          .queryOptimization(true)
+                          .pointInTimeCreationEnabled(true) // Enable PIT for graph queries
+                          .build())
+                  .build())
           .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(1).build())
           .bulkDelete(
               BulkDeleteConfiguration.builder()
@@ -92,6 +104,38 @@ public class SearchTestUtils {
                   .build())
           .buildIndices(
               BuildIndicesConfiguration.builder().reindexOptimizationEnabled(true).build())
+          .build();
+
+  public static ElasticSearchConfiguration TEST_OS_SEARCH_CONFIG = BASE_TEST_CONFIG;
+
+  public static ElasticSearchConfiguration TEST_OS_SEARCH_CONFIG_NO_PIT =
+      BASE_TEST_CONFIG.toBuilder()
+          .search(
+              BASE_TEST_CONFIG.getSearch().toBuilder()
+                  .pointInTimeCreationEnabled(false) // Ensure search PIT is disabled
+                  .graph(
+                      BASE_TEST_CONFIG.getSearch().getGraph().toBuilder()
+                          .pointInTimeCreationEnabled(false) // Disable graph PIT for this config
+                          .build())
+                  .build())
+          .build();
+
+  // Configuration with PIT enabled for search entities (for tests that specifically need PIT)
+  public static ElasticSearchConfiguration TEST_OS_SEARCH_CONFIG_WITH_PIT =
+      BASE_TEST_CONFIG.toBuilder()
+          .search(
+              BASE_TEST_CONFIG.getSearch().toBuilder()
+                  .pointInTimeCreationEnabled(true) // Enable PIT for search entities
+                  .graph(
+                      BASE_TEST_CONFIG.getSearch().getGraph().toBuilder()
+                          .pointInTimeCreationEnabled(true) // Enable graph PIT
+                          .build())
+                  .build())
+          .build();
+
+  public static ElasticSearchConfiguration TEST_ES_SEARCH_CONFIG =
+      TEST_OS_SEARCH_CONFIG.toBuilder()
+          .implementation(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH)
           .build();
 
   public static SystemMetadataServiceConfig TEST_SYSTEM_METADATA_SERVICE_CONFIG =
@@ -344,5 +388,41 @@ public class SearchTestUtils {
                 return httpClientBuilder;
               }
             });
+  }
+
+  /**
+   * Generic method to wait for data availability using a custom verification function. This method
+   * uses Awaitility to retry the verification function until it returns true or the timeout is
+   * reached.
+   *
+   * @param verificationFunction The function to call for verification (should return true when data
+   *     is ready)
+   * @param maxWaitTimeSeconds Maximum time to wait in seconds
+   * @param errorMessage The error message to throw if data isn't available within the timeout
+   */
+  public static void waitForDataAvailability(
+      DataAvailabilityChecker verificationFunction, int maxWaitTimeSeconds, String errorMessage) {
+
+    try {
+      Awaitility.await()
+          .timeout(Duration.ofSeconds(maxWaitTimeSeconds))
+          .pollInterval(Duration.ofSeconds(1))
+          .until(
+              () -> {
+                try {
+                  return verificationFunction.check();
+                } catch (Exception e) {
+                  return false;
+                }
+              });
+    } catch (org.awaitility.core.ConditionTimeoutException e) {
+      throw new RuntimeException(errorMessage, e);
+    }
+  }
+
+  /** Functional interface for data availability checking. */
+  @FunctionalInterface
+  public interface DataAvailabilityChecker {
+    boolean check() throws Exception;
   }
 }

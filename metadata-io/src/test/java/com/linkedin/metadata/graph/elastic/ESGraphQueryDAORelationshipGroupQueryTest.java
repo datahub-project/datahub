@@ -1,8 +1,8 @@
 package com.linkedin.metadata.graph.elastic;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -57,38 +57,32 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
 
     // Create configuration with timeout and batch settings
     GraphQueryConfiguration graphConfig =
-        new GraphQueryConfiguration()
-            .setTimeoutSeconds(10)
-            .setBatchSize(25)
-            .setEnableMultiPathSearch(true)
-            .setBoostViaNodes(true);
+        GraphQueryConfiguration.builder()
+            .timeoutSeconds(10)
+            .batchSize(25)
+            .enableMultiPathSearch(true)
+            .boostViaNodes(true)
+            .build();
 
     LimitConfig limitConfig =
-        new LimitConfig()
-            .setResults(
-                new ResultsLimitConfig()
-                    .setMax(GLOBAL_RESULT_LIMIT)
-                    .setApiDefault(GLOBAL_RESULT_LIMIT)
-                    .setStrict(false));
+        LimitConfig.builder()
+            .results(
+                ResultsLimitConfig.builder()
+                    .max(GLOBAL_RESULT_LIMIT)
+                    .apiDefault(GLOBAL_RESULT_LIMIT)
+                    .strict(false)
+                    .build())
+            .build();
 
     GraphServiceConfiguration graphServiceConfig =
         TEST_GRAPH_SERVICE_CONFIG.toBuilder().limit(limitConfig).build();
     ElasticSearchConfiguration testESConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder()
-            .search(TEST_ES_SEARCH_CONFIG.getSearch().toBuilder().graph(graphConfig).build())
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(TEST_OS_SEARCH_CONFIG.getSearch().toBuilder().graph(graphConfig).build())
             .build();
 
     // Create the DAO with mocks
-    graphQueryDAO =
-        new ESGraphQueryDAO(
-            mockClient,
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
-            operationContext.getLineageRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            graphServiceConfig,
-            testESConfig,
-            null);
+    graphQueryDAO = new ESGraphQueryDAO(mockClient, graphServiceConfig, testESConfig, null);
   }
 
   @Test
@@ -122,7 +116,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             new ConcurrentHashMap<>(edgeMap));
 
     // Execute
-    ESGraphQueryDAO.LineageResponse response =
+    LineageResponse response =
         graphQueryDAO.getLineage(operationContext, sourceUrn, lineageGraphFilters, 0, 100, 1);
 
     // Verify empty result
@@ -190,7 +184,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             new ConcurrentHashMap<>(edgeMap));
 
     // Execute
-    ESGraphQueryDAO.LineageResponse response =
+    LineageResponse response =
         graphQueryDAO.getLineage(
             operationContext.withLineageFlags(
                 f -> new LineageFlags().setEntitiesExploredPerHopLimit(10)),
@@ -269,7 +263,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             new ConcurrentHashMap<>(edgeMap));
 
     // Execute with hop limit context
-    ESGraphQueryDAO.LineageResponse result =
+    LineageResponse result =
         graphQueryDAO.getLineage(
             operationContext.withLineageFlags(
                 f -> new LineageFlags().setEntitiesExploredPerHopLimit(10)),
@@ -365,7 +359,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             lineageFlags -> lineageFlags.setEntitiesExploredPerHopLimit(10));
 
     // Execute with max 2 hops
-    ESGraphQueryDAO.LineageResponse response =
+    LineageResponse response =
         graphQueryDAO.getLineage(customContext, sourceUrn, lineageGraphFilters, 0, 100, 2);
 
     // Verify search was called multiple times
@@ -574,30 +568,23 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
 
     // Test with exploreMultiplePaths = true
     GraphQueryConfiguration graphConfig =
-        new GraphQueryConfiguration()
-            .setTimeoutSeconds(10)
-            .setBatchSize(25)
-            .setEnableMultiPathSearch(true) // Enable multiple paths
-            .setQueryOptimization(true);
+        GraphQueryConfiguration.builder()
+            .timeoutSeconds(10)
+            .batchSize(25)
+            .enableMultiPathSearch(true) // Enable multiple paths
+            .queryOptimization(true)
+            .build();
 
     ElasticSearchConfiguration testESConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder()
-            .search(TEST_ES_SEARCH_CONFIG.getSearch().toBuilder().graph(graphConfig).build())
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(TEST_OS_SEARCH_CONFIG.getSearch().toBuilder().graph(graphConfig).build())
             .build();
 
     ESGraphQueryDAO daoWithMultiPath =
-        new ESGraphQueryDAO(
-            mockClient,
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
-            operationContext.getLineageRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            TEST_GRAPH_SERVICE_CONFIG,
-            testESConfig,
-            null);
+        new ESGraphQueryDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testESConfig, null);
 
     // Call the public method directly with exploreMultiplePaths = true
-    ESGraphQueryDAO.LineageResponse resultWithMultiPaths =
+    LineageResponse resultWithMultiPaths =
         daoWithMultiPath.getLineage(
             contextWithFlags, // Use context with flags
             entityUrn,
@@ -611,26 +598,19 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
 
     // Test with exploreMultiplePaths = false
     GraphQueryConfiguration singlePathConfig =
-        new GraphQueryConfiguration()
-            .setTimeoutSeconds(10)
-            .setBatchSize(25)
-            .setEnableMultiPathSearch(false); // Disable multiple paths
+        GraphQueryConfiguration.builder()
+            .timeoutSeconds(10)
+            .batchSize(25)
+            .enableMultiPathSearch(false) // Disable multiple paths
+            .build();
 
     ElasticSearchConfiguration testSinglePathConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder()
-            .search(TEST_ES_SEARCH_CONFIG.getSearch().toBuilder().graph(singlePathConfig).build())
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .search(TEST_OS_SEARCH_CONFIG.getSearch().toBuilder().graph(singlePathConfig).build())
             .build();
 
     ESGraphQueryDAO daoWithSinglePath =
-        new ESGraphQueryDAO(
-            mockClient,
-            false,
-            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
-            operationContext.getLineageRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            TEST_GRAPH_SERVICE_CONFIG,
-            testSinglePathConfig,
-            null);
+        new ESGraphQueryDAO(mockClient, TEST_GRAPH_SERVICE_CONFIG, testSinglePathConfig, null);
 
     // Reset the mock and reconfigure it
     reset(mockClient);
@@ -657,7 +637,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
         .search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Call the public method directly with exploreMultiplePaths = false
-    ESGraphQueryDAO.LineageResponse resultWithSinglePath =
+    LineageResponse resultWithSinglePath =
         daoWithSinglePath.getLineage(
             contextWithFlags, // Use context with flags
             entityUrn,
@@ -743,7 +723,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             f -> new LineageFlags().setEntitiesExploredPerHopLimit(10));
 
     // Call the public method directly
-    ESGraphQueryDAO.LineageResponse result =
+    LineageResponse result =
         graphQueryDAO.getLineage(
             contextWithFlags, // Use context with flags
             entityUrn,
@@ -814,7 +794,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
                     .setEndTimeMillis(System.currentTimeMillis()));
 
     // Call the public method directly
-    ESGraphQueryDAO.LineageResponse result =
+    LineageResponse result =
         graphQueryDAO.getLineage(contextWithTimeFilters, entityUrn, lineageGraphFilters, 0, 100, 1);
 
     // Verify we got results

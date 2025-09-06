@@ -2,14 +2,21 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
+from google.api_core.client_info import ClientInfo
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PrivateAttr
 
+from datahub._version import __version__
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 
 logger = logging.getLogger(__name__)
+
+
+def _get_bigquery_client_info() -> ClientInfo:
+    """Get ClientInfo with DataHub user-agent for BigQuery client identification"""
+    return ClientInfo(user_agent=f"datahub/{__version__}")
 
 
 class BigQueryConnectionConfig(ConfigModel):
@@ -41,7 +48,11 @@ class BigQueryConnectionConfig(ConfigModel):
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
-        return bigquery.Client(self.project_on_behalf, **client_options)
+        return bigquery.Client(
+            self.project_on_behalf,
+            client_info=_get_bigquery_client_info(),
+            **client_options,
+        )
 
     def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
         return resourcemanager_v3.ProjectsClient()

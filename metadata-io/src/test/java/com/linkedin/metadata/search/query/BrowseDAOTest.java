@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.query;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
@@ -69,7 +69,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     browseDAO =
         new ESBrowseDAO(
             mockClient,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
@@ -160,7 +160,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
             mockClient,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG.toBuilder()
@@ -217,7 +217,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
             mockClient,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
             testSearchServiceConfig);

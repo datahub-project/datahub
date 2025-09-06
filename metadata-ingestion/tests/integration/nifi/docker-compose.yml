@@ -40,7 +40,7 @@ services:
   nifi_zookeeper:
     hostname: nifi_zookeeper
     container_name: nifi_zookeeper
-    image: 'bitnami/zookeeper:latest'
+    image: 'bitnamilegacy/zookeeper:latest'
     environment:
       - ALLOW_ANONYMOUS_LOGIN=yes
       - ZOO_PORT_NUMBER=52181

@@ -13,6 +13,7 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class SearchConfiguration {
   private int maxTermBucketSize;
+  private boolean pointInTimeCreationEnabled;
   private ExactMatchConfiguration exactMatch;
   private PartialConfiguration partial;
   private CustomConfiguration custom;

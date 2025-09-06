@@ -1403,7 +1403,9 @@ public class OpenAPIV3Generator {
                 "condition",
                 newSchema()
                     .type(TYPE_STRING)
-                    ._enum(Arrays.asList("EQUAL", "STARTS_WITH", "ENDS_WITH", "EXISTS", "IN"))
+                    ._enum(
+                        Arrays.asList(
+                            "EQUAL", "STARTS_WITH", "ENDS_WITH", "EXISTS", "IN", "CONTAIN"))
                     ._default("EQUAL")
                     .description("The condition for the criterion."))
             .addProperties(
@@ -1559,7 +1561,12 @@ public class OpenAPIV3Generator {
                     newSchema()
                         .$ref(
                             String.format(
-                                "#/components/schemas/%s%s", ENTITIES, ENTITY_RESPONSE_SUFFIX))));
+                                "#/components/schemas/%s%s", ENTITIES, ENTITY_RESPONSE_SUFFIX))))
+        .addProperty(
+            "totalCount",
+            newSchema()
+                .type(TYPE_INTEGER)
+                .description("Total number of entities satisfy the criteria."));
   }
 
   private static Schema buildEntityScrollSchema(final EntitySpec entity) {

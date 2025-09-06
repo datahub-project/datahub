@@ -268,6 +268,7 @@ class UsageAggregator(Generic[ResourceType]):
             user,
             query,
             fields,
+            user_email_pattern=self.config.user_email_pattern,
             count=count,
         )
 
