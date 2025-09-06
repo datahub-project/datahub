@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapp
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.
@@ -24,14 +25,14 @@ public class GlossaryTermsMapper {
   public static final GlossaryTermsMapper INSTANCE = new GlossaryTermsMapper();
 
   public static GlossaryTerms map(
-      @Nonnull final QueryContext context,
+      @Nullable final QueryContext context,
       @Nonnull final com.linkedin.common.GlossaryTerms glossaryTerms,
       @Nonnull final Urn entityUrn) {
     return INSTANCE.apply(context, glossaryTerms, entityUrn);
   }
 
   public GlossaryTerms apply(
-      @Nonnull final QueryContext context,
+      @Nullable final QueryContext context,
       @Nonnull final com.linkedin.common.GlossaryTerms glossaryTerms,
       @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlossaryTerms result =
@@ -47,7 +48,7 @@ public class GlossaryTermsMapper {
   }
 
   private com.linkedin.datahub.graphql.generated.GlossaryTermAssociation mapGlossaryTermAssociation(
-      @Nonnull final QueryContext context,
+      @Nullable final QueryContext context,
       @Nonnull final GlossaryTermAssociation input,
       final Urn entityUrn) {
     final com.linkedin.datahub.graphql.generated.GlossaryTermAssociation result =
