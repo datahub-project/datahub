@@ -154,6 +154,7 @@ class SupersetDataset(BaseModel):
     table_name: str
     changed_on_utc: Optional[str] = None
     explore_url: Optional[str] = ""
+    description: Optional[str] = ""
 
     @property
     def modified_dt(self) -> Optional[datetime]:
@@ -1062,7 +1063,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 fieldPath=col.get("column_name", ""),
                 type=SchemaFieldDataType(data_type),
                 nativeDataType="",
-                description=col.get("column_name", ""),
+                description=col.get("description") or col.get("column_name", ""),
                 nullable=True,
             )
             schema_fields.append(field)
@@ -1283,7 +1284,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
-            description="",
+            description=dataset.description or "",
             externalUrl=dataset_url,
             lastModified=TimeStamp(time=modified_ts),
         )
