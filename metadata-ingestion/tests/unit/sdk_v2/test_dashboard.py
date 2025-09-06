@@ -40,7 +40,7 @@ def test_dashboard_basic(pytestconfig: pytest.Config) -> None:
     assert d.tags is None
     assert d.terms is None
     assert d.last_modified is None
-    assert d.description == ""
+    assert d.description is None
     assert d.custom_properties == {}
     assert d.domain is None
 

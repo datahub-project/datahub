@@ -13,11 +13,11 @@ This source extracts the following:
 
 ## Concept mapping
 
-| Qlik Sense | Datahub                                                       | Notes                    |
-| ---------- | ------------------------------------------------------------- | ------------------------ |
-| `Space`    | [Container](../../metamodel/entities/container.md)            | SubType `"Qlik Space"`   |
-| `App`      | [Container](../../metamodel/entities/container.md)            | SubType `"Qlik App"`     |
-| `Sheet`    | [Dashboard](../../metamodel/entities/dashboard.md)            |                          |
-| `Chart`    | [Chart](../../metamodel/entities/chart.md)                    |                          |
-| `Dataset`  | [Dataset](../../metamodel/entities/dataset.md)                | SubType `"Qlik Dataset"` |
-| `User`     | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted     |
+| Qlik Sense | Datahub                                                     | Notes                    |
+| ---------- | ----------------------------------------------------------- | ------------------------ |
+| `Space`    | [Container](../../metamodel/entities/container.md)          | SubType `"Qlik Space"`   |
+| `App`      | [Container](../../metamodel/entities/container.md)          | SubType `"Qlik App"`     |
+| `Sheet`    | [Dashboard](../../metamodel/entities/dashboard.md)          |                          |
+| `Chart`    | [Chart](../../metamodel/entities/chart.md)                  |                          |
+| `Dataset`  | [Dataset](../../metamodel/entities/dataset.md)              | SubType `"Qlik Dataset"` |
+| `User`     | [User (aka CorpUser)](../../metamodel/entities/corpuser.md) | Optionally Extracted     |

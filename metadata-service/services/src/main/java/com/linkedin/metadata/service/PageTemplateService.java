@@ -12,6 +12,7 @@ import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubPageTemplateKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.template.DataHubPageTemplateAssetSummary;
 import com.linkedin.template.DataHubPageTemplateProperties;
 import com.linkedin.template.DataHubPageTemplateRow;
 import com.linkedin.template.DataHubPageTemplateRowArray;
@@ -40,6 +41,15 @@ public class PageTemplateService {
     this.entityClient = entityClient;
   }
 
+  public Urn upsertPageTemplate(
+      @Nonnull OperationContext opContext,
+      @Nullable final String urn,
+      @Nonnull final List<DataHubPageTemplateRow> rows,
+      @Nonnull final PageTemplateScope scope,
+      @Nonnull final PageTemplateSurfaceType surfaceType) {
+    return upsertPageTemplate(opContext, urn, rows, scope, surfaceType, null);
+  }
+
   /**
    * Upserts a DataHub page template. If the page template with the provided urn already exists,
    * then it will be overwritten.
@@ -53,7 +63,8 @@ public class PageTemplateService {
       @Nullable final String urn,
       @Nonnull final List<DataHubPageTemplateRow> rows,
       @Nonnull final PageTemplateScope scope,
-      @Nonnull final PageTemplateSurfaceType surfaceType) {
+      @Nonnull final PageTemplateSurfaceType surfaceType,
+      @Nullable final DataHubPageTemplateAssetSummary assetSummary) {
     Objects.requireNonNull(rows, "rows must not be null");
     Objects.requireNonNull(scope, "scope must not be null");
     Objects.requireNonNull(surfaceType, "surfaceType must not be null");
@@ -84,6 +95,10 @@ public class PageTemplateService {
     checkModulesExistInRows(opContext, rows);
 
     properties.setRows(new DataHubPageTemplateRowArray(rows));
+
+    if (assetSummary != null) {
+      properties.setAssetSummary(assetSummary);
+    }
 
     DataHubPageTemplateSurface surface = new DataHubPageTemplateSurface();
     surface.setSurfaceType(surfaceType);

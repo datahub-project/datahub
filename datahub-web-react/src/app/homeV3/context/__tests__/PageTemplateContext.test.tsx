@@ -108,6 +108,7 @@ describe('PageTemplateContext', () => {
             setPersonalTemplate: mockSetPersonalTemplate,
             setGlobalTemplate: mockSetGlobalTemplate,
             setTemplate: mockSetTemplate,
+            summaryElements: undefined,
         });
 
         mockUseTemplateOperations.mockReturnValue({
@@ -140,7 +141,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId } = render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -153,27 +154,31 @@ describe('PageTemplateContext', () => {
 
         it('should call useTemplateState without parameters', () => {
             render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
 
-            expect(mockUseTemplateState).toHaveBeenCalledWith();
+            expect(mockUseTemplateState).toHaveBeenCalledWith(PageTemplateSurfaceType.HomePage);
         });
 
         it('should call useTemplateOperations with setPersonalTemplate and personalTemplate', () => {
             render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
 
-            expect(mockUseTemplateOperations).toHaveBeenCalledWith(mockSetPersonalTemplate, mockPersonalTemplate);
+            expect(mockUseTemplateOperations).toHaveBeenCalledWith(
+                mockSetPersonalTemplate,
+                mockPersonalTemplate,
+                PageTemplateSurfaceType.HomePage,
+            );
         });
 
         it('should call useModuleOperations with correct parameters', () => {
             render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -189,6 +194,7 @@ describe('PageTemplateContext', () => {
                 mockUpsertTemplate,
                 false,
                 null,
+                PageTemplateSurfaceType.HomePage,
             );
         });
 
@@ -202,6 +208,7 @@ describe('PageTemplateContext', () => {
                 setPersonalTemplate: mockSetPersonalTemplate,
                 setGlobalTemplate: mockSetGlobalTemplate,
                 setTemplate: mockSetTemplate,
+                summaryElements: undefined,
             });
 
             const TestComponent = () => {
@@ -216,7 +223,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId } = render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -236,6 +243,7 @@ describe('PageTemplateContext', () => {
                 setPersonalTemplate: mockSetPersonalTemplate,
                 setGlobalTemplate: mockSetGlobalTemplate,
                 setTemplate: mockSetTemplate,
+                summaryElements: undefined,
             });
 
             const TestComponent = () => {
@@ -250,7 +258,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId } = render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -269,11 +277,12 @@ describe('PageTemplateContext', () => {
                 setIsEditingGlobalTemplate: mockSetIsEditingGlobalTemplate,
                 setPersonalTemplate: mockSetPersonalTemplate,
                 setGlobalTemplate: mockSetGlobalTemplate,
-                setTemplate: mockSetTemplate,
+                summaryElements: undefined,
+                setTemplate: () => {},
             });
 
             render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -289,6 +298,7 @@ describe('PageTemplateContext', () => {
                 mockUpsertTemplate,
                 false,
                 null,
+                PageTemplateSurfaceType.HomePage,
             );
         });
 
@@ -299,7 +309,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId, rerender } = render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -308,7 +318,7 @@ describe('PageTemplateContext', () => {
 
             // Rerender with same props
             rerender(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -320,7 +330,11 @@ describe('PageTemplateContext', () => {
     describe('usePageTemplateContext', () => {
         it('should return context when used within provider', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
+                wrapper: ({ children }) => (
+                    <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                        {children}
+                    </PageTemplateProvider>
+                ),
             });
 
             expect(result.current.personalTemplate).toBe(mockPersonalTemplate);
@@ -351,7 +365,11 @@ describe('PageTemplateContext', () => {
 
         it('should provide working addModule function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
+                wrapper: ({ children }) => (
+                    <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                        {children}
+                    </PageTemplateProvider>
+                ),
             });
 
             const moduleInput = {
@@ -380,7 +398,11 @@ describe('PageTemplateContext', () => {
 
         it('should provide working upsertModule function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
+                wrapper: ({ children }) => (
+                    <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                        {children}
+                    </PageTemplateProvider>
+                ),
             });
 
             const upsertModuleInput = {
@@ -403,7 +425,11 @@ describe('PageTemplateContext', () => {
 
         it('should provide working setIsEditingGlobalTemplate function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
+                wrapper: ({ children }) => (
+                    <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                        {children}
+                    </PageTemplateProvider>
+                ),
             });
 
             act(() => {
@@ -415,7 +441,11 @@ describe('PageTemplateContext', () => {
 
         it('should provide working setTemplate function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
+                wrapper: ({ children }) => (
+                    <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                        {children}
+                    </PageTemplateProvider>
+                ),
             });
 
             const newTemplate: PageTemplateFragment = {
@@ -444,7 +474,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId, rerender } = render(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -459,10 +489,11 @@ describe('PageTemplateContext', () => {
                 setPersonalTemplate: mockSetPersonalTemplate,
                 setGlobalTemplate: mockSetGlobalTemplate,
                 setTemplate: mockSetTemplate,
+                summaryElements: undefined,
             });
 
             rerender(
-                <PageTemplateProvider>
+                <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
                     <TestComponent />
                 </PageTemplateProvider>,
             );

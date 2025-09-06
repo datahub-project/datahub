@@ -9,8 +9,12 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataHubPageModule;
 import com.linkedin.datahub.graphql.generated.DataHubPageTemplate;
+import com.linkedin.datahub.graphql.generated.DataHubPageTemplateAssetSummary;
 import com.linkedin.datahub.graphql.generated.DataHubPageTemplateRow;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
+import com.linkedin.datahub.graphql.generated.SummaryElement;
+import com.linkedin.datahub.graphql.generated.SummaryElementType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -19,6 +23,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.template.DataHubPageTemplateProperties;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -88,6 +93,10 @@ public class PageTemplateMapper implements ModelMapper<EntityResponse, DataHubPa
             });
     properties.setRows(rows);
 
+    if (gmsTemplateProperties.getAssetSummary() != null) {
+      properties.setAssetSummary(mapAssetSummary(gmsTemplateProperties.getAssetSummary()));
+    }
+
     if (gmsTemplateProperties.hasSurface()) {
       properties.setSurface(PageTemplateSurfaceMapper.map(gmsTemplateProperties.getSurface()));
     }
@@ -108,5 +117,34 @@ public class PageTemplateMapper implements ModelMapper<EntityResponse, DataHubPa
     }
 
     template.setProperties(properties);
+  }
+
+  private DataHubPageTemplateAssetSummary mapAssetSummary(
+      com.linkedin.template.DataHubPageTemplateAssetSummary input) {
+    DataHubPageTemplateAssetSummary assetSummary = new DataHubPageTemplateAssetSummary();
+    assetSummary.setSummaryElements(new ArrayList<>());
+    if (input.getSummaryElements() != null) {
+
+      List<SummaryElement> summaryElements =
+          input.getSummaryElements().stream()
+              .map(
+                  el -> {
+                    SummaryElement summaryElement = new SummaryElement();
+                    summaryElement.setElementType(
+                        SummaryElementType.valueOf(el.getElementType().toString()));
+                    if (el.getStructuredPropertyUrn() != null) {
+                      StructuredPropertyEntity structuredProperty = new StructuredPropertyEntity();
+                      structuredProperty.setUrn(el.getStructuredPropertyUrn().toString());
+                      structuredProperty.setType(EntityType.STRUCTURED_PROPERTY);
+                      summaryElement.setStructuredProperty(structuredProperty);
+                    }
+                    return summaryElement;
+                  })
+              .collect(Collectors.toList());
+
+      assetSummary.setSummaryElements(summaryElements);
+    }
+
+    return assetSummary;
   }
 }

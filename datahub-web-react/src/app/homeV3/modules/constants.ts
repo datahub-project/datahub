@@ -33,6 +33,10 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:your_assets',
     'urn:li:dataHubPageModule:your_subscriptions',
     'urn:li:dataHubPageModule:top_domains',
+    'urn:li:dataHubPageModule:assets',
+    'urn:li:dataHubPageModule:child_hierarchy',
+    'urn:li:dataHubPageModule:data_products',
+    'urn:li:dataHubPageModule:related_terms',
     'urn:li:dataHubPageModule:workflows',
 ];
 
@@ -45,19 +49,6 @@ export const CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.AssetCollection,
 ];
 
-export const ADD_MODULE_MENU_SECTION_CUSTOM_LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
-    DataHubPageModuleType.Domains,
-    DataHubPageModuleType.OwnedAssets,
-    DataHubPageModuleType.AssetCollection,
-];
-
-export const DEFAULT_GLOBAL_MODULE_TYPES: DataHubPageModuleType[] = [
-    DataHubPageModuleType.OwnedAssets,
-    DataHubPageModuleType.Domains,
-    DataHubPageModuleType.SubscribedAssets, // SaaS-only
-    DataHubPageModuleType.Workflows,
-];
-
 export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.OwnedAssets,
     DataHubPageModuleType.SubscribedAssets,
@@ -65,6 +56,10 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.AssetCollection,
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
+    DataHubPageModuleType.Assets,
+    DataHubPageModuleType.ChildHierarchy,
+    DataHubPageModuleType.RelatedTerms,
+    DataHubPageModuleType.DataProducts,
     DataHubPageModuleType.Workflows,
 ];
 

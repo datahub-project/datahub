@@ -99,6 +99,7 @@ export const entityPrivileges: EntityPrivileges = {
     canEditMonitors: true,
     canEditSqlAssertionMonitors: true,
     canViewDatasetOperations: true,
+    canManageAssetSummary: true,
     canViewDatasetProfile: true,
     canViewDatasetUsage: true,
     __typename: 'EntityPrivileges',

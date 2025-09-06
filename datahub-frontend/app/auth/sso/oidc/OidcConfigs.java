@@ -291,7 +291,6 @@ public class OidcConfigs extends SsoConfigs {
       httpRetryAttempts =
           getOptional(configs, OIDC_HTTP_RETRY_ATTEMPTS, DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS);
       httpRetryDelay = getOptional(configs, OIDC_HTTP_RETRY_DELAY, DEFAULT_OIDC_HTTP_RETRY_DELAY);
-
       return this;
     }
 

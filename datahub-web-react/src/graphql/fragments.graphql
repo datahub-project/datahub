@@ -2388,6 +2388,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
+    canManageAssetSummary
     canEditDataContract
     canProposeDataContract
 }

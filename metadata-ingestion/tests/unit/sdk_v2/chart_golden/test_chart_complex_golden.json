@@ -31,7 +31,7 @@
                     "actor": "urn:li:corpuser:unknown"
                 },
                 "lastModified": {
-                    "time": 1736359446,
+                    "time": 1736420646,
                     "actor": "urn:li:corpuser:datahub"
                 }
             },
@@ -43,7 +43,41 @@
             ],
             "type": "BAR",
             "access": "PUBLIC",
-            "lastRefreshed": 1736359446
+            "lastRefreshed": 1736420646
+        }
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,my_instance.example_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:dummyvalue"
+        }
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,my_instance.example_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Folders"
+                },
+                {
+                    "id": "urn:li:container:dummyvalue",
+                    "urn": "urn:li:container:dummyvalue"
+                },
+                {
+                    "id": "urn:li:dashboard:(looker,dummydash.1)",
+                    "urn": "urn:li:dashboard:(looker,dummydash.1)"
+                }
+            ]
         }
     }
 },

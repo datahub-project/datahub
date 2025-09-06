@@ -6,4 +6,5 @@ export interface ModuleProps {
     module: PageModuleFragment;
     position: ModulePositionInput;
     onClick?: () => void;
+    showViewAll?: boolean;
 }

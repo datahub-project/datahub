@@ -60,6 +60,9 @@ fragment glossaryNodeFields on GlossaryNode {
         ...originFields
     }
     ...notes
+    settings {
+        ...AssetSettingsFields
+    }
     proposals: proposals {
         ...proposalsFragment
     }

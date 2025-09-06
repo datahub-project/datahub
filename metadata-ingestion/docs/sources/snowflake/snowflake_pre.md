@@ -148,10 +148,10 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
   ```yaml
   shares:
     X: # name of the share
-      database_name: db1
+      database: db1
       platform_instance: instance1
       consumers: # list of all databases created from share X
-        - database_name: db1_from_X
+        - database: db1_from_X
           platform_instance: instance2
   ```
 - If share `X` is shared with more snowflake accounts and database is created from share `X` in those account then additional entries need to be added in `consumers` list for share `X`, one per snowflake account. The same `shares` config can then be copied across recipes of all accounts.

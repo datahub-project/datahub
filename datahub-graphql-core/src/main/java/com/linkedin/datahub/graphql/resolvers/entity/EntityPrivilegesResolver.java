@@ -196,6 +196,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditOwners(OwnerUtils.isAuthorizedToUpdateOwners(context, urn));
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
+    result.setCanManageAssetSummary(AuthorizationUtils.canManageAssetSummary(context, urn));
     result.setCanShareEntity(AuthorizationUtils.canShareEntity(urn, context));
     result.setCanProposeDescription(
         ProposalUtils.isAuthorizedToProposeDescription(context, urn, null));

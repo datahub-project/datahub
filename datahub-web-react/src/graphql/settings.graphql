@@ -244,3 +244,19 @@ mutation updateHelpLink($input: UpdateHelpLinkInput!) {
 mutation updateOrganizationDisplayPreferences($input: UpdateOrganizationDisplayPreferencesInput!) {
     updateOrganizationDisplayPreferences(input: $input)
 }
+
+fragment AssetSettingsFields on AssetSettings {
+    assetSummary {
+        templates {
+            template {
+                ...PageTemplate
+            }
+        }
+    }
+}
+
+mutation updateAssetSettings($input: UpdateAssetSettingsInput!) {
+    updateAssetSettings(input: $input) {
+        ...AssetSettingsFields
+    }
+}

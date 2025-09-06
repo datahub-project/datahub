@@ -36,6 +36,8 @@ import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingT
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
 import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 
+import { notEmpty } from '@app/entityV2/shared/utils';
+
 type EditorProps = {
     readOnly?: boolean;
     content?: string;
@@ -86,7 +88,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         }
     });
     useEffect(() => {
-        if (readOnly && content) {
+        if (readOnly && notEmpty(content)) {
             manager.store.commands.setContent(content);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -425,6 +425,11 @@ type EntityPrivileges {
   canViewDatasetOperations: Boolean
 
   """
+  Whether the user can manage asset summary
+  """
+  canManageAssetSummary: Boolean
+
+  """
   Whether the user can edit data contacts
   """
   canEditDataContract: Boolean

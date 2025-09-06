@@ -107,6 +107,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
             ...originFields
         }
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
         proposals: proposals {
             ...proposalsFragment
         }

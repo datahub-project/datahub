@@ -14,6 +14,7 @@ const ListContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-top: 16px;
 `;
 
 export default function LinksList() {
@@ -63,6 +64,8 @@ export default function LinksList() {
                 .then(() => handleCloseUpdate());
         }
     };
+
+    if (!links.length) return null;
 
     return (
         <>

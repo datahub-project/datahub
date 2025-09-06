@@ -24,9 +24,6 @@ record StructuredPropertyDefinition {
     * The value type of the property. Must be a dataType.
     * e.g. To indicate that the property is of type DATE, use urn:li:dataType:datahub.date
     */
-    @Searchable = {
-      "fieldType": "URN"
-    }
     @UrnValidation = {
       "exist": true,
       "strict": true,
