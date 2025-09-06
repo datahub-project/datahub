@@ -92,7 +92,6 @@ from datahub.metadata.schema_classes import (
     InputFieldClass,
     InputFieldsClass,
     OwnerClass,
-    OwnershipClass,
     OwnershipTypeClass,
 )
 from datahub.sdk.chart import Chart
@@ -100,6 +99,7 @@ from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.entity import Entity
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
+from datahub.utilities.sentinels import unset
 
 logger = logging.getLogger(__name__)
 
@@ -720,17 +720,17 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ]
 
         # Determine chart ownership
-        chart_ownership: Optional[OwnershipClass] = None
+        chart_ownership: Optional[List[OwnerClass]] = None
         if dashboard is not None:
             ownership = self.get_ownership(dashboard)
             if ownership is not None:
-                chart_ownership = ownership
+                chart_ownership = [ownership]
         elif dashboard is None and dashboard_element is not None:
             ownership = self.get_ownership(dashboard_element)
             if ownership is not None:
-                chart_ownership = ownership
+                chart_ownership = [ownership]
 
-        chart_extra_aspects: List[Any] = []
+        chart_extra_aspects: List[InputFieldsClass | EmbedClass | Status] = []
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
             self.source_config.extract_embed_urls
@@ -768,13 +768,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 description=dashboard_element.description or "",
                 display_name=dashboard_element.title,  # title is (deprecated) using display_name
                 extra_aspects=chart_extra_aspects if chart_extra_aspects else None,
-                input_datasets=dashboard_element.get_view_urns(self.source_config),
+                input_datasets=list(
+                    dashboard_element.get_view_urns(self.source_config)
+                ),
                 last_modified=self._get_last_modified_time(dashboard),
                 name=dashboard_element.get_urn_element_id(),
-                owners=chart_ownership.owners if chart_ownership is not None else None,
-                parent_container=chart_parent_container
+                owners=list(chart_ownership) if chart_ownership else None,
+                parent_container=list(chart_parent_container)
                 if chart_parent_container
-                else None,
+                else unset,
                 platform=self.source_config.platform_name,
                 platform_instance=self.source_config.platform_instance
                 if self.source_config.include_platform_instance_in_urns
@@ -786,12 +788,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_dashboard_entities(
         self, looker_dashboard: LookerDashboard, charts: List[Chart]
     ) -> List[Dashboard]:
-        dashboard_ownership: Optional[OwnershipClass] = self.get_ownership(
-            looker_dashboard
-        )
+        dashboard_ownership: Optional[List[OwnerClass]] = None
+        ownership: Optional[OwnerClass] = self.get_ownership(looker_dashboard)
+        if ownership is not None:
+            dashboard_ownership = [ownership]
 
         # Extra Aspects not yet supported in the Dashboard entity class SDKv2
-        dashboard_extra_aspects: List[Any] = []
+        dashboard_extra_aspects: List[EmbedClass | InputFieldsClass | Status] = []
 
         # Embed URL aspect
         if (
@@ -829,7 +832,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return [
             Dashboard(
-                charts=charts,
+                charts=list(charts),
                 dashboard_url=looker_dashboard.url(
                     self.source_config.external_base_url
                 ),
@@ -840,10 +843,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 else None,
                 last_modified=self._get_last_modified_time(looker_dashboard),
                 name=looker_dashboard.get_urn_dashboard_id(),
-                owners=dashboard_ownership.owners
-                if dashboard_ownership is not None
-                else None,
-                parent_container=dashboard_parent_container,
+                owners=list(dashboard_ownership) if dashboard_ownership else None,
+                parent_container=list(dashboard_parent_container)
+                if dashboard_parent_container
+                else unset,
                 platform=self.source_config.platform_name,
                 platform_instance=self.source_config.platform_instance
                 if self.source_config.include_platform_instance_in_urns
@@ -1022,21 +1025,16 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def get_ownership(
         self, looker_dashboard_look: Union[LookerDashboard, LookerDashboardElement]
-    ) -> Optional[OwnershipClass]:
+    ) -> Optional[OwnerClass]:
         if looker_dashboard_look.owner is not None:
             owner_urn = looker_dashboard_look.owner.get_urn(
                 self.source_config.strip_user_ids_from_email
             )
             if owner_urn is not None:
-                ownership: OwnershipClass = OwnershipClass(
-                    owners=[
-                        OwnerClass(
-                            owner=owner_urn,
-                            type=OwnershipTypeClass.DATAOWNER,
-                        )
-                    ]
+                return OwnerClass(
+                    owner=owner_urn,
+                    type=OwnershipTypeClass.DATAOWNER,
                 )
-                return ownership
         return None
 
     def _get_last_modified_time(
