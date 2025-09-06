@@ -41,6 +41,12 @@ dependencies {
   testImplementation externalDependency.mockitoInline
   testImplementation project(':metadata-operation-context')
   testImplementation project(':entity-registry')
+  testImplementation externalDependency.junitJupiterApi
+  testRuntimeOnly externalDependency.junitJupiterEngine
+
+  test {
+    useJUnitPlatform()
+  }
 
   constraints {
       implementation(externalDependency.log4jCore) {
