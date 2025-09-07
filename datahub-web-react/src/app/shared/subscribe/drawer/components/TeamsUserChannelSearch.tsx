@@ -53,7 +53,11 @@ export default function TeamsUserChannelSearch({
     };
 
     const handleSelectOption = (values: string[]) => {
-        if (values.length === 0) return;
+        if (values.length === 0) {
+            setIsSearching(true);
+
+            return;
+        }
 
         const allResults = [...users, ...channels];
         const selectedOption = allResults.find((result) => `${result.type}-${result.id}` === values[0]);
@@ -61,6 +65,9 @@ export default function TeamsUserChannelSearch({
         if (selectedOption) {
             onSelectResult(selectedOption);
             clearResults();
+            setIsSearching(false);
+        } else {
+            setIsSearching(true);
         }
     };
 
@@ -81,14 +88,14 @@ export default function TeamsUserChannelSearch({
 
     const selectedOptionValues = useMemo(() => {
         // Only show selected values when we have search results or when not actively searching
-        if (isSearching && searchOptions.length === 0) {
+        if (isSearching) {
             return []; // Don't show selection when actively searching with no results
         }
+        if (selectedResult?.type !== searchType) {
+            return [];
+        }
         return selectedResult ? [`${selectedResult.type}-${selectedResult.id}`] : [];
-    }, [selectedResult, isSearching, searchOptions.length]);
-
-    // Use the selected values in the component
-    const currentSelection = selectedOptionValues;
+    }, [selectedResult, isSearching, searchType]);
 
     const searchPlaceholder = placeholder || `Search for ${searchType === 'user' ? 'team members' : 'channels'}...`;
 
@@ -102,7 +109,7 @@ export default function TeamsUserChannelSearch({
                 onUpdate={handleSelectOption}
                 isDisabled={disabled}
                 options={searchOptions}
-                values={currentSelection} // Use current selection values
+                values={selectedOptionValues} // Use current selection values
                 optionListStyle={{ width: '100%' }}
                 emptyState={
                     <div style={{ padding: '8px 0', textAlign: 'center' }}>

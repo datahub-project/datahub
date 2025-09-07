@@ -46,6 +46,7 @@ export type FormattedNotificationSetting = {
 export type NotificationTypeOptions = {
     slackChannel: string | null;
     email: string | null;
+    teamsChannel: string | null;
 };
 
 export type NotificationGroup = {

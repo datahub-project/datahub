@@ -13,7 +13,7 @@ import {
     ScenarioSettingsTitle,
     ThinDivider,
 } from '@app/settingsV2/notifications/styledComponents';
-import { NOTIFICATION_SINKS, NotificationTypeOptions } from '@app/settingsV2/notifications/types';
+import { NOTIFICATION_SINKS, NotificationTypeOptions, TEAMS_SINK } from '@app/settingsV2/notifications/types';
 import {
     EMAIL_ADDRESS_PARAM_NAME,
     SLACK_CHANNEL_PARAM_NAME,
@@ -38,6 +38,8 @@ import {
     NotificationSettings,
     StringMapEntry,
 } from '@types';
+
+const TEAMS_CHANNEL_PARAM_NAME = `${TEAMS_SINK.id}.channel`;
 
 type Props = {
     actorType: EntityType.CorpUser | EntityType.CorpGroup;
@@ -89,9 +91,11 @@ export const ActorNotificationScenarioSettings = ({
     const getDefaultNotificationTypeOptions = (type: NotificationScenarioType) => {
         const currSlackChannel = formattedNotificationSettings.get(type)?.params?.get(SLACK_CHANNEL_PARAM_NAME) || null;
         const currEmail = formattedNotificationSettings.get(type)?.params?.get(EMAIL_ADDRESS_PARAM_NAME) || null;
+        const currTeamsChannel = formattedNotificationSettings.get(type)?.params?.get(TEAMS_CHANNEL_PARAM_NAME) || null;
         return {
             slackChannel: currSlackChannel,
             email: currEmail,
+            teamsChannel: currTeamsChannel,
         };
     };
 

@@ -113,7 +113,7 @@ export default function TeamsSearchInterface({
         );
     }
 
-    if (showChannelSearch) {
+    if (showChannelSearch || selectedResult?.type === 'channel') {
         return (
             <StyledTeamsSection>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

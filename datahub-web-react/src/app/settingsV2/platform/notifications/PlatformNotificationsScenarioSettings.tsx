@@ -14,7 +14,7 @@ import {
     ScenarioSettingsHeader,
     ScenarioSettingsTitle,
 } from '@app/settingsV2/notifications/styledComponents';
-import { NOTIFICATION_SINKS, NotificationTypeOptions } from '@app/settingsV2/notifications/types';
+import { NOTIFICATION_SINKS, NotificationTypeOptions, TEAMS_SINK } from '@app/settingsV2/notifications/types';
 import {
     EMAIL_ADDRESS_PARAM_NAME,
     SLACK_CHANNEL_PARAM_NAME,
@@ -56,6 +56,8 @@ type Props = {
     refetch: () => void;
     globalSettings?: Partial<GlobalSettings>;
 };
+
+const TEAMS_CHANNEL_PARAM_NAME = `${TEAMS_SINK.id}.channel`;
 
 export const PlatformNotificationsScenarioSettings = ({ globalSettings, loading, error, refetch }: Props) => {
     const { config } = useAppConfig();
@@ -99,9 +101,11 @@ export const PlatformNotificationsScenarioSettings = ({ globalSettings, loading,
     const getDefaultNotificationTypeOptions = (type: NotificationScenarioType) => {
         const currSlackChannel = formattedNotificationSettings.get(type)?.params?.get(SLACK_CHANNEL_PARAM_NAME) || null;
         const currEmail = formattedNotificationSettings.get(type)?.params?.get(EMAIL_ADDRESS_PARAM_NAME) || null;
+        const currTeamsChannel = formattedNotificationSettings.get(type)?.params?.get(TEAMS_CHANNEL_PARAM_NAME) || null;
         return {
             slackChannel: currSlackChannel,
             email: currEmail,
+            teamsChannel: currTeamsChannel,
         };
     };
 

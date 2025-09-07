@@ -1,5 +1,5 @@
 import { message } from 'antd';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components/macro';
 
 import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK, TEAMS_SINK } from '@app/settingsV2/notifications/types';
@@ -53,6 +53,9 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
     const { config } = useAppConfig();
     const { data: globalSettings } = useGetGlobalSettingsQuery();
 
+    // Track whether we've already shown the Teams success message
+    const hasShownTeamsSuccessMessage = useRef(false);
+
     // Use centralized Teams platform configuration check - query once here
     const isTeamsPlatformConfigured = useIsMSFTTeamsIntegrationConfigured();
     const {
@@ -78,7 +81,12 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
         const teamsUserId = urlParams.get('teams_user_id');
 
         if (oauthResult === 'success' && teamsUserId && isPersonal) {
-            message.success('Teams account connected successfully! You will now receive direct message notifications.');
+            if (!hasShownTeamsSuccessMessage.current) {
+                message.success(
+                    'Teams account connected successfully! You will now receive direct message notifications.',
+                );
+            }
+            hasShownTeamsSuccessMessage.current = true;
 
             // Refetch settings to get the updated Teams user data from the backend
             // The integration service has already stored the complete user info including display name
