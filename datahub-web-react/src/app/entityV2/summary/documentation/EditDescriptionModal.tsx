@@ -1,4 +1,5 @@
 import { Editor, Modal } from '@components';
+import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -28,6 +29,7 @@ interface Props {
     handleDescriptionUpdate: () => Promise<void>;
     emptyDescriptionText: string;
     closeModal: () => void;
+    showProposalNoteModal: () => void;
 }
 
 export default function EditDescriptionModal({
@@ -36,6 +38,7 @@ export default function EditDescriptionModal({
     handleDescriptionUpdate,
     emptyDescriptionText,
     closeModal,
+    showProposalNoteModal,
 }: Props) {
     return (
         <Modal
@@ -50,9 +53,20 @@ export default function EditDescriptionModal({
                     onClick: () => closeModal(),
                 },
                 {
+                    text: 'Propose',
+                    variant: 'outline',
+                    onClick: () => showProposalNoteModal(),
+                },
+                {
                     text: 'Publish',
                     onClick: () => {
-                        handleDescriptionUpdate();
+                        handleDescriptionUpdate().catch((e) => {
+                            message.destroy();
+                            message.error({
+                                content: `Failed to update description: \n ${e.message || ''}`,
+                                duration: 3,
+                            });
+                        });
                         closeModal();
                     },
                 },

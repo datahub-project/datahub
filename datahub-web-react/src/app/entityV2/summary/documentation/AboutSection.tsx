@@ -2,6 +2,7 @@ import { Button, Editor, Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
@@ -53,7 +54,16 @@ export default function AboutSection({ hideLinksButton }: Props) {
         setUpdatedDescription,
         handleDescriptionUpdate,
         emptyDescriptionText,
+        proposeDescription,
+        showProposalNote,
+        setShowProposalNote,
     } = useDescriptionUtils();
+
+    const cancelUpdate = () => {
+        setShowDescriptionModal(false);
+        setShowProposalNote(false);
+        setUpdatedDescription(displayedDescription);
+    };
 
     return (
         <div>
@@ -101,10 +111,20 @@ export default function AboutSection({ hideLinksButton }: Props) {
                     setUpdatedDescription={setUpdatedDescription}
                     handleDescriptionUpdate={handleDescriptionUpdate}
                     emptyDescriptionText={emptyDescriptionText}
-                    closeModal={() => {
+                    closeModal={cancelUpdate}
+                    showProposalNoteModal={() => {
                         setShowDescriptionModal(false);
-                        setUpdatedDescription(displayedDescription);
+                        setShowProposalNote(true);
                     }}
+                />
+            )}
+            {showProposalNote && (
+                <ProposalDescriptionModal
+                    onPropose={(note) => {
+                        proposeDescription(note);
+                        setShowProposalNote(false);
+                    }}
+                    onCancel={cancelUpdate}
                 />
             )}
         </div>
