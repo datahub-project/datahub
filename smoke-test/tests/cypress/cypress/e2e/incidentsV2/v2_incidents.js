@@ -71,6 +71,7 @@ describe("incidents", () => {
       .click();
     cy.get('[data-testid="incident-create-button"]').click();
     // Wait for the incident to be created and appear in the list
+    cy.get('[data-testid="group-header-collapsed-icon"]').click();
     cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`, {
       timeout: 15000,
     }).should("exist");
