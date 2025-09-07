@@ -38,8 +38,13 @@ export function useUserRecommendations(options?: UseUserRecommendationsOptions) 
         return userRecommendationsData?.getUserRecommendations?.users || [];
     }, [userRecommendationsData]);
 
+    const totalRecommendedUsers = useMemo(() => {
+        return userRecommendationsData?.getUserRecommendations?.total || 0;
+    }, [userRecommendationsData]);
+
     return {
         recommendedUsers,
+        totalRecommendedUsers,
         loading,
         error,
         refetch,

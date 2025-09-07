@@ -61,6 +61,7 @@ export const InvitedUsersSection = styled.div`
 `;
 
 export const InviteUsersTabsSection = styled.div`
+    margin-top: 24px;
     margin-bottom: 4px;
 `;
 

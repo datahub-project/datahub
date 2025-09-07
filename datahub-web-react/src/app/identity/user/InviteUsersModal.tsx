@@ -47,6 +47,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
         emailValidationError,
         noRoleText,
         recommendedUsers,
+        totalRecommendedUsers,
         onSelectRole,
         onSelectEmailInviteRole,
         createInviteToken,
@@ -176,10 +177,13 @@ export default function InviteUsersModal({ open, onClose }: Props) {
             content: (
                 <RecommendedUsersList
                     recommendedUsers={recommendedUsers}
+                    totalRecommendedUsers={totalRecommendedUsers}
+                    maxDisplayUsers={MAX_RECOMMENDED_USERS}
                     selectedRole={selectedRole}
                     onInviteUser={handleInviteRecommendedUser}
                     userStates={recommendedUserStates}
                     hiddenUsers={hiddenUsers}
+                    onClose={onClose}
                 />
             ),
         },

@@ -86,6 +86,7 @@ export function useInviteUsersModal(options?: UseInviteUsersModalOptions) {
 
         // User recommendations
         recommendedUsers: userRecommendations.recommendedUsers,
+        totalRecommendedUsers: userRecommendations.totalRecommendedUsers,
         refetchRecommendations: userRecommendations.refetch,
 
         // Modal management

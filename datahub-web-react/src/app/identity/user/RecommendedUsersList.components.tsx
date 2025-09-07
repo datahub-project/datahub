@@ -112,3 +112,27 @@ export const InviteStatus = styled.div<{ $failed?: boolean }>`
     font-weight: 500;
     color: ${(props) => (props.$failed ? colors.red[1000] : colors.green[500])};
 `;
+
+export const ViewMoreLink = styled.a`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    margin-top: 8px;
+    border: 1px solid ${colors.gray[1500]};
+    border-radius: 8px;
+    background: ${colors.gray[100]};
+    color: ${colors.blue[1800]};
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+
+    &:hover {
+        background: ${colors.gray[300]};
+        border-color: ${colors.blue[1800]};
+        color: ${colors.blue[1900]};
+        text-decoration: none;
+    }
+`;

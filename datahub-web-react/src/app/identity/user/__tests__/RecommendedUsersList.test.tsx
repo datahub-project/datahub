@@ -121,7 +121,7 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('2 Recommended Users')).toBeInTheDocument();
+        expect(screen.getByText('2 Recommended')).toBeInTheDocument();
         expect(screen.getByText('testuser@company.com')).toBeInTheDocument();
         expect(screen.getByText('lowuser@company.com')).toBeInTheDocument();
     });
@@ -202,7 +202,7 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('1 Recommended Users')).toBeInTheDocument();
+        expect(screen.getByText('1 Recommended')).toBeInTheDocument();
         expect(screen.queryByText('testuser@company.com')).not.toBeInTheDocument();
         expect(screen.getByText('lowuser@company.com')).toBeInTheDocument();
     });
@@ -226,7 +226,7 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('1 Recommended Users')).toBeInTheDocument();
+        expect(screen.getByText('1 Recommended')).toBeInTheDocument();
         expect(screen.getByText('testuser@company.com')).toBeInTheDocument();
         expect(screen.queryByText('negativeuser@company.com')).not.toBeInTheDocument();
     });
@@ -247,6 +247,6 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('6 Recommended Users')).toBeInTheDocument();
+        expect(screen.getByText('6 Recommended')).toBeInTheDocument();
     });
 });

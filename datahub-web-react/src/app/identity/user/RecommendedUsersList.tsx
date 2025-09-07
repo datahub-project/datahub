@@ -1,5 +1,6 @@
-import { Avatar, Button, Text } from '@components';
+import { Avatar, Button, Text, colors } from '@components';
 import React, { useEffect, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 
 import {
     EmptyMessage,
@@ -44,19 +45,26 @@ const getPlatformIconUrl = (platformUrn: string): string | null => {
 
 interface Props {
     recommendedUsers: CorpUser[];
+    totalRecommendedUsers?: number;
+    maxDisplayUsers?: number;
     selectedRole?: DataHubRole;
     onInviteUser?: (user: CorpUser, role?: DataHubRole) => void;
     userStates?: Record<string, RecommendedUserState>;
     hiddenUsers?: Set<string>;
+    onClose?: () => void;
 }
 
 export default function RecommendedUsersList({
     recommendedUsers,
+    totalRecommendedUsers = 0,
+    maxDisplayUsers = RECOMMENDED_USERS_DISPLAY_COUNT,
     selectedRole,
     onInviteUser,
     userStates = {},
     hiddenUsers = new Set(),
+    onClose,
 }: Props) {
+    const history = useHistory();
     // State to track selected roles for each user
     const [userRoles, setUserRoles] = useState<Record<string, DataHubRole | undefined>>({});
     // State to track which users are fading out
@@ -92,9 +100,7 @@ export default function RecommendedUsersList({
         // Allow users with any usage percentile (including 0) or users without usage data
         // Only exclude users if they explicitly have negative usage (which shouldn't happen)
         const hasValidUsage =
-            !user.usageFeatures?.userUsagePercentilePast30Days ||
-            user.usageFeatures.userUsagePercentilePast30Days === 0 ||
-            user.usageFeatures.userUsagePercentilePast30Days > 0;
+            !user.usageFeatures?.userUsagePercentilePast30Days || user.usageFeatures.userUsagePercentilePast30Days >= 0;
         if (!hasValidUsage) return false;
 
         // Hide users that have been successfully invited and removed after 5 seconds
@@ -132,7 +138,7 @@ export default function RecommendedUsersList({
 
     return (
         <RecommendedUsersContainer>
-            <RecommendedUsersHeader size="sm">{displayUsers.length} Recommended Users</RecommendedUsersHeader>
+            <RecommendedUsersHeader size="sm">{displayUsers.length} Recommended</RecommendedUsersHeader>
             {displayUsers.map((user) => (
                 <UserCard key={user.urn} $fadeOut={fadingUsers.has(user.urn)}>
                     <UserInfo>
@@ -195,6 +201,30 @@ export default function RecommendedUsersList({
                     })()}
                 </UserCard>
             ))}
+
+            {/* Show "View more" button if there are more users than displayed */}
+            {totalRecommendedUsers > maxDisplayUsers && (
+                <Button
+                    variant="text"
+                    size="md"
+                    onClick={() => {
+                        // Close the modal first
+                        onClose?.();
+                        // Then navigate to the recommended tab
+                        history.push('/settings/identities/users?tab=recommended');
+                    }}
+                    style={{
+                        width: '100%',
+                        marginTop: '8px',
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: colors.gray[1700],
+                    }}
+                >
+                    View All {totalRecommendedUsers}
+                </Button>
+            )}
         </RecommendedUsersContainer>
     );
 }

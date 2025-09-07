@@ -152,6 +152,7 @@ describe('InviteUsersModal', () => {
         inviteLink: 'https://test.datahub.com/signup?invite_token=test-token-123',
         emailValidationError: '',
         recommendedUsers: [],
+        totalRecommendedUsers: 0,
         roles: [
             { urn: 'urn:li:role:reader', name: 'Reader', type: 'CORP_USER' as any, __typename: 'DataHubRole' },
             { urn: 'urn:li:role:editor', name: 'Editor', type: 'CORP_USER' as any, __typename: 'DataHubRole' },

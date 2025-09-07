@@ -107,6 +107,10 @@ export const ActionsContainer = styled.div`
     gap: 12px;
 `;
 
+export const SubTabsContainer = styled.div`
+    margin-bottom: 16px;
+`;
+
 export const ModalFooter = styled.div`
     display: flex;
     justify-content: flex-end;
