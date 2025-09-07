@@ -34,8 +34,9 @@ export function useExecutorPoolSelection({ searchQuery, currentExecutorId, isEdi
 
     const pools = (data?.listRemoteExecutorPools?.remoteExecutorPools || []) as RemoteExecutorPool[];
     const total = data?.listRemoteExecutorPools?.total || 0;
+    const globalDefaultPoolId = defaultPool?.defaultRemoteExecutorPool?.pool?.executorPoolId;
     const defaultPoolId =
-        defaultPool?.defaultRemoteExecutorPool?.pool?.executorPoolId ||
+        (globalDefaultPoolId && pools.find((pool) => pool.executorPoolId === globalDefaultPoolId)?.executorPoolId) ||
         pools.find((pool) => pool.executorPoolId === DEFAULT_EXECUTOR_ID)?.executorPoolId ||
         pools[0]?.executorPoolId;
 
