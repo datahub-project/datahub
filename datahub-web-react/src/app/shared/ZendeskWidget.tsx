@@ -13,6 +13,20 @@ type ZendeskWidgetProps = ZendeskConfig & {
     config: AppConfig;
 };
 
+const getArea = () => {
+    const currentLocation = window.location.href.toLowerCase();
+    if (currentLocation.includes('/observe/') || currentLocation.includes('/quality/')) {
+        return 'observability';
+    }
+    if (currentLocation.includes('/ingestion/')) {
+        return 'ingestion';
+    }
+    if (currentLocation.includes('/settings/tokens/')) {
+        return 'api';
+    }
+    return 'product';
+};
+
 export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config, trigger }) => {
     const entityRegistry = useEntityRegistry();
     const userEmail = me.user?.editableProperties?.email || me.user?.info?.email || '';
@@ -22,11 +36,15 @@ export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config
         me.user?.info?.displayName ||
         me.user?.info?.fullName ||
         entityRegistry.getDisplayName(EntityType.CorpUser, me.user?.urn);
+
+    const area = getArea();
     const customFields = {
         // URL
         40250558726555: window.location.href,
         // Server version
         31805612950427: config?.appVersion || 'Unknown',
+        // Area
+        34905797479067: area,
     };
     useZendeskWidget({ onLoad, userEmail, userName, customFields, trigger });
 
