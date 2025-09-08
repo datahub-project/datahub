@@ -536,6 +536,11 @@ LIMIT @max_results"""
         result_values = {}
         safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
+        # Get column data types first for better ordering strategy
+        column_types = self._get_partition_column_types(
+            table, project, schema, partition_columns, execute_query_func
+        )
+
         for col_name in partition_columns:
             try:
                 # Use utility for validation
@@ -544,8 +549,9 @@ LIMIT @max_results"""
                     continue
 
                 # Use utility for query building with parameters
+                col_data_type = column_types.get(col_name, "")
                 query, job_config = self._create_partition_stats_query(
-                    safe_table_ref, col_name, max_results
+                    safe_table_ref, col_name, max_results, col_data_type
                 )
 
                 # Use utility for execution with context
@@ -594,12 +600,12 @@ LIMIT @max_results"""
         return result_values
 
     def _create_partition_stats_query(
-        self, table_ref: str, col_name: str, max_results: int = 10
+        self, table_ref: str, col_name: str, max_results: int = 10, data_type: str = ""
     ) -> Tuple[str, QueryJobConfig]:
         """
         Create a standardized partition statistics query with parameterized limit.
         """
-        order_by = self._get_column_ordering_strategy(col_name)
+        order_by = self._get_column_ordering_strategy(col_name, data_type)
         safe_max_results = max(1, min(int(max_results), 1000))
 
         query = f"""WITH PartitionStats AS (
@@ -621,11 +627,11 @@ SELECT val, record_count FROM PartitionStats"""
 
         return query, job_config
 
-    def _get_column_ordering_strategy(self, col_name: str) -> str:
+    def _get_column_ordering_strategy(self, col_name: str, data_type: str = "") -> str:
         """
-        Get the appropriate ORDER BY strategy for a column based on its type.
+        Get the appropriate ORDER BY strategy for a column based on its name and data type.
         """
-        if self._is_date_like_column(col_name):
+        if self._is_date_like_column(col_name) or self._is_date_type_column(data_type):
             return f"`{col_name}` DESC"  # Most recent first for time-based columns
         else:
             return "record_count DESC"  # Most populated first for other columns
@@ -650,6 +656,21 @@ SELECT val, record_count FROM PartitionStats"""
             "modified_at",
             "updated_at",
             "event_time",
+        }
+
+    def _is_date_type_column(self, data_type: str) -> bool:
+        """
+        Check if a column's data type is a date/time type in BigQuery.
+        """
+        if not data_type:
+            return False
+
+        data_type_upper = data_type.upper()
+        return data_type_upper in {
+            "DATE",
+            "DATETIME",
+            "TIMESTAMP",
+            "TIME",
         }
 
     def _log_partition_attempt(
@@ -1227,17 +1248,26 @@ LIMIT @limit_rows"""
 
         logger.debug(f"Determining partition values for columns: {required_columns}")
 
-        # Strategy 1: For tables with date-like columns or date component columns, try strategic dates first
+        # Get column data types to better identify date columns
+        column_types = self._get_partition_column_types(
+            table, project, schema, required_columns, execute_query_func
+        )
+
+        # Strategy 1: For tables with date-like columns, date types, or date component columns, try strategic dates first
         has_date_columns = any(
             self._is_date_like_column(col) for col in required_columns
+        )
+        has_date_types = any(
+            self._is_date_type_column(column_types.get(col, ""))
+            for col in required_columns
         )
         has_date_components = any(
             col.lower() in ["year", "month", "day"] for col in required_columns
         )
 
-        if has_date_columns or has_date_components:
+        if has_date_columns or has_date_types or has_date_components:
             logger.debug(
-                "Found date-like columns or date component columns, trying strategic date candidates"
+                "Found date-like columns, date types, or date component columns, trying strategic date candidates"
             )
             candidate_dates = self._get_strategic_candidate_dates()
 
@@ -1245,7 +1275,11 @@ LIMIT @limit_rows"""
                 filters = []
                 for col in required_columns:
                     try:
-                        if self._is_date_like_column(col):
+                        col_data_type = column_types.get(col, "")
+
+                        if self._is_date_like_column(col) or self._is_date_type_column(
+                            col_data_type
+                        ):
                             date_str = test_date.strftime("%Y-%m-%d")
                             filters.append(self._create_safe_filter(col, date_str))
                         elif col.lower() == "year":
