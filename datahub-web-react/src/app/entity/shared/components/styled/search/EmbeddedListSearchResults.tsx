@@ -89,6 +89,7 @@ const WarningMessage = styled.div`
     gap: 8px;
     padding: 8px;
     display: flex;
+    margin: 8px 16px 0 16px
     align-items: center;
     color: ${colors.yellow[1000]};
     background-color: ${colors.yellow[0]};
