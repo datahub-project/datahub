@@ -24,6 +24,10 @@ class EventProcessingStats(BaseModel):
     Note: Might be merged into ActionStats in the future.
     """
 
+    num_events_processed: int = pydantic.Field(
+        0,
+        description="The number of events we have processed. Does not include no-ops.",
+    )
     last_seen_event_time: Optional[str] = pydantic.Field(
         None, description="The event time of the last event we processed"
     )
