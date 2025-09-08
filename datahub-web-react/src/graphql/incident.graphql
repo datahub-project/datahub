@@ -1,5 +1,5 @@
 # We cannot use entityPreview here because it will cause a circular dependency
-fragment relatedAssetPreview on Entity {
+fragment incidentLinkedAssetPreview on Entity {
     urn
     type
     ... on Dataset {
@@ -161,14 +161,14 @@ fragment incidentFields on Incident {
         }
     }
     entity {
-        ...relatedAssetPreview
+        ...incidentLinkedAssetPreview
     }
     linkedAssets: relationships(
         input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000, includeSoftDelete: false }
     ) {
         relationships {
             entity {
-                ...relatedAssetPreview
+                ...incidentLinkedAssetPreview
             }
         }
     }
