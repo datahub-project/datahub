@@ -105,6 +105,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
         <PromptWrapper>
             {prompt.type === FormPromptType.StructuredProperty && (
                 <StructuredPropertyPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
@@ -113,6 +114,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
             )}
             {prompt.type === FormPromptType.FieldsStructuredProperty && (
                 <StructuredPropertyPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
@@ -123,15 +125,18 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
             )}
             {prompt.type === FormPromptType.Ownership && (
                 <OwnershipPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
                     optimisticCompletedTimestamp={optimisticCompletedTimestamp}
                     setRemovedUrns={setRemovedUrns}
+                    associatedUrn={associatedUrn}
                 />
             )}
             {prompt.type === FormPromptType.Documentation && (
                 <DocumentationPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
@@ -140,6 +145,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
             )}
             {prompt.type === FormPromptType.FieldsDocumentation && (
                 <DocumentationPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
@@ -150,6 +156,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
             )}
             {prompt.type === FormPromptType.GlossaryTerms && (
                 <GlossaryTermsPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
@@ -159,6 +166,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
             )}
             {prompt.type === FormPromptType.FieldsGlossaryTerms && (
                 <GlossaryTermsPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}
@@ -170,6 +178,7 @@ export default function Prompt({ promptNumber, prompt, field, associatedUrn, sch
             )}
             {prompt.type === FormPromptType.Domain && (
                 <DomainPrompt
+                    key={prompt.id}
                     promptNumber={promptNumber}
                     prompt={prompt}
                     submitResponse={handleSubmitResponse}

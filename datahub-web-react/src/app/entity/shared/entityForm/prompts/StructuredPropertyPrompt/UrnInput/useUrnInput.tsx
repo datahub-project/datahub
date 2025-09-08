@@ -51,6 +51,7 @@ export default function useUrnInput({
     // we store the selected entity objects here to render display name, platform, etc.
     // selectedValues contains a list of urns that we store for the structured property values
     const [isFocused, setIsFocused] = useState(false);
+    const [hasEdited, setHasEdited] = useState(false);
     const [searchValue, setSearchValue] = useState<string>('');
     const [selectedEntities, setSelectedEntities] = useState<Entity[]>(initialEntities);
     const { data: initialData } = useGetSearchResultsForMultipleQuery({
@@ -74,11 +75,13 @@ export default function useUrnInput({
     const previousEntityUrn = usePrevious(entityData?.urn);
     const previousInitial = usePrevious(initialEntities);
 
+    // initialization helper
     useEffect(() => {
-        if (entityData?.urn !== previousEntityUrn || !isEqual(previousInitial, initialEntities)) {
+        if (entityData?.urn !== previousEntityUrn || (!isEqual(previousInitial, initialEntities) && !hasEdited)) {
             setSelectedEntities(initialEntities || []);
+            setHasEdited(false);
         }
-    }, [entityData?.urn, previousEntityUrn, initialEntities, previousInitial]);
+    }, [entityData?.urn, previousEntityUrn, initialEntities, previousInitial, hasEdited]);
 
     function handleSearch(query: string) {
         setSearchValue(query);
@@ -95,6 +98,7 @@ export default function useUrnInput({
 
         const newEntities = isMultiple ? [...selectedEntities, selectedEntity] : [selectedEntity];
         setSelectedEntities(newEntities);
+        setHasEdited(true);
     };
 
     const onSelectEntity = (entity: Entity) => {
@@ -103,6 +107,7 @@ export default function useUrnInput({
 
         const newEntities = isMultiple ? [...selectedEntities, entity] : [entity];
         setSelectedEntities(newEntities);
+        setHasEdited(true);
     };
 
     const onDeselectValue = (urn: string) => {
@@ -111,6 +116,7 @@ export default function useUrnInput({
 
         const newSelectedEntities = selectedEntities.filter((entity) => entity.urn !== urn);
         setSelectedEntities(newSelectedEntities);
+        setHasEdited(true);
     };
 
     const tagRender = (props: any) => {

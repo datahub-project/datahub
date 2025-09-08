@@ -1,9 +1,8 @@
-import { useBatchRemoveOwnersMutation, useBatchRemoveTermsMutation } from '@graphql/mutations.generated';
+import { useBatchRemoveTermsMutation } from '@graphql/mutations.generated';
 import { FormPromptType, SubResourceType, SubmitFormPromptInput } from '@types';
 
 export default function useRemoveSuggested(removedUrns: string[], promptType: FormPromptType, associatedUrn: string) {
     const [removeTermsMutation] = useBatchRemoveTermsMutation();
-    const [removeOwnersMutation] = useBatchRemoveOwnersMutation();
 
     const urnsToRemove = Array.from(new Set(removedUrns));
 
@@ -48,22 +47,6 @@ export default function useRemoveSuggested(removedUrns: string[], promptType: Fo
             }
         }
 
-        if (promptType === FormPromptType.Ownership) {
-            if (urnsToRemove.length > 0) {
-                return removeOwnersMutation({
-                    variables: {
-                        input: {
-                            ownerUrns: urnsToRemove,
-                            resources: [
-                                {
-                                    resourceUrn: associatedUrn,
-                                },
-                            ],
-                        },
-                    },
-                });
-            }
-        }
         return Promise.resolve();
     };
 
