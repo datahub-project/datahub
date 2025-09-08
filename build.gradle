@@ -87,6 +87,7 @@ plugins {
   id 'com.palantir.docker' version '0.35.0' apply false
   id 'com.avast.gradle.docker-compose' version '0.17.12'
   id "com.diffplug.spotless" version "6.23.3"
+  id 'com.adarshr.test-logger' version '4.0.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -310,6 +311,25 @@ allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
+
+  // Apply test-logger plugin for better test output
+  apply plugin: 'com.adarshr.test-logger'
+  
+  testlogger {
+    theme 'mocha' // Clean, modern output
+    showExceptions true
+    showStackTraces true
+    showFullStackTraces false
+    showCauses true
+    showSummary true
+    showPassed false // Only show failures for cleaner output
+    showSkipped true
+    showFailed true
+    showStandardStreams false
+    showPassedStandardStreams false
+    showSkippedStandardStreams false
+    showFailedStandardStreams true
+  }
 
   tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
       // https://docs.gradle.org/current/userguide/performance.html
