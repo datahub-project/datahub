@@ -171,7 +171,10 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
     };
 
     const handleViewAllClickWarning = () => {
-        console.log('handleViewAllClickWarning called');
+        analytics.event({
+            type: EventType.IngestionViewAllClickWarningEvent,
+            executionUrn: urn,
+        });
     };
 
     // Try getting the counts via the ingestion report.
