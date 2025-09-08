@@ -48,6 +48,9 @@ query getDomain($urn: String!) {
         }
         ...domainEntitiesFields
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 

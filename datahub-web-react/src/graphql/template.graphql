@@ -5,6 +5,9 @@ fragment PageTemplate on DataHubPageTemplate {
         rows {
             ...PageTemplateRow
         }
+        assetSummary {
+            ...PageTemplateAssetSummary
+        }
         surface {
             surfaceType
         }
@@ -49,6 +52,19 @@ fragment PageModule on DataHubPageModule {
                 relatedEntitiesFilterJson
             }
         }
+    }
+}
+
+fragment PageTemplateAssetSummary on DataHubPageTemplateAssetSummary {
+    summaryElements {
+        ...SummaryElement
+    }
+}
+
+fragment SummaryElement on SummaryElement {
+    elementType
+    structuredProperty {
+        ...structuredPropertyFields
     }
 }
 
