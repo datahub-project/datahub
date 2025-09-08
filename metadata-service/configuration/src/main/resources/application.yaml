@@ -32,7 +32,7 @@ authentication:
     - type: com.datahub.authentication.authenticator.DataHubOAuthAuthenticator
       configs:
         # Enable/disable OAuth authentication
-        enabled: ${OAUTH_AUTHENTICATOR_ENABLED:true}
+        enabled: ${OAUTH_AUTHENTICATOR_ENABLED:false}
 
         # Trusted JWT issuers - must match the 'iss' claim in JWT tokens (comma-separated)
         trustedIssuers: ${OAUTH_TRUSTED_ISSUERS:}
