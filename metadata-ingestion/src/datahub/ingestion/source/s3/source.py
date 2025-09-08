@@ -10,7 +10,6 @@ from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
-from more_itertools import peekable
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
@@ -883,8 +882,7 @@ class S3Source(StatefulIngestionSourceBase):
             prefix=folder,
             aws_config=self.source_config.aws_config,
         )
-        iterator = peekable(iterator)
-        if iterator:
+        if True:
             sorted_dirs = sorted(
                 iterator,
                 key=functools.cmp_to_key(partitioned_folder_comparator),
@@ -907,7 +905,6 @@ class S3Source(StatefulIngestionSourceBase):
                 return folders
             else:
                 return [f"{protocol}{bucket_name}/{folder}"]
-        return [f"{protocol}{bucket_name}/{folder}"]
 
     def get_folder_info(
         self,
