@@ -293,8 +293,8 @@ class PowerBiEnvironment(ConfigEnum):
     PowerBI environment options
     """
 
-    COMMERCIAL = "commercial"  # Commercial PowerBI environment
-    GOVERNMENT = "government"  # Government PowerBI environment
+    COMMERCIAL = "COMMERCIAL"  # Commercial PowerBI environment
+    GOVERNMENT = "GOVERNMENT"  # Government PowerBI environment
 
 
 class PowerBiDashboardSourceConfig(
