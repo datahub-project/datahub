@@ -323,6 +323,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                         unionType: UnionType.AND,
                         filters: [{ field: 'runId', values: [id] }],
                     }}
+                    isViewAllMode
                     onClose={() => setShowAssetSearch(false)}
                 />
             )}
