@@ -39,7 +39,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         useTemplateOperations(setPersonalTemplate, personalTemplate, templateType);
 
     // Modal state
-    const moduleModalState = useModuleModalState();
+    const moduleModalState = useModuleModalState(templateType);
 
     // Module operations
     const { addModule, removeModule, upsertModule, moveModule } = useModuleOperations(

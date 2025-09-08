@@ -83,7 +83,7 @@ export default function BaseProperty<T>({
 }: Props<T>) {
     const { isTemplateEditable } = usePageTemplateContext();
 
-    const menuItems = usePropertyMenuItems(position);
+    const menuItems = usePropertyMenuItems(position, property.type);
 
     const valuesToShow = useMemo(() => values.slice(0, maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);
     const valuesToShowInPopover = useMemo(() => values.slice(maxValues ?? DEFAULT_MAX_ITEMS), [values, maxValues]);

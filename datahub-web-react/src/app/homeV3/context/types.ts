@@ -6,7 +6,7 @@ import {
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, PageModuleScope, PageTemplateSurfaceType } from '@types';
+import { DataHubPageModuleType, PageModuleScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
 // Input types for the methods
 export interface UpsertModuleInput {
@@ -72,6 +72,6 @@ export type PageTemplateContextState = {
     // Asset summary operations
     summaryElements?: AssetProperty[];
     addSummaryElement: (input: AddSummaryElementInput) => void;
-    removeSummaryElement: (position: number) => void;
+    removeSummaryElement: (position: number, elementType: SummaryElementType) => void;
     replaceSummaryElement: (input: ReplaceSummaryElementInput) => void;
 };

@@ -20,6 +20,7 @@ import {
     NotificationSinkType,
     OidcSettings,
     OwnerInput,
+    PageTemplateSurfaceType,
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
@@ -27,6 +28,7 @@ import {
     ScenarioType,
     SearchBarApi,
     StructuredPropertyFilterStatus,
+    SummaryElementType,
 } from '@types';
 
 // NOTE: If we move this file, update metadata-ingestion/scripts/analyticseventsdocgen.sh with new path for auto generating docs
@@ -230,6 +232,9 @@ export enum EventType {
     WelcomeToDataHubModalClickViewDocumentationEvent,
     ProductTourButtonClickEvent,
     SetDeprecation,
+    AssetPageAddSummaryElement,
+    AssetPageRemoveSummaryElement,
+    AssetPageReplaceSummaryElement,
 }
 
 /**
@@ -506,6 +511,8 @@ export const EntityActionType = {
     UpdateTags: 'UpdateTags',
     UpdateTerms: 'UpdateTerms',
     UpdateLinks: 'UpdateLinks',
+    AddLink: 'AddLink',
+    DeleteLink: 'DeleteLink',
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
@@ -1589,6 +1596,7 @@ export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleAddEvent extends BaseEvent {
@@ -1596,6 +1604,7 @@ export interface HomePageTemplateModuleAddEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
@@ -1603,6 +1612,7 @@ export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
@@ -1610,27 +1620,32 @@ export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleMove;
     templateUrn: string;
     isPersonal: boolean;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCreateOpen;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalEditOpen;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCancel;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
@@ -1649,17 +1664,20 @@ export interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleAssetClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleExpandClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleViewAllClick;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
@@ -1676,6 +1694,25 @@ export interface SetDeprecationEvent extends BaseEvent {
     entityUrns: string[];
     deprecated: boolean;
     resources?: ResourceRefInput[];
+}
+
+export interface AssetPageAddSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageAddSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageRemoveSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageRemoveSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageReplaceSummaryElement;
+    templateUrn: string;
+    currentElementType: SummaryElementType;
+    newElementType: SummaryElementType;
 }
 
 /**
@@ -1874,4 +1911,7 @@ export type Event =
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
     | IngestionSourceConfigurationImpressionEvent
-    | SetDeprecationEvent;
+    | SetDeprecationEvent
+    | AssetPageAddSummaryElementEvent
+    | AssetPageRemoveSummaryElementEvent
+    | AssetPageReplaceSummaryElementEvent;
