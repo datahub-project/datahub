@@ -100,7 +100,7 @@ export const SummaryTab = ({
             )}
             <IngestedAssetsSection>
                 {data?.executionRequest?.id && (
-                    <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
+                    <IngestedAssets executionResult={result} id={data?.executionRequest?.id} urn={urn} />
                 )}
             </IngestedAssetsSection>
             <SectionBase>

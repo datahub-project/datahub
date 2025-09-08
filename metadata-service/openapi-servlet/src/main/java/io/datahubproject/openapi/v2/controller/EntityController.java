@@ -129,7 +129,8 @@ public class EntityController
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
-      boolean expandEmpty)
+      boolean expandEmpty,
+      int totalCount)
       throws URISyntaxException {
     return GenericEntityScrollResultV2.builder()
         .results(

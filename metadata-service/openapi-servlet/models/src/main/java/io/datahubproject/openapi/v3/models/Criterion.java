@@ -31,7 +31,8 @@ public class Criterion {
     STARTS_WITH,
     ENDS_WITH,
     EXISTS,
-    IN
+    IN,
+    CONTAIN
   }
 
   /** Convert this criterion to its counterpart in RecordTemplate. */
