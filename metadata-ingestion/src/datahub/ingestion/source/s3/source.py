@@ -882,29 +882,28 @@ class S3Source(StatefulIngestionSourceBase):
             prefix=folder,
             aws_config=self.source_config.aws_config,
         )
-        if True:
-            sorted_dirs = sorted(
-                iterator,
-                key=functools.cmp_to_key(partitioned_folder_comparator),
-                reverse=not min,
-            )
-            folders = []
-            for dir in sorted_dirs:
-                if path_spec.dir_allowed(f"{protocol}{bucket_name}/{dir}/"):
-                    folders_list = self.get_dir_to_process(
-                        bucket_name=bucket_name,
-                        folder=dir + "/",
-                        path_spec=path_spec,
-                        protocol=protocol,
-                        min=min,
-                    )
-                    folders.extend(folders_list)
-                    if path_spec.traversal_method != FolderTraversalMethod.ALL:
-                        return folders
-            if folders:
-                return folders
-            else:
-                return [f"{protocol}{bucket_name}/{folder}"]
+        sorted_dirs = sorted(
+            iterator,
+            key=functools.cmp_to_key(partitioned_folder_comparator),
+            reverse=not min,
+        )
+        folders = []
+        for dir in sorted_dirs:
+            if path_spec.dir_allowed(f"{protocol}{bucket_name}/{dir}/"):
+                folders_list = self.get_dir_to_process(
+                    bucket_name=bucket_name,
+                    folder=dir + "/",
+                    path_spec=path_spec,
+                    protocol=protocol,
+                    min=min,
+                )
+                folders.extend(folders_list)
+                if path_spec.traversal_method != FolderTraversalMethod.ALL:
+                    return folders
+        if folders:
+            return folders
+        else:
+            return [f"{protocol}{bucket_name}/{folder}"]
 
     def get_folder_info(
         self,
