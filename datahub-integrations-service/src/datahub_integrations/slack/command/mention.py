@@ -16,7 +16,12 @@ from datahub_integrations.chat.chat_history import (
     HumanMessage,
     Message,
 )
-from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+from datahub_integrations.chat.chat_session import (
+    ChatMaxToolCallsExceededError,
+    ChatSession,
+    ChatSessionMaxTokensExceededError,
+    NextMessage,
+)
 from datahub_integrations.chat.slackify import slackify_markdown
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.command.mention_helpers import (
@@ -100,6 +105,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         event: The event containing message details (text, channel, user, thread_ts)
     """
     channel_id = event.channel_id
+    user_name = event.user_id
     response_ts = None
     chat_session = None
     is_limited_history = None
@@ -185,14 +191,25 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
     except Exception as e:
-        logger.exception(f"Failed to send Slack response to channel {channel_id}: {e}")
         if response_ts is not None:
+            logger.warning(f"Failed to send successful response {channel_id}: {e}")
+            if isinstance(e, ChatMaxToolCallsExceededError):
+                text = ":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question."
+            elif isinstance(e, ChatSessionMaxTokensExceededError):
+                # TODO: Handle this case by compacting/truncating the history
+                text = ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread."
+            else:
+                text = ":x: Encountered an internal error"
             app.client.chat_update(
                 channel=channel_id,
                 ts=response_ts,
-                text=":x: Encountered an internal error",
+                text=text,
                 icon_url=DATAHUB_SLACK_ICON_URL,
                 mrkdwn=True,
+            )
+        else:
+            logger.exception(
+                f"Failed to send Slack response to channel {channel_id}: {e}"
             )
         track_saas_event(
             ChatbotInteractionEvent(
@@ -232,14 +249,15 @@ def _generate_mention_response(
     response_ts: str,
 ) -> Tuple[str, List[str]]:
     original_history_length = len(chat_session.history.messages)
-
-    with chat_session.set_progress_callback(progress_callback):
-        response = chat_session.generate_next_message()
-    assert isinstance(response, NextMessage)
-
-    # Add the intermediate thinking messages to the history store.
-    new_messages = chat_session.history.messages[original_history_length:]
-    _update_slack_history_cache(event, response_ts, response, new_messages)
+    response = None
+    try:
+        with chat_session.set_progress_callback(progress_callback):
+            response = chat_session.generate_next_message()
+        assert isinstance(response, NextMessage)
+    finally:
+        # Add the intermediate thinking messages to the history store.
+        new_messages = chat_session.history.messages[original_history_length:]
+        _update_slack_history_cache(event, response_ts, response, new_messages)
 
     return (
         slackify_markdown(response.text),
@@ -250,13 +268,14 @@ def _generate_mention_response(
 def _update_slack_history_cache(
     event: SlackMentionEvent,
     response_ts: str,
-    response: NextMessage,
+    response: Optional[NextMessage],
     new_messages: List[Message],
 ) -> None:
     thread_history = slack_config.get_slack_history_cache().get_thread(
         event.channel_id, event.thread_ts
     )
-    thread_history.add_message(response_ts, AssistantMessage(text=response.text))
+    if response is not None:
+        thread_history.add_message(response_ts, AssistantMessage(text=response.text))
     thread_history.add_thinking(response_ts, new_messages)
 
 

@@ -230,7 +230,7 @@ class TestCreateEmbeddings:
         assert embeddings.model_id == "bedrock/cohere.embed-multilingual-v3"
         assert embeddings._aws_region_name == "eu-west-1"
 
-    @patch.dict(os.environ, {"AWS_REGION": "ap-southeast-1"})
+    @patch.dict(os.environ, {"AWS_REGION": "ap-southeast-1", "BEDROCK_AWS_REGION": ""})
     def test_create_embeddings_aws_region_fallback(self) -> None:
         """Test that AWS_REGION is used as fallback for region."""
         embeddings = create_embeddings()
