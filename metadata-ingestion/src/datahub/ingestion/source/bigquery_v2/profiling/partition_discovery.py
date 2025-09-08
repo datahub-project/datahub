@@ -987,24 +987,52 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             if not partition_cols_with_types:
                 return None
 
-            logger.debug(
-                f"Using sampling to find partition values for {len(partition_cols_with_types)} columns"
-            )
+            # For date-type columns, prioritize recent data instead of random sampling
+            date_columns = [
+                col
+                for col, data_type in partition_cols_with_types.items()
+                if self._is_date_like_column(col)
+                or self._is_date_type_column(data_type)
+            ]
+
+            if date_columns:
+                logger.debug(
+                    f"Using recent-data sampling (ORDER BY {date_columns[0]} DESC) to find partition values for {len(partition_cols_with_types)} columns"
+                )
+            else:
+                logger.debug(
+                    f"Using random sampling (TABLESAMPLE) to find partition values for {len(partition_cols_with_types)} columns"
+                )
 
             # Build safe table reference
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
-            # Use TABLESAMPLE to get a small sample of data
-            sample_query = f"""SELECT *
+            if date_columns:
+                # Use ORDER BY to get recent data for date columns
+                primary_date_col = date_columns[0]  # Use first date column for ordering
+                sample_query = f"""SELECT *
+FROM {safe_table_ref}
+WHERE `{primary_date_col}` IS NOT NULL
+ORDER BY `{primary_date_col}` DESC
+LIMIT @limit_rows"""
+
+                job_config = QueryJobConfig(
+                    query_parameters=[
+                        ScalarQueryParameter("limit_rows", "INT64", 100),
+                    ]
+                )
+            else:
+                # Fall back to random sampling for non-date partitioned tables
+                sample_query = f"""SELECT *
 FROM {safe_table_ref} TABLESAMPLE SYSTEM (@sample_percent PERCENT)
 LIMIT @limit_rows"""
 
-            job_config = QueryJobConfig(
-                query_parameters=[
-                    ScalarQueryParameter("sample_percent", "FLOAT64", 1.0),
-                    ScalarQueryParameter("limit_rows", "INT64", 100),
-                ]
-            )
+                job_config = QueryJobConfig(
+                    query_parameters=[
+                        ScalarQueryParameter("sample_percent", "FLOAT64", 1.0),
+                        ScalarQueryParameter("limit_rows", "INT64", 100),
+                    ]
+                )
 
             partition_sample_rows = execute_query_func(
                 sample_query, job_config, "partition sampling"
