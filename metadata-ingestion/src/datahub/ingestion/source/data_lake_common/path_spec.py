@@ -221,9 +221,9 @@ class PathSpec(ConfigModel):
                 ):
                     return False
 
-        file_name_pattern = self.include.rsplit("/", 1)[1]
+        dummy_rest_of_path = self.include.split("/")[path_slash:]
         table_name, _ = self.extract_table_name_and_path(
-            os.path.join(path, file_name_pattern)
+            os.path.join(path, *dummy_rest_of_path)
         )
         if not self.tables_filter_pattern.allowed(table_name):
             return False
