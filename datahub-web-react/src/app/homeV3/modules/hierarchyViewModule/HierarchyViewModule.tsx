@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
@@ -7,6 +7,7 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import AssetsTreeView from '@app/homeV3/modules/hierarchyViewModule/components/AssetsTreeView';
 import { ASSET_TYPE_DOMAINS, ASSET_TYPE_GLOSSARY } from '@app/homeV3/modules/hierarchyViewModule/constants';
 import { filterAssetUrnsByAssetType, getAssetTypeFromAssetUrns } from '@app/homeV3/modules/hierarchyViewModule/utils';
+import { useStableValue } from '@app/sharedV2/hooks/useStableValue';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { convertLogicalPredicateToOrFilters } from '@app/sharedV2/queryBuilder/builder/utils';
 import { PageRoutes } from '@conf/Global';
@@ -17,41 +18,30 @@ export default function HierarchyViewModule(props: ModuleProps) {
     const history = useHistory();
     const { showViewAll = true } = props;
 
-    // Run force rerendering of tree to reinitialize its state correctly
-    // TODO: is there are a better solution?
-    // ----------------------------------------------------------------
-    const [shouldShowTree, setShodShowTree] = useState<boolean>(true);
+    const hierarchyViewParams = useStableValue(props.module.properties.params.hierarchyViewParams);
 
-    useEffect(() => {
-        setShodShowTree(false);
-    }, [props.module.properties.params.hierarchyViewParams]);
+    // FIY: `hierarchyViewParamsJson` is used as key to force a re-mount of the AssetsTreeView component
+    // whenever the `stableHierarchyViewParams` change
+    const hierarchyViewParamsJson = useMemo(() => JSON.stringify(hierarchyViewParams), [hierarchyViewParams]);
 
-    useEffect(() => {
-        if (!shouldShowTree) setShodShowTree(true);
-    }, [shouldShowTree]);
-    // ----------------------------------------------------------------
-
-    const assetType = useMemo(
-        () => getAssetTypeFromAssetUrns(props.module.properties.params.hierarchyViewParams?.assetUrns),
-        [props.module],
-    );
+    const assetType = useMemo(() => getAssetTypeFromAssetUrns(hierarchyViewParams?.assetUrns), [hierarchyViewParams]);
 
     const assetUrns = useMemo(
-        () => filterAssetUrnsByAssetType(props.module.properties.params.hierarchyViewParams?.assetUrns, assetType),
-        [props.module, assetType],
+        () => filterAssetUrnsByAssetType(hierarchyViewParams?.assetUrns, assetType),
+        [hierarchyViewParams, assetType],
     );
 
     const shouldShowRelatedEntities = useMemo(
-        () => !!props.module.properties.params.hierarchyViewParams?.showRelatedEntities,
-        [props.module.properties.params.hierarchyViewParams?.showRelatedEntities],
+        () => !!hierarchyViewParams?.showRelatedEntities,
+        [hierarchyViewParams?.showRelatedEntities],
     );
 
     const relatedEntitiesLogicalPredicate: LogicalPredicate | undefined = useMemo(
         () =>
-            props.module.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson
-                ? JSON.parse(props.module.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson)
+            hierarchyViewParams?.relatedEntitiesFilterJson
+                ? JSON.parse(hierarchyViewParams?.relatedEntitiesFilterJson)
                 : undefined,
-        [props.module.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson],
+        [hierarchyViewParams?.relatedEntitiesFilterJson],
     );
 
     const relatedEntitiesOrFilters: AndFilterInput[] | undefined = useMemo(
@@ -79,14 +69,13 @@ export default function HierarchyViewModule(props: ModuleProps) {
                     description="Edit the module and add assets to see them in this list"
                 />
             ) : (
-                shouldShowTree && (
-                    <AssetsTreeView
-                        assetType={assetType}
-                        assetUrns={assetUrns}
-                        shouldShowRelatedEntities={shouldShowRelatedEntities}
-                        relatedEntitiesOrFilters={relatedEntitiesOrFilters}
-                    />
-                )
+                <AssetsTreeView
+                    key={hierarchyViewParamsJson}
+                    assetType={assetType}
+                    assetUrns={assetUrns}
+                    shouldShowRelatedEntities={shouldShowRelatedEntities}
+                    relatedEntitiesOrFilters={relatedEntitiesOrFilters}
+                />
             )}
         </LargeModule>
     );
