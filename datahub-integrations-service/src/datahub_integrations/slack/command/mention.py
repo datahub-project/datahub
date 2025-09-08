@@ -101,7 +101,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     """
     channel_id = event.channel_id
     response_ts = None
-    chat_session_id = None
+    chat_session = None
     is_limited_history = None
 
     timer = PerfTimer()
@@ -140,7 +140,6 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
 
         # Process the actual response
         chat_session, is_limited_history = _build_chat_session(app.client, event)
-        chat_session_id = chat_session.session_id
         message, followup_questions = _generate_mention_response(
             chat_session, event, progress_callback, response_ts
         )
@@ -176,8 +175,12 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 message_contents=event.message_text,
                 response_contents=message,
                 response_generation_duration_sec=timer.elapsed_seconds(),
-                chat_session_id=chat_session_id,
+                chat_session_id=chat_session.session_id,
                 is_limited_history=is_limited_history,
+                num_tool_calls=chat_session.history.num_tool_calls,
+                num_tool_call_errors=chat_session.history.num_tool_call_errors,
+                num_history_messages=len(chat_session.history.messages),
+                full_history=chat_session.history.json(indent=None),
             )
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
@@ -204,8 +207,20 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 response_contents=None,
                 response_error=f"{type(e).__name__}: {str(e)}",
                 response_generation_duration_sec=timer.elapsed_seconds(),
-                chat_session_id=chat_session_id,
+                chat_session_id=chat_session.session_id if chat_session else None,
                 is_limited_history=is_limited_history,
+                num_tool_calls=chat_session.history.num_tool_calls
+                if chat_session
+                else None,
+                num_tool_call_errors=chat_session.history.num_tool_call_errors
+                if chat_session
+                else None,
+                num_history_messages=len(chat_session.history.messages)
+                if chat_session
+                else None,
+                full_history=chat_session.history.json(indent=None)
+                if chat_session
+                else None,
             )
         )
 

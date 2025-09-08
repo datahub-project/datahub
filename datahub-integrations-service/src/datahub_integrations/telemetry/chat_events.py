@@ -56,6 +56,11 @@ class ChatbotInteractionEvent(BaseEvent):
 
     # TODO: referenced_urns: List[str] = Field(default_factory=list)
 
+    num_tool_calls: Optional[int]
+    num_tool_call_errors: Optional[int]
+    num_history_messages: Optional[int]
+    full_history: Optional[str]
+
 
 class ChatbotInteractionFeedbackEvent(BaseEvent):
     """Event representing feedback on a chatbot interaction."""
