@@ -425,11 +425,9 @@ class LookMLSource(StatefulIngestionSourceBase):
         return dataset_props
 
     def _build_dataset_entities(self, looker_view: LookerView) -> Iterable[Dataset]:
-        dataset_extra_aspects = []
+        dataset_extra_aspects: List[ViewProperties | Status] = [Status(removed=False)]
         if looker_view.view_details is not None:
             dataset_extra_aspects.append(looker_view.view_details)
-
-        dataset_extra_aspects.append(Status(removed=False))
 
         schema_metadata = LookerUtil._get_schema(
             self.source_config.platform_name,
@@ -445,8 +443,8 @@ class LookMLSource(StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
             subtype=DatasetSubTypes.VIEW,
-            parent_container=looker_view.id.get_view_dataset_parent_container(
-                self.source_config
+            parent_container=list(
+                looker_view.id.get_view_dataset_parent_container(self.source_config)
             ),
             schema=schema_metadata,
             custom_properties=self._get_custom_properties(looker_view).customProperties,
@@ -517,7 +515,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
             # Clone the base_folder if necessary.
             if not self.source_config.base_folder:

@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -12,6 +12,7 @@ from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.sdk.entity import Entity
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.looker_dataclasses import (
@@ -1265,7 +1266,7 @@ def test_unreachable_views(pytestconfig):
         LookMLSourceConfig.parse_obj(config),
         ctx=PipelineContext(run_id="lookml-source-test"),
     )
-    wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+    wu: List[Union[MetadataWorkUnit, Entity]] = [*source.get_workunits_internal()]
     assert len(wu) == 15
     assert source.reporter.warnings.total_elements == 1
     assert (
