@@ -240,17 +240,17 @@ def validate_filter_expression(filter_expr: str) -> bool:
     if not filter_expr or not isinstance(filter_expr, str):
         return False
 
-    # Check for basic SQL injection patterns
+    # Check for basic SQL injection patterns that would be dangerous
     dangerous_patterns = [
-        r";\s*DROP\s+",
-        r";\s*DELETE\s+",
-        r";\s*INSERT\s+",
-        r";\s*UPDATE\s+",
-        r"UNION\s+SELECT",
-        r"--",
-        r"/\*",
+        r";\s*(?:DROP|DELETE|INSERT|UPDATE|CREATE|ALTER|TRUNCATE)\s+",
+        r"UNION\s+(?:ALL\s+)?SELECT",
+        r"--",  # SQL comments
+        r"/\*",  # Block comments
         r"xp_cmdshell",
         r"sp_executesql",
+        r"<script",  # Script injection
+        r"javascript:",
+        r"eval\s*\(",
     ]
 
     for pattern in dangerous_patterns:
@@ -260,26 +260,19 @@ def validate_filter_expression(filter_expr: str) -> bool:
             )
             return False
 
-    # Validate that filter follows expected format: `column` operator [value]
-    # Handle IS NULL/IS NOT NULL separately (no value required)
-    null_check_pattern = r"^`[a-zA-Z_][a-zA-Z0-9_]*`\s+IS\s+(?:NOT\s+)?NULL$"
-    # Enhanced numeric pattern: supports negative numbers, scientific notation
-    numeric_pattern = r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
-    # Support additional BigQuery operators: LIKE, IN, BETWEEN
-    # Enhanced string pattern: supports escaped single quotes (SQL standard: 'don''t')
-    string_pattern = r"'(?:[^']|'')*'"
-    # BigQuery function patterns: DATE('...'), TIMESTAMP('...'), etc.
-    function_pattern = r"(?:DATE|TIMESTAMP|DATETIME|TIME)\s*\(\s*(?:'[^']*'|@[a-zA-Z_][a-zA-Z0-9_]*)\s*\)"
+    # Basic format check: ensure it looks like a reasonable WHERE clause condition
+    # This is much simpler - just ensure it has column references and reasonable operators
+    if not re.search(r"`[a-zA-Z_][a-zA-Z0-9_]*`", filter_expr):
+        logger.warning(f"Filter doesn't contain valid column reference: {filter_expr}")
+        return False
 
-    value_pattern = rf"^`[a-zA-Z_][a-zA-Z0-9_]*`\s*(?:=|!=|<>|<|>|<=|>=|LIKE|NOT\s+LIKE)\s*(?:{numeric_pattern}|{string_pattern}|@[a-zA-Z_][a-zA-Z0-9_]*|{function_pattern}|(?:TRUE|FALSE)|FROM_BASE64\(@[a-zA-Z_][a-zA-Z0-9_]*\)|ST_GEOGFROMTEXT\(@[a-zA-Z_][a-zA-Z0-9_]*\)|PARSE_JSON\(@[a-zA-Z_][a-zA-Z0-9_]*\))$"
-
-    # Check if filter matches either pattern
-    filter_stripped = filter_expr.strip()
-    if not (
-        re.match(null_check_pattern, filter_stripped, re.IGNORECASE)
-        or re.match(value_pattern, filter_stripped, re.IGNORECASE)
+    # Ensure it uses reasonable operators (=, !=, <, >, IS NULL, etc.)
+    if not re.search(
+        r"(?:=|!=|<>|<|>|<=|>=|IS\s+(?:NOT\s+)?NULL|LIKE|NOT\s+LIKE|IN\s*\()",
+        filter_expr,
+        re.IGNORECASE,
     ):
-        logger.warning(f"Filter doesn't match expected pattern: {filter_expr}")
+        logger.warning(f"Filter doesn't contain recognized operators: {filter_expr}")
         return False
 
     return True

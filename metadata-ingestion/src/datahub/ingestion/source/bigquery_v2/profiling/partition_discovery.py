@@ -509,6 +509,11 @@ LIMIT @max_results"""
                         partition_id, partition_columns, partition_values
                     )
 
+            if partition_values:
+                logger.info(
+                    f"Successfully obtained partition values from INFORMATION_SCHEMA for table {table.name}: {dict(partition_values)}"
+                )
+
             return {"partition_values": partition_values, "row_count": row_count}
 
         except Exception as e:
@@ -1007,9 +1012,21 @@ LIMIT @limit_rows"""
             if filters and self._verify_partition_has_data(
                 table, project, schema, filters, execute_query_func
             ):
-                logger.debug(
-                    f"Successfully created partition filters from sample: {filters}"
+                # Extract partition values for logging
+                partition_values_for_log = {}
+                for col_name, _data_type in partition_cols_with_types.items():
+                    for row in partition_sample_rows:
+                        if (
+                            hasattr(row, col_name)
+                            and getattr(row, col_name) is not None
+                        ):
+                            partition_values_for_log[col_name] = getattr(row, col_name)
+                            break
+
+                logger.info(
+                    f"Successfully obtained partition values from sampling for table {table.name}: {partition_values_for_log}"
                 )
+                logger.debug(f"Generated partition filters from sample: {filters}")
                 return filters
 
             return None
@@ -1022,15 +1039,42 @@ LIMIT @limit_rows"""
         self, col_name: str, val: Union[str, int, float], data_type: str
     ) -> str:
         """
-        Create a partition filter string for a column value.
-        This is a simplified version - in practice you'd want parameterized queries.
+        Create a safe partition filter string for a column value with upstream validation.
         """
-        # Simple implementation - in a real system you'd want proper parameterization
+        return self._create_safe_filter(col_name, val)
+
+    def _create_safe_filter(self, col_name: str, val: Union[str, int, float]) -> str:
+        """
+        Create a safe partition filter with upstream validation of inputs.
+
+        This ensures we only create filters with safe, validated inputs before
+        they reach the downstream validation.
+        """
+        # Validate column name
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
+            raise ValueError(f"Invalid column name for filter: {col_name}")
+
+        # Validate and format value based on type
         if isinstance(val, str):
-            escaped_val = val.replace("'", "''")
-            return f"`{col_name}` = '{escaped_val}'"
-        else:
+            # String validation: check for injection patterns
+            if any(pattern in val for pattern in [";", "--", "/*", "'", "\\"]):
+                # For safety, escape single quotes and reject other dangerous chars
+                if "'" in val:
+                    escaped_val = val.replace("'", "''")
+                    return f"`{col_name}` = '{escaped_val}'"
+                else:
+                    raise ValueError(f"Invalid string value for filter: {val}")
+            else:
+                return f"`{col_name}` = '{val}'"
+        elif isinstance(val, (int, float)):
+            # Numeric values are safe
             return f"`{col_name}` = {val}"
+        else:
+            # Convert other types to string and validate
+            str_val = str(val)
+            if any(pattern in str_val for pattern in [";", "--", "/*", "'"]):
+                raise ValueError(f"Invalid value for filter: {val}")
+            return f"`{col_name}` = '{str_val}'"
 
     def _verify_partition_has_data(
         self,
@@ -1200,28 +1244,38 @@ LIMIT @limit_rows"""
             for test_date, description in candidate_dates:
                 filters = []
                 for col in required_columns:
-                    if self._is_date_like_column(col):
-                        date_str = test_date.strftime("%Y-%m-%d")
-                        filters.append(f"`{col}` = '{date_str}'")
-                    elif col.lower() == "year":
-                        filters.append(f"`{col}` = '{test_date.year}'")
-                    elif col.lower() == "month":
-                        filters.append(f"`{col}` = '{test_date.month:02d}'")
-                    elif col.lower() == "day":
-                        filters.append(f"`{col}` = '{test_date.day:02d}'")
-                    else:
-                        # For other non-date columns, use fallback values from config
-                        if col in self.config.profiling.fallback_partition_values:
-                            fallback_val = (
-                                self.config.profiling.fallback_partition_values[col]
+                    try:
+                        if self._is_date_like_column(col):
+                            date_str = test_date.strftime("%Y-%m-%d")
+                            filters.append(self._create_safe_filter(col, date_str))
+                        elif col.lower() == "year":
+                            filters.append(
+                                self._create_safe_filter(col, str(test_date.year))
                             )
-                            if isinstance(fallback_val, str):
-                                filters.append(f"`{col}` = '{fallback_val}'")
-                            else:
-                                # Convert all values to strings to avoid type mismatch issues
-                                filters.append(f"`{col}` = '{fallback_val}'")
+                        elif col.lower() == "month":
+                            filters.append(
+                                self._create_safe_filter(col, f"{test_date.month:02d}")
+                            )
+                        elif col.lower() == "day":
+                            filters.append(
+                                self._create_safe_filter(col, f"{test_date.day:02d}")
+                            )
                         else:
-                            filters.append(f"`{col}` IS NOT NULL")
+                            # For other non-date columns, use fallback values from config
+                            if col in self.config.profiling.fallback_partition_values:
+                                fallback_val = (
+                                    self.config.profiling.fallback_partition_values[col]
+                                )
+                                filters.append(
+                                    self._create_safe_filter(col, fallback_val)
+                                )
+                            else:
+                                # IS NOT NULL is safe and doesn't need the helper
+                                filters.append(f"`{col}` IS NOT NULL")
+                    except ValueError as e:
+                        logger.warning(f"Skipping invalid filter for column {col}: {e}")
+                        # Use IS NOT NULL as fallback for problematic columns
+                        filters.append(f"`{col}` IS NOT NULL")
 
                 # Verify these filters work
                 if self._verify_partition_has_data(
@@ -1248,18 +1302,21 @@ LIMIT @limit_rows"""
         )
 
         if actual_partition_values:
-            # Convert the result values to filter strings
+            # Convert the result values to filter strings using safe filter creation
             actual_filters = []
             for col, val in actual_partition_values.items():
-                if isinstance(val, str):
-                    escaped_val = val.replace("'", "''")
-                    actual_filters.append(f"`{col}` = '{escaped_val}'")
-                else:
-                    # Convert all values to strings to avoid type mismatch issues
-                    actual_filters.append(f"`{col}` = '{val}'")
+                try:
+                    filter_expr = self._create_safe_filter(col, val)
+                    actual_filters.append(filter_expr)
+                except ValueError as e:
+                    logger.warning(f"Skipping invalid filter for {col}={val}: {e}")
+                    continue
 
+            logger.info(
+                f"Successfully obtained partition values for table {table.name}: {dict(actual_partition_values)}"
+            )
             logger.debug(
-                f"Found actual partition values from table query: {actual_filters}"
+                f"Generated partition filters from table query: {actual_filters}"
             )
             return actual_filters
 
@@ -1300,36 +1357,38 @@ LIMIT @limit_rows"""
     def _create_fallback_filter_for_column(
         self, col_name: str, fallback_date: datetime
     ) -> str:
-        """Create a fallback filter for a specific column."""
+        """Create a fallback filter for a specific column using safe filter creation."""
         # Check for explicit fallback value in config
         if col_name in self.config.profiling.fallback_partition_values:
             fallback_value = self.config.profiling.fallback_partition_values[col_name]
-            if isinstance(fallback_value, str):
-                escaped_value = fallback_value.replace("'", "''")
-                return f"`{col_name}` = '{escaped_value}'"
-            else:
-                # Convert all values to strings to avoid type mismatch issues
-                return f"`{col_name}` = '{fallback_value}'"
+            try:
+                return self._create_safe_filter(col_name, fallback_value)
+            except ValueError as e:
+                logger.warning(f"Invalid fallback value for {col_name}: {e}")
+                return f"`{col_name}` IS NOT NULL"
 
         # Use date-based fallbacks for date-like columns
-        # Note: If we reach this fallback, it means specific dates failed verification
-        if self._is_date_like_column(col_name):
-            # For date columns, if specific dates don't work, use IS NOT NULL as last resort
-            logger.warning(
-                f"Specific date values failed for column {col_name}, using IS NOT NULL for broader partition coverage"
-            )
-            return f"`{col_name}` IS NOT NULL"
-        elif col_name.lower() == "year":
-            return f"`{col_name}` = '{fallback_date.year}'"
-        elif col_name.lower() == "month":
-            return f"`{col_name}` = '{fallback_date.month:02d}'"
-        elif col_name.lower() == "day":
-            return f"`{col_name}` = '{fallback_date.day:02d}'"
-        else:
-            # Last resort - use IS NOT NULL
-            logger.warning(
-                f"No fallback value for partition column {col_name}, using IS NOT NULL"
-            )
+        try:
+            if self._is_date_like_column(col_name):
+                # For date columns, if specific dates don't work, use IS NOT NULL as last resort
+                logger.warning(
+                    f"Specific date values failed for column {col_name}, using IS NOT NULL for broader partition coverage"
+                )
+                return f"`{col_name}` IS NOT NULL"
+            elif col_name.lower() == "year":
+                return self._create_safe_filter(col_name, str(fallback_date.year))
+            elif col_name.lower() == "month":
+                return self._create_safe_filter(col_name, f"{fallback_date.month:02d}")
+            elif col_name.lower() == "day":
+                return self._create_safe_filter(col_name, f"{fallback_date.day:02d}")
+            else:
+                # Last resort - use IS NOT NULL
+                logger.warning(
+                    f"No fallback value for partition column {col_name}, using IS NOT NULL"
+                )
+                return f"`{col_name}` IS NOT NULL"
+        except ValueError as e:
+            logger.warning(f"Error creating fallback filter for {col_name}: {e}")
             return f"`{col_name}` IS NOT NULL"
 
     def _get_strategic_candidate_dates(self) -> List[Tuple[datetime, str]]:
