@@ -137,22 +137,6 @@ WHERE {partition_where}"""
         if self._should_skip_profiling_due_to_staleness(bq_table):
             return None
 
-        if (
-            hasattr(bq_table, "partition_info")
-            and bq_table.partition_info
-            and bq_table.rows_count
-        ):
-            partition = getattr(
-                bq_table.partition_info, "partition_id", None
-            ) or getattr(bq_table.partition_info, "partition_type", None)
-            if partition is None:
-                self.report.report_warning(
-                    title="Profile skipped for partitioned table",
-                    message="profile skipped as partition id or type was invalid",
-                    context=profile_request.pretty_name,
-                )
-                return None
-
         if bq_table.external and not self.config.profiling.profile_external_tables:
             self.report.report_warning(
                 title="Profiling skipped for external table",
