@@ -67,18 +67,16 @@ fragment FacetEntityInfo on Entity {
   }
 }
 
-query search(
+query semanticSearch(
   $types: [EntityType!]
   $query: String!
   $orFilters: [AndFilterInput!]
   $count: Int!
-  $scrollId: String
 ) {
-  scrollAcrossEntities(
+  semanticSearchAcrossEntities(
     input: {
       query: $query
       count: $count
-      scrollId: $scrollId
       types: $types
       orFilters: $orFilters
       searchFlags: { skipHighlighting: true, maxAggValues: 5 }
@@ -90,8 +88,8 @@ query search(
       entity {
         ...SearchEntityInfo
       }
-      # TODO: Consider adding these fields for enhanced search experience:
-      # score               # BM25 score for keyword search relevance
+      # TODO: Consider adding these fields for enhanced semantic search experience:
+      # score               # Cosine similarity score (0-1) for semantic relevance
     }
     facets {
       field
@@ -107,7 +105,7 @@ query search(
     }
     # TODO: Consider adding metadata section for search algorithm transparency:
     # metadata {
-    #   scoringMethod       # e.g., "BM25" vs "COSINE_SIMILARITY"
+    #   scoringMethod       # e.g., "COSINE_SIMILARITY" vs "BM25"
     # }
   }
 }
