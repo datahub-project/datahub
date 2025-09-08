@@ -410,6 +410,7 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+  public static final String ASSET_SETTINGS_ASPECT_NAME = "assetSettings";
 
   // Timeseries
   public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
@@ -517,6 +518,9 @@ public class Constants {
   public static final String IS_LATEST_FIELD_NAME = "isLatest";
   public static final String VERSION_SET_FIELD_NAME = "versionSet";
   public static final String VERSION_LABEL_FIELD_NAME = "version";
+
+  // Logical
+  public static final String LOGICAL_PARENT_ASPECT_NAME = "logicalParent";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

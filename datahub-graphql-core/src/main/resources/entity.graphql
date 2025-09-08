@@ -2640,6 +2640,11 @@ type GlossaryNode implements Entity {
   parentNodes: ParentNodesResult
 
   """
+  References to internal resources related to the Glossary Node
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
@@ -3574,6 +3579,16 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   deprecation status of the schema field
   """
   deprecation: Deprecation
+
+  """
+  Tags associated with the field
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the field
+  """
+  glossaryTerms: GlossaryTerms
 }
 
 """
