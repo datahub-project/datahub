@@ -2,13 +2,14 @@
 Comprehensive unit tests for BigQuery profiler functionality.
 Covers all major functionality for 85%+ test coverage.
 
-Consolidated from test_bigquery_profiler.py and test_bigquery_profiler_comprehensive.py
-to provide complete test coverage in a single organized file.
+Uses pytest following DataHub's modern testing patterns.
 """
 
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
+
+import pytest
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
@@ -1434,6 +1435,424 @@ class TestErrorHandlingEdgeCases(unittest.TestCase):
 
         # Should return None when errors occur
         self.assertIsNone(result)
+
+
+class TestSecurityValidation(unittest.TestCase):
+    """Test security validation functions and identifier sanitization."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.config = BigQueryV2Config()
+        self.partition_discovery = PartitionDiscovery(self.config)
+
+    def test_bigquery_identifier_validation(self):
+        """Test BigQuery identifier validation and sanitization."""
+        from datahub.ingestion.source.bigquery_v2.profiling.security import (
+            validate_bigquery_identifier,
+        )
+
+        # Test valid project identifier (allows hyphens)
+        result = validate_bigquery_identifier("test-project-123", "project")
+        self.assertTrue(result.startswith("`"))
+        self.assertIn("test-project-123", result)  # Project IDs keep hyphens
+
+        # Test valid dataset identifier (must use underscores)
+        result = validate_bigquery_identifier("test_dataset", "dataset")
+        self.assertTrue(result.startswith("`"))
+        self.assertIn("test_dataset", result)
+
+        # Test INFORMATION_SCHEMA (special case)
+        result = validate_bigquery_identifier("INFORMATION_SCHEMA", "schema")
+        self.assertTrue(result.startswith("`"))
+        self.assertIn("INFORMATION_SCHEMA", result)
+
+        # Test invalid identifiers should raise ValueError
+        with self.assertRaises(ValueError):
+            validate_bigquery_identifier("", "project")
+
+        with self.assertRaises(ValueError):
+            validate_bigquery_identifier("invalid;project", "project")
+
+        # Test invalid dataset format (dots not allowed)
+        with self.assertRaises(ValueError):
+            validate_bigquery_identifier("data.set", "dataset")
+
+    def test_filter_expression_validation(self):
+        """Test filter expression validation for SQL injection protection."""
+        from datahub.ingestion.source.bigquery_v2.profiling.security import (
+            validate_filter_expression,
+        )
+
+        # Test valid filter expressions
+        valid_expressions = [
+            "`trade_date` = '2023-12-25'",
+            "`amount` > 1000",
+            "`status` IN ('ACTIVE')",
+        ]
+        for expr in valid_expressions:
+            with self.subTest(expression=expr):
+                self.assertTrue(validate_filter_expression(expr))
+
+        # Test invalid/dangerous expressions
+        invalid_expressions = [
+            "",
+            "DROP TABLE",
+            "'; DELETE FROM",
+        ]
+        for expr in invalid_expressions:
+            with self.subTest(expression=expr):
+                self.assertFalse(validate_filter_expression(expr))
+
+    def test_safe_table_reference_building(self):
+        """Test safe table reference construction."""
+        from datahub.ingestion.source.bigquery_v2.profiling.security import (
+            build_safe_table_reference,
+        )
+
+        # Test normal case
+        ref = build_safe_table_reference("project", "dataset", "table")
+        self.assertEqual(ref, "`project`.`dataset`.`table`")
+
+        # Test with valid project (hyphens allowed) and valid dataset/table names
+        ref = build_safe_table_reference("proj-123", "dataset_name", "table_name")
+        self.assertIn("proj-123", ref)  # Project hyphens preserved
+        self.assertIn("dataset_name", ref)
+        self.assertIn("table_name", ref)
+
+    def test_sql_structure_validation(self):
+        """Test SQL structure validation for basic safety checks."""
+        from datahub.ingestion.source.bigquery_v2.profiling.security import (
+            validate_sql_structure,
+        )
+
+        # Test valid SQL structures
+        self.assertTrue(validate_sql_structure("SELECT * FROM table"))
+        self.assertTrue(
+            validate_sql_structure("SELECT col FROM table WHERE col = 'value'")
+        )
+
+        # Test dangerous SQL structures - these should raise ValueError, not return False
+        with self.assertRaises(ValueError):
+            validate_sql_structure("DROP TABLE users")
+
+        with self.assertRaises(ValueError):
+            validate_sql_structure("DELETE FROM table")
+
+    def test_safe_filter_creation(self):
+        """Test safe filter creation with various data types."""
+        # Test string values
+        result = self.partition_discovery._create_safe_filter("col_name", "test_value")
+        self.assertEqual(result, "`col_name` = 'test_value'")
+
+        # Test numeric values
+        result = self.partition_discovery._create_safe_filter("amount", 1000)
+        self.assertEqual(result, "`amount` = 1000")
+
+        result = self.partition_discovery._create_safe_filter("price", 99.99)
+        self.assertEqual(result, "`price` = 99.99")
+
+        # Test date strings
+        result = self.partition_discovery._create_safe_filter(
+            "trade_date", "2023-12-25"
+        )
+        self.assertEqual(result, "`trade_date` = '2023-12-25'")
+
+        # Test string escaping for SQL injection protection (BigQuery uses '' for escaping)
+        result = self.partition_discovery._create_safe_filter("str_col", "test'value")
+        self.assertIn("test''value", result)  # BigQuery doubles single quotes
+
+        result = self.partition_discovery._create_safe_filter("str_col", 'test"value')
+        self.assertIn('test"value', result)  # Double quotes are preserved in BigQuery
+
+    def test_invalid_filter_creation(self):
+        """Test that invalid filter inputs are properly rejected."""
+        # Test invalid column names should raise ValueError
+        with self.assertRaises(ValueError):
+            self.partition_discovery._create_safe_filter("bad`col", "value")
+
+
+class TestPartitionDiscovery(unittest.TestCase):
+    """Test partition discovery functionality and date handling."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.config = BigQueryV2Config()
+        self.partition_discovery = PartitionDiscovery(self.config)
+
+    def test_strategic_date_generation(self):
+        """Test strategic date candidate generation for recent partition discovery."""
+        candidates = self.partition_discovery._get_strategic_candidate_dates()
+        self.assertIsInstance(candidates, list)
+        self.assertGreater(len(candidates), 0)
+
+        # Each candidate should be a tuple of (datetime, description)
+        for candidate in candidates:
+            self.assertIsInstance(candidate, tuple)
+            self.assertEqual(len(candidate), 2)
+            self.assertIsInstance(candidate[0], datetime)
+            self.assertIsInstance(candidate[1], str)
+
+        # Should include today and yesterday in the descriptions
+        descriptions = [desc for _, desc in candidates]
+        self.assertIn("today (current date)", descriptions)
+        self.assertIn("yesterday", descriptions)
+
+    def test_date_column_detection(self):
+        """Test detection of date-like column names."""
+        # Test positive cases - columns that should be detected as date-like (based on actual implementation)
+        date_columns = [
+            "date",
+            "dt",
+            "partition_date",
+            "date_partition",
+            "event_date",
+            "created_date",
+            "updated_date",
+            "timestamp",
+            "datetime",
+            "time",
+            "created_at",
+            "modified_at",
+            "updated_at",
+            "event_time",
+        ]
+        for col in date_columns:
+            with self.subTest(column=col):
+                self.assertTrue(
+                    self.partition_discovery._is_date_like_column(col),
+                    f"Column '{col}' should be detected as date-like",
+                )
+
+        # Test negative cases - columns that should NOT be detected as date-like
+        non_date_columns = [
+            "user_id",
+            "name",
+            "count",
+            "amount",
+            "status",
+            "description",
+            "trade_date",
+        ]
+        for col in non_date_columns:
+            with self.subTest(column=col):
+                self.assertFalse(
+                    self.partition_discovery._is_date_like_column(col),
+                    f"Column '{col}' should NOT be detected as date-like",
+                )
+
+    def test_bigquery_data_type_detection(self):
+        """Test detection of BigQuery date/time data types."""
+        # Test positive cases - BigQuery date/time types
+        date_types = ["DATE", "TIME", "DATETIME", "TIMESTAMP"]
+        for data_type in date_types:
+            with self.subTest(data_type=data_type):
+                self.assertTrue(
+                    self.partition_discovery._is_date_type_column(data_type),
+                    f"Data type '{data_type}' should be detected as date/time type",
+                )
+
+        # Test negative cases - non-date types
+        non_date_types = ["STRING", "INT64", "FLOAT64", "BOOLEAN", "BYTES"]
+        for data_type in non_date_types:
+            with self.subTest(data_type=data_type):
+                self.assertFalse(
+                    self.partition_discovery._is_date_type_column(data_type),
+                    f"Data type '{data_type}' should NOT be detected as date/time type",
+                )
+
+    def test_column_ordering_strategy(self):
+        """Test column ordering strategy for different column types."""
+        # Test date columns should use DESC ordering to get recent data first
+        result = self.partition_discovery._get_column_ordering_strategy(
+            "created_date", "DATE"
+        )
+        self.assertIn("DESC", result)
+
+        result = self.partition_discovery._get_column_ordering_strategy(
+            "timestamp", "TIMESTAMP"
+        )
+        self.assertIn("DESC", result)
+
+        # Test non-date columns should use record count ordering
+        result = self.partition_discovery._get_column_ordering_strategy(
+            "user_id", "STRING"
+        )
+        self.assertIn("record_count", result)
+
+        # Test empty inputs should return default record count strategy
+        result = self.partition_discovery._get_column_ordering_strategy("", "")
+        self.assertIn("record_count", result)
+
+    def test_fallback_filter_creation(self):
+        """Test fallback filter creation for edge cases."""
+        from datetime import datetime
+
+        fallback_date = datetime(2023, 1, 1)
+        result = self.partition_discovery._create_fallback_filter_for_column(
+            "test_col", fallback_date
+        )
+        self.assertIn("test_col", result)
+        # The fallback function returns "IS NOT NULL" when no specific fallback value is configured
+        self.assertIn("IS NOT NULL", result)
+
+
+class TestQueryExecutor(unittest.TestCase):
+    """Test query executor functionality and timeout handling."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.config = BigQueryV2Config()
+        self.query_executor = QueryExecutor(self.config)
+
+    def test_timeout_configuration(self):
+        """Test timeout configuration and retrieval."""
+        timeout = self.query_executor.get_effective_timeout()
+        self.assertIsInstance(timeout, int)
+        self.assertGreater(timeout, 0)
+
+    def test_query_cost_estimation_without_client(self):
+        """Test query cost estimation gracefully handles missing client."""
+        result = self.query_executor.get_query_cost_estimate("SELECT 1", "test")
+        self.assertIsNone(result)  # Should return None when no client available
+
+    def test_query_execution_testing_without_client(self):
+        """Test query execution testing gracefully handles missing client."""
+        result = self.query_executor.test_query_execution("SELECT 1", "test")
+        self.assertFalse(result)  # Should return False when no client available
+
+
+class TestProfilerIntegration(unittest.TestCase):
+    """Test profiler integration and string representations."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.config = BigQueryV2Config()
+        self.report = BigQueryV2Report()
+        self.profiler = BigqueryProfiler(config=self.config, report=self.report)
+
+    def test_profiler_initialization_and_representation(self):
+        """Test profiler initialization and basic functionality."""
+        # Test component initialization
+        self.assertIsInstance(self.profiler.partition_discovery, PartitionDiscovery)
+        self.assertIsInstance(self.profiler.query_executor, QueryExecutor)
+        self.assertEqual(self.profiler.config, self.config)
+        self.assertEqual(self.profiler.report, self.report)
+
+        # Test string representation works (basic smoke test)
+        str_repr = str(self.profiler)
+        self.assertIn("BigqueryProfiler", str_repr)
+        self.assertIn("timeout=", str_repr)
+
+
+# Parametrized pytest functions for better test coverage and clarity
+@pytest.mark.parametrize(
+    "column_name,expected",
+    [
+        # Positive cases - columns that should be detected as date-like
+        pytest.param("date", True, id="date"),
+        pytest.param("dt", True, id="dt"),
+        pytest.param("partition_date", True, id="partition_date"),
+        pytest.param("date_partition", True, id="date_partition"),
+        pytest.param("event_date", True, id="event_date"),
+        pytest.param("created_date", True, id="created_date"),
+        pytest.param("updated_date", True, id="updated_date"),
+        pytest.param("timestamp", True, id="timestamp"),
+        pytest.param("datetime", True, id="datetime"),
+        pytest.param("time", True, id="time"),
+        pytest.param("created_at", True, id="created_at"),
+        pytest.param("modified_at", True, id="modified_at"),
+        pytest.param("updated_at", True, id="updated_at"),
+        pytest.param("event_time", True, id="event_time"),
+        # Negative cases - columns that should NOT be detected as date-like
+        pytest.param("user_id", False, id="user_id"),
+        pytest.param("name", False, id="name"),
+        pytest.param("count", False, id="count"),
+        pytest.param("amount", False, id="amount"),
+        pytest.param("status", False, id="status"),
+        pytest.param("description", False, id="description"),
+        pytest.param("trade_date", False, id="trade_date"),
+    ],
+)
+def test_date_column_detection_parametrized(column_name, expected):
+    """Test detection of date-like column names using pytest parametrization."""
+    config = BigQueryV2Config()
+    partition_discovery = PartitionDiscovery(config)
+
+    result = partition_discovery._is_date_like_column(column_name)
+    assert result == expected, f"Column '{column_name}' detection failed"
+
+
+@pytest.mark.parametrize(
+    "data_type,expected",
+    [
+        # Positive cases - BigQuery date/time types
+        pytest.param("DATE", True, id="DATE"),
+        pytest.param("TIME", True, id="TIME"),
+        pytest.param("DATETIME", True, id="DATETIME"),
+        pytest.param("TIMESTAMP", True, id="TIMESTAMP"),
+        # Negative cases - non-date types
+        pytest.param("STRING", False, id="STRING"),
+        pytest.param("INT64", False, id="INT64"),
+        pytest.param("FLOAT64", False, id="FLOAT64"),
+        pytest.param("BOOLEAN", False, id="BOOLEAN"),
+        pytest.param("BYTES", False, id="BYTES"),
+    ],
+)
+def test_bigquery_data_type_detection_parametrized(data_type, expected):
+    """Test detection of BigQuery date/time data types using pytest parametrization."""
+    config = BigQueryV2Config()
+    partition_discovery = PartitionDiscovery(config)
+
+    result = partition_discovery._is_date_type_column(data_type)
+    assert result == expected, f"Data type '{data_type}' detection failed"
+
+
+@pytest.mark.parametrize(
+    "filter_expression,expected",
+    [
+        # Valid filter expressions
+        pytest.param("`trade_date` = '2023-12-25'", True, id="date_filter"),
+        pytest.param("`amount` > 1000", True, id="numeric_comparison"),
+        pytest.param("`status` IN ('ACTIVE')", True, id="in_clause"),
+        # Invalid/dangerous expressions
+        pytest.param("", False, id="empty_string"),
+        pytest.param("DROP TABLE", False, id="drop_table"),
+        pytest.param("'; DELETE FROM", False, id="sql_injection"),
+    ],
+)
+def test_filter_expression_validation_parametrized(filter_expression, expected):
+    """Test filter expression validation for SQL injection protection using pytest parametrization."""
+    from datahub.ingestion.source.bigquery_v2.profiling.security import (
+        validate_filter_expression,
+    )
+
+    result = validate_filter_expression(filter_expression)
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "column_name,value,expected_result",
+    [
+        # String values
+        pytest.param(
+            "col_name", "test_value", "`col_name` = 'test_value'", id="string_value"
+        ),
+        # Numeric values
+        pytest.param("amount", 1000, "`amount` = 1000", id="integer_value"),
+        pytest.param("price", 99.99, "`price` = 99.99", id="float_value"),
+        # Date strings
+        pytest.param(
+            "trade_date", "2023-12-25", "`trade_date` = '2023-12-25'", id="date_string"
+        ),
+    ],
+)
+def test_safe_filter_creation_parametrized(column_name, value, expected_result):
+    """Test safe filter creation with various data types using pytest parametrization."""
+    config = BigQueryV2Config()
+    partition_discovery = PartitionDiscovery(config)
+
+    result = partition_discovery._create_safe_filter(column_name, value)
+    assert result == expected_result
 
 
 if __name__ == "__main__":
