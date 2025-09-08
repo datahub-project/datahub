@@ -18,6 +18,7 @@ export default function useSelectableDomainTree(
 ) {
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const [selectedValues, setSelectedValues] = useState<string[]>(initialSelectedDomainUrns ?? []);
+    const [finalRootDomainsTotal, setFinalRootDomainsTotal] = useState<number>(0);
     const nodesSorter = useDomainTreeNodesSorter();
     const tree = useTree(undefined, nodesSorter);
 
@@ -32,6 +33,8 @@ export default function useSelectableDomainTree(
         total: rootDomainsTotal,
     } = useRootDomains(loadBatchSize);
     const rootTreeNodes = useTreeNodesFromDomains(rootDomains, false);
+
+    useEffect(() => setFinalRootDomainsTotal(rootDomainsTotal ?? 0), [rootDomainsTotal]);
 
     const { loadMoreRootDomains, loading: rootDomainsMoreLoading } = useLoadMoreRootDomains();
 
@@ -49,15 +52,20 @@ export default function useSelectableDomainTree(
     );
 
     const loadMoreRootNodes = useCallback(async () => {
-        const hasMoreRootNodes = (rootDomainsTotal ?? 0) > tree.nodes.length;
+        const hasMoreRootNodes = (finalRootDomainsTotal ?? 0) > tree.nodes.length;
         if (!rootDomainsMoreLoading && hasMoreRootNodes) {
             const domains = await loadMoreRootDomains(tree.nodes.length, loadBatchSize);
-            if (domains) {
+            if (domains.length) {
                 const treeNodes = domains.map((domain) => convertDomainToTreeNode(domain));
                 tree.merge(preprocessRootNodes(treeNodes));
+            } else {
+                // If there are no more domains to fetch or some error happened during loading
+                // set the root domains total to the current length of nodes to prevent 
+                // infinite calls of loading more root domains in case of using infinite scroll
+                setFinalRootDomainsTotal(tree.nodes.length);
             }
         }
-    }, [tree, loadMoreRootDomains, rootDomainsTotal, rootDomainsMoreLoading, preprocessRootNodes, loadBatchSize]);
+    }, [tree, loadMoreRootDomains, finalRootDomainsTotal, rootDomainsMoreLoading, preprocessRootNodes, loadBatchSize]);
 
     useEffect(() => {
         if (
@@ -78,6 +86,6 @@ export default function useSelectableDomainTree(
         setSelectedValues,
         loadMoreRootNodes,
         rootDomainsMoreLoading,
-        rootNodesTotal: rootDomainsTotal,
+        rootNodesTotal: finalRootDomainsTotal,
     };
 }
