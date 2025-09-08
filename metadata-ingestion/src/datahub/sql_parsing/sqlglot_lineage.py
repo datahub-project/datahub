@@ -583,7 +583,6 @@ def _select_statement_cll(
             # Generate SELECT lineage.
             direct_raw_col_upstreams = _get_direct_raw_col_upstreams(
                 lineage_node,
-                table_name_schema_mapping,
                 dialect,
                 default_db,
                 default_schema,
@@ -734,7 +733,6 @@ def _column_level_lineage(
 
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
-    table_name_schema_mapping: Optional[Dict[_TableName, SchemaInfo]] = None,
     dialect: Optional[sqlglot.Dialect] = None,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
@@ -787,6 +785,9 @@ def _get_direct_raw_col_upstreams(
                         )
                     )
 
+                    # SQLGlot's qualification process doesn't fully qualify placeholder names from lateral joins.
+                    # Even after statement-level qualification, these placeholders remain unqualified (e.g., "t2.value").
+                    # We need this runtime qualification to ensure proper lineage resolution.
                     # Only qualify if this appears to be a real table reference (not a temporary construct)
                     if (
                         not (table_ref.database or table_ref.db_schema)
@@ -798,7 +799,11 @@ def _get_direct_raw_col_upstreams(
                             default_schema=default_schema,
                         )
 
-                    column_name = getattr(parsed.this, "name", str(parsed.this))
+                    # Extract column name using proper isinstance check
+                    if isinstance(parsed.this, sqlglot.exp.Identifier):
+                        column_name = parsed.this.name
+                    else:
+                        column_name = str(parsed.this)
                     direct_raw_col_upstreams.add(
                         _ColumnRef(table=table_ref, column=column_name)
                     )
@@ -906,7 +911,7 @@ def _get_raw_col_upstreams_for_expression(
             trim_selects=False,
         )
 
-        return _get_direct_raw_col_upstreams(node, None, dialect, None, None)
+        return _get_direct_raw_col_upstreams(node, dialect, None, None)
     finally:
         scope.expression = original_expression
 
