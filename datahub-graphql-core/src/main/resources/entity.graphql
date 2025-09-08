@@ -2652,6 +2652,11 @@ type GlossaryNode implements Entity {
   parentNodes: ParentNodesResult
 
   """
+  References to internal resources related to the Glossary Node
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges

@@ -1,5 +1,5 @@
 import { InfiniteScrollList } from '@components';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
@@ -15,6 +15,7 @@ import { DataHubPageModuleType, Entity } from '@types';
 const DEFAULT_PAGE_SIZE = 10;
 
 const AssetCollectionModule = (props: ModuleProps) => {
+    const [isFirstFetch, setIsFirstFetch] = useState(true);
     const assetUrns = useMemo(
         () =>
             props.module.properties.params.assetCollectionParams?.assetUrns.filter(
@@ -49,7 +50,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
         [shouldFetchByDynamicFilter, assetUrns],
     );
 
-    const { loading, refetch } = useGetSearchResultsForMultipleQuery({
+    const { data, loading, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 start: 0,
@@ -63,7 +64,18 @@ const AssetCollectionModule = (props: ModuleProps) => {
             },
         },
         skip: assetUrns.length === 0 && !dynamicOrFilters?.length,
+        onCompleted: () => {
+            setIsFirstFetch(false);
+        },
     });
+
+    const initialEntities = useMemo(
+        () =>
+            data?.searchAcrossEntities?.searchResults
+                ?.map((res) => res.entity)
+                .filter((entity): entity is Entity => !!entity) || [],
+        [data?.searchAcrossEntities?.searchResults],
+    );
 
     const fetchEntitiesByDynamicFilter = useCallback(
         async (start: number, count: number): Promise<Entity[]> => {
@@ -115,12 +127,21 @@ const AssetCollectionModule = (props: ModuleProps) => {
 
     const fetchEntities = useCallback(
         async (start: number, count: number): Promise<Entity[]> => {
+            if (isFirstFetch) {
+                return initialEntities;
+            }
             if (shouldFetchByDynamicFilter) {
                 return fetchEntitiesByDynamicFilter(start, count);
             }
             return fetchEntitiesByAssetUrns(start, count);
         },
-        [fetchEntitiesByDynamicFilter, fetchEntitiesByAssetUrns, shouldFetchByDynamicFilter],
+        [
+            isFirstFetch,
+            shouldFetchByDynamicFilter,
+            fetchEntitiesByAssetUrns,
+            initialEntities,
+            fetchEntitiesByDynamicFilter,
+        ],
     );
 
     return (
