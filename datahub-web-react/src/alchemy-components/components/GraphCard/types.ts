@@ -12,4 +12,5 @@ export type GraphCardProps = {
     showHeader?: boolean;
     showEmptyMessageHeader?: boolean;
     emptyMessage?: string;
+    dataTestId?: string;
 };
