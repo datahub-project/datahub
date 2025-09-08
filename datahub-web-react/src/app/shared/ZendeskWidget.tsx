@@ -13,7 +13,7 @@ type ZendeskWidgetProps = ZendeskConfig & {
     config: AppConfig;
 };
 
-export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config }) => {
+export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config, trigger }) => {
     const entityRegistry = useEntityRegistry();
     const userEmail = me.user?.editableProperties?.email || me.user?.info?.email || '';
     const userName =
@@ -28,7 +28,7 @@ export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config
         // Server version
         31805612950427: config?.appVersion || 'Unknown',
     };
-    useZendeskWidget({ onLoad, userEmail, userName, customFields });
+    useZendeskWidget({ onLoad, userEmail, userName, customFields, trigger });
 
     return null;
 };

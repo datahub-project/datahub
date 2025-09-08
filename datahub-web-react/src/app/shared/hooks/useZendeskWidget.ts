@@ -26,6 +26,7 @@ export interface ZendeskConfig {
     userEmail?: string;
     userName?: string;
     customFields?: Record<string | number, string>;
+    trigger?: number; // Add a trigger to force re-execution
 }
 
 const prefillUserData = (userEmail?: string, userName?: string) => {
@@ -41,6 +42,29 @@ const prefillUserData = (userEmail?: string, userName?: string) => {
             name: { value: userName },
         });
     }
+};
+
+const updateZendeskSettings = (customFields?: Record<string | number, string>) => {
+    if (!window.zE) return;
+
+    const customFieldsArray = customFields
+        ? Object.entries(customFields).map(([id, value]) => ({
+              id: Number.isNaN(Number(id)) ? id : Number(id),
+              prefill: { '*': value },
+          }))
+        : [];
+
+    const settingsData = {
+        webWidget: {
+            contactForm: {
+                title: {
+                    '*': 'Contact DataHub Support',
+                },
+                ...(customFieldsArray.length > 0 && { fields: customFieldsArray }),
+            },
+        },
+    };
+    window.zE('webWidget', 'updateSettings', settingsData);
 };
 
 const configureZendeskSettings = (customFields?: Record<string | number, string>) => {
@@ -79,14 +103,18 @@ const cleanupZendesk = () => {
     delete window.zE;
 };
 
-export const useZendeskWidget = ({ onLoad, userEmail, userName, customFields }: ZendeskConfig) => {
+export const useZendeskWidget = ({ onLoad, userEmail, userName, customFields, trigger }: ZendeskConfig) => {
     useEffect(() => {
-        // If script already exists, just configure and open widget
-        if (document.getElementById('ze-snippet')) {
+        const existingScript = document.getElementById('ze-snippet');
+
+        // If script already exists, update settings dynamically and open widget
+        if (existingScript) {
             if (window.zE) {
+                updateZendeskSettings(customFields);
                 prefillUserData(userEmail, userName);
-                window.zE('webWidget', 'open');
                 onLoad?.();
+            } else {
+                console.log('window.zE is not available');
             }
             return () => {};
         }
@@ -106,8 +134,14 @@ export const useZendeskWidget = ({ onLoad, userEmail, userName, customFields }: 
 
         document.head.appendChild(script);
 
+        // Don't cleanup on every trigger change, only on unmount
+        return () => {};
+    }, [onLoad, userEmail, userName, customFields, trigger]);
+
+    // Cleanup only when component unmounts
+    useEffect(() => {
         return () => {
             cleanupZendesk();
         };
-    }, [onLoad, userEmail, userName, customFields]);
+    }, []);
 };

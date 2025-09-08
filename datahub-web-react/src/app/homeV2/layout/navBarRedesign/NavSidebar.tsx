@@ -96,6 +96,7 @@ export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
     const [showZendeskWidget, setShowZendeskWidget] = useState(false);
+    const [zendeskTrigger, setZendeskTrigger] = useState(0);
 
     const { toggle, isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
@@ -425,7 +426,12 @@ export const NavSidebar = () => {
                 selectedIcon: <ChatTeardropText weight="fill" />,
                 key: 'supportTickets',
                 isHidden: !showSupportTickets,
-                onClick: () => setShowZendeskWidget(true),
+                onClick: () => {
+                    setShowZendeskWidget(true);
+                    setZendeskTrigger((prev) => {
+                        return prev + 1;
+                    });
+                },
             },
             {
                 type: NavBarMenuItemTypes.Item,
@@ -474,7 +480,7 @@ export const NavSidebar = () => {
                     </>
                 )}
             </Content>
-            {showZendeskWidget && <ZendeskWidget me={me} config={config} />}
+            {showZendeskWidget && <ZendeskWidget me={me} config={config} trigger={zendeskTrigger} />}
         </Container>
     );
 };
