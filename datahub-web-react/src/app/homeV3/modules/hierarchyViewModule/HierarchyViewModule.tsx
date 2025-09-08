@@ -15,6 +15,7 @@ import { AndFilterInput } from '@types';
 
 export default function HierarchyViewModule(props: ModuleProps) {
     const history = useHistory();
+    const { showViewAll = true } = props;
 
     // Run force rerendering of tree to reinitialize its state correctly
     // TODO: is there are a better solution?
@@ -70,7 +71,7 @@ export default function HierarchyViewModule(props: ModuleProps) {
     }, [history, assetType]);
 
     return (
-        <LargeModule {...props} onClickViewAll={onClickViewAll}>
+        <LargeModule {...props} onClickViewAll={showViewAll ? onClickViewAll : undefined} dataTestId="hierarchy-module">
             {assetUrns.length === 0 ? (
                 <EmptyContent
                     icon="Stack"

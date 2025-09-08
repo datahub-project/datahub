@@ -45,7 +45,7 @@ public class SsoManagerTest {
   private OidcProvider mockOidcProvider;
 
   @BeforeEach
-  public void setUp() {
+  public void setUp() throws Exception {
     // Create mock configurations
     Map<String, Object> configMap = new HashMap<>();
     configMap.put("auth.oidc.enabled", false);
@@ -60,9 +60,34 @@ public class SsoManagerTest {
 
     when(mockAuthentication.getCredentials()).thenReturn("Bearer test-token");
 
-    // Create the SsoManager instance
+    // Set up default mock behavior BEFORE creating SsoManager to prevent real HTTP calls
+    setupDefaultHttpMock();
+
+    // Create the SsoManager instance AFTER setting up mocks
     ssoManager =
         new SsoManager(mockConfig, mockAuthentication, ssoSettingsRequestUrl, mockHttpClient);
+  }
+
+  private void resetHttpMocks() throws Exception {
+    // Reset the HTTP client mock to prevent interference between tests
+    Mockito.reset(mockHttpClient);
+    setupDefaultHttpMock();
+  }
+
+  private void setupDefaultHttpMock() throws Exception {
+    // Default mock behavior: return 404 (no dynamic settings available)
+    // This prevents real HTTP calls but can be overridden by individual tests
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    StatusLine mockStatusLine = mock(StatusLine.class);
+
+    // Set up the mock behavior with strict matching to ensure it's used
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_NOT_FOUND);
+    when(mockResponse.getEntity()).thenReturn(null);
+
+    // Ensure response.close() is properly mocked (void method)
+    Mockito.doNothing().when(mockResponse).close();
   }
 
   @Test
@@ -73,6 +98,49 @@ public class SsoManagerTest {
     assertNotNull(manager);
     assertFalse(manager.isSsoEnabled());
     assertNull(manager.getSsoProvider());
+  }
+
+  @Test
+  public void testHttpClientMockIsWorking() throws Exception {
+    // Test that our HTTP client mock is actually being used
+
+    // Create a simple test to verify mock behavior
+    CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+    StatusLine mockStatusLine = mock(StatusLine.class);
+
+    when(mockHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
+    when(mockResponse.getEntity()).thenReturn(null);
+    Mockito.doNothing().when(mockResponse).close();
+
+    // Call isSsoEnabled which should trigger HTTP call
+    ssoManager.isSsoEnabled();
+
+    // Verify our mock was called, not the real HTTP client
+    verify(mockHttpClient).execute(any(HttpPost.class));
+    verify(mockResponse).getStatusLine();
+    verify(mockResponse).close();
+  }
+
+  @Test
+  public void testHttpClientMockIsActuallyUsed() throws Exception {
+    // This test verifies that the SsoManager is actually using our mock HTTP client
+    // by checking that the mock is called when we expect it to be
+
+    // Set up a mock that will throw an exception if called
+    when(mockHttpClient.execute(any(HttpPost.class)))
+        .thenThrow(new RuntimeException("Mock HTTP client was called!"));
+
+    // Call isSsoEnabled - this should use our mock and handle the exception gracefully
+    boolean result = ssoManager.isSsoEnabled();
+
+    // Verify the mock was called (this proves our mock is being used, not real HTTP)
+    verify(mockHttpClient).execute(any(HttpPost.class));
+
+    // The result should be false since the HTTP call failed and no provider was set
+    assertFalse(result);
+    assertNull(ssoManager.getSsoProvider());
   }
 
   @Test
@@ -198,6 +266,9 @@ public class SsoManagerTest {
     Config invalidConfig = ConfigFactory.parseMap(invalidConfigMap);
     ssoManager.setConfigs(invalidConfig);
 
+    // Reset mocks to ensure clean state
+    resetHttpMocks();
+
     // Mock HTTP error response (no EntityUtils needed)
     CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
     StatusLine mockStatusLine = mock(StatusLine.class);
@@ -217,9 +288,17 @@ public class SsoManagerTest {
   public void testInitializeSsoProvider_StaticConfigsValid_DynamicSettingsHttpFailure()
       throws Exception {
     // Setup: Valid static OIDC configs, HTTP failure for dynamic settings
-    setupValidStaticOidcConfig();
+    Map<String, Object> validConfigMap = new HashMap<>();
+    validConfigMap.put("auth.baseUrl", "http://localhost:9002");
+    validConfigMap.put("auth.oidc.enabled", "true");
+    validConfigMap.put("auth.oidc.clientId", "static-client-id");
+    validConfigMap.put("auth.oidc.clientSecret", "static-client-secret");
+    validConfigMap.put(
+        "auth.oidc.discoveryUri", "http://localhost:8080/.well-known/openid_configuration");
+    Config validConfig = ConfigFactory.parseMap(validConfigMap);
+    ssoManager.setConfigs(validConfig);
 
-    // Mock HTTP failure (network error)
+    // Mock HTTP failure (network error) - this should be used instead of real HTTP calls
     when(mockHttpClient.execute(any(HttpPost.class)))
         .thenThrow(new IOException("Connection timeout"));
 
@@ -228,6 +307,9 @@ public class SsoManagerTest {
     // Should set provider from static config, ignore HTTP failure
     assertNotNull(ssoManager.getSsoProvider());
     assertTrue(ssoManager.getSsoProvider() instanceof OidcProvider);
+
+    // Verify that our mock was actually called (not the real HTTP client)
+    verify(mockHttpClient).execute(any(HttpPost.class));
   }
 
   @Test

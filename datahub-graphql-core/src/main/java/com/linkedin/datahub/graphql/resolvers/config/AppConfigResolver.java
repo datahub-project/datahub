@@ -4,40 +4,11 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
-import com.linkedin.datahub.graphql.generated.AppConfig;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.generated.ApplicationConfig;
-import com.linkedin.datahub.graphql.generated.AuthConfig;
-import com.linkedin.datahub.graphql.generated.ChromeExtensionConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
-import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
-import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.generated.FeatureFlagsConfig;
-import com.linkedin.datahub.graphql.generated.HomePageConfig;
-import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
-import com.linkedin.datahub.graphql.generated.LineageConfig;
-import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
-import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
-import com.linkedin.datahub.graphql.generated.PoliciesConfig;
-import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
-import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
-import com.linkedin.datahub.graphql.generated.SearchBarAPI;
-import com.linkedin.datahub.graphql.generated.SearchBarConfig;
-import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
-import com.linkedin.datahub.graphql.generated.TelemetryConfig;
-import com.linkedin.datahub.graphql.generated.TestsConfig;
-import com.linkedin.datahub.graphql.generated.ThemeConfig;
-import com.linkedin.datahub.graphql.generated.ViewsConfig;
-import com.linkedin.datahub.graphql.generated.VisualConfig;
-import com.linkedin.metadata.config.ChromeExtensionConfiguration;
-import com.linkedin.metadata.config.DataHubConfiguration;
-import com.linkedin.metadata.config.HomePageConfiguration;
-import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.config.SearchBarConfiguration;
-import com.linkedin.metadata.config.TestsConfiguration;
-import com.linkedin.metadata.config.ViewsConfiguration;
-import com.linkedin.metadata.config.VisualConfiguration;
+import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.version.GitVersion;
@@ -64,6 +35,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
   private final SearchBarConfiguration _searchBarConfig;
+  private final SearchCardConfiguration _searchCardConfig;
   private final HomePageConfiguration _homePageConfig;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
@@ -82,6 +54,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
       final SearchBarConfiguration searchBarConfig,
+      final SearchCardConfiguration searchCardConfig,
       final HomePageConfiguration homePageConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
@@ -98,6 +71,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
     _searchBarConfig = searchBarConfig;
+    _searchCardConfig = searchCardConfig;
     _homePageConfig = homePageConfig;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
@@ -233,6 +207,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     }
     appConfig.setSearchBarConfig(searchBarConfig);
 
+    final SearchCardConfig searchCardConfig = new SearchCardConfig();
+    searchCardConfig.setShowDescription(_searchCardConfig.getShowDescription());
+    appConfig.setSearchCardConfig(searchCardConfig);
+
     final HomePageConfig homePageConfig = new HomePageConfig();
     try {
       homePageConfig.setFirstInPersonalSidebar(
@@ -286,6 +264,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
+            .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -6,23 +6,6 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.22 AS binary
-
-# Re-declaring arg from above to make it available in this stage (will inherit default value)
-ARG ALPINE_REPO_URL
-
-ENV DOCKERIZE_VERSION=v0.9.3
-WORKDIR /go/src/github.com/jwilder
-
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
-
-RUN apk --no-cache --update add openssl git tar curl
-
-WORKDIR /go/src/github.com/jwilder/dockerize
-
-RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
-
 FROM alpine:3.22 AS base
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
@@ -47,7 +30,20 @@ RUN apk --no-cache --update-cache --available upgrade \
     && wget --no-verbose -P /datahub/datahub-upgrade/lib ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && chmod -R a+r /datahub/datahub-upgrade/lib \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
-COPY --from=binary /go/bin/dockerize /usr/local/bin
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+
+ENV KUBECTL_VERSION=v1.33.4
+RUN set -x \
+  && APK_ARCH="$(cat /etc/apk/arch)" \
+  && case "$APK_ARCH" in \
+     x86_64) \
+       KUBECTL_ARCH=amd64 \
+       ;; \
+     aarch64) \
+       KUBECTL_ARCH=arm64 \
+       ;; \
+     esac \
+    && curl -L "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${KUBECTL_ARCH}/kubectl" | install -o root -g root -m 0755 /dev/stdin /usr/local/bin/kubectl
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 

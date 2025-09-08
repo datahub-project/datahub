@@ -35,12 +35,12 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.65.7'
+  ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.8'
+  ext.springVersion = '6.2.10'
   ext.springBootVersion = '3.4.5'
-  ext.springKafkaVersion = '3.3.6'
+  ext.springKafkaVersion = '3.3.8'
   ext.openTelemetryVersion = '1.49.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
@@ -121,6 +121,7 @@ project.ext.externalDependency = [
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
+    'awaitility': 'org.awaitility:awaitility:4.2.0',
     'avro': 'org.apache.avro:avro:1.11.4',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.23',
@@ -134,7 +135,6 @@ project.ext.externalDependency = [
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
-    'commonsLang': 'commons-lang:commons-lang:2.6',
     'commonsText': 'org.apache.commons:commons-text:1.14.0',
     'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
@@ -251,7 +251,7 @@ project.ext.externalDependency = [
     'pac4j': 'org.pac4j:pac4j-oidc:6.1.2',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
     'postgresql': 'org.postgresql:postgresql:42.7.7',
-    'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
+    'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.12',
@@ -399,6 +399,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'com.typesafe.play', module: 'shaded-oauth'
     exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
+    exclude group: 'commons-lang', module: 'commons-lang'
     
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
@@ -410,6 +411,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
+    resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"
@@ -475,7 +477,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.118.Final')
+        implementation('io.netty:netty-all:4.1.125.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')

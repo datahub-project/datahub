@@ -4,6 +4,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 
 import dataclasses
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
@@ -17,6 +18,8 @@ from databricks.sdk.service.catalog import (
     ColumnInfo,
     GetMetastoreSummaryResponse,
     MetastoreInfo,
+    ModelVersionInfo,
+    RegisteredModelInfo,
     SchemaInfo,
     TableInfo,
 )
@@ -49,6 +52,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     CustomCatalogType,
     ExternalTableReference,
     Metastore,
+    Model,
+    ModelVersion,
     Notebook,
     NotebookReference,
     Query,
@@ -65,6 +70,23 @@ logger: logging.Logger = logging.getLogger(__name__)
 # It is enough to keep the cache size to 1, since we only process one catalog at a time
 # We need to change this if we want to support parallel processing of multiple catalogs
 _MAX_CONCURRENT_CATALOGS = 1
+
+
+# Import and apply the proxy patch from separate module
+try:
+    from datahub.ingestion.source.unity.proxy_patch import (
+        apply_databricks_proxy_fix,
+        mask_proxy_credentials,
+    )
+
+    # Apply the fix when the module is imported
+    apply_databricks_proxy_fix()
+except ImportError as e:
+    logger.debug(f"Could not import proxy patch module: {e}")
+
+    # Fallback function for masking credentials
+    def mask_proxy_credentials(url: Optional[str]) -> str:
+        return "***MASKED***" if url else "None"
 
 
 @dataclasses.dataclass
@@ -251,6 +273,40 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     logger.warning(f"Error parsing table: {e}")
                     self.report.report_warning("table-parse", str(e))
 
+    def ml_models(
+        self, schema: Schema, max_results: Optional[int] = None
+    ) -> Iterable[Model]:
+        response = self._workspace_client.registered_models.list(
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+            max_results=max_results,
+        )
+        for ml_model in response:
+            optional_ml_model = self._create_ml_model(schema, ml_model)
+            if optional_ml_model:
+                yield optional_ml_model
+
+    def ml_model_versions(
+        self, ml_model: Model, include_aliases: bool = False
+    ) -> Iterable[ModelVersion]:
+        response = self._workspace_client.model_versions.list(
+            full_name=ml_model.id,
+            include_browse=True,
+            max_results=self.databricks_api_page_size,
+        )
+        for version in response:
+            if version.version is not None:
+                if include_aliases:
+                    # to get aliases info, use GET
+                    version = self._workspace_client.model_versions.get(
+                        ml_model.id, version.version, include_aliases=True
+                    )
+                optional_ml_model_version = self._create_ml_model_version(
+                    ml_model, version
+                )
+                if optional_ml_model_version:
+                    yield optional_ml_model_version
+
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
             optional_sp = self._create_service_principal(principal)
@@ -373,7 +429,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             query = f"""
                 SELECT
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
+                    source_table_full_name, source_type, source_path,
                     target_table_full_name, target_type,
                     max(event_time) as last_updated
                 FROM system.access.table_lineage
@@ -382,7 +438,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     {additional_where}
                 GROUP BY
                     entity_type, entity_id,
-                    source_table_full_name, source_type,
+                    source_table_full_name, source_type, source_path,
                     target_table_full_name, target_type
                 """
             rows = self._execute_sql_query(query, [catalog, catalog])
@@ -394,6 +450,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 source_full_name = row["source_table_full_name"]
                 target_full_name = row["target_table_full_name"]
                 source_type = row["source_type"]
+                source_path = row["source_path"]
                 last_updated = row["last_updated"]
 
                 # Initialize TableLineageInfo for both source and target tables if they're in our catalog
@@ -422,7 +479,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     # Handle external upstreams (PATH type)
                     elif source_type == "PATH":
                         external_upstream = ExternalUpstream(
-                            path=source_full_name,
+                            path=source_path,
                             source_type=source_type,
                             last_updated=last_updated,
                         )
@@ -862,6 +919,45 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if optional_column:
                 yield optional_column
 
+    def _create_ml_model(
+        self, schema: Schema, obj: RegisteredModelInfo
+    ) -> Optional[Model]:
+        if not obj.name or not obj.full_name:
+            self.report.num_ml_models_missing_name += 1
+            return None
+        return Model(
+            id=obj.full_name,
+            name=obj.name,
+            description=obj.comment,
+            schema_name=schema.name,
+            catalog_name=schema.catalog.name,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+        )
+
+    def _create_ml_model_version(
+        self, model: Model, obj: ModelVersionInfo
+    ) -> Optional[ModelVersion]:
+        if obj.version is None:
+            return None
+
+        aliases = []
+        if obj.aliases:
+            for alias in obj.aliases:
+                if alias.alias_name:
+                    aliases.append(alias.alias_name)
+        return ModelVersion(
+            id=f"{model.id}_{obj.version}",
+            name=f"{model.name}_{obj.version}",
+            model=model,
+            version=str(obj.version),
+            aliases=aliases,
+            description=obj.comment,
+            created_at=parse_ts_millis(obj.created_at),
+            updated_at=parse_ts_millis(obj.updated_at),
+            created_by=obj.created_by,
+        )
+
     def _create_service_principal(
         self, obj: DatabricksServicePrincipal
     ) -> Optional[ServicePrincipal]:
@@ -896,16 +992,82 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
         """Execute SQL query using databricks-sql connector for better performance"""
+        logger.debug(f"Executing SQL query with {len(params)} parameters")
+        if logger.isEnabledFor(logging.DEBUG):
+            # Only log full query in debug mode to avoid performance overhead
+            logger.debug(f"Full SQL query: {query}")
+            if params:
+                logger.debug(f"Query parameters: {params}")
+
+        # Check if warehouse_id is available for SQL operations
+        if not self.warehouse_id:
+            self.report.report_warning(
+                "Cannot execute SQL query",
+                "warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration",
+            )
+            logger.warning(
+                "Cannot execute SQL query: warehouse_id is not configured. "
+                "SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration."
+            )
+            return []
+
+        # Log connection parameters (with masked token)
+        masked_params = {**self._sql_connection_params}
+        if "access_token" in masked_params:
+            masked_params["access_token"] = "***MASKED***"
+        logger.debug(f"Using connection parameters: {masked_params}")
+
+        # Log proxy environment variables that affect SQL connections
+        proxy_env_debug = {}
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+            value = os.environ.get(var)
+            if value:
+                proxy_env_debug[var] = mask_proxy_credentials(value)
+
+        if proxy_env_debug:
+            logger.debug(
+                f"SQL connection will use proxy environment variables: {proxy_env_debug}"
+            )
+        else:
+            logger.debug("No proxy environment variables detected for SQL connection")
+
         try:
             with (
                 connect(**self._sql_connection_params) as connection,
                 connection.cursor() as cursor,
             ):
                 cursor.execute(query, list(params))
-                return cursor.fetchall()
+                rows = cursor.fetchall()
+                logger.debug(
+                    f"SQL query executed successfully, returned {len(rows)} rows"
+                )
+                return rows
 
         except Exception as e:
-            logger.warning(f"Failed to execute SQL query: {e}")
+            logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
+            if logger.isEnabledFor(logging.DEBUG):
+                # Only log failed query details in debug mode for security
+                logger.debug(f"SQL query that failed: {query}")
+                logger.debug(f"SQL query parameters: {params}")
+
+            # Check if this might be a proxy-related error
+            error_str = str(e).lower()
+            if any(
+                proxy_keyword in error_str
+                for proxy_keyword in [
+                    "proxy",
+                    "407",
+                    "authentication required",
+                    "tunnel",
+                    "connect",
+                ]
+            ):
+                logger.error(
+                    "SQL query failure appears to be proxy-related. "
+                    "Please check proxy configuration and authentication. "
+                    f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
+                )
+
             return []
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))

@@ -56,6 +56,8 @@ class DatasetContainerSubTypes(StrEnum):
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
     NAMESPACE = "Namespace"  # Iceberg
+    DREMIO_SPACE = "Dremio Space"
+    DREMIO_SOURCE = "Dremio Source"
 
 
 class BIContainerSubTypes(StrEnum):
@@ -65,6 +67,7 @@ class BIContainerSubTypes(StrEnum):
     TABLEAU_SITE = "Site"
     TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
+    POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
     QLIK_SPACE = "Qlik Space"
