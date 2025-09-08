@@ -1,3 +1,6 @@
+import { StructuredPropertyFieldsFragment } from '@graphql/fragments.generated';
+import { SummaryElementType } from '@types';
+
 export enum PropertyType {
     Domain = 'domain',
     Owners = 'owners',
@@ -11,10 +14,10 @@ export enum PropertyType {
 
 export interface AssetProperty {
     name: string;
-    type: PropertyType;
+    type: SummaryElementType;
     icon?: string;
     key?: string;
-    structuredPropertyUrn?: string;
+    structuredProperty?: StructuredPropertyFieldsFragment;
 }
 
 export interface AssetPropertiesContextType {
