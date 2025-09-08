@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -41,6 +41,7 @@ export default function Preview({
     paths,
     health,
     parentEntities,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -63,6 +64,7 @@ export default function Preview({
     paths?: EntityPath[];
     health?: Health[] | null;
     parentEntities?: Array<GeneratedEntity> | null;
+    previewType: PreviewType;
 }): JSX.Element {
     const entityRegistry = useEntityRegistry();
     return (
@@ -92,6 +94,7 @@ export default function Preview({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
+            previewType={previewType}
         />
     );
 }

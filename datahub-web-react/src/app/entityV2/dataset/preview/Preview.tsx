@@ -97,7 +97,7 @@ export const Preview = ({
     isOutputPort?: boolean;
     tier?: PopularityTier;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: Maybe<PreviewType>;
+    previewType: PreviewType;
     browsePaths?: BrowsePathV2;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();

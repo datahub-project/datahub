@@ -143,7 +143,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: MlFeature) => {
+    renderPreview = (previewType: PreviewType, data: MlFeature) => {
         const genericProperties = this.getGenericEntityProperties(data);
         // eslint-disable-next-line
         const platform = data?.['featureTables']?.relationships?.[0]?.entity?.platform;
@@ -156,6 +156,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 owners={data.ownership?.owners}
                 platform={platform}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                previewType={previewType}
             />
         );
     };
@@ -177,6 +178,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
