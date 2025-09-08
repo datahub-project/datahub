@@ -12,7 +12,6 @@ from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.sdk.entity import Entity
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
 from datahub.ingestion.source.looker.looker_dataclasses import (
@@ -36,6 +35,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     UpstreamLineageClass,
 )
+from datahub.sdk.entity import Entity
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import get_current_checkpoint_from_pipeline
