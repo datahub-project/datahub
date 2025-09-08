@@ -125,6 +125,7 @@ interface Props {
     onLineageClick?: () => void;
     isLineageTab?: boolean;
     isViewAllMode?: boolean | false;
+    handleViewAllClickWarning?: () => void;
 }
 
 const getPlatformUrnFromSearchResponse = (searchResponse: SearchResultType | null | undefined) => {
@@ -155,6 +156,7 @@ export const EmbeddedListSearchResults = ({
     onLineageClick,
     isLineageTab = false,
     isViewAllMode = false,
+    handleViewAllClickWarning,
 }: Props) => {
     const history = useHistory();
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
@@ -177,6 +179,7 @@ export const EmbeddedListSearchResults = ({
     }
 
     const handleSearchAllAssetsClick = () => {
+        handleViewAllClickWarning?.();
         if (platformUrn) {
             const platformFilter: FacetFilterInput = {
                 field: 'platform',

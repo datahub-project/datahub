@@ -34,6 +34,7 @@ type Props = {
     entityAction?: React.FC<EntityActionProps>;
     applyView?: boolean;
     isViewAllMode?: boolean | false;
+    handleViewAllClickWarning?: () => void;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -50,6 +51,7 @@ export const EmbeddedListSearchModal = ({
     entityAction,
     applyView,
     isViewAllMode,
+    handleViewAllClickWarning,
 }: Props) => {
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -101,6 +103,7 @@ export const EmbeddedListSearchModal = ({
                     entityAction={entityAction}
                     applyView={applyView}
                     isViewAllMode={isViewAllMode}
+                    handleViewAllClickWarning={handleViewAllClickWarning}
                 />
             </SearchContainer>
         </Modal>
