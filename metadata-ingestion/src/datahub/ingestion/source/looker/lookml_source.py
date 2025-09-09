@@ -425,7 +425,9 @@ class LookMLSource(StatefulIngestionSourceBase):
         return dataset_props
 
     def _build_dataset_entities(self, looker_view: LookerView) -> Iterable[Dataset]:
-        dataset_extra_aspects: List[ViewProperties | Status] = [Status(removed=False)]
+        dataset_extra_aspects: List[Union[ViewProperties, Status]] = [
+            Status(removed=False)
+        ]
         if looker_view.view_details is not None:
             dataset_extra_aspects.append(looker_view.view_details)
 
