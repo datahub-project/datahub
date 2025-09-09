@@ -453,6 +453,13 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Global metadata extraction timing (single query for all databases)
     metadata_extraction_total_sec: float = 0.0
 
+    # Lineage extraction query time range (actively used)
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
+
+    # Audit query processing statistics
+    num_audit_query_entries_processed: int = 0
+
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
     scheme: str = Field(default="teradatasql", description="database scheme")
@@ -1327,6 +1334,9 @@ ORDER by DataBaseName, TableName;
         current_query_metadata = None
 
         for entry in entries:
+            # Count each audit query entry processed
+            self.report.num_audit_query_entries_processed += 1
+
             query_id = getattr(entry, "query_id", None)
             query_text = str(getattr(entry, "query_text", ""))
 
@@ -1427,7 +1437,7 @@ ORDER by DataBaseName, TableName;
 
                 for query_index, query in enumerate(queries, 1):
                     logger.info(
-                        f"Executing lineage query {query_index}/{len(queries)} with {cursor_type} cursor..."
+                        f"Executing lineage query {query_index}/{len(queries)} for time range {self.config.start_time} to {self.config.end_time} with {cursor_type} cursor..."
                     )
 
                     # Use helper method to try server-side cursor with fallback
@@ -1610,38 +1620,46 @@ ORDER by DataBaseName, TableName;
 
     def _populate_aggregator_from_audit_logs(self) -> None:
         """SqlParsingAggregator-based lineage extraction with enhanced capabilities."""
-        logger.info(
-            "Fetching queries from Teradata audit logs for SqlParsingAggregator"
-        )
+        with self.report.new_stage("Lineage extraction from Teradata audit logs"):
+            # Record the lineage query time range in the report
+            self.report.lineage_start_time = self.config.start_time
+            self.report.lineage_end_time = self.config.end_time
 
-        if self.config.include_table_lineage or self.config.include_usage_statistics:
-            # Step 1: Stream query entries from database with memory-efficient processing
-            with self.report.new_stage("Fetching lineage entries from Audit Logs"):
-                queries_processed = 0
-                entries_processed = False
+            logger.info(
+                f"Starting lineage extraction from Teradata audit logs (time range: {self.config.start_time} to {self.config.end_time})"
+            )
 
-                # Use streaming query reconstruction for memory efficiency
-                for observed_query in self._reconstruct_queries_streaming(
-                    self._fetch_lineage_entries_chunked()
-                ):
-                    entries_processed = True
-                    self.aggregator.add(observed_query)
+            if (
+                self.config.include_table_lineage
+                or self.config.include_usage_statistics
+            ):
+                # Step 1: Stream query entries from database with memory-efficient processing
+                with self.report.new_stage("Fetching lineage entries from Audit Logs"):
+                    queries_processed = 0
+                    entries_processed = False
 
-                    queries_processed += 1
-                    if queries_processed % 10000 == 0:
-                        logger.info(
-                            f"Processed {queries_processed} queries to aggregator"
-                        )
+                    # Use streaming query reconstruction for memory efficiency
+                    for observed_query in self._reconstruct_queries_streaming(
+                        self._fetch_lineage_entries_chunked()
+                    ):
+                        entries_processed = True
+                        self.aggregator.add(observed_query)
 
-                if not entries_processed:
-                    logger.info("No lineage entries found")
-                    return
+                        queries_processed += 1
+                        if queries_processed % 10000 == 0:
+                            logger.info(
+                                f"Processed {queries_processed} queries to aggregator"
+                            )
 
-                logger.info(
-                    f"Completed adding {queries_processed} queries to SqlParsingAggregator"
-                )
+                    if not entries_processed:
+                        logger.info("No lineage entries found")
+                        return
 
-        logger.info("Completed adding queries to SqlParsingAggregator. ")
+                    logger.info(
+                        f"Completed adding {queries_processed} queries to SqlParsingAggregator"
+                    )
+
+            logger.info("Completed lineage extraction from Teradata audit logs")
 
     def close(self) -> None:
         """Clean up resources when source is closed."""
