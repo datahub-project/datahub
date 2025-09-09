@@ -110,6 +110,15 @@ export const FIELD_VALUES_OPERATOR_CONFIG = {
             },
         },
         {
+            label: 'Is not in set',
+            value: AssertionStdOperator.NotIn,
+            parameters: {
+                value: {
+                    type: AssertionStdParameterType.Set,
+                },
+            },
+        },
+        {
             label: 'Not empty',
             value: AssertionStdOperator.GreaterThanOrEqualTo,
             parameters: {
@@ -230,6 +239,16 @@ export const FIELD_VALUES_OPERATOR_CONFIG = {
         {
             label: 'Is in set',
             value: AssertionStdOperator.In,
+            parameters: {
+                value: {
+                    type: AssertionStdParameterType.Set,
+                },
+            },
+            inputType: 'number',
+        },
+        {
+            label: 'Is not in set',
+            value: AssertionStdOperator.NotIn,
             parameters: {
                 value: {
                     type: AssertionStdParameterType.Set,
