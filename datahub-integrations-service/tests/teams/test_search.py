@@ -20,6 +20,7 @@ def mock_teams_config() -> TeamsConnection:
         app_details=TeamsAppDetails(
             app_id="test-app-id",
             app_password="test-app-password",
+            app_tenant_id="test-tenant-id",
             tenant_id="test-tenant-id",
         )
     )
@@ -62,7 +63,9 @@ class TestTeamsSearchServiceInit:
         client = search_service.graph_client
         assert client == mock_client
         assert search_service._graph_client == mock_client
-        mock_graph_client_class.assert_called_once_with(search_service.config)
+        mock_graph_client_class.assert_called_once_with(
+            search_service.config, use_app_tenant_id=False
+        )
 
         # Second access should return same client
         client2 = search_service.graph_client
