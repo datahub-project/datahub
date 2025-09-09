@@ -730,7 +730,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if ownership is not None:
                 chart_ownership = [ownership]
 
-        chart_extra_aspects: List[InputFieldsClass | EmbedClass | Status] = []
+        chart_extra_aspects: List[Union[InputFieldsClass, EmbedClass, Status]] = []
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
             self.source_config.extract_embed_urls
@@ -794,7 +794,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             dashboard_ownership = [ownership]
 
         # Extra Aspects not yet supported in the Dashboard entity class SDKv2
-        dashboard_extra_aspects: List[EmbedClass | InputFieldsClass | Status] = []
+        dashboard_extra_aspects: List[Union[EmbedClass, InputFieldsClass, Status]] = []
 
         # Embed URL aspect
         if (
