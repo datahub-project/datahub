@@ -205,15 +205,22 @@ You can optionally pass the following additional args when executing `:docker:bu
 ## IDE Support
 
 The recommended IDE for DataHub development is [IntelliJ IDEA](https://www.jetbrains.com/idea/).
-You can run the following command to generate or update the IntelliJ project file.
 
-```shell
-./gradlew idea
-```
+### Required IntelliJ Plugins
 
-Open `datahub.ipr` in IntelliJ to start developing!
+DataHub requires the following IntelliJ plugins for proper development:
 
-For consistency please import and auto format the code using [LinkedIn IntelliJ Java style](../gradle/idea/LinkedIn%20Style.xml).
+1. **Lombok Plugin** - Essential for Lombok annotation processing
+   - Install: Settings → Plugins → Search "Lombok" → Install
+
+### Setup Steps
+
+1. Install required plugins (see above)
+2. Generate the IntelliJ project file (re-run after dependency changes):
+   ```shell
+   ./gradlew idea
+   ```
+3. Open `datahub.ipr` in IntelliJ
 
 ## Windows Compatibility
 
