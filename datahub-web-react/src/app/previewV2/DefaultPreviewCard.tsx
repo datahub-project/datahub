@@ -27,7 +27,6 @@ import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
@@ -77,6 +76,7 @@ const PreviewContainer = styled.div`
     width: 100%;
     justify-content: space-between;
     align-items: start;
+
     .entityCount {
         margin-bottom: 2px;
     }
@@ -181,7 +181,6 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
-    propagationDetails?: AttributionDetails;
 }
 
 export default function DefaultPreviewCard({
@@ -228,7 +227,6 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
-    propagationDetails,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -244,7 +242,9 @@ export default function DefaultPreviewCard({
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
-    const previewData = usePreviewData();
+    // Passing previewType via context because not all entities pass it via props
+    // But not using previewContextType everywhere to avoid regressions... sorry
+    const { previewData, propagationDetails, previewType: previewTypeInContext } = usePreviewData();
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -350,7 +350,7 @@ export default function DefaultPreviewCard({
                             <DataProcessInstanceInfo {...lastRunEvent} />
                         </RowContainer>
                     )}
-                    {previewType === PreviewType.HOVER_CARD && (
+                    {previewTypeInContext === PreviewType.HOVER_CARD && (
                         <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                     )}
                 </>
@@ -409,7 +409,7 @@ function useRemoveRelationship(entityType: EntityType) {
     const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
     const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
 
-    const previewData = usePreviewData();
+    const { previewData } = usePreviewData();
     const entityData = useEntityData();
     const pageEntityType = entityData.entityType;
 

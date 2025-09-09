@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { StructuredPopover, Text } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -50,9 +50,19 @@ export const OwnershipTypeSection = ({ ownershipType, owners, readOnly }: Props)
     const ownershipTypeDescription = getOwnershipTypeDescription(ownershipType);
     return (
         <OwnershipTypeContainer>
-            <Tooltip title={ownershipTypeDescription}>
+            <StructuredPopover
+                placement="topLeft"
+                sections={
+                    ownershipTypeDescription && [
+                        {
+                            title: ownershipTypeName,
+                            content: <Text>{ownershipTypeDescription}</Text>,
+                        },
+                    ]
+                }
+            >
                 <OwnershipTypeNameText>{ownershipTypeName}</OwnershipTypeNameText>
-            </Tooltip>
+            </StructuredPopover>
             <OwnersContainer>
                 {owners.map((owner) => (
                     <ExpandedOwner

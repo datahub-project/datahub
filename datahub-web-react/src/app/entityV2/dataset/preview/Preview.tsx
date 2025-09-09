@@ -8,6 +8,8 @@ import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { LOGICAL_PLATFORM_URN } from '@app/shared/constants';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
@@ -155,6 +157,11 @@ export const Preview = ({
             statsSummary={statsSummary}
             previewType={previewType}
             browsePaths={browsePaths}
+            entityIcon={
+                !platformLogo && data?.platform?.urn === LOGICAL_PLATFORM_URN ? (
+                    <LogicalPlatformDefaultIcon />
+                ) : undefined
+            }
         />
     );
 };

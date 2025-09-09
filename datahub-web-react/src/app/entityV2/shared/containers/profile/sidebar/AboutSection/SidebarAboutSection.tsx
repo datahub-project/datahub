@@ -1,3 +1,4 @@
+import { Tooltip } from '@components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React, { useMemo } from 'react';
@@ -12,6 +13,7 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import InferDocsButton from '@src/app/entityV2/shared/components/inferredDocs/InferDocsButton';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
@@ -41,7 +43,7 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
 
     const canShowInferDocsButton = useShouldShowInferDocumentationButton(entityType);
 
-    const { displayedDescription, isInferred } = getAssetDescriptionDetails({
+    const { displayedDescription, isInferred, isPropagated, attribution } = getAssetDescriptionDetails({
         entityProperties: entityData,
         enableInferredDescriptions: canShowInferDocsButton,
     });
@@ -64,14 +66,19 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
                 title="Documentation"
                 content={
                     <>
-                        {displayedDescription && [
-                            isInferred && <InferenceDetailsPill pillStyles={{ marginBottom: 4 }} />,
-                            <DescriptionSection
-                                description={displayedDescription}
-                                isExpandable
-                                lineLimit={LINE_LIMIT}
-                            />,
-                        ]}
+                        <Tooltip
+                            placement="topLeft"
+                            title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
+                        >
+                            {displayedDescription && [
+                                isInferred && <InferenceDetailsPill pillStyles={{ marginBottom: 4 }} />,
+                                <DescriptionSection
+                                    description={displayedDescription}
+                                    isExpandable
+                                    lineLimit={LINE_LIMIT}
+                                />,
+                            ]}
+                        </Tooltip>
                         {hasContent && <LinksSection readOnly />}
                         {!hasContent && [
                             <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />,

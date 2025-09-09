@@ -77,8 +77,8 @@ export default function DefaultEntityIcon({ entity, siblings }: EntityIconProps)
     return (
         <Container>
             {entitiesToShowIcons?.map((entityToShowIcon) => (
-                <IconContainer>
-                    <SingleEntityIcon entity={entityToShowIcon} key={entityToShowIcon.urn} size={iconSize} />
+                <IconContainer key={entityToShowIcon.urn}>
+                    <SingleEntityIcon entity={entityToShowIcon} size={iconSize} />
                 </IconContainer>
             ))}
         </Container>
