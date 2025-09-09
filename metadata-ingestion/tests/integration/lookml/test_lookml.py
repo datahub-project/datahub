@@ -1266,8 +1266,20 @@ def test_unreachable_views(pytestconfig):
         LookMLSourceConfig.parse_obj(config),
         ctx=PipelineContext(run_id="lookml-source-test"),
     )
-    wu: List[Union[MetadataWorkUnit, Entity]] = [*source.get_workunits_internal()]
-    assert len(wu) == 15
+    workunits: List[Union[MetadataWorkUnit, Entity]] = [
+        *source.get_workunits_internal()
+    ]
+    converted_workunits: List[MetadataWorkUnit] = []
+    # Convert entities to metadata work units,
+    for workunit in workunits:
+        if isinstance(workunit, Entity):
+            converted_workunits.extend(workunit.as_workunits())
+        else:
+            converted_workunits.append(workunit)
+    # TODO: Not sure if asserting on num of workunits is extendable in the future
+    assert (
+        len(converted_workunits) == 22
+    )  # this num was updated when we converted entities to metadata work units part of SDKv2 migration
     assert source.reporter.warnings.total_elements == 1
     assert (
         "The Looker view file was skipped because it may not be referenced by any models."
