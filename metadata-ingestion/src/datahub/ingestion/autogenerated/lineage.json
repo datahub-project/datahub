@@ -192,7 +192,8 @@
             "relationship": {
               "name": "Consumes",
               "entityTypes": [
-                "dataset"
+                "dataset",
+                "chart"
               ],
               "isLineage": true
             }
@@ -397,5 +398,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2025-07-01T10:49:03.713749+00:00"
+  "generated_at": "2025-08-05T19:29:49.306404+00:00"
 }

@@ -69,6 +69,9 @@ query appConfig {
         searchBarConfig {
             apiVariant
         }
+        searchCardConfig {
+            showDescription
+        }
         homePageConfig {
             firstInPersonalSidebar
         }
@@ -102,9 +105,13 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showStatsTabRedesign
             showHomePageRedesign
             showProductUpdates
             lineageGraphV3
+            logicalModelsEnabled
+            showHomepageUserRole
+            assetSummaryPageV1
         }
         chromeExtensionConfig {
             enabled
@@ -137,7 +144,7 @@ query getDocPropagationSettings {
 query getHomePageSettings {
     globalHomePageSettings {
         defaultTemplate {
-            ...pageTemplateFields
+            ...PageTemplate
         }
     }
 }

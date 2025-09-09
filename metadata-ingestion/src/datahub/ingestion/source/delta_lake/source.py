@@ -32,12 +32,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.azure.abs_folder_utils import (
-    get_abs_properties,
-    get_abs_tags,
-)
-from datahub.ingestion.source.azure.abs_utils import get_container_name
-from datahub.ingestion.source.azure.onelake_utils import strip_onelake_prefix
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.delta_lake.config import DeltaLakeSourceConfig
 from datahub.ingestion.source.delta_lake.delta_lake_utils import (
@@ -98,6 +93,13 @@ OPERATION_STATEMENT_TYPES = {
     "Can extract S3 object/bucket and Azure blob/container tags if enabled",
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.FOLDER,
+    ],
+)
 class DeltaLakeSource(StatefulIngestionSourceBase):
     """
     This plugin extracts:

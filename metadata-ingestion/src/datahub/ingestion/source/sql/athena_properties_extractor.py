@@ -99,10 +99,10 @@ class AthenaPropertiesExtractor:
     """A class to extract properties from Athena CREATE TABLE statements."""
 
     CREATE_TABLE_REGEXP = re.compile(
-        "(CREATE TABLE[\s\n]*)(.*?)(\s*\()", re.MULTILINE | re.IGNORECASE
+        r"(CREATE TABLE[\s\n]*)(.*?)(\s*\()", re.MULTILINE | re.IGNORECASE
     )
     PARTITIONED_BY_REGEXP = re.compile(
-        "(PARTITIONED BY[\s\n]*\()((?:[^()]|\([^)]*\))*?)(\))",
+        r"(PARTITIONED BY[\s\n]*\()((?:[^()]|\([^)]*\))*?)(\))",
         re.MULTILINE | re.IGNORECASE,
     )
 

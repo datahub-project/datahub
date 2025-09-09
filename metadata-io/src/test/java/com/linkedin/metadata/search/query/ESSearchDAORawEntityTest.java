@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.query;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -50,8 +51,8 @@ public class ESSearchDAORawEntityTest {
         new ESSearchDAO(
             mockClient,
             false,
-            "elasticsearch",
-            TEST_ES_SEARCH_CONFIG,
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            TEST_OS_SEARCH_CONFIG,
             null,
             com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);

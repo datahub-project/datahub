@@ -272,6 +272,8 @@ export const IngestionSourceList = ({
 
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
     const isLastPage = totalSources <= pageSize * page;
+    // this is required when the ingestion source has not been created
+    const [selectedSourceType, setSelectedSourceType] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
@@ -306,6 +308,7 @@ export const IngestionSourceList = ({
                 variables: {
                     input: { ingestionSourceUrn: urn },
                 },
+                refetchQueries: ['listIngestionExecutionRequests'],
             })
                 .then(() => {
                     setSourcesToRefetch((prev) => new Set(prev).add(urn));
@@ -391,8 +394,10 @@ export const IngestionSourceList = ({
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
+                        sourceUrn: focusSourceUrn,
                         interval: input.schedule?.interval,
                         numOwners: owners?.length,
+                        outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
                         content: `Successfully updated ingestion source!`,
@@ -459,8 +464,10 @@ export const IngestionSourceList = ({
                     analytics.event({
                         type: EventType.CreateIngestionSourceEvent,
                         sourceType: input.type,
+                        sourceUrn: newSource.urn,
                         interval: input.schedule?.interval,
                         numOwners: ownersToAdd?.length,
+                        outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
                         content: `Successfully created ingestion source!`,
@@ -695,6 +702,8 @@ export const IngestionSourceList = ({
                     return Promise.resolve();
                 }}
                 selectedSource={focusSource}
+                selectedSourceType={selectedSourceType}
+                setSelectedSourceType={setSelectedSourceType}
                 loading={isModalWaiting}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}

@@ -179,7 +179,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -364,7 +364,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -549,7 +549,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -734,7 +734,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -919,7 +919,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1104,7 +1104,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1289,7 +1289,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1474,7 +1474,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1659,7 +1659,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1692,7 +1692,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1705,7 +1705,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -1748,7 +1748,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -1852,7 +1852,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -1885,7 +1885,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1898,7 +1898,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -1941,7 +1941,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -2045,7 +2045,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2078,7 +2078,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2091,7 +2091,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2134,7 +2134,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -2238,7 +2238,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2271,7 +2271,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2284,7 +2284,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2327,7 +2327,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -2431,7 +2431,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2464,7 +2464,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2477,7 +2477,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2520,7 +2520,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -2624,7 +2624,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2657,7 +2657,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2670,7 +2670,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2713,7 +2713,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -2817,7 +2817,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -2850,7 +2850,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2863,7 +2863,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2906,7 +2906,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -3010,7 +3010,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3043,7 +3043,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3056,7 +3056,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -3099,7 +3099,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -3203,7 +3203,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3236,7 +3236,7 @@
                             {
                                 "fieldPath": "test_column3",
                                 "nullable": true,
-                                "description": "test_column3",
+                                "description": "some description 3",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3249,7 +3249,7 @@
                             {
                                 "fieldPath": "test_column4",
                                 "nullable": true,
-                                "description": "test_column4",
+                                "description": "some description 4",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -3292,7 +3292,7 @@
                         "customProperties": {},
                         "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
                         "name": "Test Table 2",
-                        "description": "",
+                        "description": "Sample description for dataset 2",
                         "lastModified": {
                             "time": 1707579020123
                         },
@@ -3396,7 +3396,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3446,7 +3446,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3504,7 +3504,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3570,7 +3570,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3628,7 +3628,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3686,7 +3686,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3756,7 +3756,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3773,7 +3773,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3790,7 +3790,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3807,7 +3807,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3824,31 +3824,14 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(superset,2)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": true
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(superset,13)",
+    "entityUrn": "urn:li:chart:(superset,14)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -3858,7 +3841,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -3875,7 +3858,41 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-stwswn",
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(superset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(superset,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-lbqsmm",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

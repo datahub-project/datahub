@@ -5,6 +5,7 @@ import static org.testng.AssertJUnit.assertNotNull;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
@@ -32,6 +33,7 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
   @MockBean private Database database;
   @MockBean private BootstrapManager bootstrapManager;
   @MockBean private Clock clock;
+  @MockBean private MetricUtils metricUtils;
 
   @Test
   public void testTelemetry() {

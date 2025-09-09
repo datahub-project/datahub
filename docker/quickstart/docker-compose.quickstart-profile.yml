@@ -49,6 +49,7 @@ services:
       EBEAN_DATASOURCE_URL: jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2
       EBEAN_DATASOURCE_USERNAME: datahub
       ELASTICSEARCH_HOST: search
+      ELASTICSEARCH_IMPLEMENTATION: opensearch
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: 'true'
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: 'true'
       ELASTICSEARCH_LIMIT_RESULTS_STRICT: 'true'
@@ -202,31 +203,6 @@ services:
       source: broker
       target: /var/lib/kafka/data
       volume: {}
-  kafka-setup:
-    profiles:
-    - quickstart
-    - quickstart-backend
-    - quickstart-actions
-    - quickstart-frontend
-    - quickstart-storage
-    - quickstart-cassandra
-    - quickstart-postgres
-    - quickstart-consumers
-    depends_on:
-      kafka-broker:
-        condition: service_healthy
-        required: true
-    environment:
-      DATAHUB_PRECREATE_TOPICS: 'false'
-      KAFKA_BOOTSTRAP_SERVER: broker:29092
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      USE_CONFLUENT_SCHEMA_REGISTRY: 'false'
-    hostname: kafka-setup
-    image: acryldata/datahub-kafka-setup:${DATAHUB_VERSION}
-    labels:
-      datahub_setup_job: 'true'
-    networks:
-      default: null
   mysql:
     profiles:
     - quickstart
@@ -243,6 +219,7 @@ services:
     - debug-neo4j
     - debug-elasticsearch
     - debug-backend-aws
+    - debug-aws
     command:
     - --character-set-server=utf8mb4
     - --collation-server=utf8mb4_bin
@@ -319,6 +296,7 @@ services:
     - debug-consumers
     - debug-neo4j
     - debug-backend-aws
+    - debug-aws
     deploy:
       resources:
         limits:
@@ -387,9 +365,6 @@ services:
     - -u
     - SystemUpdate
     depends_on:
-      kafka-setup:
-        condition: service_completed_successfully
-        required: true
       mysql:
         condition: service_healthy
         required: true
@@ -406,6 +381,7 @@ services:
       BACKFILL_BROWSE_PATHS_V2: 'true'
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
+      DATAHUB_PRECREATE_TOPICS: 'false'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
@@ -413,6 +389,7 @@ services:
       EBEAN_DATASOURCE_USERNAME: datahub
       ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES: 'false'
       ELASTICSEARCH_HOST: search
+      ELASTICSEARCH_IMPLEMENTATION: opensearch
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: 'true'
       ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: '3'
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: 'true'
@@ -433,6 +410,7 @@ services:
       SCHEMA_REGISTRY_TYPE: INTERNAL
       SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: 'true'
       SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: 'true'
+      USE_CONFLUENT_SCHEMA_REGISTRY: 'false'
     hostname: datahub-system-update
     image: acryldata/datahub-upgrade:${DATAHUB_VERSION}
     labels:

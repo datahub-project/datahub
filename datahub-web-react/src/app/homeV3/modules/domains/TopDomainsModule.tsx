@@ -8,6 +8,8 @@ import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils';
 
+import { DataHubPageModuleType } from '@types';
+
 const TopDomainsModule = (props: ModuleProps) => {
     const { user } = useUserContext();
 
@@ -16,7 +18,7 @@ const TopDomainsModule = (props: ModuleProps) => {
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });
 
     return (
-        <LargeModule {...props} loading={loading} onClickViewAll={navigateToDomains}>
+        <LargeModule {...props} loading={loading} onClickViewAll={navigateToDomains} dataTestId="domains-module">
             {domains.length === 0 ? (
                 <EmptyContent
                     icon="Globe"
@@ -26,13 +28,16 @@ const TopDomainsModule = (props: ModuleProps) => {
                     onLinkClick={navigateToDomains}
                 />
             ) : (
-                domains.map((domain) => (
-                    <EntityItem
-                        entity={domain.entity}
-                        key={domain.entity.urn}
-                        customDetailsRenderer={renderDomainCounts}
-                    />
-                ))
+                <div data-testid="domain-entities">
+                    {domains.map((domain) => (
+                        <EntityItem
+                            entity={domain.entity}
+                            key={domain.entity.urn}
+                            moduleType={DataHubPageModuleType.Domains}
+                            customDetailsRenderer={renderDomainCounts}
+                        />
+                    ))}
+                </div>
             )}
         </LargeModule>
     );

@@ -112,6 +112,7 @@ It also contains our style guide, which can be consumed by engineers.
         - Alt text should be a required field
 - How to do theming?
     - Use `styled-components` theming, with stringed css rather than object css
+- **React Components**: Use TypeScript interfaces for props instead of PropTypes (which are deprecated)
 
 ```jsx
 // YES
@@ -174,12 +175,36 @@ yarn generate
 # Run formatting
 yarn format
 
-# Run linting
-yarn lint
+# Run linting on all files
+../gradlew yarnLint
+
+# Run lint-fix on a single file
+../gradlew -x yarnInstall -x yarnGenerate yarnLintFix -Pfile=src/path/to/file.tsx
+
+# Run linting on a single file
+# This does not run full type-check when we run for a single file
+# that should be run at the end of all changes before commit
+../gradlew -x yarnInstall -x yarnGenerate yarnLint -Pfile=src/path/to/file.tsx
+
+# Run lint-fix on all files
+../gradlew yarnLintFix
 
 # Run type checking
 yarn type-check
 
 # Run tests
 yarn test
+
+# Run specific test file
+yarn test path/to/file.test.tsx --run
 ```
+
+## Writing Tests - Best Practices & Common Pitfalls
+
+### Test Setup Essentials
+
+**Always use the existing test infrastructure:**
+
+- Use `TestPageContainer` from `@utils/test-utils/TestPageContainer` - it provides all necessary providers
+- Use `MockedProvider` from `@apollo/client/testing` for GraphQL components
+- Use Vitest with React Testing Library

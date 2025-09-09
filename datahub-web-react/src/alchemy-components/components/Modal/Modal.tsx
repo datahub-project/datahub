@@ -3,6 +3,8 @@ import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { ModalContext } from '@app/sharedV2/modals/ModalContext';
+
 const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
@@ -42,6 +44,12 @@ const HeaderContainer = styled.div<{ hasChildren: boolean }>`
     flex-direction: column;
 `;
 
+const TitleRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 const ButtonsContainer = styled.div`
     display: flex;
     gap: 16px;
@@ -56,9 +64,10 @@ export interface ModalButton extends ButtonProps {
 }
 
 export interface ModalProps {
-    buttons: ModalButton[];
-    title: string;
+    buttons?: ModalButton[];
+    title: React.ReactNode;
     subtitle?: string;
+    titlePill?: React.ReactNode;
     children?: React.ReactNode;
     onCancel: () => void;
     dataTestId?: string;
@@ -68,6 +77,7 @@ export function Modal({
     buttons,
     title,
     subtitle,
+    titlePill,
     children,
     onCancel,
     dataTestId,
@@ -83,9 +93,12 @@ export function Modal({
             data-testid={dataTestId}
             title={
                 <HeaderContainer hasChildren={!!children}>
-                    <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
-                        {title}
-                    </Heading>
+                    <TitleRow>
+                        <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
+                            {title}
+                        </Heading>
+                        {titlePill}
+                    </TitleRow>
                     {!!subtitle && (
                         <Text type="span" color="gray" colorLevel={1700} weight="medium">
                             {subtitle}
@@ -94,7 +107,7 @@ export function Modal({
                 </HeaderContainer>
             }
             footer={
-                !!buttons.length && (
+                !!buttons?.length && (
                     <ButtonsContainer>
                         {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
                             <Button
@@ -114,7 +127,7 @@ export function Modal({
             }
             {...props}
         >
-            {children}
+            <ModalContext.Provider value={{ isInsideModal: true }}>{children}</ModalContext.Provider>
         </StyledModal>
     );
 }

@@ -212,6 +212,18 @@ public class PoliciesConfig {
           "Get Platform Events",
           "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
+  public static final Privilege GET_METADATA_CHANGE_LOG_EVENTS =
+      Privilege.of(
+          "GET_METADATA_CHANGE_LOG_EVENTS",
+          "Get Metadata Change Log Events",
+          "The ability to use the Events API to read Metadata Change Log, or all low-level Metadata Change Events.");
+
+  public static final Privilege MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_HOME_PAGE_TEMPLATES",
+          "Manage Home Page Templates",
+          "Privilege allowing users to manage the default home page template and the global modules in it.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -249,7 +261,9 @@ public class PoliciesConfig {
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
-          GET_PLATFORM_EVENTS_PRIVILEGE);
+          GET_PLATFORM_EVENTS_PRIVILEGE,
+          GET_METADATA_CHANGE_LOG_EVENTS,
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -374,6 +388,12 @@ public class PoliciesConfig {
           "Create erModelRelationship",
           "The ability to add erModelRelationship on a dataset.");
 
+  public static final Privilege MANAGE_ASSET_SUMMARY_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ASSET_SUMMARY",
+          "Manage Asset Summary",
+          "The ability to manage the asset summary tab for an entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -392,7 +412,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_PROPERTIES_PRIVILEGE,
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           CREATE_ENTITY_PRIVILEGE,
-          EXISTS_ENTITY_PRIVILEGE);
+          EXISTS_ENTITY_PRIVILEGE,
+          MANAGE_ASSET_SUMMARY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =

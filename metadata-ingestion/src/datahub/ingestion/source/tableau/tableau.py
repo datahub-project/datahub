@@ -1184,7 +1184,7 @@ class TableauSiteSource:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.project_name}",
+                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
                     )
                     project.parent_id = None
 
@@ -1561,12 +1561,15 @@ class TableauSiteSource:
                         }}""",
                     )
             else:
-                # As of Tableau Server 2024.2, the metadata API sporadically returns a 30-second
-                # timeout error.
-                # It doesn't reliably happen, so retrying a couple of times makes sense.
                 if all(
+                    # As of Tableau Server 2024.2, the metadata API sporadically returns a 30-second
+                    # timeout error.
+                    # It doesn't reliably happen, so retrying a couple of times makes sense.
                     error.get("message")
                     == "Execution canceled because timeout of 30000 millis was reached"
+                    # The Metadata API sometimes returns an 'unexpected error' message when querying
+                    # embeddedDatasourcesConnection. Try retrying a couple of times.
+                    or error.get("message") == "Unexpected error occurred"
                     for error in errors
                 ):
                     # If it was only a timeout error, we can retry.
@@ -1578,8 +1581,8 @@ class TableauSiteSource:
                         (self.config.max_retries - retries_remaining + 1) ** 2, 60
                     )
                     logger.info(
-                        f"Query {connection_type} received a 30 second timeout error - will retry in {backoff_time} seconds. "
-                        f"Retries remaining: {retries_remaining}"
+                        f"Query {connection_type} received a retryable error with {retries_remaining} retries remaining, "
+                        f"will retry in {backoff_time} seconds: {errors}"
                     )
                     time.sleep(backoff_time)
                     return self.get_connection_object_page(

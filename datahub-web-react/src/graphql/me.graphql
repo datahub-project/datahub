@@ -37,7 +37,7 @@ query getMe {
                 }
                 homePage {
                     pageTemplate {
-                        ...pageTemplateFields
+                        ...PageTemplate
                     }
                     dismissedAnnouncementUrns
                 }
@@ -69,6 +69,7 @@ query getMe {
             viewStructuredPropertiesPage
             manageApplications
             manageFeatures
+            manageHomePageTemplates
         }
     }
 }

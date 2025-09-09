@@ -22,6 +22,7 @@ import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.concurrent.CompletionException;
+import org.apache.commons.text.StringEscapeUtils;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -31,7 +32,8 @@ public class UpdateSecretResolverTest {
   private static final Urn TEST_URN = UrnUtils.getUrn("urn:li:secret:secret-id");
 
   private static final UpdateSecretInput TEST_INPUT =
-      new UpdateSecretInput(TEST_URN.toString(), "MY_SECRET", "mysecretvalue", "dummy");
+      new UpdateSecretInput(
+          TEST_URN.toString(), "MY_SECRET", "BcH>?5\"kWixy>[]PKs#O?gn2Y", "dummy");
 
   private DataFetchingEnvironment mockEnv;
   private EntityClient mockClient;
@@ -65,7 +67,8 @@ public class UpdateSecretResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Mockito.when(mockClient.exists(any(), any())).thenReturn(true);
-    Mockito.when(mockSecretService.encrypt(any())).thenReturn("encrypted_value");
+    Mockito.when(mockSecretService.encrypt(StringEscapeUtils.escapeJson(TEST_INPUT.getValue())))
+        .thenReturn("encrypted_value");
     final EntityResponse entityResponse = new EntityResponse();
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
@@ -73,10 +76,12 @@ public class UpdateSecretResolverTest {
         new EnvelopedAspect().setValue(new Aspect(createSecretAspect().data())));
     entityResponse.setAspects(aspectMap);
 
-    when(mockClient.getV2(any(), any(), any(), any())).thenReturn(entityResponse);
+    when(mockClient.getV2(any(), any(), any(), any(), anyBoolean())).thenReturn(entityResponse);
 
     // Invoke the resolver
     resolver.get(mockEnv).join();
+    Mockito.verify(mockSecretService, Mockito.times(1))
+        .encrypt(StringEscapeUtils.escapeJson(TEST_INPUT.getValue()));
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(any(), any(), anyBoolean());
   }
 

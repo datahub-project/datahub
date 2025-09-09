@@ -34,13 +34,15 @@ public class AspectGenerationUtils {
   }
 
   @Nonnull
-  public static SystemMetadata createSystemMetadata(int nextAspectVersion) {
-    return createSystemMetadata(1625792689, "run-123", null, String.valueOf(nextAspectVersion));
+  public static SystemMetadata createSystemMetadata(
+      int nextAspectVersion, @Nullable AuditStamp auditStamp) {
+    return createSystemMetadata(
+        1625792689, "run-123", null, String.valueOf(nextAspectVersion), auditStamp);
   }
 
   @Nonnull
   public static SystemMetadata createSystemMetadata(int lastObserved, @Nonnull String runId) {
-    return createSystemMetadata(lastObserved, runId, null, null);
+    return createSystemMetadata(lastObserved, runId, null, null, null);
   }
 
   @Nonnull
@@ -48,11 +50,14 @@ public class AspectGenerationUtils {
       int lastObserved, // for test comparison must be int
       @Nullable String runId,
       @Nullable String lastRunId,
-      @Nullable String version) {
+      @Nullable String version,
+      @Nullable AuditStamp auditStamp) {
     SystemMetadata metadata = createDefaultSystemMetadata(runId);
     metadata.setLastRunId(lastRunId, SetMode.IGNORE_NULL);
     metadata.setVersion(version, SetMode.IGNORE_NULL);
     metadata.setLastObserved(lastObserved);
+    metadata.setAspectModified(auditStamp, SetMode.IGNORE_NULL);
+    metadata.setAspectCreated(auditStamp, SetMode.IGNORE_NULL);
     return metadata;
   }
 

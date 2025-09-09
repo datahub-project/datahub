@@ -128,6 +128,7 @@ public class EbeanAspectV2 extends Model {
   private String createdFor;
 
   @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
+  @Lob
   protected String systemMetadata;
 
   public EbeanAspectV2(
