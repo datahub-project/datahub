@@ -522,7 +522,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(owners_info)
 
-        tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
+        superset_tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
+        tags = self._merge_tags_with_existing(dashboard_urn, superset_tags)
         if tags:
             dashboard_snapshot.aspects.append(tags)
 
@@ -925,7 +926,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(owners_info)
 
-        tags = self._extract_and_map_tags(chart_data.get("tags", []))
+        superset_tags = self._extract_and_map_tags(chart_data.get("tags", []))
+        tags = self._merge_tags_with_existing(chart_urn, superset_tags)
         if tags:
             chart_snapshot.aspects.append(tags)
 
@@ -1298,17 +1300,18 @@ class SupersetSource(StatefulIngestionSourceBase):
             externalUrl=dataset_url,
             lastModified=TimeStamp(time=modified_ts),
         )
-        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
-        aspects_items: List[Any] = []
-        aspects_items.extend(
-            [
-                self.gen_schema_metadata(dataset_response),
-                dataset_info,
-                upstream_lineage,
-                global_tags,
-            ]
-        )
+        dataset_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+        tags = self._merge_tags_with_existing(datasource_urn, dataset_tags)
+
+        aspects_items: List[Any] = [
+            self.gen_schema_metadata(dataset_response),
+            dataset_info,
+            upstream_lineage,
+        ]
+
+        if tags:
+            aspects_items.append(tags)
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
@@ -1333,19 +1336,21 @@ class SupersetSource(StatefulIngestionSourceBase):
     def _extract_and_map_tags(
         self, raw_tags: List[Dict[str, Any]]
     ) -> Optional[GlobalTagsClass]:
-        """Extract and map Superset tags to DataHub tags.
+        """Extract and map Superset tags to DataHub GlobalTagsClass.
+
+        Filters out system-generated tags (type != 1) and only processes user-defined tags
+        from the Superset API response.
 
         Args:
             raw_tags: List of tag dictionaries from Superset API
 
         Returns:
-            GlobalTagsClass with user-defined tags, or None if no tags
+            GlobalTagsClass with user-defined tags, or None if no tags found
         """
         user_tags = [
             tag.get("name", "")
             for tag in raw_tags
-            if tag.get("type") == 1  # User-defined tags only
-            and tag.get("name")
+            if tag.get("type") == 1 and tag.get("name")
         ]
 
         if not user_tags:
@@ -1355,6 +1360,47 @@ class SupersetSource(StatefulIngestionSourceBase):
         return GlobalTagsClass(
             tags=[TagAssociationClass(tag=tag_urn) for tag_urn in tag_urns]
         )
+
+    def _merge_tags_with_existing(
+        self, entity_urn: str, new_tags: Optional[GlobalTagsClass]
+    ) -> Optional[GlobalTagsClass]:
+        """Merge new tags with existing ones from DataHub to preserve manually added tags.
+
+        This method ensures that tags manually added via DataHub UI are not overwritten
+        during ingestion. It fetches existing tags from the graph and merges them with
+        new tags from the source system, avoiding duplicates.
+
+        Args:
+            entity_urn: URN of the entity to check for existing tags
+            new_tags: New tags to add as GlobalTagsClass object
+
+        Returns:
+            GlobalTagsClass with merged tags preserving existing ones, or None if no tags
+        """
+        if not new_tags or not new_tags.tags:
+            return None
+
+        # Fetch existing tags from DataHub
+        existing_global_tags = None
+        if self.ctx.graph:
+            existing_global_tags = self.ctx.graph.get_aspect(
+                entity_urn=entity_urn, aspect_type=GlobalTagsClass
+            )
+
+        # Merge existing tags with new ones, avoiding duplicates
+        all_tags = []
+        existing_tag_urns = set()
+
+        if existing_global_tags and existing_global_tags.tags:
+            all_tags.extend(existing_global_tags.tags)
+            existing_tag_urns = {tag.tag for tag in existing_global_tags.tags}
+
+        # Add new tags that don't already exist
+        for new_tag in new_tags.tags:
+            if new_tag.tag not in existing_tag_urns:
+                all_tags.append(new_tag)
+
+        return GlobalTagsClass(tags=all_tags) if all_tags else None
 
     def _process_dataset(self, dataset_data: Any) -> Iterable[MetadataWorkUnit]:
         dataset_name = ""
