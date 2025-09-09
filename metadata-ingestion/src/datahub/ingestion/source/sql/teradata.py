@@ -1369,13 +1369,16 @@ ORDER by DataBaseName, TableName;
         # Apply Teradata-specific query transformations
         cleaned_query = full_query_text.replace("(NOT CASESPECIFIC)", "")
 
+        # For Teradata's two-tier architecture (database.table), we should not set default_db
+        # to avoid incorrect URN generation like "dbc.database.table" instead of "database.table"
+        # The SQL parser will treat database.table references correctly without default_db
         return ObservedQuery(
             query=cleaned_query,
             session_id=session_id,
             timestamp=timestamp,
             user=CorpUserUrn(user) if user else None,
-            default_db=default_database,
-            default_schema=default_database,  # Teradata uses database as schema
+            default_db=None,  # Don't set default_db for Teradata two-tier architecture
+            default_schema=default_database,
         )
 
     def _convert_entry_to_observed_query(self, entry: Any) -> ObservedQuery:
@@ -1395,13 +1398,16 @@ ORDER by DataBaseName, TableName;
         # Apply Teradata-specific query transformations
         cleaned_query = query_text.replace("(NOT CASESPECIFIC)", "")
 
+        # For Teradata's two-tier architecture (database.table), we should not set default_db
+        # to avoid incorrect URN generation like "dbc.database.table" instead of "database.table"
+        # However, we should set default_schema for unqualified table references
         return ObservedQuery(
             query=cleaned_query,
             session_id=session_id,
             timestamp=timestamp,
             user=CorpUserUrn(user) if user else None,
-            default_db=default_database,
-            default_schema=default_database,  # Teradata uses database as schema
+            default_db=None,  # Don't set default_db for Teradata two-tier architecture
+            default_schema=default_database,  # Set default_schema for unqualified table references
         )
 
     def _fetch_lineage_entries_chunked(self) -> Iterable[Any]:
@@ -1592,29 +1598,17 @@ ORDER by DataBaseName, TableName;
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Starting Teradata metadata extraction")
 
-        # Add all schemas to the schema resolver
-        # Sql parser operates on lowercase urns so we need to lowercase the urns
+        # Step 1: Populate aggregator with audit log queries BEFORE parent class processes it
+        with self.report.new_stage("Audit log extraction"):
+            self._populate_aggregator_from_audit_logs()
+
+        # Step 2: Let parent class handle schema extraction AND aggregator work unit generation
+        # This ensures work units go through proper workunit processor chain (including incremental lineage)
         with self.report.new_stage("Schema metadata extraction"):
             yield from super().get_workunits_internal()
-            logger.info("Completed schema metadata extraction")
+            logger.info("Completed schema metadata extraction and lineage processing")
 
-        with self.report.new_stage("Audit log extraction"):
-            yield from self._get_audit_log_mcps_with_aggregator()
-
-        # SqlParsingAggregator handles its own work unit generation internally
-        logger.info("Lineage processing completed by SqlParsingAggregator")
-
-    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Override base class to skip aggregator gen_metadata() call.
-
-        Teradata handles aggregator processing after adding audit log queries,
-        so we skip the base class call to prevent duplicate processing.
-        """
-        # Return empty iterator - Teradata will handle aggregator processing
-        # after adding audit log queries in _get_audit_log_mcps_with_aggregator()
-        return iter([])
-
-    def _get_audit_log_mcps_with_aggregator(self) -> Iterable[MetadataWorkUnit]:
+    def _populate_aggregator_from_audit_logs(self) -> None:
         """SqlParsingAggregator-based lineage extraction with enhanced capabilities."""
         logger.info(
             "Fetching queries from Teradata audit logs for SqlParsingAggregator"
@@ -1647,21 +1641,7 @@ ORDER by DataBaseName, TableName;
                     f"Completed adding {queries_processed} queries to SqlParsingAggregator"
                 )
 
-        # Step 2: Generate work units from aggregator
-        with self.report.new_stage("SqlParsingAggregator metadata generation"):
-            logger.info("Generating metadata work units from SqlParsingAggregator")
-            work_unit_count = 0
-            for mcp in self.aggregator.gen_metadata():
-                work_unit_count += 1
-                if work_unit_count % 10000 == 0:
-                    logger.info(
-                        f"Generated {work_unit_count} work units from aggregator"
-                    )
-                yield mcp.as_workunit()
-
-            logger.info(
-                f"Completed SqlParsingAggregator processing: {work_unit_count} work units generated"
-            )
+        logger.info("Completed adding queries to SqlParsingAggregator. ")
 
     def close(self) -> None:
         """Clean up resources when source is closed."""
