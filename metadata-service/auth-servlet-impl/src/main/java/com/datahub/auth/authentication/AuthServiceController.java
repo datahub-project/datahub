@@ -16,6 +16,8 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.InvitationStatusUtils;
+import com.datahub.authorization.role.RoleService;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -35,6 +37,7 @@ import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -109,6 +112,8 @@ public class AuthServiceController {
 
   @Autowired private TrackingService _trackingService;
 
+  @Autowired private RoleService _roleService;
+
   @Autowired private ObjectMapper mapper;
 
   @Autowired
@@ -172,6 +177,55 @@ public class AuthServiceController {
                   "Successfully generated session token for user: {}, duration: {} ms",
                   userId.asText(),
                   sessionTokenDurationMs);
+
+              // Check if this is an SSO login and conditionally assign role from invitation
+              List<String> ssoLoginSource =
+                  httpEntity.getHeaders().getOrEmpty(DATAHUB_LOGIN_SOURCE_HEADER_NAME);
+              if (!ssoLoginSource.isEmpty() && isSSO(ssoLoginSource.get(0))) {
+                try {
+                  String userIdString = userId.asText();
+                  CorpuserUrn userUrn = new CorpuserUrn(userIdString);
+
+                  // Check for active invitation and process role assignment
+
+                  InvitationStatusUtils.InvitationDetails invitation =
+                      InvitationStatusUtils.getActiveInvitation(
+                          _entityService, systemOperationContext, userUrn);
+
+                  if (invitation != null) {
+                    String roleToGrant = invitation.getRoleUrn();
+                    log.info(
+                        "Found active invitation for SSO user '{}' with role '{}'",
+                        userIdString,
+                        roleToGrant);
+
+                    // Mark invitation as accepted
+                    boolean updated =
+                        InvitationStatusUtils.markInvitationAcceptedIfExists(
+                            _entityService, systemOperationContext, userUrn, authentication);
+
+                    if (updated) {
+                      // Grant the role from the invitation
+                      grantRoleToUser(systemOperationContext, userUrn, roleToGrant);
+                      log.info(
+                          "Granted role '{}' to SSO user '{}' from invitation",
+                          roleToGrant,
+                          userIdString);
+                    } else {
+                      log.warn("Failed to mark invitation as accepted for user '{}'", userIdString);
+                    }
+                  } else {
+                    log.debug("No active invitation found for SSO user: {}", userIdString);
+                  }
+                } catch (Exception e) {
+                  log.warn(
+                      "Failed to process post-SSO role assignment for user '{}': {}",
+                      userId.asText(),
+                      e.getMessage(),
+                      e);
+                }
+              }
+
               return systemOperationContext.withSpan(
                   "loginSuccess",
                   () -> {
@@ -608,6 +662,32 @@ public class AuthServiceController {
     }
     if (oidcSettings.hasPreferredJwsAlgorithm2()) {
       json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm2());
+    }
+  }
+
+  /** Check if the login source indicates an SSO provider. */
+  private boolean isSSO(String loginSource) {
+    return loginSource != null
+        && (loginSource.toLowerCase().contains("oidc")
+            || loginSource.toLowerCase().contains("sso"));
+  }
+
+  /** Grant a role to a user using the same logic as BatchAssignRoleResolver. */
+  private void grantRoleToUser(
+      OperationContext operationContext, CorpuserUrn userUrn, String roleUrn) {
+    try {
+      // Convert role string to URN (same as BatchAssignRoleResolver)
+      final Urn roleUrnObj = roleUrn == null ? null : Urn.createFromString(roleUrn);
+
+      // Use the same role service call as AcceptRoleResolver and BatchAssignRoleResolver
+      _roleService.batchAssignRoleToActors(
+          operationContext, Collections.singletonList(userUrn.toString()), roleUrnObj);
+
+      log.info("Successfully granted role '{}' to SSO user '{}'", roleUrn, userUrn);
+
+    } catch (Exception e) {
+      log.error("Failed to grant role '{}' to user '{}': {}", roleUrn, userUrn, e.getMessage(), e);
+      // Don't re-throw to avoid breaking SSO login flow - role assignment is secondary
     }
   }
 }

@@ -271,7 +271,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     // Initialize UserInvitationService after all dependencies are set
     this.userInvitationService =
         new UserInvitationService(
-            this.integrationsService, this.inviteTokenService, this.entityService);
+            this.integrationsService, this.inviteTokenService, this.entityService, this.baseUrl);
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());

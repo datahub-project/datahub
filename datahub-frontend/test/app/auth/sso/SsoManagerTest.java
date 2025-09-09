@@ -124,11 +124,12 @@ public class SsoManagerTest {
   }
 
   /*
-   Appears to be testing missing base url
-  */
+   * Testing missing base url - should not build OIDC provider due to missing authBaseUrl
+   */
   @Test
   public void testParseConfigsMissingSsoValue() {
     com.typesafe.config.Config configs = mock(com.typesafe.config.Config.class);
+    when(configs.hasPath(AUTH_BASE_URL_CONFIG_PATH)).thenReturn(false);
     when(configs.hasPath(OIDC_ENABLED_CONFIG_PATH)).thenReturn(true);
     when(configs.getString(OIDC_ENABLED_CONFIG_PATH)).thenReturn("true");
     when(configs.hasPath(OIDC_CLIENT_ID_CONFIG_PATH)).thenReturn(true);
@@ -155,6 +156,7 @@ public class SsoManagerTest {
     when(configs.getString(OIDC_CLIENT_ID_CONFIG_PATH)).thenReturn(CLIENT_ID_VALUE);
     when(configs.hasPath(OIDC_CLIENT_SECRET_CONFIG_PATH)).thenReturn(true);
     when(configs.getString(OIDC_CLIENT_SECRET_CONFIG_PATH)).thenReturn(CLIENT_SECRET_VALUE);
+    when(configs.hasPath(OIDC_DISCOVERY_URI_CONFIG_PATH)).thenReturn(false);
     when(_httpResponse.getEntity()).thenReturn(null);
 
     _ssoManager.setConfigs(configs);
