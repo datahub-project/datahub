@@ -154,6 +154,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // Mock scroll ascending/descending results
     ScrollResult expectedResultAscending =
         new ScrollResult()
+            .setNumEntities(3)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -172,6 +173,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .thenReturn(expectedResultAscending);
     ScrollResult expectedResultDescending =
         new ScrollResult()
+            .setNumEntities(3)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -603,6 +605,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(2)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -649,6 +652,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(1)
             .setEntities(
                 new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))))
             .setScrollId("test-scroll-id");
@@ -694,6 +698,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(2)
             .setEntities(
                 new SearchEntityArray(
                     List.of(
@@ -768,6 +773,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     ScrollResult expectedResult =
         new ScrollResult()
+            .setNumEntities(1)
             .setEntities(
                 new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))));
 
