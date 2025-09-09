@@ -582,13 +582,13 @@ class TableauConfig(
     )
 
     extract_lineage_from_unsupported_custom_sql_queries: bool = Field(
-        default=False,
-        description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
+        default=True,
+        description="[Experimental] Extract lineage from Custom SQL queries using DataHub's SQL parser in cases where the Tableau Catalog API fails to return lineage for the query.",
     )
 
     force_extraction_of_lineage_from_custom_sql_queries: bool = Field(
         default=False,
-        description="[Experimental] Force extraction of lineage from custom sql queries using SQL parsing, ignoring Tableau metadata",
+        description="[Experimental] Force extraction of lineage from Custom SQL queries using DataHub's SQL parser, even when the Tableau Catalog API returns lineage already.",
     )
 
     sql_parsing_disable_schema_awareness: bool = Field(
