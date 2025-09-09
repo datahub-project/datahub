@@ -520,10 +520,7 @@ class AthenaSource(SQLAlchemySource):
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        if (
-            not self.config.extract_partitions
-            and not self.config.extract_partitions_using_create_statements
-        ):
+        if not self.config.extract_partitions:
             return None
 
         if not self.cursor:
@@ -558,9 +555,20 @@ class AthenaSource(SQLAlchemySource):
             level=StructuredLogLevel.WARN,
         ):
             # We create an artifical concatenated partition key to be able to query max partition easier
-            part_concat = " || '-' || ".join(
-                self._casted_partition_key(key) for key in partitions
-            )
+            # Use CONCAT function with all VARCHAR-casted values to avoid type mismatches
+            casted_keys = [self._casted_partition_key(key) for key in partitions]
+            if len(casted_keys) == 1:
+                part_concat = casted_keys[0]
+            else:
+                # Use CONCAT function with explicit VARCHAR separator to avoid type issues
+                concat_args = []
+                for i, key in enumerate(casted_keys):
+                    concat_args.append(key)
+                    if (
+                        i < len(casted_keys) - 1
+                    ):  # Add separator except for last element
+                        concat_args.append("CAST('-' AS VARCHAR)")
+                part_concat = f"CONCAT({', '.join(concat_args)})"
             max_partition_query = f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
             ret = self.cursor.execute(max_partition_query)
             max_partition: Dict[str, str] = {}
