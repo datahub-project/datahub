@@ -92,32 +92,79 @@ class BigqueryProfiler(GenericProfiler):
             )
             return base_kwargs
 
-        if not partition_filters:
-            return base_kwargs
+        # Validate partition filters if they exist
+        validated_filters = []
+        partition_where = ""
 
-        validated_filters = validate_and_filter_expressions(
-            partition_filters, "batch kwargs"
-        )
+        if partition_filters:
+            validated_filters = validate_and_filter_expressions(
+                partition_filters, "batch kwargs"
+            )
 
-        if not validated_filters:
-            logger.warning("No valid partition filters after validation")
-            return base_kwargs
+            if validated_filters:
+                partition_where = " AND ".join(validated_filters)
+                logger.debug(f"Using partition filters: {partition_where}")
+            else:
+                logger.warning("No valid partition filters after validation")
 
-        partition_where = " AND ".join(validated_filters)
-        logger.debug(f"Using partition filters: {partition_where}")
+        safe_table_ref = f"`{safe_project}`.`{safe_schema}`.`{safe_table}`"
 
-        safe_table_ref = f"{safe_project}.{safe_schema}.{safe_table}"
+        # Build sampling-compatible custom SQL for ALL tables (following Snowflake pattern)
+        # Apply sampling ourselves instead of relying on GE profiler's TABLESAMPLE
+        custom_sql = None
 
-        if self.config.profiling.profiling_row_limit > 0:
-            row_limit = max(1, int(self.config.profiling.profiling_row_limit))
-            custom_sql = f"""SELECT * 
-FROM {safe_table_ref}
+        if (
+            self.config.profiling.use_sampling
+            and hasattr(bq_table, "rows_count")
+            and bq_table.rows_count
+            and bq_table.rows_count > self.config.profiling.sample_size
+        ):
+            # Calculate sampling percentage like Snowflake does
+            sample_pc = self.config.profiling.sample_size / bq_table.rows_count
+            sample_percent = min(100 * sample_pc, 100.0)  # Cap at 100%
+
+            # Build custom SQL with TABLESAMPLE that works with or without partitions
+            if partition_where:
+                custom_sql = f"""SELECT * FROM {safe_table_ref} 
+TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
+WHERE {partition_where}"""
+            else:
+                custom_sql = f"""SELECT * FROM {safe_table_ref} 
+TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"""
+
+            logger.debug(
+                f"Using {sample_percent:.4f}% sampling for table with {bq_table.rows_count:,} rows"
+            )
+        else:
+            # No sampling needed - use regular query with optional partition filters and row limit
+            if partition_where:
+                # Apply row limit for smaller tables or when sampling is disabled
+                if self.config.profiling.profiling_row_limit > 0:
+                    row_limit = max(1, int(self.config.profiling.profiling_row_limit))
+                    custom_sql = f"""SELECT * FROM {safe_table_ref}
 WHERE {partition_where}
 LIMIT {row_limit}"""
-        else:
-            custom_sql = f"""SELECT * 
-FROM {safe_table_ref}
+                else:
+                    custom_sql = f"""SELECT * FROM {safe_table_ref}
 WHERE {partition_where}"""
+            else:
+                # No partitions - handle sampling or row limit for non-partitioned tables
+                if self.config.profiling.profiling_row_limit > 0:
+                    row_limit = max(1, int(self.config.profiling.profiling_row_limit))
+                    custom_sql = f"SELECT * FROM {safe_table_ref} LIMIT {row_limit}"
+                else:
+                    # For very large non-partitioned tables without row limit, still apply basic sampling
+                    if (
+                        hasattr(bq_table, "rows_count")
+                        and bq_table.rows_count
+                        and bq_table.rows_count > 1000000
+                    ):  # 1M+ rows
+                        custom_sql = f"SELECT * FROM {safe_table_ref} LIMIT 100000"  # Safety limit
+                        logger.debug(
+                            f"Applied safety limit for large non-partitioned table ({bq_table.rows_count:,} rows)"
+                        )
+                    else:
+                        custom_sql = f"SELECT * FROM {safe_table_ref}"
 
         base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
 
@@ -193,8 +240,37 @@ WHERE {partition_where}"""
                         db_name, schema_name, bq_table.name
                     )
 
-                    custom_sql = f"""SELECT * 
-FROM {safe_table_ref}
+                    # Apply sampling-compatible custom SQL for regular tables too
+                    if (
+                        self.config.profiling.use_sampling
+                        and hasattr(bq_table, "rows_count")
+                        and bq_table.rows_count
+                        and bq_table.rows_count > self.config.profiling.sample_size
+                    ):
+                        # Calculate sampling percentage
+                        sample_pc = (
+                            self.config.profiling.sample_size / bq_table.rows_count
+                        )
+                        sample_percent = min(100 * sample_pc, 100.0)
+
+                        custom_sql = f"""SELECT * FROM {safe_table_ref} 
+TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
+WHERE {partition_where}"""
+
+                        logger.debug(
+                            f"Using {sample_percent:.4f}% sampling for regular table with {bq_table.rows_count:,} rows"
+                        )
+                    else:
+                        # No sampling - use regular query with row limit
+                        if self.config.profiling.profiling_row_limit > 0:
+                            row_limit = max(
+                                1, int(self.config.profiling.profiling_row_limit)
+                            )
+                            custom_sql = f"""SELECT * FROM {safe_table_ref}
+WHERE {partition_where}
+LIMIT {row_limit}"""
+                        else:
+                            custom_sql = f"""SELECT * FROM {safe_table_ref}
 WHERE {partition_where}"""
 
                     logger.debug(
@@ -303,8 +379,37 @@ WHERE {partition_where}"""
                             db_name, schema_name, bq_table.name
                         )
 
-                        custom_sql = f"""SELECT * 
-FROM {safe_table_ref}
+                        # Apply sampling-compatible custom SQL for external tables too
+                        if (
+                            self.config.profiling.use_sampling
+                            and hasattr(bq_table, "rows_count")
+                            and bq_table.rows_count
+                            and bq_table.rows_count > self.config.profiling.sample_size
+                        ):
+                            # Calculate sampling percentage
+                            sample_pc = (
+                                self.config.profiling.sample_size / bq_table.rows_count
+                            )
+                            sample_percent = min(100 * sample_pc, 100.0)
+
+                            custom_sql = f"""SELECT * FROM {safe_table_ref} 
+TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)
+WHERE {partition_where}"""
+
+                            logger.debug(
+                                f"Using {sample_percent:.4f}% sampling for external table with {bq_table.rows_count:,} rows"
+                            )
+                        else:
+                            # No sampling - use regular query with row limit
+                            if self.config.profiling.profiling_row_limit > 0:
+                                row_limit = max(
+                                    1, int(self.config.profiling.profiling_row_limit)
+                                )
+                                custom_sql = f"""SELECT * FROM {safe_table_ref}
+WHERE {partition_where}
+LIMIT {row_limit}"""
+                            else:
+                                custom_sql = f"""SELECT * FROM {safe_table_ref}
 WHERE {partition_where}"""
 
                         logger.debug(

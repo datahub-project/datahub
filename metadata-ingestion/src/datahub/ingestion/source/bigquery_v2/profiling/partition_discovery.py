@@ -1018,7 +1018,7 @@ LIMIT @limit_rows"""
 
                 job_config = QueryJobConfig(
                     query_parameters=[
-                        ScalarQueryParameter("limit_rows", "INT64", 100),
+                        ScalarQueryParameter("limit_rows", "INT64", 10),
                     ]
                 )
             else:
@@ -1029,8 +1029,8 @@ LIMIT @limit_rows"""
 
                 job_config = QueryJobConfig(
                     query_parameters=[
-                        ScalarQueryParameter("sample_percent", "FLOAT64", 1.0),
-                        ScalarQueryParameter("limit_rows", "INT64", 100),
+                        ScalarQueryParameter("sample_percent", "FLOAT64", 0.001),
+                        ScalarQueryParameter("limit_rows", "INT64", 5),
                     ]
                 )
 
@@ -1156,7 +1156,7 @@ WHERE {where_clause}
 LIMIT @limit_rows"""
 
             job_config = QueryJobConfig(
-                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1000)]
+                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 10)]
             )
 
             count_verification_results = execute_query_func(
