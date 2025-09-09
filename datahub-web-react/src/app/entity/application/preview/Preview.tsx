@@ -22,7 +22,7 @@ interface Props {
     degree?: number;
     paths?: EntityPath[];
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
     actions?: EntityMenuActions;
 }
 

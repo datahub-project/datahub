@@ -487,6 +487,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 }
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

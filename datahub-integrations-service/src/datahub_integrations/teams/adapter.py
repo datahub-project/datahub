@@ -57,7 +57,7 @@ class DataHubBotAdapter:
         settings = BotFrameworkAdapterSettings(
             app_id=app_details.app_id,
             app_password=app_details.app_password,
-            channel_auth_tenant=app_details.tenant_id,
+            channel_auth_tenant=app_details.app_tenant_id,
         )
 
         logger.debug(

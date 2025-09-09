@@ -39,6 +39,7 @@ import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePa
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
+import { SidebarWidthProvider } from '@app/shared/hooks/useSidebarWidth';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -465,22 +466,28 @@ export const NavSidebar = () => {
         );
     };
 
+    const sidebarWidth = isCollapsed ? '60px' : '264px';
+
     return (
-        <Container>
-            {renderSvgSelectedGradientForReusingInIcons()}
-            <Content isCollapsed={isCollapsed}>
-                {showSkeleton ? (
-                    <NavSkeleton isCollapsed={isCollapsed} />
-                ) : (
-                    <>
-                        <NavBarHeader logotype={logoComponent} />
-                        <MenuWrapper>
-                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={mainMenu} />
-                        </MenuWrapper>
-                    </>
+        <SidebarWidthProvider isCollapsed={isCollapsed}>
+            <Container>
+                {renderSvgSelectedGradientForReusingInIcons()}
+                <Content isCollapsed={isCollapsed}>
+                    {showSkeleton ? (
+                        <NavSkeleton isCollapsed={isCollapsed} />
+                    ) : (
+                        <>
+                            <NavBarHeader logotype={logoComponent} />
+                            <MenuWrapper>
+                                <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={mainMenu} />
+                            </MenuWrapper>
+                        </>
+                    )}
+                </Content>
+                {showZendeskWidget && (
+                    <ZendeskWidget me={me} config={config} trigger={zendeskTrigger} offsetHorizontal={sidebarWidth} />
                 )}
-            </Content>
-            {showZendeskWidget && <ZendeskWidget me={me} config={config} trigger={zendeskTrigger} />}
-        </Container>
+            </Container>
+        </SidebarWidthProvider>
     );
 };

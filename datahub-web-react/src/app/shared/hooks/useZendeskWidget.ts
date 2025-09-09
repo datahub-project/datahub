@@ -3,8 +3,16 @@ import { useEffect } from 'react';
 declare global {
     interface Window {
         zE?: (method: string, ...args: any[]) => void;
+        // https://developer.zendesk.com/api-reference/widget/settings
         zESettings?: {
             webWidget: {
+                cookies: boolean;
+                position: {
+                    horizontal: string;
+                };
+                offset: {
+                    horizontal: string;
+                };
                 contactForm: {
                     title: {
                         '*': string;
@@ -27,6 +35,7 @@ export interface ZendeskConfig {
     userName?: string;
     customFields?: Record<string | number, string>;
     trigger?: number; // Add a trigger to force re-execution
+    offsetHorizontal?: string; // Dynamic horizontal offset
 }
 
 const prefillUserData = (userEmail?: string, userName?: string) => {
@@ -44,18 +53,20 @@ const prefillUserData = (userEmail?: string, userName?: string) => {
     }
 };
 
-const updateZendeskSettings = (customFields?: Record<string | number, string>) => {
-    if (!window.zE) return;
-
+const getZendeskSettings = (customFields?: Record<string | number, string>, offsetHorizontal = '100px') => {
     const customFieldsArray = customFields
         ? Object.entries(customFields).map(([id, value]) => ({
               id: Number.isNaN(Number(id)) ? id : Number(id),
               prefill: { '*': value },
           }))
         : [];
-
-    const settingsData = {
+    return {
         webWidget: {
+            cookies: false,
+            position: {
+                horizontal: 'left',
+            },
+            offset: { horizontal: offsetHorizontal },
             contactForm: {
                 title: {
                     '*': 'Contact DataHub Support',
@@ -64,27 +75,16 @@ const updateZendeskSettings = (customFields?: Record<string | number, string>) =
             },
         },
     };
+};
+
+const updateZendeskSettings = (customFields?: Record<string | number, string>, offsetHorizontal?: string) => {
+    if (!window.zE) return;
+    const settingsData = getZendeskSettings(customFields, offsetHorizontal);
     window.zE('webWidget', 'updateSettings', settingsData);
 };
 
-const configureZendeskSettings = (customFields?: Record<string | number, string>) => {
-    const customFieldsArray = customFields
-        ? Object.entries(customFields).map(([id, value]) => ({
-              id: Number.isNaN(Number(id)) ? id : Number(id),
-              prefill: { '*': value },
-          }))
-        : [];
-
-    window.zESettings = {
-        webWidget: {
-            contactForm: {
-                title: {
-                    '*': 'Contact DataHub Support',
-                },
-                ...(customFieldsArray.length > 0 && { fields: customFieldsArray }),
-            },
-        },
-    };
+const configureZendeskSettings = (customFields?: Record<string | number, string>, offsetHorizontal?: string) => {
+    window.zESettings = getZendeskSettings(customFields, offsetHorizontal);
 };
 
 const createZendeskScript = (): HTMLScriptElement => {
@@ -103,14 +103,21 @@ const cleanupZendesk = () => {
     delete window.zE;
 };
 
-export const useZendeskWidget = ({ onLoad, userEmail, userName, customFields, trigger }: ZendeskConfig) => {
+export const useZendeskWidget = ({
+    onLoad,
+    userEmail,
+    userName,
+    customFields,
+    trigger,
+    offsetHorizontal,
+}: ZendeskConfig) => {
     useEffect(() => {
         const existingScript = document.getElementById('ze-snippet');
 
         // If script already exists, update settings dynamically and open widget
         if (existingScript) {
             if (window.zE) {
-                updateZendeskSettings(customFields);
+                updateZendeskSettings(customFields, offsetHorizontal);
                 prefillUserData(userEmail, userName);
                 onLoad?.();
             } else {
@@ -120,7 +127,7 @@ export const useZendeskWidget = ({ onLoad, userEmail, userName, customFields, tr
         }
 
         // Configure Zendesk settings before loading script
-        configureZendeskSettings(customFields);
+        configureZendeskSettings(customFields, offsetHorizontal);
 
         // Load Zendesk script
         const script = createZendeskScript();
@@ -136,7 +143,7 @@ export const useZendeskWidget = ({ onLoad, userEmail, userName, customFields, tr
 
         // Don't cleanup on every trigger change, only on unmount
         return () => {};
-    }, [onLoad, userEmail, userName, customFields, trigger]);
+    }, [onLoad, userEmail, userName, customFields, trigger, offsetHorizontal]);
 
     // Cleanup only when component unmounts
     useEffect(() => {

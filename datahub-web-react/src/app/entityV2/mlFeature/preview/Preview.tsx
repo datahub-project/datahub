@@ -39,7 +39,7 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
     browsePaths?: BrowsePathV2 | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();

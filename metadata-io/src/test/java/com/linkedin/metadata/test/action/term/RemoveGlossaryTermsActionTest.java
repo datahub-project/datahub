@@ -73,14 +73,16 @@ public class RemoveGlossaryTermsActionTest {
             any(OperationContext.class),
             Mockito.eq(TEST_TERMS),
             Mockito.eq(DASHBOARD_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.isNull());
 
     Mockito.verify(service, Mockito.atLeastOnce())
         .batchRemoveGlossaryTerms(
             any(OperationContext.class),
             Mockito.eq(TEST_TERMS),
             Mockito.eq(DATASET_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+            Mockito.eq(METADATA_TESTS_SOURCE),
+            Mockito.isNull());
 
     Mockito.verifyNoMoreInteractions(service);
   }

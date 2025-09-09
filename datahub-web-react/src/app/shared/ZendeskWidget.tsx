@@ -27,7 +27,7 @@ const getArea = () => {
     return 'product';
 };
 
-export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config, trigger }) => {
+export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config, trigger, offsetHorizontal }) => {
     const entityRegistry = useEntityRegistry();
     const userEmail = me.user?.editableProperties?.email || me.user?.info?.email || '';
     const userName =
@@ -46,7 +46,7 @@ export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config
         // Area
         34905797479067: area,
     };
-    useZendeskWidget({ onLoad, userEmail, userName, customFields, trigger });
+    useZendeskWidget({ onLoad, userEmail, userName, customFields, trigger, offsetHorizontal });
 
     return null;
 };

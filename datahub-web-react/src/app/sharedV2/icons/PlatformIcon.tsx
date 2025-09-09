@@ -1,11 +1,12 @@
-import { Icon } from '@components';
 import ColorThief from 'colorthief';
 import React, { useCallback, useRef, useState } from 'react';
 import styled, { CSSObject, css } from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { LOGICAL_PLATFORM_URN } from '@app/shared/constants';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, EntityType } from '@types';
@@ -71,8 +72,8 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     }, [onError, setBackground]);
 
     const defaultIcon =
-        platform?.name === 'logical' ? (
-            <Icon icon="IntersectSquare" source="phosphor" size="inherit" />
+        platform?.urn === LOGICAL_PLATFORM_URN ? (
+            <LogicalPlatformDefaultIcon />
         ) : (
             entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
         );

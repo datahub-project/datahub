@@ -86,7 +86,7 @@ def main() -> None:
         )
 
         if executor_id == DEFAULT_EXECUTOR_ID:
-            logger.info("Starting automation with id {action_urn} locally...")
+            logger.info(f"Starting automation with id {action_urn} locally...")
             run_action_locally(recipe, port, stage)
         else:
             logger.info(

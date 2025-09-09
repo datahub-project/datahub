@@ -33,21 +33,32 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UserInvitationService {
   private final IntegrationsService integrationsService;
   private final InviteTokenService inviteTokenService;
   private final EntityService<?> entityService;
+  private final String baseUrl;
 
-  @Value("${baseUrl:http://localhost:9002}")
-  private String baseUrl;
+  public UserInvitationService(
+      IntegrationsService integrationsService,
+      InviteTokenService inviteTokenService,
+      EntityService<?> entityService,
+      @Value("${baseUrl:http://localhost:9002}") String baseUrl) {
+    this.integrationsService = integrationsService;
+    this.inviteTokenService = inviteTokenService;
+    this.entityService = entityService;
+    this.baseUrl =
+        baseUrl != null && !baseUrl.trim().isEmpty() && !"null".equals(baseUrl)
+            ? baseUrl
+            : "http://localhost:9002";
+    log.info("UserInvitationService initialized with baseUrl: {}", this.baseUrl);
+  }
 
   public SendUserInvitationsResult sendUserInvitations(
       OperationContext operationContext,
@@ -66,24 +77,16 @@ public class UserInvitationService {
       List<String> individualTokens =
           inviteTokenService.generateIndividualTokens(operationContext, emails.size(), roleUrn);
 
-      // Validate and fix baseUrl before processing
-      String effectiveBaseUrl = baseUrl;
-      if (baseUrl == null || baseUrl.trim().isEmpty() || "null".equals(baseUrl)) {
-        log.warn(
-            "Invalid baseUrl configuration: '{}'. Using default 'http://localhost:9002'", baseUrl);
-        effectiveBaseUrl = "http://localhost:9002";
-      }
-
       for (int i = 0; i < emails.size(); i++) {
         String email = emails.get(i).trim(); // Trim whitespace from email
         String inviteToken = individualTokens.get(i); // Get unique token for this email
         String inviteLink =
-            String.format("%s/signup?invite_token=%s", effectiveBaseUrl, inviteToken);
+            String.format("%s/signup?invite_token=%s&redirect_on_sso=true", baseUrl, inviteToken);
 
         // Log for debugging
         log.debug(
             "Generated invite link with baseUrl: {}, inviteToken: {}, result: {}",
-            effectiveBaseUrl,
+            baseUrl,
             inviteToken,
             inviteLink);
 

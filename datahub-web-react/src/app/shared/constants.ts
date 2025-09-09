@@ -6,6 +6,7 @@ export const NUMBER_TYPE_URN = 'urn:li:dataType:datahub.number';
 export const URN_TYPE_URN = 'urn:li:dataType:datahub.urn';
 export const RICH_TEXT_TYPE_URN = 'urn:li:dataType:datahub.rich_text';
 export const DATE_TYPE_URN = 'urn:li:dataType:datahub.date';
+export const LOGICAL_PLATFORM_URN = 'urn:li:dataPlatform:logical';
 
 export const TYPE_ICON_CLASS_NAME = 'typeIcon';
 

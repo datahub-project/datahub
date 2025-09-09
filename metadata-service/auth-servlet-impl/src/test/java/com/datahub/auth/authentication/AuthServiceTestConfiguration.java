@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.role.RoleService;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -39,6 +40,8 @@ public class AuthServiceTestConfiguration {
   @MockBean InviteTokenService inviteTokenService;
 
   @MockBean TrackingService trackingService;
+
+  @MockBean RoleService roleService;
 
   @MockBean Tracer mockTracer;
 

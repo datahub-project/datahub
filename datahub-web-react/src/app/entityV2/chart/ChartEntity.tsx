@@ -283,7 +283,7 @@ export class ChartEntity implements Entity<Chart> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: Chart) => {
+    renderPreview = (previewType: PreviewType, data: Chart) => {
         const genericProperties = this.getGenericEntityProperties(data);
 
         return (
@@ -314,6 +314,7 @@ export class ChartEntity implements Entity<Chart> {
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
                 externalUrl={data.properties?.externalUrl}
+                previewType={previewType}
             />
         );
     };
@@ -362,6 +363,7 @@ export class ChartEntity implements Entity<Chart> {
                 }
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

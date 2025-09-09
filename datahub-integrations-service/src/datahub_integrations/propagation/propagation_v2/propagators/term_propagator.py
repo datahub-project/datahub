@@ -32,7 +32,10 @@ class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
     def aspects(self) -> tuple[type[GlossaryTermsClass]]:
         return (GlossaryTermsClass,)
 
-    def supported_change_operations(self) -> set[ChangeOperation]:
+    def category(self) -> ChangeCategory:
+        return ChangeCategory.GLOSSARY_TERM
+
+    def _supported_change_operations(self) -> set[ChangeOperation]:
         return {ChangeOperation.ADD, ChangeOperation.REMOVE}
 
     def _compute_diff_eces_internal(
@@ -74,7 +77,7 @@ class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
             audit_stamp=self._propagation_audit_stamp(),
         )
 
-    def compute_propagation_mcps(
+    def _compute_propagation_mcps(
         self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
     ) -> PropagationOutput:
         for target_urn, ece_map in change_events.items():
@@ -92,7 +95,7 @@ class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
         ece: EntityChangeEvent,
         patch_builder: HasTermsPatch,
     ) -> None:
-        term_urn = ece.modifier or ece.parameters.get("termUrn")
+        term_urn = ece.modifier or ece.safe_parameters.get("termUrn")
         if not term_urn:
             logger.warning(f"Could not determine term urn for ECE: {ece}.")
             return
@@ -103,11 +106,11 @@ class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
             return
 
         if operation == ChangeOperation.ADD.value:
-            context = ece.parameters.get("context")
+            context = ece.safe_parameters.get("context")
             try:
-                old_source_details = SourceDetails.model_validate_json(context)
+                old_source_details = SourceDetails.model_validate(context)
             except ValidationError:
-                old_source_details = SourceDetails()  # Allows all nulls
+                old_source_details = SourceDetails()
 
             attribution = self._compute_attribution(old_source_details, via_urn)
             patch_builder.add_term(

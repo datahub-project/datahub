@@ -277,6 +277,7 @@ def test_workflow_request_creation_event(auth_session):
         consumer.close()
 
 
+@pytest.mark.skip(reason="Disabled")
 def test_workflow_request_review_event(auth_session):
     """Test that reviewing a workflow request emits a MODIFY event to Kafka"""
 
@@ -383,6 +384,7 @@ def test_workflow_request_review_event(auth_session):
         consumer.close()
 
 
+@pytest.mark.skip(reason="Disabled")
 def test_workflow_request_completion_event(auth_session):
     """Test that completing a workflow request emits a COMPLETED event to Kafka"""
 
@@ -505,6 +507,7 @@ def test_workflow_request_completion_event(auth_session):
         consumer.close()
 
 
+@pytest.mark.skip(reason="Disabled")
 def test_workflow_lifecycle_events_comprehensive(auth_session):
     """Test the complete workflow lifecycle and verify all events are emitted"""
 

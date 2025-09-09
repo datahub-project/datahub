@@ -26,6 +26,7 @@ class _FrozenConnectionModel(ConnectionModel):
 class TeamsAppDetails(_FrozenConnectionModel):
     app_id: Optional[str] = None
     app_password: Optional[str] = None
+    app_tenant_id: Optional[str] = None
     tenant_id: Optional[str] = None
 
 
@@ -46,6 +47,7 @@ def _get_current_teams_config() -> TeamsConnection:
         # Fallback to environment variables
         app_id = os.environ.get("DATAHUB_TEAMS_APP_ID")
         app_password = os.environ.get("DATAHUB_TEAMS_APP_SECRET")
+        app_tenant_id = os.environ.get("DATAHUB_TEAMS_TENANT_ID")
         tenant_id = os.environ.get("DATAHUB_TEAMS_TENANT_ID")
         webhook_url = os.environ.get("DATAHUB_TEAMS_WEBHOOK_URL")
         enable_history = (
@@ -53,11 +55,14 @@ def _get_current_teams_config() -> TeamsConnection:
             == "true"
         )
 
-        if app_id and app_password and tenant_id:
+        if app_id and app_password and tenant_id and app_tenant_id:
             logger.info("Using Teams configuration from environment variables")
             return TeamsConnection(
                 app_details=TeamsAppDetails(
-                    app_id=app_id, app_password=app_password, tenant_id=tenant_id
+                    app_id=app_id,
+                    app_password=app_password,
+                    app_tenant_id=app_tenant_id,
+                    tenant_id=tenant_id,
                 ),
                 webhook_url=webhook_url,
                 enable_conversation_history=enable_history,
@@ -77,17 +82,21 @@ def _get_current_teams_config() -> TeamsConnection:
     # Fill in missing values from environment variables
     app_id = app_id or os.environ.get("DATAHUB_TEAMS_APP_ID")
     app_password = app_password or os.environ.get("DATAHUB_TEAMS_APP_PASSWORD")
+    app_tenant_id = os.environ.get("DATAHUB_TEAMS_TENANT_ID")
     tenant_id = tenant_id or os.environ.get("DATAHUB_TEAMS_TENANT_ID")
     webhook_url = config.webhook_url or os.environ.get("DATAHUB_TEAMS_WEBHOOK_URL")
 
     # Create merged config with both database and environment values
-    if app_id and app_password and tenant_id:
+    if app_id and app_password and tenant_id and app_tenant_id:
         logger.info(
             "Using Teams configuration merged from database and environment variables"
         )
         return TeamsConnection(
             app_details=TeamsAppDetails(
-                app_id=app_id, app_password=app_password, tenant_id=tenant_id
+                app_id=app_id,
+                app_password=app_password,
+                app_tenant_id=app_tenant_id,
+                tenant_id=tenant_id,
             ),
             webhook_url=webhook_url,
             enable_conversation_history=config.enable_conversation_history,
