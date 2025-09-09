@@ -208,23 +208,6 @@
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "stateful-looker-pipeline"
-    }
-},
-{
-    "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.10)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
@@ -484,23 +467,6 @@
     }
 },
 {
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,dashboard_elements.10)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "stateful-looker-pipeline"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:621eb6e00da9abece0f64522f81be0e7",
     "changeType": "UPSERT",
@@ -552,23 +518,6 @@
             },
             "name": "data",
             "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "stateful-looker-pipeline"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.11)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
         }
     },
     "systemMetadata": {

@@ -142,22 +142,6 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,dashboard_elements.2)",
-    "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
@@ -388,22 +372,6 @@
             "paths": [
                 "/Explore/data"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.11)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
         }
     },
     "systemMetadata": {

@@ -161,22 +161,6 @@
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:59a5aa45397364e6882e793f1bc77b42",
     "changeType": "UPSERT",
