@@ -38,9 +38,10 @@ class GraphApiUser(BaseModel):
 class GraphApiClient:
     """Client for Microsoft Graph API operations."""
 
-    def __init__(self, config: TeamsConnection):
+    def __init__(self, config: TeamsConnection, use_app_tenant_id: bool = True):
         self.config = config
         self._access_token: Optional[str] = None
+        self._use_app_tenant_id = use_app_tenant_id
 
     async def _get_graph_access_token(self, use_delegated: bool = False) -> str:
         """
@@ -57,7 +58,11 @@ class GraphApiClient:
 
         app_id = self.config.app_details.app_id
         app_password = self.config.app_details.app_password
-        tenant_id = self.config.app_details.tenant_id
+        tenant_id = (
+            self.config.app_details.app_tenant_id
+            if self._use_app_tenant_id
+            else self.config.app_details.tenant_id
+        )
 
         if not app_id or not app_password or not tenant_id:
             raise ValueError(

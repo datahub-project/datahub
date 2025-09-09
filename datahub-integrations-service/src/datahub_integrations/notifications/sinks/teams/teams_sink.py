@@ -3141,7 +3141,7 @@ class TeamsNotificationSink(NotificationSink):
                 logger.error("Teams tenant_id not configured")
                 return None
 
-            token_url = f"https://login.microsoftonline.com/{app_details.tenant_id}/oauth2/v2.0/token"
+            token_url = f"https://login.microsoftonline.com/{app_details.app_tenant_id}/oauth2/v2.0/token"
 
             data = {
                 "grant_type": "client_credentials",

@@ -23,6 +23,7 @@ def mock_teams_config() -> Any:
     app_details = MagicMock(spec=TeamsAppDetails)
     app_details.app_id = "test-app-id-12345"
     app_details.app_password = "test-app-password-secret"
+    app_details.app_tenant_id = "test-tenant-id-67890"
     app_details.tenant_id = "test-tenant-id-67890"
 
     config = MagicMock(spec=TeamsConnection)
