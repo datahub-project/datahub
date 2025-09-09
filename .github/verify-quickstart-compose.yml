@@ -1,0 +1,30 @@
+name: Verify Quickstart Compose
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  verify-quickstart-compose-updated:
+    name: Verify quickstart compose file is up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate quickstart compose file
+        run: |
+          ./gradlew :docker:generateQuickstartComposeConfig
+
+      - name: Verify generated file
+        # If there are build changes, then the generated file will be different from the one in the PR
+        run: |
+          git diff --exit-code docker/quickstart/docker-compose.quickstart-profile.yml
+
+      - name: Validation
+        if: failure()
+        run: |
+          echo "Build file changes are detected. Run\n ./gradlew :docker:generateQuickstartComposeConfig \n and commit the generated docker/quickstart/docker-compose.quickstart-profile.yml file"
+          exit 1

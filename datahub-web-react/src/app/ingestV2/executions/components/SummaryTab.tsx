@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { DetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { ScrollableDetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -100,7 +100,7 @@ export const SummaryTab = ({
             )}
             <IngestedAssetsSection>
                 {data?.executionRequest?.id && (
-                    <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
+                    <IngestedAssets executionResult={result} id={data?.executionRequest?.id} urn={urn} />
                 )}
             </IngestedAssetsSection>
             <SectionBase>
@@ -120,11 +120,11 @@ export const SummaryTab = ({
                         </Tooltip>
                     </ButtonGroup>
                 </SectionSubHeader>
-                <DetailsContainer>
+                <ScrollableDetailsContainer>
                     <Text size="sm">
                         <pre>{logs}</pre>
                     </Text>
-                </DetailsContainer>
+                </ScrollableDetailsContainer>
             </SectionBase>
             {recipe && (
                 <SectionBase>
@@ -144,11 +144,11 @@ export const SummaryTab = ({
                             </Tooltip>
                         </ButtonGroup>
                     </SectionSubHeader>
-                    <DetailsContainer>
+                    <ScrollableDetailsContainer>
                         <Text size="sm">
                             <pre>{recipe}</pre>
                         </Text>
-                    </DetailsContainer>
+                    </ScrollableDetailsContainer>
                 </SectionBase>
             )}
         </Section>

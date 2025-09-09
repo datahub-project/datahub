@@ -19,7 +19,7 @@ const Wrapper = styled.div`
 
 // Additional margin to have width of content excluding side buttons
 const StyledAddModulesButton = styled(AddModuleButton)<{ $hasRows?: boolean }>`
-    ${(props) => props.$hasRows && 'margin: 0 48px;'}
+    ${(props) => props.$hasRows && 'margin: 0 42px;'}
 `;
 
 interface Props {
@@ -27,7 +27,7 @@ interface Props {
 }
 
 function Template({ className }: Props) {
-    const { template } = usePageTemplateContext();
+    const { template, isTemplateEditable } = usePageTemplateContext();
     const rows = useMemo(
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
         [template?.properties?.rows],
@@ -41,7 +41,7 @@ function Template({ className }: Props) {
                 <TemplateGrid wrappedRows={wrappedRows} />
             </DragAndDropProvider>
 
-            <StyledAddModulesButton orientation="horizontal" $hasRows={hasRows} />
+            {isTemplateEditable && <StyledAddModulesButton orientation="horizontal" $hasRows={hasRows} />}
             <ModuleModalMapper />
         </Wrapper>
     );

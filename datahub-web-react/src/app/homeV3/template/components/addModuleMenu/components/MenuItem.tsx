@@ -45,14 +45,18 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
         return 'Cannot add large widget to small widget row';
     }, [isDisabled, isSmallModule]);
 
+    const iconColorLevel = isDisabled ? 300 : 1800;
+
     const content = (
         <Wrapper>
             <IconWrapper>
-                <Icon icon={icon} source="phosphor" color="gray" size="2xl" />
+                <Icon icon={icon} source="phosphor" color="gray" colorLevel={iconColorLevel} size="2xl" />
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold">{title}</Text>
+                <Text weight="semiBold" color="gray" colorLevel={600}>
+                    {title}
+                </Text>
                 {description && (
                     <Text color="gray" colorLevel={isDisabled ? 300 : 1700} size="sm">
                         {description}
@@ -62,7 +66,9 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
 
             <SpaceFiller />
 
-            {hasChildren && <Icon icon="CaretRight" source="phosphor" color="gray" size="lg" />}
+            {hasChildren && (
+                <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={iconColorLevel} size="lg" />
+            )}
         </Wrapper>
     );
 

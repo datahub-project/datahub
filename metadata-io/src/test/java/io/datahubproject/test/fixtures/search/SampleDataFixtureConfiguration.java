@@ -1,8 +1,8 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -143,14 +143,14 @@ public class SampleDataFixtureConfiguration {
 
   @Bean
   protected ESWriteDAO esWriteDAO() {
-    return new ESWriteDAO(TEST_ES_SEARCH_CONFIG, _searchClient, _bulkProcessor);
+    return new ESWriteDAO(TEST_OS_SEARCH_CONFIG, _searchClient, _bulkProcessor);
   }
 
   @Bean("sampleDataESIndexBuilder")
   protected ESIndexBuilder esIndexBuilder() {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
-        _searchClient, 1, 0, 1, 1, Map.of(), true, false, false, TEST_ES_SEARCH_CONFIG, gitVersion);
+        _searchClient, 1, 0, 1, 1, Map.of(), true, false, false, TEST_OS_SEARCH_CONFIG, gitVersion);
   }
 
   protected ElasticSearchService entitySearchServiceHelper(
@@ -165,15 +165,15 @@ public class SampleDataFixtureConfiguration {
             _searchClient,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
-            true,
+            false,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             _searchClient,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
@@ -202,14 +202,9 @@ public class SampleDataFixtureConfiguration {
             _bulkProcessor,
             indexConvention,
             new ESGraphWriteDAO(
-                indexConvention, _bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
+                indexConvention, _bulkProcessor, 1, TEST_OS_SEARCH_CONFIG.getSearch().getGraph()),
             new ESGraphQueryDAO(
-                _searchClient,
-                opContext.getLineageRegistry(),
-                indexConvention,
-                TEST_GRAPH_SERVICE_CONFIG,
-                TEST_ES_SEARCH_CONFIG,
-                null),
+                _searchClient, TEST_GRAPH_SERVICE_CONFIG, TEST_OS_SEARCH_CONFIG, null),
             indexBuilder,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());

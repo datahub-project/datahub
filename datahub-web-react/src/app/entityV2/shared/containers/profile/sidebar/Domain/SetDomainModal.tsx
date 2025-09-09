@@ -1,8 +1,9 @@
 import { Empty, Form, Modal, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
-import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
+import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -10,6 +11,7 @@ import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { getModalDomContainer } from '@src/utils/focus';
 
@@ -34,6 +36,7 @@ type SelectedDomain = {
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { entityType } = useEntityContext();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
@@ -104,6 +107,25 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setSelectedDomain(undefined);
     };
 
+    const sendAnalytics = () => {
+        const isBatchAction = urns.length > 1;
+
+        if (isBatchAction) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     const onOk = () => {
         if (!selectedDomain) {
             return;
@@ -126,6 +148,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 if (!errors) {
                     message.success({ content: 'Updated Domain!', duration: 2 });
                     refetch?.();
+                    sendAnalytics();
                     onModalClose();
                     setSelectedDomain(undefined);
                 }
@@ -204,7 +227,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
                         />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} displayDomainColoredIcon />
+                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
                         </BrowserWrapper>
                     </ClickOutside>
                 </Form.Item>

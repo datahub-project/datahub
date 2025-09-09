@@ -126,6 +126,16 @@ export const states = () => (
     </GridList>
 );
 
+export const sizes = () => (
+    <GridList>
+        <Checkbox label="Extra Small" isChecked size="xs" />
+        <Checkbox label="Small" isChecked size="sm" />
+        <Checkbox label="Medium" isChecked size="md" />
+        <Checkbox label="Large" isChecked size="lg" />
+        <Checkbox label="Extra Large" isChecked size="xl" />
+    </GridList>
+);
+
 export const intermediate = () => {
     return (
         <GridList>

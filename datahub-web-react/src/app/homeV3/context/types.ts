@@ -1,7 +1,12 @@
+import { AssetProperty } from '@app/entityV2/summary/properties/types';
+import {
+    AddSummaryElementInput,
+    ReplaceSummaryElementInput,
+} from '@app/homeV3/context/hooks/useAssetSummaryOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, PageModuleScope, PageTemplateSurfaceType } from '@types';
 
 // Input types for the methods
 export interface UpsertModuleInput {
@@ -47,10 +52,12 @@ export interface MoveModuleInput {
 
 // Context state shape
 export type PageTemplateContextState = {
+    isTemplateEditable: boolean;
     personalTemplate: PageTemplateFragment | null;
     globalTemplate: PageTemplateFragment | null;
     template: PageTemplateFragment | null;
     isEditingGlobalTemplate: boolean;
+    templateType: PageTemplateSurfaceType;
     setIsEditingGlobalTemplate: (val: boolean) => void;
     setPersonalTemplate: (template: PageTemplateFragment | null) => void;
     setGlobalTemplate: (template: PageTemplateFragment | null) => void;
@@ -61,4 +68,11 @@ export type PageTemplateContextState = {
     removeModule: (input: RemoveModuleInput) => void;
     moveModule: (input: MoveModuleInput) => void;
     resetTemplateToDefault: () => void;
+    reloadHomepageModules: boolean;
+    setReloadHomepageModules: (val: boolean) => void;
+    // Asset summary operations
+    summaryElements?: AssetProperty[];
+    addSummaryElement: (input: AddSummaryElementInput) => void;
+    removeSummaryElement: (position: number) => void;
+    replaceSummaryElement: (input: ReplaceSummaryElementInput) => void;
 };
