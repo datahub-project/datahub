@@ -3,6 +3,7 @@ package controllers;
 import static auth.sso.SsoConfigs.OIDC_ENABLED_CONFIG_PATH;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static play.test.Helpers.contentAsString;
@@ -12,7 +13,10 @@ import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.aspect.CorpUserAspect;
+import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -76,6 +80,8 @@ public class OidcImplicitControllerTest {
     configMap.put("auth.oidc.clientId", CLIENT_ID);
     configMap.put("auth.oidc.implicit.clientIssuer", ISSUER);
     configMap.put("auth.oidc.implicit.jwksJson", jwkSet.toString());
+    configMap.put("auth.oidc.jitProvisioningEnabled", true); // Enable JIT provisioning by default
+    configMap.put("auth.oidc.preProvisioningRequired", false);
     configMap.put("auth.verbose.logging", true);
     configMap.put("auth.cookie.ttlInHours", 24);
     configMap.put("auth.cookie.authCookieSameSite", "Lax");
@@ -319,5 +325,201 @@ public class OidcImplicitControllerTest {
     String content = contentAsString(result);
     JsonNode jsonNode = Json.parse(content);
     assertEquals("ID token validation failed", jsonNode.get("message").asText());
+  }
+
+  @Test
+  public void testJitProvisioningEnabled() throws Exception {
+    // Test that JIT provisioning is called when enabled
+    JWTClaimsSet idTokenClaims = createValidIdTokenClaims();
+    SignedJWT idToken = createSignedJWT(idTokenClaims);
+    Http.Request request = createRequestWithTokens(idToken);
+
+    // Mock the extractUser and provisionUser methods
+    CorpUserSnapshot mockUserSnapshot = mock(CorpUserSnapshot.class);
+    Mockito.doReturn(mockUserSnapshot)
+        .when(controller)
+        .extractUser(any(CorpuserUrn.class), any(JWTClaimsSet.class), anyString());
+    doNothing().when(controller).provisionUser(any(), any(), any());
+
+    // Call the controller method
+    Result result = controller.exchangeTokenForSession(request);
+
+    // Verify response
+    assertEquals(200, result.status());
+
+    // Verify that provisionUser was called (JIT provisioning)
+    verify(controller, times(1)).provisionUser(any(), any(), any());
+  }
+
+  @Test
+  public void testJitProvisioningDisabled() throws Exception {
+    // Create configuration with JIT provisioning disabled
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("auth.baseUrl", "http://localhost:9002");
+    configMap.put(OIDC_ENABLED_CONFIG_PATH, true);
+    configMap.put("auth.oidc.implicit.enabled", true);
+    configMap.put("auth.oidc.clientId", CLIENT_ID);
+    configMap.put("auth.oidc.implicit.clientIssuer", ISSUER);
+    configMap.put("auth.oidc.implicit.jwksJson", jwkSet.toString());
+    configMap.put("auth.oidc.jitProvisioningEnabled", false);
+    configMap.put("auth.oidc.preProvisioningRequired", false);
+    configMap.put("auth.verbose.logging", true);
+    configMap.put("auth.cookie.ttlInHours", 24);
+    configMap.put("auth.cookie.authCookieSameSite", "Lax");
+    configMap.put("auth.cookie.authCookieSecure", false);
+
+    Config configNoJit = ConfigFactory.parseMap(configMap);
+    OidcImplicitController controllerNoJit = spy(new OidcImplicitController(configNoJit));
+    controllerNoJit.authClient = mockAuthClient;
+    controllerNoJit.oidcClient = mockOidcClient;
+    controllerNoJit.systemOperationContext = mockContext;
+    controllerNoJit.entityClient = mockEntityClient;
+
+    JWTClaimsSet idTokenClaims = createValidIdTokenClaims();
+    SignedJWT idToken = createSignedJWT(idTokenClaims);
+    Http.Request request = createRequestWithTokens(idToken);
+
+    // Call the controller method
+    Result result = controllerNoJit.exchangeTokenForSession(request);
+
+    // Verify response - should still succeed but without provisioning
+    assertEquals(200, result.status());
+
+    // Verify that provisionUser was NOT called
+    verify(controllerNoJit, never()).provisionUser(any(), any(), any());
+  }
+
+  @Test
+  public void testPreProvisioningRequired() throws Exception {
+    // Create configuration with pre-provisioning required
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("auth.baseUrl", "http://localhost:9002");
+    configMap.put(OIDC_ENABLED_CONFIG_PATH, true);
+    configMap.put("auth.oidc.implicit.enabled", true);
+    configMap.put("auth.oidc.clientId", CLIENT_ID);
+    configMap.put("auth.oidc.implicit.clientIssuer", ISSUER);
+    configMap.put("auth.oidc.implicit.jwksJson", jwkSet.toString());
+    configMap.put("auth.oidc.jitProvisioningEnabled", false);
+    configMap.put("auth.oidc.preProvisioningRequired", true);
+    configMap.put("auth.verbose.logging", true);
+    configMap.put("auth.cookie.ttlInHours", 24);
+    configMap.put("auth.cookie.authCookieSameSite", "Lax");
+    configMap.put("auth.cookie.authCookieSecure", false);
+
+    Config configPreProv = ConfigFactory.parseMap(configMap);
+    OidcImplicitController controllerPreProv = spy(new OidcImplicitController(configPreProv));
+    controllerPreProv.authClient = mockAuthClient;
+    controllerPreProv.oidcClient = mockOidcClient;
+    controllerPreProv.systemOperationContext = mockContext;
+    controllerPreProv.entityClient = mockEntityClient;
+
+    JWTClaimsSet idTokenClaims = createValidIdTokenClaims();
+    SignedJWT idToken = createSignedJWT(idTokenClaims);
+    Http.Request request = createRequestWithTokens(idToken);
+
+    // Mock a pre-provisioned user (has more than just key aspect)
+    CorpUserSnapshot existingUserSnapshot = new CorpUserSnapshot();
+    existingUserSnapshot.setUrn(new CorpuserUrn(TEST_USER_EMAIL));
+    CorpUserAspectArray aspects = new CorpUserAspectArray();
+    aspects.add(CorpUserAspect.create(new com.linkedin.identity.CorpUserInfo()));
+    aspects.add(CorpUserAspect.create(new com.linkedin.identity.CorpUserEditableInfo()));
+    existingUserSnapshot.setAspects(aspects);
+
+    Entity existingUserEntity = new Entity();
+    existingUserEntity.setValue(
+        com.linkedin.metadata.snapshot.Snapshot.create(existingUserSnapshot));
+
+    when(mockEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(existingUserEntity);
+
+    // Call the controller method
+    Result result = controllerPreProv.exchangeTokenForSession(request);
+
+    // Verify response - should succeed
+    assertEquals(200, result.status());
+
+    // Verify that provisionUser was NOT called (pre-provisioned user)
+    verify(controllerPreProv, never()).provisionUser(any(), any(), any());
+
+    // Verify that verifyPreProvisionedUser was called
+    verify(mockEntityClient, times(1)).get(any(OperationContext.class), any(CorpuserUrn.class));
+  }
+
+  @Test
+  public void testPreProvisioningRequiredUserNotFound() throws Exception {
+    // Create configuration with pre-provisioning required
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("auth.baseUrl", "http://localhost:9002");
+    configMap.put(OIDC_ENABLED_CONFIG_PATH, true);
+    configMap.put("auth.oidc.implicit.enabled", true);
+    configMap.put("auth.oidc.clientId", CLIENT_ID);
+    configMap.put("auth.oidc.implicit.clientIssuer", ISSUER);
+    configMap.put("auth.oidc.implicit.jwksJson", jwkSet.toString());
+    configMap.put("auth.oidc.jitProvisioningEnabled", false);
+    configMap.put("auth.oidc.preProvisioningRequired", true);
+    configMap.put("auth.verbose.logging", true);
+    configMap.put("auth.cookie.ttlInHours", 24);
+    configMap.put("auth.cookie.authCookieSameSite", "Lax");
+    configMap.put("auth.cookie.authCookieSecure", false);
+
+    Config configPreProv = ConfigFactory.parseMap(configMap);
+    OidcImplicitController controllerPreProv = spy(new OidcImplicitController(configPreProv));
+    controllerPreProv.authClient = mockAuthClient;
+    controllerPreProv.oidcClient = mockOidcClient;
+    controllerPreProv.systemOperationContext = mockContext;
+    controllerPreProv.entityClient = mockEntityClient;
+
+    JWTClaimsSet idTokenClaims = createValidIdTokenClaims();
+    SignedJWT idToken = createSignedJWT(idTokenClaims);
+    Http.Request request = createRequestWithTokens(idToken);
+
+    // Mock a user that doesn't exist (only has key aspect)
+    CorpUserSnapshot emptyUserSnapshot = new CorpUserSnapshot();
+    emptyUserSnapshot.setUrn(new CorpuserUrn(TEST_USER_EMAIL));
+    emptyUserSnapshot.setAspects(new CorpUserAspectArray()); // Empty aspects = user doesn't exist
+
+    Entity emptyUserEntity = new Entity();
+    emptyUserEntity.setValue(com.linkedin.metadata.snapshot.Snapshot.create(emptyUserSnapshot));
+
+    when(mockEntityClient.get(any(OperationContext.class), any(CorpuserUrn.class)))
+        .thenReturn(emptyUserEntity);
+
+    // Call the controller method
+    Result result = controllerPreProv.exchangeTokenForSession(request);
+
+    // Verify response - should fail with 400
+    assertEquals(400, result.status());
+
+    // Check error message
+    String content = contentAsString(result);
+    JsonNode jsonNode = Json.parse(content);
+    assertTrue(jsonNode.get("message").asText().contains("not yet been provisioned"));
+  }
+
+  // Helper methods
+  private JWTClaimsSet createValidIdTokenClaims() {
+    return new JWTClaimsSet.Builder()
+        .subject("test-subject")
+        .issuer(ISSUER)
+        .audience(CLIENT_ID)
+        .expirationTime(new Date(System.currentTimeMillis() + 60 * 60 * 1000))
+        .issueTime(new Date())
+        .claim("email", TEST_USER_EMAIL)
+        .build();
+  }
+
+  private SignedJWT createSignedJWT(JWTClaimsSet claims) throws Exception {
+    SignedJWT idToken =
+        new SignedJWT(
+            new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(rsaKey.getKeyID()).build(), claims);
+    idToken.sign(signer);
+    return idToken;
+  }
+
+  private Http.Request createRequestWithTokens(SignedJWT idToken) {
+    ObjectNode requestBody = Json.newObject();
+    requestBody.put("id_token", idToken.serialize());
+    requestBody.put("access_token", "fake-access-token");
+    return Helpers.fakeRequest().method("POST").bodyJson(requestBody).build();
   }
 }
