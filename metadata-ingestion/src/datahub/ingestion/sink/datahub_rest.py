@@ -355,6 +355,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     def flush(self) -> None:
         """Wait for all pending records to be written."""
         i = 0
+        if self.report.pending_requests > 0:
+            logger.warning(
+                f"Pending requests in sink flush method: {self.report.pending_requests}",
+            )
         while self.report.pending_requests > 0:
             time.sleep(0.1)
             i += 1
