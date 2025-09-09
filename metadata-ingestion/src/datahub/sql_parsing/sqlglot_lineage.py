@@ -807,8 +807,11 @@ def _get_direct_raw_col_upstreams(
                     direct_raw_col_upstreams.add(
                         _ColumnRef(table=table_ref, column=column_name)
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(
+                    f"Failed to parse placeholder column expression: {node.name} with dialect {dialect}. The exception was: {e}",
+                    exc_info=True,
+                )
         else:
             # This branch doesn't matter. For example, a count(*) column would go here, and
             # we don't get any column-level lineage for that.

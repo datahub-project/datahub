@@ -115,7 +115,7 @@ def _expression_to_string(
     return expression.sql(dialect=get_dialect(platform))
 
 
-PLACEHOLDER_NORMALIZATION_REGEXP = re.compile(r"(%s|\$\d|\?)")
+PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION = re.compile(r"(%s|\$\d|\?)")
 
 _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
@@ -145,7 +145,7 @@ _BASIC_NORMALIZATION_RULES = {
     re.compile(r"\b,\b"): ", ",
     # MAKE SURE THAT THIS IS AFTER THE ABOVE REPLACEMENT
     # Replace all versions of placeholders with generic ? placeholder.
-    PLACEHOLDER_NORMALIZATION_REGEXP: "?",
+    PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION: "?",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).
@@ -270,7 +270,9 @@ def get_query_fingerprint_debug(
             dialect = get_dialect(platform)
             expression_sql = generalize_query(expression, dialect=dialect)
             # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
-            expression_sql = PLACEHOLDER_NORMALIZATION_REGEXP.sub("?", expression_sql)
+            expression_sql = PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION.sub(
+                "?", expression_sql
+            )
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
     except (ValueError, sqlglot.errors.SqlglotError) as e:
