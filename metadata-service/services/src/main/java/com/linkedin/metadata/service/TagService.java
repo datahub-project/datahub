@@ -11,10 +11,12 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.EditableSchemaMetadataPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.SchemaField;
@@ -130,12 +132,15 @@ public class TagService extends BaseService {
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final String fieldPath) {
+    final List<TagAssociation> entityTags =
+        getEntityTags(opContext, SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath));
     final List<TagAssociation> editableSchemaFieldTags =
         getEditableSchemaFieldTags(opContext, entityUrn, fieldPath);
     final List<TagAssociation> schemaFieldTags =
         getNonEditableSchemaFieldTags(opContext, entityUrn, fieldPath);
 
     List<TagAssociation> result = new ArrayList<>();
+    result.addAll(entityTags);
     result.addAll(editableSchemaFieldTags);
     result.addAll(schemaFieldTags);
 
@@ -265,11 +270,25 @@ public class TagService extends BaseService {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
 
+    // Convert subresource references to schema field urn references
     final List<ResourceReference> entityRefs =
         resources.stream()
             .filter(
                 resource ->
-                    resource.getSubResource() == null || resource.getSubResource().equals(""))
+                    resource.getSubResourceType() == SubResourceType.DATASET_FIELD
+                        || resource.getSubResource() == null
+                        || resource.getSubResource().equals(""))
+            .map(
+                resource ->
+                    resource.getSubResourceType() == SubResourceType.DATASET_FIELD
+                            && resource.getSubResource() != null
+                            && !resource.getSubResource().equals("")
+                        ? new ResourceReference(
+                            SchemaFieldUtils.generateSchemaFieldUrn(
+                                resource.getUrn(), resource.getSubResource()),
+                            null,
+                            null)
+                        : resource)
             .collect(Collectors.toList());
 
     for (ResourceReference resource : entityRefs) {
@@ -280,12 +299,17 @@ public class TagService extends BaseService {
       changes.add(patchBuilder.build());
     }
 
+    // Convert schema field urn references to subresource references
     final List<ResourceReference> schemaFieldRefs =
         resources.stream()
             .filter(
                 resource ->
-                    resource.getSubResourceType() != null
-                        && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
+                    resource.getUrn().getEntityType().equals(Constants.SCHEMA_FIELD_ENTITY_NAME)
+                        || (resource.getSubResourceType() != null
+                            && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD)))
+            .map(
+                resource ->
+                    ResourceReference.fromSchemaFieldUrn(resource.getUrn()).orElse(resource))
             .collect(Collectors.toList());
 
     for (ResourceReference resource : schemaFieldRefs) {
