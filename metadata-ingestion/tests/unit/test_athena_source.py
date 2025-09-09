@@ -3,10 +3,12 @@ from typing import List
 from unittest import mock
 
 import pytest
+import sqlglot
 from freezegun import freeze_time
 from pyathena import OperationalError
 from sqlalchemy import types
 from sqlalchemy_bigquery import STRUCT
+from sqlglot.dialects import Athena
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
@@ -577,8 +579,6 @@ def test_get_partitions_attempts_extraction_when_extract_partitions_enabled():
 
 def test_partition_profiling_sql_generation_single_key():
     """Test that partition profiling generates valid SQL for single partition key and can be parsed by SQLGlot."""
-    import sqlglot
-    from sqlglot.dialects import Athena
 
     config = AthenaConfig.parse_obj(
         {
@@ -637,8 +637,6 @@ def test_partition_profiling_sql_generation_single_key():
 
 def test_partition_profiling_sql_generation_multiple_keys():
     """Test that partition profiling generates valid SQL for multiple partition keys and can be parsed by SQLGlot."""
-    import sqlglot
-    from sqlglot.dialects import Athena
 
     config = AthenaConfig.parse_obj(
         {
@@ -706,8 +704,6 @@ def test_partition_profiling_sql_generation_multiple_keys():
 
 def test_partition_profiling_sql_generation_complex_schema_table_names():
     """Test that partition profiling handles complex schema/table names correctly and generates valid SQL."""
-    import sqlglot
-    from sqlglot.dialects import Athena
 
     config = AthenaConfig.parse_obj(
         {
@@ -770,8 +766,6 @@ def test_partition_profiling_sql_generation_complex_schema_table_names():
 
 def test_casted_partition_key_method():
     """Test the _casted_partition_key helper method generates valid SQL fragments."""
-    import sqlglot
-    from sqlglot.dialects import Athena
 
     # Test the static method directly
     casted_key = AthenaSource._casted_partition_key("test_column")
@@ -805,8 +799,6 @@ def test_casted_partition_key_method():
 
 def test_concat_function_generation_validates_with_sqlglot():
     """Test that our CONCAT function generation produces valid Athena SQL according to SQLGlot."""
-    import sqlglot
-    from sqlglot.dialects import Athena
 
     # Test the CONCAT function generation logic directly
     partition_keys = ["year", "month", "day"]
@@ -837,6 +829,38 @@ def test_concat_function_generation_validates_with_sqlglot():
         pytest.fail(
             f"SQLGlot failed to parse CONCAT expression: {e}\nExpression: {concat_expr}"
         )
+
+
+def test_build_max_partition_query():
+    """Test _build_max_partition_query method directly without mocking."""
+
+    # Test single partition key
+    query_single = AthenaSource._build_max_partition_query(
+        "test_schema", "test_table", ["year"]
+    )
+    expected_single = 'select year from "test_schema"."test_table$partitions" where CAST(year as VARCHAR) = (select max(CAST(year as VARCHAR)) from "test_schema"."test_table$partitions")'
+    assert query_single == expected_single
+
+    # Test multiple partition keys
+    query_multiple = AthenaSource._build_max_partition_query(
+        "test_schema", "test_table", ["year", "month", "day"]
+    )
+    expected_multiple = "select year,month,day from \"test_schema\".\"test_table$partitions\" where CONCAT(CAST(year as VARCHAR), CAST('-' AS VARCHAR), CAST(month as VARCHAR), CAST('-' AS VARCHAR), CAST(day as VARCHAR)) = (select max(CONCAT(CAST(year as VARCHAR), CAST('-' AS VARCHAR), CAST(month as VARCHAR), CAST('-' AS VARCHAR), CAST(day as VARCHAR))) from \"test_schema\".\"test_table$partitions\")"
+    assert query_multiple == expected_multiple
+
+    # Validate with SQLGlot that generated queries are valid SQL
+    try:
+        parsed_single = sqlglot.parse_one(query_single, dialect=Athena)
+        assert parsed_single is not None
+        assert isinstance(parsed_single, sqlglot.expressions.Select)
+
+        parsed_multiple = sqlglot.parse_one(query_multiple, dialect=Athena)
+        assert parsed_multiple is not None
+        assert isinstance(parsed_multiple, sqlglot.expressions.Select)
+
+        print("✅ Both queries parsed successfully by SQLGlot")
+    except Exception as e:
+        pytest.fail(f"SQLGlot failed to parse generated query: {e}")
 
 
 def test_partition_profiling_disabled_no_sql_generation():

@@ -516,6 +516,29 @@ class AthenaSource(SQLAlchemySource):
         # Athena may throw an error during concatenation / comparison.
         return f"CAST({key} as VARCHAR)"
 
+    @classmethod
+    def _build_max_partition_query(
+        cls, schema: str, table: str, partitions: List[str]
+    ) -> str:
+        """Build SQL query to find the row with maximum partition values.
+
+        Args:
+            schema: Database schema name
+            table: Table name
+            partitions: List of partition column names
+
+        Returns:
+            SQL query string to find the maximum partition
+        """
+        casted_keys = [cls._casted_partition_key(key) for key in partitions]
+        if len(casted_keys) == 1:
+            part_concat = casted_keys[0]
+        else:
+            separator = "CAST('-' AS VARCHAR)"
+            part_concat = f"CONCAT({f', {separator}, '.join(casted_keys)})"
+
+        return f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
+
     @override
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
@@ -554,22 +577,9 @@ class AthenaSource(SQLAlchemySource):
             context=f"{schema}.{table}",
             level=StructuredLogLevel.WARN,
         ):
-            # We create an artifical concatenated partition key to be able to query max partition easier
-            # Use CONCAT function with all VARCHAR-casted values to avoid type mismatches
-            casted_keys = [self._casted_partition_key(key) for key in partitions]
-            if len(casted_keys) == 1:
-                part_concat = casted_keys[0]
-            else:
-                # Use CONCAT function with explicit VARCHAR separator to avoid type issues
-                concat_args = []
-                for i, key in enumerate(casted_keys):
-                    concat_args.append(key)
-                    if (
-                        i < len(casted_keys) - 1
-                    ):  # Add separator except for last element
-                        concat_args.append("CAST('-' AS VARCHAR)")
-                part_concat = f"CONCAT({', '.join(concat_args)})"
-            max_partition_query = f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
+            max_partition_query = self._build_max_partition_query(
+                schema, table, partitions
+            )
             ret = self.cursor.execute(max_partition_query)
             max_partition: Dict[str, str] = {}
             if ret:
