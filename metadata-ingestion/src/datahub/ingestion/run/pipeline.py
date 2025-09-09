@@ -8,7 +8,7 @@ import shutil
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 import click
@@ -54,6 +54,7 @@ from datahub.utilities.global_warning_util import (
     get_global_warnings,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.method_timer import timed_method
 
 logger = logging.getLogger(__name__)
 _REPORT_PRINT_INTERVAL_SECONDS = 60
@@ -102,6 +103,8 @@ class CliReport(Report):
 
     thread_count: Optional[int] = None
     peak_thread_count: Optional[int] = None
+
+    method_timings_sec: Dict[str, float] = field(default_factory=dict)
 
     def compute_stats(self) -> None:
         try:
@@ -174,6 +177,7 @@ class Pipeline:
         self.num_intermediate_workunits = 0
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
+        self.method_timings_sec: Dict[str, float] = {}
 
         with (
             contextlib.ExitStack() as exit_stack,
@@ -340,6 +344,7 @@ class Pipeline:
                         f"Failed to configure reporter: {reporter_type}", exc_info=e
                     )
 
+    @timed_method("pipeline_notify_reporters_on_ingestion_start")
     def _notify_reporters_on_ingestion_start(self) -> None:
         for reporter in self.reporters:
             try:
@@ -347,6 +352,7 @@ class Pipeline:
             except Exception as e:
                 logger.warning("Reporting failed on start", exc_info=e)
 
+    @timed_method("pipeline_warn_old_cli_version")
     def _warn_old_cli_version(self) -> None:
         """
         Check if the server default CLI version is ahead of the CLI version being used.
@@ -385,6 +391,7 @@ class Pipeline:
                 context=f"Server Default CLI version: {server_default_version}, Used CLI version: {current_version}",
             )
 
+    @timed_method("pipeline_notify_reporters_on_ingestion_completion")
     def _notify_reporters_on_ingestion_completion(self) -> None:
         for reporter in self.reporters:
             try:
@@ -551,6 +558,7 @@ class Pipeline:
                 self.sink.flush()
                 self._notify_reporters_on_ingestion_completion()
 
+    @timed_method("pipeline_transform")
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
         Transforms the given sequence of records by passing the records through the transformers
@@ -562,6 +570,7 @@ class Pipeline:
 
         return records
 
+    @timed_method("pipeline_process_commits")
     def process_commits(self) -> None:
         """
         Evaluates the commit_policy for each committable in the context and triggers the commit operation
@@ -618,6 +627,7 @@ class Pipeline:
                     "Sink reported warnings", self.sink.get_report().warnings
                 )
 
+    @timed_method("pipeline_log_ingestion_stats")
     def log_ingestion_stats(self) -> None:
         source_failures = self._approx_all_vals(self.source.get_report().failures)
         source_warnings = self._approx_all_vals(self.source.get_report().warnings)
@@ -680,6 +690,7 @@ class Pipeline:
     ) -> int:
         workunits_produced = self.sink.get_report().total_records_written
 
+        self.source.get_report().method_timings_sec.update(self.method_timings_sec)
         if (
             not workunits_produced
             and not currently_running
@@ -762,6 +773,7 @@ class Pipeline:
             log=False,
         )
 
+    @timed_method("pipeline_get_structured_report")
     def _get_structured_report(self) -> Dict[str, Any]:
         return {
             "cli": self.cli_report.as_obj(),

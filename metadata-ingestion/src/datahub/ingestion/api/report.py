@@ -6,7 +6,16 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Union, cast, runtime_checkable
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Union,
+    cast,
+    runtime_checkable,
+)
 
 import humanfriendly
 import pydantic
@@ -29,6 +38,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.method_timer import timed_method
 
 logger = logging.getLogger(__name__)
 LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
@@ -41,6 +51,10 @@ class SupportsAsObj(Protocol):
 
 @dataclass
 class Report(SupportsAsObj):
+    def __post_init__(self) -> None:
+        if not hasattr(self, "method_timings_sec"):
+            self.method_timings_sec: Dict[str, float] = {}
+
     @staticmethod
     def to_str(some_val: Any) -> str:
         if isinstance(some_val, Enum):
@@ -204,7 +218,6 @@ class ExamplesReport(Report, Closeable):
     samples: Dict[str, Dict[str, List[str]]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(list))
     )
-    compute_stats_time_seconds: float = 0.0
     _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     # We are adding this to make querying easier for fine-grained lineage
@@ -213,6 +226,7 @@ class ExamplesReport(Report, Closeable):
     _lineage_aspects_seen: Set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self._file_based_dict = FileBackedDict(
             tablename="urn_aspects",
             extra_columns={
@@ -224,6 +238,7 @@ class ExamplesReport(Report, Closeable):
             },
         )
 
+    @timed_method("examples_close")
     def close(self) -> None:
         self.compute_stats()
         if self._file_based_dict is not None:
@@ -340,6 +355,7 @@ class ExamplesReport(Report, Closeable):
                 return True
         return False
 
+    @timed_method("examples_update_file_based_dict")
     def _update_file_based_dict(
         self,
         urn: str,
@@ -405,8 +421,8 @@ class ExamplesReport(Report, Closeable):
 
             self._update_file_based_dict(urn, entityType, aspectName, mcp)
 
+    @timed_method("examples_compute_stats")
     def compute_stats(self) -> None:
-        start_time = datetime.now()
         if self._file_based_dict is None:
             return
 
@@ -468,8 +484,6 @@ class ExamplesReport(Report, Closeable):
             list(self._lineage_aspects_seen), "lineage"
         )
         self._collect_samples_with_all_conditions("all_3")
-        end_time = datetime.now()
-        self.compute_stats_time_seconds += (end_time - start_time).total_seconds()
 
 
 class EntityFilterReport(ReportAttribute):
