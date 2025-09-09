@@ -204,6 +204,7 @@ class ExamplesReport(Report, Closeable):
     samples: Dict[str, Dict[str, List[str]]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(list))
     )
+    compute_stats_time_seconds: float = 0.0
     _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     # We are adding this to make querying easier for fine-grained lineage
@@ -405,6 +406,7 @@ class ExamplesReport(Report, Closeable):
             self._update_file_based_dict(urn, entityType, aspectName, mcp)
 
     def compute_stats(self) -> None:
+        start_time = datetime.now()
         if self._file_based_dict is None:
             return
 
@@ -466,6 +468,8 @@ class ExamplesReport(Report, Closeable):
             list(self._lineage_aspects_seen), "lineage"
         )
         self._collect_samples_with_all_conditions("all_3")
+        end_time = datetime.now()
+        self.compute_stats_time_seconds += (end_time - start_time).total_seconds()
 
 
 class EntityFilterReport(ReportAttribute):

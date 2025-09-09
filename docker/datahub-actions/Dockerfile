@@ -130,7 +130,7 @@ FROM ingestion-base-${APP_ENV} AS final
 
 USER root
 
-COPY --from=powerman/dockerize:0.19 /usr/local/bin/dockerize /usr/local/bin
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
