@@ -33,8 +33,10 @@ from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
     METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+    RELATIONSHIP_CHANGE_EVENT_V1_TYPE,
     EntityChangeEvent,
     MetadataChangeLogEvent,
+    RelationshipChangeEvent,
 )
 
 # May or may not need these.
@@ -46,6 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 ENTITY_CHANGE_EVENT_NAME = "entityChangeEvent"
+RELATIONSHIP_CHANGE_EVENT_NAME = "relationshipChangeEvent"
 DEFAULT_TOPIC_ROUTES = {
     "mcl": "MetadataChangeLog_Versioned_v1",
     "mcl_timeseries": "MetadataChangeLog_Timeseries_v1",
@@ -216,9 +219,13 @@ class KafkaEventSource(EventSource):
             post_json_transform(value["payload"])
         )
         if ENTITY_CHANGE_EVENT_NAME == value["name"]:
-            event = build_entity_change_event(payload)
+            ece = build_entity_change_event(payload)
             kafka_meta = build_kafka_meta(msg)
-            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, event, kafka_meta)
+            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, ece, kafka_meta)
+        elif RELATIONSHIP_CHANGE_EVENT_NAME == value["name"]:
+            rce = RelationshipChangeEvent.from_json(payload.get("value"))
+            kafka_meta = build_kafka_meta(msg)
+            yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, kafka_meta)
 
     def close(self) -> None:
         if self.consumer:

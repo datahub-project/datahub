@@ -17,6 +17,7 @@ from pydantic.main import BaseModel
 
 from datahub_integrations.actions.bulk_bootstrap_action import EntityWithData
 from datahub_integrations.propagation.propagation_v2.types.ece_enums import (
+    ChangeCategory,
     ChangeOperation,
 )
 from datahub_integrations.propagation.propagation_v2.types.source_details import (
@@ -37,6 +38,13 @@ class AspectPropagatorConfig(BaseModel):
     enabled: bool = Field(
         True,
         description="Indicates whether propagation for relevant aspect is enabled.",
+    )
+
+    # Used for dataset -> schema field propagation
+    # Users do not think of this data as propagated, so we shouldn't represent it as such
+    omit_attribution: bool = Field(
+        False,
+        description="If true, propagated aspects will not include attribution information.",
     )
 
     max_propagation_depth: int = 5
@@ -73,8 +81,24 @@ class AspectPropagator(Generic[*Aspects], ABC):
     def aspects(self) -> Sequence[type[_Aspect]]:
         """Returns the Aspect that this propagator handles."""
 
+    def should_fetch_schema_field_parent_schema_metadata(self) -> bool:
+        """If, when processing a schema field urn, we need to fetch
+        its parent's SchemaMetadata and EditableSchemaMetadata aspects.
+
+        Needed for docs propagation to perform a full diff.
+        """
+        return False
+
     @abstractmethod
-    def supported_change_operations(self) -> set[ChangeOperation]:
+    def category(self) -> ChangeCategory:
+        """Returns the category of changes that this propagator handles."""
+
+    def supported_change_operations(self) -> set[str]:
+        """Returns the set of change operations that this propagator supports, as strings."""
+        return {op.value for op in self._supported_change_operations()}
+
+    @abstractmethod
+    def _supported_change_operations(self) -> set[ChangeOperation]:
         """Returns the set of change operations that this propagator supports."""
 
     def compute_diff_eces(
@@ -109,8 +133,15 @@ class AspectPropagator(Generic[*Aspects], ABC):
     ) -> Iterator[EntityChangeEvent]:
         """Implements the logic for `compute_diff_eces`, with a cleaner type signature."""
 
-    @abstractmethod
     def compute_propagation_mcps(
+        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+    ) -> PropagationOutput:
+        for mcp in self._compute_propagation_mcps(change_events):
+            logger.info(mcp)
+            yield mcp
+
+    @abstractmethod
+    def _compute_propagation_mcps(
         self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
     ) -> PropagationOutput:
         """Produce MCPs that propagate Entity Change Events.
@@ -121,9 +152,13 @@ class AspectPropagator(Generic[*Aspects], ABC):
 
     def _compute_attribution(
         self, old_source_details: SourceDetails, via_urn: str
-    ) -> MetadataAttributionClass:
+    ) -> MetadataAttributionClass | None:
+        if self.config.omit_attribution:
+            return None
+
         origin = old_source_details.origin or via_urn
         new_source_details = SourceDetails(
+            propagated=True,
             origin=origin,
             via=via_urn if origin != via_urn else None,
             propagation_depth=(old_source_details.propagation_depth or 0) + 1,

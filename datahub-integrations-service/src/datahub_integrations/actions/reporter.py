@@ -7,6 +7,7 @@ from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import DataHubActionStatusClass
+from datahub.utilities import logging_manager
 from datahub_actions.pipeline.pipeline import Pipeline
 from loguru import logger
 
@@ -120,9 +121,7 @@ class ActionStatsReporter:
         )
 
         # Include self-logs in the report.
-        # updated_status_class.report = logging_manager.get_log_buffer().format_lines()
-        # TOOD: Truncate logs before re-enabling.
-        updated_status_class.report = ""
+        updated_status_class.report = logging_manager.get_log_buffer().format_lines()
 
         updated_status_class.startTime = action_stats.start_time
         updated_status_class.endTime = (
