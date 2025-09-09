@@ -261,33 +261,23 @@ public class DataHubOAuthAuthenticatorTest {
     authenticator.init(staticConfigWithMultipleAudiences, authenticatorContext);
 
     // Assert - verify OAuth providers were created for each audience
-    try {
-      java.lang.reflect.Field oauthProvidersField =
-          DataHubOAuthAuthenticator.class.getDeclaredField("oauthProviders");
-      oauthProvidersField.setAccessible(true);
-      @SuppressWarnings("unchecked")
-      List<OAuthProvider> actualProviders =
-          (List<OAuthProvider>) oauthProvidersField.get(authenticator);
+    List<OAuthProvider> actualProviders = authenticator.getOAuthProviders();
 
-      assertNotNull(actualProviders);
-      assertEquals(actualProviders.size(), 3); // 3 providers (1 issuer × 3 audiences)
+    assertNotNull(actualProviders);
+    assertEquals(actualProviders.size(), 3); // 3 providers (1 issuer × 3 audiences)
 
-      // Collect all audiences from providers
-      HashSet<String> providerAudiences = new HashSet<>();
-      for (OAuthProvider provider : actualProviders) {
-        assertEquals(provider.getIssuer(), TEST_ISSUER); // Same issuer for all
-        providerAudiences.add(provider.getAudience());
-        assertTrue(provider.getName().startsWith("static_"));
-      }
-
-      assertEquals(providerAudiences.size(), 3);
-      assertTrue(providerAudiences.contains("audience-1"));
-      assertTrue(providerAudiences.contains("additional-client-1"));
-      assertTrue(providerAudiences.contains("additional-client-2"));
-
-    } catch (Exception e) {
-      assertNotNull(null, "Failed to verify multiple audience configuration: " + e.getMessage());
+    // Collect all audiences from providers
+    HashSet<String> providerAudiences = new HashSet<>();
+    for (OAuthProvider provider : actualProviders) {
+      assertEquals(provider.getIssuer(), TEST_ISSUER); // Same issuer for all
+      providerAudiences.add(provider.getAudience());
+      assertTrue(provider.getName().startsWith("static_"));
     }
+
+    assertEquals(providerAudiences.size(), 3);
+    assertTrue(providerAudiences.contains("audience-1"));
+    assertTrue(providerAudiences.contains("additional-client-1"));
+    assertTrue(providerAudiences.contains("additional-client-2"));
   }
 
   @Test
@@ -299,26 +289,15 @@ public class DataHubOAuthAuthenticatorTest {
     authenticator.init(staticConfig, authenticatorContext);
 
     // Assert - verify only static config providers are used
-    try {
-      java.lang.reflect.Field oauthProvidersField =
-          DataHubOAuthAuthenticator.class.getDeclaredField("oauthProviders");
-      oauthProvidersField.setAccessible(true);
-      @SuppressWarnings("unchecked")
-      List<OAuthProvider> actualProviders =
-          (List<OAuthProvider>) oauthProvidersField.get(authenticator);
+    List<OAuthProvider> actualProviders = authenticator.getOAuthProviders();
 
-      assertNotNull(actualProviders);
-      assertEquals(actualProviders.size(), 1); // Only one static provider
+    assertNotNull(actualProviders);
+    assertEquals(actualProviders.size(), 1); // Only one static provider
 
-      OAuthProvider staticProvider = actualProviders.get(0);
-      assertTrue(staticProvider.getName().startsWith("static_"));
-      assertEquals(staticProvider.getIssuer(), TEST_ISSUER);
-      assertEquals(staticProvider.getAudience(), TEST_CLIENT_ID);
-
-    } catch (Exception e) {
-      assertNotNull(
-          null, "Failed to verify static-only OAuth provider configuration: " + e.getMessage());
-    }
+    OAuthProvider staticProvider = actualProviders.get(0);
+    assertTrue(staticProvider.getName().startsWith("static_"));
+    assertEquals(staticProvider.getIssuer(), TEST_ISSUER);
+    assertEquals(staticProvider.getAudience(), TEST_CLIENT_ID);
   }
 
   @Test

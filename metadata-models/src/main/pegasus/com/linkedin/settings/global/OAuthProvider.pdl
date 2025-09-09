@@ -5,8 +5,9 @@ namespace com.linkedin.settings.global
  * requests with OAuth 2.0 bearer tokens.
  */
 record OAuthProvider {
+    enabled: boolean
     name: string
-    jwksUri: string
+    jwksUri: optional string
     issuer: string
     audience: string
 }
