@@ -691,6 +691,10 @@ class Pipeline:
         workunits_produced = self.sink.get_report().total_records_written
 
         self.source.get_report().method_timings_sec.update(self.method_timings_sec)
+        if hasattr(self.sink, "method_timings_sec"):
+            self.sink.get_report().method_timings_sec.update(
+                self.sink.method_timings_sec
+            )
         if (
             not workunits_produced
             and not currently_running

@@ -1,6 +1,6 @@
 import functools
 import time
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -27,7 +27,7 @@ def timed_method(timer_key: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             if not hasattr(self, "method_timings_sec"):
                 raise AttributeError(
                     f"Class {self.__class__.__name__} must have a 'method_timings_sec' attribute "
@@ -46,6 +46,6 @@ def timed_method(timer_key: str) -> Callable[[F], F]:
                 else:
                     self.method_timings_sec[timer_key] = elapsed_seconds
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator

@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 from enum import auto
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import pydantic
 
@@ -39,6 +39,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
+from datahub.utilities.method_timer import timed_method
 from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,
     PartitionExecutor,
@@ -132,6 +133,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     treat_errors_as_warnings: bool = False
 
     def __post_init__(self) -> None:
+        self.method_timings_sec: Dict[str, float] = {}
         self._emitter_thread_local = threading.local()
 
         try:
@@ -349,6 +351,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             RecordEnvelope(item, metadata={}), NoopWriteCallback()
         )
 
+    @timed_method("datahub_rest_sink_flush")
     def flush(self) -> None:
         """Wait for all pending records to be written."""
         i = 0
