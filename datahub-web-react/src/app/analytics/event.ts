@@ -78,6 +78,8 @@ export enum EventType {
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
+    IngestionViewAllClickEvent,
+    IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -618,6 +620,16 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     sourceType: string;
     sourceUrn?: string;
     outcome?: string;
+}
+
+export interface IngestionViewAllClickEvent extends BaseEvent {
+    type: EventType.IngestionViewAllClickEvent;
+    executionUrn?: string;
+}
+
+export interface IngestionViewAllClickWarningEvent extends BaseEvent {
+    type: EventType.IngestionViewAllClickWarningEvent;
+    executionUrn?: string;
 }
 
 export interface IngestionExecutionResultViewedEvent extends BaseEvent {
@@ -1249,4 +1261,6 @@ export type Event =
     | ProductTourButtonClickEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
-    | IngestionSourceConfigurationImpressionEvent;
+    | IngestionSourceConfigurationImpressionEvent
+    | IngestionViewAllClickEvent
+    | IngestionViewAllClickWarningEvent;

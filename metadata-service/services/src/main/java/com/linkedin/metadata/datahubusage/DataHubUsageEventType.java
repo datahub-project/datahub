@@ -58,6 +58,8 @@ public enum DataHubUsageEventType {
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
   INGESTION_EXECUTION_RESULT_VIEWED_EVENT("IngestionExecutionResultViewedEvent"),
   INGESTION_SOURCE_CONFIGURATION_IMPRESSION_EVENT("IngestionSourceConfigurationImpressionEvent"),
+  INGESTION_VIEW_ALL_CLICK_EVENT("IngestionViewAllClickEvent"),
+  INGESTION_VIEW_ALL_CLICK_WARNING_EVENT("IngestionViewAllClickWarningEvent"),
   CREATE_INGESTION_SOURCE_EVENT("CreateIngestionSourceEvent"),
   UPDATE_INGESTION_SOURCE_EVENT("UpdateIngestionSourceEvent"),
   DELETE_INGESTION_SOURCE_EVENT("DeleteIngestionSourceEvent"),
