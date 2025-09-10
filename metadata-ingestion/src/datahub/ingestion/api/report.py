@@ -43,8 +43,8 @@ class SupportsAsObj(Protocol):
 
 @dataclass
 class Report(SupportsAsObj):
-    def __post_init__(self):
-        self.platform = None
+    def __post_init__(self) -> None:
+        self.platform: Optional[str] = None
 
     def set_platform(self, platform: str) -> None:
         self.platform = platform
