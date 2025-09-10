@@ -67,7 +67,6 @@ public class DataHubOAuthAuthenticator implements Authenticator {
   private OperationContext systemOperationContext;
   private String userIdClaim;
   private String algorithm;
-  private boolean isConfigured = false;
 
   // Service dependencies
   private ServiceAccountService serviceAccountService;
@@ -83,7 +82,6 @@ public class DataHubOAuthAuthenticator implements Authenticator {
     boolean enabled = Boolean.parseBoolean(config.getOrDefault("enabled", "false").toString());
     if (!enabled) {
       log.info("OAuth authentication is disabled via configuration. Skipping initialization.");
-      this.isConfigured = false;
       return;
     }
 
@@ -134,14 +132,9 @@ public class DataHubOAuthAuthenticator implements Authenticator {
       // Initialize configuration fetcher
       this.configurationFetcher.initialize(config, entityService, systemOperationContext);
 
-      // Validate final configuration
-      this.isConfigured = this.configurationFetcher.isConfigured();
-
-      if (this.isConfigured) {
+      // Log initial configuration status
+      if (this.configurationFetcher.isConfigured()) {
         List<OAuthProvider> providers = this.configurationFetcher.getCachedConfiguration();
-        log.info(
-            "OAuth authenticator successfully configured with {} OAuth provider(s)",
-            providers.size());
         for (OAuthProvider provider : providers) {
           log.debug(
               "OAuth Provider - Name: {}, Issuer: {}, Audience: {}, JWKS URI: {}",
@@ -158,7 +151,6 @@ public class DataHubOAuthAuthenticator implements Authenticator {
 
     } catch (Exception e) {
       log.error("Failed to load OAuth static configuration", e);
-      this.isConfigured = false;
     }
   }
 
@@ -168,7 +160,7 @@ public class DataHubOAuthAuthenticator implements Authenticator {
     Objects.requireNonNull(context);
 
     // Check if the authenticator is properly configured
-    if (!isConfigured) {
+    if (configurationFetcher == null || !configurationFetcher.isConfigured()) {
       throw new AuthenticationException(
           "OAuth authenticator is not configured. Please configure either SSO settings in GlobalSettings or provide static configuration.");
     }
@@ -230,6 +222,16 @@ public class DataHubOAuthAuthenticator implements Authenticator {
           matchingProvider.getName(),
           issuer);
 
+      // Get provider-specific algorithm and userIdClaim, falling back to global defaults
+      String providerAlgorithm = matchingProvider.getAlgorithm().trim();
+      String providerUserIdClaim = matchingProvider.getUserIdClaim().trim();
+
+      log.debug(
+          "Using algorithm '{}' and userIdClaim '{}' for provider '{}'",
+          providerAlgorithm,
+          providerUserIdClaim,
+          matchingProvider.getName());
+
       // Validate JWT signature using the matching provider's JWKS
       HashSet<String> trustedIssuers = new HashSet<>();
       trustedIssuers.add(issuer);
@@ -238,16 +240,16 @@ public class DataHubOAuthAuthenticator implements Authenticator {
           Jwts.parserBuilder()
               .setSigningKeyResolver(
                   new DataHubOAuthSigningKeyResolver(
-                      trustedIssuers, matchingProvider.getJwksUri(), algorithm))
+                      trustedIssuers, matchingProvider.getJwksUri(), providerAlgorithm))
               .build()
               .parseClaimsJws(token);
 
       Claims body = claims.getBody();
 
       // Extract subject (userIdClaim)
-      final String subject = body.get(userIdClaim, String.class);
+      final String subject = body.get(providerUserIdClaim, String.class);
       if (subject == null) {
-        throw new AuthenticationException("Missing required claim: " + userIdClaim);
+        throw new AuthenticationException("Missing required claim: " + providerUserIdClaim);
       }
 
       // Build unique service account user ID
@@ -304,6 +306,19 @@ public class DataHubOAuthAuthenticator implements Authenticator {
   public List<OAuthProvider> getOAuthProviders() {
     return configurationFetcher != null
         ? configurationFetcher.getCachedConfiguration()
+        : new ArrayList<>();
+  }
+
+  /**
+   * Forces a refresh of the OAuth provider configuration from GlobalSettings. This method is
+   * primarily intended for testing scenarios where dynamic configuration changes need to be applied
+   * immediately.
+   *
+   * @return List of OAuth providers after forced refresh
+   */
+  public List<OAuthProvider> forceRefreshOAuthProviders() {
+    return configurationFetcher != null
+        ? configurationFetcher.forceRefreshConfiguration()
         : new ArrayList<>();
   }
 

@@ -209,6 +209,10 @@ public class OAuthConfigurationFetcher {
       }
     }
 
+    // Load optional algorithm and userIdClaim for static providers
+    String staticAlgorithm = (String) config.getOrDefault("algorithm", "RS256");
+    String staticUserIdClaim = (String) config.getOrDefault("userIdClaim", "sub");
+
     // Only create static providers if we have sufficient configuration
     if (!trustedIssuers.isEmpty()
         && !allowedAudiences.isEmpty()
@@ -222,6 +226,8 @@ public class OAuthConfigurationFetcher {
           provider.setIssuer(issuer.trim());
           provider.setAudience(audience.trim());
           provider.setJwksUri(jwksUri.trim());
+          provider.setAlgorithm(staticAlgorithm);
+          provider.setUserIdClaim(staticUserIdClaim);
           provider.setEnabled(true);
           this.oauthProviders.add(provider);
         }
@@ -271,7 +277,7 @@ public class OAuthConfigurationFetcher {
         }
       }
 
-      log.info(
+      log.debug(
           "Successfully loaded {} enabled OAuth provider(s) from GlobalSettings (total providers: {})",
           enabledProviders.size(),
           this.oauthProviders.size());
@@ -311,7 +317,7 @@ public class OAuthConfigurationFetcher {
     // Check if we have any enabled OAuth providers
     long enabledProviders =
         this.oauthProviders.stream()
-            .filter(provider -> Boolean.TRUE.equals(provider.data().get("enabled")))
+            .filter(provider -> Boolean.TRUE.equals(provider.isEnabled()))
             .count();
 
     boolean valid = enabledProviders > 0;

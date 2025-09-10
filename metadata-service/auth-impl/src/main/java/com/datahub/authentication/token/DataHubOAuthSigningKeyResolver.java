@@ -46,14 +46,21 @@ public class DataHubOAuthSigningKeyResolver extends SigningKeyResolverAdapter {
         throw new RuntimeException("Invalid issuer: " + claims.getIssuer());
       }
 
+      // Validate algorithm matches expected algorithm
+      String headerAlgorithm = jwsHeader.getAlgorithm();
+      if (!algorithm.equals(headerAlgorithm)) {
+        throw new RuntimeException(
+            "Invalid algorithm: expected " + algorithm + " but got " + headerAlgorithm);
+      }
+
       String keyId = jwsHeader.getKeyId();
-      return loadPublicKey(jwksUri, keyId);
+      return loadPublicKey(jwksUri, keyId, algorithm);
     } catch (Exception e) {
       throw new RuntimeException("Unable to resolve signing key: " + e.getMessage(), e);
     }
   }
 
-  private PublicKey loadPublicKey(String jwksUri, String keyId) throws Exception {
+  private PublicKey loadPublicKey(String jwksUri, String keyId, String algorithm) throws Exception {
     HttpRequest request = HttpRequest.newBuilder().uri(URI.create(jwksUri)).build();
     HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -64,16 +71,34 @@ public class DataHubOAuthSigningKeyResolver extends SigningKeyResolverAdapter {
     for (int i = 0; i < keys.length(); i++) {
       var token = keys.getJSONObject(i);
       if (keyId.equals(token.getString("kid"))) {
-        return getPublicKey(token);
+        return getPublicKey(token, algorithm);
       }
     }
     throw new Exception("No matching key found in JWKS for kid=" + keyId);
   }
 
-  private PublicKey getPublicKey(JSONObject token) throws Exception {
-    if (!"RSA".equals(token.getString("kty"))) {
-      throw new Exception("Unsupported key type: " + token.getString("kty"));
+  private PublicKey getPublicKey(JSONObject token, String algorithm) throws Exception {
+    String keyType = token.getString("kty");
+
+    // Validate key type is compatible with algorithm
+    if (algorithm.startsWith("RS") || algorithm.startsWith("PS")) {
+      // RSA algorithms (RS256, RS384, RS512, PS256, PS384, PS512)
+      if (!"RSA".equals(keyType)) {
+        throw new Exception(
+            "Algorithm " + algorithm + " requires RSA key type, but got: " + keyType);
+      }
+    } else if (algorithm.startsWith("ES")) {
+      // ECDSA algorithms (ES256, ES384, ES512)
+      if (!"EC".equals(keyType)) {
+        throw new Exception(
+            "Algorithm " + algorithm + " requires EC key type, but got: " + keyType);
+      }
+      throw new Exception("ECDSA algorithms not yet supported");
+    } else {
+      throw new Exception("Unsupported algorithm: " + algorithm);
     }
+
+    // Currently only RSA keys are supported
     KeyFactory kf = KeyFactory.getInstance("RSA");
     BigInteger modulus = new BigInteger(1, Base64.getUrlDecoder().decode(token.getString("n")));
     BigInteger exponent = new BigInteger(1, Base64.getUrlDecoder().decode(token.getString("e")));

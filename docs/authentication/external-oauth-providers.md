@@ -19,22 +19,22 @@ Set these environment variables for the `datahub-gms` service:
 
 ```bash
 # Enable OAuth authentication
-AUTH_OAUTH_ENABLED=true
+EXTERNAL_OAUTH_ENABLED=true
 
 # Required: Trusted JWT issuers (comma-separated)
-AUTH_OAUTH_TRUSTED_ISSUERS=https://auth.example.com,https://okta.company.com
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://auth.example.com,https://okta.company.com
 
 # Required: Allowed JWT audiences (comma-separated)
-AUTH_OAUTH_ALLOWED_AUDIENCES=datahub-api,my-service-id
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=datahub-api,my-service-id
 
 # Required: JWKS endpoint for signature verification
-AUTH_OAUTH_JWKS_URI=https://auth.example.com/.well-known/jwks.json
+EXTERNAL_OAUTH_JWKS_URI=https://auth.example.com/.well-known/jwks.json
 
 # Optional: JWT claim containing user ID (default: "sub")
-AUTH_OAUTH_USER_ID_CLAIM=sub
+EXTERNAL_OAUTH_USER_ID_CLAIM=sub
 
 # Optional: Signing algorithm (default: "RS256")
-AUTH_OAUTH_ALGORITHM=RS256
+EXTERNAL_OAUTH_ALGORITHM=RS256
 ```
 
 ### Docker Compose Example
@@ -45,13 +45,13 @@ services:
   datahub-gms:
     image: acryldata/datahub-gms:latest
     environment:
-      # OAuth Configuration
-      - AUTH_OAUTH_ENABLED=true
-      - AUTH_OAUTH_TRUSTED_ISSUERS=https://my-okta-domain.okta.com/oauth2/default
-      - AUTH_OAUTH_ALLOWED_AUDIENCES=0oa1234567890abcdef
-      - AUTH_OAUTH_JWKS_URI=https://my-okta-domain.okta.com/oauth2/default/v1/keys
-      - AUTH_OAUTH_USER_ID_CLAIM=sub
-      - AUTH_OAUTH_ALGORITHM=RS256
+      # External OAuth Configuration
+      - EXTERNAL_OAUTH_ENABLED=true
+      - EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://my-okta-domain.okta.com/oauth2/default
+      - EXTERNAL_OAUTH_ALLOWED_AUDIENCES=0oa1234567890abcdef
+      - EXTERNAL_OAUTH_JWKS_URI=https://my-okta-domain.okta.com/oauth2/default/v1/keys
+      - EXTERNAL_OAUTH_USER_ID_CLAIM=sub
+      - EXTERNAL_OAUTH_ALGORITHM=RS256
 
       # Standard DataHub settings
       - DATAHUB_GMS_HOST=0.0.0.0
@@ -73,13 +73,13 @@ spec:
         - name: datahub-gms
           image: acryldata/datahub-gms:latest
           env:
-            - name: AUTH_OAUTH_ENABLED
+            - name: EXTERNAL_OAUTH_ENABLED
               value: "true"
-            - name: AUTH_OAUTH_TRUSTED_ISSUERS
+            - name: EXTERNAL_OAUTH_TRUSTED_ISSUERS
               value: "https://login.microsoftonline.com/tenant-id/v2.0"
-            - name: AUTH_OAUTH_ALLOWED_AUDIENCES
+            - name: EXTERNAL_OAUTH_ALLOWED_AUDIENCES
               value: "api://datahub-prod"
-            - name: AUTH_OAUTH_JWKS_URI
+            - name: EXTERNAL_OAUTH_JWKS_URI
               value: "https://login.microsoftonline.com/tenant-id/discovery/v2.0/keys"
           # ... other environment variables
 ```
@@ -90,14 +90,14 @@ To support multiple OAuth providers, use comma-separated values:
 
 ```bash
 # Multiple issuers and audiences
-AUTH_OAUTH_TRUSTED_ISSUERS=https://okta.company.com,https://auth0.company.com
-AUTH_OAUTH_ALLOWED_AUDIENCES=datahub-prod,datahub-staging,service-account-id
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://okta.company.com,https://auth0.company.com
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=datahub-prod,datahub-staging,service-account-id
 
 # Single JWKS URI (if providers share keys) or discovery URI
-AUTH_OAUTH_JWKS_URI=https://okta.company.com/.well-known/jwks.json
+EXTERNAL_OAUTH_JWKS_URI=https://okta.company.com/.well-known/jwks.json
 
 # Or use discovery URI to auto-derive JWKS
-AUTH_OAUTH_DISCOVERY_URI=https://okta.company.com/.well-known/openid-configuration
+EXTERNAL_OAUTH_DISCOVERY_URI=https://okta.company.com/.well-known/openid-configuration
 ```
 
 ### Discovery URI vs JWKS URI
@@ -109,10 +109,10 @@ You can specify either:
 
 ```bash
 # Option 1: Direct JWKS URI (faster, more reliable)
-AUTH_OAUTH_JWKS_URI=https://auth.example.com/.well-known/jwks.json
+EXTERNAL_OAUTH_JWKS_URI=https://auth.example.com/.well-known/jwks.json
 
 # Option 2: Discovery URI (convenient, auto-derives JWKS)
-AUTH_OAUTH_DISCOVERY_URI=https://auth.example.com/.well-known/openid-configuration
+EXTERNAL_OAUTH_DISCOVERY_URI=https://auth.example.com/.well-known/openid-configuration
 ```
 
 ## Provider Examples
@@ -120,46 +120,46 @@ AUTH_OAUTH_DISCOVERY_URI=https://auth.example.com/.well-known/openid-configurati
 ### Okta
 
 ```bash
-AUTH_OAUTH_ENABLED=true
-AUTH_OAUTH_TRUSTED_ISSUERS=https://your-domain.okta.com/oauth2/default
-AUTH_OAUTH_ALLOWED_AUDIENCES=0oa1234567890abcdef
-AUTH_OAUTH_JWKS_URI=https://your-domain.okta.com/oauth2/default/v1/keys
+EXTERNAL_OAUTH_ENABLED=true
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://your-domain.okta.com/oauth2/default
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=0oa1234567890abcdef
+EXTERNAL_OAUTH_JWKS_URI=https://your-domain.okta.com/oauth2/default/v1/keys
 ```
 
 ### Auth0
 
 ```bash
-AUTH_OAUTH_ENABLED=true
-AUTH_OAUTH_TRUSTED_ISSUERS=https://your-domain.auth0.com/
-AUTH_OAUTH_ALLOWED_AUDIENCES=https://your-api-identifier/
-AUTH_OAUTH_JWKS_URI=https://your-domain.auth0.com/.well-known/jwks.json
+EXTERNAL_OAUTH_ENABLED=true
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://your-domain.auth0.com/
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=https://your-api-identifier/
+EXTERNAL_OAUTH_JWKS_URI=https://your-domain.auth0.com/.well-known/jwks.json
 ```
 
 ### Azure AD / Microsoft Entra
 
 ```bash
-AUTH_OAUTH_ENABLED=true
-AUTH_OAUTH_TRUSTED_ISSUERS=https://login.microsoftonline.com/your-tenant-id/v2.0
-AUTH_OAUTH_ALLOWED_AUDIENCES=api://your-app-id
-AUTH_OAUTH_JWKS_URI=https://login.microsoftonline.com/your-tenant-id/discovery/v2.0/keys
+EXTERNAL_OAUTH_ENABLED=true
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://login.microsoftonline.com/your-tenant-id/v2.0
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=api://your-app-id
+EXTERNAL_OAUTH_JWKS_URI=https://login.microsoftonline.com/your-tenant-id/discovery/v2.0/keys
 ```
 
 ### Google Cloud Identity
 
 ```bash
-AUTH_OAUTH_ENABLED=true
-AUTH_OAUTH_TRUSTED_ISSUERS=https://accounts.google.com
-AUTH_OAUTH_ALLOWED_AUDIENCES=your-client-id.apps.googleusercontent.com
-AUTH_OAUTH_JWKS_URI=https://www.googleapis.com/oauth2/v3/certs
+EXTERNAL_OAUTH_ENABLED=true
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://accounts.google.com
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=your-client-id.apps.googleusercontent.com
+EXTERNAL_OAUTH_JWKS_URI=https://www.googleapis.com/oauth2/v3/certs
 ```
 
 ### Keycloak
 
 ```bash
-AUTH_OAUTH_ENABLED=true
-AUTH_OAUTH_TRUSTED_ISSUERS=https://keycloak.company.com/realms/datahub
-AUTH_OAUTH_ALLOWED_AUDIENCES=datahub-client
-AUTH_OAUTH_JWKS_URI=https://keycloak.company.com/realms/datahub/protocol/openid-connect/certs
+EXTERNAL_OAUTH_ENABLED=true
+EXTERNAL_OAUTH_TRUSTED_ISSUERS=https://keycloak.company.com/realms/datahub
+EXTERNAL_OAUTH_ALLOWED_AUDIENCES=datahub-client
+EXTERNAL_OAUTH_JWKS_URI=https://keycloak.company.com/realms/datahub/protocol/openid-connect/certs
 ```
 
 ## Using OAuth Tokens
@@ -204,16 +204,16 @@ response = requests.post(
 
 **"OAuth authenticator is not configured"**
 
-- Make sure `AUTH_OAUTH_ENABLED=true` is set
+- Make sure `EXTERNAL_OAUTH_ENABLED=true` is set
 - Verify all required environment variables are configured
 
 **"No configured OAuth provider matches token issuer"**
 
-- Check that your JWT issuer exactly matches `AUTH_OAUTH_TRUSTED_ISSUERS`
+- Check that your JWT issuer exactly matches `EXTERNAL_OAUTH_TRUSTED_ISSUERS`
 
 **"Invalid or missing audience claim"**
 
-- Verify your JWT audience is listed in `AUTH_OAUTH_ALLOWED_AUDIENCES`
+- Verify your JWT audience is listed in `EXTERNAL_OAUTH_ALLOWED_AUDIENCES`
 
 **"Failed to load signing keys"**
 
@@ -249,7 +249,7 @@ You can customize which JWT claim contains the user ID:
 
 ```bash
 # Use email claim instead of default 'sub'
-AUTH_OAUTH_USER_ID_CLAIM=email
+EXTERNAL_OAUTH_USER_ID_CLAIM=email
 ```
 
 OAuth users are automatically created as service accounts with usernames like `__oauth_{issuer_domain}_{subject}`.

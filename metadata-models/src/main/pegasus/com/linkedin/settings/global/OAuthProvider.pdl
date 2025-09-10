@@ -5,9 +5,34 @@ namespace com.linkedin.settings.global
  * requests with OAuth 2.0 bearer tokens.
  */
 record OAuthProvider {
+    /**
+    * Whether this OAuth provider is enabled.
+    */
     enabled: boolean
+    /**
+    * The name of this OAuth provider. This is used for display purposes only.
+    */
     name: string
+    /**
+    * The URI of the JSON Web Key Set (JWKS) endpoint for this OAuth provider.
+    */
     jwksUri: optional string
+    /**
+    * The expected issuer (iss) claim in the JWTs issued by this OAuth provider.
+    */
     issuer: string
+    /**
+    * The expected audience (aud) claim in the JWTs issued by this OAuth provider.
+    */
     audience: string
+    /**
+    * The JWT signing algorithm required for this provider.
+    * Prevents algorithm confusion attacks. Common values: RS256, RS384, RS512, PS256, ES256
+    */
+    algorithm: string = "RS256"
+    /**
+    * The JWT claim to use as the user identifier for this provider.
+    * Different providers use different claims (sub, email, preferred_username, etc.)
+    */
+    userIdClaim: string = "sub"
 }

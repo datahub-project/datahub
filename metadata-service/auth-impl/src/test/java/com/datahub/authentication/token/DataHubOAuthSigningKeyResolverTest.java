@@ -56,6 +56,7 @@ public class DataHubOAuthSigningKeyResolverTest {
     // Arrange
     when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
     when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn(TEST_ALGORITHM);
 
     String jwksResponse = createValidJwksResponse();
     when(mockHttpResponse.body()).thenReturn(jwksResponse);
@@ -75,6 +76,7 @@ public class DataHubOAuthSigningKeyResolverTest {
     // Arrange
     when(mockClaims.getIssuer()).thenReturn("https://malicious.com");
     when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn(TEST_ALGORITHM);
 
     // Act & Assert
     try {
@@ -87,10 +89,47 @@ public class DataHubOAuthSigningKeyResolverTest {
   }
 
   @Test
+  public void testResolveSigningKeyInvalidAlgorithm() {
+    // Arrange
+    when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
+    when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn("HS256"); // Wrong algorithm
+
+    // Act & Assert
+    try {
+      resolver.resolveSigningKey(mockJwsHeader, mockClaims);
+      assertNotNull(null, "Expected RuntimeException to be thrown");
+    } catch (RuntimeException e) {
+      assertEquals(
+          e.getMessage(),
+          "Unable to resolve signing key: Invalid algorithm: expected RS256 but got HS256");
+    }
+  }
+
+  @Test
+  public void testResolveSigningKeyMismatchedAlgorithm() {
+    // Arrange
+    when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
+    when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn("RS512"); // Different RSA algorithm
+
+    // Act & Assert
+    try {
+      resolver.resolveSigningKey(mockJwsHeader, mockClaims);
+      assertNotNull(null, "Expected RuntimeException to be thrown");
+    } catch (RuntimeException e) {
+      assertEquals(
+          e.getMessage(),
+          "Unable to resolve signing key: Invalid algorithm: expected RS256 but got RS512");
+    }
+  }
+
+  @Test
   public void testResolveSigningKeyKeyNotFoundInJwks() throws Exception {
     // Arrange
     when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
     when(mockJwsHeader.getKeyId()).thenReturn("missing_key_id");
+    when(mockJwsHeader.getAlgorithm()).thenReturn(TEST_ALGORITHM);
 
     String jwksResponse = createValidJwksResponse();
     when(mockHttpResponse.body()).thenReturn(jwksResponse);
@@ -113,6 +152,7 @@ public class DataHubOAuthSigningKeyResolverTest {
     // Arrange
     when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
     when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn(TEST_ALGORITHM);
 
     String jwksResponse = createJwksResponseWithUnsupportedKeyType();
     when(mockHttpResponse.body()).thenReturn(jwksResponse);
@@ -124,8 +164,88 @@ public class DataHubOAuthSigningKeyResolverTest {
       resolver.resolveSigningKey(mockJwsHeader, mockClaims);
       assertNotNull(null, "Expected RuntimeException to be thrown");
     } catch (RuntimeException e) {
-      assertEquals(e.getMessage(), "Unable to resolve signing key: Unsupported key type: EC");
+      assertEquals(
+          e.getMessage(),
+          "Unable to resolve signing key: Algorithm RS256 requires RSA key type, but got: EC");
     }
+  }
+
+  @Test
+  public void testResolveSigningKeyWithECDSAAlgorithm() throws Exception {
+    // Arrange - Create resolver expecting ES256 algorithm
+    HashSet<String> trustedIssuers = new HashSet<>();
+    trustedIssuers.add(TEST_ISSUER);
+    DataHubOAuthSigningKeyResolver ecdsaResolver =
+        new DataHubOAuthSigningKeyResolver(trustedIssuers, TEST_JWKS_URI, "ES256", mockHttpClient);
+
+    when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
+    when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn("ES256");
+
+    String jwksResponse = createJwksResponseWithUnsupportedKeyType();
+    when(mockHttpResponse.body()).thenReturn(jwksResponse);
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(mockHttpResponse);
+
+    // Act & Assert
+    try {
+      ecdsaResolver.resolveSigningKey(mockJwsHeader, mockClaims);
+      assertNotNull(null, "Expected RuntimeException to be thrown");
+    } catch (RuntimeException e) {
+      assertEquals(
+          e.getMessage(), "Unable to resolve signing key: ECDSA algorithms not yet supported");
+    }
+  }
+
+  @Test
+  public void testResolveSigningKeyWithUnsupportedAlgorithm() throws Exception {
+    // Arrange - Create resolver with unsupported algorithm
+    HashSet<String> trustedIssuers = new HashSet<>();
+    trustedIssuers.add(TEST_ISSUER);
+    DataHubOAuthSigningKeyResolver hmacResolver =
+        new DataHubOAuthSigningKeyResolver(trustedIssuers, TEST_JWKS_URI, "HS256", mockHttpClient);
+
+    when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
+    when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn("HS256");
+
+    String jwksResponse = createJwksResponseWithHMACKeyType();
+    when(mockHttpResponse.body()).thenReturn(jwksResponse);
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(mockHttpResponse);
+
+    // Act & Assert
+    try {
+      hmacResolver.resolveSigningKey(mockJwsHeader, mockClaims);
+      assertNotNull(null, "Expected RuntimeException to be thrown");
+    } catch (RuntimeException e) {
+      assertEquals(e.getMessage(), "Unable to resolve signing key: Unsupported algorithm: HS256");
+    }
+  }
+
+  @Test
+  public void testResolveSigningKeyWithPS256Algorithm() throws Exception {
+    // Arrange - Create resolver expecting PS256 algorithm (RSA-PSS)
+    HashSet<String> trustedIssuers = new HashSet<>();
+    trustedIssuers.add(TEST_ISSUER);
+    DataHubOAuthSigningKeyResolver ps256Resolver =
+        new DataHubOAuthSigningKeyResolver(trustedIssuers, TEST_JWKS_URI, "PS256", mockHttpClient);
+
+    when(mockClaims.getIssuer()).thenReturn(TEST_ISSUER);
+    when(mockJwsHeader.getKeyId()).thenReturn(TEST_KEY_ID);
+    when(mockJwsHeader.getAlgorithm()).thenReturn("PS256");
+
+    String jwksResponse = createValidJwksResponse(); // RSA key works for PS256
+    when(mockHttpResponse.body()).thenReturn(jwksResponse);
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn(mockHttpResponse);
+
+    // Act
+    Key result = ps256Resolver.resolveSigningKey(mockJwsHeader, mockClaims);
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(result.getAlgorithm(), "RSA");
   }
 
   @Test
@@ -179,6 +299,22 @@ public class DataHubOAuthSigningKeyResolverTest {
     key.put("crv", "P-256");
     key.put("x", "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4");
     key.put("y", "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM");
+
+    jwks.put("keys", new Object[] {key});
+
+    return jwks.toString();
+  }
+
+  private String createJwksResponseWithHMACKeyType() {
+    // Create a JWKS response with oct key type for HMAC algorithms
+    JSONObject jwks = new JSONObject();
+    JSONObject key = new JSONObject();
+
+    key.put("kty", "oct");
+    key.put("kid", TEST_KEY_ID);
+    key.put("use", "sig");
+    key.put("alg", "HS256");
+    key.put("k", "GawgguFyGrWKav7AX4VKUg");
 
     jwks.put("keys", new Object[] {key});
 

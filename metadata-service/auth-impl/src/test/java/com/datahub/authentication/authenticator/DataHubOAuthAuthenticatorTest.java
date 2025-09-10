@@ -853,6 +853,156 @@ public class DataHubOAuthAuthenticatorTest {
     assertNotNull(authenticator);
   }
 
+  @Test
+  public void testDynamicReconfigurationFromUnconfiguredToConfigured()
+      throws AuthenticationException {
+    // Arrange - Start with empty static config (no providers configured)
+    Map<String, Object> emptyStaticConfig = new HashMap<>();
+    emptyStaticConfig.put("enabled", "true");
+
+    // Mock that no GlobalSettings exist initially
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+        .thenReturn(null);
+
+    // Act - Initialize with empty config
+    authenticator.init(emptyStaticConfig, authenticatorContext);
+
+    // Assert - Authentication should fail initially (not configured)
+    AuthenticationRequest request =
+        new AuthenticationRequest(
+            Map.of(AUTHORIZATION_HEADER_NAME, "Bearer " + createValidJwtToken()));
+
+    try {
+      authenticator.authenticate(request);
+      assertNotNull(null, "Expected AuthenticationException to be thrown");
+    } catch (AuthenticationException e) {
+      assertTrue(
+          e.getMessage().contains("OAuth authenticator is not configured"),
+          "Should fail with not configured message, got: " + e.getMessage());
+    }
+
+    // Arrange - Now mock that GlobalSettings with OAuth providers exist
+    GlobalSettingsInfo globalSettings = createGlobalSettingsWithOAuthProviders();
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+        .thenReturn(globalSettings);
+
+    // Act - Force refresh the configuration to simulate dynamic update
+    authenticator.forceRefreshOAuthProviders(); // This will force refresh from GlobalSettings
+
+    // Create a new request with proper token for dynamic provider
+    Map<String, Object> dynamicClaims = new HashMap<>();
+    dynamicClaims.put("sub", "dynamic-test-user");
+    dynamicClaims.put("aud", List.of("dynamic-audience"));
+    dynamicClaims.put("iss", "https://dynamic.example.com");
+    dynamicClaims.put("exp", new Date(System.currentTimeMillis() + 3600000));
+
+    String secret = "test-secret-key-for-jwt-signing-that-is-long-enough-for-hmac-sha256-algorithm";
+    SecretKeySpec key = new SecretKeySpec(secret.getBytes(), "HmacSHA256");
+
+    String dynamicToken =
+        Jwts.builder()
+            .setClaims(dynamicClaims)
+            .setHeaderParam("kid", "dynamic-key-id")
+            .signWith(key, SignatureAlgorithm.HS256)
+            .compact();
+
+    AuthenticationRequest dynamicRequest =
+        new AuthenticationRequest(Map.of(AUTHORIZATION_HEADER_NAME, "Bearer " + dynamicToken));
+
+    // Note: This test verifies the configuration state check works correctly.
+    // The actual JWT validation would fail due to mocked JWKS, but we're testing
+    // that it gets past the "not configured" check and fails later in the process.
+    try {
+      authenticator.authenticate(dynamicRequest);
+      // If we get here, configuration check passed (which is what we're testing)
+      assertNotNull(null, "Expected to fail at JWT validation, not configuration check");
+    } catch (AuthenticationException e) {
+      // Should NOT be the "not configured" error anymore
+      assertTrue(
+          !e.getMessage().contains("OAuth authenticator is not configured"),
+          "Should not fail with 'not configured' message after dynamic configuration is loaded. Got: "
+              + e.getMessage());
+      // Should fail with JWT validation error instead (which is expected since we're using mock
+      // JWKS)
+      assertTrue(
+          e.getMessage().contains("OAuth token validation failed")
+              || e.getMessage().contains("Unable to resolve signing key")
+              || e.getMessage().contains("No configured OAuth provider matches"),
+          "Should fail with JWT validation error, got: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testProviderSpecificAlgorithmAndUserIdClaim() {
+    // Arrange
+    Map<String, Object> staticConfig = createValidStaticConfig();
+
+    // Create GlobalSettings with providers that have different algorithm and userIdClaim
+    GlobalSettingsInfo globalSettings = new GlobalSettingsInfo();
+    OAuthSettings oauthSettings = new OAuthSettings();
+    com.linkedin.settings.global.OAuthProviderArray providers =
+        new com.linkedin.settings.global.OAuthProviderArray();
+
+    // Create provider with custom algorithm and userIdClaim
+    OAuthProvider customProvider = new OAuthProvider();
+    customProvider.data().put("enabled", Boolean.TRUE);
+    customProvider.setName("custom-provider");
+    customProvider.setIssuer("https://custom.example.com");
+    customProvider.setAudience("custom-audience");
+    customProvider.setJwksUri("https://custom.example.com/jwks");
+    customProvider.setAlgorithm("RS384"); // Different from default RS256
+    customProvider.setUserIdClaim("email"); // Different from default sub
+    providers.add(customProvider);
+
+    oauthSettings.setProviders(providers);
+    globalSettings.setOauth(oauthSettings);
+
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+        .thenReturn(globalSettings);
+
+    // Act
+    authenticator.init(staticConfig, authenticatorContext);
+
+    // Assert - Get providers and verify custom fields are set
+    List<OAuthProvider> loadedProviders = authenticator.getOAuthProviders();
+    assertEquals(2, loadedProviders.size()); // 1 static + 1 dynamic
+
+    // Find the custom provider
+    OAuthProvider foundCustomProvider =
+        loadedProviders.stream()
+            .filter(p -> "custom-provider".equals(p.getName()))
+            .findFirst()
+            .orElse(null);
+
+    assertNotNull(foundCustomProvider, "Custom provider should be found");
+    assertEquals(
+        "RS384", foundCustomProvider.getAlgorithm(), "Algorithm should be provider-specific");
+    assertEquals(
+        "email", foundCustomProvider.getUserIdClaim(), "UserIdClaim should be provider-specific");
+
+    // Verify static provider uses defaults from config
+    OAuthProvider staticProvider =
+        loadedProviders.stream()
+            .filter(p -> p.getName().startsWith("static_"))
+            .findFirst()
+            .orElse(null);
+
+    assertNotNull(staticProvider, "Static provider should be found");
+    assertEquals(
+        "RS256", staticProvider.getAlgorithm(), "Static provider should use config algorithm");
+    assertEquals(
+        "sub", staticProvider.getUserIdClaim(), "Static provider should use config userIdClaim");
+  }
+
   // Helper method to create GlobalSettings with OAuth providers
   private GlobalSettingsInfo createGlobalSettingsWithOAuthProviders() {
     GlobalSettingsInfo globalSettings = new GlobalSettingsInfo();
@@ -867,6 +1017,8 @@ public class DataHubOAuthAuthenticatorTest {
     enabledProvider.setIssuer("https://dynamic.example.com");
     enabledProvider.setAudience("dynamic-audience");
     enabledProvider.setJwksUri("https://dynamic.example.com/jwks");
+    enabledProvider.setAlgorithm("RS256");
+    enabledProvider.setUserIdClaim("sub");
     providers.add(enabledProvider);
 
     // Create another enabled provider
@@ -876,6 +1028,8 @@ public class DataHubOAuthAuthenticatorTest {
     secondProvider.setIssuer("https://second.example.com");
     secondProvider.setAudience("second-audience");
     secondProvider.setJwksUri("https://second.example.com/jwks");
+    secondProvider.setAlgorithm("RS256");
+    secondProvider.setUserIdClaim("sub");
     providers.add(secondProvider);
 
     oauthSettings.setProviders(providers);
