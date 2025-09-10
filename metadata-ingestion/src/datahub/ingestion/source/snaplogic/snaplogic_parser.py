@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 
@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 class Dataset:
     name: str
     display_name: str
-    fields: List[Dict]
+    fields: List[Dict] = field(default_factory=list)
     platform: str = "snaplogic"
     platform_instance: Optional[str] = None
     type: Optional[str] = None  # INPUT or OUTPUT
@@ -107,12 +107,12 @@ class SnapLogicParser:
                 output.get("facets", {}).get("columnLineage", {}).get("fields", {})
             )
 
-            for field_name, field in column_lineage.items():
+            for field_name, field_dict in column_lineage.items():
                 output_field = self._get_case_sensitive_value(
                     field_name, output_namespace
                 )
 
-                for input_field in field.get("inputFields", []):
+                for input_field in field_dict.get("inputFields", []):
                     input_namespace = input_field.get("namespace")
                     input_name = input_field.get("name", "")
                     input_field_name = input_field.get("field", "")

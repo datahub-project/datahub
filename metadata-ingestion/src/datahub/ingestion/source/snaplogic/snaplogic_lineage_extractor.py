@@ -52,7 +52,10 @@ class SnaplogicLineageExtractor:
                     url=f"{self.config.base_url}/api/1/rest/public/catalog/{self.config.org_name}/lineage",
                     params=params,
                     headers=headers,
-                    auth=(self.config.username, self.config.password),
+                    auth=(
+                        self.config.username,
+                        self.config.password.get_secret_value(),
+                    ),
                 )
                 response.raise_for_status()
 
