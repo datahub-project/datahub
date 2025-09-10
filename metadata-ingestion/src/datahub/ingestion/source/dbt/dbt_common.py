@@ -246,6 +246,23 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.model_performance == EmitDirective.YES
 
 
+class SourcePatternConfig(ConfigModel):
+    """Configuration for filtering materialized nodes based on their physical location"""
+
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for database names to filter materialized nodes.",
+    )
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for schema names in format '{database}.{schema}' to filter materialized nodes.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for table names in format '{database}.{schema}.{table}' to filter materialized nodes.",
+    )
+
+
 class DBTCommonConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -294,14 +311,10 @@ class DBTCommonConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
     )
-    database_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for database (i.e. project_id) to filter in ingestion.",
-    )
-    schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schema to filter in ingestion. Specify regex to only match the schema name. "
-        "e.g. to match all tables in schema analytics, use the regex 'analytics'",
+    source_pattern: SourcePatternConfig = Field(
+        default=SourcePatternConfig(),
+        description="Advanced filtering for materialized nodes based on their physical database location. "
+        "Provides fine-grained control over database.schema.table patterns for catalog consistency.",
     )
     meta_mapping: Dict = Field(
         default={},
@@ -1028,13 +1041,54 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
-        return (
-            self.config.node_name_pattern.allowed(node.dbt_name)
-            and (not node.schema or self.config.schema_pattern.allowed(node.schema))
-            and (
-                not node.database or self.config.database_pattern.allowed(node.database)
+        # First: Internal dbt reference filtering
+        if not self.config.node_name_pattern.allowed(node.dbt_name):
+            return False
+
+        # Second: Materialized location filtering (for catalog consistency)
+        if not self._is_allowed_materialized_node(node):
+            return False
+
+        return True
+
+    def _is_allowed_materialized_node(self, node: DBTNode) -> bool:
+        """Filter nodes based on their materialized database location for catalog consistency"""
+
+        # Skip if using default patterns (no filtering intended)
+        if (
+            self.config.source_pattern.database_pattern == AllowDenyPattern.allow_all()
+            and self.config.source_pattern.schema_pattern
+            == AllowDenyPattern.allow_all()
+            and self.config.source_pattern.table_pattern == AllowDenyPattern.allow_all()
+        ):
+            return True
+
+        # Database level filtering
+        if node.database and not self.config.source_pattern.database_pattern.allowed(
+            node.database
+        ):
+            return False
+
+        # Schema level filtering: {database}.{schema}
+        if (
+            node.database
+            and node.schema
+            and not self.config.source_pattern.schema_pattern.allowed(
+                node._join_parts([node.database, node.schema])
             )
-        )
+        ):
+            return False
+
+        # Table level filtering: {database}.{schema}.{table}
+        if (
+            node.database
+            and node.schema
+            and node.name
+            and not self.config.source_pattern.table_pattern.allowed(node.get_db_fqn())
+        ):
+            return False
+
+        return True
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes: List[DBTNode] = []
