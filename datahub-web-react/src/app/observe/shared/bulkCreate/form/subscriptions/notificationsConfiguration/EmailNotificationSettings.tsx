@@ -48,7 +48,7 @@ const SaveButton = styled(Button)`
 `;
 
 const DisabledText = styled(Text)`
-    margin-left: 28px;
+    margin-left: 0;
     margin-top: 8px;
     font-size: 14px;
     color: ${colors.gray[500]};

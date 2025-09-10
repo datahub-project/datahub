@@ -5,6 +5,7 @@ import { IconType } from '@components/components/IconLabel/types';
 import { Label, StyledImage } from '@components/components/IncidentPriorityLabel/components';
 import { PRIORITIES } from '@components/components/IncidentPriorityLabel/constant';
 import { IncidentPriorityLabelProps } from '@components/components/IncidentPriorityLabel/types';
+import { getCapitalizeWord } from '@components/components/IncidentStagePill/utils';
 
 import LowIcon from '@src/images/incident-chart-bar-one.svg';
 import HighIcon from '@src/images/incident-chart-bar-three.svg';
@@ -31,7 +32,8 @@ const Icons = Object.fromEntries(
     ]),
 );
 
-export const IncidentPriorityLabel = ({ priority, title, style }: IncidentPriorityLabelProps) => {
+export const IncidentPriorityLabel = ({ priority, style }: IncidentPriorityLabelProps) => {
+    const title = priority ? getCapitalizeWord(priority) : priority;
     const { icon, type } = Icons[priority] || {};
     if (!icon) return <Label data-testid="priority-title">{title}</Label>;
     return <IconLabel testId="priority-title" style={style} icon={icon} name={title} type={type} />;
