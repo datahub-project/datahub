@@ -12,7 +12,7 @@ from pyiceberg.exceptions import (
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
-    ServerError,
+    RESTError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
@@ -322,10 +322,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                     context=dataset_name,
                     exc=e,
                 )
-            except ServerError as e:
+            except RESTError as e:
                 self.report.warning(
                     title="Iceberg REST Server Error",
-                    message="Iceberg returned 500 HTTP status when trying to process a table, skipping it.",
+                    message="Iceberg REST Server returned error status when trying to process a table, skipping it.",
                     context=dataset_name,
                     exc=e,
                 )

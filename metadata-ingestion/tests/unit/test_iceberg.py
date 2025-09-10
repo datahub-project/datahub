@@ -12,6 +12,7 @@ from pyiceberg.exceptions import (
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
+    RESTError,
     ServerError,
 )
 from pyiceberg.io.pyarrow import PyArrowFileIO
@@ -1009,6 +1010,9 @@ def test_handle_expected_exceptions() -> None:
     def _raise_server_error():
         raise ServerError()
 
+    def _raise_rest_error():
+        raise RESTError()
+
     def _raise_fileio_error():
         raise ValueError("Could not initialize FileIO: abc.dummy.fileio")
 
@@ -1069,6 +1073,7 @@ def test_handle_expected_exceptions() -> None:
                 "table8": _raise_no_such_iceberg_table_exception,
                 "table9": _raise_server_error,
                 "table10": _raise_fileio_error,
+                "table11": _raise_rest_error,
             }
         }
     )
@@ -1095,7 +1100,9 @@ def test_handle_expected_exceptions() -> None:
             urns,
             expected_wu_urns,
         )
-        assert source.report.warnings.total_elements == 6
+        assert (
+            source.report.warnings.total_elements == 6
+        )  # ServerError and RESTError exceptions are caught together
         assert source.report.failures.total_elements == 0
         assert source.report.tables_scanned == 4
 
