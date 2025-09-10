@@ -17,7 +17,7 @@ def get_platform_v1(urn: str) -> Optional[str]:
     urn_obj = Urn.from_string(urn)
 
     try:
-        return urn_obj.platform
+        return urn_obj.platform  # type: ignore[attr-defined]
     except Exception:
         # Not every platform has a platform attribute
         return None
