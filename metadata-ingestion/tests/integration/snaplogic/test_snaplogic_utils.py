@@ -1,13 +1,11 @@
 import pytest
 
 from datahub.ingestion.source.snaplogic.snaplogic_utils import SnaplogicUtils
-from datahub.metadata._internal_schema_classes import (
+from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     NumberTypeClass,
-    StringTypeClass,
-)
-from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
+    StringTypeClass,
 )
 
 
