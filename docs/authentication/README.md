@@ -47,7 +47,7 @@ and programmatic calls to DataHub APIs. There are two types of tokens that are i
    more about Personal Access Tokens [here](personal-access-tokens.md).
 3. **OAuth Provider Tokens**: JWT tokens issued by external OAuth2/OIDC providers (like Okta, Auth0, Azure AD) can be used
    for service-to-service authentication. This enables seamless integration with existing OAuth infrastructure and is ideal
-   for automated services and applications. Learn more about OAuth Provider authentication [here](oauth-providers.md).
+   for automated services and applications. Learn more about OAuth Provider authentication [here](external-oauth-providers.md).
 
 To learn more about DataHub's backend authentication, check out [Introducing Metadata Service Authentication](introducing-metadata-service-authentication.md).
 
