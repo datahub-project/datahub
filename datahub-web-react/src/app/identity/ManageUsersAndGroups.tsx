@@ -28,7 +28,7 @@ interface Props {
 export const ManageUsersAndGroups = ({ version }: Props) => {
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
     const authenticatedUser = useUserContext();
-    const canManagePolicies = authenticatedUser?.platformPrivileges?.managePolicies || false;
+    const canManageUsers = authenticatedUser?.platformPrivileges?.manageIdentities || false;
 
     // Get user count
     const { data: usersData } = useListUsersQuery({
@@ -87,13 +87,13 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
         <PageContainer>
             <ManageUsersAndGroupsHeader
                 version={version}
-                canManagePolicies={canManagePolicies}
+                canManageUsers={canManageUsers}
                 onInviteUsers={() => setIsViewingInviteToken(true)}
             />
             <Content>
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
             </Content>
-            {canManagePolicies && (
+            {canManageUsers && (
                 <InviteUsersModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
             )}
         </PageContainer>

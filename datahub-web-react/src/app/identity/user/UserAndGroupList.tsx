@@ -243,7 +243,7 @@ export const UserAndGroupList = () => {
     };
 
     // Helper functions for recommended users
-    const handleInviteRecommendedUser = async (user: CorpUser, role?: DataHubRole) => {
+    const handleInviteRecommendedUser = async (user: CorpUser, role?: DataHubRole, recommendedUsers?: CorpUser[]) => {
         if (!role) {
             message.error('Please select a role before sending invitation');
             return false;
@@ -269,6 +269,16 @@ export const UserAndGroupList = () => {
                     active: true,
                 },
             };
+            const userIndex = recommendedUsers?.findIndex((u) => u.urn === user.urn);
+
+            analytics.event({
+                type: EventType.ClickInviteRecommendedUserEvent,
+                roleUrn: role?.urn || '',
+                userEmail: userEmail || '',
+                location: 'recommended_users_list',
+                recommendationType: 'top_user',
+                recommendationIndex: userIndex || undefined,
+            });
 
             // Send invitation using the service
             const success = await emailInvitationService.sendSingleInvitation(formattedUser, role);
