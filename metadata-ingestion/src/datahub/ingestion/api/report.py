@@ -27,10 +27,9 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.urns.urn import get_platform_v1
+from datahub.utilities.urns.urn import guess_platform_name
 
 logger = logging.getLogger(__name__)
 LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
@@ -359,10 +358,7 @@ class ExamplesReport(Report, Closeable):
         aspectName: str,
         mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper],
     ) -> None:
-        platform = get_platform_v1(urn)
-        if platform is None:
-            return
-        platform_name = DataPlatformUrn.from_string(platform).get_entity_id_as_string()
+        platform_name = guess_platform_name(urn)
         if platform_name != self.get_platform():
             return
         if is_lineage_aspect(entityType, aspectName):

@@ -1,10 +1,11 @@
 from typing import Optional
 
 from datahub.metadata.urns import (
+    DataPlatformUrn,
     Urn,
 )
 
-__all__ = ["Urn", "guess_entity_type", "get_platform_v1"]
+__all__ = ["Urn", "guess_entity_type", "guess_platform_name"]
 
 
 def guess_entity_type(urn: str) -> str:
@@ -12,12 +13,36 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
-def get_platform_v1(urn: str) -> Optional[str]:
+def guess_platform_name(urn: str) -> Optional[str]:
     """Extract platform from URN using a mapping dictionary."""
     urn_obj = Urn.from_string(urn)
 
     try:
-        return urn_obj.platform  # type: ignore[attr-defined]
-    except Exception:
+        platform = None
+        try:
+            platform = urn_obj.platform  # type: ignore[attr-defined]
+            platform_name = DataPlatformUrn.from_string(
+                platform
+            ).get_entity_id_as_string()
+            return platform_name
+        except AttributeError:
+            pass
+        try:
+            return urn_obj.orchestrator
+        except AttributeError:
+            pass
+        try:
+            return urn_obj.dashboard_tool
+        except AttributeError:
+            pass
+        try:
+            return urn_obj.ml_model_tool
+        except AttributeError:
+            pass
+
+        if platform is None:
+            return None
+    except AttributeError as e:
+        print(e)
         # Not every platform has a platform attribute
         return None
