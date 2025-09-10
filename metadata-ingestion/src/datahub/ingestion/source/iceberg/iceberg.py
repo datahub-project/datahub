@@ -407,7 +407,9 @@ class IcebergSource(StatefulIngestionSourceBase):
         ):
             yield wu
 
-    def _try_processing_namespace(self, namespace: Identifier):
+    def _try_processing_namespace(
+        self, namespace: Identifier
+    ) -> Iterable[MetadataWorkUnit]:
         namespace_repr = ".".join(namespace)
         try:
             LOGGER.debug(f"Processing namespace {namespace_repr}")
