@@ -137,27 +137,31 @@ def run_in_thread(f: _F) -> _F:
             # Filter out database-related parameters to prevent transaction conflicts.
             # These objects contain active database session references that can interfere
             # with Airflow's strict transaction boundaries and cause HA lock violations.
-            
+
             # Filter SQLAlchemy session objects by type, regardless of parameter name or position
             # See: https://github.com/apache/airflow/blob/main/airflow-core/src/airflow/listeners/spec/taskinstance.py
             # Session parameters provide direct SQLAlchemy database access which can interfere
             # with Airflow's transaction boundaries and cause "UNEXPECTED COMMIT" errors
-            
+
             # Import here to avoid import issues if SQLAlchemy isn't available
             try:
                 from sqlalchemy.orm import Session
-                
+
                 # Filter session objects from positional arguments
-                filtered_args = tuple(arg for arg in args if not isinstance(arg, Session))
-                
-                # Filter session objects from keyword arguments  
-                filtered_kwargs = {k: v for k, v in kwargs.items() if not isinstance(v, Session)}
-                
+                filtered_args = tuple(
+                    arg for arg in args if not isinstance(arg, Session)
+                )
+
+                # Filter session objects from keyword arguments
+                filtered_kwargs = {
+                    k: v for k, v in kwargs.items() if not isinstance(v, Session)
+                }
+
             except ImportError:
                 # Fallback to name-based filtering if SQLAlchemy import fails
                 filtered_args = args
-                filtered_kwargs = {k: v for k, v in kwargs.items() if k != 'session'}
-            
+                filtered_kwargs = {k: v for k, v in kwargs.items() if k != "session"}
+
             f(*filtered_args, **filtered_kwargs)
 
         try:
