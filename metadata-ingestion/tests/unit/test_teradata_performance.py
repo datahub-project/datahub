@@ -153,9 +153,9 @@ class TestCachingOptimizations:
 class TestMemoryOptimizations:
     """Test memory optimization features."""
 
-    def test_tables_cache_memory_efficiency(self, base_teradata_config):
+    def test_tables_cache_memory_efficiency(self):
         """Test that tables cache is memory efficient."""
-        config = TeradataConfig.parse_obj(base_teradata_config)
+        config = TeradataConfig.parse_obj(_base_config())
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
