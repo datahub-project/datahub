@@ -16,6 +16,7 @@ from datahub.ingestion.source.sql.athena import (
     AthenaConfig,
     AthenaSource,
     CustomAthenaRestDialect,
+    Partitionitem,
 )
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
@@ -897,3 +898,249 @@ def test_partition_profiling_disabled_no_sql_generation():
     assert not mock_cursor.execute.called
 
     assert result == ["year"]
+
+
+def test_sanitize_identifier_valid_names():
+    """Test _sanitize_identifier method with valid Athena identifiers."""
+    # Valid simple identifiers
+    valid_identifiers = [
+        "table_name",
+        "schema123",
+        "column_1",
+        "MyTable",  # Should be allowed (Athena converts to lowercase)
+        "DATABASE",
+        "a",  # Single character
+        "table123name",
+        "data_warehouse_table",
+    ]
+
+    for identifier in valid_identifiers:
+        result = AthenaSource._sanitize_identifier(identifier)
+        assert result == identifier, f"Expected {identifier} to be valid"
+
+
+def test_sanitize_identifier_valid_complex_types():
+    """Test _sanitize_identifier method with valid complex type identifiers."""
+    # Valid complex type identifiers (with periods)
+    valid_complex_identifiers = [
+        "struct.field",
+        "data.subfield",
+        "nested.struct.field",
+        "array.element",
+        "map.key",
+        "record.attribute.subfield",
+    ]
+
+    for identifier in valid_complex_identifiers:
+        result = AthenaSource._sanitize_identifier(identifier)
+        assert result == identifier, (
+            f"Expected {identifier} to be valid for complex types"
+        )
+
+
+def test_sanitize_identifier_invalid_characters():
+    """Test _sanitize_identifier method rejects invalid characters."""
+    # Invalid identifiers that should be rejected
+    invalid_identifiers = [
+        "table-name",  # hyphen not allowed in Athena
+        "table name",  # spaces not allowed
+        "table@domain",  # @ not allowed
+        "table#hash",  # # not allowed
+        "table$var",  # $ not allowed (except in system tables)
+        "table%percent",  # % not allowed
+        "table&and",  # & not allowed
+        "table*star",  # * not allowed
+        "table(paren",  # ( not allowed
+        "table)paren",  # ) not allowed
+        "table+plus",  # + not allowed
+        "table=equal",  # = not allowed
+        "table[bracket",  # [ not allowed
+        "table]bracket",  # ] not allowed
+        "table{brace",  # { not allowed
+        "table}brace",  # } not allowed
+        "table|pipe",  # | not allowed
+        "table\\backslash",  # \ not allowed
+        "table:colon",  # : not allowed
+        "table;semicolon",  # ; not allowed
+        "table<less",  # < not allowed
+        "table>greater",  # > not allowed
+        "table?question",  # ? not allowed
+        "table/slash",  # / not allowed
+        "table,comma",  # , not allowed
+    ]
+
+    for identifier in invalid_identifiers:
+        with pytest.raises(ValueError, match="contains unsafe characters"):
+            AthenaSource._sanitize_identifier(identifier)
+
+
+def test_sanitize_identifier_sql_injection_attempts():
+    """Test _sanitize_identifier method blocks SQL injection attempts."""
+    # SQL injection attempts that should be blocked
+    sql_injection_attempts = [
+        "table'; DROP TABLE users; --",
+        'table" OR 1=1 --',
+        "table; DELETE FROM data;",
+        "'; UNION SELECT * FROM passwords --",
+        "table') OR ('1'='1",
+        "table\"; INSERT INTO logs VALUES ('hack'); --",
+        "table' AND 1=0 UNION SELECT * FROM admin --",
+        "table/*comment*/",
+        "table--comment",
+        "table' OR 'a'='a",
+        "1'; DROP DATABASE test; --",
+        "table'; EXEC xp_cmdshell('dir'); --",
+    ]
+
+    for injection_attempt in sql_injection_attempts:
+        with pytest.raises(ValueError, match="contains unsafe characters"):
+            AthenaSource._sanitize_identifier(injection_attempt)
+
+
+def test_sanitize_identifier_quote_injection_attempts():
+    """Test _sanitize_identifier method blocks quote-based injection attempts."""
+    # Quote injection attempts
+    quote_injection_attempts = [
+        'table"',
+        "table'",
+        'table""',
+        "table''",
+        'table"extra',
+        "table'extra",
+        "`table`",
+        '"table"',
+        "'table'",
+    ]
+
+    for injection_attempt in quote_injection_attempts:
+        with pytest.raises(ValueError, match="contains unsafe characters"):
+            AthenaSource._sanitize_identifier(injection_attempt)
+
+
+def test_sanitize_identifier_empty_and_edge_cases():
+    """Test _sanitize_identifier method with empty and edge case inputs."""
+    # Empty identifier
+    with pytest.raises(ValueError, match="Identifier cannot be empty"):
+        AthenaSource._sanitize_identifier("")
+
+    # None input (should also raise ValueError from empty check)
+    with pytest.raises(ValueError, match="Identifier cannot be empty"):
+        AthenaSource._sanitize_identifier(None)  # type: ignore[arg-type]
+
+    # Very long valid identifier
+    long_identifier = "a" * 200  # Still within Athena's 255 byte limit
+    result = AthenaSource._sanitize_identifier(long_identifier)
+    assert result == long_identifier
+
+
+def test_sanitize_identifier_integration_with_build_max_partition_query():
+    """Test that _sanitize_identifier works correctly within _build_max_partition_query."""
+    # Test with valid identifiers
+    query = AthenaSource._build_max_partition_query(
+        "valid_schema", "valid_table", ["valid_partition"]
+    )
+    assert "valid_schema" in query
+    assert "valid_table" in query
+    assert "valid_partition" in query
+
+    # Test that invalid identifiers are rejected before query building
+    with pytest.raises(ValueError, match="contains unsafe characters"):
+        AthenaSource._build_max_partition_query(
+            "schema'; DROP TABLE users; --", "table", ["partition"]
+        )
+
+    with pytest.raises(ValueError, match="contains unsafe characters"):
+        AthenaSource._build_max_partition_query(
+            "schema", "table-with-hyphen", ["partition"]
+        )
+
+    with pytest.raises(ValueError, match="contains unsafe characters"):
+        AthenaSource._build_max_partition_query(
+            "schema", "table", ["partition; DELETE FROM data;"]
+        )
+
+
+def test_sanitize_identifier_error_handling_in_get_partitions():
+    """Test that ValueError from _sanitize_identifier is handled gracefully in get_partitions method."""
+    config = AthenaConfig.parse_obj(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "extract_partitions": True,
+            "profiling": {"enabled": True, "partition_profiling_enabled": True},
+        }
+    )
+
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    # Mock cursor and metadata
+    mock_cursor = mock.MagicMock()
+    mock_metadata = mock.MagicMock()
+    mock_partition_key = mock.MagicMock()
+    mock_partition_key.name = "year"
+    mock_metadata.partition_keys = [mock_partition_key]
+    mock_cursor.get_table_metadata.return_value = mock_metadata
+    source.cursor = mock_cursor
+
+    # Test with malicious schema name - should be handled gracefully by report_exc
+    result = source.get_partitions(
+        mock.MagicMock(), "schema'; DROP TABLE users; --", "valid_table"
+    )
+
+    # Should still return the partition list from metadata since the error
+    # occurs in the profiling section which is wrapped in report_exc
+    assert result == ["year"]
+
+    # Verify metadata was still called
+    mock_cursor.get_table_metadata.assert_called_once()
+
+
+def test_sanitize_identifier_error_handling_in_generate_partition_profiler_query(
+    caplog,
+):
+    """Test that ValueError from _sanitize_identifier is handled gracefully in generate_partition_profiler_query."""
+    import logging
+
+    config = AthenaConfig.parse_obj(
+        {
+            "aws_region": "us-west-1",
+            "query_result_location": "s3://query-result-location/",
+            "work_group": "test-workgroup",
+            "profiling": {"enabled": True, "partition_profiling_enabled": True},
+        }
+    )
+
+    ctx = PipelineContext(run_id="test")
+    source = AthenaSource(config=config, ctx=ctx)
+
+    # Add a mock partition to the cache with malicious partition key
+    source.table_partition_cache["valid_schema"] = {
+        "valid_table": Partitionitem(
+            partitions=["year"],
+            max_partition={"malicious'; DROP TABLE users; --": "2023"},
+        )
+    }
+
+    # Capture log messages at WARNING level
+    with caplog.at_level(logging.WARNING):
+        # This should handle the ValueError gracefully and return None, None
+        # instead of crashing the entire ingestion process
+        result = source.generate_partition_profiler_query(
+            "valid_schema", "valid_table", None
+        )
+
+    # Verify the method returns None, None when sanitization fails
+    assert result == (None, None), "Should return None, None when sanitization fails"
+
+    # Verify that a warning log message was generated
+    assert len(caplog.records) == 1
+    log_record = caplog.records[0]
+    assert log_record.levelname == "WARNING"
+    assert (
+        "Failed to generate partition profiler query for valid_schema.valid_table due to unsafe identifiers"
+        in log_record.message
+    )
+    assert "contains unsafe characters" in log_record.message
+    assert "Partition profiling disabled for this table" in log_record.message

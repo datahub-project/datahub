@@ -73,6 +73,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Precompiled regex for SQL identifier validation
+# Athena identifiers can only contain lowercase letters, numbers, underscore, and period (for complex types)
+# Note: Athena automatically converts uppercase to lowercase, but we're being strict for security
+_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_.]+$")
+
 assert STRUCT, "required type modules are not available"
 register_custom_type(STRUCT, RecordTypeClass)
 register_custom_type(MapType, MapTypeClass)
@@ -511,10 +516,36 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     @classmethod
+    def _sanitize_identifier(cls, identifier: str) -> str:
+        """Sanitize SQL identifiers to prevent injection attacks.
+
+        Args:
+            identifier: The SQL identifier to sanitize
+
+        Returns:
+            Sanitized identifier safe for SQL queries
+
+        Raises:
+            ValueError: If identifier contains unsafe characters
+        """
+        if not identifier:
+            raise ValueError("Identifier cannot be empty")
+
+        # Allow only alphanumeric characters, underscores, and periods for identifiers
+        # This matches Athena's identifier naming rules
+        if not _IDENTIFIER_PATTERN.match(identifier):
+            raise ValueError(
+                f"Identifier '{identifier}' contains unsafe characters. Only alphanumeric characters, underscores, and periods are allowed."
+            )
+
+        return identifier
+
+    @classmethod
     def _casted_partition_key(cls, key: str) -> str:
         # We need to cast the partition keys to a VARCHAR, since otherwise
         # Athena may throw an error during concatenation / comparison.
-        return f"CAST({key} as VARCHAR)"
+        sanitized_key = cls._sanitize_identifier(key)
+        return f"CAST({sanitized_key} as VARCHAR)"
 
     @classmethod
     def _build_max_partition_query(
@@ -529,7 +560,17 @@ class AthenaSource(SQLAlchemySource):
 
         Returns:
             SQL query string to find the maximum partition
+
+        Raises:
+            ValueError: If any identifier contains unsafe characters
         """
+        # Sanitize all identifiers to prevent SQL injection
+        sanitized_schema = cls._sanitize_identifier(schema)
+        sanitized_table = cls._sanitize_identifier(table)
+        sanitized_partitions = [
+            cls._sanitize_identifier(partition) for partition in partitions
+        ]
+
         casted_keys = [cls._casted_partition_key(key) for key in partitions]
         if len(casted_keys) == 1:
             part_concat = casted_keys[0]
@@ -537,7 +578,7 @@ class AthenaSource(SQLAlchemySource):
             separator = "CAST('-' AS VARCHAR)"
             part_concat = f"CONCAT({f', {separator}, '.join(casted_keys)})"
 
-        return f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
+        return f'select {",".join(sanitized_partitions)} from "{sanitized_schema}"."{sanitized_table}$partitions" where {part_concat} = (select max({part_concat}) from "{sanitized_schema}"."{sanitized_table}$partitions")'
 
     @override
     def get_partitions(
@@ -696,16 +737,34 @@ class AthenaSource(SQLAlchemySource):
         ).get(table, None)
 
         if partition and partition.max_partition:
-            max_partition_filters = []
-            for key, value in partition.max_partition.items():
-                max_partition_filters.append(
-                    f"{self._casted_partition_key(key)} = '{value}'"
+            try:
+                # Sanitize identifiers to prevent SQL injection
+                sanitized_schema = self._sanitize_identifier(schema)
+                sanitized_table = self._sanitize_identifier(table)
+
+                max_partition_filters = []
+                for key, value in partition.max_partition.items():
+                    # Sanitize partition key and properly escape the value
+                    sanitized_key = self._sanitize_identifier(key)
+                    # Escape single quotes in the value to prevent injection
+                    escaped_value = value.replace("'", "''") if value else ""
+                    max_partition_filters.append(
+                        f"{self._casted_partition_key(sanitized_key)} = '{escaped_value}'"
+                    )
+                max_partition = str(partition.max_partition)
+                return (
+                    max_partition,
+                    f'SELECT * FROM "{sanitized_schema}"."{sanitized_table}" WHERE {" AND ".join(max_partition_filters)}',
                 )
-            max_partition = str(partition.max_partition)
-            return (
-                max_partition,
-                f'SELECT * FROM "{schema}"."{table}" WHERE {" AND ".join(max_partition_filters)}',
-            )
+            except ValueError as e:
+                # If sanitization fails due to malicious identifiers,
+                # return None to disable partition profiling for this table
+                # rather than crashing the entire ingestion
+                logger.warning(
+                    f"Failed to generate partition profiler query for {schema}.{table} due to unsafe identifiers: {e}. "
+                    f"Partition profiling disabled for this table."
+                )
+                return None, None
         return None, None
 
     def close(self):
