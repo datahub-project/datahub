@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from tableauserverclient import Server, UserItem
 
@@ -10,6 +11,7 @@ class UserInfo:
     user_name: str
     site_role: str
     site_id: str
+    email: Optional[str] = None
 
     def has_site_administrator_explorer_privileges(self):
         return self.site_role in [
@@ -34,4 +36,5 @@ class UserInfo:
             user_name=user.name,
             site_role=user.site_role,
             site_id=server.site_id,
+            email=getattr(user, "email", None),
         )
