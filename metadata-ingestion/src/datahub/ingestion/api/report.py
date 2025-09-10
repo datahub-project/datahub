@@ -43,6 +43,9 @@ class SupportsAsObj(Protocol):
 
 @dataclass
 class Report(SupportsAsObj):
+    def __post_init__(self):
+        self.platform = None
+
     def set_platform(self, platform: str) -> None:
         self.platform = platform
 
@@ -221,6 +224,7 @@ class ExamplesReport(Report, Closeable):
     _lineage_aspects_seen: Set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self._file_based_dict = FileBackedDict(
             tablename="urn_aspects",
             extra_columns={
@@ -359,7 +363,7 @@ class ExamplesReport(Report, Closeable):
         if platform is None:
             return
         platform_name = DataPlatformUrn.from_string(platform).get_entity_id_as_string()
-        if platform_name != self.platform:
+        if platform_name != self.get_platform():
             return
         if is_lineage_aspect(entityType, aspectName):
             self._lineage_aspects_seen.add(aspectName)
