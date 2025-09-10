@@ -141,6 +141,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
+import com.linkedin.datahub.graphql.resolvers.logical.SetLogicalParentResolver;
 import com.linkedin.datahub.graphql.resolvers.module.DeletePageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.module.UpsertPageModuleResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
@@ -205,6 +206,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
@@ -359,6 +361,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -777,7 +780,8 @@ public class GmsGraphQLEngine {
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
-    configurePageTemplateRowResolvers(builder);
+    configurePageTemplateResolvers(builder);
+    configureAssetSettingsResolver(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -829,6 +833,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(LOGICAL_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
@@ -838,7 +843,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE))
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1392,12 +1398,15 @@ public class GmsGraphQLEngine {
                   "deletePageTemplate", new DeletePageTemplateResolver(this.pageTemplateService))
               .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
+              .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
                   new UpdateDocPropagationSettingsResolver(this.settingsService))
               .dataFetcher(
                   "updateApplicationsSettings",
-                  new UpdateApplicationsSettingsResolver(this.settingsService));
+                  new UpdateApplicationsSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
@@ -1753,7 +1762,15 @@ public class GmsGraphQLEngine {
                     .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                     .dataFetcher(
                         "siblingsSearch",
-                        new SiblingsSearchResolver(this.entityClient, this.viewService)))
+                        new SiblingsSearchResolver(this.entityClient, this.viewService))
+                    .dataFetcher(
+                        "logicalParent",
+                        new EntityTypeResolver(
+                            entityTypes,
+                            (env) ->
+                                Optional.ofNullable((Dataset) env.getSource())
+                                    .map(Dataset::getLogicalParent)
+                                    .orElse(null))))
         .type(
             "Owner",
             typeWiring ->
@@ -1919,6 +1936,14 @@ public class GmsGraphQLEngine {
                     "parent",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((SchemaFieldEntity) env.getSource()).getParent()))
+                .dataFetcher(
+                    "logicalParent",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) ->
+                            Optional.ofNullable((Dataset) env.getSource())
+                                .map(Dataset::getLogicalParent)
+                                .orElse(null)))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",
@@ -2340,6 +2365,15 @@ public class GmsGraphQLEngine {
                 typeWiring.typeResolver(
                     new EntityInterfaceTypeResolver(
                         browsableTypes.stream()
+                            .map(graphType -> (EntityType<?, ?>) graphType)
+                            .collect(Collectors.toList()))))
+        .type(
+            "HasLogicalParent",
+            typeWiring ->
+                typeWiring.typeResolver(
+                    new EntityInterfaceTypeResolver(
+                        loadableTypes.stream()
+                            .filter(graphType -> graphType instanceof EntityType)
                             .map(graphType -> (EntityType<?, ?>) graphType)
                             .collect(Collectors.toList()))))
         .type(
@@ -3566,7 +3600,7 @@ public class GmsGraphQLEngine {
                     })));
   }
 
-  private void configurePageTemplateRowResolvers(final RuntimeWiring.Builder builder) {
+  private void configurePageTemplateResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "DataHubPageTemplateRow",
         typeWiring ->
@@ -3579,9 +3613,45 @@ public class GmsGraphQLEngine {
                             .getModules().stream()
                                 .map(DataHubPageModule::getUrn)
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "SummaryElement",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "structuredProperty",
+                new LoadableTypeResolver<>(
+                    structuredPropertyType,
+                    (env) -> {
+                      final SummaryElement summaryElement = env.getSource();
+                      if (summaryElement != null) {
+                        return summaryElement.getStructuredProperty() != null
+                            ? summaryElement.getStructuredProperty().getUrn()
+                            : null;
+                      }
+                      return null;
+                    })));
 
     builder.type(
         "DataHubPageModule",
         typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
+  }
+
+  private void configureAssetSettingsResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "AssetSummarySettingsTemplate",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "template",
+                new LoadableTypeResolver<>(
+                    dataHubPageTemplateType,
+                    (env) -> {
+                      final AssetSummarySettingsTemplate assetSummarySettingsTemplate =
+                          env.getSource();
+                      if (assetSummarySettingsTemplate != null) {
+                        return assetSummarySettingsTemplate.getTemplate() != null
+                            ? assetSummarySettingsTemplate.getTemplate().getUrn()
+                            : null;
+                      }
+                      return null;
+                    })));
   }
 }

@@ -2,15 +2,23 @@ import { useCallback, useMemo } from 'react';
 
 import { ItemType } from '@components/components/Menu/types';
 
-import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useAddPropertyMenuItems';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 export default function usePropertyMenuItems(position: number): ItemType[] {
-    const { remove, replace } = useAssetPropertiesContext();
+    const { removeSummaryElement, replaceSummaryElement } = usePageTemplateContext();
 
-    const onRemove = useCallback(() => remove(position), [remove, position]);
-    const onReplace = useCallback((newProperty: AssetProperty) => replace(newProperty, position), [replace, position]);
+    const onRemove = useCallback(() => removeSummaryElement(position), [removeSummaryElement, position]);
+    const onReplace = useCallback(
+        (newElement: AssetProperty) =>
+            replaceSummaryElement({
+                elementType: newElement.type,
+                structuredProperty: newElement.structuredProperty,
+                position,
+            }),
+        [replaceSummaryElement, position],
+    );
 
     const addPropertyMenuItems = useAddPropertyMenuItems(onReplace);
 

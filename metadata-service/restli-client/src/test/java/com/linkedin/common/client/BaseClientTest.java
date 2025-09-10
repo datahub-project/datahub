@@ -63,6 +63,7 @@ import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.client.response.BatchKVResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -98,7 +99,7 @@ public class BaseClientTest {
 
     // Setup MetricUtils mock
     mockMetricUtils = mock(MetricUtils.class);
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.empty());
+    when(mockMetricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
   }
 
   @Test
