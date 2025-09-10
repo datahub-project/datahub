@@ -53,27 +53,21 @@ class ReplaceExternalUrlDataset(DatasetPropertiesTransformer, ReplaceUrl):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-        in_dataset_properties_aspect: DatasetPropertiesClass = cast(
-            DatasetPropertiesClass, aspect
-        )
+        input_aspect: DatasetPropertiesClass = cast(DatasetPropertiesClass, aspect)
 
-        if (
-            not hasattr(in_dataset_properties_aspect, "externalUrl")
-            or not in_dataset_properties_aspect.externalUrl
-        ):
-            return cast(Aspect, in_dataset_properties_aspect)
+        if not hasattr(input_aspect, "externalUrl") or not input_aspect.externalUrl:
+            return cast(Aspect, input_aspect)
         else:
-            out_dataset_properties_aspect: DatasetPropertiesClass = copy.deepcopy(
-                in_dataset_properties_aspect
-            )
+            output_aspect: DatasetPropertiesClass = copy.deepcopy(input_aspect)
 
-            out_dataset_properties_aspect.externalUrl = self.replace_url(
+            output_aspect.baseExternalUrl = input_aspect.externalUrl
+            output_aspect.externalUrl = self.replace_url(
                 self.config.input_pattern,
                 self.config.replacement,
-                in_dataset_properties_aspect.externalUrl,
+                input_aspect.externalUrl,
             )
 
-            return cast(Aspect, out_dataset_properties_aspect)
+            return cast(Aspect, output_aspect)
 
 
 class ReplaceExternalUrlContainer(ContainerPropertiesTransformer, ReplaceUrl):
@@ -103,23 +97,17 @@ class ReplaceExternalUrlContainer(ContainerPropertiesTransformer, ReplaceUrl):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-        in_container_properties_aspect: ContainerPropertiesClass = cast(
-            ContainerPropertiesClass, aspect
-        )
-        if (
-            not hasattr(in_container_properties_aspect, "externalUrl")
-            or not in_container_properties_aspect.externalUrl
-        ):
-            return cast(Aspect, in_container_properties_aspect)
+        input_aspect: ContainerPropertiesClass = cast(ContainerPropertiesClass, aspect)
+        if not hasattr(input_aspect, "externalUrl") or not input_aspect.externalUrl:
+            return cast(Aspect, input_aspect)
         else:
-            out_container_properties_aspect: ContainerPropertiesClass = copy.deepcopy(
-                in_container_properties_aspect
-            )
+            output_aspect: ContainerPropertiesClass = copy.deepcopy(input_aspect)
 
-            out_container_properties_aspect.externalUrl = self.replace_url(
+            output_aspect.baseExternalUrl = input_aspect.externalUrl
+            output_aspect.externalUrl = self.replace_url(
                 self.config.input_pattern,
                 self.config.replacement,
-                in_container_properties_aspect.externalUrl,
+                input_aspect.externalUrl,
             )
 
-            return cast(Aspect, out_container_properties_aspect)
+            return cast(Aspect, output_aspect)
