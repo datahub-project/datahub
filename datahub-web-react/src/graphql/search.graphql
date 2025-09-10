@@ -1,3 +1,5 @@
+#import "./incident.graphql"
+
 fragment autoCompleteFields on Entity {
     urn
     type
@@ -1248,6 +1250,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 notifyAssigneesOnPublish
             }
         }
+    }
+    ... on Incident {
+        ...incidentFields
     }
 }
 

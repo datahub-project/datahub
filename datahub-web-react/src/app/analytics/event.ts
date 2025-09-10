@@ -234,6 +234,12 @@ export enum EventType {
     WelcomeToDataHubModalClickViewDocumentationEvent,
     ProductTourButtonClickEvent,
     SetDeprecation,
+    ClickInviteUsersCTAEvent,
+    ClickCopyInviteLinkEvent,
+    ClickInviteViaEmailEvent,
+    ClickInviteRecommendedUserEvent,
+    InviteUserErrorEvent,
+    RefreshInviteLinkEvent,
     AssetPageAddSummaryElement,
     AssetPageRemoveSummaryElement,
     AssetPageReplaceSummaryElement,
@@ -649,6 +655,11 @@ export interface CreateGroupEvent extends BaseEvent {
 }
 export interface CreateInviteLinkEvent extends BaseEvent {
     type: EventType.CreateInviteLinkEvent;
+    roleUrn?: string;
+}
+
+export interface RefreshInviteLinkEvent extends BaseEvent {
+    type: EventType.RefreshInviteLinkEvent;
     roleUrn?: string;
 }
 
@@ -1529,7 +1540,7 @@ export interface RetrainAsNewNormalEvent extends BaseEvent {
 
 export interface DatasetHealthFilterEvent extends BaseEvent {
     type: EventType.DatasetHealthFilterEvent;
-    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
     filterType: 'search' | 'filter' | 'timeRange';
     filterSubType?: string;
     content:
@@ -1543,7 +1554,7 @@ export interface DatasetHealthFilterEvent extends BaseEvent {
 
 export interface DatasetHealthClickEvent extends BaseEvent {
     type: EventType.DatasetHealthClickEvent;
-    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
     target: 'asset_assertions' | 'asset_incidents' | 'assertion' | 'incident';
     subTarget?: string;
     targetUrn?: string;
@@ -1708,6 +1719,43 @@ export interface SetDeprecationEvent extends BaseEvent {
     resources?: ResourceRefInput[];
 }
 
+// Invite Users Events
+
+export interface ClickInviteUsersCTAEvent extends BaseEvent {
+    type: EventType.ClickInviteUsersCTAEvent;
+    source: 'settings_page' | 'user_management' | 'nav_menu';
+}
+
+export interface ClickCopyInviteLinkEvent extends BaseEvent {
+    type: EventType.ClickCopyInviteLinkEvent;
+    roleUrn: string;
+}
+
+export interface ClickInviteViaEmailEvent extends BaseEvent {
+    type: EventType.ClickInviteViaEmailEvent;
+    roleUrn: string;
+    emailList?: string[];
+    emailCount?: number;
+    enteredInvalidEmail: boolean;
+}
+
+export interface ClickInviteRecommendedUserEvent extends BaseEvent {
+    type: EventType.ClickInviteRecommendedUserEvent;
+    roleUrn: string;
+    userEmail: string;
+    location: 'invite_users_modal' | 'recommended_users_preview' | 'recommended_users_list';
+    recommendationType: 'top_user';
+    recommendationIndex?: number;
+}
+
+export interface InviteUserErrorEvent extends BaseEvent {
+    type: EventType.InviteUserErrorEvent;
+    roleUrn: string;
+    emailList?: string[];
+    inviteMethod: 'email' | 'recommended_user';
+    errorMessage: string;
+}
+
 export interface AssetPageAddSummaryElementEvent extends BaseEvent {
     type: EventType.AssetPageAddSummaryElement;
     templateUrn: string;
@@ -1772,6 +1820,7 @@ export type Event =
     | RevokeAccessTokenEvent
     | CreateGroupEvent
     | CreateInviteLinkEvent
+    | RefreshInviteLinkEvent
     | CreateResetCredentialsLinkEvent
     | DeleteEntityEvent
     | SelectUserRoleEvent
@@ -1927,6 +1976,11 @@ export type Event =
     | IngestionViewAllClickWarningEvent
     | SetDeprecationEvent
     | SetDeprecationEvent
+    | ClickInviteUsersCTAEvent
+    | ClickCopyInviteLinkEvent
+    | ClickInviteViaEmailEvent
+    | ClickInviteRecommendedUserEvent
+    | InviteUserErrorEvent
     | AssetPageAddSummaryElementEvent
     | AssetPageRemoveSummaryElementEvent
     | AssetPageReplaceSummaryElementEvent;

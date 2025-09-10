@@ -2,6 +2,8 @@ import { Avatar, Button, Text, colors } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
 import {
     EmptyMessage,
     PlatformIcon,
@@ -117,6 +119,20 @@ export default function RecommendedUsersList({
 
     const handleInviteUser = (user: CorpUser) => {
         const roleForUser = userRoles[user.urn] || selectedRole;
+
+        // Track invite recommended user event
+        const userEmail = user.info?.email || user.properties?.email || user.username;
+        const userIndex = recommendedUsers.findIndex((u) => u.urn === user.urn);
+
+        analytics.event({
+            type: EventType.ClickInviteRecommendedUserEvent,
+            roleUrn: roleForUser?.urn || '',
+            userEmail: userEmail || '',
+            location: 'invite_users_modal',
+            recommendationType: 'top_user',
+            recommendationIndex: userIndex >= 0 ? userIndex : undefined,
+        });
+
         onInviteUser?.(user, roleForUser);
     };
 

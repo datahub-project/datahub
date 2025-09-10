@@ -1,6 +1,9 @@
 import { message } from 'antd';
 import { useCallback, useState } from 'react';
 
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { DataHubRole, SendUserInvitationsInput } from '@types';
 
@@ -9,6 +12,9 @@ type InvitedUser = {
     role: DataHubRole | undefined;
     invited: boolean;
 };
+
+// Basic email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function useEmailInvitations() {
     const [emailInput, setEmailInput] = useState<string>('');
@@ -34,9 +40,7 @@ export function useEmailInvitations() {
             // Parse email addresses (comma or whitespace separated)
             const emailCandidates = parseEmails(input);
 
-            // Basic email validation regex
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            const validEmails = emailCandidates.filter((email) => emailRegex.test(email));
+            const validEmails = emailCandidates.filter((email) => EMAIL_REGEX.test(email));
 
             if (emailCandidates.length === 0) {
                 return 'Please enter email addresses';
@@ -47,7 +51,7 @@ export function useEmailInvitations() {
             }
 
             if (validEmails.length < emailCandidates.length) {
-                const invalidEmails = emailCandidates.filter((email) => !emailRegex.test(email));
+                const invalidEmails = emailCandidates.filter((email) => !EMAIL_REGEX.test(email));
                 return `Invalid email format: ${invalidEmails.join(', ')}`;
             }
 
@@ -58,15 +62,28 @@ export function useEmailInvitations() {
 
     const handleSendInvitations = useCallback(
         async (emailInviteRole: DataHubRole | undefined) => {
+            // Parse email addresses first to track what user attempted
+            const emails = parseEmails(emailInput);
+
+            // Check if any emails are invalid for tracking purposes
+            const enteredInvalidEmail = emails.some((email) => !EMAIL_REGEX.test(email));
+
+            // Track the invite via email event before validation
+            analytics.event({
+                type: EventType.ClickInviteViaEmailEvent,
+                roleUrn: emailInviteRole?.urn || '',
+                emailList: emails,
+                emailCount: emails.length,
+                enteredInvalidEmail,
+            });
+
+            // Now validate and potentially block the action
             const validationError = validateEmails(emailInput);
             setEmailValidationError(validationError);
 
             if (validationError) {
                 return;
             }
-
-            // Parse email addresses (comma or whitespace separated) - we know these are valid now
-            const emails = parseEmails(emailInput);
 
             try {
                 const hideLoading = message.loading(`Sending invitations to ${emails.length} email(s)...`, 0);
@@ -101,9 +118,28 @@ export function useEmailInvitations() {
                     setEmailInput(''); // Clear input after successful send
                 } else {
                     const errorMessage = response?.errors?.length ? response.errors.join(', ') : 'Unknown error';
+
+                    // Track error event for API response errors
+                    analytics.event({
+                        type: EventType.InviteUserErrorEvent,
+                        roleUrn: emailInviteRole?.urn || '',
+                        emailList: emails,
+                        inviteMethod: 'email',
+                        errorMessage,
+                    });
+
                     message.error(`Failed to send invitations: ${errorMessage}`);
                 }
             } catch (error) {
+                // Track error event for exceptions
+                analytics.event({
+                    type: EventType.InviteUserErrorEvent,
+                    roleUrn: emailInviteRole?.urn || '',
+                    emailList: emails,
+                    inviteMethod: 'email',
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                });
+
                 message.error('Failed to send email invitations');
                 console.error('Failed to send email invitations:', error);
             }

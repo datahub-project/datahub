@@ -226,12 +226,11 @@ export const AssertionsByTableSummary = () => {
     if (total === 0 && !hasFilters && !loading) {
         return (
             <EmptyStateContainer>
-                <Text size="xl" weight="semiBold">
-                    No assertions created yet.
+                <Text size="lg" weight="semiBold">
+                    Create Assertions to detect data quality issues.
                 </Text>
                 <Text size="lg" color="gray">
-                    Assertions are data quality checks that run automatically to ensure your data is accurate and up to
-                    date.
+                    Tip: Use <i>&lsquo;Bulk Create&rsquo;</i> to set up AI Anomaly Detection.
                 </Text>
                 <a href={ASSERTIONS_DOCS_LINK} target="_blank" rel="noreferrer">
                     <Text size="lg" weight="semiBold">

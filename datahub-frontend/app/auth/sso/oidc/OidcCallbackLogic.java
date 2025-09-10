@@ -13,7 +13,6 @@ import client.AuthServiceClient;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
 import com.linkedin.common.UrnArray;
@@ -23,16 +22,12 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.identity.GroupMembership;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.CorpGroupAspect;
 import com.linkedin.metadata.aspect.CorpGroupAspectArray;
 import com.linkedin.metadata.aspect.CorpUserAspect;
@@ -271,22 +266,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
         } else if (oidcConfigs.isPreProvisioningRequired()) {
           // We should only allow logins for user accounts that have been pre-provisioned
           log.debug("Pre Provisioning is required. Beginning validation of extracted user...");
-          verifyPreProvisionedUser(opContext, corpUserUrn);
-        }
-        log.info(String.format("Checking if user %s status is already active.", corpUserUrn));
-        // Update user status to active on login.
-        // If we want to prevent certain users from logging in, here's where we'll want to do it.
-        if (!checkIsUserStatusActive(opContext, corpUserUrn)) {
-          log.info(String.format("User %s is not active, updating status.", corpUserUrn));
-          setUserStatus(
-              opContext,
-              corpUserUrn,
-              new CorpUserStatus()
-                  .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
-                  .setLastModified(
-                      new AuditStamp()
-                          .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-                          .setTime(System.currentTimeMillis())));
+          AuthUtils.verifyPreProvisionedUser(opContext, corpUserUrn, systemEntityClient);
         }
       } catch (Exception e) {
         log.error("Failed to perform post authentication steps. Redirecting to error page.", e);
@@ -577,57 +557,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       throw new RuntimeException(
           String.format("Failed to update group membership for user with urn %s", urn), e);
     }
-  }
-
-  private void verifyPreProvisionedUser(@Nonnull OperationContext opContext, CorpuserUrn urn) {
-    // Validate that the user exists in the system (there is more than just a key aspect for them,
-    // as of today).
-    try {
-      final Entity corpUser = systemEntityClient.get(opContext, urn);
-
-      log.debug(String.format("Fetched GMS user with urn %s", urn));
-
-      // If we find more than the key aspect, then the entity "exists".
-      if (corpUser.getValue().getCorpUserSnapshot().getAspects().size() <= 1) {
-        log.debug(
-            String.format(
-                "Found user that does not yet exist %s. Invalid login attempt. Throwing...", urn));
-        throw new RuntimeException(
-            String.format(
-                "User with urn %s has not yet been provisioned in DataHub. "
-                    + "Please contact your DataHub admin to provision an account.",
-                urn));
-      }
-      // Otherwise, the user exists.
-    } catch (RemoteInvocationException e) {
-      // Failing validation is something worth throwing about.
-      throw new RuntimeException(String.format("Failed to validate user with urn %s.", urn), e);
-    }
-  }
-
-  private boolean checkIsUserStatusActive(
-      @Nonnull OperationContext opContext, @Nonnull final Urn userUrn) throws Exception {
-    final EntityResponse response =
-        systemEntityClient.getV2(opContext, userUrn, Set.of(CORP_USER_STATUS_ASPECT_NAME));
-    if (response != null && response.hasAspects()) {
-      final EnvelopedAspect aspect = response.getAspects().get(CORP_USER_STATUS_ASPECT_NAME);
-      final CorpUserStatus status = new CorpUserStatus(aspect.getValue().data());
-      return status.hasStatus() && status.getStatus().equals(Constants.CORP_USER_STATUS_ACTIVE);
-    }
-    return false;
-  }
-
-  private void setUserStatus(
-      @Nonnull OperationContext opContext, final Urn urn, final CorpUserStatus newStatus)
-      throws Exception {
-    // Update status aspect to be active.
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(urn);
-    proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
-    proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal.setChangeType(ChangeType.UPSERT);
-    systemEntityClient.ingestProposal(opContext, proposal, true);
   }
 
   private Optional<String> extractRegexGroup(final String patternStr, final String target) {

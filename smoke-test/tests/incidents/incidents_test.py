@@ -33,7 +33,7 @@ def test_list_dataset_incidents(auth_session):
                   incidentType\n
                   title\n
                   description\n
-                  status {\n
+                  incidentStatus {\n
                     state\n
                     message\n
                     lastUpdated {\n
@@ -87,7 +87,7 @@ def test_list_dataset_incidents(auth_session):
                 "incidentType": "OPERATIONAL",
                 "title": "test title",
                 "description": "test description",
-                "status": {
+                "incidentStatus": {
                     "state": "ACTIVE",
                     "message": None,
                     "lastUpdated": {"time": 0, "actor": "urn:li:corpuser:admin"},
@@ -177,7 +177,7 @@ def test_raise_resolve_incident(auth_session, graph_client):
                   title\n
                   description\n
                   priority\n
-                  status {\n
+                  incidentStatus {\n
                     state\n
                     message\n
                     lastUpdated {\n
@@ -220,7 +220,7 @@ def test_raise_resolve_incident(auth_session, graph_client):
     new_incident = filtered_incidents[0]
     assert new_incident["title"] == "test title 2"
     assert new_incident["description"] == "test description 2"
-    assert new_incident["status"]["state"] == "RESOLVED"
+    assert new_incident["incidentStatus"]["state"] == "RESOLVED"
     assert new_incident["priority"] == "CRITICAL"
 
     delete_json = {"urn": new_incident_urn}

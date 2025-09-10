@@ -133,14 +133,15 @@ public class IncidentTypeTest {
     assertEquals(incident.getDescription(), TEST_INCIDENT_INFO.getDescription());
     assertEquals(incident.getCustomType(), TEST_INCIDENT_INFO.getCustomType());
     assertEquals(
-        incident.getStatus().getState().toString(),
+        incident.getIncidentStatus().getState().toString(),
         TEST_INCIDENT_INFO.getStatus().getState().toString());
-    assertEquals(incident.getStatus().getMessage(), TEST_INCIDENT_INFO.getStatus().getMessage());
     assertEquals(
-        incident.getStatus().getLastUpdated().getTime(),
+        incident.getIncidentStatus().getMessage(), TEST_INCIDENT_INFO.getStatus().getMessage());
+    assertEquals(
+        incident.getIncidentStatus().getLastUpdated().getTime(),
         TEST_INCIDENT_INFO.getStatus().getLastUpdated().getTime());
     assertEquals(
-        incident.getStatus().getLastUpdated().getActor(),
+        incident.getIncidentStatus().getLastUpdated().getActor(),
         TEST_INCIDENT_INFO.getStatus().getLastUpdated().getActor().toString());
     assertEquals(
         incident.getSource().getType().toString(),

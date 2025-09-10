@@ -1,5 +1,7 @@
 import { Button, Editor, Text, Tooltip } from '@components';
-import React, { useState } from 'react';
+import queryString from 'query-string';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
@@ -43,8 +45,12 @@ interface Props {
 }
 
 export default function AboutSection({ hideLinksButton }: Props) {
+    const history = useHistory();
+    const { search, pathname } = useLocation();
+    const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
+
     const [showAddLinkModal, setShowAddLinkModal] = useState(false);
-    const [showAddDescriptionModal, setShowDescriptionModal] = useState(false);
+    const [showAddDescriptionModal, setShowDescriptionModal] = useState(isEditingDescription);
 
     const hasLinkPermissions = useLinkPermission();
     const canEditDescription = useDocumentationPermission();
@@ -59,10 +65,26 @@ export default function AboutSection({ hideLinksButton }: Props) {
         setShowProposalNote,
     } = useDescriptionUtils();
 
+    useEffect(() => {
+        setShowDescriptionModal(isEditingDescription);
+    }, [isEditingDescription]);
+
+    const removeEditingParam = () => {
+        const params = queryString.parse(search);
+        delete params.editingDescription;
+
+        const newSearch = queryString.stringify(params);
+        history.replace({
+            pathname,
+            search: newSearch,
+        });
+    };
+
     const cancelUpdate = () => {
         setShowDescriptionModal(false);
         setShowProposalNote(false);
         setUpdatedDescription(displayedDescription);
+        removeEditingParam();
     };
 
     return (
@@ -123,6 +145,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                     onPropose={(note) => {
                         proposeDescription(note);
                         setShowProposalNote(false);
+                        removeEditingParam();
                     }}
                     onCancel={cancelUpdate}
                 />

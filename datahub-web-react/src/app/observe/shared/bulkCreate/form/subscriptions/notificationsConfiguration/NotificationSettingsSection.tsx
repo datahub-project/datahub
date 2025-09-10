@@ -56,10 +56,10 @@ export const NotificationSettingsSection: React.FC<Props> = ({ isPersonal, group
     return (
         <SectionContainer>
             <Text size="md" color="gray" colorLevel={600} weight="semiBold">
-                Notification Delivery
+                Global Notification Settings
             </Text>
             <Subtitle size="md" color="gray" colorLevel={500} weight="normal">
-                These are global settings.{' '}
+                These are applied to all {isPersonal ? 'your' : "the group's"} notifications.{' '}
                 <Link
                     to={isPersonal ? `/settings/personal-notifications` : `/group/${groupUrn}/notifications`}
                     target="_blank"

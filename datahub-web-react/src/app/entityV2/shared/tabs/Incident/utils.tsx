@@ -61,16 +61,16 @@ const mapIncidentData = (incidents: Incident[]): IncidentTableRow[] => {
                 creator: incident?.created,
                 customType: incident?.customType,
                 description: incident?.description,
-                stage: incident?.status?.stage,
-                state: incident?.status?.state,
+                stage: incident?.incidentStatus?.stage,
+                state: incident?.incidentStatus?.state,
                 type: incident?.incidentType,
                 title: incident?.title,
                 priority: incident?.priority,
                 linkedAssets: mapLinkedAssetData(incident),
                 assignees: incident?.assignees,
                 source: incident?.source,
-                lastUpdated: incident?.status?.lastUpdated,
-                message: incident?.status?.message,
+                lastUpdated: incident?.incidentStatus?.lastUpdated,
+                message: incident?.incidentStatus?.message,
             }) as IncidentTableRow,
     );
 };
@@ -135,8 +135,8 @@ export const createIncidentGroups = (incidents: Array<Incident>): IncidentGroupB
 
     // Group incidents by type, stage, and priority
     const typeToIncidents = groupIncidentsBy(incidents, (incident) => getIncidentType(incident));
-    const stageToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.stage);
-    const stateToIncidents = groupIncidentsBy(incidents, (incident) => incident?.status?.state);
+    const stageToIncidents = groupIncidentsBy(incidents, (incident) => incident?.incidentStatus?.stage);
+    const stateToIncidents = groupIncidentsBy(incidents, (incident) => incident?.incidentStatus?.state);
     const priorityToIncidents = groupIncidentsBy(incidents, (incident) => incident.priority);
 
     // Create IncidentGroup objects for each group
@@ -316,8 +316,8 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
         }
 
         // filter out tracked stages
-        const stage = incident.status.stage as IncidentStage;
-        if (stage) {
+        const stage = incident.incidentStatus?.stage ?? undefined;
+        if (stage !== undefined) {
             const stageIndex = remainingIncidentStages.indexOf(stage);
             if (stageIndex > -1) {
                 remainingIncidentStages.splice(stageIndex, 1);
@@ -327,8 +327,8 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
         }
 
         // filter out tracked states
-        const state = incident.status.state as IncidentState;
-        if (state) {
+        const state = incident.incidentStatus?.state ?? undefined;
+        if (state !== undefined) {
             const stateIndex = remainingIncidentStates.indexOf(state);
             if (stateIndex > -1) {
                 remainingIncidentStates.splice(stateIndex, 1);
@@ -338,13 +338,15 @@ const extractFilterOptionListFromIncidents = (incidents: Incident[]) => {
         }
 
         // filter out tracked priorities
-        const priority = (incident.priority || 'None') as IncidentPriority;
-        const priorityIndex = remainingIncidentPriorities.indexOf(priority);
-        if (priorityIndex > -1) {
-            remainingIncidentPriorities.splice(priorityIndex, 1);
-        }
+        const priority = incident.priority ?? undefined;
+        if (priority !== undefined) {
+            const priorityIndex = remainingIncidentPriorities.indexOf(priority);
+            if (priorityIndex > -1) {
+                remainingIncidentPriorities.splice(priorityIndex, 1);
+            }
 
-        filterGroupCounts.priority[priority] = (filterGroupCounts.priority[priority] || 0) + 1;
+            filterGroupCounts.priority[priority] = (filterGroupCounts.priority[priority] || 0) + 1;
+        }
     });
 
     // Add remaining Incident category with count 0
@@ -395,8 +397,8 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
         const categoryName = getIncidentType(incident);
         const matchesCategory = category.length === 0 || (categoryName ? category.includes(categoryName) : false);
         const matchesPriority = priority.length === 0 || priority.includes(incident.priority || 'None');
-        const matchesStage = stage.length === 0 || stage.includes(incident.status.stage || 'None');
-        const matchesState = state.length === 0 || state.includes(incident.status.state);
+        const matchesStage = stage.length === 0 || stage.includes(incident.incidentStatus?.stage || 'None');
+        const matchesState = state.length === 0 || state.includes(incident.incidentStatus?.state || 'None');
         return matchesCategory && matchesPriority && matchesStage && matchesState;
     });
 };
