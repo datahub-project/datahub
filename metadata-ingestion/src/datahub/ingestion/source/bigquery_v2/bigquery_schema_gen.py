@@ -444,7 +444,7 @@ class BigQuerySchemaGenerator:
                 ):
                     yield wu
             except Exception as e:
-                if self.config.is_profiling_enabled():
+                if self.config.have_table_data_read_permission:
                     action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission?"
                 else:
                     action_mesage = "Does your service account have bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission?"
