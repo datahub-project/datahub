@@ -162,7 +162,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1] }];
             const position: ModulePositionInput = { rowIndex: 1, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 1, true);
+            const result = insertModuleIntoRows(rows, newModule, position, 1, PageTemplateSurfaceType.HomePage, true);
 
             expect(result).toHaveLength(2);
             expect(result[1].modules).toEqual([newModule]);
@@ -173,7 +173,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1] }];
             const position: ModulePositionInput = { rowIndex: 5, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 5, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 5, PageTemplateSurfaceType.HomePage, false);
 
             expect(result).toHaveLength(2);
             expect(result[1].modules).toEqual([newModule]);
@@ -183,7 +183,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1, module2] }];
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: 1 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result[0].modules).toHaveLength(3);
             expect(result[0].modules[1]).toEqual(newModule);
@@ -195,7 +195,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = [{ modules: [module1, module2] }];
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: undefined };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result[0].modules).toHaveLength(3);
             expect(result[0].modules[2]).toEqual(newModule); // Added at end
@@ -205,7 +205,7 @@ describe('Module Operations Utility Functions', () => {
             const rows: any[] = [];
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result).toHaveLength(1);
             expect(result[0].modules).toEqual([newModule]);
@@ -215,7 +215,7 @@ describe('Module Operations Utility Functions', () => {
             const rows = null as any;
             const position: ModulePositionInput = { rowIndex: 0, moduleIndex: 0 };
 
-            const result = insertModuleIntoRows(rows, newModule, position, 0, false);
+            const result = insertModuleIntoRows(rows, newModule, position, 0, PageTemplateSurfaceType.HomePage, false);
 
             expect(result).toHaveLength(1);
             expect(result[0].modules).toEqual([newModule]);
@@ -538,6 +538,7 @@ describe('Module Operations Utility Functions', () => {
                 newLargeModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
                 false,
             );
 
@@ -554,6 +555,8 @@ describe('Module Operations Utility Functions', () => {
                 smallModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
+
                 false,
             );
 
@@ -591,6 +594,7 @@ describe('Module Operations Utility Functions', () => {
                 newLargeModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
                 true, // isEditingModule = true
             );
 
@@ -618,6 +622,7 @@ describe('Module Operations Utility Functions', () => {
                 smallModule,
                 position,
                 mockUpdateTemplateWithModule,
+                PageTemplateSurfaceType.HomePage,
                 false,
             );
 

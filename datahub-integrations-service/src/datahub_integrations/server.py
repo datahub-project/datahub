@@ -41,6 +41,11 @@ from datahub_integrations.slack.slack import (
     reload_slack_credentials,
 )
 from datahub_integrations.sql import router as sql_router
+from datahub_integrations.teams.teams import (
+    private_router as teams_private_router,
+    public_router as teams_public_router,
+    reload_teams_credentials,
+)
 from datahub_integrations.util.access_log import access_log
 
 
@@ -50,6 +55,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         await stack.enter_async_context(actions_lifespan(app))
         await stack.enter_async_context(mcp_http_app.lifespan(app))
         await stack.enter_async_context(mcp_sse_app.lifespan(app))
+
         yield
 
 
@@ -110,6 +116,7 @@ def reload_credentials() -> None:
     """Reloads all integration credentials from GMS."""
 
     reload_slack_credentials()
+    reload_teams_credentials()
 
 
 class GetLinkPreviewInput(BaseModel):
@@ -133,6 +140,10 @@ def get_link_preview(input: GetLinkPreviewInput) -> SlackLinkPreview:
 # but eventually we should move the `/slack` prefix here.
 internal_router.include_router(slack_private_router, tags=["Slack"])
 external_router.include_router(slack_public_router, tags=["Slack"])
+
+# Teams integration routes
+internal_router.include_router(teams_private_router, tags=["Teams"])
+external_router.include_router(teams_public_router, tags=["Teams"])
 
 internal_router.include_router(actions_router, prefix=ACTIONS_ROUTE, tags=["Actions"])
 internal_router.include_router(gen_ai_router, prefix="/ai", tags=["AI"])

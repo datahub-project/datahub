@@ -1,0 +1,149 @@
+# Teams Integration GraphQL Schema
+extend type Query {
+  """
+  Search for Teams users and channels for integration setup.
+  Used for type-ahead selection in Teams notification configuration.
+  """
+  integrationTeamsSearch(input: TeamsSearchInput!): TeamsSearchResult!
+
+  """
+  Get OAuth configuration for Teams integration setup.
+  Used by the frontend to initiate OAuth flows without hardcoding configuration.
+  """
+  teamsOAuthConfig: TeamsOAuthConfig!
+}
+
+"""
+Input parameters for Teams integration search.
+"""
+input TeamsSearchInput {
+  """
+  Search query string to match against user names, emails, or channel names.
+  """
+  query: String!
+
+  """
+  Type of search to perform: 'USERS', 'CHANNELS', or 'ALL'.
+  """
+  type: TeamsSearchType = ALL
+
+  """
+  Maximum number of results to return (default: 10, max: 50).
+  """
+  limit: Int = 10
+}
+
+"""
+Teams search type enumeration.
+"""
+enum TeamsSearchType {
+  """
+  Search only for Teams users.
+  """
+  USERS
+
+  """
+  Search only for Teams channels.
+  """
+  CHANNELS
+
+  """
+  Search for both users and channels.
+  """
+  ALL
+}
+
+"""
+Result of Teams integration search operation.
+"""
+type TeamsSearchResult {
+  """
+  List of users found in search.
+  """
+  users: [TeamsUserSearchResult!]!
+
+  """
+  List of channels found in search.
+  """
+  channels: [TeamsChannelResult!]!
+
+  """
+  Whether more results are available beyond the current limit.
+  """
+  hasMore: Boolean!
+}
+
+"""
+Teams user information for integration search results.
+"""
+type TeamsUserSearchResult {
+  """
+  Unique user ID in Microsoft Teams / Azure AD.
+  """
+  id: String!
+
+  """
+  User's display name as shown in Teams.
+  """
+  displayName: String!
+
+  """
+  User's primary email address.
+  """
+  email: String!
+
+  """
+  User's department or organization unit (if available).
+  """
+  department: String
+}
+
+"""
+Teams channel information for integration search results.
+"""
+type TeamsChannelResult {
+  """
+  Unique channel ID in Microsoft Teams.
+  """
+  id: String!
+
+  """
+  Channel display name as shown in Teams.
+  """
+  displayName: String!
+
+  """
+  Name of the parent Team that contains this channel.
+  """
+  teamName: String!
+
+  """
+  Number of members in the channel (if available).
+  """
+  memberCount: Int
+}
+
+"""
+OAuth configuration for Teams integration setup.
+"""
+type TeamsOAuthConfig {
+  """
+  Microsoft application ID for OAuth flow.
+  """
+  appId: String!
+
+  """
+  OAuth redirect URI configured for the application.
+  """
+  redirectUri: String!
+
+  """
+  OAuth scopes required for Teams integration.
+  """
+  scopes: String!
+
+  """
+  Base authorization URL for Microsoft OAuth.
+  """
+  baseAuthUrl: String!
+}

@@ -5,11 +5,14 @@ from datahub.cli.env_utils import get_boolean_env_variable
 # Global on-off switch for all notifications
 NOTIFICATIONS_ENABLED = get_boolean_env_variable("NOTIFICATIONS_ENABLED", default=True)
 
-# Specifically enable or disable email + slack notifications. Disabled since you need an API key by default.
+# Specifically enable or disable email + slack + teams notifications. Disabled since you need an API key by default.
 EMAIL_SINK_ENABLED = get_boolean_env_variable("EMAIL_SINK_ENABLED", default=True)
 SLACK_SINK_ENABLED = get_boolean_env_variable(
     "SLACK_SINK_ENABLED", default=True
 )  # Enable if slack messages are not being sent by GMS or MAE consumer services.
+TEAMS_SINK_ENABLED = get_boolean_env_variable(
+    "TEAMS_SINK_ENABLED", default=True
+)  # Enable if teams messages are not being sent by GMS or MAE consumer services.
 
 MAX_NOTIFICATION_RETRIES = int(os.environ.get("MAX_NOTIFICATION_RETRIES", 3))
 

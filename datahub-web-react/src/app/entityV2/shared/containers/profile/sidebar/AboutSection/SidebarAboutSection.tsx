@@ -1,10 +1,11 @@
+import { Tooltip } from '@components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React, { useMemo } from 'react';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { EMPTY_MESSAGES, ENTITY_TYPES_WITH_NEW_SUMMARY_TAB } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
 import SourceRefSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SourceRefSection';
@@ -12,6 +13,9 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import InferDocsButton from '@src/app/entityV2/shared/components/inferredDocs/InferDocsButton';
 import { useShouldShowInferDocumentationButton } from '@src/app/entityV2/shared/components/inferredDocs/utils';
@@ -41,7 +45,7 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
 
     const canShowInferDocsButton = useShouldShowInferDocumentationButton(entityType);
 
-    const { displayedDescription, isInferred } = getAssetDescriptionDetails({
+    const { displayedDescription, isInferred, isPropagated, attribution } = getAssetDescriptionDetails({
         entityProperties: entityData,
         enableInferredDescriptions: canShowInferDocsButton,
     });
@@ -55,8 +59,10 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
         return !!displayedDescription || links.length > 0;
     }, [displayedDescription, entityData]);
 
-    const canEditDescription = !!entityData?.privileges?.canEditDescription;
+    const canEditDescription = useDocumentationPermission();
     const canProposeDescription = !!entityData?.privileges?.canProposeDescription;
+
+    const showNewSummaryTab = useShowAssetSummaryPage();
 
     return (
         <>
@@ -64,14 +70,19 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
                 title="Documentation"
                 content={
                     <>
-                        {displayedDescription && [
-                            isInferred && <InferenceDetailsPill pillStyles={{ marginBottom: 4 }} />,
-                            <DescriptionSection
-                                description={displayedDescription}
-                                isExpandable
-                                lineLimit={LINE_LIMIT}
-                            />,
-                        ]}
+                        <Tooltip
+                            placement="topLeft"
+                            title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
+                        >
+                            {displayedDescription && [
+                                isInferred && <InferenceDetailsPill pillStyles={{ marginBottom: 4 }} />,
+                                <DescriptionSection
+                                    description={displayedDescription}
+                                    isExpandable
+                                    lineLimit={LINE_LIMIT}
+                                />,
+                            ]}
+                        </Tooltip>
                         {hasContent && <LinksSection readOnly />}
                         {!hasContent && [
                             <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />,
@@ -114,7 +125,17 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
                                 dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {
-                                        routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                        if (
+                                            ENTITY_TYPES_WITH_NEW_SUMMARY_TAB.includes(entityType) &&
+                                            showNewSummaryTab
+                                        ) {
+                                            routeToTab({
+                                                tabName: 'Summary',
+                                                tabParams: { editingDescription: true },
+                                            });
+                                        } else {
+                                            routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                        }
                                     } else {
                                         const url = getEntityPath(
                                             entityType,

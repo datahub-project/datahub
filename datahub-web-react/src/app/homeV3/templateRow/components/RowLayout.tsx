@@ -2,11 +2,14 @@ import { spacing } from '@components';
 import React, { memo } from 'react';
 import styled from 'styled-components';
 
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import Module from '@app/homeV3/module/Module';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import ModuleDropZone from '@app/homeV3/templateRow/components/ModuleDropZone';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
+
+import { PageTemplateSurfaceType } from '@types';
 
 const RowWrapper = styled.div`
     display: flex;
@@ -38,9 +41,11 @@ const ModuleWrapper = memo(({ module, position }: ModuleWrapperProps) => (
 ));
 
 function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, isSmallRow }: Props) {
+    const { templateType } = usePageTemplateContext();
+    const showAddButtons = templateType === PageTemplateSurfaceType.HomePage;
     return (
         <RowWrapper>
-            <AddModuleButton orientation="vertical" rowIndex={rowIndex} rowSide="left" />
+            {showAddButtons && <AddModuleButton orientation="vertical" rowIndex={rowIndex} rowSide="left" />}
 
             {/* Drop zone at the beginning of the row */}
             <ModuleDropZone
@@ -63,7 +68,7 @@ function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, isSmallR
                 </React.Fragment>
             ))}
 
-            <AddModuleButton orientation="vertical" rowIndex={rowIndex} rowSide="right" />
+            {showAddButtons && <AddModuleButton orientation="vertical" rowIndex={rowIndex} rowSide="right" />}
         </RowWrapper>
     );
 }

@@ -24,6 +24,9 @@ query getDataProduct($urn: String!) {
         proposals: proposals {
             ...proposalsFragment
         }
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 

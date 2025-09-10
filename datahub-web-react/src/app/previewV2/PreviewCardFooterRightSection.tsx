@@ -51,7 +51,7 @@ const PreviewCardFooterRightSection = ({
     tier,
     statsSummary,
 }: Props) => {
-    const previewData = usePreviewData();
+    const { previewData } = usePreviewData();
 
     const status = tier !== undefined ? getBarsStatusFromPopularityTier(tier) : 0;
     const showLineageBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.LINEAGE);

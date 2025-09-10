@@ -16,6 +16,7 @@ public class AcrylConstants {
   public static final String SEMANTIC_SEARCH_ACRYL_SCHEMA_FILE = "semantic-search.acryl.graphql";
   public static final String EXECUTOR_SCHEMA_FILE = "executor.graphql";
   public static final String REMOTE_EXECUTOR_SCHEMA_FILE = "remote_executor.saas.graphql";
+  public static final String INTEGRATIONS_TEAMS_SCHEMA_FILE = "integrations/teams.graphql";
 
   private AcrylConstants() {}
 }

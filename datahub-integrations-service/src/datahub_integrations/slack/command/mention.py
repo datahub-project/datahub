@@ -16,7 +16,12 @@ from datahub_integrations.chat.chat_history import (
     HumanMessage,
     Message,
 )
-from datahub_integrations.chat.chat_session import ChatSession, NextMessage
+from datahub_integrations.chat.chat_session import (
+    ChatMaxToolCallsExceededError,
+    ChatSession,
+    ChatSessionMaxTokensExceededError,
+    NextMessage,
+)
 from datahub_integrations.chat.slackify import slackify_markdown
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.command.mention_helpers import (
@@ -100,8 +105,10 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         event: The event containing message details (text, channel, user, thread_ts)
     """
     channel_id = event.channel_id
+    user_name = event.user_id
     response_ts = None
-    chat_session_id = None
+    chat_session = None
+    is_limited_history = None
 
     timer = PerfTimer()
     timer.start()
@@ -138,8 +145,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 logger.warning(f"Failed to update progress message: {str(e)}")
 
         # Process the actual response
-        chat_session = _build_chat_session(app.client, event)
-        chat_session_id = chat_session.session_id
+        chat_session, is_limited_history = _build_chat_session(app.client, event)
         message, followup_questions = _generate_mention_response(
             chat_session, event, progress_callback, response_ts
         )
@@ -175,19 +181,35 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 message_contents=event.message_text,
                 response_contents=message,
                 response_generation_duration_sec=timer.elapsed_seconds(),
-                chat_session_id=chat_session_id,
+                chat_session_id=chat_session.session_id,
+                is_limited_history=is_limited_history,
+                num_tool_calls=chat_session.history.num_tool_calls,
+                num_tool_call_errors=chat_session.history.num_tool_call_errors,
+                num_history_messages=len(chat_session.history.messages),
+                full_history=chat_session.history.json(indent=None),
             )
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
     except Exception as e:
-        logger.exception(f"Failed to send Slack response to channel {channel_id}: {e}")
         if response_ts is not None:
+            logger.warning(f"Failed to send successful response {channel_id}: {e}")
+            if isinstance(e, ChatMaxToolCallsExceededError):
+                text = ":x: Uh, oh ! Looks like your question is too complex. Please try again with a simpler question."
+            elif isinstance(e, ChatSessionMaxTokensExceededError):
+                # TODO: Handle this case by compacting/truncating the history
+                text = ":x: Uh, oh ! Looks like I fetched too much information here. Please try asking your question in a new thread."
+            else:
+                text = ":x: Encountered an internal error"
             app.client.chat_update(
                 channel=channel_id,
                 ts=response_ts,
-                text=":x: Encountered an internal error",
+                text=text,
                 icon_url=DATAHUB_SLACK_ICON_URL,
                 mrkdwn=True,
+            )
+        else:
+            logger.exception(
+                f"Failed to send Slack response to channel {channel_id}: {e}"
             )
         track_saas_event(
             ChatbotInteractionEvent(
@@ -202,7 +224,20 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 response_contents=None,
                 response_error=f"{type(e).__name__}: {str(e)}",
                 response_generation_duration_sec=timer.elapsed_seconds(),
-                chat_session_id=chat_session_id,
+                chat_session_id=chat_session.session_id if chat_session else None,
+                is_limited_history=is_limited_history,
+                num_tool_calls=chat_session.history.num_tool_calls
+                if chat_session
+                else None,
+                num_tool_call_errors=chat_session.history.num_tool_call_errors
+                if chat_session
+                else None,
+                num_history_messages=len(chat_session.history.messages)
+                if chat_session
+                else None,
+                full_history=chat_session.history.json(indent=None)
+                if chat_session
+                else None,
             )
         )
 
@@ -214,14 +249,15 @@ def _generate_mention_response(
     response_ts: str,
 ) -> Tuple[str, List[str]]:
     original_history_length = len(chat_session.history.messages)
-
-    with chat_session.set_progress_callback(progress_callback):
-        response = chat_session.generate_next_message()
-    assert isinstance(response, NextMessage)
-
-    # Add the intermediate thinking messages to the history store.
-    new_messages = chat_session.history.messages[original_history_length:]
-    _update_slack_history_cache(event, response_ts, response, new_messages)
+    response = None
+    try:
+        with chat_session.set_progress_callback(progress_callback):
+            response = chat_session.generate_next_message()
+        assert isinstance(response, NextMessage)
+    finally:
+        # Add the intermediate thinking messages to the history store.
+        new_messages = chat_session.history.messages[original_history_length:]
+        _update_slack_history_cache(event, response_ts, response, new_messages)
 
     return (
         slackify_markdown(response.text),
@@ -232,17 +268,20 @@ def _generate_mention_response(
 def _update_slack_history_cache(
     event: SlackMentionEvent,
     response_ts: str,
-    response: NextMessage,
+    response: Optional[NextMessage],
     new_messages: List[Message],
 ) -> None:
     thread_history = slack_config.get_slack_history_cache().get_thread(
         event.channel_id, event.thread_ts
     )
-    thread_history.add_message(response_ts, AssistantMessage(text=response.text))
+    if response is not None:
+        thread_history.add_message(response_ts, AssistantMessage(text=response.text))
     thread_history.add_thinking(response_ts, new_messages)
 
 
-def _build_chat_session(client: WebClient, event: SlackMentionEvent) -> ChatSession:
+def _build_chat_session(
+    client: WebClient, event: SlackMentionEvent
+) -> Tuple[ChatSession, bool]:
     message_text = event.message_text
     thread_ts = event.thread_ts
     logger.info(f"App mention message: {message_text} in thread {thread_ts}")
@@ -274,7 +313,7 @@ def _build_chat_session(client: WebClient, event: SlackMentionEvent) -> ChatSess
         history=history,
     )
 
-    return chat_session
+    return chat_session, thread_history.is_limited_history()
 
 
 class FeedbackPayload(BaseModel):

@@ -13,8 +13,8 @@ repositories {
 }
 
 ext {
-    protobuf_version = '3.25.5'
-    datahub_protobuf_version = '0.14.1'
+    protobuf_version = '4.32.0'
+    datahub_protobuf_version = '1.1.0'
 }
 
 configurations {

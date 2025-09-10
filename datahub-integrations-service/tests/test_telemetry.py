@@ -23,13 +23,14 @@ def test_track_saas_event() -> None:
     # Mock the telemetry client
     with (
         patch("datahub_integrations.telemetry.telemetry.telemetry_client"),
-        patch("datahub_integrations.telemetry.telemetry.graph") as mock_graph,
+        patch(
+            "datahub_integrations.telemetry.telemetry._get_origin",
+            return_value="http://test-frontend",
+        ),
         patch(
             "datahub_integrations.telemetry.telemetry.graph_as_user"
         ) as mock_graph_as_user,
     ):
-        mock_graph.frontend_base_url = "http://test-frontend"
-
         mock_user_graph = Mock()
         mock_user_graph.config.server = "http://test-server"
 

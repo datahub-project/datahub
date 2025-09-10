@@ -199,6 +199,11 @@ input NotificationConnectionTestRequestInput {
   Required to test if this is a slack connection
   """
   slack: SlackNotificationSettingsInput
+
+  """
+  Required to test if this is a teams connection
+  """
+  teams: TeamsNotificationSettingsInput
 }
 
 """

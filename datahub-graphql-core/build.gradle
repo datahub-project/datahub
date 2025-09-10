@@ -53,6 +53,11 @@ graphqlCodegen {
     ]
 }
 
+// Add git branch detection to force regeneration when branch changes
+tasks.named('graphqlCodegen') {
+    inputs.property("gitBranch", getGitBranchName())
+}
+
 test {
   testLogging.exceptionFormat = 'full'
 }
@@ -69,3 +74,17 @@ compileJava.dependsOn 'graphqlCodegen'
 build.dependsOn ':datahub-web-react:graphqlPrettierCheck'
 spotlessApply.dependsOn ':datahub-web-react:graphqlPrettierWrite'
 sourceSets.main.java.srcDir "$projectDir/src/mainGeneratedGraphQL/java"
+
+def getGitBranchName() {
+  try {
+    def stdout = new ByteArrayOutputStream()
+    exec {
+      commandLine 'git', 'branch', '--show-current'
+      standardOutput = stdout
+    }
+    return stdout.toString().trim()
+  } catch (Exception e) {
+    // Fallback for older git versions or non-git environments
+    return "unknown"
+  }
+}

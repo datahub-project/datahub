@@ -4,6 +4,7 @@ import AcrylInstances from '@app/settingsV2/platform/acryl/AcrylInstances';
 import { BigQueryIntegration } from '@app/settingsV2/platform/integrations/BigQueryIntegration';
 import { DatabricksIntegration } from '@app/settingsV2/platform/integrations/DatabricksIntegration';
 import { SnowflakeIntegration } from '@app/settingsV2/platform/integrations/SnowflakeIntegration';
+import { TeamsIntegration } from '@app/settingsV2/platform/integrations/TeamsIntegration';
 import { SlackIntegration } from '@app/settingsV2/platform/slack/SlackIntegration';
 import { OidcIntegration } from '@app/settingsV2/platform/sso/OidcIntegration';
 
@@ -14,10 +15,8 @@ import bigqueryLogo from '@images/bigquerylogo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import oidcLogo from '@images/oidclogo.png';
 import slackLogo from '@images/slacklogo.png';
-// import teamsLogo from '../../../images/teamslogo.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
-
-// import { TeamsIntegration } from './teams/TeamsIntegration';
+import teamsLogo from '@images/teamslogo.png';
 
 /**
  * SSO
@@ -46,13 +45,13 @@ export const SLACK_INTEGRATION = {
 /**
  * Teams Integrations
  */
-// const TEAMS_INTEGRATION = {
-//     id: 'microsoft-teams',
-//     name: 'Microsoft Teams',
-//     img: teamsLogo,
-//     description: 'Notify Teams channels when important things happen',
-//     content: <TeamsIntegration />,
-// };
+export const TEAMS_INTEGRATION = {
+    id: 'microsoft-teams',
+    name: 'Teams',
+    img: teamsLogo,
+    description: 'Notify Teams channels when important things happen',
+    content: <TeamsIntegration />,
+};
 
 /**
  * Acryl Instance Integrations
@@ -95,7 +94,7 @@ const DATABRICKS_INTEGRATION = {
 
 export const SUPPORTED_INTEGRATIONS = [
     SLACK_INTEGRATION,
-    // TEAMS_INTEGRATION, -- Uncheck when backend is complete.
+    TEAMS_INTEGRATION,
     ACRYL_INSTANCE_INTEGRATION,
     SNOWFLAKE_INTEGRATION,
     BIGQUERY_INTEGRATION,

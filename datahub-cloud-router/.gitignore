@@ -1,0 +1,9 @@
+*.egg-info/
+
+# Test artifacts
+.coverage
+junit.*.xml
+test.db
+*.pyc
+__pycache__/
+.pytest_cache/

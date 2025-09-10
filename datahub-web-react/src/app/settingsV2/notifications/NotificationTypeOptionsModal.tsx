@@ -2,7 +2,13 @@ import { Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { EMAIL_SINK, NotificationSink, NotificationTypeOptions, SLACK_SINK } from '@app/settingsV2/notifications/types';
+import {
+    EMAIL_SINK,
+    NotificationSink,
+    NotificationTypeOptions,
+    SLACK_SINK,
+    TEAMS_SINK,
+} from '@app/settingsV2/notifications/types';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
@@ -25,6 +31,7 @@ const InputDiv = styled.div`
 const DEFAULT_OPTIONS = {
     slackChannel: null,
     email: null,
+    teamsChannel: null,
 };
 
 export const NotificationTypeOptionsModal = ({ initialState, visible, sinks, onDone, onClose }: Props) => {
@@ -36,6 +43,7 @@ export const NotificationTypeOptionsModal = ({ initialState, visible, sinks, onD
 
     const isSlackEnabled = sinks.some((sink) => sink.id === SLACK_SINK.id);
     const isEmailEnabled = sinks.some((sink) => sink.id === EMAIL_SINK.id);
+    const isTeamsEnabled = sinks.some((sink) => sink.id === TEAMS_SINK.id);
 
     return (
         <Modal
@@ -80,6 +88,20 @@ export const NotificationTypeOptionsModal = ({ initialState, visible, sinks, onD
                                 value={options.slackChannel || undefined}
                                 onChange={(e) => setOptions({ ...options, slackChannel: e.target.value || null })}
                                 placeholder="#datahub-slack-notifications"
+                            />
+                        </InputDiv>
+                    </Form.Item>
+                )}
+                {isTeamsEnabled && (
+                    <Form.Item label={<Typography.Text strong>Teams Channel</Typography.Text>}>
+                        <Typography.Text type="secondary">
+                            Enter a custom channel to notify. If not provided, the configured default will be used.
+                        </Typography.Text>
+                        <InputDiv>
+                            <Input
+                                value={options.teamsChannel || undefined}
+                                onChange={(e) => setOptions({ ...options, teamsChannel: e.target.value || null })}
+                                placeholder="#datahub-teams-notifications"
                             />
                         </InputDiv>
                     </Form.Item>

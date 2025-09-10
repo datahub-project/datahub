@@ -24,6 +24,7 @@ ext {
             // Saas only
             ':datahub-integrations-service',
             ':datahub-executor',
+            ':datahub-cloud-router',
     ]
 
     // Common configuration for all tasks
@@ -474,3 +475,6 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
+
+// :docker:build builds all docker images.
+build.dependsOn buildImagesallImages

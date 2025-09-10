@@ -79,6 +79,11 @@ input NotificationSettingsInput {
   emailSettings: EmailNotificationSettingsInput
 
   """
+  Microsoft Teams Notification Settings
+  """
+  teamsSettings: TeamsNotificationSettingsInput
+
+  """
   Scenario settings, dictating scenarios in which the actor is notified. This may be updated in isolation without impacting sink types, slack settings, or email settings.
 
   If not provided, these will be unchanged.
@@ -101,6 +106,11 @@ type NotificationSettings {
   Email Notification Settings
   """
   emailSettings: EmailNotificationSettings
+
+  """
+  Microsoft Teams Notification Settings
+  """
+  teamsSettings: TeamsNotificationSettings
 
   """
   Scenario settings, dictating scenarios in which the actor is notified.
@@ -146,6 +156,84 @@ type EmailNotificationSettings {
   email: String!
 }
 
+input TeamsUserInput {
+  """
+  The Teams user ID (internal Teams identifier).
+  """
+  teamsUserId: String
+
+  """
+  The Azure AD user ID (Azure Active Directory object ID).
+  """
+  azureUserId: String
+
+  """
+  The user's email address (fallback identifier).
+  """
+  email: String
+
+  """
+  The user's display name (cached value, may be stale).
+  """
+  displayName: String
+
+  """
+  The timestamp when the cached display name was last updated.
+  """
+  lastUpdated: Long
+}
+
+type TeamsUser {
+  """
+  The Teams user ID (internal Teams identifier).
+  """
+  teamsUserId: String
+
+  """
+  The Azure AD user ID (Azure Active Directory object ID).
+  """
+  azureUserId: String
+
+  """
+  The user's email address (fallback identifier).
+  """
+  email: String
+
+  """
+  The user's display name (cached value, may be stale).
+  """
+  displayName: String
+
+  """
+  The timestamp when the cached display name was last updated.
+  """
+  lastUpdated: Long
+}
+
+input TeamsNotificationSettingsInput {
+  """
+  Optional structured user information with cached metadata.
+  """
+  user: TeamsUserInput
+
+  """
+  The actor's list of channels to notify. Only filled if the actor is a group.
+  """
+  channels: [TeamsChannelInput!]
+}
+
+type TeamsNotificationSettings {
+  """
+  Optional structured user information with cached metadata.
+  """
+  user: TeamsUser
+
+  """
+  The actor's list of channels to notify. Only filled if the actor is a group.
+  """
+  channels: [TeamsChannel!]
+}
+
 enum NotificationSinkType {
   """
   Slack
@@ -156,6 +244,11 @@ enum NotificationSinkType {
   Email
   """
   EMAIL
+
+  """
+  Microsoft Teams
+  """
+  TEAMS
 }
 
 enum FormNotificationType {
@@ -188,6 +281,8 @@ enum NotificationRecipientType {
   EMAIL
   SLACK_CHANNEL
   SLACK_DM
+  TEAMS_CHANNEL
+  TEAMS_DM
 }
 
 input FormNotificationRecipientInput {

@@ -1,0 +1,17 @@
+query integrationTeamsSearch($input: TeamsSearchInput!) {
+    integrationTeamsSearch(input: $input) {
+        users {
+            id
+            displayName
+            email
+            department
+        }
+        channels {
+            id
+            displayName
+            teamName
+            memberCount
+        }
+        hasMore
+    }
+}

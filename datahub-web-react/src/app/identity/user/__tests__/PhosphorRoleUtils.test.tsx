@@ -25,10 +25,10 @@ describe('PhosphorRoleUtils', () => {
             expect(getByTestId('icon-PencilSimple-phosphor-xl')).toBeTruthy();
         });
 
-        it('should return Eye icon for Reader role', () => {
+        it('should return BookOpen icon for Reader role', () => {
             const result = mapRoleToPhosphorIcon('Reader');
             const { getByTestId } = render(<div>{result}</div>);
-            expect(getByTestId('icon-Eye-phosphor-xl')).toBeTruthy();
+            expect(getByTestId('icon-BookOpen-phosphor-xl')).toBeTruthy();
         });
 
         it('should return User icon for unknown role names', () => {

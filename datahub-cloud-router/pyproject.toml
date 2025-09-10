@@ -1,0 +1,113 @@
+[build-system]
+requires = ["setuptools>=78.1.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datahub-cloud-router"
+version = "1!0.0.0.dev0"
+description = "Multi-tenant Teams integration router for DataHub"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "DataHub Team", email = "datahub@acryl.io"}
+]
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+keywords = ["datahub", "teams", "microsoft", "bot", "framework", "multi-tenant", "router"]
+
+# Main runtime dependencies
+dependencies = [
+    "fastapi>=0.116.1",
+    "uvicorn[standard]>=0.35.0",
+    "pydantic>=2.11.0",
+    "aiohttp>=3.12.0",
+    "aiomysql>=0.2.0",
+    "PyMySQL>=1.1.0",
+    "PyJWT>=2.10.0",
+    "msal>=1.33.0",
+    "requests>=2.32.0",
+    "python-dotenv>=1.1.0",
+    "PyYAML>=6.0.0",
+    # Microsoft Bot Framework
+    "botbuilder-core>=4.17.0",
+    "botbuilder-schema>=4.17.0",
+    "botframework-connector>=4.17.0",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[project.scripts]
+datahub-router = "datahub.cloud.router.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/datahub-project/datahub"
+"Bug Reports" = "https://github.com/datahub-project/datahub/issues"
+Source = "https://github.com/datahub-project/datahub"
+Documentation = "https://datahubproject.io/docs"
+
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+exclude = [
+    ".git",
+    "venv",
+    "__pycache__",
+    "*.egg-info"
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "ASYNC",
+    "B",      # flake8-bugbear
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "G010",   # logging.warn -> logging.warning
+    "I",      # isort
+    "INP001",
+    "TID",    # flake8-tidy-imports
+    "RUF100", # unused-noqa
+]
+extend-ignore = [
+    'E501', # Ignore line length, since black handles that.
+    'D203', # Ignore 1 blank line required before class docstring.
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings"
+]
+markers = [
+    "asyncio: marks tests as async (deselect with '-m \"not asyncio\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests"
+]

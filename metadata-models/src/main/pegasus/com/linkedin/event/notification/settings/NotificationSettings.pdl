@@ -24,6 +24,11 @@ record NotificationSettings {
     emailSettings: optional EmailNotificationSettings
 
     /**
+     * Microsoft Teams Notification Settings
+     */
+    teamsSettings: optional TeamsNotificationSettings
+
+    /**
      * User or Group Notification Scenario Settings.
      *
      * A map of notification scenario type to the settings associated with it.

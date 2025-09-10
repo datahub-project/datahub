@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.EmailNotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
+import com.linkedin.datahub.graphql.generated.TeamsNotificationSettings;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -49,6 +50,10 @@ public class NotificationSettingsMapper
       result.setEmailSettings(mapEmailSettings(notificationSettings.getEmailSettings()));
     }
 
+    if (notificationSettings.hasTeamsSettings()) {
+      result.setTeamsSettings(mapTeamsSettings(notificationSettings.getTeamsSettings()));
+    }
+
     if (notificationSettings.hasSettings()) {
       result.setSettings(
           NotificationSettingMapMapper.mapNotificationSettings(
@@ -78,6 +83,53 @@ public class NotificationSettingsMapper
     final EmailNotificationSettings result = new EmailNotificationSettings();
     if (emailSettings.hasEmail()) {
       result.setEmail(emailSettings.getEmail());
+    }
+    return result;
+  }
+
+  private TeamsNotificationSettings mapTeamsSettings(
+      @Nonnull
+          final com.linkedin.event.notification.settings.TeamsNotificationSettings teamsSettings) {
+    final TeamsNotificationSettings result = new TeamsNotificationSettings();
+    if (teamsSettings.hasUser()) {
+      com.linkedin.datahub.graphql.generated.TeamsUser graphqlUser =
+          new com.linkedin.datahub.graphql.generated.TeamsUser();
+      com.linkedin.settings.global.TeamsUser user = teamsSettings.getUser();
+
+      // Map the TeamsUser fields properly
+      if (user.hasAzureUserId()) {
+        graphqlUser.setAzureUserId(user.getAzureUserId());
+      }
+      if (user.hasTeamsUserId()) {
+        graphqlUser.setTeamsUserId(user.getTeamsUserId());
+      }
+      if (user.hasEmail()) {
+        graphqlUser.setEmail(user.getEmail());
+      }
+
+      if (user.hasDisplayName()) {
+        graphqlUser.setDisplayName(user.getDisplayName());
+      }
+      if (user.hasLastUpdated()) {
+        graphqlUser.setLastUpdated(user.getLastUpdated());
+      }
+
+      result.setUser(graphqlUser);
+    }
+    if (teamsSettings.hasChannels()) {
+      result.setChannels(
+          teamsSettings.getChannels().stream()
+              .map(
+                  channel -> {
+                    com.linkedin.datahub.graphql.generated.TeamsChannel graphqlChannel =
+                        new com.linkedin.datahub.graphql.generated.TeamsChannel();
+                    graphqlChannel.setId(channel.getId());
+                    if (channel.hasName()) {
+                      graphqlChannel.setName(channel.getName());
+                    }
+                    return graphqlChannel;
+                  })
+              .collect(Collectors.toList()));
     }
     return result;
   }

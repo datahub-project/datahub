@@ -12,6 +12,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.event.notification.settings.EmailNotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
+import com.linkedin.event.notification.settings.TeamsNotificationSettings;
 import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
@@ -294,6 +295,25 @@ public class SettingsService extends BaseService {
     final EmailNotificationSettings emailNotificationSettings = new EmailNotificationSettings();
     emailNotificationSettings.setEmail(email);
     return emailNotificationSettings;
+  }
+
+  @Nonnull
+  public TeamsNotificationSettings createTeamsNotificationSettings(
+      @Nullable com.linkedin.settings.global.TeamsUser user,
+      @Nullable List<com.linkedin.settings.global.TeamsChannel> channels) {
+    final TeamsNotificationSettings teamsNotificationSettings = new TeamsNotificationSettings();
+    if (user != null) {
+      teamsNotificationSettings.setUser(user);
+    }
+    if (channels != null) {
+      com.linkedin.settings.global.TeamsChannelArray channelArray =
+          new com.linkedin.settings.global.TeamsChannelArray();
+      for (com.linkedin.settings.global.TeamsChannel channel : channels) {
+        channelArray.add(channel);
+      }
+      teamsNotificationSettings.setChannels(channelArray);
+    }
+    return teamsNotificationSettings;
   }
 
   /**

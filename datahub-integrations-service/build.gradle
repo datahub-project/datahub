@@ -83,20 +83,21 @@ task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
 }
 
 def typeCheckDirs = "src/ tests/"
-def lintDirs = "src/ tests/ experiments/ scripts/"
+def lintDirs = "src/ tests/ scripts/"
+def excludeRouterArgs = "--exclude=scripts/forms"
 
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
-        "ruff check ${lintDirs} && " +
-        "ruff format --check ${lintDirs} && " +
+        "ruff check ${lintDirs} ${excludeRouterArgs} && " +
+        "ruff format --check ${lintDirs} ${excludeRouterArgs} && " +
         "mypy ${typeCheckDirs}"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
-        "ruff check --fix ${lintDirs} && " +
-        "ruff format ${lintDirs}"
+        "ruff check --fix ${lintDirs} ${excludeRouterArgs} && " +
+        "ruff format ${lintDirs} ${excludeRouterArgs}"
 }
 
 task pytest(type: Exec, dependsOn: [installDev]) {

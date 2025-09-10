@@ -8,11 +8,15 @@ from datahub.configuration import ConfigModel
 from datahub.emitter.serialization_helper import post_json_transform
 
 # DataHub imports.
-from datahub.metadata.schema_classes import GenericPayloadClass
+from datahub.metadata.schema_classes import (
+    GenericPayloadClass,
+)
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
+    RELATIONSHIP_CHANGE_EVENT_V1_TYPE,
     EntityChangeEvent,
+    RelationshipChangeEvent,
 )
 
 # May or may not need these.
@@ -31,6 +35,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 ENTITY_CHANGE_EVENT_NAME = "entityChangeEvent"
+RELATIONSHIP_CHANGE_EVENT_NAME = "relationshipChangeEvent"
 
 
 # Converts a DataHub Events Message to an EntityChangeEvent.
@@ -162,8 +167,11 @@ class DataHubEventSource(EventSource):
             post_json_transform(value["payload"])
         )
         if ENTITY_CHANGE_EVENT_NAME == value["name"]:
-            event = build_entity_change_event(payload)
-            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, event, {})
+            ece = build_entity_change_event(payload)
+            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, ece, {})
+        elif RELATIONSHIP_CHANGE_EVENT_NAME == value["name"]:
+            rce = RelationshipChangeEvent.from_json(payload.get("value"))
+            yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, {})
 
     def close(self) -> None:
         if self.datahub_events_consumer:

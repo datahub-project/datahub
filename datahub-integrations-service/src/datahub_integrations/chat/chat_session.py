@@ -52,7 +52,7 @@ from datahub_integrations.telemetry.telemetry import track_saas_event
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import ContentBlockOutputTypeDef
 assert MLFLOW_INITIALIZED
-MAX_TOOL_CALLS = 20
+MAX_TOOL_CALLS = 30
 
 # The soft limit is passed to the LLM's prompt, in an effort
 # to have it be concise.
@@ -77,6 +77,10 @@ class ChatSessionMaxTokensExceededError(Exception):
 
 
 class ChatSessionError(Exception):
+    pass
+
+
+class ChatMaxToolCallsExceededError(Exception):
     pass
 
 
@@ -325,24 +329,33 @@ class ChatSession:
         if self._use_prompt_caching:
             tools.append({"cachePoint": {"type": "default"}})
 
-        response = bedrock_client.converse(
-            modelId=(
-                CHATBOT_MODEL.value
-                if isinstance(CHATBOT_MODEL, BedrockModel)
-                else CHATBOT_MODEL
-            ),
-            system=[
-                {"text": _SYSTEM_PROMPT},
-            ],
-            messages=messages,  # type: ignore
-            toolConfig={
-                "tools": tools,  # type: ignore
-            },
-            inferenceConfig={
-                "temperature": 0.7,
-                "maxTokens": 2048,
-            },
-        )
+        try:
+            response = bedrock_client.converse(
+                modelId=(
+                    CHATBOT_MODEL.value
+                    if isinstance(CHATBOT_MODEL, BedrockModel)
+                    else CHATBOT_MODEL
+                ),
+                system=[
+                    {"text": _SYSTEM_PROMPT},
+                ],
+                messages=messages,  # type: ignore
+                toolConfig={
+                    "tools": tools,  # type: ignore
+                },
+                inferenceConfig={
+                    "temperature": 0.7,
+                    "maxTokens": 2048,
+                },
+            )
+        except bedrock_client.exceptions.ValidationException as e:
+            # Example error messages:
+            # The model returned the following errors: Input is too long for requested model.
+            # The model returned the following errors: input length and `max_tokens` exceed context limit
+            if "Input is too long" in str(e) or "exceed context limit" in str(e):
+                raise ChatSessionMaxTokensExceededError(str(e)) from e
+            else:
+                raise e
 
         is_end_turn = False
         output = response["output"]
@@ -403,6 +416,7 @@ class ChatSession:
             tool = self.tool_map[tool_name]
             with timer, with_datahub_client(self.client):
                 result = tool.run(arguments=tool_request.tool_input)
+
         except Exception as e:
             error = f"{type(e).__name__}: {e}"
             self._add_message(
@@ -438,6 +452,8 @@ class ChatSession:
             logger.info(f"Generating tool call {i} for session {self.session_id}")
             self._generate_tool_call()
 
+            if not self.history.messages:
+                raise ChatSessionError("No messages in chat history")
             last_message = self.history.messages[-1]
             if self.is_respond_to_user(last_message):
                 logger.info(
@@ -451,7 +467,7 @@ class ChatSession:
                     suggestions=[],
                 )
 
-        raise ChatSessionError(
+        raise ChatMaxToolCallsExceededError(
             f"Failed to generate next message after {MAX_TOOL_CALLS} tool calls"
         )
 

@@ -25,6 +25,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
     color: ${ANTD_GRAY[9]};
     display: block;
     width: 100%;
+
     .remirror-editor.ProseMirror {
         font-size: ${(props) => props.size}px;
     }
@@ -148,6 +149,7 @@ export default function StructuredPropertyValue({
                     entity={hydratedEntityMap[value.entity.urn]}
                     showFullTooltip={!isProposed}
                     isProposed={isProposed}
+                    previewContext={{ propagationDetails: { attribution } }}
                 />
             );
         } else {
@@ -169,7 +171,12 @@ export default function StructuredPropertyValue({
     }
 
     return (
-        <Tooltip title={attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}>
+        <Tooltip
+            placement="topLeft"
+            title={
+                !value.entity && !!attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+            }
+        >
             <ValueText size={size} $isProposed={isProposed}>
                 {value.entity ? (
                     valueEntityRender

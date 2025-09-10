@@ -113,6 +113,8 @@ type Props = {
     applyView?: boolean;
     onLineageClick?: () => void;
     isLineageTab?: boolean;
+    isViewAllMode?: boolean | false;
+    handleViewAllClickWarning?: () => void;
 };
 
 export const EmbeddedListSearch = ({
@@ -143,6 +145,8 @@ export const EmbeddedListSearch = ({
     applyView = false,
     onLineageClick,
     isLineageTab = false,
+    isViewAllMode = false,
+    handleViewAllClickWarning,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -361,6 +365,8 @@ export const EmbeddedListSearch = ({
                 setSelectedEntities={setSelectedEntities}
                 entityAction={entityAction}
                 applyView={applyView}
+                isViewAllMode={isViewAllMode}
+                handleViewAllClickWarning={handleViewAllClickWarning}
             />
         </Container>
     );

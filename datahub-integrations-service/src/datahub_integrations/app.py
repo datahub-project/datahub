@@ -52,6 +52,20 @@ ROOT_DIR = pathlib.Path(__file__).parent / "../.."
 STATIC_ASSETS_DIR = ROOT_DIR / "static"
 EXTERNAL_STATIC_PATH = f"{DATAHUB_FRONTEND_URL}/integrations/static"
 
+# Multi-tenant router configuration for Teams integration
+if os.environ.get("DATAHUB_TEAMS_ROUTER_URL"):
+    TEAMS_ROUTER_URL = os.environ["DATAHUB_TEAMS_ROUTER_URL"]
+else:
+    # Default router URL for development
+    if os.environ.get("DATAHUB_TEAMS_ROUTER_PORT"):
+        router_port = os.environ["DATAHUB_TEAMS_ROUTER_PORT"]
+    else:
+        router_port = "9005"  # Default multi-tenant router port
+
+    router_host = os.environ.get("DATAHUB_TEAMS_ROUTER_HOST", "localhost")
+    router_protocol = os.environ.get("DATAHUB_TEAMS_ROUTER_PROTOCOL", "http")
+    TEAMS_ROUTER_URL = f"{router_protocol}://{router_host}:{router_port}"
+
 # Remote debugging setup
 if os.environ.get("DEBUGPY_ENABLED", "").lower() == "true":
     import debugpy

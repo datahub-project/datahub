@@ -101,11 +101,14 @@ import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutors
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.RevokeUserInvitationResolver;
 import com.linkedin.datahub.graphql.resolvers.role.SendUserInvitationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.UserInvitationService;
 import com.linkedin.datahub.graphql.resolvers.semantic.SemanticSearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.semantic.SemanticSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.TeamsOAuthConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.TeamsSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateHelpLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateOrganizationDisplayPreferencesResolver;
@@ -268,7 +271,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     // Initialize UserInvitationService after all dependencies are set
     this.userInvitationService =
         new UserInvitationService(
-            this.integrationsService, this.inviteTokenService, this.entityService);
+            this.integrationsService, this.inviteTokenService, this.entityService, this.baseUrl);
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
@@ -317,7 +320,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         FORMS_ACRYL_SCHEMA_FILE,
         SEMANTIC_SEARCH_ACRYL_SCHEMA_FILE,
         EXECUTOR_SCHEMA_FILE,
-        REMOTE_EXECUTOR_SCHEMA_FILE);
+        REMOTE_EXECUTOR_SCHEMA_FILE,
+        INTEGRATIONS_TEAMS_SCHEMA_FILE);
   }
 
   @Override
@@ -541,7 +545,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new SendFormNotificationRequestResolver(this.entityClient))
                 .dataFetcher(
                     "sendUserInvitations",
-                    new SendUserInvitationsResolver(this.userInvitationService)));
+                    new SendUserInvitationsResolver(this.userInvitationService))
+                .dataFetcher(
+                    "revokeUserInvitation",
+                    new RevokeUserInvitationResolver(
+                        this.entityClient, this.entityService, this.inviteTokenService)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -867,9 +875,15 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     builder.type(
         "Query",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "globalSettings",
-                new GlobalSettingsResolver(entityClient, secretService, featureFlags)));
+            typeWiring
+                .dataFetcher(
+                    "globalSettings",
+                    new GlobalSettingsResolver(entityClient, secretService, featureFlags))
+                .dataFetcher(
+                    "integrationTeamsSearch",
+                    new TeamsSearchResolver(entityClient, settingsService, integrationsService))
+                .dataFetcher(
+                    "teamsOAuthConfig", new TeamsOAuthConfigResolver(integrationsService)));
     builder.type(
         "Mutation",
         typeWiring ->

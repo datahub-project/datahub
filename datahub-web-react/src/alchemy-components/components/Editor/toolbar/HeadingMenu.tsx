@@ -3,7 +3,7 @@ import { Select } from 'antd';
 import React, { MouseEventHandler, useCallback } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { colors } from '@components/theme';
 
 const { Option } = Select;
 
@@ -20,13 +20,22 @@ const OPTIONS = [
 const Wrapper = styled.div`
     display: inline-block;
     width: 120px;
-    border: 1px solid ${ANTD_GRAY[4.5]};
+    border: 1px solid ${colors.gray[100]};
     border-radius: 8px;
+    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
 `;
 
 const StyledSelect = styled(Select)`
     font-weight: 500;
     width: 100%;
+    font-size: 14px;
+    padding: 1px 0px;
+
+    .ant-select-arrow {
+        & svg {
+            color: rgb(91, 98, 130);
+        }
+    }
 `;
 
 export const HeadingMenu = () => {

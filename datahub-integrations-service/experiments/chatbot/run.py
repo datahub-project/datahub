@@ -52,14 +52,11 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
     try:
         history = ChatHistory(messages=[HumanMessage(text=case.message)])
         session = ChatSession(tools=[mcp], client=client, history=history)
+        output_file = local_results_dir / f"{case.id}.json"
 
         next_message: NextMessage = await asyncer.asyncify(
             session.generate_next_message
         )()
-
-        output_file = local_results_dir / f"{case.id}.json"
-        history.save_file(output_file)
-        mlflow.log_artifact(str(output_file), artifact_path="history")
 
         return {
             "response": next_message.text,
@@ -76,6 +73,9 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
             "history": None,
             "error": str(e),
         }
+    finally:
+        history.save_file(output_file)
+        mlflow.log_artifact(str(output_file), artifact_path="history")
 
 
 def _has_response_metric_fn(predictions: pd.Series, targets: pd.Series, metrics: dict):

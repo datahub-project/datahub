@@ -30,11 +30,26 @@ def main(mcp_server_dir: pathlib.Path) -> None:
     for gql_file in (mcp_server_src_dir / "gql").glob("*.gql"):
         (gql_dir / gql_file.name).write_text(gql_file.read_text())
 
+    mcp_server_test_dir = mcp_server_dir / "tests"
+    mcp_tests_dir = pathlib.Path(__file__).parent.parent / "tests/mcp"
+    for test_file in mcp_server_test_dir.glob("*.py"):
+        if test_file.name == "test_mcp_server.py":
+            continue
+        (mcp_tests_dir / test_file.name).write_text(
+            test_file.read_text().replace(
+                "mcp_server_datahub", "datahub_integrations.mcp"
+            )
+        )
+
     # Run ruff to fix import ordering.
-    ruff_cmd = ["ruff", "check", "--fix", mcp_out_dir]
+    ruff_cmd = ["ruff", "format", mcp_out_dir, mcp_tests_dir]
     subprocess.run(ruff_cmd, check=True)
 
-    print(f"Copied MCP server to {mcp_out_dir}")
+    # Run ruff to fix import ordering.
+    ruff_cmd = ["ruff", "check", "--fix", mcp_out_dir, mcp_tests_dir]
+    subprocess.run(ruff_cmd, check=True)
+
+    print(f"Copied MCP server to {mcp_out_dir}, {mcp_tests_dir}")
 
 
 if __name__ == "__main__":

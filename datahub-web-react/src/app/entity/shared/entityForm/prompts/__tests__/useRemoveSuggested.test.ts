@@ -7,11 +7,9 @@ import { FormPromptType, SubResourceType, SubmitFormPromptInput } from '@types';
 
 // Mock GraphQL mutations
 const removeTermsMutationMock = vi.fn();
-const removeOwnersMutationMock = vi.fn();
 
 vi.mock('@graphql/mutations.generated', () => ({
     useBatchRemoveTermsMutation: () => [removeTermsMutationMock],
-    useBatchRemoveOwnersMutation: () => [removeOwnersMutationMock],
 }));
 
 describe('useRemoveSuggested', () => {
@@ -50,39 +48,6 @@ describe('useRemoveSuggested', () => {
             variables: {
                 input: {
                     termUrns: ['urn:term:1', 'urn:term:2'],
-                    resources: [{ resourceUrn: associatedUrn }],
-                },
-            },
-        });
-        expect(removeOwnersMutationMock).not.toHaveBeenCalled();
-    });
-
-    it('should not call owners mutation when urnsToRemove is empty', async () => {
-        const { result } = renderHook(() => useRemoveSuggested([], FormPromptType.Ownership, associatedUrn));
-        await act(async () => {
-            await result.current.removeInitialSuggested({
-                ...baseFormInput,
-                type: FormPromptType.Ownership,
-            });
-        });
-        expect(removeOwnersMutationMock).not.toHaveBeenCalled();
-    });
-
-    it('should call remove owners mutation with deduplication', async () => {
-        removeOwnersMutationMock.mockResolvedValueOnce({});
-        const { result } = renderHook(() =>
-            useRemoveSuggested(['urn:own1', 'urn:own1', 'urn:own2'], FormPromptType.Ownership, associatedUrn),
-        );
-        await act(async () => {
-            await result.current.removeInitialSuggested({
-                ...baseFormInput,
-                type: FormPromptType.Ownership,
-            });
-        });
-        expect(removeOwnersMutationMock).toHaveBeenCalledWith({
-            variables: {
-                input: {
-                    ownerUrns: ['urn:own1', 'urn:own2'],
                     resources: [{ resourceUrn: associatedUrn }],
                 },
             },
@@ -144,6 +109,5 @@ describe('useRemoveSuggested', () => {
             await result.current.removeInitialSuggested(baseFormInput);
         });
         expect(removeTermsMutationMock).not.toHaveBeenCalled();
-        expect(removeOwnersMutationMock).not.toHaveBeenCalled();
     });
 });

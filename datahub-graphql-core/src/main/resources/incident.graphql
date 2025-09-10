@@ -102,6 +102,11 @@ type Incident implements Entity {
   """
   The status of an incident
   """
+  incidentStatus: IncidentStatus!
+
+  """
+  The status of an incident. Deprecated! Use incidentStatus instead.
+  """
   status: IncidentStatus!
 
   """

@@ -1,0 +1,153 @@
+{
+  "valid_urls": [
+    {
+      "name": "team_url_basic",
+      "url": "https://teams.microsoft.com/l/team/19%3AW0_JnTr3YBkTQZGhrwRhbV9QnOKEbsS49n95VI1X-dI1%40thread.tacv2/conversations?groupId=f9c825f5-7295-48a4-a154-ad4ce71f8ef2&tenantId=5ff2a251-a73c-4122-af7d-871fd744c752",
+      "expected": {
+        "url_type": "team",
+        "tenant_id": "5ff2a251-a73c-4122-af7d-871fd744c752",
+        "group_id": "f9c825f5-7295-48a4-a154-ad4ce71f8ef2",
+        "thread_id": "19:W0_JnTr3YBkTQZGhrwRhbV9QnOKEbsS49n95VI1X-dI1@thread.tacv2",
+        "channel_name": null,
+        "is_valid": true
+      }
+    },
+    {
+      "name": "channel_url_basic",
+      "url": "https://teams.microsoft.com/l/channel/19%3Aabcd1234/General?groupId=xyz123&tenantId=abc123",
+      "expected": {
+        "url_type": "channel",
+        "tenant_id": "abc123",
+        "group_id": "xyz123", 
+        "thread_id": "19:abcd1234",
+        "channel_name": "General",
+        "is_valid": true
+      }
+    },
+    {
+      "name": "chat_url_personal",
+      "url": "https://teams.microsoft.com/l/chat/19%3Apersonal-chat-id/conversations?tenantId=5ff2a251-a73c-4122-af7d-871fd744c752",
+      "expected": {
+        "url_type": "chat",
+        "tenant_id": "5ff2a251-a73c-4122-af7d-871fd744c752",
+        "group_id": null,
+        "thread_id": "19:personal-chat-id",
+        "channel_name": null,
+        "is_valid": true
+      }
+    },
+    {
+      "name": "team_url_encoded_spaces",
+      "url": "https://teams.microsoft.com/l/team/19%3Aencoded%20spaces%20thread/conversations?groupId=test-group&tenantId=test-tenant",
+      "expected": {
+        "url_type": "team",
+        "tenant_id": "test-tenant",
+        "group_id": "test-group",
+        "thread_id": "19:encoded spaces thread",
+        "channel_name": null,
+        "is_valid": true
+      }
+    },
+    {
+      "name": "channel_url_special_chars",
+      "url": "https://teams.microsoft.com/l/channel/19%3Aspecial%40chars%23here/Dev%20Channel?groupId=dev-group-123&tenantId=acryl-tenant-456",
+      "expected": {
+        "url_type": "channel",
+        "tenant_id": "acryl-tenant-456",
+        "group_id": "dev-group-123",
+        "thread_id": "19:special@chars#here",
+        "channel_name": "Dev Channel",
+        "is_valid": true
+      }
+    }
+  ],
+  "invalid_urls": [
+    {
+      "name": "wrong_hostname",
+      "url": "https://invalid-url.com/teams/path",
+      "expected": {
+        "is_valid": false,
+        "errors": ["Invalid hostname: invalid-url.com"]
+      }
+    },
+    {
+      "name": "missing_protocol",
+      "url": "teams.microsoft.com/l/team/somethread/conversations",
+      "expected": {
+        "is_valid": false
+      }
+    },
+    {
+      "name": "missing_tenant_id", 
+      "url": "https://teams.microsoft.com/l/team/19%3Athread/conversations?groupId=group123",
+      "expected": {
+        "is_valid": false
+      }
+    },
+    {
+      "name": "missing_group_and_thread",
+      "url": "https://teams.microsoft.com/l/team/conversations?tenantId=tenant123",
+      "expected": {
+        "is_valid": false
+      }
+    },
+    {
+      "name": "empty_url",
+      "url": "",
+      "expected": {
+        "is_valid": false,
+        "errors": ["Empty or invalid URL"]
+      }
+    },
+    {
+      "name": "malformed_path",
+      "url": "https://teams.microsoft.com/invalid/path/structure?tenantId=tenant123&groupId=group123",
+      "expected": {
+        "is_valid": false
+      }
+    }
+  ],
+  "edge_cases": [
+    {
+      "name": "very_long_ids",
+      "url": "https://teams.microsoft.com/l/team/19%3Avery-long-thread-id-with-lots-of-characters-1234567890-abcdefghijklmnopqrstuvwxyz%40thread.tacv2/conversations?groupId=very-long-group-id-with-lots-of-characters-1234567890-abcdefghijklmnopqrstuvwxyz&tenantId=very-long-tenant-id-with-lots-of-characters-1234567890-abcdefghijklmnopqrstuvwxyz",
+      "expected": {
+        "url_type": "team",
+        "is_valid": true
+      }
+    },
+    {
+      "name": "minimal_valid_team",
+      "url": "https://teams.microsoft.com/l/team/19%3Aminimal/conversations?tenantId=t",
+      "expected": {
+        "url_type": "team",
+        "tenant_id": "t",
+        "thread_id": "19:minimal",
+        "is_valid": true
+      }
+    },
+    {
+      "name": "unicode_characters",
+      "url": "https://teams.microsoft.com/l/channel/19%3Aunicode%E2%9C%93%E2%9C%93/Ch%C3%A4nnel?groupId=group-123&tenantId=tenant-123",
+      "expected": {
+        "url_type": "channel",
+        "tenant_id": "tenant-123",
+        "group_id": "group-123",
+        "thread_id": "19:unicode✓✓",
+        "channel_name": "Chännel",
+        "is_valid": true
+      }
+    },
+    {
+      "name": "multiple_query_params",
+      "url": "https://teams.microsoft.com/l/team/19%3Athread/conversations?groupId=group123&tenantId=tenant123&extra=param&another=value",
+      "expected": {
+        "url_type": "team",
+        "tenant_id": "tenant123", 
+        "group_id": "group123",
+        "thread_id": "19:thread",
+        "is_valid": true
+      }
+    }
+  ]
+}

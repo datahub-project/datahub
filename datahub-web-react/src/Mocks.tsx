@@ -8,12 +8,14 @@ import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { FetchedEntity } from '@app/lineage/types';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
-import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
+import { ListActionRequestsDocument } from '@graphql/actionRequest.generated';
+import { AppConfigDocument, GetEntityCountsDocument, GetGlobalViewsSettingsDocument } from '@graphql/app.generated';
 import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
 import { GetContainerDocument } from '@graphql/container.generated';
 import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
 import { GetDataJobDocument } from '@graphql/dataJob.generated';
 import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from '@graphql/dataset.generated';
+import { GetFormsForActorDocument } from '@graphql/form.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { GetMeDocument } from '@graphql/me.generated';
 import { GetMlModelDocument } from '@graphql/mlModel.generated';
@@ -97,6 +99,7 @@ export const entityPrivileges: EntityPrivileges = {
     canEditMonitors: true,
     canEditSqlAssertionMonitors: true,
     canViewDatasetOperations: true,
+    canManageAssetSummary: true,
     canViewDatasetProfile: true,
     canViewDatasetUsage: true,
     __typename: 'EntityPrivileges',
@@ -2124,6 +2127,49 @@ export const recommendationModules = [
                 },
             },
         ],
+    },
+];
+
+export const mockActionRequests: ActionRequest[] = [
+    {
+        created: {
+            time: 1710324000000,
+        },
+        status: ActionRequestStatus.Completed,
+        type: ActionRequestType.TagAssociation,
+        urn: 'urn:example:tag:1',
+    },
+    {
+        created: {
+            time: 1612396473001,
+        },
+        status: ActionRequestStatus.Completed,
+        type: ActionRequestType.TermAssociation,
+        urn: 'urn:example:term:1',
+    },
+    {
+        created: {
+            time: 0,
+        },
+        status: ActionRequestStatus.Pending,
+        type: ActionRequestType.OwnerAssociation,
+        urn: 'urn:example:owner:1',
+    },
+    {
+        created: {
+            time: 0,
+        },
+        status: ActionRequestStatus.Pending,
+        type: ActionRequestType.TagAssociation,
+        urn: 'urn:example:tag:2',
+    },
+    {
+        created: {
+            time: 0,
+        },
+        status: ActionRequestStatus.Completed,
+        type: ActionRequestType.DomainAssociation,
+        urn: 'urn:example:domain:1',
     },
 ];
 
@@ -4176,6 +4222,52 @@ export const mocks = [
             data: { getGrantedPrivileges: { privileges: [VIEW_ENTITY_PAGE] } },
         },
     },
+    // Mock for ListActionRequestsDocument
+    {
+        request: {
+            query: ListActionRequestsDocument,
+            variables: { input: { count: 0, status: 'PENDING' } },
+        },
+        result: {
+            data: {
+                listActionRequests: {
+                    actionRequests: mockActionRequests,
+                    total: mockActionRequests.length,
+                    facets: [],
+                },
+            },
+        },
+    },
+    // Mock for GetGlobalViewsSettingsDocument
+    {
+        request: {
+            query: GetGlobalViewsSettingsDocument,
+        },
+        result: {
+            data: {
+                getGlobalViewsSettings: {
+                    viewsSettings: {
+                        defaultView: null,
+                        views: [],
+                    },
+                },
+            },
+        },
+    },
+    // Mock for GetFormsForActorDocument
+    {
+        request: {
+            query: GetFormsForActorDocument,
+            variables: { input: {} },
+        },
+        result: {
+            data: {
+                getFormsForActor: {
+                    formsForActor: [],
+                },
+            },
+        },
+    },
 ];
 
 export const mocksWithSearchFlagsOff = [
@@ -4578,49 +4670,6 @@ export const mockFineGrainedLineages2: GenericEntityProperties = {
         ],
     },
 };
-
-export const mockActionRequests: ActionRequest[] = [
-    {
-        created: {
-            time: 1710324000000,
-        },
-        status: ActionRequestStatus.Completed,
-        type: ActionRequestType.TagAssociation,
-        urn: 'urn:example:tag:1',
-    },
-    {
-        created: {
-            time: 1612396473001,
-        },
-        status: ActionRequestStatus.Completed,
-        type: ActionRequestType.TermAssociation,
-        urn: 'urn:example:term:1',
-    },
-    {
-        created: {
-            time: 0,
-        },
-        status: ActionRequestStatus.Pending,
-        type: ActionRequestType.OwnerAssociation,
-        urn: 'urn:example:owner:1',
-    },
-    {
-        created: {
-            time: 0,
-        },
-        status: ActionRequestStatus.Pending,
-        type: ActionRequestType.TagAssociation,
-        urn: 'urn:example:tag:2',
-    },
-    {
-        created: {
-            time: 0,
-        },
-        status: ActionRequestStatus.Completed,
-        type: ActionRequestType.DomainAssociation,
-        urn: 'urn:example:domain:1',
-    },
-];
 
 export const useEntityDataFunc = () => {
     const value = {

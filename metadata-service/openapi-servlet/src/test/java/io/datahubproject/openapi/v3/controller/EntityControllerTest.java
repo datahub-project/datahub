@@ -1665,13 +1665,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     assertEquals(3, capturedBatch.getMCPItems().size());
     MetadataChangeProposal mcp0 = capturedBatch.getMCPItems().get(0).getMetadataChangeProposal();
     LogicalParent aspect0 =
-        (LogicalParent)
-            GenericRecordUtils.deserializeAspect(
-                mcp0.getAspect().getValue(),
-                JSON,
-                entityRegistry
-                    .getEntitySpec(DATASET_ENTITY_NAME)
-                    .getAspectSpec(LOGICAL_PARENT_ASPECT_NAME));
+        GenericRecordUtils.deserializeAspect(
+            mcp0.getAspect().getValue(), JSON, LogicalParent.class);
     assertEquals(childDatasetUrn, mcp0.getEntityUrn());
     assertEquals(LOGICAL_PARENT_ASPECT_NAME, mcp0.getAspectName());
     assertEquals(parentDatasetUrn, aspect0.getParent().getDestinationUrn());

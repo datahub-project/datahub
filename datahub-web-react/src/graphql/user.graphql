@@ -339,8 +339,8 @@ query getUserOwnedAssets($urns: [String!]!) {
     }
 }
 
-query getUserRecommendations($input: ListUsersInput!) {
-    listUsers(input: $input) {
+query getUserRecommendations($input: GetUserRecommendationsInput!) {
+    getUserRecommendations(input: $input) {
         start
         count
         total

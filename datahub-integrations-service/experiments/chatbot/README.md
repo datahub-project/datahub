@@ -12,6 +12,7 @@
    BEDROCK_AWS_REGION=
    DATAHUB_TELEMETRY_ENABLED=false
    MLFLOW_TRACKING_URI="http://localhost:9090"
+   DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
    ```
 4. Tip: Use `direnv` to automatically load the `.env` file when working in the `datahub-integrations-service` folder
    ```bash

@@ -5,7 +5,12 @@ graph_credentials.json
 deployment_details.json
 eval_set.json
 eval_set_guidelines.yaml
+scripts/teams/.azure_config
 data-state/
+**/.dev/
+# Credential files (use environment variables instead)
+**/teams_details_*.json
+**/*_credentials_*.json
 junit.*.xml
 generated/
 clients/java/src/

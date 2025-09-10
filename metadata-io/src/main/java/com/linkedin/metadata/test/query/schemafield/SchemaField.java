@@ -1,5 +1,6 @@
 package com.linkedin.metadata.test.query.schemafield;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,4 +23,10 @@ public class SchemaField {
 
   /** The editable description of the field */
   private String editableDescription;
+
+  /**
+   * The documentation aspect containing propagated and AI-generated documentation as a list of
+   * strings
+   */
+  private List<String> documentation;
 }

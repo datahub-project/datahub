@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import random
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -401,3 +403,48 @@ def execute_gql(auth_session, query, variables=None):
     response.raise_for_status()
 
     return response.json()
+
+
+def execute_gql_with_retry(
+    auth_session, query, variables=None, max_retries=None, base_delay=None
+):
+    """
+    Execute GraphQL with exponential backoff retry for connection issues.
+    Helps handle server overload and resource contention in CI environments.
+    """
+    # Configure retries based on environment
+    if max_retries is None:
+        max_retries = 5 if os.getenv("CI") else 3
+
+    if base_delay is None:
+        base_delay = 2 if os.getenv("CI") else 1
+
+    for attempt in range(max_retries + 1):
+        try:
+            return execute_gql(auth_session, query, variables)
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            ConnectionError,
+        ) as e:
+            # Also catch the underlying http.client.RemoteDisconnected via ConnectionError
+            if "RemoteDisconnected" in str(e) or "Remote end closed connection" in str(
+                e
+            ):
+                is_connection_issue = True
+            else:
+                is_connection_issue = isinstance(
+                    e,
+                    (requests.exceptions.ConnectionError, requests.exceptions.Timeout),
+                )
+
+            if not is_connection_issue or attempt == max_retries:
+                raise  # Re-raise if not a connection issue or final attempt
+
+            # Exponential backoff with jitter
+            delay = (base_delay**attempt) + random.uniform(0, 1)
+            logger.warning(
+                f"GraphQL request failed (attempt {attempt + 1}/{max_retries + 1}), "
+                f"retrying in {delay:.1f}s: {type(e).__name__}: {e}"
+            )
+            time.sleep(delay)

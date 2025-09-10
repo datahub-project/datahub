@@ -108,16 +108,45 @@ azure-core==1.33.0
     # via
     #   -r requirements.txt
     #   azure-identity
+    #   msrest
 azure-identity==1.21.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+beautifulsoup4==4.13.5
+    # via nbconvert
+bleach==6.2.0
+    # via nbconvert
 blinker==1.9.0
     # via
     #   flask
     #   streamlit
+botbuilder-core==4.17.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+botbuilder-schema==4.17.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+    #   botbuilder-core
+    #   botframework-connector
+    #   botframework-streaming
+botframework-connector==4.17.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+    #   botbuilder-core
+    #   botframework-streaming
+botframework-streaming==4.17.0
+    # via
+    #   -r requirements.txt
+    #   botbuilder-core
 boto3==1.38.23
     # via
     #   -r requirements.txt
@@ -157,6 +186,7 @@ certifi==2024.2.2
     #   -r requirements.txt
     #   httpcore
     #   httpx
+    #   msrest
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
@@ -260,6 +290,8 @@ decorator==5.2.1
     # via ipython
 deepdiff==8.4.2
     # via acryl-datahub
+defusedxml==0.7.1
+    # via nbconvert
 deprecated==1.2.14
     # via
     #   -r requirements.txt
@@ -548,6 +580,10 @@ ipython==9.2.0
     # via ipykernel
 ipython-pygments-lexers==1.1.1
     # via ipython
+isodate==0.7.2
+    # via
+    #   -r requirements.txt
+    #   msrest
 itsdangerous==2.2.0
     # via flask
 jedi==0.19.2
@@ -561,6 +597,7 @@ jinja2==3.1.3
     #   flask
     #   litellm
     #   mlflow
+    #   nbconvert
     #   pydeck
 jiter==0.10.0
     # via
@@ -579,6 +616,10 @@ jsonpatch==1.33
     # via
     #   -r requirements.txt
     #   reactpy
+jsonpickle==1.4.2
+    # via
+    #   -r requirements.txt
+    #   botbuilder-core
 jsonpointer==2.4
     # via
     #   -r requirements.txt
@@ -607,7 +648,10 @@ jupyter-core==4.12.0
     # via
     #   ipykernel
     #   jupyter-client
+    #   nbconvert
     #   nbformat
+jupyterlab-pygments==0.3.0
+    # via nbconvert
 kiwisolver==1.4.8
     # via matplotlib
 litellm==1.75.9
@@ -649,6 +693,7 @@ markupsafe==2.1.5
     #   -r requirements.txt
     #   jinja2
     #   mako
+    #   nbconvert
     #   werkzeug
 matplotlib==3.10.1
     # via
@@ -667,6 +712,8 @@ mdurl==0.1.2
     # via
     #   -r requirements.txt
     #   markdown-it-py
+mistune==3.1.4
+    # via nbconvert
 mixpanel==4.10.1
     # via
     #   -r requirements.txt
@@ -691,11 +738,17 @@ msal==1.32.3
     #   acryl-datahub
     #   acryl-datahub-integrations
     #   azure-identity
+    #   botframework-connector
     #   msal-extensions
 msal-extensions==1.3.1
     # via
     #   -r requirements.txt
     #   azure-identity
+msrest==0.7.1
+    # via
+    #   -r requirements.txt
+    #   botbuilder-schema
+    #   botframework-connector
 multidict==6.0.5
     # via
     #   -r requirements.txt
@@ -712,10 +765,15 @@ mypy-extensions==1.0.0
     #   reactpy
     #   typing-inspect
 nbclient==0.6.3
-    # via papermill
+    # via
+    #   nbconvert
+    #   papermill
+nbconvert==7.16.6
+    # via acryl-datahub-integrations (pyproject.toml)
 nbformat==5.10.4
     # via
     #   nbclient
+    #   nbconvert
     #   papermill
 nest-asyncio==1.6.0
     # via
@@ -741,6 +799,7 @@ oauthlib==3.2.2
     # via
     #   -r requirements.txt
     #   databricks-sql-connector
+    #   requests-oauthlib
 openai==1.101.0
     # via
     #   -r requirements.txt
@@ -783,6 +842,7 @@ packaging==24.0
     #   ipykernel
     #   matplotlib
     #   mlflow-skinny
+    #   nbconvert
     #   pytest
     #   snowflake-connector-python
     #   sqlalchemy-bigquery
@@ -799,6 +859,8 @@ pandas==2.2.3
     #   seaborn
     #   streamlit
     #   streamlit-aggrid
+pandocfilters==1.5.1
+    # via nbconvert
 papermill==2.6.0
     # via acryl-datahub-integrations (pyproject.toml)
 parse==1.20.2
@@ -939,10 +1001,12 @@ pygments==2.19.2
     #   -r requirements.txt
     #   ipython
     #   ipython-pygments-lexers
+    #   nbconvert
     #   rich
 pyjwt==2.8.0
     # via
     #   -r requirements.txt
+    #   botframework-connector
     #   msal
     #   pygithub
     #   snowflake-connector-python
@@ -972,9 +1036,12 @@ pytest==8.3.5
     # via
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub
+    #   pytest-asyncio
     #   pytest-cov
     #   pytest-docker
     #   pytest-timeout
+pytest-asyncio==1.0.0
+    # via acryl-datahub-integrations (pyproject.toml)
 pytest-cov==5.0.0
     # via acryl-datahub-integrations (pyproject.toml)
 pytest-docker==3.2.0
@@ -1076,10 +1143,12 @@ requests==2.31.0
     #   mixpanel
     #   mlflow-skinny
     #   msal
+    #   msrest
     #   papermill
     #   pygithub
     #   reactpy
     #   requests-file
+    #   requests-oauthlib
     #   snowflake-connector-python
     #   streamlit
     #   tiktoken
@@ -1087,6 +1156,10 @@ requests-file==2.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+requests-oauthlib==2.0.0
+    # via
+    #   -r requirements.txt
+    #   msrest
 rich==14.0.0
     # via
     #   -r requirements.txt
@@ -1177,6 +1250,8 @@ sortedcontainers==2.4.0
     # via
     #   -r requirements.txt
     #   snowflake-connector-python
+soupsieve==2.8
+    # via beautifulsoup4
 sqlalchemy==1.4.52
     # via
     #   -r requirements.txt
@@ -1249,6 +1324,8 @@ tiktoken==0.11.0
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   litellm
+tinycss2==1.4.0
+    # via bleach
 tokenizers==0.21.4
     # via
     #   -r requirements.txt
@@ -1287,6 +1364,7 @@ traitlets==5.14.3
     #   jupyter-core
     #   matplotlib-inline
     #   nbclient
+    #   nbconvert
     #   nbformat
 typeguard==4.2.1
     # via
@@ -1313,6 +1391,7 @@ typing-extensions==4.13.2
     #   anyio
     #   azure-core
     #   azure-identity
+    #   beautifulsoup4
     #   exceptiongroup
     #   fastapi
     #   graphene
@@ -1352,6 +1431,7 @@ tzdata==2024.1
 urllib3==1.26.18
     # via
     #   -r requirements.txt
+    #   botbuilder-schema
     #   botocore
     #   databricks-sql-connector
     #   docker
@@ -1384,6 +1464,10 @@ wcmatch==10.0
     #   acryl-datahub
 wcwidth==0.2.13
     # via prompt-toolkit
+webencodings==0.5.1
+    # via
+    #   bleach
+    #   tinycss2
 websockets==12.0
     # via
     #   -r requirements.txt

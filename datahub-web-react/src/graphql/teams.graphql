@@ -1,0 +1,8 @@
+query GetTeamsOAuthConfig {
+    teamsOAuthConfig {
+        appId
+        redirectUri
+        scopes
+        baseAuthUrl
+    }
+}

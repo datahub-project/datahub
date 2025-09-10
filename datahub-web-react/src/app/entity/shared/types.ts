@@ -6,6 +6,7 @@ import { FetchedEntity } from '@app/lineage/types';
 import {
     ActionRequest,
     ApplicationAssociation,
+    AssetSettings,
     BrowsePathV2,
     ChartStatsSummary,
     Container,
@@ -148,6 +149,7 @@ export type GenericEntityProperties = {
     displayProperties?: Maybe<DisplayProperties>;
     notes?: Maybe<EntityRelationshipsResult>;
     versionProperties?: Maybe<VersionProperties>;
+    settings?: Maybe<AssetSettings>;
 
     // Data job / data process instance
     lastRun?: Maybe<DataProcessInstance>;

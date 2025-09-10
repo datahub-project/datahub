@@ -162,7 +162,7 @@ div[class^="announcementBar"] {
         &::before {
           content: '';
           z-index: 0;
-          background: conic-gradient(from var(--electric-wire-angle, 0deg), transparent, rgba(255, 255, 255, 0.751) 5%, transparent 20%);
+          background: conic-gradient(from var(--electric-wire-angle), transparent, rgba(255, 255, 255, 0.751) 5%, transparent 20%);
           position: absolute;
           top: 0;
           left: 0;

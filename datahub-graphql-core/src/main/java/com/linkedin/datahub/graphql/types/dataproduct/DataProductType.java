@@ -49,6 +49,7 @@ public class DataProductType
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          ASSET_SETTINGS_ASPECT_NAME,
           SHARE_ASPECT_NAME,
           ORIGIN_ASPECT_NAME);
   private final EntityClient _entityClient;

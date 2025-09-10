@@ -13,7 +13,7 @@ import {
     ScenarioSettingsTitle,
     ThinDivider,
 } from '@app/settingsV2/notifications/styledComponents';
-import { NOTIFICATION_SINKS, NotificationTypeOptions } from '@app/settingsV2/notifications/types';
+import { NOTIFICATION_SINKS, NotificationTypeOptions, TEAMS_SINK } from '@app/settingsV2/notifications/types';
 import {
     EMAIL_ADDRESS_PARAM_NAME,
     SLACK_CHANNEL_PARAM_NAME,
@@ -38,6 +38,8 @@ import {
     NotificationSettings,
     StringMapEntry,
 } from '@types';
+
+const TEAMS_CHANNEL_PARAM_NAME = `${TEAMS_SINK.id}.channel`;
 
 type Props = {
     actorType: EntityType.CorpUser | EntityType.CorpGroup;
@@ -89,9 +91,11 @@ export const ActorNotificationScenarioSettings = ({
     const getDefaultNotificationTypeOptions = (type: NotificationScenarioType) => {
         const currSlackChannel = formattedNotificationSettings.get(type)?.params?.get(SLACK_CHANNEL_PARAM_NAME) || null;
         const currEmail = formattedNotificationSettings.get(type)?.params?.get(EMAIL_ADDRESS_PARAM_NAME) || null;
+        const currTeamsChannel = formattedNotificationSettings.get(type)?.params?.get(TEAMS_CHANNEL_PARAM_NAME) || null;
         return {
             slackChannel: currSlackChannel,
             email: currEmail,
+            teamsChannel: currTeamsChannel,
         };
     };
 
@@ -135,6 +139,18 @@ export const ActorNotificationScenarioSettings = ({
     };
 
     /**
+     * A list of the visible notification sinks. All sinks are shown for discoverability,
+     * except Teams which is completely hidden when the feature flag is disabled.
+     */
+    const visibleSinks = NOTIFICATION_SINKS.filter((sink) => {
+        // Only hide Teams when feature flag is disabled - show all others for discoverability
+        if (sink.id === 'microsoft-teams') {
+            return config?.featureFlags?.teamsNotificationsEnabled || false;
+        }
+        return true;
+    });
+
+    /**
      * A list of the enabled notification sinks. Sinks are destinations
      * to which notifications are routed.
      */
@@ -159,7 +175,7 @@ export const ActorNotificationScenarioSettings = ({
                 <ScenarioSettingsHeader>
                     <ScenarioSettingsTitle>Send a notification when...</ScenarioSettingsTitle>
                     <NotificationSinkHeaders>
-                        {NOTIFICATION_SINKS.map((sink) => (
+                        {visibleSinks.map((sink) => (
                             <NotificationSinkHeader key={sink.id}>
                                 {sink.img && <Image preview={false} src={sink.img} width={12} />}
                                 <NotificationSinkName>{sink.name}</NotificationSinkName>
@@ -177,6 +193,7 @@ export const ActorNotificationScenarioSettings = ({
                     refetch={refetch}
                     notificationOptionsEnabled={notificationOptionsEnabled}
                     openNotificationOptions={(type) => openNotificationOptions(type)}
+                    enabledSinks={visibleSinks}
                     isSinkEnabled={(sink) =>
                         isSinkEnabled(sink.id, actorNotificationSettings, globalSettings, config) || false
                     }

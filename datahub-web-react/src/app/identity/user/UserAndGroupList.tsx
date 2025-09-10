@@ -1,8 +1,12 @@
 import { useApolloClient } from '@apollo/client';
 import { message } from 'antd';
+import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
+import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
+import { RecommendedUsersTable } from '@app/identity/user/RecommendedUsersTable';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import {
     ActionsContainer,
@@ -10,6 +14,7 @@ import {
     FiltersHeader,
     ModalFooter,
     SearchContainer,
+    SubTabsContainer,
     TableContainer,
     UserActionsMenu,
     UserContainer,
@@ -35,17 +40,26 @@ import { USERS_ASSIGN_ROLE_ID, USERS_INTRO_ID, USERS_SSO_ID } from '@app/onboard
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { CORP_USER_STATUS_FIELD, ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
-import { Button, Modal, Pagination, SearchBar, SimpleSelect, Table } from '@src/alchemy-components';
+import { Button, Modal, Pagination, SearchBar, SimpleSelect, Table, Tabs } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 
-import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
-import { DataHubRole, SortOrder } from '@types';
+import { useBatchAssignRoleMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
+import { CorpUser, DataHubRole, SortOrder } from '@types';
 
 const NO_ROLE_TEXT = 'No Role';
 const NO_ROLE_URN = 'urn:li:dataHubRole:NoRole';
 
+enum SubTabType {
+    All = 'all',
+    Recommended = 'recommended',
+}
+
 export const UserAndGroupList = () => {
     const client = useApolloClient();
+    const history = useHistory();
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const tabParam = (params?.tab as string) || undefined;
     const [roleAssignmentState, setRoleAssignmentState] = useState<{
         isViewingAssignRole: boolean;
         userUrn: string;
@@ -74,7 +88,39 @@ export const UserAndGroupList = () => {
     const [sortField, setSortField] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.Ascending);
 
+    // Initialize activeSubTab based on query parameter
+    const getInitialSubTab = () => {
+        if (tabParam === SubTabType.Recommended) return SubTabType.Recommended;
+        if (tabParam === SubTabType.All) return SubTabType.All;
+        return SubTabType.All; // Default to All if no valid tab param
+    };
+    const [activeSubTab, setActiveSubTab] = useState<SubTabType>(getInitialSubTab());
+
+    // Update activeSubTab when URL changes
+    useEffect(() => {
+        if (tabParam === SubTabType.Recommended && activeSubTab !== SubTabType.Recommended) {
+            setActiveSubTab(SubTabType.Recommended);
+        } else if (tabParam === SubTabType.All && activeSubTab !== SubTabType.All) {
+            setActiveSubTab(SubTabType.All);
+        }
+    }, [tabParam, activeSubTab]);
+
     const sortInput = sortField ? { field: sortField, sortOrder } : undefined;
+
+    // Handler for manual tab changes - updates both state and URL
+    const handleTabChange = (key: string) => {
+        const newTab = key as SubTabType;
+        setActiveSubTab(newTab);
+
+        // Update URL to reflect the new tab
+        const newUrl = new URL(window.location.href);
+        if (newTab === SubTabType.All) {
+            newUrl.searchParams.delete('tab'); // Remove tab param for 'all' (default)
+        } else {
+            newUrl.searchParams.set('tab', newTab);
+        }
+        history.replace(newUrl.pathname + newUrl.search);
+    };
 
     const { usersData, loading, error, totalUsers, selectRoleOptions, usersRefetch, onChangePage, handleDelete } =
         useUserListData(page, pageSize, query, setPage, setPageSize, sortInput, statusFilter);
@@ -101,6 +147,7 @@ export const UserAndGroupList = () => {
     };
 
     const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
+    const [sendUserInvitationsMutation] = useSendUserInvitationsMutation();
 
     const onConfirmRoleAssignment = () => {
         if (!roleAssignmentState) return;
@@ -195,6 +242,55 @@ export const UserAndGroupList = () => {
         setPage(1);
     };
 
+    // Helper functions for recommended users
+    const handleInviteRecommendedUser = async (user: CorpUser, role?: DataHubRole) => {
+        if (!role) {
+            message.error('Please select a role before sending invitation');
+            return false;
+        }
+
+        try {
+            // Create EmailInvitationService instance
+            const emailInvitationService = new EmailInvitationService(sendUserInvitationsMutation);
+
+            const userEmail = user.username;
+            if (!userEmail) {
+                message.error('No email found for this user');
+                return false;
+            }
+
+            // Create a properly formatted user for the service
+            const formattedUser: CorpUser = {
+                ...user,
+                properties: {
+                    ...user.properties,
+                    email: userEmail,
+                    displayName: user.info?.displayName || user.properties?.displayName || user.username,
+                    active: true,
+                },
+            };
+
+            // Send invitation using the service
+            const success = await emailInvitationService.sendSingleInvitation(formattedUser, role);
+
+            if (success) {
+                // Refresh the users list to show updated state if needed
+                usersRefetch();
+            }
+
+            return success;
+        } catch (invitationError) {
+            message.error('Invitation failed');
+            console.error('Failed to invite recommended user:', invitationError);
+            return false;
+        }
+    };
+
+    // TODO: Implement dismiss user functionality
+    // const handleDismissRecommendedUser = (user: CorpUser) => {
+    //     console.log('Dismissing recommended user:', user);
+    // };
+
     const columns = [
         {
             title: 'Name',
@@ -283,11 +379,8 @@ export const UserAndGroupList = () => {
         },
     ];
 
-    return (
+    const renderAllUsersTab = () => (
         <>
-            <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
             <UserContainer>
                 <FiltersHeader>
                     <SearchContainer>
@@ -346,6 +439,37 @@ export const UserAndGroupList = () => {
                     </div>
                 )}
             </TableContainer>
+        </>
+    );
+
+    const renderRecommendedUsersTab = () => (
+        <RecommendedUsersTable onInviteUser={handleInviteRecommendedUser} selectRoleOptions={selectRoleOptions} />
+    );
+
+    return (
+        <>
+            <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_ASSIGN_ROLE_ID]} />
+            {!usersData && loading && <Message type="loading" content="Loading users..." />}
+            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
+
+            <SubTabsContainer>
+                <Tabs
+                    selectedTab={activeSubTab}
+                    onChange={handleTabChange}
+                    tabs={[
+                        {
+                            key: SubTabType.All,
+                            name: 'All',
+                            component: renderAllUsersTab(),
+                        },
+                        {
+                            key: SubTabType.Recommended,
+                            name: 'Recommended',
+                            component: renderRecommendedUsersTab(),
+                        },
+                    ]}
+                />
+            </SubTabsContainer>
             {resetTokenUser && (
                 <ViewResetTokenModal
                     open={isViewingResetToken}

@@ -75,10 +75,14 @@ public class SchemaFieldsHaveDescriptions extends BaseOperatorEvaluator {
     if (value instanceof String) {
       // First, decode the string into a schema field.
       SchemaField schemaField = TestsSchemaFieldUtils.deserializeSchemaField((String) value);
-      // Simply check whether the description is not null and not empty.
+      // Check whether the description is not null and not empty from any source:
+      // 1. Basic description field
+      // 2. Editable description field
+      // 3. Documentation aspect (propagated or AI-generated)
       return (schemaField.getDescription() != null && !schemaField.getDescription().isEmpty())
           || (schemaField.getEditableDescription() != null
-              && !schemaField.getEditableDescription().isEmpty());
+              && !schemaField.getEditableDescription().isEmpty())
+          || hasDocumentationAspectDescription(schemaField.getDocumentation());
     }
     // TODO: Support dynamic resolution of other types of entities, or URNs directly.
     log.warn(
@@ -86,5 +90,17 @@ public class SchemaFieldsHaveDescriptions extends BaseOperatorEvaluator {
             "Provided bad input type %s to Schema Fields Have Descriptions operator!",
             value.getClass()));
     return false;
+  }
+
+  /**
+   * Check if the documentation aspect contains any non-empty documentation entries. This includes
+   * propagated and AI-generated documentation.
+   */
+  private boolean hasDocumentationAspectDescription(List<String> documentation) {
+    if (documentation == null || documentation.isEmpty()) {
+      return false;
+    }
+
+    return documentation.stream().anyMatch(doc -> doc != null && !doc.trim().isEmpty());
   }
 }

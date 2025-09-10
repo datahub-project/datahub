@@ -44,6 +44,8 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_PREFERRED_JWS_ALGORITHM = "auth.oidc.preferredJwsAlgorithm";
   public static final String OIDC_GRANT_TYPE = "auth.oidc.grantType";
   public static final String OIDC_ACR_VALUES = "auth.oidc.acrValues";
+  public static final String OIDC_HTTP_RETRY_ATTEMPTS = "auth.oidc.httpRetryAttempts";
+  public static final String OIDC_HTTP_RETRY_DELAY = "auth.oidc.httpRetryDelay";
 
   /** Implicit flow specific configs */
   public static final String OIDC_IMPLICIT_ENABLED = "auth.oidc.implicit.enabled";
@@ -66,6 +68,8 @@ public class OidcConfigs extends SsoConfigs {
   private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
   private static final String DEFAULT_OIDC_READ_TIMEOUT = "5000";
   private static final String DEFAULT_OIDC_CONNECT_TIMEOUT = "1000";
+  private static final String DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS = "3";
+  private static final String DEFAULT_OIDC_HTTP_RETRY_DELAY = "1000";
   private static final String DEFAULT_OIDC_IMPLICIT_ENABLED = "false";
   private static final String DEFAULT_RESPONSE_TYPE_IMPLICIT = "token id_token";
   private static final String DEFAULT_IMPLICIT_CALLBACK_URL = "/login/oidc-implicit";
@@ -92,6 +96,8 @@ public class OidcConfigs extends SsoConfigs {
   private final Optional<String> preferredJwsAlgorithm;
   private final Optional<String> grantType;
   private final Optional<String> acrValues;
+  private final String httpRetryAttempts;
+  private final String httpRetryDelay;
 
   // Implicit flow specific fields
   private final boolean implicitFlowEnabled;
@@ -123,10 +129,20 @@ public class OidcConfigs extends SsoConfigs {
     this.preferredJwsAlgorithm = builder.preferredJwsAlgorithm;
     this.acrValues = builder.acrValues;
     this.grantType = builder.grantType;
+    this.httpRetryAttempts = builder.httpRetryAttempts;
+    this.httpRetryDelay = builder.httpRetryDelay;
     this.implicitFlowEnabled = builder.implicitFlowEnabled;
     this.implicitCallbackUrl = builder.implicitCallbackUrl;
     this.clientIssuer = builder.clientIssuer;
     this.jwksJson = builder.jwksJson;
+  }
+
+  public String getHttpRetryAttempts() {
+    return httpRetryAttempts;
+  }
+
+  public String getHttpRetryDelay() {
+    return httpRetryDelay;
   }
 
   /**
@@ -200,6 +216,8 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> preferredJwsAlgorithm = Optional.empty();
     private Optional<String> grantType = Optional.empty();
     private Optional<String> acrValues = Optional.empty();
+    private String httpRetryAttempts = DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS;
+    private String httpRetryDelay = DEFAULT_OIDC_HTTP_RETRY_DELAY;
     private boolean implicitFlowEnabled = Boolean.parseBoolean(DEFAULT_OIDC_IMPLICIT_ENABLED);
     private String implicitCallbackUrl = DEFAULT_IMPLICIT_CALLBACK_URL;
     private Optional<String> clientIssuer = Optional.empty();
@@ -270,7 +288,9 @@ public class OidcConfigs extends SsoConfigs {
           Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
       grantType = Optional.ofNullable(getOptional(configs, OIDC_GRANT_TYPE, null));
       acrValues = Optional.ofNullable(getOptional(configs, OIDC_ACR_VALUES, null));
-
+      httpRetryAttempts =
+          getOptional(configs, OIDC_HTTP_RETRY_ATTEMPTS, DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS);
+      httpRetryDelay = getOptional(configs, OIDC_HTTP_RETRY_DELAY, DEFAULT_OIDC_HTTP_RETRY_DELAY);
       return this;
     }
 

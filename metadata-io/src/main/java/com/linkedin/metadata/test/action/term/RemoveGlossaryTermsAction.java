@@ -52,7 +52,7 @@ public class RemoveGlossaryTermsAction extends UrnValuesAction {
       @Nonnull OperationContext opContext, List<Urn> termUrns, List<Urn> urns) {
     if (!urns.isEmpty() && !termUrns.isEmpty()) {
       this.glossaryTermService.batchRemoveGlossaryTerms(
-          opContext, termUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
+          opContext, termUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE, null);
     }
   }
 }

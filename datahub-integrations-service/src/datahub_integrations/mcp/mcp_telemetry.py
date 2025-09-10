@@ -81,6 +81,7 @@ class MCPTelemetryMiddleware(Middleware):
         with PerfTimer() as timer:
             try:
                 result = await call_next(context)
+                # TODO: Check why tool_result_length is null for all success cases
 
                 if isinstance(result, mt.CallToolResult):
                     event.tool_result_length = sum(

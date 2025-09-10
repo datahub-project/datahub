@@ -13,9 +13,13 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.NotificationConnectionTestRequestInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.TeamsNotificationSettingsInput;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -56,6 +60,7 @@ public class CreateNotificationConnectionTestResolver
     // 2. extract query input
     final Urn connectionUrn = UrnUtils.getUrn(input.getUrn());
     final SlackNotificationSettingsInput maybeSlackSettingsInput = input.getSlack();
+    final TeamsNotificationSettingsInput maybeTeamsSettingsInput = input.getTeams();
 
     // 3. generate connection-specific args
     final StringMap args = new StringMap();
@@ -68,7 +73,25 @@ public class CreateNotificationConnectionTestResolver
         args.put("userHandle", maybeSlackSettingsInput.getUserHandle());
       }
       args.put("title", TEST_EVENT_NOTIFICATION_TITLE);
-      args.put("body", String.format(TEST_EVENT_NOTIFICATION_BODY, context.getActor().getId()));
+      args.put("body", String.format(TEST_EVENT_NOTIFICATION_BODY, getUserDisplayName(context)));
+    }
+    if (maybeTeamsSettingsInput != null) {
+      if (maybeTeamsSettingsInput.getChannels() != null) {
+        StringArray channelIds = new StringArray();
+        maybeTeamsSettingsInput.getChannels().forEach(channel -> channelIds.add(channel.getId()));
+        args.put("channelsJSON", JSON.serialize(channelIds));
+      }
+      if (maybeTeamsSettingsInput.getUser() != null) {
+        if (maybeTeamsSettingsInput.getUser().getTeamsUserId() != null) {
+          args.put("userHandle", maybeTeamsSettingsInput.getUser().getTeamsUserId());
+        } else if (maybeTeamsSettingsInput.getUser().getAzureUserId() != null) {
+          args.put("userHandle", maybeTeamsSettingsInput.getUser().getAzureUserId());
+        } else if (maybeTeamsSettingsInput.getUser().getEmail() != null) {
+          args.put("userHandle", maybeTeamsSettingsInput.getUser().getEmail());
+        }
+      }
+      args.put("title", TEST_EVENT_NOTIFICATION_TITLE);
+      args.put("body", String.format(TEST_EVENT_NOTIFICATION_BODY, getUserDisplayName(context)));
     }
 
     // 4. Generate the execution request
@@ -112,5 +135,55 @@ public class CreateNotificationConnectionTestResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Get user display name from the QueryContext. Attempts to resolve the user's display name or
+   * full name from their CorpUserInfo. Falls back to the URN if no display name is available.
+   *
+   * @param context The GraphQL query context
+   * @return The user's display name, full name, or URN as fallback
+   */
+  private String getUserDisplayName(final QueryContext context) {
+    try {
+      final Urn userUrn = UrnUtils.getUrn(context.getActorUrn());
+      final EntityResponse response =
+          entityClient.getV2(
+              context.getOperationContext(), Constants.CORP_USER_ENTITY_NAME, userUrn, null);
+
+      if (response != null
+          && response.getAspects().containsKey(Constants.CORP_USER_INFO_ASPECT_NAME)) {
+        final EnvelopedAspect aspect =
+            response.getAspects().get(Constants.CORP_USER_INFO_ASPECT_NAME);
+        final CorpUserInfo userInfo = new CorpUserInfo(aspect.getValue().data());
+
+        // Try display name first
+        if (userInfo.hasDisplayName()
+            && userInfo.getDisplayName() != null
+            && !userInfo.getDisplayName().isEmpty()) {
+          return userInfo.getDisplayName();
+        }
+
+        // Fall back to full name
+        if (userInfo.hasFullName()
+            && userInfo.getFullName() != null
+            && !userInfo.getFullName().isEmpty()) {
+          return userInfo.getFullName();
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Failed to resolve user display name for actor: {}", context.getActorUrn(), e);
+    }
+
+    // Fallback to URN - extract just the username part
+    final String actorUrn = context.getActor().getId();
+    if (actorUrn.contains(":")) {
+      final String[] parts = actorUrn.split(":");
+      final String username = parts[parts.length - 1];
+      // Capitalize first letter for better display
+      return username.substring(0, 1).toUpperCase() + username.substring(1);
+    }
+
+    return actorUrn;
   }
 }

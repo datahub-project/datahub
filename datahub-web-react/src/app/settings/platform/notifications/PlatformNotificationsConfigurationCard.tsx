@@ -176,6 +176,18 @@ export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading
     };
 
     /**
+     * A list of the visible notification sinks. All sinks are shown for discoverability,
+     * except Teams which is completely hidden when the feature flag is disabled.
+     */
+    const visibleSinks = NOTIFICATION_SINKS.filter((sink) => {
+        // Only hide Teams when feature flag is disabled - show all others for discoverability
+        if (sink.id === 'microsoft-teams') {
+            return config?.featureFlags?.teamsNotificationsEnabled || false;
+        }
+        return true;
+    });
+
+    /**
      * A list of the enabled notification sinks. Sinks are destinations
      * to which notifications are routed.
      */
@@ -197,7 +209,7 @@ export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading
                         <Setting key={notif.type}>
                             <NotificationTypeDescription>{notif.description}</NotificationTypeDescription>
                             <SettingValues>
-                                {NOTIFICATION_SINKS.map((sink) => (
+                                {visibleSinks.map((sink) => (
                                     <NotificationSettingValue
                                         sink={sink}
                                         notificationType={notif.type}
@@ -230,7 +242,7 @@ export const PlatformNotificationsConfigurationCard = ({ globalSettings, loading
                 <SettingsHeader>
                     <SettingsTitle>Send a notification when...</SettingsTitle>
                     <NotificationSinkHeaders>
-                        {NOTIFICATION_SINKS.map((sink) => (
+                        {visibleSinks.map((sink) => (
                             <NotificationSinkHeader key={sink.id}>
                                 {sink.img && <Image preview={false} src={sink.img} width={12} />}
                                 <NotificationSinkName strong>{sink.name}</NotificationSinkName>

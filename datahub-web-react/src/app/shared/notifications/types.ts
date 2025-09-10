@@ -1,12 +1,19 @@
-import { SlackNotificationSettings } from '@src/types.generated';
+import { SlackNotificationSettings, TeamsNotificationSettings } from '@src/types.generated';
 
-export type TestNotificationConfig = TestNotificationConfigSlack; /* | TestNotificationConfigXXX */
+export type TestNotificationConfig = TestNotificationConfigSlack | TestNotificationConfigTeams;
 
 type TestNotificationConfigSlack = TestNotificationConfigBase & {
     // differentiator key present across all TestNotificationConfig types
     integration: 'slack';
     // properties specific to this config type
     destinationSettings: SlackNotificationSettings;
+};
+
+type TestNotificationConfigTeams = TestNotificationConfigBase & {
+    // differentiator key present across all TestNotificationConfig types
+    integration: 'teams';
+    // properties specific to this config type
+    destinationSettings: TeamsNotificationSettings;
 };
 
 type TestNotificationConfigBase = {

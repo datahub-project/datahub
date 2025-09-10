@@ -3,15 +3,8 @@ import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import DefaultEntity from '@app/entityV2/DefaultEntity';
-import {
-    Entity,
-    EntityCapabilityType,
-    EntityMenuActions,
-    IconStyleType,
-    PreviewContext as PreviewContextProps,
-    PreviewType,
-} from '@app/entityV2/Entity';
-import PreviewContext from '@app/entityV2/shared/PreviewContext';
+import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import PreviewContext, { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
@@ -143,20 +136,20 @@ export default class EntityRegistry {
         extraContext?: PreviewContextProps,
     ): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity, DefaultEntity);
-        const genericEntityData = entity.getGenericEntityProperties(data);
+        const previewData = entity.getGenericEntityProperties(data);
         return (
-            <PreviewContext.Provider value={genericEntityData}>
-                {entity.renderPreview(type, data, actions, extraContext)}
+            <PreviewContext.Provider value={{ previewData, previewType: type, ...extraContext }}>
+                {entity.renderPreview(type, data, actions)}
             </PreviewContext.Provider>
         );
     }
 
     renderSearchResult(type: EntityType, searchResult: SearchResult): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
-        const genericEntityData = entity.getGenericEntityProperties(searchResult.entity);
+        const previewData = entity.getGenericEntityProperties(searchResult.entity);
         return (
             <SearchResultProvider searchResult={searchResult}>
-                <PreviewContext.Provider value={genericEntityData}>
+                <PreviewContext.Provider value={{ previewData }}>
                     {entity.renderSearch(searchResult)}
                 </PreviewContext.Provider>
             </SearchResultProvider>
@@ -271,8 +264,7 @@ export default class EntityRegistry {
                 .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
             upstreamRelationships: genericEntityProperties.upstream?.relationships
                 ?.map((r) => ({ ...r, urn: r.entity?.urn }))
-                .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
-            // TODO: Clean up redundant values
+                .filter((r): r is FetchedEntityV2Relationship => !!r.urn), // TODO: Clean up redundant values
             exists: genericEntityProperties.exists,
             health: genericEntityProperties.health ?? undefined,
             status: genericEntityProperties.status ?? undefined,

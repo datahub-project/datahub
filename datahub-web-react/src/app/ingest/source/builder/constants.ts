@@ -35,6 +35,7 @@ import powerbiLogo from '@images/powerbilogo.png';
 import presetLogo from '@images/presetlogo.svg';
 import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
+import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
@@ -108,6 +109,8 @@ export const PRESET_URN = `urn:li:dataPlatform:${PRESET}`;
 export const REDSHIFT = 'redshift';
 export const REDSHIFT_USAGE = 'redshift-usage';
 export const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
+export const S3 = 's3';
+export const S3_URN = `urn:li:dataPlatform:${S3}`;
 export const SNOWFLAKE = 'snowflake';
 export const SNOWFLAKE_BETA = 'snowflake-beta';
 export const SNOWFLAKE_USAGE = 'snowflake-usage';
@@ -183,6 +186,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [POWER_BI_URN]: powerbiLogo,
     [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
+    [S3_URN]: s3Logo,
     [SNOWFLAKE_URN]: snowflakeLogo,
     [TABLEAU_URN]: tableauLogo,
     [TRINO_URN]: trinoLogo,

@@ -1,0 +1,73 @@
+# Azure Bot Configuration Template
+# Copy this file and customize for your environment
+
+# Global settings
+global:
+  # Azure subscription ID (required)
+  subscription_id: "6b171c8c-84c4-4293-9865-3d16ff142515"
+  # Default Azure region for resources
+  location: "global"
+  # Base resource group pattern
+  resource_group_pattern: "datahub-teams-{username}"
+  # Base webhook URL pattern  
+  webhook_url: "https://teams-gateway-{username}.acryl.io/public/teams/webhook"
+
+# Bot definitions
+bots:
+  # Developer bot example
+  - name: "datahub-teams-bot-{username}"
+    owner: "{username}"
+    subscription_id: "{subscription_id}"
+    resource_group: "datahub-teams-{username}"
+    location: "global"
+    webhook_url: "https://teams-gateway-{username}.acryl.io/public/teams/webhook"
+    description: "DataHub Teams bot for {username} development"
+
+    # Bot creation behavior
+    create_if_not_exists: true
+    reuse_existing: true
+    
+    # Teams app configuration
+    teams_app:
+      enabled: true
+      name: "DataHub Dev - {username}"
+      short_name: "DataHub-{username}"
+      description: "🧑‍💻 Personal DataHub Teams bot for {username}"
+      scopes: ["personal", "team", "groupchat"]
+      supports_files: false
+      
+    # Error handling
+    continue_on_error: false
+
+# Example configurations for different scenarios
+examples:
+  # Minimal bot for testing
+  minimal_bot:
+    name: "datahub-test-{username}"
+    owner: "{username}"
+    resource_group: "datahub-test-rg"
+    webhook_url: "https://example.ngrok.io/webhook"
+    teams_app:
+      enabled: true
+      name: "DataHub Test"
+      scopes: ["personal"]
+  
+  # Production-like bot
+  prod_bot:
+    name: "datahub-teams-prod-{username}"
+    owner: "{username}"
+    resource_group: "datahub-prod-rg"
+    location: "westus2"
+    webhook_url: "https://api.company.com/teams/webhook"
+    teams_app:
+      enabled: true
+      name: "DataHub Production"
+      scopes: ["personal", "team", "groupchat"]
+      supports_files: true
+
+# Template variables that can be replaced
+# Available variables:
+#   {username} - Developer's username/identifier
+#   {timestamp} - Current timestamp
+#   {uuid} - Random UUID
+#   {env} - Environment name (dev/test/prod)

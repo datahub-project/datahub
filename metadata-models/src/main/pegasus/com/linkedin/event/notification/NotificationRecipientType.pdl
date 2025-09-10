@@ -24,6 +24,16 @@ enum NotificationRecipientType {
   SLACK_DM
 
   /**
+   * A Microsoft Teams channel to send a notification to.
+   */
+  TEAMS_CHANNEL
+
+  /**
+   * A Microsoft Teams member to send a notification to.
+   */
+  TEAMS_DM
+
+  /**
    * A custom target, e.g. a slack channel or dm, that a specific sink can handle. Sinks are expected to handle custom
    * types appropriately.
    */

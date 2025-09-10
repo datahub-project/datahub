@@ -10,6 +10,7 @@ from typing import Literal, cast
 
 from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import Aspect
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import _Aspect
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.pipeline.pipeline_context import PipelineContext
@@ -138,17 +139,30 @@ BootstrapUrnsEndpoint = (
 class EntityWithData:
     urn: str
 
+    # Used for dataset -> schema field propagation
+    # and for attach ingestion_description / editable_description in `_get_target_urns`
+    field_path: str | None = None
+
+    def __hash__(self) -> int:
+        return hash((self.urn, self.field_path))
+
+    # Used only for docs propagation
+    ingestion_description: str | None = field(default=None, kw_only=True, compare=False)
+    editable_description: str | None = field(default=None, kw_only=True, compare=False)
+
     # aspect name -> aspect
-    aspects: dict[str, _Aspect] = field(default_factory=dict, kw_only=True)
+    aspects: dict[str, _Aspect] = field(
+        default_factory=dict, kw_only=True, compare=False
+    )
 
     # relationship name -> list[urns]
     # relationships stored on this entity
     relationships_as_source: dict[str, list[str]] = field(
-        default_factory=dict, kw_only=True
+        default_factory=dict, kw_only=True, compare=False
     )
     # relationships stored on other entities
     relationships_as_destination: dict[str, list[str]] = field(
-        default_factory=dict, kw_only=True
+        default_factory=dict, kw_only=True, compare=False
     )
 
     def get_aspect(self, aspect: type[Aspect]) -> Aspect | None:
@@ -170,8 +184,8 @@ class BulkBootstrapAction(ReportingAction, ABC):
         self.config = config
         self.report.start()
 
-        self.batch_size = self.config.batch_get_batch_size or ASPECTS_PER_BATCH // len(
-            self.bootstrap_aspects()
+        self.batch_size = self.config.batch_get_batch_size or ASPECTS_PER_BATCH // min(
+            len(self.bootstrap_aspects()), 1
         )
 
     @abstractmethod
@@ -229,6 +243,15 @@ class BulkBootstrapAction(ReportingAction, ABC):
             return
 
         self.report.start()
+        success = True
+        try:
+            self._bootstrap()
+        except Exception as e:
+            logger.warning(f"Error bootstrapping action: {e}", exc_info=True)
+            success = False
+        self.report.end(success=success)
+
+    def _bootstrap(self) -> None:
         with BoundedThreadPoolExecutor(
             max_workers=self.config.num_threads_per_worker,
             max_pending=self.config.max_bootstrap_tasks,
@@ -316,7 +339,9 @@ class BulkBootstrapAction(ReportingAction, ABC):
             )
             entities = []
             for search_entity in response.get("entities") or []:
-                parsed_entity = self._parse_search_entity(search_entity)
+                parsed_entity = self._parse_search_entity(
+                    search_entity, list(self.bootstrap_aspects())
+                )
                 if parsed_entity:
                     entities.append(parsed_entity)
 
@@ -368,7 +393,7 @@ class BulkBootstrapAction(ReportingAction, ABC):
             scroll_id = response.get("scrollId")
 
     def _batch_augment_entities_with_aspects(
-        self, entities: list[EntityWithData], aspects_to_fetch: list[str]
+        self, entities: list[EntityWithData], aspects_to_fetch: list[type[_Aspect]]
     ) -> None:
         entities_by_urn = {entity.urn: entity for entity in entities}
 
@@ -380,29 +405,48 @@ class BulkBootstrapAction(ReportingAction, ABC):
         for entity_type, urns in urns_by_entity_type.items():
             response = self._execute_batch_get(entity_type, urns, aspects_to_fetch)
             for search_entity in response:
-                parsed_entity = self._parse_search_entity(search_entity)
+                parsed_entity = self._parse_search_entity(
+                    search_entity, aspects_to_fetch
+                )
                 if parsed_entity and parsed_entity.urn in entities_by_urn:
                     entities_by_urn[parsed_entity.urn].aspects.update(
                         parsed_entity.aspects
                     )
 
     def _batch_augment_entities_with_relationship(
-        self, entities: list[EntityWithData], relationship_to_fetch: str
+        self,
+        entities: list[EntityWithData],
+        relationship_to_fetch: str,
+        is_source: bool,
     ) -> None:
-        raise NotImplementedError(
-            "Batch augment entities with relationship not implemented"
+        if len(entities) > 1:
+            raise NotImplementedError(
+                "Batch augment entities with relationship not implemented"
+            )
+
+        entity = entities[0]
+        related_entities = self.ctx.graph.graph.get_related_entities(
+            entity.urn,
+            [relationship_to_fetch],
+            DataHubGraph.RelationshipDirection.OUTGOING
+            if is_source
+            else DataHubGraph.RelationshipDirection.INCOMING,
         )
+        for related_entity in related_entities:
+            entity.get_relationships(is_source).setdefault(
+                relationship_to_fetch, []
+            ).append(related_entity.urn)
 
     # TODO: Handle exceptions on making requests
     def _execute_batch_get(
-        self, entity_type: str, urns: list[str], aspects_to_fetch: list[str]
+        self, entity_type: str, urns: list[str], aspects_to_fetch: list[type[_Aspect]]
     ) -> dict:
         url = f"{self.ctx.graph.graph._gms_server.rstrip('/')}/openapi/v3/entity/{entity_type}/batchGet"
         params = {"systemMetadata": False}
         body = [
             {
                 "urn": urn,
-                **{aspect_name: {} for aspect_name in aspects_to_fetch},
+                **{aspect_type.ASPECT_NAME: {} for aspect_type in aspects_to_fetch},
             }
             for urn in urns
         ]
@@ -452,7 +496,9 @@ class BulkBootstrapAction(ReportingAction, ABC):
         }
         return self.ctx.graph.graph._get_generic(url, params=params)
 
-    def _parse_search_entity(self, search_entity: dict) -> EntityWithData | None:
+    def _parse_search_entity(
+        self, search_entity: dict, aspects_to_fetch: list[type[_Aspect]]
+    ) -> EntityWithData | None:
         """Parse a search entity into an EntityWithData object."""
         urn = search_entity.get("urn")
         if not urn:
@@ -464,7 +510,7 @@ class BulkBootstrapAction(ReportingAction, ABC):
                     (search_entity.get(aspect_type.ASPECT_NAME) or {}).get("value")
                     or {}
                 )
-                for aspect_type in self.bootstrap_aspects()
+                for aspect_type in aspects_to_fetch
                 if aspect_type.ASPECT_NAME in search_entity
             }
         except Exception as e:

@@ -32,15 +32,6 @@ export const INCIDENT_TYPE_OPTIONS = [
         name: 'Other',
         value: IncidentType.Custom,
     },
-    // Legacy! These are deprecated types.
-    {
-        name: 'External Volume Assertion',
-        value: IncidentType.DatasetRows,
-    },
-    {
-        name: 'External Field Assertion',
-        value: IncidentType.DatasetColumn,
-    },
 ];
 
 export const NAME_TO_VALUE = new Map();

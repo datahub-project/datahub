@@ -21,6 +21,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.GlossaryTermsPatchBuilder;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.resource.SubResourceType;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
@@ -103,13 +104,14 @@ public class GlossaryTermService extends BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull List<Urn> glossaryTermUrns,
       @Nonnull List<ResourceReference> resources,
-      @Nullable String appSource) {
+      @Nullable String appSource,
+      @Nullable Urn actorUrn) {
     log.debug(
         "Batch adding GlossaryTerms to entities. glossaryTerms: {}, resources: {}",
         resources,
         glossaryTermUrns);
     try {
-      removeGlossaryTermsFromResources(opContext, glossaryTermUrns, resources, appSource);
+      removeGlossaryTermsFromResources(opContext, glossaryTermUrns, resources, appSource, actorUrn);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -147,12 +149,15 @@ public class GlossaryTermService extends BaseService {
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn entityUrn,
       @Nonnull final String fieldPath) {
+    final List<GlossaryTermAssociation> entityTerms =
+        getEntityTerms(opContext, SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath));
     final List<GlossaryTermAssociation> editableSchemaFieldTerms =
         getEditableSchemaFieldGlossaryTerms(opContext, entityUrn, fieldPath);
     final List<GlossaryTermAssociation> schemaFieldTerms =
         getNonEditableSchemaFieldGlossaryTerms(opContext, entityUrn, fieldPath);
 
     List<GlossaryTermAssociation> result = new ArrayList<>();
+    result.addAll(entityTerms);
     result.addAll(editableSchemaFieldTerms);
     result.addAll(schemaFieldTerms);
 
@@ -228,10 +233,11 @@ public class GlossaryTermService extends BaseService {
       @Nonnull OperationContext opContext,
       List<Urn> glossaryTerms,
       List<ResourceReference> resources,
-      @Nullable String appSource)
+      @Nullable String appSource,
+      @Nullable Urn actorUrn)
       throws Exception {
     List<MetadataChangeProposal> changes =
-        buildRemoveGlossaryTermsProposals(opContext, glossaryTerms, resources);
+        buildRemoveGlossaryTermsProposals(opContext, glossaryTerms, resources, actorUrn);
     if (appSource != null) {
       applyAppSource(changes, appSource);
     }
@@ -279,29 +285,50 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildRemoveGlossaryTermsProposals(
       @Nonnull OperationContext opContext,
       List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources) {
+      List<ResourceReference> resources,
+      @Nullable Urn actorUrn) {
 
     final List<MetadataChangeProposal> changes = new ArrayList<>();
 
+    // Convert subresource references to schema field urn references
     final List<ResourceReference> entityRefs =
         resources.stream()
             .filter(
                 resource ->
-                    resource.getSubResource() == null || resource.getSubResource().equals(""))
+                    resource.getSubResourceType() == SubResourceType.DATASET_FIELD
+                        || resource.getSubResource() == null
+                        || resource.getSubResource().equals(""))
+            .map(
+                resource ->
+                    resource.getSubResourceType() == SubResourceType.DATASET_FIELD
+                            && resource.getSubResource() != null
+                            && !resource.getSubResource().equals("")
+                        ? new ResourceReference(
+                            SchemaFieldUtils.generateSchemaFieldUrn(
+                                resource.getUrn(), resource.getSubResource()),
+                            null,
+                            null)
+                        : resource)
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> entityProposals =
-        buildRemoveGlossaryTermsToEntityProposals(opContext, glossaryTermUrns, entityRefs);
+        buildRemoveGlossaryTermsToEntityProposals(
+            opContext, glossaryTermUrns, entityRefs, actorUrn);
 
+    // Convert schema field urn references to subresource references
     final List<ResourceReference> schemaFieldRefs =
         resources.stream()
             .filter(
                 resource ->
-                    resource.getSubResourceType() != null
-                        && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD))
+                    resource.getUrn().getEntityType().equals(Constants.SCHEMA_FIELD_ENTITY_NAME)
+                        || (resource.getSubResourceType() != null
+                            && resource.getSubResourceType().equals(SubResourceType.DATASET_FIELD)))
+            .map(
+                resource ->
+                    ResourceReference.fromSchemaFieldUrn(resource.getUrn()).orElse(resource))
             .collect(Collectors.toList());
     final List<MetadataChangeProposal> schemaFieldProposals =
         buildRemoveGlossaryTermsToSubResourceProposals(
-            opContext, glossaryTermUrns, schemaFieldRefs);
+            opContext, glossaryTermUrns, schemaFieldRefs, actorUrn);
 
     changes.addAll(entityProposals);
     changes.addAll(schemaFieldProposals);
@@ -323,8 +350,7 @@ public class GlossaryTermService extends BaseService {
         actorUrn != null
             ? actorUrn
             : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
-    AuditStamp lastModified =
-        new AuditStamp().setTime(System.currentTimeMillis()).setActor(finalActorUrn);
+    AuditStamp lastModified = new AuditStamp().setTime(getTimestamp()).setActor(finalActorUrn);
 
     if (appSource != null && appSource.equals(METADATA_TESTS_SOURCE)) {
       return patchAddGlossaryTerms(glossaryTermUrns, resources, lastModified);
@@ -346,10 +372,7 @@ public class GlossaryTermService extends BaseService {
       if (!glossaryTerms.hasTerms()) {
         glossaryTerms.setTerms(new GlossaryTermAssociationArray());
         glossaryTerms.setAuditStamp(
-            new AuditStamp()
-                .setTime(System.currentTimeMillis())
-                .setActor(
-                    UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
+            new AuditStamp().setTime(getTimestamp()).setActor(finalActorUrn));
       }
       addGlossaryTermsIfNotExists(opContext, glossaryTerms, glossaryTermUrns);
       changes.add(
@@ -420,7 +443,12 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildRemoveGlossaryTermsToEntityProposals(
       @Nonnull OperationContext opContext,
       List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources) {
+      List<ResourceReference> resources,
+      @Nullable Urn actorUrn) {
+    Urn finalActorUrn =
+        actorUrn != null
+            ? actorUrn
+            : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
 
     final Map<Urn, GlossaryTerms> glossaryTermAspects =
         getGlossaryTermsAspects(
@@ -435,14 +463,9 @@ public class GlossaryTermService extends BaseService {
         continue; // Something went wrong.
       }
       if (!glossaryTerms.hasTerms()) {
-        glossaryTerms.setTerms(new GlossaryTermAssociationArray());
-        glossaryTerms.setAuditStamp(
-            new AuditStamp()
-                .setTime(System.currentTimeMillis())
-                .setActor(
-                    UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr())));
+        continue; // Nothing to remove
       }
-      removeGlossaryTermsIfExists(glossaryTerms, glossaryTermUrns);
+      removeGlossaryTermsIfExists(glossaryTerms, glossaryTermUrns, finalActorUrn);
       MetadataChangeProposal proposal =
           buildMetadataChangeProposal(
               resource.getUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, glossaryTerms);
@@ -456,7 +479,12 @@ public class GlossaryTermService extends BaseService {
   List<MetadataChangeProposal> buildRemoveGlossaryTermsToSubResourceProposals(
       @Nonnull OperationContext opContext,
       List<Urn> glossaryTermUrns,
-      List<ResourceReference> resources) {
+      List<ResourceReference> resources,
+      @Nullable Urn actorUrn) {
+    Urn finalActorUrn =
+        actorUrn != null
+            ? actorUrn
+            : UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr());
 
     final Map<Urn, EditableSchemaMetadata> editableSchemaMetadataAspects =
         getEditableSchemaMetadataAspects(
@@ -476,10 +504,12 @@ public class GlossaryTermService extends BaseService {
       EditableSchemaFieldInfo editableFieldInfo =
           getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
 
-      if (!editableFieldInfo.hasGlossaryTerms()) {
-        editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
+      if (!editableFieldInfo.hasGlossaryTerms()
+          || !editableFieldInfo.getGlossaryTerms().hasTerms()) {
+        continue; // Nothing to remove
       }
-      removeGlossaryTermsIfExists(editableFieldInfo.getGlossaryTerms(), glossaryTermUrns);
+      removeGlossaryTermsIfExists(
+          editableFieldInfo.getGlossaryTerms(), glossaryTermUrns, finalActorUrn);
       changes.add(
           buildMetadataChangeProposal(
               resource.getUrn(),
@@ -523,14 +553,16 @@ public class GlossaryTermService extends BaseService {
   }
 
   private static GlossaryTermAssociationArray removeGlossaryTermsIfExists(
-      GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns) {
+      GlossaryTerms glossaryTerms, List<Urn> glossaryTermUrns, Urn actorUrn) {
     if (!glossaryTerms.hasTerms()) {
       glossaryTerms.setTerms(new GlossaryTermAssociationArray());
     }
     GlossaryTermAssociationArray glossaryTermAssociationArray = glossaryTerms.getTerms();
     for (Urn glossaryTermUrn : glossaryTermUrns) {
-      glossaryTermAssociationArray.removeIf(
-          association -> association.getUrn().equals(glossaryTermUrn));
+      if (glossaryTermAssociationArray.removeIf(
+          association -> association.getUrn().equals(glossaryTermUrn))) {
+        glossaryTerms.setAuditStamp(new AuditStamp().setTime(getTimestamp()).setActor(actorUrn));
+      }
     }
     return glossaryTermAssociationArray;
   }
@@ -555,5 +587,10 @@ public class GlossaryTermService extends BaseService {
       editableSchemaMetadataArray.add(newFieldInfo);
       return newFieldInfo;
     }
+  }
+
+  @VisibleForTesting
+  public static long getTimestamp() {
+    return System.currentTimeMillis();
   }
 }

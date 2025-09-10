@@ -1,10 +1,6 @@
-import pytest
 import tenacity
 
-from tests.utils import (
-    ingest_file_via_rest,
-    get_sleep_info,
-)
+from tests.utils import get_sleep_info, ingest_file_via_rest
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -50,7 +46,9 @@ def _ensure_dataset_present_correctly(auth_session):
             }""",
         "variables": {"urn": urn},
     }
-    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
 

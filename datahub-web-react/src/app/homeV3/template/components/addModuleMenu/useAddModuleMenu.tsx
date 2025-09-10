@@ -3,6 +3,7 @@ import React, { useCallback, useMemo } from 'react';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
@@ -14,7 +15,7 @@ import { ModulePositionInput } from '@app/homeV3/template/types';
 import { useIsWorkflowsEnabled } from '@app/workflows/useIsWorkflowsEnabled';
 
 import { PageModuleFragment } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
+import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateSurfaceType } from '@types';
 
 const YOUR_ASSETS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:your_assets',
@@ -50,6 +51,17 @@ const YOUR_SUBSCRIPTIONS_MODULE: PageModuleFragment = {
     },
 };
 
+export const ASSETS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:assets',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Assets',
+        type: DataHubPageModuleType.Assets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 const WORKFLOWS_MODULE: PageModuleFragment = {
     urn: 'urn:li:dataHubPageModule:workflows',
     type: EntityType.DatahubPageModule,
@@ -61,11 +73,46 @@ const WORKFLOWS_MODULE: PageModuleFragment = {
     },
 };
 
+export const CHILD_HIERARCHY_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:child_hierarchy',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Children',
+        type: DataHubPageModuleType.ChildHierarchy,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const DATA_PRODUCTS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:data_products',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Data Products',
+        type: DataHubPageModuleType.DataProducts,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
+export const RELATED_TERMS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:related_terms',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Related Terms',
+        type: DataHubPageModuleType.RelatedTerms,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
+    const { entityType } = useEntityData();
     const {
         addModule,
         moduleModalState: { open: openModal },
         globalTemplate,
+        templateType,
     } = usePageTemplateContext();
 
     const isWorkflowsEnabled = useIsWorkflowsEnabled();
@@ -153,11 +200,17 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             'data-testid': 'add-hierarchy-module',
         };
 
+        const customHomeModules = [quickLink, assetCollection, documentation, hierarchyView];
+        const customSummaryModules = [assetCollection, documentation, hierarchyView];
+
+        const finalCustomModules =
+            templateType === PageTemplateSurfaceType.HomePage ? customHomeModules : customSummaryModules;
+
         items.push({
             key: 'customModulesGroup',
             label: <GroupItem title="Create Your Own" />,
             type: 'group',
-            children: [quickLink, assetCollection, documentation, hierarchyView],
+            children: finalCustomModules,
         });
 
         const yourAssets = {
@@ -229,17 +282,96 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             },
         };
 
-        // Build the default modules array conditionally
-        const defaultModules = [yourAssets, domains, yourSubscriptions];
+        const assets = {
+            name: 'Assets',
+            key: 'assets',
+            label: (
+                <MenuItem
+                    description="Related Assets tagged with the parent entity"
+                    title="Assets"
+                    icon="Database"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(ASSETS_MODULE);
+            },
+            'data-testid': 'add-assets-module',
+        };
+
+        const childHierarchy = {
+            name: 'Hierarchy',
+            key: 'hierarchy',
+            label: (
+                <MenuItem
+                    description="View the hierarchy of this asset's children"
+                    title={entityType === EntityType.Domain ? 'Domains' : 'Contents'}
+                    icon="Globe"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(CHILD_HIERARCHY_MODULE);
+            },
+            'data-testid': 'add-child-hierarchy-module',
+        };
+
+        const dataProducts = {
+            name: 'DataProducts',
+            key: 'dataProducts',
+            label: (
+                <MenuItem
+                    description="View the data products inside of this domain"
+                    title="Data Products"
+                    icon="FileText"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(DATA_PRODUCTS_MODULE);
+            },
+            'data-testid': 'add-data-products-module',
+        };
+
+        const relatedTerms = {
+            name: 'RelatedTerms',
+            key: 'relatedTerms',
+            label: (
+                <MenuItem
+                    description="View the related terms inside of this glossary term"
+                    title="Related Terms"
+                    icon="FileText"
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleAddExistingModule(RELATED_TERMS_MODULE);
+            },
+            'data-testid': 'add-related-terms-module',
+        };
+
+        const defaultHomeModules = [yourAssets, domains, yourSubscriptions];
         if (isWorkflowsEnabled) {
-            defaultModules.push(workflows);
+            defaultHomeModules.push(workflows);
         }
+        // TODO: make this a function to pull out and write unit tests for
+        let defaultSummaryModules = [assets];
+        if (entityType === EntityType.Domain) {
+            defaultSummaryModules = [...defaultSummaryModules, childHierarchy, dataProducts];
+        } else if (entityType === EntityType.GlossaryNode) {
+            defaultSummaryModules = [childHierarchy];
+        } else if (entityType === EntityType.GlossaryTerm) {
+            defaultSummaryModules = [...defaultSummaryModules, relatedTerms];
+        }
+
+        const finalDefaultModules =
+            templateType === PageTemplateSurfaceType.HomePage ? defaultHomeModules : defaultSummaryModules;
 
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Default" />,
             type: 'group',
-            children: defaultModules,
+            children: finalDefaultModules,
         });
 
         // Add global custom modules if available
@@ -275,16 +407,25 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 'data-testid': 'home-default-modules',
             };
 
-            items.push({
-                key: 'sharedModulesGroup',
-                label: <GroupItem title="Shared" />,
-                type: 'group',
-                children: [homeDefaults],
-            });
+            if (templateType === PageTemplateSurfaceType.HomePage) {
+                items.push({
+                    key: 'sharedModulesGroup',
+                    label: <GroupItem title="Shared" />,
+                    type: 'group',
+                    children: [homeDefaults],
+                });
+            }
         }
 
         return { items };
-    }, [globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule, isWorkflowsEnabled]);
+    }, [
+        globalTemplate,
+        handleOpenCreateModuleModal,
+        handleAddExistingModule,
+        isWorkflowsEnabled,
+        entityType,
+        templateType,
+    ]);
 
     return menu;
 }

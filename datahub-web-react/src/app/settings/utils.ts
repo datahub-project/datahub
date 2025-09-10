@@ -1,4 +1,4 @@
-import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '@app/settings/platform/types';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK, TEAMS_SINK } from '@app/settings/platform/types';
 
 import { AccessTokenDuration, AccessTokenType, AppConfig, GlobalSettings } from '@types';
 
@@ -60,6 +60,11 @@ export const isSinkEnabled = (
         }
         case EMAIL_SINK.id:
             return appConfig?.featureFlags?.emailNotificationsEnabled || false;
+        case TEAMS_SINK.id: {
+            // Feature flag acts as a master switch - if disabled, Teams is completely hidden
+            // regardless of existing configuration
+            return appConfig?.featureFlags?.teamsNotificationsEnabled || false;
+        }
         default:
             return false;
     }

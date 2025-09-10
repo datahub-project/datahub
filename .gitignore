@@ -89,6 +89,13 @@ coverage*.xml
 .envrc
 **/.claude/settings.local.json
 
+# Environment files with credentials
+.env*
+*.env
+
+# Development-only directories
+**/.dev/
+
 # A bunch of binaries we never ever want to add
 datahub-frontend/bin/main/
 datahub-frontend/bin/test/

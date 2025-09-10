@@ -122,7 +122,9 @@ export const TestNotificationButton = ({ hidden, integration, destinationSetting
     // Trigger sending the test notification and poll for results
     const testNotification = () => {
         setIsLoading(true);
-        createNotificationTestRequest({ variables: { input: { urn: connectionUrn, slack: destinationSettings } } })
+        createNotificationTestRequest({
+            variables: { input: { urn: connectionUrn, [integration]: destinationSettings } },
+        })
             .then((result) => {
                 const urn = result.data?.createNotificationConnectionTest;
                 if (!urn) {

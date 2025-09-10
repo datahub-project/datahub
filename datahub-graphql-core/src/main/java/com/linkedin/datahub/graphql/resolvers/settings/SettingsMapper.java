@@ -15,6 +15,8 @@ import com.linkedin.datahub.graphql.generated.HelpLink;
 import com.linkedin.datahub.graphql.generated.OidcSettings;
 import com.linkedin.datahub.graphql.generated.SlackIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.SsoSettings;
+import com.linkedin.datahub.graphql.generated.TeamsChannel;
+import com.linkedin.datahub.graphql.generated.TeamsIntegrationSettings;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -104,6 +106,9 @@ public class SettingsMapper {
     if (input.hasEmailSettings()) {
       result.setEmailSettings(mapEmailIntegrationSettings(input.getEmailSettings()));
     }
+    if (input.hasTeamsSettings()) {
+      result.setTeamsSettings(mapTeamsIntegrationSettings(input.getTeamsSettings()));
+    }
     return result;
   }
 
@@ -137,6 +142,24 @@ public class SettingsMapper {
       @Nonnull com.linkedin.settings.global.EmailIntegrationSettings input) {
     final EmailIntegrationSettings result = new EmailIntegrationSettings();
     result.setDefaultEmail(input.getDefaultEmail(GetMode.NULL));
+    return result;
+  }
+
+  private TeamsIntegrationSettings mapTeamsIntegrationSettings(
+      @Nonnull com.linkedin.settings.global.TeamsIntegrationSettings input) {
+    final TeamsIntegrationSettings result = new TeamsIntegrationSettings();
+    if (input.hasDefaultChannel()) {
+      result.setDefaultChannel(mapTeamsChannel(input.getDefaultChannel()));
+    }
+    return result;
+  }
+
+  private TeamsChannel mapTeamsChannel(@Nonnull com.linkedin.settings.global.TeamsChannel input) {
+    final TeamsChannel result = new TeamsChannel();
+    result.setId(input.getId());
+    if (input.hasName()) {
+      result.setName(input.getName(GetMode.NULL));
+    }
     return result;
   }
 

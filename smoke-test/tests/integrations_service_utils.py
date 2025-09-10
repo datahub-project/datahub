@@ -27,6 +27,39 @@ def wait_for_reload_completion(
     raise TimeoutError(f"Timed out waiting for action {action_urn} to reload")
 
 
+def wait_until_action_has_processed_num_events(
+    action_urn: str,
+    integrations_url: str,
+    num_assets_to_process: int,
+    timeout: int = 120,
+):
+    action_urn_encoded = quote(action_urn)
+    url = f"{integrations_url}/private/actions/{action_urn_encoded}/stats"
+    start_time = time.time()
+
+    while time.time() - start_time < timeout:
+        response = requests.get(url)
+        if response.status_code == 200:
+            response_dict = response.json()
+            num_events_processed_str = (
+                response_dict.get("live", {})
+                .get("customProperties", {})
+                .get("event_processing_stats.num_events_processed", "")
+            )
+            if (
+                num_events_processed_str
+                and int(num_events_processed_str) >= num_assets_to_process
+            ):
+                return
+        elif response.status_code != 404:
+            # 404 means the action hasn't started processing events yet
+            response.raise_for_status()
+        time.sleep(1)
+    raise TimeoutError(
+        f"Timed out waiting for action {action_urn} to process {num_assets_to_process} events"
+    )
+
+
 def wait_until_action_has_processed_event(
     action_urn: str, integrations_url: str, event_time: datetime, timeout: int = 120
 ):

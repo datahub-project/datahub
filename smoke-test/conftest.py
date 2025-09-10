@@ -1,11 +1,10 @@
 import os
+from typing import List, Tuple
 
 import pytest
-from typing import List, Tuple
-from _pytest.nodes import Item
 import requests
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from tests.test_result_msg import send_message
 from tests.utils import (
     TestSessionWrapper,
@@ -32,8 +31,9 @@ def auth_session():
 def build_graph_client(auth_session, openapi_ingestion=False):
     graph: DataHubGraph = DataHubGraph(
         config=DatahubClientConfig(
-            server=auth_session.gms_url(), token=auth_session.gms_token(),
-            openapi_ingestion=openapi_ingestion
+            server=auth_session.gms_url(),
+            token=auth_session.gms_token(),
+            openapi_ingestion=openapi_ingestion,
         )
     )
     return graph
@@ -92,6 +92,7 @@ def bin_pack_tasks(tasks, n_buckets):
 
     return buckets
 
+
 def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
     batch_count_env = os.getenv("BATCH_COUNT", 1)
     batch_count = int(batch_count_env)
@@ -114,7 +115,7 @@ def get_batch_start_end(num_tests: int) -> Tuple[int, int]:
     batch_end = batch_start + batch_size
     # We must have exactly as many batches as specified by BATCH_COUNT.
     if (
-            batch_number == batch_count - 1  # this is the last batch
+        batch_number == batch_count - 1  # this is the last batch
     ):  # If ths is last batch put any remaining tests in the last batch.
         batch_end = num_tests
 

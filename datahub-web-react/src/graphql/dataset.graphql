@@ -450,7 +450,7 @@ fragment datasetSchema on Dataset {
 query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentState) {
     dataset(urn: $urn) {
         incidents(start: $start, count: $count, state: $state) {
-            ...incidentsFields
+            ...incidentResultFields
         }
         siblings {
             isPrimary
@@ -464,7 +464,7 @@ query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentSt
                     type
                     ... on Dataset {
                         incidents(start: $start, count: $count, state: $state) {
-                            ...incidentsFields
+                            ...incidentResultFields
                         }
                     }
                 }

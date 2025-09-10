@@ -1,38 +1,36 @@
+import { message } from 'antd';
 import { useEffect, useState } from 'react';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityUpdate } from '@app/entity/shared/types';
+import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { useProposeUpdateDescriptionMutation } from '@graphql/proposals.generated';
 
 export function useDescriptionUtils() {
-    const { entityData, urn, entityType } = useEntityData();
+    const { entityData, entityType, urn } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
     const mutationUrn = useMutationUrn();
     const refetch = useRefetch();
 
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
+    const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
 
     const { displayedDescription } = getAssetDescriptionDetails({
         entityProperties: entityData,
     });
 
-    const [initialDescription, setInitialDescription] = useState<string>(displayedDescription);
+    const [showProposalNote, setShowProposalNote] = useState(false);
     const [updatedDescription, setUpdatedDescription] = useState<string>(displayedDescription);
-    const [isEditing, setIsEditing] = useState(false);
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
 
     useEffect(() => {
-        setInitialDescription(displayedDescription);
         setUpdatedDescription(displayedDescription);
     }, [displayedDescription]);
-
-    // Reset isEditing when asset changes
-    useEffect(() => {
-        setIsEditing(false);
-    }, [urn]);
 
     const updateDescriptionLegacy = () => {
         return updateEntity?.({
@@ -41,14 +39,33 @@ export function useDescriptionUtils() {
     };
 
     const updateDescription = () => {
-        updateDescriptionMutation({
+        return updateDescriptionMutation({
             variables: {
                 input: {
-                    description: updatedDescription,
+                    description: sanitizeRichText(updatedDescription),
                     resourceUrn: mutationUrn,
                 },
             },
         });
+    };
+
+    const proposeDescription = (proposalNote?: string) => {
+        proposeUpdateDescription({
+            variables: {
+                input: {
+                    description: sanitizeRichText(updatedDescription),
+                    resourceUrn: mutationUrn,
+                    proposalNote,
+                },
+            },
+        })
+            .then(() => {
+                message.success({ content: `Proposed description update!`, duration: 2 });
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to propose: \n ${e?.message || ''}`, duration: 3 });
+            });
     };
 
     const handleDescriptionUpdate = async () => {
@@ -59,27 +76,25 @@ export function useDescriptionUtils() {
             // Use the new update description path.
             await updateDescription();
         }
-        setTimeout(() => {
-            refetch();
-        }, 2000);
-        setIsEditing(false);
-    };
-
-    const handleCancel = () => {
-        setIsEditing(false);
-        setUpdatedDescription(initialDescription);
+        refetch();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateDescription,
+            entityType,
+            entityUrn: urn,
+        });
     };
 
     const emptyDescriptionText = `Write a description for this ${entityRegistry.getEntityName(entityType)?.toLowerCase()}`;
 
     return {
-        isEditing,
-        setIsEditing,
-        initialDescription,
+        displayedDescription,
         updatedDescription,
         setUpdatedDescription,
         handleDescriptionUpdate,
-        handleCancel,
         emptyDescriptionText,
+        proposeDescription,
+        showProposalNote,
+        setShowProposalNote,
     };
 }

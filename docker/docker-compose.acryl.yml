@@ -24,3 +24,13 @@ services:
       - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004
     depends_on:
       - datahub-gms
+  datahub-cloud-router:
+    container_name: datahub-cloud-router
+    hostname: datahub-cloud-router
+    build:
+      context: ../
+      dockerfile: docker/datahub-cloud-router/Dockerfile
+    image: ${DATAHUB_CLOUD_ROUTER_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-cloud-router}:${DATAHUB_VERSION:-head}
+    env_file: datahub-cloud-router/env/docker.env
+    ports:
+      - ${DATAHUB_MAPPED_CLOUD_ROUTER_PORT:-9005}:9005

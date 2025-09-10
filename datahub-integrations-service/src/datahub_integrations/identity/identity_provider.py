@@ -124,6 +124,22 @@ class IdentityProvider:
                     if user_handle:
                         user.slack = user_handle
 
+                # Also extract Teams user information for future use
+                teams_settings = notification_settings.teamsSettings
+                if teams_settings:
+                    # Check for new TeamsUser structure first
+                    if hasattr(teams_settings, "user") and teams_settings.user:
+                        # For now, we don't have a teams field in User class, but we could add one
+                        # This is prepared for future enhancement when we need to extract Teams info
+                        pass
+                    # Fallback to old userHandle for backward compatibility (if it still exists)
+                    elif (
+                        hasattr(teams_settings, "userHandle")
+                        and teams_settings.userHandle
+                    ):
+                        # Legacy fallback
+                        pass
+
         corp_user_status: Optional[CorpUserStatusClass] = aspect_bag.get(
             "corpUserStatus"
         )

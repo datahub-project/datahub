@@ -18,6 +18,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.authorization.role.RoleService;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -73,6 +74,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @Autowired private SpanContext mockSpanContext;
   @Autowired private ObjectMapper objectMapper;
   @Autowired private TrackingService mockTrackingService;
+  @Autowired private RoleService mockRoleService;
 
   private final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
 

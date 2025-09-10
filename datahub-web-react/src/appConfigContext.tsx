@@ -140,6 +140,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         assetSummaryPageV1: false,
         inviteUsersEnabled: false,
         supportTicketsEnabled: false,
+        teamsNotificationsEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

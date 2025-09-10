@@ -22,8 +22,8 @@ from datahub.api.entities.dataset.dataset import (
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.sink.datahub_rest import RestSinkMode
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DataHubActionConfigClass,
@@ -40,13 +40,13 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import Urn
+from datahub.metadata.urns import SchemaFieldUrn, Urn
 from tests.integrations_service_utils import (
     bootstrap_action,
     rollback_action,
     start_action,
     stop_action,
-    wait_until_action_has_processed_event,
+    wait_until_action_has_processed_num_events,
 )
 from tests.utils import wait_for_writes_to_sync
 
@@ -170,7 +170,7 @@ def cleanup(
 
 
 @pytest.fixture(scope="module")
-def load_glossary(auth_session, test_resources_dir):
+def load_glossary(auth_session, graph_client, test_resources_dir):
     glossary_file = test_resources_dir / "test_glossary.dhub.yaml"
 
     pipeline = {
@@ -185,6 +185,7 @@ def load_glossary(auth_session, test_resources_dir):
             "config": {
                 "server": auth_session.gms_url(),
                 "token": auth_session.gms_token(),
+                "mode": RestSinkMode.SYNC.value,
             },
         },
     }
@@ -196,16 +197,9 @@ def load_glossary(auth_session, test_resources_dir):
     )
     ingest_pipeline.run()
     ingest_pipeline.raise_from_status()
-    wait_for_writes_to_sync()
 
     # Verify that glossary entities were created
     logger.info("Verifying glossary entities were created")
-    graph_client = DataHubGraph(
-        DatahubClientConfig(
-            server=auth_session.gms_url(),
-            token=auth_session.gms_token(),
-        )
-    )
 
     expected_entities = [
         "urn:li:glossaryTerm:TestTerm1_1",
@@ -218,37 +212,9 @@ def load_glossary(auth_session, test_resources_dir):
     ]
 
     for entity_urn in expected_entities:
-        if graph_client.exists(entity_urn):
-            logger.info(f"✓ Glossary entity created: {entity_urn}")
-        else:
-            logger.error(f"✗ Glossary entity NOT created: {entity_urn}")
-
-    # Check if IsPartOf relationships were created
-    logger.info("Checking IsPartOf relationships")
-    try:
-        node1_terms = graph_client.get_related_entities(
-            entity_urn="urn:li:glossaryNode:TestGlossaryNode1",
-            relationship_types=["IsPartOf"],
-            direction=DataHubGraph.RelationshipDirection.INCOMING,
+        assert graph_client.exists(entity_urn), (
+            f"Glossary entity NOT found: {entity_urn}"
         )
-        node1_terms_list = list(node1_terms)
-        node1_urns = [term.urn for term in node1_terms_list]
-        logger.info(
-            f"TestGlossaryNode1 has {len(node1_terms_list)} IsPartOf relationships: {node1_urns}"
-        )
-
-        node2_terms = graph_client.get_related_entities(
-            entity_urn="urn:li:glossaryNode:TestGlossaryNode2",
-            relationship_types=["IsPartOf"],
-            direction=DataHubGraph.RelationshipDirection.INCOMING,
-        )
-        node2_terms_list = list(node2_terms)
-        node2_urns = [term.urn for term in node2_terms_list]
-        logger.info(
-            f"TestGlossaryNode2 has {len(node2_terms_list)} IsPartOf relationships: {node2_urns}"
-        )
-    except Exception as e:
-        logger.error(f"Error checking IsPartOf relationships: {e}")
 
     logger.info("Glossary ingestion completed")
 
@@ -884,6 +850,8 @@ def test_main_loop(
     time_stages["cleanup"] = time.time() - time_stages["cleanup"]
 
     try:
+        setup_graph(graph_client, graph_lineage_data)
+
         # First test bootstrap
         time_stages["bootstrap"] = time.time()
         run_propagation_bootstrap(
@@ -972,7 +940,7 @@ def check_expectation(
 
     if isinstance(expectation, TermPropagationExpectation):
         field_urn = expectation.schema_field_urn
-        dataset_urn = Urn.from_string(field_urn).entity_ids[0]
+        dataset_urn = SchemaFieldUrn.from_string(field_urn).parent
         # propagated terms are stored in the editable schema metadata aspect
         editable_schema_metadata_aspect = graph_client.get_aspect(
             dataset_urn, EditableSchemaMetadataClass
@@ -1023,31 +991,35 @@ def check_expectation(
                 else:
                     if not rollback:
                         try:
-                            assert not expectation.propagation_found
+                            assert not expectation.propagation_found, (
+                                f"No attribution found for expectation {expectation}"
+                            )
                         except Exception:
                             # breakpoint()
                             raise
             else:
                 if not rollback:
                     try:
-                        assert not expectation.propagation_found
+                        assert not expectation.propagation_found, (
+                            f"No field info found for expectation {expectation}"
+                        )
                     except Exception:
                         # breakpoint()
                         raise
         else:
             if not rollback:
                 try:
-                    assert not expectation.propagation_found
+                    assert not expectation.propagation_found, (
+                        f"No editable schema metadata for expectation {expectation}"
+                    )
                 except Exception:
                     # breakpoint()
                     raise
 
 
-def run_propagation_bootstrap(
-    auth_session: Any,
+def setup_graph(
     graph_client: DataHubGraph,
     scenario: PropagationTestScenario,
-    test_action_urn: str,
 ) -> None:
     time_stages = {}
 
@@ -1087,6 +1059,17 @@ def run_propagation_bootstrap(
         )
 
     time_stages["wait_for_terms"] = time.time() - time_stages["wait_for_terms"]
+
+    print(f"---------- Setup graph time stages: {time_stages} ------------")
+
+
+def run_propagation_bootstrap(
+    auth_session: Any,
+    graph_client: DataHubGraph,
+    scenario: PropagationTestScenario,
+    test_action_urn: str,
+) -> None:
+    time_stages = {}
 
     time_stages["bootstrap_action"] = time.time()
     bootstrap_action(
@@ -1128,18 +1111,22 @@ def run_propagation_live(
 
     try:
         # Apply mutations
-        audit_timestamp = datetime.datetime.now(datetime.timezone.utc)
         time_stages["apply_mutations"] = time.time()
         for mcp in scenario.mutations:
             graph_client.emit(mcp)
         time_stages["apply_mutations"] = time.time() - time_stages["apply_mutations"]
         time_stages["wait_for_action_has_processed_event"] = time.time()
-        wait_until_action_has_processed_event(
-            test_action_urn, auth_session.integrations_service_url(), audit_timestamp
+        num_expected_events = len(scenario.mutations)
+        wait_until_action_has_processed_num_events(
+            test_action_urn,
+            auth_session.integrations_service_url(),
+            num_expected_events,
         )
         time_stages["wait_for_action_has_processed_event"] = (
             time.time() - time_stages["wait_for_action_has_processed_event"]
         )
+        wait_for_writes_to_sync()
+
         # Check post-mutation expectations
         for expectation in scenario.post_mutation_expectations:
             check_expectation(graph_client, test_action_urn, expectation)

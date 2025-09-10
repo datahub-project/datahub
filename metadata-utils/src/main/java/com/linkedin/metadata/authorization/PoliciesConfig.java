@@ -237,6 +237,12 @@ public class PoliciesConfig {
           "Get Platform Events",
           "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
+  public static final Privilege GET_METADATA_CHANGE_LOG_EVENTS =
+      Privilege.of(
+          "GET_METADATA_CHANGE_LOG_EVENTS",
+          "Get Metadata Change Log Events",
+          "The ability to use the Events API to read Metadata Change Log, or all low-level Metadata Change Events.");
+
   public static final Privilege MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE =
       Privilege.of(
           "MANAGE_HOME_PAGE_TEMPLATES",
@@ -315,6 +321,7 @@ public class PoliciesConfig {
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
+          GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
           MANAGE_GLOBAL_SETTINGS,
@@ -531,6 +538,12 @@ public class PoliciesConfig {
           "Create erModelRelationship",
           "The ability to add erModelRelationship on a dataset.");
 
+  public static final Privilege MANAGE_ASSET_SUMMARY_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ASSET_SUMMARY",
+          "Manage Asset Summary",
+          "The ability to manage the asset summary tab for an entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -561,6 +574,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           CREATE_ENTITY_PRIVILEGE,
           EXISTS_ENTITY_PRIVILEGE,
+          MANAGE_ASSET_SUMMARY_PRIVILEGE,
           VIEW_ENTITY_PRIVILEGE,
           PROPOSE_ENTITY_DOCS_PRIVILEGE,
           MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE,

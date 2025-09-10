@@ -8,6 +8,7 @@ import analytics, { EventType } from '@app/analytics';
 import { HeaderContainer, PageContainer } from '@app/govern/structuredProperties/styledComponents';
 import { AssertionsByAssertionSummary } from '@app/observe/dataset/assertion/AssertionsByAssertionSummary';
 import { AssertionsByTableSummary } from '@app/observe/dataset/assertion/AssertionsByTableSummary';
+import { IncidentsByIncidentSummary } from '@app/observe/dataset/incident/IncidentsByIncidentSummary';
 import { IncidentsSummary } from '@app/observe/dataset/incident/IncidentsSummary';
 import BulkCreateAssertionsDrawer from '@app/observe/shared/bulkCreate/BulkCreateAssertionsDrawer';
 import { useAppConfig } from '@app/useAppConfig';
@@ -15,15 +16,19 @@ import { Tabs } from '@src/alchemy-components/components/Tabs';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const BY_ASSERTIONS_TAB_ID = 'by-assertions';
-const BY_TABLE_TAB_ID = 'by-table';
+const BY_ASSET_TAB_ID = 'by-asset';
+const BY_INCIDENTS_TAB_ID = 'by-incidents';
+
 const INCIDENTS_TAB_ID = 'incidents';
 const ASSERTIONS_TAB_ID = 'assertions';
 
 const BASE_URL = '/observe/datasets';
 const BASE_ASSERTIONS_URL = `${BASE_URL}/${ASSERTIONS_TAB_ID}`;
 const BY_ASSERTIONS_URL = `${BASE_ASSERTIONS_URL}/${BY_ASSERTIONS_TAB_ID}`;
-const BY_TABLE_URL = `${BASE_ASSERTIONS_URL}/${BY_TABLE_TAB_ID}`;
-const INCIDENTS_URL = `${BASE_URL}/${INCIDENTS_TAB_ID}`;
+const BY_ASSET_URL = `${BASE_ASSERTIONS_URL}/${BY_ASSET_TAB_ID}`;
+const BASE_INCIDENTS_URL = `${BASE_URL}/${INCIDENTS_TAB_ID}`;
+const BY_INCIDENTS_URL = `${BASE_INCIDENTS_URL}/${BY_INCIDENTS_TAB_ID}`;
+const BY_ASSET_INCIDENTS_URL = `${BASE_INCIDENTS_URL}/${BY_ASSET_TAB_ID}`;
 
 const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : colors.white)};
@@ -41,7 +46,8 @@ export const DatasetHealthPage = () => {
     const history = useHistory();
 
     const [selectedTab, setSelectedTab] = React.useState<string>(ASSERTIONS_TAB_ID);
-    const [selectedSubTab, setSelectedSubTab] = React.useState<string>(BY_ASSERTIONS_TAB_ID);
+    const [selectedAssertionsSubTab, setSelectedAssertionsSubTab] = React.useState<string>(BY_ASSET_TAB_ID);
+    const [selectedIncidentsSubTab, setSelectedIncidentsSubTab] = React.useState<string>(BY_ASSET_TAB_ID);
     const [isBulkCreateAssertionsDrawerOpen, setIsBulkCreateAssertionsDrawerOpen] = React.useState<boolean>(false);
 
     const assertionMonitorsEnabled = !!appConfig.config?.featureFlags?.assertionMonitorsEnabled;
@@ -52,9 +58,13 @@ export const DatasetHealthPage = () => {
     // Initialize tab state based on current URL
     React.useEffect(() => {
         const currentUrl = window.location.pathname;
-        if (currentUrl === BY_TABLE_URL) {
-            setSelectedSubTab(BY_TABLE_TAB_ID);
-        } else if (currentUrl === INCIDENTS_URL) {
+        if (currentUrl === BY_ASSET_URL) {
+            setSelectedAssertionsSubTab(BY_ASSET_TAB_ID);
+        } else if (currentUrl === BY_ASSET_INCIDENTS_URL) {
+            setSelectedIncidentsSubTab(BY_ASSET_TAB_ID);
+            setSelectedTab(INCIDENTS_TAB_ID);
+        } else if (currentUrl === BY_INCIDENTS_URL) {
+            setSelectedIncidentsSubTab(BY_INCIDENTS_TAB_ID);
             setSelectedTab(INCIDENTS_TAB_ID);
         }
     }, []);
@@ -62,17 +72,24 @@ export const DatasetHealthPage = () => {
     const handleMainTabChange = (tabKey: string) => {
         setSelectedTab(tabKey);
         if (tabKey === INCIDENTS_TAB_ID) {
-            history.replace(INCIDENTS_URL);
+            const targetUrl = selectedIncidentsSubTab === BY_ASSET_TAB_ID ? BY_ASSET_INCIDENTS_URL : BY_INCIDENTS_URL;
+            history.replace(targetUrl);
         } else if (tabKey === ASSERTIONS_TAB_ID) {
             // When switching to assertions, preserve the current subtab
-            const targetUrl = selectedSubTab === BY_TABLE_TAB_ID ? BY_TABLE_URL : BY_ASSERTIONS_URL;
+            const targetUrl = selectedAssertionsSubTab === BY_ASSET_TAB_ID ? BY_ASSET_URL : BY_ASSERTIONS_URL;
             history.replace(targetUrl);
         }
     };
 
-    const handleSubTabChange = (subtabKey: string) => {
-        setSelectedSubTab(subtabKey);
-        const targetUrl = subtabKey === BY_TABLE_TAB_ID ? BY_TABLE_URL : BY_ASSERTIONS_URL;
+    const handleAssertionsSubTabChange = (subtabKey: string) => {
+        setSelectedAssertionsSubTab(subtabKey);
+        const targetUrl = subtabKey === BY_ASSET_TAB_ID ? BY_ASSET_URL : BY_ASSERTIONS_URL;
+        history.replace(targetUrl);
+    };
+
+    const handleIncidentsSubTabChange = (subtabKey: string) => {
+        setSelectedIncidentsSubTab(subtabKey);
+        const targetUrl = subtabKey === BY_ASSET_TAB_ID ? BY_ASSET_INCIDENTS_URL : BY_INCIDENTS_URL;
         history.replace(targetUrl);
     };
 
@@ -83,26 +100,48 @@ export const DatasetHealthPage = () => {
                 {
                     component: (
                         <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
+                            <AssertionsByTableSummary />
+                        </Content>
+                    ),
+                    key: BY_ASSET_TAB_ID,
+                    name: 'By Asset',
+                },
+                {
+                    component: (
+                        <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
                             <AssertionsByAssertionSummary />
                         </Content>
                     ),
                     key: BY_ASSERTIONS_TAB_ID,
                     name: 'By Assertion',
                 },
+            ]}
+            secondary
+            selectedTab={selectedAssertionsSubTab}
+            onChange={handleAssertionsSubTabChange}
+            defaultTab={BY_ASSET_TAB_ID}
+        />
+    );
+
+    const incidentsTabs = (
+        <Tabs
+            styleOptions={{ containerHeight: 'full', navMarginTop: 12, navMarginBottom: 4 }}
+            tabs={[
                 {
-                    component: (
-                        <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
-                            <AssertionsByTableSummary />
-                        </Content>
-                    ),
-                    key: BY_TABLE_TAB_ID,
+                    component: <IncidentsSummary />,
+                    key: BY_ASSET_TAB_ID,
                     name: 'By Asset',
+                },
+                {
+                    component: <IncidentsByIncidentSummary />,
+                    key: BY_INCIDENTS_TAB_ID,
+                    name: 'By Incidents',
                 },
             ]}
             secondary
-            selectedTab={selectedSubTab}
-            onChange={handleSubTabChange}
-            defaultTab={BY_ASSERTIONS_TAB_ID}
+            selectedTab={selectedIncidentsSubTab}
+            onChange={handleIncidentsSubTabChange}
+            defaultTab={BY_ASSET_TAB_ID}
         />
     );
 
@@ -116,11 +155,7 @@ export const DatasetHealthPage = () => {
                     name: 'Assertions',
                 },
                 {
-                    component: (
-                        <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
-                            <IncidentsSummary />
-                        </Content>
-                    ),
+                    component: <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{incidentsTabs}</Content>,
                     key: INCIDENTS_TAB_ID,
                     name: 'Incidents',
                 },

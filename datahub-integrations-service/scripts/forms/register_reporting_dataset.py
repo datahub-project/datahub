@@ -1,7 +1,8 @@
-from datahub.ingestion.graph.client import get_default_graph
 import sys
-from datahub.metadata.schema_classes import DatasetPropertiesClass
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 s3_uri = sys.argv[1]
 

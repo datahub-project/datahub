@@ -498,5 +498,17 @@ public class AuthorizationUtils {
         context.getOperationContext(), MANAGE, List.of(SECRETS_ENTITY_NAME));
   }
 
+  public static boolean canManageAssetSummary(@Nonnull QueryContext context, @Nonnull Urn urn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, urn.getEntityType(), urn.toString(), orPrivilegeGroups);
+  }
+
   private AuthorizationUtils() {}
 }

@@ -19,8 +19,8 @@ public class ESGraphWriteDAOTest {
   @Test
   public void testUpdateByQuery() {
     ESBulkProcessor mockBulkProcess = mock(ESBulkProcessor.class);
-    GraphQueryConfiguration config = new GraphQueryConfiguration();
-    config.setGraphStatusEnabled(true);
+    GraphQueryConfiguration config =
+        GraphQueryConfiguration.builder().graphStatusEnabled(true).build();
     ESGraphWriteDAO test = new ESGraphWriteDAO(TEST_INDEX_CONVENTION, mockBulkProcess, 0, config);
 
     test.updateByQuery(new Script("test"), QueryBuilders.boolQuery());

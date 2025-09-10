@@ -26,6 +26,7 @@ import {
     NotificationSettingsInput,
     SlackNotificationSettings,
     SubscriptionType,
+    TeamsNotificationSettings,
 } from '@types';
 
 const REFETCH_DELAY = 3000;
@@ -639,4 +640,59 @@ export const getEmailSubscriptionChannel = (__: boolean, subscription?: DataHubS
 
 export const getEmailSettingsChannel = (__: boolean, settings?: EmailNotificationSettings) => {
     return settings?.email;
+};
+
+export const getTeamsSubscriptionChannel = (isPersonal: boolean, subscription?: DataHubSubscription) => {
+    const subUserHandle =
+        subscription?.notificationConfig?.notificationSettings?.teamsSettings?.user?.azureUserId ||
+        subscription?.notificationConfig?.notificationSettings?.teamsSettings?.user?.email ||
+        undefined;
+    const subChannels = subscription?.notificationConfig?.notificationSettings?.teamsSettings?.channels;
+    // Always prioritize ID over name - names are only for display
+    const subGroupChannel = subChannels?.length ? subChannels[0]?.id || subChannels[0]?.name : undefined;
+
+    // Return whatever is available: userHandle or channel ID
+    return subUserHandle || subGroupChannel;
+};
+
+export const getTeamsSettingsChannel = (isPersonal: boolean, settings?: TeamsNotificationSettings) => {
+    const settingsUserHandle = settings?.user?.azureUserId || settings?.user?.email || undefined;
+    const settingsChannels = settings?.channels;
+    const settingsGroupChannel = settingsChannels?.length
+        ? settingsChannels[0]?.id || settingsChannels[0]?.name
+        : undefined;
+
+    // For personal settings, prefer userHandle if available, otherwise use first channel ID
+    if (isPersonal) {
+        return settingsUserHandle || settingsGroupChannel;
+    }
+
+    return settingsGroupChannel;
+};
+
+export const getTeamsSettingsChannelId = (isPersonal: boolean, settings?: TeamsNotificationSettings) => {
+    const settingsUserHandle = settings?.user?.azureUserId || settings?.user?.email || undefined;
+    const settingsChannels = settings?.channels;
+    const settingsGroupChannel = settingsChannels?.length ? settingsChannels[0]?.id : undefined;
+
+    // For personal notifications, prefer userHandle if available, otherwise use first channel
+    if (isPersonal) {
+        return settingsUserHandle || settingsGroupChannel;
+    }
+
+    return settingsGroupChannel;
+};
+
+export const getTeamsSettingsChannelName = (isPersonal: boolean, settings?: TeamsNotificationSettings) => {
+    const settingsChannels = settings?.channels;
+    const settingsGroupChannel = settingsChannels?.length
+        ? settingsChannels[0]?.name || settingsChannels[0]?.id
+        : undefined;
+
+    // For personal notifications, return channel name if available (no userHandle display name)
+    if (isPersonal) {
+        return settingsGroupChannel;
+    }
+
+    return settingsGroupChannel;
 };

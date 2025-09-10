@@ -144,6 +144,53 @@ export function useEmailInvitations() {
         setEmailValidationError('');
     }, []);
 
+    // Send invitation to a specific email without affecting the form state
+    const sendInvitationToEmail = useCallback(
+        async (email: string, role?: DataHubRole): Promise<boolean> => {
+            try {
+                const hideLoading = message.loading(`Sending invitation to ${email}...`, 0);
+
+                const input: SendUserInvitationsInput = {
+                    emails: [email],
+                };
+
+                if (role?.urn) {
+                    input.roleUrn = role.urn;
+                }
+
+                const result = await sendUserInvitationsMutation({
+                    variables: {
+                        input,
+                    },
+                });
+
+                hideLoading();
+
+                const response = result.data?.sendUserInvitations;
+                if (response?.success && response.invitationsSent > 0) {
+                    message.success(`Successfully sent invitation to ${email}`);
+
+                    // Add successfully sent email to the invited users list
+                    const newInvitedUser = {
+                        email,
+                        role,
+                        invited: true,
+                    };
+                    setInvitedUsers((prev) => [...prev, newInvitedUser]);
+                    return true;
+                }
+                const errorMessage = response?.errors?.length ? response.errors.join(', ') : 'Unknown error';
+                message.error(`Failed to send invitation: ${errorMessage}`);
+                return false;
+            } catch (error) {
+                message.error(`Failed to send invitation to ${email}`);
+                console.error('Failed to send email invitation:', error);
+                return false;
+            }
+        },
+        [sendUserInvitationsMutation],
+    );
+
     return {
         // State
         emailInput,
@@ -157,5 +204,6 @@ export function useEmailInvitations() {
         updateInvitedUsersRole,
         resetEmailInvitations,
         setEmailInput,
+        sendInvitationToEmail,
     };
 }

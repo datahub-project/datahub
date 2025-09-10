@@ -23,6 +23,26 @@ fragment SearchEntityInfo on Entity {
       name
     }
   }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+  ... on GlossaryNode {
+    properties {
+      name
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+    }
+  }
+  ... on DataProduct {
+    properties {
+      name
+    }
+  }
 }
 
 fragment FacetEntityInfo on Entity {
@@ -70,6 +90,8 @@ query search(
       entity {
         ...SearchEntityInfo
       }
+      # TODO: Consider adding these fields for enhanced search experience:
+      # score               # BM25 score for keyword search relevance
     }
     facets {
       field
@@ -83,5 +105,9 @@ query search(
         }
       }
     }
+    # TODO: Consider adding metadata section for search algorithm transparency:
+    # metadata {
+    #   scoringMethod       # e.g., "BM25" vs "COSINE_SIMILARITY"
+    # }
   }
 }

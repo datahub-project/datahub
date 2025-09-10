@@ -9,11 +9,17 @@ import {
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
 } from '@graphql/settings.generated';
-import { EmailNotificationSettingsInput, NotificationSinkType, SlackNotificationSettingsInput } from '@types';
+import {
+    EmailNotificationSettingsInput,
+    NotificationSinkType,
+    SlackNotificationSettingsInput,
+    TeamsNotificationSettingsInput,
+} from '@types';
 
 export const updateUserNotificationSettingsFunction = ({
     emailSettings,
     slackSettings,
+    teamsSettings,
     baseSinkTypes,
     sinkTypes,
     updateUserNotificationSettings,
@@ -21,6 +27,7 @@ export const updateUserNotificationSettingsFunction = ({
 }: {
     slackSettings?: SlackNotificationSettingsInput;
     emailSettings?: EmailNotificationSettingsInput;
+    teamsSettings?: TeamsNotificationSettingsInput;
     baseSinkTypes: NotificationSinkType[] | undefined;
     sinkTypes: NotificationSinkType[];
     updateUserNotificationSettings: ReturnType<typeof useUpdateUserNotificationSettingsMutation>[0];
@@ -36,6 +43,7 @@ export const updateUserNotificationSettingsFunction = ({
                     sinkTypes,
                     slackSettings,
                     emailSettings,
+                    teamsSettings,
                 },
             },
         },
@@ -69,6 +77,7 @@ export const updateGroupNotificationSettingsFunction = ({
     groupUrn,
     emailSettings,
     slackSettings,
+    teamsSettings,
     baseSinkTypes,
     sinkTypes,
     updateGroupNotificationSettings,
@@ -77,6 +86,7 @@ export const updateGroupNotificationSettingsFunction = ({
     groupUrn: string;
     slackSettings?: SlackNotificationSettingsInput;
     emailSettings?: EmailNotificationSettingsInput;
+    teamsSettings?: TeamsNotificationSettingsInput;
     baseSinkTypes: NotificationSinkType[] | undefined;
     sinkTypes: NotificationSinkType[];
     updateGroupNotificationSettings: ReturnType<typeof useUpdateGroupNotificationSettingsMutation>[0];
@@ -93,6 +103,7 @@ export const updateGroupNotificationSettingsFunction = ({
                     sinkTypes,
                     slackSettings,
                     emailSettings,
+                    teamsSettings,
                 },
             },
         },

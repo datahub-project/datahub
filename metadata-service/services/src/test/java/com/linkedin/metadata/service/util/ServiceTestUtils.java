@@ -82,10 +82,13 @@ public class ServiceTestUtils {
     return createMockClient(existingGlossaryTerms, Constants.GLOSSARY_TERMS_ASPECT_NAME);
   }
 
+  public static OpenApiClient createMockClient() {
+    return Mockito.mock(OpenApiClient.class, Mockito.withSettings().verboseLogging());
+  }
+
   private static OpenApiClient createMockClient(@Nullable RecordTemplate aspect, String aspectName)
       throws Exception {
-    OpenApiClient mockClient =
-        Mockito.mock(OpenApiClient.class, Mockito.withSettings().verboseLogging());
+    OpenApiClient mockClient = createMockClient();
     BatchGetUrnRequestV2 batchGetUrnRequest =
         BatchGetUrnRequestV2.builder()
             .urns(List.of(TEST_ENTITY_URN_1.toString(), TEST_ENTITY_URN_2.toString()))

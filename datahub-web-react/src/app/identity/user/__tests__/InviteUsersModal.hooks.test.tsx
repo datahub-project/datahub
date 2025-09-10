@@ -138,7 +138,7 @@ describe('useInviteUsersModal', () => {
             const { result } = renderHook(() => useInviteUsersModal());
 
             expect(result.current.inviteLink).toBe(
-                'https://test.datahub.com/signup?invite_token=test-invite-token-123',
+                'https://test.datahub.com/signup?invite_token=test-invite-token-123&redirect_on_sso=true',
             );
         });
 
@@ -587,7 +587,9 @@ describe('useInviteUsersModal', () => {
 
             const { result } = renderHook(() => useInviteUsersModal());
 
-            expect(result.current.inviteLink).toBe('https://test.datahub.com/signup?invite_token=');
+            expect(result.current.inviteLink).toBe(
+                'https://test.datahub.com/signup?invite_token=&redirect_on_sso=true',
+            );
         });
     });
 });

@@ -22,6 +22,10 @@ dependencies = [
 	# Slack.
 	"slack-bolt",
 	"inflect",
+	# Teams Bot Framework.
+	"botbuilder-core",
+	"botbuilder-schema",
+	"botframework-connector",
 	# MCP
 	"fastmcp",
 	"markdown_to_mrkdwn",
@@ -67,6 +71,7 @@ dev = [
 	"setuptools",  # for pkg_resources
 	"ruff==0.11.4",
 	"pytest",
+	"pytest-asyncio",
 	"mypy",
 	"pytest-cov",
 	"asgi-lifespan",
@@ -82,6 +87,7 @@ dev = [
 	"typer",
 	# Iteration
 	"papermill",
+	"nbconvert",
 	"json5",
 	"streamlit",
 	"streamlit-aggrid",
@@ -146,7 +152,12 @@ exclude = [
 extraPaths = ['tests']
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "asyncio: mark a test as an asyncio coroutine.",
     "integration: mark a test as an integration test requiring external dependencies."
+]
+norecursedirs = [
+    "scripts/teams/install/datahub-router"
 ]

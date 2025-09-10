@@ -892,6 +892,8 @@ module.exports = {
         "datahub-integrations-service/src/datahub_integrations/propagation/term/README",
         // "datahub-integrations-service/experiments/term_suggestion_v2/term_suggestion_analysis_documentation"
         // "datahub-integrations-service/experiments/docs_generation/README"
+        // "datahub-integrations-service/scripts/teams/README"
+        // "datahub-integrations-service/scripts/teams/install/DEVELOPER_SETUP_GUIDE"
       ],
     },
     {

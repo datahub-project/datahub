@@ -1,7 +1,7 @@
 import { UserOutlined } from '@ant-design/icons';
 import * as React from 'react';
 
-import { Entity, EntityCapabilityType, IconStyleType, PreviewContext, PreviewType } from '@app/entityV2/Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import UserProfile from '@app/entityV2/user/UserProfile';
@@ -50,17 +50,16 @@ export class UserEntity implements Entity<CorpUser> {
 
     renderProfile = (urn: string) => <UserProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: CorpUser, _actions, extraContext?: PreviewContext) => (
+    renderPreview = (_: PreviewType, data: CorpUser) => (
         <Preview
             urn={data.urn}
             name={this.displayName(data)}
             title={data.editableProperties?.title || data.info?.title || ''}
-            propagationDetails={extraContext?.propagationDetails}
         />
     );
 
     renderSearch = (result: SearchResult) => {
-        return this.renderPreview(PreviewType.SEARCH, result.entity as CorpUser, undefined, undefined);
+        return this.renderPreview(PreviewType.SEARCH, result.entity as CorpUser);
     };
 
     displayName = (data: CorpUser) => {

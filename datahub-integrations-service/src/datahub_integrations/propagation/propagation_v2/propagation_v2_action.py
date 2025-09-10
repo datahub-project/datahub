@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from typing import Self
 
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import (
     PipelineContext as IngestionPipelineContext,
     RecordEnvelope,
@@ -22,9 +23,12 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     _Aspect,
 )
-from datahub.metadata.urns import SchemaFieldUrn
+from datahub.metadata.urns import SchemaFieldUrn, Urn
 from datahub_actions.event.event_envelope import EventEnvelope
-from datahub_actions.event.event_registry import EntityChangeEvent
+from datahub_actions.event.event_registry import (
+    EntityChangeEvent,
+    RelationshipChangeEvent,
+)
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 
 from datahub_integrations.actions.bulk_bootstrap_action import (
@@ -55,6 +59,9 @@ from datahub_integrations.propagation.propagation_v2.propagators.dataset_documen
 from datahub_integrations.propagation.propagation_v2.propagators.ownership_propagator import (
     OwnershipPropagator,
 )
+from datahub_integrations.propagation.propagation_v2.propagators.structured_property_propagator import (
+    StructuredPropertyPropagator,
+)
 from datahub_integrations.propagation.propagation_v2.propagators.tag_propagator import (
     TagPropagator,
 )
@@ -70,6 +77,7 @@ SUPPORTED_PROPAGATORS: dict[MetadataToPropagate, type[AspectPropagator]] = {
     MetadataToPropagate.TERMS: GlossaryTermPropagator,
     MetadataToPropagate.DOCUMENTATION: DatasetDocumentationPropagator,
     MetadataToPropagate.OWNERSHIP: OwnershipPropagator,
+    MetadataToPropagate.STRUCTURED_PROPERTIES: StructuredPropertyPropagator,
 }
 
 
@@ -84,7 +92,7 @@ class PropagationV2Action(BulkBootstrapAction):
 
         if self.config.sink:
             logger.warning(
-                "Using custom sink for propagation action. This should only be used for testing."
+                "Using custom sink for propagation action. This should only be used for testing bootstrap."
             )
             sink_config = self.config.sink.model_dump().get("config") or {}
             sink_class = sink_registry.get(self.config.sink.type)
@@ -137,18 +145,19 @@ class PropagationV2Action(BulkBootstrapAction):
 
         stats = self.report.event_processing_stats
         if isinstance(event.event, EntityChangeEvent):
-            stats.start(event)
             ece = event.event
+            stats.start(event)
+            logger.info(f"Processing {ece}")
             ece_entity = EntityWithData(ece.entityUrn)
             target_to_origin = self._get_target_urns([ece_entity])
-            for target_urn in target_to_origin:
+            for target_urn, origin_entity in target_to_origin.items():
                 try:
-                    self._process_ece(ece, ece_entity, target_urn)
+                    self._process_ece(ece, origin_entity, target_urn)
                     stats.end(event, success=True)
                 except Exception:
-                    logger.warning(f"Error processing event {event}:", exc_info=True)
+                    logger.warning(f"Error processing {event}:", exc_info=True)
                     stats.end(event, success=False)
-        elif isinstance(event.event, RelationshipChangeEventClass):
+        elif isinstance(event.event, RelationshipChangeEvent):
             if len(self.config.propagation_rule.target_urn_resolution) != 1:
                 return
 
@@ -160,19 +169,20 @@ class PropagationV2Action(BulkBootstrapAction):
             ):
                 return
 
+            logger.info(f"Processing {rce}")
             stats.start(event)
             try:
-                self._process_rce(rce, target_is_source=resolution.is_source)
+                self._process_rce(rce, origin_is_source=resolution.origin_is_source)
                 stats.end(event, success=True)
             except Exception:
-                logger.warning(f"Error processing event {event}:", exc_info=True)
+                logger.warning(f"Error processing {event}:", exc_info=True)
                 stats.end(event, success=False)
 
     def _process_rce(
-        self, rce: RelationshipChangeEventClass, *, target_is_source: bool
+        self, rce: RelationshipChangeEventClass, *, origin_is_source: bool
     ) -> None:
-        target_urn = rce.sourceUrn if target_is_source else rce.destinationUrn
-        origin_urn = rce.destinationUrn if target_is_source else rce.sourceUrn
+        target_urn = rce.destinationUrn if origin_is_source else rce.sourceUrn
+        origin_urn = rce.sourceUrn if origin_is_source else rce.destinationUrn
 
         if (
             rce.operation == RelationshipChangeOperationClass.ADD
@@ -181,7 +191,7 @@ class PropagationV2Action(BulkBootstrapAction):
             target_entity = EntityWithData(target_urn)
             origin_entity = EntityWithData(origin_urn)
             self._batch_augment_entities_with_aspects(
-                [target_entity, origin_entity], self._bootstrap_aspect_names
+                [target_entity, origin_entity], list(self.bootstrap_aspects())
             )
             self._bootstrap_single_urn(
                 origin_entity=origin_entity, target_entity=target_entity
@@ -191,9 +201,11 @@ class PropagationV2Action(BulkBootstrapAction):
             # TODO: Handle rollback on REMOVE; handle bulk deletion via lifecycle owner and entity hard delete events
 
     def _process_ece(
-        self, ece: EntityChangeEvent, ece_entity: EntityWithData, target_urn: str
+        self, ece: EntityChangeEvent, origin_entity: EntityWithData, target_urn: str
     ) -> None:
         for propagator in self.propagators:
+            if ece.category != propagator.category().value:
+                continue
             if ece.operation not in propagator.supported_change_operations():
                 logger.debug(
                     f"Skipping propagator {propagator} for ece {ece} due to unsupported operation {ece.operation}"
@@ -203,16 +215,15 @@ class PropagationV2Action(BulkBootstrapAction):
             # Special DatasetDocumentationPropagator case
             if isinstance(propagator, DatasetDocumentationPropagator):
                 self._propagate_dataset_documentation_via_diff(
-                    propagator, ece_entity, target_urn
+                    propagator, origin_entity, target_urn
                 )
                 continue
 
             for mcp in propagator.compute_propagation_mcps(
                 {target_urn: {ece.operation: {ece.entityUrn: ece}}}
             ):
-                self.sink.write_record_async(
-                    RecordEnvelope(mcp, metadata={}), self.noop_callback
-                )
+                # Do not use sink -- async batch has a delay
+                self.ctx.graph.graph.emit(mcp, emit_mode=EmitMode.ASYNC)
 
     def get_report(self) -> ActionStageReport:
         return self.report
@@ -239,7 +250,7 @@ class PropagationV2Action(BulkBootstrapAction):
             return (
                 BootstrapEndpoint.RELATIONSHIP_SCROLL,
                 origin_urn_resolution.relationship_type,
-                origin_urn_resolution.is_source,
+                origin_urn_resolution.origin_is_source,
             )
         else:
             logger.error(
@@ -259,38 +270,20 @@ class PropagationV2Action(BulkBootstrapAction):
         return [aspect.ASPECT_NAME for aspect in self.propagator_aspects()]
 
     def bootstrap_aspects(self) -> set[type[_Aspect]]:
-        if (
-            self.config.propagation_rule.target_urn_resolution
-            == LookupType.SCHEMA_FIELD.value
-        ):
-            return self.propagator_aspects() | {
-                SchemaMetadataClass,
-                EditableSchemaMetadataClass,
-            }
-        else:
-            return self.propagator_aspects()
+        return self.propagator_aspects()
 
     def _get_target_urns(
-        self, entities: list[EntityWithData]
+        self, origin_entities: list[EntityWithData]
     ) -> dict[str, EntityWithData]:
         """
         Given a list of origin entities, resolve the target urns based on target_urn_resolution.
 
         Args:
-            entities: List of original entities.
+            origin_entities: List of original entities.
 
         Returns:
             A dictionary mapping target urns to their corresponding origin entities.
         """
-
-        entities_needing_resolution = [
-            entity
-            for entity in entities
-            if set(self._bootstrap_aspect_names) - entity.aspects.keys()
-        ]
-        self._batch_augment_entities_with_aspects(
-            entities_needing_resolution, self._bootstrap_aspect_names
-        )
 
         # Define `target_to_origin` which maps destination urn -> origin entity
         # And `batch` which contains each destination urn as an EntityWithData
@@ -298,10 +291,21 @@ class PropagationV2Action(BulkBootstrapAction):
             self.config.propagation_rule.target_urn_resolution
             == LookupType.SCHEMA_FIELD.value
         ):
-            target_to_origin = self._get_schema_field_target_urns(entities)
+            target_to_origin = self._get_schema_field_target_urns(origin_entities)
         else:
-            batch = entities
-            target_to_origin = {entity.urn: entity for entity in entities}
+            entities_needing_resolution = [
+                entity
+                for entity in origin_entities
+                if set(self._bootstrap_aspect_names) - entity.aspects.keys()
+            ]
+            self._batch_augment_entities_with_aspects(
+                entities_needing_resolution, list(self.bootstrap_aspects())
+            )
+
+            self._attach_descriptions_from_schema_metadata(origin_entities)
+
+            batch = origin_entities
+            target_to_origin = {entity.urn: entity for entity in origin_entities}
             for lookup in self.config.propagation_rule.target_urn_resolution:
                 new_target_to_origin = {}
                 for parent, children in self._follow_lookup(lookup, batch).items():
@@ -314,11 +318,34 @@ class PropagationV2Action(BulkBootstrapAction):
         return target_to_origin
 
     def _get_schema_field_target_urns(
-        self, entities: list[EntityWithData]
+        self, origin_entities: list[EntityWithData]
     ) -> dict[str, EntityWithData]:
         target_to_origin = {}
 
-        for entity in entities:
+        for entity in origin_entities:
+            # ECEs on schema fields will have schema field urns
+            # We still need to fetch the parent dataset urn to get its docs, to perform the docs diff
+            # Swap the entity urn to its dataset urn, but remember the field path for later
+            urn_obj = Urn.create_from_string(entity.urn)
+            if isinstance(urn_obj, SchemaFieldUrn):
+                entity.urn = str(urn_obj.parent)
+                entity.field_path = urn_obj.field_path
+
+        extra_aspects: set[type[_Aspect]] = {
+            SchemaMetadataClass,
+            EditableSchemaMetadataClass,
+        }
+        aspects_to_fetch = list(self.bootstrap_aspects() | extra_aspects)
+        entities_needing_resolution = [
+            entity
+            for entity in origin_entities
+            if set(aspects_to_fetch) - entity.aspects.keys()
+        ]
+        self._batch_augment_entities_with_aspects(
+            entities_needing_resolution, aspects_to_fetch
+        )
+
+        for entity in origin_entities:
             schema_metadata = entity.get_aspect(SchemaMetadataClass)
             editable_schema_metadata = entity.get_aspect(EditableSchemaMetadataClass)
             if not schema_metadata and not editable_schema_metadata:
@@ -337,7 +364,15 @@ class PropagationV2Action(BulkBootstrapAction):
                 if editable_schema_metadata
                 else {}
             )
-            for field_path in base_field_map.keys() | editable_field_map.keys():
+
+            # For live ECE, only process specified field path
+            # For bootstrap, process all field paths
+            field_paths = (
+                {entity.field_path}
+                if entity.field_path
+                else base_field_map.keys() | editable_field_map.keys()
+            )
+            for field_path in field_paths:
                 target_urn = str(SchemaFieldUrn(entity.urn, field_path))
                 base_field = base_field_map.get(
                     field_path, EditableSchemaFieldInfoClass(fieldPath=field_path)
@@ -418,9 +453,11 @@ class PropagationV2Action(BulkBootstrapAction):
 
     def _bootstrap_batch_internal(self, entities: list[EntityWithData]) -> None:
         target_to_origin = self._get_target_urns(entities)
-        batch = [EntityWithData(urn) for urn in target_to_origin]
-        self._batch_augment_entities_with_aspects(batch, self._propagator_aspect_names)
-        target_entity_by_urn = {entity.urn: entity for entity in batch}
+        target_urn_batch = [EntityWithData(urn) for urn in target_to_origin]
+        self._batch_augment_entities_with_aspects(
+            target_urn_batch, list(self.propagator_aspects())
+        )
+        target_entity_by_urn = {entity.urn: entity for entity in target_urn_batch}
         for propagator in self.propagators:
             change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]] = (
                 defaultdict(lambda: defaultdict(dict))
@@ -466,9 +503,8 @@ class PropagationV2Action(BulkBootstrapAction):
                 change_events[target_entity.urn][ece.operation][ece.entityUrn] = ece
 
             for mcp in propagator.compute_propagation_mcps(change_events):
-                self.sink.write_record_async(
-                    RecordEnvelope(mcp, metadata={}), self.noop_callback
-                )
+                # Do not use sink -- async batch has a delay
+                self.ctx.graph.graph.emit(mcp, emit_mode=EmitMode.ASYNC)
 
     def _follow_lookup(
         self, lookup: TargetUrnResolutionLookup, entities: list[EntityWithData]
@@ -484,15 +520,17 @@ class PropagationV2Action(BulkBootstrapAction):
                 entity
                 for entity in entities
                 if lookup.relationship_type
-                not in entity.get_relationships(lookup.is_source)
+                not in entity.get_relationships(lookup.origin_is_source)
             ]
             if entities_needing_resolution:
                 self._batch_augment_entities_with_relationship(
-                    entities_needing_resolution, lookup.relationship_type
+                    entities_needing_resolution,
+                    lookup.relationship_type,
+                    lookup.origin_is_source,
                 )
             return {
                 entity.urn: set(
-                    entity.get_relationships(lookup.is_source).get(
+                    entity.get_relationships(lookup.origin_is_source).get(
                         lookup.relationship_type, []
                     )
                 )
@@ -506,10 +544,66 @@ class PropagationV2Action(BulkBootstrapAction):
             )
             return {}
 
+    def _attach_descriptions_from_schema_metadata(
+        self, origin_entities: list[EntityWithData]
+    ) -> None:
+        """Special handling for docs propagation :'(
+
+        Sets `ingestion_description` and `editable_description` on origin schema field entities,
+        so they can later be used by `DatasetDocumentationPropagator.compute_diff_eces`.
+        """
+        if any(
+            p.should_fetch_schema_field_parent_schema_metadata()
+            for p in self.propagators
+        ):
+            parent_entities_to_fetch = []
+            schema_field_to_parent_map = {}
+            for origin_entity in origin_entities:
+                urn_obj = Urn.from_string(origin_entity.urn)
+                if isinstance(urn_obj, SchemaFieldUrn):
+                    origin_entity.field_path = urn_obj.field_path
+                    parent_entity = EntityWithData(urn=urn_obj.parent)
+                    parent_entities_to_fetch.append(parent_entity)
+                    schema_field_to_parent_map[origin_entity] = parent_entity
+
+            self._batch_augment_entities_with_aspects(
+                parent_entities_to_fetch,
+                [SchemaMetadataClass, EditableSchemaMetadataClass],
+            )
+
+            for origin_entity, parent in schema_field_to_parent_map.items():
+                schema_metadata = parent.get_aspect(SchemaMetadataClass)
+                if schema_metadata:
+                    field = next(
+                        (
+                            f
+                            for f in schema_metadata.fields
+                            if f.fieldPath == origin_entity.field_path
+                        ),
+                        None,
+                    )
+                    if field and field.description:
+                        origin_entity.ingestion_description = field.description
+
+                editable_schema_metadata = parent.get_aspect(
+                    EditableSchemaMetadataClass
+                )
+                if editable_schema_metadata:
+                    editable_field = next(
+                        (
+                            f
+                            for f in editable_schema_metadata.editableSchemaFieldInfo
+                            if f.fieldPath == origin_entity.field_path
+                        ),
+                        None,
+                    )
+                    if editable_field and editable_field.description:
+                        origin_entity.editable_description = editable_field.description
+
     def _propagate_dataset_documentation_via_diff(
         self,
         propagator: DatasetDocumentationPropagator,
-        ece_entity: EntityWithData,
+        origin_entity: EntityWithData,
         target_urn: str,
     ) -> None:
         """Override the normal propagation flow, computing a diff as in the
@@ -522,14 +616,13 @@ class PropagationV2Action(BulkBootstrapAction):
         # and the UI can prioritize which one to show not based on recency
         target_entity = EntityWithData(target_urn)
         self._batch_augment_entities_with_aspects(
-            [target_entity], self._propagator_aspect_names
+            [target_entity], list(propagator.aspects())
         )
         for new_ece in propagator.compute_diff_eces(
-            origin=ece_entity, target=target_entity
+            origin=origin_entity, target=target_entity
         ):
             for mcp in propagator.compute_propagation_mcps(
                 {target_urn: {new_ece.operation: {new_ece.entityUrn: new_ece}}}
             ):
-                self.sink.write_record_async(
-                    RecordEnvelope(mcp, metadata={}), self.noop_callback
-                )
+                # Do not use sink -- async batch has a delay
+                self.ctx.graph.graph.emit(mcp, emit_mode=EmitMode.ASYNC)

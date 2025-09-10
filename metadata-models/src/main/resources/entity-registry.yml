@@ -308,6 +308,7 @@ entities:
       - forms
       - testResults
       - displayProperties
+      - assetSettings
       # SaaS Only
       - share
       - origin
@@ -370,6 +371,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - assetSettings
       # SaaS Only
       - share
       - origin
@@ -386,6 +388,7 @@ entities:
       - testResults
       - subTypes
       - displayProperties
+      - assetSettings
       # SaaS Only
       - share
       - origin
@@ -735,6 +738,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - assetSettings
       # SaaS Only
       - share
       - origin

@@ -5,6 +5,9 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Documentation;
+import com.linkedin.common.DocumentationAssociation;
+import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -34,6 +37,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.Arrays;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
@@ -163,7 +167,7 @@ public class SchemaFieldEvaluatorTest {
 
     com.linkedin.metadata.test.query.schemafield.SchemaField expectedSchemaField =
         new com.linkedin.metadata.test.query.schemafield.SchemaField(
-            "path", "description", "editableDescription");
+            "path", "description", "editableDescription", null);
 
     Map<Urn, Map<TestQuery, TestQueryResponse>> results =
         evaluator.evaluate(opContext, "dataset", urns, queries);
@@ -569,5 +573,399 @@ public class SchemaFieldEvaluatorTest {
     assertEquals(
         results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
         STRUCTURED_PROPERTY_URN.toString());
+  }
+
+  @Test
+  public void testEvaluateWithDocumentationAspect() throws URISyntaxException {
+    Set<Urn> urns = new HashSet<>(Arrays.asList(TEST_DATASET_URN));
+    Set<TestQuery> queries = new HashSet<>(Arrays.asList(mock(TestQuery.class)));
+    when(queries.iterator().next().getQuery())
+        .thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setHash("hash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setVersion(0L);
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path")
+                    .setDescription("description"))));
+
+    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
+    editableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path"))));
+
+    // Create documentation aspect
+    List<String> documentation = Arrays.asList("This is AI-generated documentation");
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path");
+
+    Map<Urn, EntityResponse> mockResponses = new HashMap<>();
+    mockResponses.put(
+        TEST_DATASET_URN,
+        new EntityResponse()
+            .setUrn(TEST_DATASET_URN)
+            .setEntityName(DATASET_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(schemaMetadata.data())),
+                        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(new Aspect(editableSchemaMetadata.data()))))));
+
+    // Create a proper Documentation aspect for testing
+    Documentation documentationAspect = new Documentation();
+    DocumentationAssociation docAssociation = new DocumentationAssociation();
+    docAssociation.setDocumentation("This is AI-generated documentation");
+    documentationAspect.setDocumentations(
+        new DocumentationAssociationArray(Arrays.asList(docAssociation)));
+
+    // Create audit stamp
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setActor(UrnUtils.getUrn("urn:li:corpuser:12345"));
+    auditStamp.setTime(System.currentTimeMillis());
+    documentationAspect.setLastModified(auditStamp);
+
+    Map<Urn, EntityResponse> mockDocumentationResponses = new HashMap<>();
+    mockDocumentationResponses.put(
+        schemaFieldUrn,
+        new EntityResponse()
+            .setUrn(schemaFieldUrn)
+            .setEntityName(SCHEMA_FIELD_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        DOCUMENTATION_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(documentationAspect.data()))))));
+
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(Constants.DATASET_ENTITY_NAME),
+            eq(Collections.singleton(TEST_DATASET_URN)),
+            eq(ImmutableSet.of(SCHEMA_METADATA_ASPECT_NAME, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(mockResponses);
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(SCHEMA_FIELD_ENTITY_NAME),
+            eq(ImmutableSet.of(schemaFieldUrn)),
+            eq(ImmutableSet.of(DOCUMENTATION_ASPECT_NAME))))
+        .thenReturn(mockDocumentationResponses);
+
+    com.linkedin.metadata.test.query.schemafield.SchemaField expectedSchemaField =
+        new com.linkedin.metadata.test.query.schemafield.SchemaField(
+            "path", "description", "editableDescription", documentation);
+
+    Map<Urn, Map<TestQuery, TestQueryResponse>> results =
+        evaluator.evaluate(opContext, "dataset", urns, queries);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().size(), 1);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
+        TestsSchemaFieldUtils.serializeSchemaField(expectedSchemaField));
+  }
+
+  @Test
+  public void testEvaluateWithEmptyDocumentationAspect() throws URISyntaxException {
+    Set<Urn> urns = new HashSet<>(Arrays.asList(TEST_DATASET_URN));
+    Set<TestQuery> queries = new HashSet<>(Arrays.asList(mock(TestQuery.class)));
+    when(queries.iterator().next().getQuery())
+        .thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setHash("hash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setVersion(0L);
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path")
+                    .setDescription("description"))));
+
+    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
+    editableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path"))));
+
+    // Create empty documentation aspect
+    List<String> documentation = Arrays.asList(""); // Empty documentation
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path");
+
+    Map<Urn, EntityResponse> mockResponses = new HashMap<>();
+    mockResponses.put(
+        TEST_DATASET_URN,
+        new EntityResponse()
+            .setUrn(TEST_DATASET_URN)
+            .setEntityName(DATASET_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(schemaMetadata.data())),
+                        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(new Aspect(editableSchemaMetadata.data()))))));
+
+    // Create a proper empty Documentation aspect for testing
+    Documentation documentationAspect = new Documentation();
+    DocumentationAssociation docAssociation = new DocumentationAssociation();
+    docAssociation.setDocumentation(""); // Empty documentation
+    documentationAspect.setDocumentations(
+        new DocumentationAssociationArray(Arrays.asList(docAssociation)));
+
+    // Create audit stamp
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setActor(UrnUtils.getUrn("urn:li:corpuser:12345"));
+    auditStamp.setTime(System.currentTimeMillis());
+    documentationAspect.setLastModified(auditStamp);
+
+    Map<Urn, EntityResponse> mockDocumentationResponses = new HashMap<>();
+    mockDocumentationResponses.put(
+        schemaFieldUrn,
+        new EntityResponse()
+            .setUrn(schemaFieldUrn)
+            .setEntityName(SCHEMA_FIELD_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        DOCUMENTATION_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(documentationAspect.data()))))));
+
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(Constants.DATASET_ENTITY_NAME),
+            eq(Collections.singleton(TEST_DATASET_URN)),
+            eq(ImmutableSet.of(SCHEMA_METADATA_ASPECT_NAME, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(mockResponses);
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(SCHEMA_FIELD_ENTITY_NAME),
+            eq(ImmutableSet.of(schemaFieldUrn)),
+            eq(ImmutableSet.of(DOCUMENTATION_ASPECT_NAME))))
+        .thenReturn(mockDocumentationResponses);
+
+    com.linkedin.metadata.test.query.schemafield.SchemaField expectedSchemaField =
+        new com.linkedin.metadata.test.query.schemafield.SchemaField(
+            "path", "description", "editableDescription", documentation);
+
+    Map<Urn, Map<TestQuery, TestQueryResponse>> results =
+        evaluator.evaluate(opContext, "dataset", urns, queries);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().size(), 1);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
+        TestsSchemaFieldUtils.serializeSchemaField(expectedSchemaField));
+  }
+
+  @Test
+  public void testEvaluateWithNullDocumentationAspect() throws URISyntaxException {
+    Set<Urn> urns = new HashSet<>(Arrays.asList(TEST_DATASET_URN));
+    Set<TestQuery> queries = new HashSet<>(Arrays.asList(mock(TestQuery.class)));
+    when(queries.iterator().next().getQuery())
+        .thenReturn(TestsSchemaFieldUtils.SCHEMA_FIELDS_PROPERTY);
+
+    SchemaMetadata schemaMetadata = new SchemaMetadata();
+    schemaMetadata.setHash("hash");
+    schemaMetadata.setPlatformSchema(SchemaMetadata.PlatformSchema.create(new OtherSchema()));
+    schemaMetadata.setVersion(0L);
+    schemaMetadata.setFields(
+        new SchemaFieldArray(
+            ImmutableList.of(
+                new SchemaField()
+                    .setType(
+                        new SchemaFieldDataType()
+                            .setType(SchemaFieldDataType.Type.create(new MapType())))
+                    .setFieldPath("path")
+                    .setDescription("description"))));
+
+    EditableSchemaMetadata editableSchemaMetadata = new EditableSchemaMetadata();
+    editableSchemaMetadata.setEditableSchemaFieldInfo(
+        new EditableSchemaFieldInfoArray(
+            ImmutableList.of(
+                new EditableSchemaFieldInfo()
+                    .setDescription("editableDescription")
+                    .setFieldPath("path"))));
+
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(TEST_DATASET_URN, "path");
+
+    Map<Urn, EntityResponse> mockResponses = new HashMap<>();
+    mockResponses.put(
+        TEST_DATASET_URN,
+        new EntityResponse()
+            .setUrn(TEST_DATASET_URN)
+            .setEntityName(DATASET_ENTITY_NAME)
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        Constants.SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect().setValue(new Aspect(schemaMetadata.data())),
+                        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                        new EnvelopedAspect()
+                            .setValue(new Aspect(editableSchemaMetadata.data()))))));
+
+    // No documentation aspect in the response
+    Map<Urn, EntityResponse> mockDocumentationResponses = new HashMap<>();
+    mockDocumentationResponses.put(
+        schemaFieldUrn,
+        new EntityResponse()
+            .setUrn(schemaFieldUrn)
+            .setEntityName(SCHEMA_FIELD_ENTITY_NAME)
+            .setAspects(new EnvelopedAspectMap(ImmutableMap.of())));
+
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(Constants.DATASET_ENTITY_NAME),
+            eq(Collections.singleton(TEST_DATASET_URN)),
+            eq(ImmutableSet.of(SCHEMA_METADATA_ASPECT_NAME, EDITABLE_SCHEMA_METADATA_ASPECT_NAME))))
+        .thenReturn(mockResponses);
+    when(entityService.getEntitiesV2(
+            eq(opContext),
+            eq(SCHEMA_FIELD_ENTITY_NAME),
+            eq(ImmutableSet.of(schemaFieldUrn)),
+            eq(ImmutableSet.of(DOCUMENTATION_ASPECT_NAME))))
+        .thenReturn(mockDocumentationResponses);
+
+    com.linkedin.metadata.test.query.schemafield.SchemaField expectedSchemaField =
+        new com.linkedin.metadata.test.query.schemafield.SchemaField(
+            "path", "description", "editableDescription", null);
+
+    Map<Urn, Map<TestQuery, TestQueryResponse>> results =
+        evaluator.evaluate(opContext, "dataset", urns, queries);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().size(), 1);
+    assertEquals(
+        results.get(TEST_DATASET_URN).get(queries.iterator().next()).getValues().get(0),
+        TestsSchemaFieldUtils.serializeSchemaField(expectedSchemaField));
+  }
+
+  /** Test the extractDocumentationAspect method directly using reflection */
+  @Test
+  public void testExtractDocumentationAspect() throws Exception {
+    // Create a mock EntityResponse with documentation aspect
+    Documentation documentation = new Documentation();
+    DocumentationAssociation docAssociation = new DocumentationAssociation();
+    docAssociation.setDocumentation("Test documentation content");
+    documentation.setDocumentations(
+        new DocumentationAssociationArray(Arrays.asList(docAssociation)));
+
+    // Create audit stamp
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setActor(UrnUtils.getUrn("urn:li:corpuser:12345"));
+    auditStamp.setTime(System.currentTimeMillis());
+    documentation.setLastModified(auditStamp);
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                DOCUMENTATION_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(documentation.data())))));
+
+    // Use reflection to access the private method
+    java.lang.reflect.Method method =
+        SchemaFieldEvaluator.class.getDeclaredMethod(
+            "extractDocumentationAspect", EntityResponse.class);
+    method.setAccessible(true);
+
+    // Call the method
+    @SuppressWarnings("unchecked")
+    List<String> result = (List<String>) method.invoke(evaluator, entityResponse);
+
+    // Verify the result
+    assertNotNull(result);
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0), "Test documentation content");
+  }
+
+  /** Test the extractDocumentationAspect method with null EntityResponse */
+  @Test
+  public void testExtractDocumentationAspectWithNullResponse() throws Exception {
+    // Use reflection to access the private method
+    java.lang.reflect.Method method =
+        SchemaFieldEvaluator.class.getDeclaredMethod(
+            "extractDocumentationAspect", EntityResponse.class);
+    method.setAccessible(true);
+
+    // Call the method with null
+    @SuppressWarnings("unchecked")
+    List<String> result = (List<String>) method.invoke(evaluator, (EntityResponse) null);
+
+    // Verify the result is null
+    assertNull(result);
+  }
+
+  /** Test the extractDocumentationAspect method with EntityResponse without documentation aspect */
+  @Test
+  public void testExtractDocumentationAspectWithoutDocumentationAspect() throws Exception {
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setAspects(new EnvelopedAspectMap(ImmutableMap.of()));
+
+    // Use reflection to access the private method
+    java.lang.reflect.Method method =
+        SchemaFieldEvaluator.class.getDeclaredMethod(
+            "extractDocumentationAspect", EntityResponse.class);
+    method.setAccessible(true);
+
+    // Call the method
+    @SuppressWarnings("unchecked")
+    List<String> result = (List<String>) method.invoke(evaluator, entityResponse);
+
+    // Verify the result is null
+    assertNull(result);
+  }
+
+  /** Test the extractDocumentationAspect method with empty documentation */
+  @Test
+  public void testExtractDocumentationAspectWithEmptyDocumentation() throws Exception {
+    // Create a mock EntityResponse with empty documentation
+    Documentation documentation = new Documentation();
+    DocumentationAssociation docAssociation = new DocumentationAssociation();
+    docAssociation.setDocumentation(""); // Empty documentation
+    documentation.setDocumentations(
+        new DocumentationAssociationArray(Arrays.asList(docAssociation)));
+
+    // Create audit stamp
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setActor(UrnUtils.getUrn("urn:li:corpuser:12345"));
+    auditStamp.setTime(System.currentTimeMillis());
+    documentation.setLastModified(auditStamp);
+
+    EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setAspects(
+        new EnvelopedAspectMap(
+            ImmutableMap.of(
+                DOCUMENTATION_ASPECT_NAME,
+                new EnvelopedAspect().setValue(new Aspect(documentation.data())))));
+
+    // Use reflection to access the private method
+    java.lang.reflect.Method method =
+        SchemaFieldEvaluator.class.getDeclaredMethod(
+            "extractDocumentationAspect", EntityResponse.class);
+    method.setAccessible(true);
+
+    // Call the method
+    @SuppressWarnings("unchecked")
+    List<String> result = (List<String>) method.invoke(evaluator, entityResponse);
+
+    // Verify the result contains the empty string (empty strings are no longer filtered out)
+    assertNotNull(result);
+    assertEquals(1, result.size());
+    assertEquals("", result.get(0));
   }
 }

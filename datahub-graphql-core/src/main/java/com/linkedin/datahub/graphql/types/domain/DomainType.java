@@ -42,6 +42,7 @@ public class DomainType
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
+          Constants.ASSET_SETTINGS_ASPECT_NAME,
           // SaaS Only
           Constants.FORMS_ASPECT_NAME,
           Constants.SHARE_ASPECT_NAME,

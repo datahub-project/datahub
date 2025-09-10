@@ -60,7 +60,7 @@ export function useInviteTokens(selectedRole: DataHubRole | undefined) {
     );
 
     const inviteLink = useMemo(() => {
-        return `${baseUrl}/signup?invite_token=${inviteToken}`;
+        return `${baseUrl}/signup?invite_token=${inviteToken}&redirect_on_sso=true`;
     }, [baseUrl, inviteToken]);
 
     const resetInviteToken = useCallback(() => {

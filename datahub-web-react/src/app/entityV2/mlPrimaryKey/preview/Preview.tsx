@@ -35,7 +35,7 @@ export const Preview = ({
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
-    previewType?: PreviewType;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (

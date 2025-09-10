@@ -220,6 +220,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.applications.UpdateApplicationsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.asset.UpdateAssetSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
@@ -254,6 +255,7 @@ import com.linkedin.datahub.graphql.resolvers.type.ResolvedActorResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.user.CreateNativeUserResetTokenResolver;
+import com.linkedin.datahub.graphql.resolvers.user.GetUserRecommendationsResolver;
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
 import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
@@ -804,8 +806,9 @@ public class GmsGraphQLEngine {
     configureVersionPropertiesResolvers(builder);
     configureVersionSetResolvers(builder);
     configureGlobalHomePageSettingsResolvers(builder);
-    configurePageTemplateRowResolvers(builder);
     configureSourceDetailsResolvers(builder);
+    configurePageTemplateResolvers(builder);
+    configureAssetSettingsResolver(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -867,7 +870,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE))
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(MODULE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(SETTINGS_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1069,6 +1073,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("listPolicies", new ListPoliciesResolver(this.entityClient))
                 .dataFetcher("getGrantedPrivileges", new GetGrantedPrivilegesResolver())
                 .dataFetcher("listUsers", new ListUsersResolver(this.entityClient))
+                .dataFetcher(
+                    "getUserRecommendations", new GetUserRecommendationsResolver(this.entityClient))
                 .dataFetcher("listGroups", new ListGroupsResolver(this.entityClient))
                 .dataFetcher(
                     "listRecommendations",
@@ -1450,7 +1456,9 @@ public class GmsGraphQLEngine {
                   new UpdateDocPropagationSettingsResolver(this.settingsService))
               .dataFetcher(
                   "updateApplicationsSettings",
-                  new UpdateApplicationsSettingsResolver(this.settingsService));
+                  new UpdateApplicationsSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateAssetSettings", new UpdateAssetSettingsResolver(this.entityClient));
 
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
@@ -1828,10 +1836,15 @@ public class GmsGraphQLEngine {
         .type(
             "Incident",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "assignees",
-                    new OwnerTypeBatchResolver(
-                        ownerTypes, (env) -> ((Incident) env.getSource()).getAssignees())))
+                typeWiring
+                    .dataFetcher(
+                        "entity",
+                        new EntityTypeResolver(
+                            entityTypes, (env) -> ((Incident) env.getSource()).getEntity()))
+                    .dataFetcher(
+                        "assignees",
+                        new OwnerTypeBatchResolver(
+                            ownerTypes, (env) -> ((Incident) env.getSource()).getAssignees())))
         .type(
             "SchemaField",
             typeWiring ->
@@ -3823,7 +3836,7 @@ public class GmsGraphQLEngine {
                     })));
   }
 
-  private void configurePageTemplateRowResolvers(final RuntimeWiring.Builder builder) {
+  private void configurePageTemplateResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "DataHubPageTemplateRow",
         typeWiring ->
@@ -3836,6 +3849,22 @@ public class GmsGraphQLEngine {
                             .getModules().stream()
                                 .map(DataHubPageModule::getUrn)
                                 .collect(Collectors.toList()))));
+    builder.type(
+        "SummaryElement",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "structuredProperty",
+                new LoadableTypeResolver<>(
+                    structuredPropertyType,
+                    (env) -> {
+                      final SummaryElement summaryElement = env.getSource();
+                      if (summaryElement != null) {
+                        return summaryElement.getStructuredProperty() != null
+                            ? summaryElement.getStructuredProperty().getUrn()
+                            : null;
+                      }
+                      return null;
+                    })));
 
     builder.type(
         "DataHubPageModule",
@@ -3855,5 +3884,25 @@ public class GmsGraphQLEngine {
                     "platform",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((SourceDetails) env.getSource()).getPlatform())));
+  }
+
+  private void configureAssetSettingsResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "AssetSummarySettingsTemplate",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "template",
+                new LoadableTypeResolver<>(
+                    dataHubPageTemplateType,
+                    (env) -> {
+                      final AssetSummarySettingsTemplate assetSummarySettingsTemplate =
+                          env.getSource();
+                      if (assetSummarySettingsTemplate != null) {
+                        return assetSummarySettingsTemplate.getTemplate() != null
+                            ? assetSummarySettingsTemplate.getTemplate().getUrn()
+                            : null;
+                      }
+                      return null;
+                    })));
   }
 }

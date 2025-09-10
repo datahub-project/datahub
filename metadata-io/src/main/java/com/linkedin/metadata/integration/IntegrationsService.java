@@ -17,6 +17,7 @@ import io.datahubproject.integrations.api.ActionsApi;
 import io.datahubproject.integrations.api.AiApi;
 import io.datahubproject.integrations.api.AnalyticsApi;
 import io.datahubproject.integrations.api.ShareApi;
+import io.datahubproject.integrations.api.TeamsApi;
 import io.datahubproject.integrations.invoker.ApiClient;
 import io.datahubproject.integrations.invoker.ApiException;
 import io.datahubproject.integrations.invoker.ApiResponse;
@@ -26,6 +27,7 @@ import io.datahubproject.integrations.model.ExecuteUnshareResult;
 import io.datahubproject.integrations.model.LineageDirection;
 import io.datahubproject.integrations.model.QueryEmbeddingRequest;
 import io.datahubproject.integrations.model.QueryEmbeddingResponse;
+import io.datahubproject.integrations.model.SearchResponse;
 import io.datahubproject.integrations.model.SuggestedDescription;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -82,6 +84,7 @@ public class IntegrationsService {
   private final AiApi aiApi;
   @Getter private final AnalyticsApi analyticsApi;
   private final ShareApi shareApi;
+  @Getter private final TeamsApi teamsApi;
   @Nonnull private final OperationContext systemOperationContext;
 
   public IntegrationsService(
@@ -132,6 +135,7 @@ public class IntegrationsService {
     this.aiApi = new AiApi(okHttpClient);
     this.analyticsApi = new AnalyticsApi(okHttpClient);
     this.shareApi = new ShareApi(okHttpClient);
+    this.teamsApi = new TeamsApi(okHttpClient);
   }
 
   /** Calls the integration service to refresh their connection settings on demand. */
@@ -812,5 +816,137 @@ public class IntegrationsService {
 
     @Override
     public void onDownloadProgress(long bytesRead, long contentLength, boolean done) {}
+  }
+
+  /**
+   * Search for Teams users using the integrations service.
+   *
+   * @param query Search query
+   * @param limit Maximum number of results to return
+   * @return SearchResponse containing user results
+   */
+  public CompletableFuture<SearchResponse> searchTeamsUsers(@Nonnull String query, int limit) {
+    try {
+      CompletableFuture<ApiResponse<SearchResponse>> responseFuture = new CompletableFuture<>();
+      ApiCallback<SearchResponse> callback = new ApiCallback<>(responseFuture);
+      teamsApi.searchUsersGetAsync(query, limit, callback);
+      return responseFuture
+          .thenApply(ApiResponse::getData)
+          .exceptionally(
+              ex -> {
+                log.error("Failed to search Teams users for query: {}", query, ex);
+                return new SearchResponse(); // Return empty response on error
+              });
+    } catch (Exception e) {
+      log.error(
+          "Failed to search Teams users! Exception encountered when trying to access integrations service",
+          e);
+      return CompletableFuture.completedFuture(new SearchResponse());
+    }
+  }
+
+  /**
+   * Search for Teams channels using the integrations service.
+   *
+   * @param query Search query
+   * @param limit Maximum number of results to return
+   * @return SearchResponse containing channel results
+   */
+  public CompletableFuture<SearchResponse> searchTeamsChannels(@Nonnull String query, int limit) {
+    try {
+      CompletableFuture<ApiResponse<SearchResponse>> responseFuture = new CompletableFuture<>();
+      ApiCallback<SearchResponse> callback = new ApiCallback<>(responseFuture);
+      teamsApi.searchChannelsGetAsync(query, limit, null, callback); // teamIds is optional
+      return responseFuture
+          .thenApply(ApiResponse::getData)
+          .exceptionally(
+              ex -> {
+                log.error("Failed to search Teams channels for query: {}", query, ex);
+                return new SearchResponse(); // Return empty response on error
+              });
+    } catch (Exception e) {
+      log.error(
+          "Failed to search Teams channels! Exception encountered when trying to access integrations service",
+          e);
+      return CompletableFuture.completedFuture(new SearchResponse());
+    }
+  }
+
+  /**
+   * List all Teams channels using the integrations service.
+   *
+   * @param limit Maximum number of channels to return
+   * @return SearchResponse containing all available channel results
+   */
+  public CompletableFuture<SearchResponse> listAllTeamsChannels(int limit) {
+    try {
+      CompletableFuture<ApiResponse<SearchResponse>> responseFuture = new CompletableFuture<>();
+      ApiCallback<SearchResponse> callback = new ApiCallback<>(responseFuture);
+      teamsApi.listAllChannelsAsync(limit, callback);
+      return responseFuture
+          .thenApply(ApiResponse::getData)
+          .exceptionally(
+              ex -> {
+                log.error("Failed to list all Teams channels with limit: {}", limit, ex);
+                return new SearchResponse(); // Return empty response on error
+              });
+    } catch (Exception e) {
+      log.error(
+          "Failed to list all Teams channels! Exception encountered when trying to access integrations service",
+          e);
+      return CompletableFuture.completedFuture(new SearchResponse());
+    }
+  }
+
+  /**
+   * Get Teams OAuth configuration from integrations service.
+   *
+   * @return Map containing OAuth configuration (app_id, redirect_uri, scopes, base_auth_url)
+   */
+  public CompletableFuture<Map<String, Object>> getTeamsOAuthConfig() {
+    CloseableHttpResponse response = null;
+    try {
+      // Build request
+      final HttpPost request =
+          new HttpPost(
+              String.format(
+                  "%s://%s:%s/%s",
+                  protocol,
+                  this.integrationsServiceHost,
+                  this.integrationsServicePort,
+                  "private/teams/oauth/config"));
+
+      addRequestHeaders(request);
+
+      // Execute request
+      response = executeRequest(request);
+      final HttpEntity entity = response.getEntity();
+
+      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
+        final String jsonStr = EntityUtils.toString(entity);
+        ObjectMapper mapper = new ObjectMapper();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> config = mapper.readValue(jsonStr, Map.class);
+        return CompletableFuture.completedFuture(config);
+      } else {
+        log.error(
+            String.format(
+                "Bad response from the Integrations Service for Teams OAuth config: %s",
+                response.getStatusLine().toString()));
+        return CompletableFuture.failedFuture(
+            new RuntimeException("Failed to get Teams OAuth config from integrations service"));
+      }
+    } catch (Exception e) {
+      log.error("Failed to get Teams OAuth configuration", e);
+      return CompletableFuture.failedFuture(e);
+    } finally {
+      try {
+        if (response != null) {
+          response.close();
+        }
+      } catch (Exception e) {
+        log.error("Failed to close http response to integration service.", e);
+      }
+    }
   }
 }

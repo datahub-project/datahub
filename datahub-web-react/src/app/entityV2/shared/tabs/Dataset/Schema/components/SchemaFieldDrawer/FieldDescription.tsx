@@ -178,6 +178,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                             ]}
                         {!!displayedDescription && (
                             <Tooltip
+                                placement="topLeft"
                                 title={
                                     isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />
                                 }

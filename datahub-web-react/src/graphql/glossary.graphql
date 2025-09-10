@@ -20,6 +20,56 @@ query getRootGlossaryNodes {
     }
 }
 
+query getRelatedTerms($urn: String!) {
+    glossaryTerm(urn: $urn) {
+        urn
+        type
+        exists
+        name
+        hierarchicalName
+        isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: 0, count: 10 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ...autoCompleteFields
+                }
+            }
+        }
+        hasRelatedTerms: relationships(input: { types: ["HasA"], direction: OUTGOING, start: 0, count: 10 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ...autoCompleteFields
+                }
+            }
+        }
+        isAChildren: relationships(input: { types: ["IsA"], direction: INCOMING, start: 0, count: 10 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ...autoCompleteFields
+                }
+            }
+        }
+        containedBy: relationships(input: { types: ["HasA"], direction: INCOMING, start: 0, count: 10 }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ...autoCompleteFields
+                }
+            }
+        }
+    }
+}
+
 mutation updateParentNode($input: UpdateParentNodeInput!) {
     updateParentNode(input: $input)
 }

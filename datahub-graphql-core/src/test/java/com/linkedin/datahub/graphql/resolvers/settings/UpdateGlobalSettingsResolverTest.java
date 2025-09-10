@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.NotificationScenarioType;
 import com.linkedin.datahub.graphql.generated.NotificationSettingInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettingValue;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
+import com.linkedin.datahub.graphql.generated.TeamsChannelInput;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentationAiSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
@@ -24,6 +25,7 @@ import com.linkedin.datahub.graphql.generated.UpdateGlobalSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateOidcSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateTeamsIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -43,9 +45,12 @@ import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.SlackIntegrationSettings;
+import com.linkedin.settings.global.TeamsChannel;
+import com.linkedin.settings.global.TeamsIntegrationSettings;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
+import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -64,7 +69,8 @@ public class UpdateGlobalSettingsResolverTest {
     TEST_INPUT.setIntegrationSettings(
         new UpdateGlobalIntegrationSettingsInput(
             new UpdateSlackIntegrationSettingsInput("channel", "token", true),
-            new UpdateEmailIntegrationSettingsInput("test@test.com")));
+            new UpdateEmailIntegrationSettingsInput("test@test.com"),
+            null));
     TEST_INPUT.setNotificationSettings(
         new UpdateGlobalNotificationSettingsInput(
             ImmutableList.of(
@@ -192,6 +198,194 @@ public class UpdateGlobalSettingsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testUpdateGlobalSettings_TeamsSettings() throws Exception {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
+    // Setup Teams integration settings
+    UpdateGlobalIntegrationSettingsInput integrationSettings =
+        new UpdateGlobalIntegrationSettingsInput();
+
+    TeamsChannelInput teamsChannel = new TeamsChannelInput();
+    teamsChannel.setId("channel-123");
+    teamsChannel.setName("General");
+
+    UpdateTeamsIntegrationSettingsInput teamsSettings = new UpdateTeamsIntegrationSettingsInput();
+    teamsSettings.setDefaultChannel(teamsChannel);
+
+    integrationSettings.setTeamsSettings(teamsSettings);
+
+    UpdateGlobalSettingsInput input = new UpdateGlobalSettingsInput();
+    input.setIntegrationSettings(integrationSettings);
+
+    GlobalSettingsInfo returnedInfo = getGlobalSettingsInfoWithTeams();
+
+    Mockito.when(
+            mockClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
+                .setUrn(Constants.GLOBAL_SETTINGS_URN)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(returnedInfo.data()))
+                                .setCreated(
+                                    new AuditStamp()
+                                        .setTime(0L)
+                                        .setActor(
+                                            Urn.createFromString("urn:li:corpuser:test")))))));
+
+    UpdateGlobalSettingsResolver resolver =
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService, mockIntegrationsService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Boolean result = resolver.get(mockEnv).get();
+
+    // Verify
+    assertTrue(result);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.any(MetadataChangeProposal.class),
+            Mockito.eq(false));
+  }
+
+  @Test
+  public void testUpdateGlobalSettings_TeamsSettingsWithoutChannel() throws Exception {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
+    // Setup Teams integration settings without default channel
+    UpdateGlobalIntegrationSettingsInput integrationSettings =
+        new UpdateGlobalIntegrationSettingsInput();
+
+    UpdateTeamsIntegrationSettingsInput teamsSettings = new UpdateTeamsIntegrationSettingsInput();
+    // No default channel set
+
+    integrationSettings.setTeamsSettings(teamsSettings);
+
+    UpdateGlobalSettingsInput input = new UpdateGlobalSettingsInput();
+    input.setIntegrationSettings(integrationSettings);
+
+    GlobalSettingsInfo returnedInfo = getGlobalSettingsInfo();
+
+    Mockito.when(
+            mockClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
+                .setUrn(Constants.GLOBAL_SETTINGS_URN)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(returnedInfo.data()))
+                                .setCreated(
+                                    new AuditStamp()
+                                        .setTime(0L)
+                                        .setActor(
+                                            Urn.createFromString("urn:li:corpuser:test")))))));
+
+    UpdateGlobalSettingsResolver resolver =
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService, mockIntegrationsService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Boolean result = resolver.get(mockEnv).get();
+
+    // Verify
+    assertTrue(result);
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.any(MetadataChangeProposal.class),
+            Mockito.eq(false));
+  }
+
+  @Test
+  public void testUpdateGlobalSettings_InvalidInput() throws Exception {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
+    UpdateGlobalSettingsResolver resolver =
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService, mockIntegrationsService);
+
+    // Execute resolver with null input
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(null);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
+
+    // Verify no ingestion calls were made
+    Mockito.verify(mockClient, Mockito.never())
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.any(MetadataChangeProposal.class),
+            Mockito.anyBoolean());
+  }
+
+  public static GlobalSettingsInfo getGlobalSettingsInfoWithTeams() {
+    GlobalSettingsInfo globalSettingsInfo = new GlobalSettingsInfo();
+
+    TeamsChannel teamsChannel = new TeamsChannel();
+    teamsChannel.setId("channel-123");
+    teamsChannel.setName("General");
+
+    TeamsIntegrationSettings teamsSettings = new TeamsIntegrationSettings();
+    teamsSettings.setEnabled(true);
+    teamsSettings.setDefaultChannel(teamsChannel);
+
+    globalSettingsInfo.setIntegrations(
+        new GlobalIntegrationSettings()
+            .setSlackSettings(
+                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test"))
+            .setEmailSettings(new EmailIntegrationSettings().setDefaultEmail("test@test.com"))
+            .setTeamsSettings(teamsSettings));
+
+    NotificationSettingMap map = new NotificationSettingMap();
+    map.put(
+        NotificationScenarioType.INGESTION_RUN_CHANGE.toString(),
+        new com.linkedin.settings.NotificationSetting()
+            .setValue(com.linkedin.settings.NotificationSettingValue.ENABLED));
+    map.put(
+        NotificationScenarioType.ENTITY_DEPRECATION_CHANGE.toString(),
+        new com.linkedin.settings.NotificationSetting()
+            .setValue(com.linkedin.settings.NotificationSettingValue.DISABLED));
+    globalSettingsInfo.setNotifications(new GlobalNotificationSettings().setSettings(map));
+    globalSettingsInfo.setDocumentationAi(new DocumentationAiSettings().setEnabled(true));
+    return globalSettingsInfo;
   }
 
   public static GlobalSettingsInfo getGlobalSettingsInfo() {

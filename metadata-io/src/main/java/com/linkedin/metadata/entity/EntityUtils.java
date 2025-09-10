@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -47,6 +48,11 @@ public class EntityUtils {
 
   private EntityUtils() {}
 
+  @VisibleForTesting
+  public static long getTimestamp() {
+    return System.currentTimeMillis();
+  }
+
   @Nullable
   public static Urn getUrnFromString(String urnStr) {
     try {
@@ -59,7 +65,7 @@ public class EntityUtils {
   @Nonnull
   public static AuditStamp getAuditStamp(Urn actor) {
     AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(System.currentTimeMillis());
+    auditStamp.setTime(getTimestamp());
     auditStamp.setActor(actor);
     return auditStamp;
   }
@@ -139,9 +145,7 @@ public class EntityUtils {
     //    since nowhere else is using it should be safe for now at least
     envelopedAspect.setType(AspectType.VERSIONED);
     envelopedAspect.setCreated(
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis()));
+        new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(getTimestamp()));
 
     return envelopedAspect;
   }

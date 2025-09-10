@@ -218,6 +218,7 @@ export class DomainEntity implements Entity<Domain> {
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
