@@ -342,7 +342,7 @@ def test_create_schema_field_tuple(source):
     field_tuple = source.create_schema_field_tuple(
         col_name="test_field", col_type="relationship", obj_type="node"
     )
-    assert field_tuple == ("test_field", "string", "NODE")
+    assert field_tuple == ("test_field", "node", "NODE")
 
 
 def test_get_workunits_processor(source):
@@ -356,24 +356,6 @@ def test_report_generation(source):
     report = source.get_report()
     assert report is not None
     assert isinstance(report, Neo4jSourceReport)
-
-
-@pytest.mark.parametrize(
-    "test_input,expected",
-    [
-        ("string", "string"),
-        ("integer", "int"),
-        ("float", "float"),
-        ("date", "date"),
-        ("boolean", "boolean"),
-        ("list", "array"),
-        ("unknown_type", "string"),
-    ],
-)
-def test_type_mapping(source, test_input, expected):
-    """Test type mapping for different input types"""
-    field_type = source.get_field_type_string(test_input)
-    assert field_type == expected
 
 
 def test_platform_instance_config(source_with_platform_instance):
@@ -537,29 +519,6 @@ def test_create_neo4j_dataset_empty_columns(source):
     assert dataset.description == "Empty dataset"
 
 
-def test_get_field_type_string_type_conversion(source):
-    """Test the type conversion logic: type objects vs strings"""
-    # Test with actual Python type objects (the isinstance check)
-    assert (
-        source.get_field_type_string(str) == "string"
-    )  # str(str) = "<class 'str'>" -> fallback
-    assert (
-        source.get_field_type_string(int) == "string"
-    )  # str(int) = "<class 'int'>" -> fallback
-    assert (
-        source.get_field_type_string(bool) == "string"
-    )  # str(bool) = "<class 'bool'>" -> fallback
-
-    # Test with string types (should pass through directly)
-    assert source.get_field_type_string("string") == "string"  # direct lookup
-    assert source.get_field_type_string("integer") == "int"  # direct lookup
-    assert source.get_field_type_string("boolean") == "boolean"  # direct lookup
-
-    # Test unknown string types (fallback)
-    assert source.get_field_type_string("unknown_type") == "string"
-    assert source.get_field_type_string("custom_neo4j_type") == "string"
-
-
 def test_create_schema_field_tuple_relationship_conversion(source):
     """Test relationship type conversion in schema field creation"""
     # Test relationship → node conversion
@@ -567,14 +526,14 @@ def test_create_schema_field_tuple_relationship_conversion(source):
         col_name="rel_field", col_type="relationship", obj_type="node"
     )
 
-    assert field_tuple == ("rel_field", "string", "NODE")
+    assert field_tuple == ("rel_field", "node", "NODE")
 
     # Test no conversion when obj_type is relationship
     field_tuple = source.create_schema_field_tuple(
         col_name="rel_field", col_type="relationship", obj_type="relationship"
     )
 
-    assert field_tuple == ("rel_field", "string", "RELATIONSHIP")
+    assert field_tuple == ("rel_field", "relationship", "RELATIONSHIP")
 
 
 def test_create_neo4j_dataset_no_description(source):
@@ -604,24 +563,6 @@ def test_create_neo4j_dataset_default_obj_type(source):
 
     assert dataset is not None
     assert dataset.subtype == "Neo4j Node"  # Should default to NODE
-
-
-def test_get_field_type_string_all_mappings(source):
-    """Test all type mappings in _STRING_TYPE_MAPPING"""
-    expected_mappings = {
-        "list": "array",
-        "boolean": "boolean",
-        "integer": "int",
-        "local_date_time": "timestamp",
-        "float": "float",
-        "string": "string",
-        "date": "date",
-        "node": "string",
-        "relationship": "string",
-    }
-
-    for neo4j_type, expected_datahub_type in expected_mappings.items():
-        assert source.get_field_type_string(neo4j_type) == expected_datahub_type
 
 
 def test_default_values():

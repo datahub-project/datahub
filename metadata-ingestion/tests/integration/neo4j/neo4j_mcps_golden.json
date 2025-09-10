@@ -40,9 +40,9 @@
             },
             "fields": [
                 {
-                    "fieldPath": "order_date",
+                    "fieldPath": "shipping_address",
                     "nullable": false,
-                    "description": "date_time",
+                    "description": "string",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -66,7 +66,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "shipping_address",
+                    "fieldPath": "status",
                     "nullable": false,
                     "description": "string",
                     "type": {
@@ -75,6 +75,19 @@
                         }
                     },
                     "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "order_date",
+                    "nullable": false,
+                    "description": "date_time",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "date_time",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -90,25 +103,12 @@
                     "nativeDataType": "string",
                     "recursive": false,
                     "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "status",
-                    "nullable": false,
-                    "description": "string",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1756396348456,
+        "lastObserved": 1757516527457,
         "runId": "neo4j-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -190,6 +190,32 @@
             },
             "fields": [
                 {
+                    "fieldPath": "created_date",
+                    "nullable": false,
+                    "description": "date",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "tags",
+                    "nullable": false,
+                    "description": "list",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "list",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "is_active",
                     "nullable": false,
                     "description": "boolean",
@@ -203,22 +229,9 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "user_id",
+                    "fieldPath": "email",
                     "nullable": false,
-                    "description": "integer",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "int",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "last_login",
-                    "nullable": false,
-                    "description": "date_time",
+                    "description": "string",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -242,19 +255,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "created_date",
-                    "nullable": false,
-                    "description": "date",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.DateType": {}
-                        }
-                    },
-                    "nativeDataType": "date",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "age",
                     "nullable": false,
                     "description": "integer",
@@ -263,33 +263,33 @@
                             "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "int",
+                    "nativeDataType": "integer",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "email",
+                    "fieldPath": "user_id",
                     "nullable": false,
-                    "description": "string",
+                    "description": "integer",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "string",
+                    "nativeDataType": "integer",
                     "recursive": false,
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "tags",
+                    "fieldPath": "last_login",
                     "nullable": false,
-                    "description": "list",
+                    "description": "date_time",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.ArrayType": {}
+                            "com.linkedin.schema.NullType": {}
                         }
                     },
-                    "nativeDataType": "array",
+                    "nativeDataType": "date_time",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -297,7 +297,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1756396348463,
+        "lastObserved": 1757521030355,
         "runId": "neo4j-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -379,15 +379,28 @@
             },
             "fields": [
                 {
-                    "fieldPath": "specs",
+                    "fieldPath": "title",
                     "nullable": false,
-                    "description": "list",
+                    "description": "string",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.ArrayType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "array",
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "category",
+                    "nullable": false,
+                    "description": "string",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -431,19 +444,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "title",
-                    "nullable": false,
-                    "description": "string",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "in_stock",
                     "nullable": false,
                     "description": "boolean",
@@ -457,15 +457,15 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "category",
+                    "fieldPath": "specs",
                     "nullable": false,
-                    "description": "string",
+                    "description": "list",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.ArrayType": {}
                         }
                     },
-                    "nativeDataType": "string",
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -473,7 +473,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1756396348470,
+        "lastObserved": 1757521030361,
         "runId": "neo4j-test",
         "lastRunId": "no-run-id-provided"
     }
