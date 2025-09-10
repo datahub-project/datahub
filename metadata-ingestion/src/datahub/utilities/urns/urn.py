@@ -28,21 +28,20 @@ def guess_platform_name(urn: str) -> Optional[str]:
         except AttributeError:
             pass
         try:
-            return urn_obj.orchestrator
+            return urn_obj.orchestrator  # type: ignore[attr-defined]
         except AttributeError:
             pass
         try:
-            return urn_obj.dashboard_tool
+            return urn_obj.dashboard_tool  # type: ignore[attr-defined]
         except AttributeError:
             pass
         try:
-            return urn_obj.ml_model_tool
+            return urn_obj.ml_model_tool  # type: ignore[attr-defined]
         except AttributeError:
             pass
 
         if platform is None:
             return None
-    except AttributeError as e:
-        print(e)
-        # Not every platform has a platform attribute
-        return None
+    except AttributeError:
+        pass
+    return None
