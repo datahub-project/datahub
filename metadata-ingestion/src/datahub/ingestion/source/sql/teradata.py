@@ -71,6 +71,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Precompiled regex pattern for case-insensitive "(not casespecific)" removal
 NOT_CASESPECIFIC_PATTERN = re.compile(r"\(not casespecific\)", re.IGNORECASE)
 
+# Teradata uses a two-tier database.table naming approach without default database prefixing
+DEFAULT_NO_DATABASE_TERADATA = None
+
 # Common excluded databases used in multiple places
 EXCLUDED_DATABASES = [
     "All",
@@ -737,7 +740,8 @@ ORDER by DataBaseName, TableName;
             env=self.config.env,
             schema_resolver=self.schema_resolver,
             graph=self.ctx.graph,
-            generate_lineage=self.include_lineage,
+            generate_lineage=self.config.include_view_lineage
+            or self.config.include_table_lineage,
             generate_queries=self.config.include_queries,
             generate_usage_statistics=self.config.include_usage_statistics,
             generate_query_usage_statistics=self.config.include_usage_statistics,
@@ -1391,7 +1395,7 @@ ORDER by DataBaseName, TableName;
             session_id=session_id,
             timestamp=timestamp,
             user=CorpUserUrn(user) if user else None,
-            default_db=None,  # Don't set default_db for Teradata two-tier architecture
+            default_db=DEFAULT_NO_DATABASE_TERADATA,  # Teradata uses two-tier database.table naming without default database prefixing
             default_schema=default_database,
         )
 
@@ -1410,9 +1414,7 @@ ORDER by DataBaseName, TableName;
         default_database = getattr(entry, "default_database", None)
 
         # Apply Teradata-specific query transformations
-        cleaned_query = query_text.replace("(NOT CASESPECIFIC)", "").replace(
-            "(not casespecific)", ""
-        )
+        cleaned_query = NOT_CASESPECIFIC_PATTERN.sub("", query_text)
 
         # For Teradata's two-tier architecture (database.table), we should not set default_db
         # to avoid incorrect URN generation like "dbc.database.table" instead of "database.table"
@@ -1422,7 +1424,7 @@ ORDER by DataBaseName, TableName;
             session_id=session_id,
             timestamp=timestamp,
             user=CorpUserUrn(user) if user else None,
-            default_db=None,  # Don't set default_db for Teradata two-tier architecture
+            default_db=DEFAULT_NO_DATABASE_TERADATA,  # Teradata uses two-tier database.table naming without default database prefixing
             default_schema=default_database,  # Set default_schema for unqualified table references
         )
 
@@ -1611,18 +1613,29 @@ ORDER by DataBaseName, TableName;
         else:
             return connection.execute(text(query))
 
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Override to prevent parent class from generating aggregator work units during schema extraction.
+
+        We handle aggregator generation manually after populating it with audit log data.
+        """
+        # Do nothing - we'll call the parent implementation manually after populating the aggregator
+        return iter([])
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Starting Teradata metadata extraction")
 
-        # Step 1: Populate aggregator with audit log queries BEFORE parent class processes it
-        with self.report.new_stage("Audit log extraction"):
-            self._populate_aggregator_from_audit_logs()
-
-        # Step 2: Let parent class handle schema extraction AND aggregator work unit generation
-        # This ensures work units go through proper workunit processor chain (including incremental lineage)
+        # Step 1: Schema extraction first (parent class will skip aggregator generation due to our override)
         with self.report.new_stage("Schema metadata extraction"):
             yield from super().get_workunits_internal()
-            logger.info("Completed schema metadata extraction and lineage processing")
+            logger.info("Completed schema metadata extraction")
+
+        # Step 2: Lineage extraction after schema extraction
+        # This allows lineage processing to have access to all discovered schema information
+        with self.report.new_stage("Audit log extraction and lineage processing"):
+            self._populate_aggregator_from_audit_logs()
+            # Call parent implementation directly to generate aggregator work units
+            yield from super()._generate_aggregator_workunits()
+            logger.info("Completed lineage processing")
 
     def _populate_aggregator_from_audit_logs(self) -> None:
         """SqlParsingAggregator-based lineage extraction with enhanced capabilities."""
@@ -1642,13 +1655,11 @@ ORDER by DataBaseName, TableName;
                 # Step 1: Stream query entries from database with memory-efficient processing
                 with self.report.new_stage("Fetching lineage entries from Audit Logs"):
                     queries_processed = 0
-                    entries_processed = False
 
                     # Use streaming query reconstruction for memory efficiency
                     for observed_query in self._reconstruct_queries_streaming(
                         self._fetch_lineage_entries_chunked()
                     ):
-                        entries_processed = True
                         self.aggregator.add(observed_query)
 
                         queries_processed += 1
@@ -1657,7 +1668,7 @@ ORDER by DataBaseName, TableName;
                                 f"Processed {queries_processed} queries to aggregator"
                             )
 
-                    if not entries_processed:
+                    if queries_processed == 0:
                         logger.info("No lineage entries found")
                         return
 

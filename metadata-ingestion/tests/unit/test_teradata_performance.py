@@ -6,7 +6,6 @@ and efficiency improvements in the Teradata source.
 """
 
 from datetime import datetime
-from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
@@ -20,7 +19,7 @@ from datahub.ingestion.source.sql.teradata import (
 )
 
 
-def _base_config() -> Dict[str, Any]:
+def _base_config():
     """Base configuration for Teradata tests."""
     return {
         "username": "test_user",
@@ -154,9 +153,9 @@ class TestCachingOptimizations:
 class TestMemoryOptimizations:
     """Test memory optimization features."""
 
-    def test_tables_cache_memory_efficiency(self):
+    def test_tables_cache_memory_efficiency(self, base_teradata_config):
         """Test that tables cache is memory efficient."""
-        config = TeradataConfig.parse_obj(_base_config())
+        config = TeradataConfig.parse_obj(base_teradata_config)
 
         with patch(
             "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
