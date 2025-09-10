@@ -249,7 +249,7 @@ export default function DefaultPreviewCard({
     // in those cases, we may want to enrich the preview w/ context about the container entity
     // Passing previewType via context because not all entities pass it via props
     // But not using previewContextType everywhere to avoid regressions... sorry
-    const { previewData, propagationDetails, previewType: previewTypeInContext } = usePreviewData();
+    const { previewData, propagationDetails } = usePreviewData();
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -355,7 +355,7 @@ export default function DefaultPreviewCard({
                             <DataProcessInstanceInfo {...lastRunEvent} />
                         </RowContainer>
                     )}
-                    {previewTypeInContext === PreviewType.HOVER_CARD && (
+                    {previewType === PreviewType.HOVER_CARD && (
                         <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                     )}
                 </>

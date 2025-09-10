@@ -25,11 +25,8 @@ from datahub_integrations.actions.stats_util import Stage
 logger = logging.getLogger(__name__)
 
 SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
-SUPPORTS_BOOTSTRAP_ACTIONS = (
-    ExtendedAction,
-    BulkBootstrapAction,
-)
-SUPPORTS_ROLLBACK_ACTIONS = (ExtendedAction,)
+SUPPORTS_BOOTSTRAP_ACTIONS = (ExtendedAction, BulkBootstrapAction)
+SUPPORTS_ROLLBACK_ACTIONS = (ExtendedAction, BulkBootstrapAction)
 
 
 class RemoteActionSourceConfig(ConfigModel):

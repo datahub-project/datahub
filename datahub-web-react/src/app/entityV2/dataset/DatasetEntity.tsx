@@ -403,7 +403,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
                 }
                 platformNames={platformNames}
-                platformLogo={data.platform.properties?.logoUrl}
+                platformLogo={data.platform?.properties?.logoUrl}
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}

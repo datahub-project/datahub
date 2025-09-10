@@ -68,7 +68,7 @@ export const CompactEntityNameComponent = ({
 
     if (entity.type === EntityType.SchemaField) {
         const { parent, fieldPath } = entity as SchemaFieldEntity;
-        processedEntity = parent;
+        processedEntity = parent ?? { urn: entity.urn, type: EntityType.Dataset };
         columnName = fieldPath;
     }
 

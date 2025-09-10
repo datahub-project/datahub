@@ -48,8 +48,8 @@ export default function SidebarLogicalSection() {
         logicalParentSection = (
             <SidebarSection
                 title="Logical Parent"
-                infoPopover="Logical Model that defines this dataset's metadata.
-                Changes to the Logical Parent's metadata propagate automatically to this dataset."
+                infoPopover="Logical Model that defines this asset's metadata.
+                Changes to the Logical Parent's metadata propagate automatically to this asset."
                 content={<CompactEntityNameComponent key={logicalParent.urn} entity={logicalParent} showFullTooltip />}
             />
         );
@@ -63,7 +63,7 @@ export default function SidebarLogicalSection() {
             <SidebarSection
                 title="Physical Children"
                 infoPopover="Physical implementations of this Logical Model.
-                Changes to this asset's metadata propagate automatically to these datasets."
+                Changes to this asset's metadata propagate automatically to these children."
                 content={
                     <EntityListContainer data-testid="physical-children-list">
                         <CompactEntityNameList entities={physicalChildren} showFullTooltips />

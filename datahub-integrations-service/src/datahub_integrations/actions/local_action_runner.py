@@ -107,12 +107,13 @@ def run_action_locally(recipe: dict, port: int, stage: Stage) -> None:
     signal.signal(signal.SIGTERM, stop_handler)
 
     if stage == Stage.ROLLBACK:
-        if isinstance(pipeline.action, ExtendedAction):
+        if isinstance(pipeline.action, (ExtendedAction, BulkBootstrapAction)):
             logger.info("Rolling back pipeline")
             pipeline.action.rollback()
 
             assert reporter is not None
             reporter.report()
+            logger.info("Pipeline rolled back successfully")
         else:
             logger.error("Action does not support rollback")
             sys.exit(1)
