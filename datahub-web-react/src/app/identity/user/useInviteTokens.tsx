@@ -30,7 +30,12 @@ export function useInviteTokens(selectedRole: DataHubRole | undefined) {
     }, [getInviteTokenData]);
 
     const createInviteToken = useCallback(
-        (roleUrn?: string) => {
+        (
+            roleUrn?: string,
+            eventType:
+                | EventType.CreateInviteLinkEvent
+                | EventType.RefreshInviteLinkEvent = EventType.CreateInviteLinkEvent,
+        ) => {
             createInviteTokenMutation({
                 variables: {
                     input: {
@@ -40,7 +45,7 @@ export function useInviteTokens(selectedRole: DataHubRole | undefined) {
             })
                 .then((result) => {
                     analytics.event({
-                        type: EventType.CreateInviteLinkEvent,
+                        type: eventType,
                         roleUrn: selectedRole?.urn,
                     });
                     if (result.data) {

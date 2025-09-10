@@ -2,6 +2,8 @@ import { Avatar, Button, Icon, Input, Modal, Text, Tooltip } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
 import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
 import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 import {
@@ -88,14 +90,14 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                 return false;
             }
 
-            try {
-                // Get user's email
-                const userEmail = user.info?.email || user.properties?.email || user.username;
-                if (!userEmail) {
-                    message.error('No email found for this user');
-                    return false;
-                }
+            // Get user's email
+            const userEmail = user.info?.email || user.properties?.email || user.username;
+            if (!userEmail) {
+                message.error('No email found for this user');
+                return false;
+            }
 
+            try {
                 // Update status to pending (for loading state if needed)
                 setRecommendedUserStates((prev) => ({
                     ...prev,
@@ -125,6 +127,15 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                     ...prev,
                     [user.urn]: { status: 'failed', role },
                 }));
+
+                // Track error event
+                analytics.event({
+                    type: EventType.InviteUserErrorEvent,
+                    roleUrn: role.urn,
+                    emailList: [userEmail],
+                    inviteMethod: 'recommended_user',
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                });
 
                 message.error('Invitation failed');
                 console.error('Failed to invite recommended user:', error);
@@ -223,7 +234,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                             <Button
                                 className="refresh-btn"
                                 variant="text"
-                                onClick={() => createInviteToken(selectedRole?.urn)}
+                                onClick={() => createInviteToken(selectedRole?.urn, EventType.RefreshInviteLinkEvent)}
                                 style={{
                                     padding: '4px',
                                     width: '32px',
@@ -241,6 +252,12 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                                 try {
                                     await navigator.clipboard.writeText(inviteLink);
                                     message.success('Copied invite link to clipboard');
+
+                                    // Track copy invite link event
+                                    analytics.event({
+                                        type: EventType.ClickCopyInviteLinkEvent,
+                                        roleUrn: selectedRole?.urn || '',
+                                    });
                                 } catch (error) {
                                     message.error('Failed to copy invite link to clipboard');
                                 }

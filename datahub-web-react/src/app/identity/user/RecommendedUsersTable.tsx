@@ -31,7 +31,7 @@ import { CorpUser, DataHubRole, UserUsageSortField } from '@types';
 const RECOMMENDED_USERS_DISPLAY_COUNT = 500;
 
 type Props = {
-    onInviteUser: (user: CorpUser, role?: DataHubRole) => Promise<boolean>;
+    onInviteUser: (user: CorpUser, role?: DataHubRole, recommendedUsers?: CorpUser[]) => Promise<boolean>;
     selectRoleOptions: DataHubRole[];
 };
 
@@ -183,7 +183,7 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
 
         setInvitationStates((prev) => ({ ...prev, [user.urn]: 'pending' }));
 
-        const success = await onInviteUser(user, role);
+        const success = await onInviteUser(user, role, recommendedUsers);
         setInvitationStates((prev) => ({ ...prev, [user.urn]: success ? 'success' : 'failed' }));
     };
 
