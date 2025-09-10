@@ -32,6 +32,7 @@ from datahub.ingestion.source.snaplogic.snaplogic_parser import (
     Dataset,
     SnapLogicParser,
 )
+from datahub.ingestion.source.snaplogic.snaplogic_utils import SnaplogicUtils
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
 )
@@ -43,19 +44,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
-    NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
-    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    StringTypeClass,
 )
 
 
@@ -308,7 +305,7 @@ class SnaplogicSource(StatefulIngestionSourceBase):
         schema_fields = [
             SchemaFieldClass(
                 fieldPath=field["name"],
-                type=self._get_datahub_type(field.get("type", "Varchar")),
+                type=SnaplogicUtils.get_datahub_type(field.get("type", "Varchar")),
                 nativeDataType=field.get("type", "Varchar"),
             )
             for field in fields
@@ -345,18 +342,6 @@ class SnaplogicSource(StatefulIngestionSourceBase):
                 externalUrl=f"{self.config.base_url}/sl/designer.html?v=21818#pipe_snode={pipeline_snode_id}",
             ),
         ).as_workunit()
-
-    def _get_datahub_type(self, type: str) -> SchemaFieldDataTypeClass:
-        type = type.lower()
-
-        if type in ["string", "varchar"]:
-            return SchemaFieldDataTypeClass(type=StringTypeClass())
-        elif type in ["number", "long", "float", "double", "int"]:
-            return SchemaFieldDataTypeClass(type=NumberTypeClass())
-        elif type == "boolean":
-            return SchemaFieldDataTypeClass(type=BooleanTypeClass())
-        else:
-            return SchemaFieldDataTypeClass(type=StringTypeClass())
 
     def get_report(self) -> SourceReport:
         return self.report

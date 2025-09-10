@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulIngestionConfigBase,
@@ -17,7 +17,7 @@ class SnaplogicConfig(
 ):
     platform: str = "Snaplogic"
     username: str = Field(description="Username")
-    password: str = Field(description="Password")
+    password: SecretStr = Field(description="Password")
     base_url: str = Field(
         default="https://elastic.snaplogic.com",
         description="Url to your Snaplogic instance: `https://elastic.snaplogic.com`, or similar. Used for making API calls to Snaplogic.",

@@ -70,7 +70,7 @@ def create_non_snaplogic_datasets_recipe(
 
 def register_mock_api(pytestconfig: Any, request_mock: Any) -> None:
     test_resources_dir: pathlib.Path = (
-        pytestconfig.rootpath / "tests/integration/snaplogic"
+        pytestconfig.rootpath / "tests/integration/snaplogic/test_data"
     )
 
     # Load the mock response from snaplogic_base_response.json
@@ -119,7 +119,7 @@ def test_snaplogic_source_default_configs(
     pytestconfig, mock_datahub_graph, tmp_path, requests_mock
 ):
     test_resources_dir: pathlib.Path = (
-        pytestconfig.rootpath / "tests/integration/snaplogic"
+        pytestconfig.rootpath / "tests/integration/snaplogic/test_data"
     )
     register_mock_api(pytestconfig, requests_mock)
 
@@ -141,7 +141,7 @@ def test_snaplogic_source_create_non_snaplogic_datasets(
     pytestconfig, mock_datahub_graph, tmp_path, requests_mock
 ):
     test_resources_dir: pathlib.Path = (
-        pytestconfig.rootpath / "tests/integration/snaplogic"
+        pytestconfig.rootpath / "tests/integration/snaplogic/test_data"
     )
     register_mock_api(pytestconfig, requests_mock)
 
