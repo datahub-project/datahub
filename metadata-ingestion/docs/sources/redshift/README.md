@@ -1,31 +1,3 @@
-# Amazon Redshift
-
-For context on getting started with ingestion, check out our [metadata ingestion guide](../../README.md).
-
-## Setup
-
-To install this plugin, run `pip install 'acryl-datahub[redshift]'`.
-
-## Capabilities
-
-This plugin extracts the following:
-
-- Metadata for databases, schemas, views and tables
-- Column types associated with each table
-- Table, row, and column statistics via optional SQL profiling
-- Table lineage
-- Usage statistics
-
-## Concept mapping
-
-| Source Concept | DataHub Concept                                           | Notes              |
-| -------------- | --------------------------------------------------------- | ------------------ |
-| `"redshift"`   | [Data Platform](../../metamodel/entities/dataPlatform.md) |                    |
-| Database       | [Container](../../metamodel/entities/container.md)        | Subtype `Database` |
-| Schema         | [Container](../../metamodel/entities/container.md)        | Subtype `Schema`   |
-| Table          | [Dataset](../../metamodel/entities/dataset.md)            | Subtype `Table`    |
-| View           | [Dataset](../../metamodel/entities/dataset.md)            | Subtype `View`     |
-
 ## Ingestion of multiple redshift databases, namespaces
 
 - If multiple databases are present in the Redshift namespace (or provisioned cluster),
@@ -109,9 +81,3 @@ If you don't want to grant read access to the tables you can enable table level 
 profiling:
   profile_table_level_only: true
 ```
-
-## Configuration
-
-For detailed configuration options, see the [recipe configuration](redshift_recipe.yml).
-
-For prerequisites and permissions setup, see the [prerequisites guide](redshift_pre.md).
