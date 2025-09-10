@@ -51,6 +51,8 @@ const prefillUserData = (userEmail?: string, userName?: string) => {
             name: { value: userName },
         });
     }
+    window.zE('webWidget', 'show');
+    window.zE('webWidget', 'open');
 };
 
 const getZendeskSettings = (customFields?: Record<string | number, string>, offsetHorizontal = '100px') => {
@@ -134,7 +136,12 @@ export const useZendeskWidget = ({
         script.onload = () => {
             if (window.zE) {
                 prefillUserData(userEmail, userName);
-                window.zE('webWidget', 'open');
+                // https://developer.zendesk.com/api-reference/widget/core/#on-close
+                window.zE('webWidget:on', 'close', () => {
+                    if (window.zE) {
+                        window.zE('webWidget', 'hide');
+                    }
+                });
                 onLoad?.();
             }
         };
