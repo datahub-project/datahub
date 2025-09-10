@@ -574,6 +574,8 @@ class MockCatalogExceptionListingTables(MockCatalog):
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
         if namespace == ("no_such_namespace",):
             raise NoSuchNamespaceError()
+        if namespace == ("rest_error",):
+            raise RESTError()
         if namespace == ("generic_exception",):
             raise Exception()
         return super().list_tables(namespace)
@@ -582,6 +584,17 @@ class MockCatalogExceptionListingTables(MockCatalog):
 class MockCatalogExceptionListingNamespaces(MockCatalog):
     def list_namespaces(self) -> Iterable[Tuple[str]]:
         raise Exception("Test exception")
+
+
+class MockCatalogExceptionRetrievingNamespaceProperties(MockCatalog):
+    def load_namespace_properties(self, namespace: Tuple[str, ...]) -> Dict[str, str]:
+        if namespace == ("no_such_namespace",):
+            raise NoSuchNamespaceError()
+        if namespace == ("rest_error",):
+            raise RESTError()
+        if namespace == ("generic_exception",):
+            raise Exception()
+        return super().load_namespace_properties(namespace)
 
 
 def test_exception_while_listing_namespaces() -> None:
@@ -596,9 +609,9 @@ def test_exception_while_listing_namespaces() -> None:
         assert source.report.failures.total_elements == 1
 
 
-def test_known_exception_while_listing_tables() -> None:
+def test_known_exception_while_retrieving_namespace_properties() -> None:
     source = with_iceberg_source(processing_threads=2)
-    mock_catalog = MockCatalogExceptionListingTables(
+    mock_catalog = MockCatalogExceptionRetrievingNamespaceProperties(
         {
             "namespaceA": {
                 "table1": lambda: Table(
@@ -615,6 +628,7 @@ def test_known_exception_while_listing_tables() -> None:
                 )
             },
             "no_such_namespace": {},
+            "rest_error": {},
             "namespaceB": {
                 "table2": lambda: Table(
                     identifier=("namespaceB", "table2"),
@@ -676,7 +690,7 @@ def test_known_exception_while_listing_tables() -> None:
     ) as get_catalog:
         get_catalog.return_value = mock_catalog
         wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
-        # ingested 5 tables (6 MCPs each) and 5 namespaces (4 MCPs each), despite exception
+        # ingested 5 tables (6 MCPs each) and 4 namespaces (4 MCPs each), we will not ingest namespaces at all if we fail to get their properties
         expected_wu_urns = [
             "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
@@ -685,7 +699,6 @@ def test_known_exception_while_listing_tables() -> None:
             "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
         ] * MCPS_PER_TABLE + [
             "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
-            "urn:li:container:9cb5e87ec392b231720f23bf00d6f6aa",
             "urn:li:container:74727446a56420d80ff3b1abf2a18087",
             "urn:li:container:3f9a24213cca64ab22e409d1b9a94789",
             "urn:li:container:38a0583b0305ec5066cb708199f6848c",
@@ -699,7 +712,224 @@ def test_known_exception_while_listing_tables() -> None:
             urns,
             expected_wu_urns,
         )
-        assert source.report.warnings.total_elements == 1
+        assert source.report.warnings.total_elements == 2
+        assert source.report.failures.total_elements == 0
+        assert source.report.tables_scanned == 5
+
+
+def test_unknown_exception_while_retrieving_namespace_properties() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogExceptionRetrievingNamespaceProperties(
+        {
+            "namespaceA": {
+                "table1": lambda: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "generic_exception": {},
+            "namespaceB": {
+                "table2": lambda: Table(
+                    identifier=("namespaceB", "table2"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table2",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table2",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table3": lambda: Table(
+                    identifier=("namespaceB", "table3"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table3",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table3",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+            },
+            "namespaceC": {
+                "table4": lambda: Table(
+                    identifier=("namespaceC", "table4"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceC/table4",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceC/table4",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "namespaceD": {
+                "table5": lambda: Table(
+                    identifier=("namespaceD", "table5"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table5",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table5",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        # ingested 5 tables (6 MCPs each) and 4 namespaces (4 MCPs each), despite exception
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+            "urn:li:container:74727446a56420d80ff3b1abf2a18087",
+            "urn:li:container:3f9a24213cca64ab22e409d1b9a94789",
+            "urn:li:container:38a0583b0305ec5066cb708199f6848c",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
+        TestCase().assertCountEqual(
+            urns,
+            expected_wu_urns,
+        )
+        assert source.report.warnings.total_elements == 0
+        assert source.report.failures.total_elements == 1
+        assert source.report.tables_scanned == 5
+
+
+def test_known_exception_while_listing_tables() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogExceptionListingTables(
+        {
+            "namespaceA": {
+                "table1": lambda: Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "no_such_namespace": {},
+            "rest_error": {},
+            "namespaceB": {
+                "table2": lambda: Table(
+                    identifier=("namespaceB", "table2"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table2",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table2",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table3": lambda: Table(
+                    identifier=("namespaceB", "table3"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceB/table3",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceB/table3",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+            },
+            "namespaceC": {
+                "table4": lambda: Table(
+                    identifier=("namespaceC", "table4"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceC/table4",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceC/table4",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "namespaceD": {
+                "table5": lambda: Table(
+                    identifier=("namespaceD", "table5"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table5",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table5",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        # ingested 5 tables (6 MCPs each) and 6 namespaces (4 MCPs each), despite exception
+        expected_wu_urns = [
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceB.table3,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceC.table4,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceD.table5,PROD)",
+        ] * MCPS_PER_TABLE + [
+            "urn:li:container:390e031441265aae5b7b7ae8d51b0c1f",
+            "urn:li:container:9cb5e87ec392b231720f23bf00d6f6aa",
+            "urn:li:container:74727446a56420d80ff3b1abf2a18087",
+            "urn:li:container:3f9a24213cca64ab22e409d1b9a94789",
+            "urn:li:container:38a0583b0305ec5066cb708199f6848c",
+            "urn:li:container:7b510fcb61d4977da0b1707e533999d8",
+        ] * MCPS_PER_NAMESPACE
+        assert len(wu) == len(expected_wu_urns)
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+            urns.append(unit.metadata.entityUrn)
+        TestCase().assertCountEqual(
+            urns,
+            expected_wu_urns,
+        )
+        assert source.report.warnings.total_elements == 2
         assert source.report.failures.total_elements == 0
         assert source.report.tables_scanned == 5
 
