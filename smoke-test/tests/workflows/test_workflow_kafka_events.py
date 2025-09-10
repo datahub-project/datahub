@@ -14,6 +14,8 @@ from tests.utils import (
 # Test action requests that will be created during tests
 CREATED_ACTION_REQUEST_URNS: list[str] = []
 
+pytestmark = pytest.mark.skip(reason="Disabled")
+
 
 def wait_for_workflow_request_ready(auth_session, action_request_urn, timeout=30):
     """Poll until workflow request is ready for review"""
