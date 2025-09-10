@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -27,11 +27,10 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
-    schema_pattern: AllowDenyPattern = Field(
+    schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         # The superclass contains a `schema_pattern` field, so we need this here
         # to override the documentation.
         default=AllowDenyPattern.allow_all(),
-        hidden_from_docs=True,
         description="Deprecated in favour of database_pattern.",
     )
 

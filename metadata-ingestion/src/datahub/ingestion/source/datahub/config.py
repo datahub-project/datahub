@@ -4,7 +4,7 @@ from typing import Optional, Set
 import pydantic
 from pydantic import Field, root_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -98,16 +98,14 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         ),
     )
 
-    pull_from_datahub_api: bool = Field(
+    pull_from_datahub_api: HiddenFromDocs[bool] = Field(
         default=False,
         description="Use the DataHub API to fetch versioned aspects.",
-        hidden_from_docs=True,
     )
 
-    max_workers: int = Field(
+    max_workers: HiddenFromDocs[int] = Field(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for datahub api ingestion.",
-        hidden_from_docs=True,
     )
 
     urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
@@ -118,10 +116,11 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         "Useful if the source system has duplicate field paths in the db, but we're pushing to a system with server-side duplicate checking.",
     )
 
-    structured_properties_template_cache_invalidation_interval: int = Field(
-        hidden_from_docs=True,
-        default=60,
-        description="Interval in seconds to invalidate the structured properties template cache.",
+    structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
+        Field(
+            default=60,
+            description="Interval in seconds to invalidate the structured properties template cache.",
+        )
     )
 
     query_timeout: Optional[int] = Field(

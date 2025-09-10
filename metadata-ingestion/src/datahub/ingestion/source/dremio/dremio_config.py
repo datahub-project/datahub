@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 import certifi
 from pydantic import Field, validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -100,10 +100,9 @@ class ProfileConfig(GEProfilingBaseConfig):
     query_timeout: int = Field(
         default=300, description="Time before cancelling Dremio profiling query"
     )
-    include_field_median_value: bool = Field(
+    include_field_median_value: HiddenFromDocs[bool] = Field(
+        # Hidden because median causes a number of issues in Dremio.
         default=False,
-        hidden_from_docs=True,
-        description="Median causes a number of issues in Dremio.",
     )
 
 

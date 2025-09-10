@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import requests
-from pydantic import ValidationError
 
 from datahub.ingestion.source.hex.api import (
     HexApi,
@@ -254,7 +253,9 @@ class TestHexAPI(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.json.return_value = {"whatever": "json"}
         # and simulate ValidationError when parsing the response
-        mock_parse_obj.side_effect = ValidationError([], model=HexApiProjectApiResource)
+        mock_parse_obj.side_effect = lambda _: HexApiProjectApiResource.parse_obj(
+            {}
+        )  # will raise ValidationError
 
         hex_api = HexApi(
             token=self.token,

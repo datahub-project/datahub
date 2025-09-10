@@ -1,4 +1,5 @@
 import datetime
+import re
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
@@ -54,7 +55,9 @@ default_oauth_dict: Dict[str, Any] = {
 
 
 def test_snowflake_source_throws_error_on_account_id_missing():
-    with pytest.raises(ValidationError, match="account_id\n  field required"):
+    with pytest.raises(
+        ValidationError, match=re.compile(r"account_id.*Field required", re.DOTALL)
+    ):
         SnowflakeV2Config.parse_obj(
             {
                 "username": "user",
@@ -66,7 +69,9 @@ def test_snowflake_source_throws_error_on_account_id_missing():
 def test_no_client_id_invalid_oauth_config():
     oauth_dict = default_oauth_dict.copy()
     del oauth_dict["client_id"]
-    with pytest.raises(ValueError, match="client_id\n  field required"):
+    with pytest.raises(
+        ValueError, match=re.compile(r"client_id.*Field required", re.DOTALL)
+    ):
         OAuthConfiguration.parse_obj(oauth_dict)
 
 
