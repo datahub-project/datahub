@@ -441,6 +441,7 @@ class Pipeline:
         return False
 
     def run(self) -> None:
+        self.source.get_report().set_platform(self.source.__class__.get_platform_id())
         self._warn_old_cli_version()
         with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:

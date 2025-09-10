@@ -27,8 +27,10 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.urn import get_platform_v1
 
 logger = logging.getLogger(__name__)
 LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
@@ -41,6 +43,12 @@ class SupportsAsObj(Protocol):
 
 @dataclass
 class Report(SupportsAsObj):
+    def set_platform(self, platform: str) -> None:
+        self.platform = platform
+
+    def get_platform(self) -> Optional[str]:
+        return self.platform
+
     @staticmethod
     def to_str(some_val: Any) -> str:
         if isinstance(some_val, Enum):
@@ -347,6 +355,12 @@ class ExamplesReport(Report, Closeable):
         aspectName: str,
         mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper],
     ) -> None:
+        platform = get_platform_v1(urn)
+        if platform is None:
+            return
+        platform_name = DataPlatformUrn.from_string(platform).get_entity_id_as_string()
+        if platform_name != self.platform:
+            return
         if is_lineage_aspect(entityType, aspectName):
             self._lineage_aspects_seen.add(aspectName)
         has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
