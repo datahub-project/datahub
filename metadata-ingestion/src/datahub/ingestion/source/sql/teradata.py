@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -66,6 +67,9 @@ from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.stats_collections import TopKDict
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# Precompiled regex pattern for case-insensitive "(not casespecific)" removal
+NOT_CASESPECIFIC_PATTERN = re.compile(r"\(not casespecific\)", re.IGNORECASE)
 
 # Common excluded databases used in multiple places
 EXCLUDED_DATABASES = [
@@ -1377,7 +1381,7 @@ ORDER by DataBaseName, TableName;
         default_database = getattr(metadata_entry, "default_database", None)
 
         # Apply Teradata-specific query transformations
-        cleaned_query = full_query_text.replace("(NOT CASESPECIFIC)", "")
+        cleaned_query = NOT_CASESPECIFIC_PATTERN.sub("", full_query_text)
 
         # For Teradata's two-tier architecture (database.table), we should not set default_db
         # to avoid incorrect URN generation like "dbc.database.table" instead of "database.table"
@@ -1406,7 +1410,9 @@ ORDER by DataBaseName, TableName;
         default_database = getattr(entry, "default_database", None)
 
         # Apply Teradata-specific query transformations
-        cleaned_query = query_text.replace("(NOT CASESPECIFIC)", "")
+        cleaned_query = query_text.replace("(NOT CASESPECIFIC)", "").replace(
+            "(not casespecific)", ""
+        )
 
         # For Teradata's two-tier architecture (database.table), we should not set default_db
         # to avoid incorrect URN generation like "dbc.database.table" instead of "database.table"
