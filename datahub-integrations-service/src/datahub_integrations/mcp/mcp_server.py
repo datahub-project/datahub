@@ -371,16 +371,21 @@ def enhanced_search(
     - Will match: tables named "user_behavior", "client_metrics", "consumer_data" for "customer analytics"
 
     KEYWORD SEARCH (search_strategy="keyword" or default):
-    - Traditional full-text search matching exact words and phrases
-    - Fast and precise when you know specific names or technical terms
-    - Best for: exact entity names, technical identifiers, known column names
-    - Examples: "user_transactions", "revenue_2024", "customer_id"
-    - Will match: exact text appearances of these terms
+    - Structured full-text search - **always start queries with "/q "**
+    - Supports full boolean logic: AND (default), OR, NOT, parentheses, field searches
+    - Examples:
+      • "/q user_transactions" → exact terms (AND is default)
+      • "/q wizard OR pet" → entities containing either term
+      • "/q revenue_*" → wildcard matching (revenue_2023, revenue_2024, revenue_monthly, etc.)
+      • "/q \"user data table\"" → exact phrase matching
+      • "/q (sales OR revenue) AND quarterly" → complex boolean combinations
+    - Fast and precise for exact matching, technical terms, and complex queries
+    - Best for: entity names, identifiers, column names, or any search needing boolean logic
 
     WHEN TO USE EACH:
     - Use semantic when: user asks conceptual questions ("show me sales data", "find customer information")
-    - Use keyword when: user provides specific names ("find table user_events", "show dataset named revenue_jan_2024")
-    - Use keyword when: searching for technical terms, column names, or exact identifiers
+    - Use keyword when: user provides specific names ("/q user_events", "/q revenue_jan_2024")
+    - Use keyword when: searching for technical terms, boolean logic, or exact identifiers
 
     Returns both a truncated list of results and facets/aggregations that can be used to iteratively refine the search filters.
     To explore the data catalog and get aggregate statistics, use the wildcard '*' as the query and set `filters: null`. This provides
@@ -417,9 +422,11 @@ def enhanced_search(
 
     SEARCH STRATEGY EXAMPLES:
     - Semantic: "customer behavior data" → finds user_analytics, client_metrics, consumer_tracking
-    - Keyword: "customer_behavior" → finds tables with exact name "customer_behavior"
+    - Keyword: "/q customer_behavior" → finds tables with exact name "customer_behavior"
+    - Keyword: "/q customer OR user" → finds tables with either term
     - Semantic: "financial performance metrics" → finds revenue_kpis, profit_analysis, financial_dashboards
-    - Keyword: "financial_performance_metrics" → finds exact table name matches
+    - Keyword: "/q financial_performance_metrics" → finds exact table name matches
+    - Keyword: "/q (financial OR revenue) AND metrics" → complex boolean logic
     """
     return _search_implementation(query, filters, num_results, search_strategy)
 
