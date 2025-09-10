@@ -36,7 +36,7 @@ interface Props {
 }
 
 function Template({ className }: Props) {
-    const { templateType, template, isTemplateEditable } = usePageTemplateContext();
+    const { templateType, template, isTemplateEditable, moduleContext } = usePageTemplateContext();
     const rows = useMemo(
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
         [template?.properties?.rows],
@@ -45,7 +45,8 @@ function Template({ className }: Props) {
     const wrappedRows = useMemo(() => wrapRows(rows), [rows]);
 
     return (
-        <Wrapper className={className}>
+        // set data-testid once module context resolves to reduce cypress flakiness
+        <Wrapper className={className} data-testid={moduleContext.globalTemplate ? 'home-template-wrapper' : undefined}>
             <DragAndDropProvider>
                 <TemplateGrid wrappedRows={wrappedRows} />
             </DragAndDropProvider>

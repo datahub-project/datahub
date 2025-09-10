@@ -443,5 +443,6 @@ export function useModuleOperations(
         removeModule,
         upsertModule,
         moveModule,
+        moduleContext: context,
     };
 }
