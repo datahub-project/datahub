@@ -342,12 +342,12 @@ jobs:
       - name: Build Saas Images (Publish - ACRYLIO)
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesMinSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
 
       - name: Build Saas Images (Publish - Cloudsmith)
         if: ${{ needs.setup.outputs.cloudsmith_publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesMinSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
