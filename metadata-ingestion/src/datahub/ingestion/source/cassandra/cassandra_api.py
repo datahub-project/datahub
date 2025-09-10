@@ -132,7 +132,17 @@ class CassandraAPI:
 
             ssl_context = None
             if self.config.ssl_ca_certs:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                # Map SSL version string to ssl module constant
+                ssl_version_map = {
+                    "TLS_CLIENT": ssl.PROTOCOL_TLS_CLIENT,
+                    "TLSv1": ssl.PROTOCOL_TLSv1,
+                    "TLSv1_1": ssl.PROTOCOL_TLSv1_1,
+                    "TLSv1_2": ssl.PROTOCOL_TLSv1_2,
+                    "TLSv1_3": ssl.PROTOCOL_TLSv1_2,  # Python's ssl module uses TLSv1_2 for TLS 1.3
+                }
+                
+                ssl_protocol = ssl_version_map.get(self.config.ssl_version, ssl.PROTOCOL_TLS_CLIENT)
+                ssl_context = ssl.SSLContext(ssl_protocol)
                 ssl_context.load_verify_locations(self.config.ssl_ca_certs)
                 if self.config.ssl_certfile and self.config.ssl_keyfile:
                     ssl_context.load_cert_chain(
