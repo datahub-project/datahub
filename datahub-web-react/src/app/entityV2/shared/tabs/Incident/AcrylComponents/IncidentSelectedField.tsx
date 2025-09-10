@@ -77,7 +77,6 @@ export const IncidentSelectField = ({
                             justifyContent: 'center',
                         }}
                         priority={option.value}
-                        title={option.label}
                     />
                 );
             case INCIDENT_OPTION_LABEL_MAPPING.stage.label:
@@ -109,7 +108,6 @@ export const IncidentSelectField = ({
                             width: 'auto',
                         }}
                         priority={selectedOption?.value}
-                        title={selectedOption?.label}
                     />
                 );
             case INCIDENT_OPTION_LABEL_MAPPING.stage.label:

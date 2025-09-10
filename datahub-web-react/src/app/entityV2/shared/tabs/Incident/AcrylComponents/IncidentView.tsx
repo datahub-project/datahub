@@ -191,10 +191,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>Priority</DetailsLabel>
-                <IncidentPriorityLabel
-                    priority={incident?.priority}
-                    title={incident?.priority ? getCapitalizeWord(incident?.priority) : incident?.priority}
-                />
+                <IncidentPriorityLabel priority={incident?.priority} />
             </DetailsSection>
             <DetailsSection>
                 <DetailsLabel>Stage</DetailsLabel>

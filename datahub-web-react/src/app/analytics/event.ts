@@ -1529,7 +1529,7 @@ export interface RetrainAsNewNormalEvent extends BaseEvent {
 
 export interface DatasetHealthFilterEvent extends BaseEvent {
     type: EventType.DatasetHealthFilterEvent;
-    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
     filterType: 'search' | 'filter' | 'timeRange';
     filterSubType?: string;
     content:
@@ -1543,7 +1543,7 @@ export interface DatasetHealthFilterEvent extends BaseEvent {
 
 export interface DatasetHealthClickEvent extends BaseEvent {
     type: EventType.DatasetHealthClickEvent;
-    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
     target: 'asset_assertions' | 'asset_incidents' | 'assertion' | 'incident';
     subTarget?: string;
     targetUrn?: string;

@@ -8,6 +8,7 @@ import {
   shouldBeOnPersonalTemplate,
   shouldShowDefaultTemplate,
   startEditingDefaultTemplate,
+  waitUntilTemplateIsLoaded,
 } from "./utils";
 
 describe("home page templates", () => {
@@ -16,6 +17,7 @@ describe("home page templates", () => {
     cy.login();
     cy.visit("/");
     cy.skipIntroducePage();
+    waitUntilTemplateIsLoaded();
   });
 
   Cypress.on("uncaught:exception", (err, runnable) => false);
@@ -29,6 +31,7 @@ describe("home page templates", () => {
 
   it("fork the homepage and create personal template", () => {
     addYourAssetsModule();
+    cy.getWithTestId("edited-home-page-toast"); // wait for confirmation before continuing to prevent flakiness
     cy.getWithTestId("your-assets-module").should("have.length", 2);
     shouldBeOnPersonalTemplate();
     resetToOrgDefault();
@@ -36,6 +39,7 @@ describe("home page templates", () => {
 
   it("create personal template, then log back in to check the updated template", () => {
     addYourAssetsModule();
+    cy.getWithTestId("edited-home-page-toast");
     createAssetCollectionModule("Collection Module");
     cy.wait(2000);
     shouldBeOnPersonalTemplate();
@@ -51,6 +55,7 @@ describe("home page templates", () => {
 
   it("reset the homepage to organization default", () => {
     addYourAssetsModule();
+    cy.getWithTestId("edited-home-page-toast");
     cy.wait(1000);
     resetToOrgDefault();
     shouldShowDefaultTemplate();

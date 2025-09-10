@@ -7,6 +7,7 @@ import { QueryParamDecoder, QueryParamEncoder } from '@app/observe/dataset/share
 
 export const DEFAULT_PAGE_SIZE = 25;
 
+const STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Error', 'Passing'];
 export const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Error', 'Passing'];
 
 export const STATUS_OPTIONS_TO_LABEL: Record<AssertionResultTypeOptions, string> = {
@@ -100,7 +101,10 @@ export const FILTER_OPTIONS_DECODER: QueryParamDecoder<FitlerOptions> = {
     size: (value: string) => parseInt(value, 10),
     query: (value: string) => decodeURIComponent(value),
     statuses: (value: string) =>
-        value.split(',').map((element) => decodeURIComponent(element) as AssertionResultTypeOptions),
+        value
+            .split(',')
+            .map((element) => decodeURIComponent(element) as AssertionResultTypeOptions)
+            .filter((el) => STATUS_OPTIONS.includes(el as AssertionResultTypeOptions)),
     timeRange: (value: string) => TIME_RANGE_OPTIONS.find((option) => option.urlParam === decodeURIComponent(value)),
     types: (value: string) => value.split(',').map((element) => decodeURIComponent(element)),
     source: (value: string) => decodeURIComponent(value),

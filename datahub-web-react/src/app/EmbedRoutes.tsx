@@ -4,7 +4,7 @@ import { Route } from 'react-router-dom';
 import EmbeddedPage from '@app/embed/EmbeddedPage';
 import EmbedLookup from '@app/embed/lookup';
 import EmbedHealthLookup from '@app/embed/lookup/EmbedHealthLookup';
-import EmbeddedHealthIcon from '@app/entity/shared/embed/EmbeddedHealthIcon';
+import EmbeddedHealthIcon from '@app/entityV2/shared/embed/EmbeddedHealthIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 
