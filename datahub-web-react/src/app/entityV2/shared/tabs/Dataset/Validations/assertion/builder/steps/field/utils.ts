@@ -115,6 +115,15 @@ export const FIELD_VALUES_OPERATOR_CONFIG = {
             },
         },
         {
+            label: 'Is not equal to',
+            value: AssertionStdOperator.NotEqualTo,
+            parameters: {
+                value: {
+                    type: AssertionStdParameterType.String,
+                },
+            },
+        },
+        {
             label: 'Is in set',
             value: AssertionStdOperator.In,
             parameters: {
@@ -243,6 +252,16 @@ export const FIELD_VALUES_OPERATOR_CONFIG = {
         {
             label: 'Is equal to',
             value: AssertionStdOperator.EqualTo,
+            parameters: {
+                value: {
+                    type: AssertionStdParameterType.Number,
+                },
+            },
+            inputType: 'number',
+        },
+        {
+            label: 'Is not equal to',
+            value: AssertionStdOperator.NotEqualTo,
             parameters: {
                 value: {
                     type: AssertionStdParameterType.Number,
