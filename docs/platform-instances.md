@@ -215,4 +215,4 @@ DataHub offers several other ways to handle organizational context without chang
 
 ## Summary
 
-Platform instances and data products each address different aspects of data organization in DataHub. Platform instances modify URNs to include technical identifiers, while data products provide organizational structure without changing URNs. For organizations with evolving taxonomy, the key is to separate technical identifiers (in URNs) from business context (in metadata), ensuring both immutability and flexibility.
+Platform instances and data products each address different aspects of data organization in DataHub. Platform instances modify URNs to include technical identifiers, while data products provide organizational structure without changing the physical identity of the asset. For organizations with evolving taxonomy, the key is to separate technical identifiers (in URNs) from business context (in metadata), ensuring both immutability and flexibility.
