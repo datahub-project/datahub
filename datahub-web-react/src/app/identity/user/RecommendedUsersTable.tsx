@@ -16,6 +16,7 @@ import {
     UserAvatarSection,
 } from '@app/identity/user/RecommendedUsersTable.components';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
+import { useDismissUserSuggestionMutation } from '@app/identity/user/hooks/useDismissUserSuggestion';
 import { useUserRecommendations } from '@app/identity/user/useUserRecommendations';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
 import { Avatar, Button, Heading, Pagination, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
@@ -25,6 +26,7 @@ import { CorpUser, DataHubRole, UserUsageSortField } from '@types';
 
 type Props = {
     onInviteUser: (user: CorpUser, role?: DataHubRole, recommendedUsers?: CorpUser[]) => Promise<boolean>;
+    onDismissUser?: (user: CorpUser) => Promise<boolean>;
     selectRoleOptions: DataHubRole[];
 };
 
@@ -33,7 +35,7 @@ const getPlatformIconUrl = (platformUrn: string): string | null => {
     return PLATFORM_URN_TO_LOGO[platformUrn] || null;
 };
 
-export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props) => {
+export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleOptions }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -53,6 +55,9 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
     const [sortField, setSortField] = useState<UserUsageSortField>(defaultSortField);
     const [userRoles, setUserRoles] = useState<Record<string, DataHubRole>>({});
     const [invitationStates, setInvitationStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
+    const [dismissalStates, setDismissalStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
+
+    const [dismissUserSuggestion] = useDismissUserSuggestionMutation();
 
     // Find the Reader role as default (same as InviteUsersModal logic)
     const defaultReaderRole = useMemo(() => {
@@ -119,6 +124,27 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
         setInvitationStates((prev) => ({ ...prev, [user.urn]: success ? 'success' : 'failed' }));
     };
 
+    const handleDismissUser = async (user: CorpUser) => {
+        setDismissalStates((prev) => ({ ...prev, [user.urn]: 'pending' }));
+
+        try {
+            if (onDismissUser) {
+                const success = await onDismissUser(user);
+                setDismissalStates((prev) => ({ ...prev, [user.urn]: success ? 'success' : 'failed' }));
+            } else {
+                // Fallback to direct mutation call if no onDismissUser prop provided
+                const result = await dismissUserSuggestion({
+                    variables: { userUrn: user.urn },
+                });
+                const success = result.data?.dismissUserSuggestion ?? false;
+                setDismissalStates((prev) => ({ ...prev, [user.urn]: success ? 'success' : 'failed' }));
+            }
+        } catch (dismissError) {
+            console.error('Error dismissing user suggestion:', dismissError);
+            setDismissalStates((prev) => ({ ...prev, [user.urn]: 'failed' }));
+        }
+    };
+
     const columns = [
         {
             title: 'Email',
@@ -179,10 +205,33 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
             title: '',
             dataIndex: 'actions',
             key: 'actions',
-            minWidth: '15%',
+            minWidth: '20%',
             render: (user: CorpUser) => {
-                const state = invitationStates[user.urn];
-                switch (state) {
+                const invitationState = invitationStates[user.urn];
+                const dismissalState = dismissalStates[user.urn];
+
+                // Show dismissal states first if they exist
+                switch (dismissalState) {
+                    case 'pending':
+                        return <Text size="sm">Dismissing...</Text>;
+                    case 'success':
+                        return (
+                            <Text size="sm" color="gray">
+                                Dismissed
+                            </Text>
+                        );
+                    case 'failed':
+                        return (
+                            <Text size="sm" color="red">
+                                Dismiss Failed
+                            </Text>
+                        );
+                    default:
+                        break;
+                }
+
+                // Show invitation states if no dismissal state
+                switch (invitationState) {
                     case 'pending':
                         return <Text size="sm">Inviting...</Text>;
                     case 'success':
@@ -194,14 +243,19 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
                     case 'failed':
                         return (
                             <Text size="sm" color="red">
-                                Failed
+                                Invite Failed
                             </Text>
                         );
                     default:
                         return (
-                            <Button variant="secondary" size="sm" onClick={() => handleInviteUser(user)}>
-                                Invite
-                            </Button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <Button variant="link" size="sm" onClick={() => handleDismissUser(user)}>
+                                    Dismiss
+                                </Button>
+                                <Button variant="secondary" size="sm" onClick={() => handleInviteUser(user)}>
+                                    Invite
+                                </Button>
+                            </div>
                         );
                 }
             },

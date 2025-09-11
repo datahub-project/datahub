@@ -21,6 +21,7 @@ vi.mock('antd', () => ({
 vi.mock('@app/identity/user/EmailInvitationService');
 vi.mock('@graphql/mutations.generated', () => ({
     useSendUserInvitationsMutation: () => [vi.fn()],
+    useDismissUserSuggestionMutation: () => [vi.fn()],
 }));
 
 vi.mock('@app/entity/shared/EntityDropdown/useDeleteEntity', () => ({
