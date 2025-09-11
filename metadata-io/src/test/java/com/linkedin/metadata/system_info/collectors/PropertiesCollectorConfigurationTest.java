@@ -74,10 +74,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Services encryption
           "secretService.encryptionKey",
 
-          // Authentication mode settings that can contain sensitive data
-          "ebean.postgresUseIamAuth",
-          "elasticsearch.opensearchUseAwsIamAuth",
-
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD" // Current directory may contain sensitive info
@@ -115,7 +111,29 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
 
           // Gradle test worker properties (Java system properties)
-          "org.gradle.test.worker*");
+          "org.gradle.test.worker*",
+
+          // System update properties
+          "systemUpdate.*.enabled",
+          "systemUpdate.*.batchSize",
+
+          // Kafka topic Configs
+          "kafka.topics.*.name",
+          "kafka.topics.*.partitions",
+          "kafka.topics.*.enabled",
+          "kafka.topics.*.replicationFactor",
+          "kafka.topics.*.configProperties.max.message.bytes",
+          "kafka.topics.*.configProperties.retention.ms",
+          "kafka.topicDefaults.configProperties.max.message.bytes",
+          "kafka.topicDefaults.configProperties.retention.ms",
+          "kafka.topicDefaults.partitions",
+          "kafka.topicDefaults.replicationFactor",
+          "kafka.setup.preCreateTopics",
+          "kafka.setup.useConfluentSchemaRegistry",
+
+          // IAM authentication flags
+          "*.postgresUseIamAuth",
+          "*.opensearchUseAwsIamAuth");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -317,8 +335,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "socksNonProxyHosts",
 
           // Java system properties
+          "apple.awt.application.name",
           "file.encoding",
           "file.separator",
+          "stderr.encoding",
+          "stdout.encoding",
           "java.awt.headless",
           "java.class.path",
           "java.class.version",
@@ -417,6 +438,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
+          "featureFlags.assetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.dataContractsEnabled",
           "featureFlags.editableDatasetNameEnabled",
@@ -431,7 +453,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.logicalModelsEnabled",
           "featureFlags.nestedDomainsEnabled",
           "featureFlags.platformBrowseV2",
-          "featureFlags.pointInTimeCreationEnabled",
+          "elasticsearch.search.pointInTimeCreationEnabled",
           "featureFlags.preProcessHooks.reprocessEnabled",
           "featureFlags.preProcessHooks.uiEnabled",
           "featureFlags.readOnlyModeEnabled",
@@ -453,6 +475,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showManageTags",
           "featureFlags.showNavBarRedesign",
           "featureFlags.showProductUpdates",
+          "featureFlags.showStatsTabRedesign",
           "featureFlags.showSearchBarAutocompleteRedesign",
           "featureFlags.showSearchFiltersV2",
           "featureFlags.showSeparateSiblings",
@@ -542,9 +565,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.boostViaNodes",
           "elasticsearch.search.graph.enableMultiPathSearch",
           "elasticsearch.search.graph.graphStatusEnabled",
-          "elasticsearch.search.graph.impactMaxHops",
+          "elasticsearch.search.graph.impact.keepAlive",
+          "elasticsearch.search.graph.impact.maxHops",
+          "elasticsearch.search.graph.impact.maxRelations",
+          "elasticsearch.search.graph.impact.slices",
           "elasticsearch.search.graph.lineageMaxHops",
           "elasticsearch.search.graph.maxThreads",
+          "elasticsearch.search.graph.pointInTimeCreationEnabled",
           "elasticsearch.search.graph.queryOptimization",
           "elasticsearch.search.graph.timeoutSeconds",
           "elasticsearch.search.maxTermBucketSize",
@@ -728,7 +755,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "platformAnalytics.usageExport.usageEventTypes",
           "platformAnalytics.usageExport.userFilters",
           "searchBar.apiVariant",
+          "searchCard.showDescription",
           "searchService.cache.hazelcast.serviceName",
+          "searchService.cache.hazelcast.service-dns-timeout",
+          "searchService.cache.hazelcast.kubernetes-api-retries",
+          "searchService.cache.hazelcast.resolve-not-ready-addresses",
           "searchService.cacheImplementation",
           "searchService.enableCache",
           "searchService.enableEviction",
@@ -782,7 +813,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
-          "org.springframework.boot.test.context.SpringBootTestContextBootstrapper"
+          "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
+          "datahub.policies.systemPolicyUrnList"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

@@ -549,6 +549,14 @@ class SalesforceApi:
     capability_name=SourceCapability.TAGS,
     description="Enabled by default",
 )
+@capability(
+    capability_name=SourceCapability.LINEAGE_COARSE,
+    description="Extract table-level lineage for Salesforce objects",
+    subtype_modifier=[
+        SourceCapabilityModifier.SALESFORCE_CUSTOM_OBJECT,
+        SourceCapabilityModifier.SALESFORCE_STANDARD_OBJECT,
+    ],
+)
 class SalesforceSource(StatefulIngestionSourceBase):
     def __init__(self, config: SalesforceConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx)

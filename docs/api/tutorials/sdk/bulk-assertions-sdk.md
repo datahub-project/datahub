@@ -5,7 +5,7 @@ import TabItem from '@theme/TabItem';
 
 <FeatureAvailability saasOnly />
 
-This guide specifically covers how to use the DataHub Cloud Python SDK for **bulk creating smart assertions**, including:
+This guide specifically covers how to use the [DataHub Cloud Python SDK](https://pypi.org/project/acryl-datahub-cloud/) for **bulk creating smart assertions**, including:
 
 - Smart Freshness Assertions
 - Smart Volume Assertions
@@ -33,7 +33,7 @@ The actor making API calls must have the `Edit Assertions` and `Edit Monitors` p
 
 :::note
 Before creating assertions, you need to ensure the target datasets are already present in your DataHub instance.
-If you attempt to create assertions for entities that do not exist, your operation will fail.
+If you attempt to create assertions for entities that do not exist, GMS will continuously report errors to the logs.
 :::
 
 ### Goal Of This Guide
@@ -72,6 +72,12 @@ from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()
 ```
+
+## Important Considerations for Parallel Processing
+
+- Always run bulk assertion creation for a given dataset in a single thread to avoid race conditions.
+- Always call subscription APIs for a given dataset in a single thread to avoid race conditions.
+  - If you are subscribing to assertions directly, make sure to also run the script on a single thread per dataset.
 
 ## Step 1: Discover Tables
 
@@ -339,7 +345,15 @@ def should_apply_rule(column_name, column_type, rule_config):
 create_column_assertions(datasets, dataset_columns, client, assertion_registry)
 ```
 
-## Step 5: Store Assertion URNs
+## Step 5: Create Subscription
+
+Reference the [Subscriptions SDK](/docs/api/tutorials/subscriptions.md) for more information on how to create subscriptions on Datasets or Assertions.
+
+:::note
+When creating subscriptions in bulk, you must perform the operation in a single thread to avoid race conditions. Additionally, we recommend creating subscriptions at the dataset level rather than for individual assertions, as this makes ongoing management much easier.
+:::
+
+## Step 6: Store Assertion URNs
 
 ### Save to File
 
@@ -389,7 +403,7 @@ def load_assertion_registry(filename):
 # assertion_registry = load_assertion_registry("assertion_registry_20240101_120000.json")
 ```
 
-## Step 6: Update Existing Assertions
+## Step 7: Update Existing Assertions
 
 ```python
 def update_existing_assertions(registry, client):

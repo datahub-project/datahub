@@ -11,8 +11,9 @@ ARG spark_version=3.2.0
 ARG hadoop_version=2.7
 
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends curl gnupg software-properties-common && \
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0xB1998361219BD9C9 && \
+    apt-get install -y --no-install-recommends curl gnupg && \
+    curl -s https://repos.azul.com/azul-repo.key | gpg --dearmor -o /usr/share/keyrings/azul.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | tee /etc/apt/sources.list.d/zulu.list && \
     curl https://cdn.azul.com/zulu/bin/zulu-repo_1.0.0-3_all.deb -o /tmp/zulu-repo_1.0.0-3_all.deb && \
     apt-get install /tmp/zulu-repo_1.0.0-3_all.deb && \
     apt-get update && \

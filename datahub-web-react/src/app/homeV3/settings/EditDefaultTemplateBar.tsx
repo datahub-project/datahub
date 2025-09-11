@@ -32,12 +32,14 @@ export default function EditDefaultTemplateBar() {
     if (!isEditingGlobalTemplate) return null;
 
     return (
-        <ActionsBar>
+        <ActionsBar dataTestId="editing-default-template-bar">
             <Warning>
                 <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
                 <span>Editing Organization Default Home</span>
             </Warning>
-            <Button onClick={onClick}>Done</Button>
+            <Button onClick={onClick} data-testid="finish-editing-default-template">
+                Done
+            </Button>
         </ActionsBar>
     );
 }

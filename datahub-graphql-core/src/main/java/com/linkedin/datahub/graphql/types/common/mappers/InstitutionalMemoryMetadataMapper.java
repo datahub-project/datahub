@@ -30,6 +30,9 @@ public class InstitutionalMemoryMetadataMapper {
     result.setAuthor(getAuthor(input.getCreateStamp().getActor().toString()));
     result.setActor(ResolvedActorMapper.map(input.getCreateStamp().getActor()));
     result.setCreated(AuditStampMapper.map(context, input.getCreateStamp()));
+    if (input.getUpdateStamp() != null) {
+      result.setUpdated(AuditStampMapper.map(context, input.getUpdateStamp()));
+    }
     result.setAssociatedUrn(entityUrn.toString());
     return result;
   }
