@@ -194,7 +194,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Airbyte Stateful Ingestion Config."
+        default=None, description="Fivetran Stateful Ingestion Config."
     )
 
     # Fivetran connector all sources to platform instance mapping
