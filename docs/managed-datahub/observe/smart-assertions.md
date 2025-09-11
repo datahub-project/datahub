@@ -37,7 +37,7 @@ You can improve predictions through two key levers:
 
 ### Tuning
 
-Most predictions are fixed by tuning 3 key actions - correct training data, adjust sensitivity, and increasing the lookback window. Each of these can be accessed via the **Tune Predictions** button on the Assertion Profile, or the **Settings tab**.
+You can fix most Smart Assertions with 3 key actions - correct training data, adjust sensitivity, and increasing the lookback window. Each of these can be accessed via the **Tune Predictions** button on the Assertion Profile, or the **Settings tab**.
 
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/880ce4785b944a50a8662557e2ccf733?sid=192afcf0-7930-4734-9628-dba4b6717495" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
