@@ -2,3 +2,4 @@ scan:
   skip-dirs:
     # Skip Python uv cache directories to avoid duplicate vulnerability reports in upstreams
     - "/home/datahub/.cache/uv/**/pyspark/**/jars/**"
+    - "/home/datahub/.cache/uv/**/moto/moto_proxy/**"
