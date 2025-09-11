@@ -17,7 +17,7 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public abstract class DataProductAbstractAction extends UrnValuesAction {
+public abstract class BaseDataProductAction extends UrnValuesAction {
 
   protected final DataProductService dataProductService;
 

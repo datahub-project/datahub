@@ -45,12 +45,19 @@ public class UnsetStructuredPropertyAction extends ValuesAction {
 
       // Unset the structured property from all entities
       this.structuredPropertyService.batchUnsetStructuredProperty(
-          opContext, structuredPropertyUrn, this.getResourceReferences(urns), METADATA_TESTS_SOURCE);
-      
-      log.info("Successfully unset structured property {} for {} entities", structuredPropertyUrn, urns.size());
+          opContext,
+          structuredPropertyUrn,
+          this.getResourceReferences(urns),
+          METADATA_TESTS_SOURCE);
+
+      log.info(
+          "Successfully unset structured property {} for {} entities",
+          structuredPropertyUrn,
+          urns.size());
     } catch (Exception e) {
       log.error("Failed to unset structured property for entities: {}", e.getMessage(), e);
-      throw new InvalidOperandException("Failed to unset structured property: " + e.getMessage(), e);
+      throw new InvalidOperandException(
+          "Failed to unset structured property: " + e.getMessage(), e);
     }
   }
 }

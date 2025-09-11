@@ -192,7 +192,10 @@ public class StructuredPropertyService extends BaseService {
       for (ResourceReference resource : resources) {
         updateEntityStructuredProperties(opContext, resource.getUrn(), propertyValueAssignments);
       }
-      log.info("Successfully set structured property {} for {} entities", structuredPropertyUrn, resources.size());
+      log.info(
+          "Successfully set structured property {} for {} entities",
+          structuredPropertyUrn,
+          resources.size());
     } catch (Exception e) {
       log.error("Failed to batch set structured property for entities: {}", e.getMessage(), e);
       throw new RuntimeException(
@@ -228,7 +231,10 @@ public class StructuredPropertyService extends BaseService {
       for (ResourceReference resource : resources) {
         unsetStructuredProperty(opContext, resource.getUrn(), structuredPropertyUrn);
       }
-      log.info("Successfully unset structured property {} for {} entities", structuredPropertyUrn, resources.size());
+      log.info(
+          "Successfully unset structured property {} for {} entities",
+          structuredPropertyUrn,
+          resources.size());
     } catch (Exception e) {
       log.error("Failed to batch unset structured property for entities: {}", e.getMessage(), e);
       throw new RuntimeException(
@@ -257,7 +263,8 @@ public class StructuredPropertyService extends BaseService {
           getStructuredPropertiesOrDefault(
               opContext,
               entityUrn,
-              new StructuredProperties().setProperties(new StructuredPropertyValueAssignmentArray()));
+              new StructuredProperties()
+                  .setProperties(new StructuredPropertyValueAssignmentArray()));
 
       // Filter out the property to be removed
       final StructuredPropertyValueAssignmentArray filteredProperties =
@@ -277,7 +284,10 @@ public class StructuredPropertyService extends BaseService {
       this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to unset structured property %s for entity %s", structuredPropertyUrn, entityUrn), e);
+          String.format(
+              "Failed to unset structured property %s for entity %s",
+              structuredPropertyUrn, entityUrn),
+          e);
     }
   }
 

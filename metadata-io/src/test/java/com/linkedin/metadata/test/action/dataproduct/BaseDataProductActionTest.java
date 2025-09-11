@@ -20,7 +20,7 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-public class DataProductAbstractActionTest {
+public class BaseDataProductActionTest {
 
   private static final Urn TEST_DATA_PRODUCT_URN = UrnUtils.getUrn("urn:li:dataProduct:test");
   private static final Urn INVALID_URN = UrnUtils.getUrn("urn:li:tag:test"); // Not a data product
@@ -48,8 +48,8 @@ public class DataProductAbstractActionTest {
   private static final Map<String, List<String>> INVALID_PARAMS =
       ImmutableMap.of("values", ImmutableList.of(INVALID_URN.toString()));
 
-  // Test implementation of DataProductAbstractAction
-  private static class TestDataProductAction extends DataProductAbstractAction {
+  // Test implementation of BaseDataProductAction
+  private static class TestDataProductAction extends BaseDataProductAction {
     private boolean applyInternalCalled = false;
     private Urn receivedDataProductUrn = null;
     private List<Urn> receivedUrns = null;

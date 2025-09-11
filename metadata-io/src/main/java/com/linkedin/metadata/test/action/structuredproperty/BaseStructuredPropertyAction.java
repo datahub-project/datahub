@@ -1,6 +1,5 @@
 package com.linkedin.metadata.test.action.structuredproperty;
 
-import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.test.action.ActionUtils.getEntityTypeToUrns;
 
@@ -10,7 +9,6 @@ import com.linkedin.metadata.service.StructuredPropertyService;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.UrnValuesAction;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
-import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
@@ -19,7 +17,7 @@ import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public abstract class StructuredPropertyAbstractAction extends UrnValuesAction {
+public abstract class BaseStructuredPropertyAction extends UrnValuesAction {
   protected final StructuredPropertyService structuredPropertyService;
 
   @Override
@@ -41,5 +39,9 @@ public abstract class StructuredPropertyAbstractAction extends UrnValuesAction {
     return Set.of(STRUCTURED_PROPERTY_ENTITY_NAME);
   }
 
-  abstract void applyInternal(@Nonnull OperationContext opContext, Urn structuredPropertyUrn, List<Urn> urns, ActionParameters params);
+  abstract void applyInternal(
+      @Nonnull OperationContext opContext,
+      Urn structuredPropertyUrn,
+      List<Urn> urns,
+      ActionParameters params);
 }

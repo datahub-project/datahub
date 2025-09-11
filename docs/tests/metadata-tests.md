@@ -147,7 +147,9 @@ selecting a data asset to be tested. For example, we can build property conditio
 - All datasets that have column-level lineage information
 - All datasets with active data contracts
 - All domains with low ownership coverage
-- All data products with high usage but no quality metrics
+- All datasets with high usage but no quality assertions
+- All dashboards with high view counts but no owners
+- All data products without descriptions
 
 To create a **Property** condition, simply click **Add Condition** then select **Property** condition.
 

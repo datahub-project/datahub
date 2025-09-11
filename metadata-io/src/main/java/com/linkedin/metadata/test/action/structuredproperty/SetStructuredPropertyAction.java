@@ -18,7 +18,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class SetStructuredPropertyAction extends StructuredPropertyAbstractAction {
+public class SetStructuredPropertyAction extends BaseStructuredPropertyAction {
 
   private static final String STRING_VALUES_PARAMETER = "stringValues";
   private static final String NUMBER_VALUES_PARAMETER = "numberValues";
@@ -35,14 +35,16 @@ public class SetStructuredPropertyAction extends StructuredPropertyAbstractActio
   @Override
   public void validate(ActionParameters params) throws InvalidActionParamsException {
     super.validate(params);
-    
+
     // Check that either stringValues or numberValues is provided
-    boolean hasStringValues = params.getParams().containsKey(STRING_VALUES_PARAMETER) 
-        && params.getParams().get(STRING_VALUES_PARAMETER) != null 
-        && !params.getParams().get(STRING_VALUES_PARAMETER).isEmpty();
-    boolean hasNumberValues = params.getParams().containsKey(NUMBER_VALUES_PARAMETER) 
-        && params.getParams().get(NUMBER_VALUES_PARAMETER) != null 
-        && !params.getParams().get(NUMBER_VALUES_PARAMETER).isEmpty();
+    boolean hasStringValues =
+        params.getParams().containsKey(STRING_VALUES_PARAMETER)
+            && params.getParams().get(STRING_VALUES_PARAMETER) != null
+            && !params.getParams().get(STRING_VALUES_PARAMETER).isEmpty();
+    boolean hasNumberValues =
+        params.getParams().containsKey(NUMBER_VALUES_PARAMETER)
+            && params.getParams().get(NUMBER_VALUES_PARAMETER) != null
+            && !params.getParams().get(NUMBER_VALUES_PARAMETER).isEmpty();
 
     if (!hasStringValues && !hasNumberValues) {
       throw new InvalidActionParamsException(
@@ -56,33 +58,46 @@ public class SetStructuredPropertyAction extends StructuredPropertyAbstractActio
   }
 
   @Override
-  void applyInternal(@Nonnull OperationContext opContext, Urn structuredPropertyUrn, List<Urn> urns, ActionParameters params) {
+  void applyInternal(
+      @Nonnull OperationContext opContext,
+      Urn structuredPropertyUrn,
+      List<Urn> urns,
+      ActionParameters params) {
     try {
       // Create property value assignment from parameters
-      StructuredPropertyValueAssignment assignment = createPropertyValueAssignment(structuredPropertyUrn, params);
+      StructuredPropertyValueAssignment assignment =
+          createPropertyValueAssignment(structuredPropertyUrn, params);
       List<StructuredPropertyValueAssignment> assignments = List.of(assignment);
 
       // Apply to all entities
       this.structuredPropertyService.batchSetStructuredProperty(
-          opContext, structuredPropertyUrn, getResourceReferences(urns), assignments, METADATA_TESTS_SOURCE);
-      
-      log.info("Successfully set structured property {} for {} entities", structuredPropertyUrn, urns.size());
+          opContext,
+          structuredPropertyUrn,
+          getResourceReferences(urns),
+          assignments,
+          METADATA_TESTS_SOURCE);
+
+      log.info(
+          "Successfully set structured property {} for {} entities",
+          structuredPropertyUrn,
+          urns.size());
     } catch (Exception e) {
       log.error("Failed to set structured property for entities: {}", e.getMessage(), e);
       throw new InvalidOperandException("Failed to set structured property: " + e.getMessage(), e);
     }
   }
 
-  private StructuredPropertyValueAssignment createPropertyValueAssignment(Urn structuredPropertyUrn, ActionParameters params) {
+  private StructuredPropertyValueAssignment createPropertyValueAssignment(
+      Urn structuredPropertyUrn, ActionParameters params) {
     StructuredPropertyValueAssignment assignment = new StructuredPropertyValueAssignment();
     assignment.setPropertyUrn(structuredPropertyUrn);
-    
+
     // Create values from parameters
     PrimitivePropertyValueArray values = new PrimitivePropertyValueArray();
-    
+
     List<String> stringValues = params.getParams().get(STRING_VALUES_PARAMETER);
     List<String> numberValues = params.getParams().get(NUMBER_VALUES_PARAMETER);
-    
+
     if (stringValues != null && !stringValues.isEmpty()) {
       values.addAll(
           stringValues.stream().map(PrimitivePropertyValue::create).collect(Collectors.toList()));
@@ -93,7 +108,7 @@ public class SetStructuredPropertyAction extends StructuredPropertyAbstractActio
               .map(PrimitivePropertyValue::create)
               .collect(Collectors.toList()));
     }
-    
+
     assignment.setValues(values);
     return assignment;
   }

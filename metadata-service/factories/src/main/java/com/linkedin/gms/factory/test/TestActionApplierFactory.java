@@ -14,8 +14,6 @@ import com.linkedin.metadata.test.action.dataproduct.SetDataProductAction;
 import com.linkedin.metadata.test.action.dataproduct.UnsetDataProductAction;
 import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
-import com.linkedin.metadata.test.action.structuredproperty.SetStructuredPropertyAction;
-import com.linkedin.metadata.test.action.structuredproperty.UnsetStructuredPropertyAction;
 import com.linkedin.metadata.test.action.form.AssignFormAction;
 import com.linkedin.metadata.test.action.form.SetFormPromptIncompleteAction;
 import com.linkedin.metadata.test.action.form.SubmitFormPromptAction;
@@ -23,6 +21,8 @@ import com.linkedin.metadata.test.action.form.UnassignFormAction;
 import com.linkedin.metadata.test.action.form.VerifyFormAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
 import com.linkedin.metadata.test.action.owner.RemoveOwnersAction;
+import com.linkedin.metadata.test.action.structuredproperty.SetStructuredPropertyAction;
+import com.linkedin.metadata.test.action.structuredproperty.UnsetStructuredPropertyAction;
 import com.linkedin.metadata.test.action.tag.AddTagsAction;
 import com.linkedin.metadata.test.action.tag.RemoveTagsAction;
 import com.linkedin.metadata.test.action.term.AddGlossaryTermsAction;
@@ -59,7 +59,7 @@ public class TestActionApplierFactory {
     DomainServiceAsync domainService =
         new DomainServiceAsync(systemEntityClient, openApiClient, objectMapper);
     DataProductService dataProductService = new DataProductService(systemEntityClient, graphClient);
-    StructuredPropertyService structuredPropertyService = 
+    StructuredPropertyService structuredPropertyService =
         new StructuredPropertyService(systemEntityClient, openApiClient, objectMapper);
     FormServiceAsync formService =
         new FormServiceAsync(
