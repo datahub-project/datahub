@@ -294,12 +294,11 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
         """
         current_time = datetime.now(timezone.utc)
 
-        # First try sampling approach as it's most efficient
-        sample_filters = self._get_partitions_with_sampling(
-            table, project, schema, execute_query_func
+        # First try sampling approach, but only as a fallback for very large tables
+        # We want to discover actual partitions, not just sample a few values
+        logger.debug(
+            "Attempting comprehensive partition discovery before falling back to sampling"
         )
-        if sample_filters:
-            return sample_filters
 
         # Get required partition columns from table info
         required_partition_columns = self._get_partition_columns_from_table_info(table)
@@ -350,7 +349,26 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
 
         logger.debug(f"Required partition columns: {required_partition_columns}")
 
-        # Try to find REAL partition values that exist in the table
+        # For internal tables, try INFORMATION_SCHEMA approach first (much more efficient)
+        if not table.external:
+            partition_filters = self._get_partition_filters_from_information_schema(
+                table,
+                project,
+                schema,
+                list(required_partition_columns),
+                execute_query_func,
+            )
+            if partition_filters:
+                logger.info(
+                    f"Successfully obtained partition filters from INFORMATION_SCHEMA for internal table {table.name}: {len(partition_filters)} filters"
+                )
+                return partition_filters
+            else:
+                logger.debug(
+                    f"INFORMATION_SCHEMA approach failed for internal table {table.name}, falling back to strategic dates"
+                )
+
+        # Try to find REAL partition values that exist in the table (strategic date approach)
         partition_filters = self._find_real_partition_values(
             table, project, schema, list(required_partition_columns), execute_query_func
         )
@@ -359,13 +377,26 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             logger.debug(f"Found valid partition filters: {partition_filters}")
             return partition_filters
         else:
-            # If we can't find real partition values, skip profiling instead of using fallbacks
-            logger.warning(
-                f"Could not find valid partition values for table {table.name} "
-                f"with required columns {required_partition_columns}. "
-                f"Skipping profiling to avoid inaccurate results."
+            # If comprehensive partition discovery failed, try sampling as fallback
+            logger.info(
+                f"Comprehensive partition discovery failed for table {table.name}. "
+                f"Attempting sampling-based approach as fallback."
             )
-            return None
+            sample_filters = self._get_partitions_with_sampling(
+                table, project, schema, execute_query_func
+            )
+            if sample_filters:
+                logger.info(
+                    f"Found partition values via sampling for {table.name}: {len(sample_filters)} filters"
+                )
+                return sample_filters
+            else:
+                logger.warning(
+                    f"Could not find valid partition values for table {table.name} "
+                    f"with required columns {required_partition_columns}. "
+                    f"Skipping profiling to avoid inaccurate results."
+                )
+                return None
 
     def _get_partition_column_types(
         self,
@@ -1008,7 +1039,7 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
             if date_columns:
-                # Use ORDER BY to get recent data for date columns
+                # Use ORDER BY to get the most recent date only (1 row for efficiency)
                 primary_date_col = date_columns[0]  # Use first date column for ordering
                 sample_query = f"""SELECT *
 FROM {safe_table_ref}
@@ -1018,7 +1049,7 @@ LIMIT @limit_rows"""
 
                 job_config = QueryJobConfig(
                     query_parameters=[
-                        ScalarQueryParameter("limit_rows", "INT64", 10),
+                        ScalarQueryParameter("limit_rows", "INT64", 1),
                     ]
                 )
             else:
@@ -1150,22 +1181,21 @@ LIMIT @limit_rows"""
         where_clause = " AND ".join(validated_filters)
 
         try:
-            query = f"""SELECT COUNT(*) as cnt
+            # Use existence check for maximum efficiency - just check if ANY row exists
+            query = f"""SELECT 1 as exists_check
 FROM {safe_table_ref}
 WHERE {where_clause}
-LIMIT @limit_rows"""
+LIMIT 1"""
 
-            job_config = QueryJobConfig(
-                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 10)]
-            )
+            job_config = QueryJobConfig()
 
             count_verification_results = execute_query_func(
                 query, job_config, "partition verification"
             )
 
-            if count_verification_results and count_verification_results[0].cnt > 0:
+            if count_verification_results and len(count_verification_results) > 0:
                 logger.debug(
-                    f"Verified partition filters for table {project}.{schema}.{table.name} return {count_verification_results[0].cnt} rows: {where_clause}"
+                    f"Verified partition filters for table {project}.{schema}.{table.name} have data: {where_clause}"
                 )
                 return True
             else:
@@ -1346,7 +1376,29 @@ LIMIT @limit_rows"""
                     logger.debug(
                         f"Found valid date partition for {description}: {test_date.strftime('%Y-%m-%d')}"
                     )
-                    return filters
+
+                    # Now discover actual values for other partition columns using the valid date
+                    enhanced_filters = (
+                        self._enhance_partition_filters_with_actual_values(
+                            table,
+                            project,
+                            schema,
+                            required_columns,
+                            filters,
+                            execute_query_func,
+                        )
+                    )
+
+                    if enhanced_filters:
+                        logger.info(
+                            f"Enhanced partition filters with actual values for table {table.name}: {len(enhanced_filters)} filters"
+                        )
+                        return enhanced_filters
+                    else:
+                        logger.debug(
+                            "Failed to enhance filters, using original date-based filters"
+                        )
+                        return filters
                 else:
                     logger.debug(
                         f"No data found for {description} ({test_date.strftime('%Y-%m-%d')}), trying next candidate..."
@@ -1453,9 +1505,326 @@ LIMIT @limit_rows"""
             logger.warning(f"Error creating fallback filter for {col_name}: {e}")
             return f"`{col_name}` IS NOT NULL"
 
+    def _get_partition_filters_from_information_schema(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        required_columns: List[str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+    ) -> Optional[List[str]]:
+        """
+        Get comprehensive partition filters using INFORMATION_SCHEMA.PARTITIONS.
+
+        This is the optimal approach for internal BigQuery tables as it:
+        - Uses pure metadata queries (no data scanning)
+        - Gets comprehensive partition coverage
+        - Applies date windowing efficiently
+        - Returns multiple recent partitions for better profiling coverage
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: Dataset name
+            required_columns: Partition columns that need values
+            execute_query_func: Function to execute queries safely
+
+        Returns:
+            List of partition filter strings, or None if method fails
+        """
+        if not required_columns:
+            return []
+
+        try:
+            safe_info_schema_ref = build_safe_table_reference(
+                project, schema, "INFORMATION_SCHEMA.PARTITIONS"
+            )
+
+            # Build comprehensive query with date windowing
+            query_parts = [
+                "SELECT partition_id, last_modified_time, total_rows",
+                f"FROM {safe_info_schema_ref}",
+                "WHERE table_name = @table_name",
+                "AND partition_id NOT IN ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__')",
+                "AND total_rows > 0",
+            ]
+
+            # Apply date windowing if configured
+            if self.config.profiling.partition_datetime_window_days:
+                query_parts.append(
+                    "AND last_modified_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @window_days DAY)"
+                )
+
+            # Order by recency and limit results
+            query_parts.extend(
+                ["ORDER BY last_modified_time DESC", "LIMIT @max_partitions"]
+            )
+
+            query = " ".join(query_parts)
+
+            # Build query parameters
+            parameters = [
+                ScalarQueryParameter("table_name", "STRING", table.name),
+                ScalarQueryParameter(
+                    "max_partitions", "INT64", 10
+                ),  # Get multiple partitions
+            ]
+
+            if self.config.profiling.partition_datetime_window_days:
+                parameters.append(
+                    ScalarQueryParameter(
+                        "window_days",
+                        "INT64",
+                        self.config.profiling.partition_datetime_window_days,
+                    )
+                )
+
+            job_config = QueryJobConfig(query_parameters=parameters)
+
+            logger.debug(
+                "Querying INFORMATION_SCHEMA.PARTITIONS for comprehensive partition discovery"
+            )
+            partition_rows = execute_query_func(
+                query,
+                job_config,
+                "comprehensive partition discovery from information schema",
+            )
+
+            if not partition_rows:
+                logger.debug(
+                    f"No partitions found in INFORMATION_SCHEMA for table {table.name}"
+                )
+                return None
+
+            # Convert partition IDs to filters
+            partition_filters = []
+
+            for partition_row in partition_rows:
+                partition_id = partition_row.partition_id
+
+                try:
+                    filters_for_partition = self._convert_partition_id_to_filters(
+                        partition_id, required_columns
+                    )
+
+                    if filters_for_partition:
+                        # Verify this partition has data (quick check)
+                        if self._verify_partition_has_data(
+                            table,
+                            project,
+                            schema,
+                            filters_for_partition,
+                            execute_query_func,
+                        ):
+                            partition_filters.extend(filters_for_partition)
+                            logger.debug(
+                                f"Added partition {partition_id} with {partition_row.total_rows} rows"
+                            )
+                            break  # Found one working partition, that's enough
+                        else:
+                            logger.debug(
+                                f"Partition {partition_id} verification failed, trying next"
+                            )
+
+                except Exception as e:
+                    logger.warning(f"Error processing partition {partition_id}: {e}")
+                    continue
+
+            if partition_filters:
+                logger.info(
+                    f"Successfully discovered {len(partition_filters)} partition filters from INFORMATION_SCHEMA for {table.name}"
+                )
+                return partition_filters
+            else:
+                logger.debug(
+                    "No valid partition filters could be generated from INFORMATION_SCHEMA"
+                )
+                return None
+
+        except Exception as e:
+            logger.warning(f"Error in INFORMATION_SCHEMA partition discovery: {e}")
+            return None
+
+    def _convert_partition_id_to_filters(
+        self, partition_id: str, required_columns: List[str]
+    ) -> Optional[List[str]]:
+        """
+        Convert a partition_id from INFORMATION_SCHEMA.PARTITIONS to filter expressions.
+
+        Handles various BigQuery partition formats:
+        - Single column: "20231225" -> date_col = "2023-12-25"
+        - Multi-column: "col1=val1$col2=val2" -> col1 = "val1" AND col2 = "val2"
+        - Date formats: YYYYMMDD, YYYYMMDDHH, etc.
+        """
+        try:
+            filters = []
+
+            if "$" in partition_id:
+                # Multi-column partitioning: col1=val1$col2=val2$col3=val3
+                parts = partition_id.split("$")
+                for part in parts:
+                    if "=" in part:
+                        col, val = part.split("=", 1)
+                        if col in required_columns:
+                            filters.append(self._create_safe_filter(col, val))
+
+            else:
+                # Single column partitioning - need to map to the right column
+                if len(required_columns) == 1:
+                    col_name = required_columns[0]
+
+                    # Handle date partition formats
+                    if len(partition_id) == 8 and partition_id.isdigit():
+                        # YYYYMMDD format
+                        date_str = f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
+                        filters.append(self._create_safe_filter(col_name, date_str))
+                    elif len(partition_id) == 10 and partition_id.isdigit():
+                        # YYYYMMDDHH format
+                        date_str = f"{partition_id[:4]}-{partition_id[4:6]}-{partition_id[6:8]}"
+                        filters.append(self._create_safe_filter(col_name, date_str))
+                    else:
+                        # Use partition_id as-is
+                        filters.append(self._create_safe_filter(col_name, partition_id))
+                else:
+                    # Multiple columns but single partition_id - this is complex
+                    # Try to parse based on common patterns or fall back
+                    logger.debug(
+                        f"Complex partition mapping for {partition_id} with {len(required_columns)} columns"
+                    )
+                    return None
+
+            return filters if filters else None
+
+        except Exception as e:
+            logger.warning(
+                f"Error converting partition_id {partition_id} to filters: {e}"
+            )
+            return None
+
+    def _enhance_partition_filters_with_actual_values(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        required_columns: List[str],
+        initial_filters: List[str],
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+    ) -> Optional[List[str]]:
+        """
+        Enhance partition filters by discovering actual values for non-date columns.
+
+        After finding a valid date partition, query the table to find actual values
+        for other partition columns instead of using fallback values.
+
+        Args:
+            table: BigqueryTable instance
+            project: BigQuery project ID
+            schema: Dataset name
+            required_columns: All partition columns that need values
+            initial_filters: Working filters with date values and fallbacks
+            execute_query_func: Function to execute queries safely
+
+        Returns:
+            Enhanced filters with actual partition values, or None if enhancement fails
+        """
+        try:
+            safe_table_ref = build_safe_table_reference(project, schema, table.name)
+
+            # Extract date filters from initial filters to use as WHERE conditions
+            where_conditions = []
+            date_filters = []
+
+            for filter_expr in initial_filters:
+                # Look for date-like filters (not IS NOT NULL fallbacks)
+                if "IS NOT NULL" not in filter_expr and (
+                    "=" in filter_expr or "BETWEEN" in filter_expr
+                ):
+                    date_filters.append(filter_expr)
+                    where_conditions.append(filter_expr)
+
+            if not where_conditions:
+                logger.debug(
+                    "No date conditions found to enhance other partition values"
+                )
+                return None
+
+            where_clause = " AND ".join(where_conditions)
+            enhanced_filters = list(date_filters)  # Start with working date filters
+
+            # Get column types to identify non-date columns that need actual values
+            column_types = self._get_partition_column_types(
+                table, project, schema, required_columns, execute_query_func
+            )
+
+            # For each non-date column, discover actual values
+            for col_name in required_columns:
+                col_data_type = column_types.get(col_name, "")
+
+                # Skip if this is a date column (already handled)
+                if self._is_date_like_column(col_name) or self._is_date_type_column(
+                    col_data_type
+                ):
+                    continue
+
+                # Skip if we already have a good filter for this column
+                if any(f"`{col_name}` =" in f for f in date_filters):
+                    continue
+
+                try:
+                    # Query for actual values of this column using the date filters
+                    discover_query = f"""
+SELECT DISTINCT `{col_name}` as col_value, COUNT(*) as row_count
+FROM {safe_table_ref}
+WHERE {where_clause} AND `{col_name}` IS NOT NULL
+GROUP BY `{col_name}`
+ORDER BY row_count DESC
+LIMIT @max_values"""
+
+                    job_config = QueryJobConfig(
+                        query_parameters=[
+                            ScalarQueryParameter("max_values", "INT64", 3),
+                        ]
+                    )
+
+                    results = execute_query_func(
+                        discover_query, job_config, f"discover values for {col_name}"
+                    )
+
+                    if results and results[0].col_value is not None:
+                        # Use the most common value
+                        actual_value = results[0].col_value
+                        enhanced_filter = self._create_safe_filter(
+                            col_name, actual_value
+                        )
+                        enhanced_filters.append(enhanced_filter)
+
+                        logger.debug(
+                            f"Found actual value for {col_name}: {actual_value} ({results[0].row_count} rows)"
+                        )
+                    else:
+                        # Fall back to IS NOT NULL for this column
+                        enhanced_filters.append(f"`{col_name}` IS NOT NULL")
+                        logger.debug(
+                            f"No actual values found for {col_name}, using IS NOT NULL"
+                        )
+
+                except Exception as e:
+                    logger.warning(
+                        f"Error discovering values for column {col_name}: {e}"
+                    )
+                    # Fall back to IS NOT NULL
+                    enhanced_filters.append(f"`{col_name}` IS NOT NULL")
+
+            return enhanced_filters
+
+        except Exception as e:
+            logger.warning(f"Error enhancing partition filters: {e}")
+            return None
+
     def _get_strategic_candidate_dates(self) -> List[Tuple[datetime, str]]:
         """
         Get strategic candidate dates that are most likely to contain data in real-world BigQuery tables.
+        Optimized to only check today and yesterday for cost efficiency.
 
         Returns:
             List of (datetime, description) tuples in priority order
@@ -1471,45 +1840,8 @@ LIMIT @limit_rows"""
         yesterday = now - timedelta(days=1)
         candidates.append((yesterday, "yesterday"))
 
-        # 3. Two days ago (recent data backup)
-        two_days_ago = now - timedelta(days=2)
-        candidates.append((two_days_ago, "2 days ago"))
-
-        # 4. One week ago (common for weekly ETL processes)
-        week_ago = now - timedelta(days=7)
-        candidates.append((week_ago, "7 days ago"))
-
-        # 5. Last day of previous month (month-end processing)
-        # Get first day of current month, then subtract 1 day
-        first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        last_day_prev_month = first_of_month - timedelta(days=1)
-        candidates.append((last_day_prev_month, "last day of previous month"))
-
-        # 6. One month ago (same day)
-        try:
-            if now.month == 1:
-                one_month_ago = now.replace(year=now.year - 1, month=12)
-            else:
-                one_month_ago = now.replace(month=now.month - 1)
-        except ValueError:
-            # Handle edge case where current day doesn't exist in previous month (e.g., Jan 31 -> Feb 31)
-            # Fall back to last day of previous month
-            if now.month == 1:
-                one_month_ago = datetime(now.year - 1, 12, 31, tzinfo=timezone.utc)
-            else:
-                # Get last day of previous month
-                first_of_prev_month = now.replace(month=now.month - 1, day=1)
-                one_month_ago = (first_of_prev_month + timedelta(days=32)).replace(
-                    day=1
-                ) - timedelta(days=1)
-
-        candidates.append((one_month_ago, "one month ago"))
-
-        # 7. First day of current month (monthly processing)
-        candidates.append((first_of_month, "first day of current month"))
-
         logger.debug(
-            f"Generated {len(candidates)} strategic date candidates for partition discovery"
+            f"Generated {len(candidates)} strategic date candidates for partition discovery (optimized for cost)"
         )
         return candidates
 
