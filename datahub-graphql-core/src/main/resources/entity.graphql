@@ -872,6 +872,11 @@ type Mutation {
   revokeUserInvitation(userUrn: String!): Boolean!
 
   """
+  Dismiss a user suggestion to prevent them from being recommended again
+  """
+  dismissUserSuggestion(userUrn: String!): Boolean!
+
+  """
   Create a post
   """
   createPost(input: CreatePostInput!): Boolean

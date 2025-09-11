@@ -47,8 +47,8 @@ public class GetUserRecommendationsResolver
   private static final String DEFAULT_QUERY = "";
 
   // OpenSearch field mappings (based on actual index mapping)
-  private static final String USAGE_TOTAL_FIELD = "userUsageTotalPast30Days";
-  private static final String USAGE_PERCENTILE_FIELD = "userUsagePercentilePast30Days";
+  private static final String USAGE_TOTAL_FIELD = "userUsageTotalPast30DaysFeature";
+  private static final String USAGE_PERCENTILE_FIELD = "userUsagePercentilePast30DaysFeature";
   private static final String INVITATION_STATUS_FIELD = "invitationStatus";
 
   private final EntityClient _entityClient;

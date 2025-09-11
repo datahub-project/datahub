@@ -185,3 +185,7 @@ mutation inferDocumentation($urn: String!, $saveResult: Boolean, $excludeAsset: 
 mutation updateDisplayProperties($urn: String!, $input: DisplayPropertiesUpdateInput!) {
     updateDisplayProperties(urn: $urn, input: $input)
 }
+
+mutation dismissUserSuggestion($userUrn: String!) {
+    dismissUserSuggestion(userUrn: $userUrn)
+}
