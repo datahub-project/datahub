@@ -878,8 +878,14 @@ class S3Source(StatefulIngestionSourceBase):
         protocol: str,
         min: bool = False,
     ) -> List[str]:
-        # if len(path_spec.include.split("/")) == len(f"{protocol}{bucket_name}/{folder}".split("/")):
-        #    return [f"{protocol}{bucket_name}/{folder}"]
+        if folder.startswith("/"):
+            folder = folder.removeprefix("/")
+
+        path_slash = f"{protocol}{bucket_name}/{folder}".count("/")
+        glob_slash = path_spec.glob_include.count("/")
+        if path_slash == glob_slash and not path_spec.glob_include.endswith("**"):
+            # no need to list sub-folders, we're at the end of the include
+            return [f"{protocol}{bucket_name}/{folder}"]
 
         iterator = list_folders(
             bucket_name=bucket_name,
@@ -916,11 +922,11 @@ class S3Source(StatefulIngestionSourceBase):
         self,
         path_spec: PathSpec,
         bucket: "Bucket",
-        prefix: str,
+        folder: str,
     ) -> Iterable[Folder]:
         """
-        Retrieves all the folders in a path by listing all the files in the prefix.
-        If the prefix is a full path then only that folder will be extracted.
+        Retrieves all the folders in a path by listing all the files recursively.
+        If the path is a full path then only that folder will be extracted.
 
         A folder has creation and modification times, size, and a sample file path.
         - Creation time is the earliest creation time of all files in the folder.
@@ -931,11 +937,23 @@ class S3Source(StatefulIngestionSourceBase):
         Parameters:
         path_spec (PathSpec): The path specification used to determine partitioning.
         bucket (Bucket): The S3 bucket object.
-        prefix (str): The prefix path in the S3 bucket to list objects from.
+        folder (str): The folder path in the S3 bucket to list objects from.
 
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
         """
+
+        if folder and not folder.endswith("/"):
+            folder += "/"
+
+        # get any remaining pattern from the path_spec to add on to the path,
+        # so we can reduce the number of items listed from S3.
+        remaining_pattern = "/".join(
+            get_bucket_relative_path(path_spec.glob_include).split("/")[
+                folder.count("/") :
+            ]
+        )
+        remaining_pattern_split = remaining_pattern.split("*")
 
         def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
             # Normalize URI for pattern matching
@@ -952,7 +970,9 @@ class S3Source(StatefulIngestionSourceBase):
         folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
 
         for obj in list_objects_recursive(
-            bucket.name, prefix, self.source_config.aws_config
+            bucket.name,
+            folder + remaining_pattern_split[0],
+            self.source_config.aws_config,
         ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
