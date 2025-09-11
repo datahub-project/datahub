@@ -24,7 +24,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 def _get_urn(table_name: str = "fooIndex") -> str:
     return str(
         DatasetUrn.create_from_ids(
-            platform_id="elasticsearch",
+            platform_id="fake",
             table_name=table_name,
             env="PROD",
         )
@@ -46,6 +46,7 @@ class FakeSource(Source):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_report = SourceReport()
+        self.source_report.set_platform("fake")
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FakeSource":

@@ -440,17 +440,19 @@ class Pipeline:
             return True
         return False
 
-    def run(self) -> None:
-        if hasattr(self.source.__class__, "get_platform_id"):
-            self.source.get_report().set_platform(
-                self.source.__class__.get_platform_id()
-            )
+    def _set_platform(self) -> None:
+        platform = self.source.infer_platform()
+        if platform:
+            self.source.get_report().set_platform(platform)
         else:
             self.source.get_report().warning(
-                message="Platform ID not found",
-                title="Platform ID not found",
-                context="Platform ID not found",
+                message="Platform not found",
+                title="Platform not found",
+                context="Platform not found",
             )
+
+    def run(self) -> None:
+        self._set_platform()
         self._warn_old_cli_version()
         with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:
