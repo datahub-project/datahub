@@ -11,6 +11,7 @@ from typing_extensions import Self
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
 from datahub.ingestion.api.common import RecordEnvelope
+from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
