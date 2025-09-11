@@ -99,7 +99,7 @@ from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.entity import Entity
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
-from datahub.utilities.sentinels import unset
+from datahub.utilities.sentinels import Unset, unset
 
 logger = logging.getLogger(__name__)
 
@@ -698,7 +698,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             LookerDashboard
         ],  # dashboard will be None if this is a standalone look
     ) -> List[Chart]:
-        chart_parent_container: Optional[List[str]] = None
+        chart_parent_container: Union[List[str], Unset] = unset
         if (
             dashboard
             and dashboard.folder_path is not None
@@ -767,16 +767,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 },
                 description=dashboard_element.description or "",
                 display_name=dashboard_element.title,  # title is (deprecated) using display_name
-                extra_aspects=chart_extra_aspects if chart_extra_aspects else None,
-                input_datasets=list(
-                    dashboard_element.get_view_urns(self.source_config)
-                ),
+                extra_aspects=chart_extra_aspects,
+                input_datasets=dashboard_element.get_view_urns(self.source_config),
                 last_modified=self._get_last_modified_time(dashboard),
                 name=dashboard_element.get_urn_element_id(),
-                owners=list(chart_ownership) if chart_ownership else None,
-                parent_container=list(chart_parent_container)
-                if chart_parent_container
-                else unset,
+                owners=chart_ownership,
+                parent_container=chart_parent_container,
                 platform=self.source_config.platform_name,
                 platform_instance=self.source_config.platform_instance
                 if self.source_config.include_platform_instance_in_urns
@@ -820,7 +816,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # Status aspect
         dashboard_extra_aspects.append(Status(removed=looker_dashboard.is_deleted))
 
-        dashboard_parent_container: Optional[List[str]] = None
+        dashboard_parent_container: Union[List[str], Unset] = unset
         if (
             looker_dashboard.folder_path is not None
             and looker_dashboard.folder is not None
@@ -832,21 +828,17 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return [
             Dashboard(
-                charts=list(charts),
+                charts=charts,
                 dashboard_url=looker_dashboard.url(
                     self.source_config.external_base_url
                 ),
                 description=looker_dashboard.description or "",
                 display_name=looker_dashboard.title,  # title is (deprecated) using display_name
-                extra_aspects=dashboard_extra_aspects
-                if dashboard_extra_aspects
-                else None,
+                extra_aspects=dashboard_extra_aspects,
                 last_modified=self._get_last_modified_time(looker_dashboard),
                 name=looker_dashboard.get_urn_dashboard_id(),
-                owners=list(dashboard_ownership) if dashboard_ownership else None,
-                parent_container=list(dashboard_parent_container)
-                if dashboard_parent_container
-                else unset,
+                owners=dashboard_ownership,
+                parent_container=dashboard_parent_container,
                 platform=self.source_config.platform_name,
                 platform_instance=self.source_config.platform_instance
                 if self.source_config.include_platform_instance_in_urns
