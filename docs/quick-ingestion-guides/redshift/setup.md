@@ -49,24 +49,34 @@ GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;
 -- GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;
 ```
 
+### Data Access Permissions (Required for Profiling/Classification)
+
+**Important**: The above permissions only provide access to metadata. For data profiling, classification, or any feature that reads actual table data, you need:
+
+```sql
+-- Schema access (required to access tables within schemas)
+GRANT USAGE ON SCHEMA public TO datahub;
+GRANT USAGE ON SCHEMA your_schema_name TO datahub;
+
+-- Table data access (required for profiling and classification)
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO datahub;
+GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
+
+-- For production environments (future tables/views):
+-- IMPORTANT: Only works for objects created by the user running this command
+ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON TABLES TO datahub;
+ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON VIEWS TO datahub;
+--
+-- Alternative: Run this periodically to catch all new objects regardless of creator:
+-- GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
+```
+
 ### Additional Permissions (Only if needed)
 
 ```sql
 -- Only if using shared databases (datashare consumers):
 -- GRANT SELECT ON pg_catalog.svv_redshift_tables TO datahub;
 -- GRANT SELECT ON pg_catalog.svv_redshift_columns TO datahub;
-
--- For data profiling (if enabled):
--- GRANT USAGE ON SCHEMA your_schema_name TO datahub;
--- GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
-
--- For production environments (future tables/views):
--- IMPORTANT: Only works for objects created by the user running this command
--- ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON TABLES TO datahub;
--- ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON VIEWS TO datahub;
---
--- Alternative: Run this periodically to catch all new objects regardless of creator:
--- GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
 ```
 
 ## Next Steps

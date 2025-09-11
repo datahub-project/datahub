@@ -1,13 +1,18 @@
 ### Prerequisites
 
-To execute this source, your DataHub user will need specific privileges to access system tables and views for metadata extraction, lineage, and usage statistics.
+The DataHub Redshift connector requires specific database privileges to extract metadata, lineage, and usage statistics from your Amazon Redshift cluster.
 
-The DataHub user requires two types of access:
+## Permission Overview
 
-1. **System table access** via `SYSLOG ACCESS UNRESTRICTED` privilege for lineage and usage data
-2. **System view privileges** via explicit `GRANT SELECT` statements for metadata extraction
+DataHub requires three categories of permissions:
 
-Run the following commands as a superuser or user with sufficient privileges to grant these permissions:
+1. **System Table Access** - Access to Redshift system tables for lineage and usage statistics
+2. **System View Access** - Access to system views for metadata discovery
+3. **Data Access** - Access to user schemas and tables for profiling and classification
+
+## System Table and View Permissions
+
+Execute the following commands as a database superuser or user with sufficient privileges to grant these permissions:
 
 ```sql
 -- Enable access to system log tables (STL_*, SVL_*, SYS_*)
@@ -43,69 +48,69 @@ GRANT SELECT ON pg_catalog.svv_datashares TO datahub_user;
 GRANT SELECT ON pg_catalog.pg_class_info TO datahub_user;
 ```
 
-## System Tables Actually Used by DataHub Redshift Connector
+## Detailed Permission Breakdown
 
-The above provides all permissions, but here's a breakdown of what's actually used and when:
+The following sections provide detailed information about which permissions are required for specific features and configurations.
 
-### Always Used (Core Functionality) ✅
+### Core System Views (Always Required)
 
-These are **always queried** regardless of your configuration:
+These system views are accessed in all DataHub configurations:
 
 ```sql
--- Schema discovery (ALWAYS used)
+-- Schema discovery
 GRANT SELECT ON pg_catalog.svv_redshift_schemas TO datahub_user;
 GRANT SELECT ON pg_catalog.svv_external_schemas TO datahub_user;
 
--- Database information (ALWAYS used)
+-- Database information
 GRANT SELECT ON pg_catalog.svv_redshift_databases TO datahub_user;
 
--- Table metadata and statistics (ALWAYS used)
+-- Table metadata and statistics
 GRANT SELECT ON pg_catalog.svv_table_info TO datahub_user;
 
--- External table support (ALWAYS used - even if you have no external tables)
+-- External table support
 GRANT SELECT ON pg_catalog.svv_external_tables TO datahub_user;
 GRANT SELECT ON pg_catalog.svv_external_columns TO datahub_user;
 
--- Table creation timestamps (ALWAYS used)
+-- Table creation timestamps
 GRANT SELECT ON pg_catalog.pg_class_info TO datahub_user;
 ```
 
-### Conditionally Used (Feature Dependent) ⚠️
+### Conditional System Tables (Feature Dependent)
 
-#### If Database is a Shared Database (Datashare Consumer)
+#### Shared Database (Datashare Consumer)
 
 ```sql
--- Only used when `is_shared_database = True`
+-- Required when is_shared_database = True
 GRANT SELECT ON pg_catalog.svv_redshift_tables TO datahub_user;
 GRANT SELECT ON pg_catalog.svv_redshift_columns TO datahub_user;
 ```
 
-#### If Using Redshift Serverless
+#### Redshift Serverless Workgroups
 
 ```sql
--- Only used for serverless workgroups
-GRANT SELECT ON pg_catalog.svv_user_info TO datahub_user;    -- Usage stats
-GRANT SELECT ON pg_catalog.svv_mv_info TO datahub_user;      -- Materialized views
+-- Required for serverless workgroups
+GRANT SELECT ON pg_catalog.svv_user_info TO datahub_user;
+GRANT SELECT ON pg_catalog.svv_mv_info TO datahub_user;
 ```
 
-#### If Using Provisioned Redshift
+#### Redshift Provisioned Clusters
 
 ```sql
--- Only used for provisioned clusters
-GRANT SELECT ON pg_catalog.svl_user_info TO datahub_user;    -- Usage stats (covered by SYSLOG ACCESS)
-GRANT SELECT ON pg_catalog.stv_mv_info TO datahub_user;      -- Materialized views
+-- Required for provisioned clusters
+GRANT SELECT ON pg_catalog.svl_user_info TO datahub_user;    -- Covered by SYSLOG ACCESS
+GRANT SELECT ON pg_catalog.stv_mv_info TO datahub_user;
 ```
 
-#### If Datashares Lineage Enabled (`include_share_lineage: true`)
+#### Data Sharing Lineage
 
 ```sql
--- Only used if you enable datashares lineage (enabled by default)
+-- Required when include_share_lineage: true (default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub_user;
 ```
 
-### Minimal Permission Set
+### Recommended Permission Set
 
-For a **typical provisioned cluster** with default settings, you need:
+For a typical provisioned cluster with default settings:
 
 ```sql
 -- Core system access
@@ -127,16 +132,16 @@ GRANT SELECT ON pg_catalog.svv_datashares TO datahub_user;
 GRANT SELECT ON pg_catalog.stv_mv_info TO datahub_user;
 ```
 
-#### Optional: Data Profiling Privileges
+#### Data Access Privileges (Required for Data Profiling and Classification)
 
-To enable data profiling, grant the following privileges on your schemas and tables:
+**Important**: The system table permissions above only provide access to metadata. To enable data profiling, classification, or any feature that reads actual table data, you must grant additional privileges:
 
 ```sql
 -- Grant USAGE privilege on schemas (required to access schema objects)
 GRANT USAGE ON SCHEMA public TO datahub_user;
 GRANT USAGE ON SCHEMA your_schema_name TO datahub_user;
 
--- Grant SELECT privilege on existing tables for profiling
+-- Grant SELECT privilege on existing tables for data access
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO datahub_user;
 GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub_user;
 
@@ -159,7 +164,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON VIEWS TO dat
 -- ALTER DEFAULT PRIVILEGES FOR ALL ROLES IN SCHEMA public GRANT SELECT ON VIEWS TO datahub_user;
 ```
 
-:::caution Future Privileges Important Notes
+:::caution Data Access vs Metadata Access
+
+**The permissions are split into two categories:**
+
+1. **System table permissions** (above) - Required for metadata extraction, lineage, and usage statistics
+2. **Data access permissions** (this section) - Required for data profiling, classification, and any feature that reads actual table content
 
 **Default privileges only apply to objects created by the user who ran the ALTER DEFAULT PRIVILEGES command.** If multiple users create tables in your schemas, you need to:
 
