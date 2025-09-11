@@ -9,7 +9,6 @@ from unittest.mock import patch
 import pytest
 
 # Note: SSL tests now avoid creating actual Cassandra connections to prevent libev reactor segfaults
-
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -78,7 +77,9 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeyp
 def test_cassandra_ssl_configuration():
     """Test SSL configuration and context creation with different SSL versions using mocking."""
     # Mock the Cassandra classes to avoid importing them and triggering segfaults
-    with patch('datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig') as mock_config_class:
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig"
+    ) as mock_config_class:
         # Test different SSL versions
         ssl_versions = ["TLS_CLIENT", "TLSv1", "TLSv1_1", "TLSv1_2", "TLSv1_3"]
 
@@ -116,9 +117,13 @@ def test_cassandra_ssl_configuration():
 def test_cassandra_ssl_certificate_validation():
     """Test SSL certificate validation and error handling."""
     # Mock the Cassandra classes to avoid importing them and triggering segfaults
-    with patch('datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig') as mock_config_class:
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig"
+    ) as mock_config_class:
         # Create temporary certificate files for testing
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".crt", delete=False) as ca_cert:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".crt", delete=False
+        ) as ca_cert:
             ca_cert.write(
                 "-----BEGIN CERTIFICATE-----\nMOCK_CA_CERT\n-----END CERTIFICATE-----\n"
             )
@@ -188,7 +193,9 @@ def test_cassandra_ssl_certificate_validation():
 def test_cassandra_ssl_invalid_certificate_error():
     """Test SSL connection with invalid certificates to ensure proper error handling."""
     # Mock the Cassandra classes to avoid importing them and triggering segfaults
-    with patch('datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig') as mock_config_class:
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig"
+    ) as mock_config_class:
         # Create a mock config object
         mock_config = mock_config_class.return_value
         mock_config.contact_point = "localhost"
@@ -200,9 +207,10 @@ def test_cassandra_ssl_invalid_certificate_error():
         # This simulates the validation that would happen in the actual code
         assert mock_config.ssl_ca_certs == "/nonexistent/ca.crt"
         assert mock_config.ssl_version == "TLS_CLIENT"
-        
+
         # Test that invalid certificate path would be detected
         import os
+
         if not os.path.exists(mock_config.ssl_ca_certs):
             # This is the expected validation error
             assert True  # Configuration correctly identifies invalid certificate path
@@ -212,25 +220,31 @@ def test_cassandra_ssl_invalid_certificate_error():
 def test_cassandra_ssl_missing_certificate_file_error():
     """Test SSL configuration with missing certificate file."""
     # Mock the Cassandra classes to avoid importing them and triggering segfaults
-    with patch('datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig') as mock_config_class:
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig"
+    ) as mock_config_class:
         # Create a mock config object
         mock_config = mock_config_class.return_value
         mock_config.contact_point = "localhost"
         mock_config.port = 9042
-        mock_config.ssl_ca_certs = "/tmp/test_ca.crt"  # Need ssl_ca_certs to trigger SSL context creation
-        mock_config.ssl_certfile = "/nonexistent/client.crt"  # Only certfile, no keyfile
+        mock_config.ssl_ca_certs = (
+            "/tmp/test_ca.crt"  # Need ssl_ca_certs to trigger SSL context creation
+        )
+        mock_config.ssl_certfile = (
+            "/nonexistent/client.crt"  # Only certfile, no keyfile
+        )
         mock_config.ssl_keyfile = None
         mock_config.ssl_version = "TLS_CLIENT"
 
         # Test SSL configuration validation without creating actual Cassandra connections
         # This tests the SSL configuration logic without triggering the libev reactor
-        
+
         # Test that the configuration validation works correctly
         assert mock_config.ssl_ca_certs == "/tmp/test_ca.crt"
         assert mock_config.ssl_certfile == "/nonexistent/client.crt"
         assert mock_config.ssl_keyfile is None
         assert mock_config.ssl_version == "TLS_CLIENT"
-        
+
         # Test that the configuration would fail validation
         # This simulates the validation that would happen in the actual code
         if mock_config.ssl_certfile and not mock_config.ssl_keyfile:
@@ -242,25 +256,29 @@ def test_cassandra_ssl_missing_certificate_file_error():
 def test_cassandra_ssl_missing_keyfile_error():
     """Test SSL configuration with missing key file."""
     # Mock the Cassandra classes to avoid importing them and triggering segfaults
-    with patch('datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig') as mock_config_class:
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_config.CassandraSourceConfig"
+    ) as mock_config_class:
         # Create a mock config object
         mock_config = mock_config_class.return_value
         mock_config.contact_point = "localhost"
         mock_config.port = 9042
-        mock_config.ssl_ca_certs = "/tmp/test_ca.crt"  # Need ssl_ca_certs to trigger SSL context creation
+        mock_config.ssl_ca_certs = (
+            "/tmp/test_ca.crt"  # Need ssl_ca_certs to trigger SSL context creation
+        )
         mock_config.ssl_keyfile = "/nonexistent/client.key"  # Only keyfile, no certfile
         mock_config.ssl_certfile = None
         mock_config.ssl_version = "TLS_CLIENT"
 
         # Test SSL configuration validation without creating actual Cassandra connections
         # This tests the SSL configuration logic without triggering the libev reactor
-        
+
         # Test that the configuration validation works correctly
         assert mock_config.ssl_ca_certs == "/tmp/test_ca.crt"
         assert mock_config.ssl_certfile is None
         assert mock_config.ssl_keyfile == "/nonexistent/client.key"
         assert mock_config.ssl_version == "TLS_CLIENT"
-        
+
         # Test that the configuration would fail validation
         # This simulates the validation that would happen in the actual code
         if mock_config.ssl_keyfile and not mock_config.ssl_certfile:
