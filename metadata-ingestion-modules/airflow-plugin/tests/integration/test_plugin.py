@@ -35,6 +35,9 @@ def get_api_version() -> str:
     else:
         return "v1"
 
+def is_airflow3() -> bool:
+    """Check if the Airflow version is 3.0 or higher."""
+    return AIRFLOW_VERSION >= packaging.version.parse("3.0.0")
 
 def _make_api_request(session: requests.Session, url: str, timeout: int = 5) -> requests.Response:
     """Make an API request with v2/v1 fallback for Airflow 3.0 compatibility issues."""
@@ -260,7 +263,8 @@ def _run_airflow(
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
         # Have the Airflow API use username/password authentication.
-        "AIRFLOW__API__AUTH_BACKEND": "airflow.providers.fab.auth_manager.api.auth.backend.basic_auth" if AIRFLOW_VERSION >= packaging.version.parse("3.0.0") else "airflow.api.auth.backend.basic_auth",
+        "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
+        "AIRFLOW_CORE_AUTH_MANAGER": "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager",
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
@@ -351,42 +355,29 @@ def _run_airflow(
         # The standalone command auto-generates an admin user which we'll use instead
         if IS_LOCAL:
             print("Creating an extra test user...")
-            try:
-                # Check if users command is available (Airflow 2.x)
-                result = subprocess.run(
-                    ["airflow", "--help"],
-                    capture_output=True,
-                    text=True,
+            if not is_airflow3:
+                subprocess.check_call(
+                    [
+                        # fmt: off
+                        "airflow",
+                        "users",
+                        "create",
+                        "--username",
+                        "airflow",
+                        "--password",
+                        "airflow",
+                        "--firstname",
+                        "admin",
+                        "--lastname",
+                        "admin",
+                        "--role",
+                        "Admin",
+                        "--email",
+                        "airflow@example.com",
+                        # fmt: on
+                    ],
                     env=environment,
                 )
-                if "users" in result.stdout:
-                    subprocess.check_call(
-                        [
-                            # fmt: off
-                            "airflow",
-                            "users",
-                            "create",
-                            "--username",
-                            "airflow",
-                            "--password",
-                            "airflow",
-                            "--firstname",
-                            "admin",
-                            "--lastname",
-                            "admin",
-                            "--role",
-                            "Admin",
-                            "--email",
-                            "airflow@example.com",
-                            # fmt: on
-                        ],
-                        env=environment,
-                    )
-                else:
-                    print("Users command not available (Airflow 3.0+) - will use auto-generated admin user")
-            except subprocess.CalledProcessError as e:
-                print(f"Failed to create user (this is expected in Airflow 3.0 without FAB provider): {e}")
-                print("Using auto-generated admin user instead")
 
         # Sanity check that the plugin got loaded.
         if not is_v1:
