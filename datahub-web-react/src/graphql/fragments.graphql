@@ -1105,6 +1105,9 @@ fragment nonRecursiveMLModel on MLModel {
             properties {
                 name
             }
+            editableProperties {
+                description
+            }
         }
         customProperties {
             key
@@ -1570,6 +1573,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
@@ -1795,6 +1799,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
+    canManageAssetSummary
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {

@@ -18,6 +18,9 @@ query getDataProduct($urn: String!) {
             ...formsFields
         }
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 
