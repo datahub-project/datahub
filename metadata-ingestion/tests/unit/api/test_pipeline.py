@@ -517,6 +517,7 @@ class AddStatusRemovedTransformer(Transformer):
             yield record_envelope
 
 
+@platform_name("fake")
 class FakeSource(Source):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
@@ -540,6 +541,7 @@ class FakeSource(Source):
         pass
 
 
+@platform_name("fake")
 class FakeSourceWithWarnings(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
@@ -549,6 +551,7 @@ class FakeSourceWithWarnings(FakeSource):
         return self.source_report
 
 
+@platform_name("fake")
 class FakeSourceWithFailures(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
