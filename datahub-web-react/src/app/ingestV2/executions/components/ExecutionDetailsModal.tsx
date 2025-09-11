@@ -8,7 +8,7 @@ import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 import analytics, { EventType } from '@app/analytics';
 import { LogsTab } from '@app/ingestV2/executions/components/LogsTab';
 import { RecipeTab } from '@app/ingestV2/executions/components/RecipeTab';
-import { SamplesTab } from '@app/ingestV2/executions/components/SamplesTab';
+import { SamplesTab, mapEntityDataToTableData, useGetSearchData } from '@app/ingestV2/executions/components/SamplesTab';
 import { SummaryTab } from '@app/ingestV2/executions/components/SummaryTab';
 import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -17,8 +17,10 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
+import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -88,6 +90,18 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         return () => clearInterval(interval);
     }, [status, refetch]);
 
+    const entityRegistry = useEntityRegistry();
+    const { searchData } = useGetSearchData(data);
+
+    const { isProfilingSupported, isLineageSupported, isUsageSupported } = useCapabilitySummary();
+    const capabilityChecks = {
+        isProfilingSupported,
+        isLineageSupported,
+        isUsageSupported,
+    };
+
+    const allTableData = mapEntityDataToTableData(searchData, entityRegistry, capabilityChecks);
+
     const tabs: Tab[] = useMemo(
         () => [
             {
@@ -107,6 +121,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 component: <SamplesTab data={data} />,
                 key: TabType.Sample,
                 name: TabType.Sample,
+                disabled: allTableData.length === 0,
             },
             {
                 component: <LogsTab urn={urn} data={data} />,
@@ -119,7 +134,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 name: TabType.Recipe,
             },
         ],
-        [data, urn, result, status],
+        [data, urn, result, status, allTableData],
     );
 
     return (
