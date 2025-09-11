@@ -38,7 +38,7 @@ Notifying on tag changes for every asset in the platform would be noisy, and so 
 
 ## Prerequisites
 
-Once you have [configured Slack within your DataHub instance](slack/saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin recieving notifications via DM.
+Once you have [configured Slack within your DataHub instance](slack/saas-slack-setup.md), you will be able to subscribe to any Entity in DataHub and begin receiving notifications via DM.
 
 To begin receiving personal notifications, go to Settings > "My Notifications". From here, toggle on Slack Notifications and input your Slack Member ID.
 
@@ -157,9 +157,9 @@ Then select individual assertions you'd like to subscribe to:
   <img width="70%" alt="7" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-assertion-sub-resub-1.jpg" />
 </p>
 
-## Programatically Managing Subscriptions
+## Programmatically Managing Subscriptions
 
-You can create and remove subscriptions programatically using the [GraphQL APIs](/docs/api/graphql/overview.md) or the [Python Subscriptions SDK](/docs/api/tutorials/subscriptions.md).
+You can create and remove subscriptions programmatically using the [GraphQL APIs](/docs/api/graphql/overview.md) or the [Python Subscriptions SDK](/docs/api/tutorials/subscriptions.md).
 
 ## FAQ
 

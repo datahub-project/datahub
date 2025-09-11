@@ -7,11 +7,12 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -21,10 +22,10 @@ public class MetricUtils {
   public static final String DROPWIZARD_METRIC = "dwizMetric";
   public static final String DROPWIZARD_NAME = "dwizName";
 
-  /* Micrometer */
+  /* Micrometer. See https://prometheus.io/docs/practices/naming/ */
   public static final String KAFKA_MESSAGE_QUEUE_TIME = "kafka.message.queue.time";
   public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
-  public static final String DATAHUB_REQUEST_COUNT = "datahub.request.count";
+  public static final String DATAHUB_REQUEST_COUNT = "datahub_request_count";
 
   /* OpenTelemetry */
   public static final String CACHE_HIT_ATTR = "cache.hit";
@@ -42,7 +43,7 @@ public class MetricUtils {
 
   @Deprecated public static final String DELIMITER = "_";
 
-  private final MeterRegistry registry;
+  @Builder.Default @NonNull private final MeterRegistry registry = new CompositeMeterRegistry();
   private static final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
   private static final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
   private static final Map<String, DistributionSummary> legacyHistogramCache =
@@ -52,24 +53,17 @@ public class MetricUtils {
   // For state-based gauges (like throttled state)
   private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
-  public Optional<MeterRegistry> getRegistry() {
-    return Optional.ofNullable(registry);
+  public MeterRegistry getRegistry() {
+    return registry;
   }
 
   @Deprecated
   public void time(String dropWizardMetricName, long durationNanos) {
-    getRegistry()
-        .ifPresent(
-            meterRegistry -> {
-              Timer timer =
-                  legacyTimeCache.computeIfAbsent(
-                      dropWizardMetricName,
-                      name ->
-                          Timer.builder(name)
-                              .tags(DROPWIZARD_METRIC, "true")
-                              .register(meterRegistry));
-              timer.record(durationNanos, TimeUnit.NANOSECONDS);
-            });
+    Timer timer =
+        legacyTimeCache.computeIfAbsent(
+            dropWizardMetricName,
+            name -> Timer.builder(name).tags(DROPWIZARD_METRIC, "true").register(registry));
+    timer.record(durationNanos, TimeUnit.NANOSECONDS);
   }
 
   @Deprecated
@@ -90,18 +84,14 @@ public class MetricUtils {
 
   @Deprecated
   public void increment(String metricName, double increment) {
-    getRegistry()
-        .ifPresent(
-            meterRegistry -> {
-              Counter counter =
-                  legacyCounterCache.computeIfAbsent(
-                      metricName,
-                      name ->
-                          Counter.builder(MetricRegistry.name(name))
-                              .tag(DROPWIZARD_METRIC, "true")
-                              .register(meterRegistry));
-              counter.increment(increment);
-            });
+    Counter counter =
+        legacyCounterCache.computeIfAbsent(
+            metricName,
+            name ->
+                Counter.builder(MetricRegistry.name(name))
+                    .tag(DROPWIZARD_METRIC, "true")
+                    .register(registry));
+    counter.increment(increment);
   }
 
   /**
@@ -112,16 +102,11 @@ public class MetricUtils {
    * @param tags The tags to associate with the metric (can be empty)
    */
   public void incrementMicrometer(String metricName, double increment, String... tags) {
-    getRegistry()
-        .ifPresent(
-            meterRegistry -> {
-              // Create a cache key that includes both metric name and tags
-              String cacheKey = createCacheKey(metricName, tags);
-              Counter counter =
-                  micrometerCounterCache.computeIfAbsent(
-                      cacheKey, key -> meterRegistry.counter(metricName, tags));
-              counter.increment(increment);
-            });
+    // Create a cache key that includes both metric name and tags
+    String cacheKey = createCacheKey(metricName, tags);
+    Counter counter =
+        micrometerCounterCache.computeIfAbsent(cacheKey, key -> registry.counter(metricName, tags));
+    counter.increment(increment);
   }
 
   /**
@@ -167,40 +152,30 @@ public class MetricUtils {
   public void setGaugeValue(Class<?> clazz, String metricName, double value) {
     String name = MetricRegistry.name(clazz, metricName);
 
-    getRegistry()
-        .ifPresent(
-            meterRegistry -> {
-              // Get or create the state holder
-              AtomicDouble state = gaugeStates.computeIfAbsent(name, k -> new AtomicDouble(0));
+    // Get or create the state holder
+    AtomicDouble state = gaugeStates.computeIfAbsent(name, k -> new AtomicDouble(0));
 
-              // Register the gauge if not already registered
-              legacyGaugeCache.computeIfAbsent(
-                  name,
-                  key ->
-                      Gauge.builder(key, state, AtomicDouble::get)
-                          .tag(DROPWIZARD_METRIC, "true")
-                          .register(meterRegistry));
+    // Register the gauge if not already registered
+    legacyGaugeCache.computeIfAbsent(
+        name,
+        key ->
+            Gauge.builder(key, state, AtomicDouble::get)
+                .tag(DROPWIZARD_METRIC, "true")
+                .register(registry));
 
-              // Update the value
-              state.set(value);
-            });
+    // Update the value
+    state.set(value);
   }
 
   @Deprecated
   public void histogram(Class<?> clazz, String metricName, long value) {
-    getRegistry()
-        .ifPresent(
-            meterRegistry -> {
-              String name = MetricRegistry.name(clazz, metricName);
-              DistributionSummary summary =
-                  legacyHistogramCache.computeIfAbsent(
-                      name,
-                      key ->
-                          DistributionSummary.builder(key)
-                              .tag(DROPWIZARD_METRIC, "true")
-                              .register(meterRegistry));
-              summary.record(value);
-            });
+    String name = MetricRegistry.name(clazz, metricName);
+    DistributionSummary summary =
+        legacyHistogramCache.computeIfAbsent(
+            name,
+            key ->
+                DistributionSummary.builder(key).tag(DROPWIZARD_METRIC, "true").register(registry));
+    summary.record(value);
   }
 
   @Deprecated

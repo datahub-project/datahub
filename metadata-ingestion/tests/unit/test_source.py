@@ -2,6 +2,7 @@ from typing import Iterable
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
@@ -24,13 +25,14 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 def _get_urn(table_name: str = "fooIndex") -> str:
     return str(
         DatasetUrn.create_from_ids(
-            platform_id="elasticsearch",
+            platform_id="fake",
             table_name=table_name,
             env="PROD",
         )
     )
 
 
+@platform_name("fake")
 class FakeSource(Source):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return [
@@ -46,6 +48,7 @@ class FakeSource(Source):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_report = SourceReport()
+        self.source_report.set_platform("fake")
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FakeSource":
