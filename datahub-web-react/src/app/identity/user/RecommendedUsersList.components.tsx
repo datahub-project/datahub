@@ -16,11 +16,21 @@ export const UserCard = styled.div<{ $fadeOut?: boolean }>`
     align-items: center;
     gap: 12px;
     background: ${colors.white};
+    margin-bottom: 16px;
+    overflow: hidden;
+
     transition:
-        opacity 0.3s ease-out,
-        transform 0.3s ease-out;
+        opacity 0.8s ease-out,
+        transform 0.8s ease-out,
+        max-height 0.8s ease-out,
+        margin 0.8s ease-out;
+
+    /* Animation states for smooth fadeout and slide up */
     opacity: ${(props) => (props.$fadeOut ? 0 : 1)};
     transform: ${(props) => (props.$fadeOut ? 'translateY(-10px)' : 'translateY(0)')};
+    max-height: ${(props) => (props.$fadeOut ? '0' : '80px')};
+    margin-bottom: ${(props) => (props.$fadeOut ? '0' : '16px')};
+
     ${(props) =>
         props.$fadeOut &&
         `

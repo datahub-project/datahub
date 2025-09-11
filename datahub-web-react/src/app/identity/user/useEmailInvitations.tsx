@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
+import { addToGlobalInvitedUsers } from '@app/identity/user/inviteUsersGlobalState';
 
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { DataHubRole, SendUserInvitationsInput } from '@types';
@@ -116,6 +117,9 @@ export function useEmailInvitations() {
                     }));
                     setInvitedUsers([...invitedUsers, ...newInvitedUsers]);
                     setEmailInput(''); // Clear input after successful send
+
+                    // Add to global invited users tracking
+                    addToGlobalInvitedUsers(emails);
                 } else {
                     const errorMessage = response?.errors?.length ? response.errors.join(', ') : 'Unknown error';
 
@@ -213,6 +217,10 @@ export function useEmailInvitations() {
                         invited: true,
                     };
                     setInvitedUsers((prev) => [...prev, newInvitedUser]);
+
+                    // Add to global invited users tracking
+                    addToGlobalInvitedUsers([email]);
+
                     return true;
                 }
                 const errorMessage = response?.errors?.length ? response.errors.join(', ') : 'Unknown error';

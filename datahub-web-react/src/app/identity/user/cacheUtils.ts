@@ -1,6 +1,6 @@
 import { ListUsersDocument, ListUsersQuery } from '@graphql/user.generated';
 
-export const DEFAULT_USER_LIST_PAGE_SIZE = 25;
+export const DEFAULT_USER_LIST_PAGE_SIZE = 20;
 
 export const removeUserFromListUsersCache = (urn, client, page, pageSize) => {
     const currData: ListUsersQuery | null = client.readQuery({

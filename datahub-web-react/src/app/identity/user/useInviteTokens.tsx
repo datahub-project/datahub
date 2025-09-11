@@ -2,9 +2,11 @@ import { message } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
+import { checkIsSsoEnabled } from '@app/settingsV2/platform/sso/utils';
 
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
 import { useGetInviteTokenQuery } from '@graphql/role.generated';
+import { useGetSsoSettingsQuery } from '@graphql/settings.generated';
 import { DataHubRole } from '@types';
 
 export function useInviteTokens(selectedRole: DataHubRole | undefined) {
@@ -12,6 +14,7 @@ export function useInviteTokens(selectedRole: DataHubRole | undefined) {
     const [inviteToken, setInviteToken] = useState<string>('');
 
     const [createInviteTokenMutation] = useCreateInviteTokenMutation();
+    const { data: ssoSettings } = useGetSsoSettingsQuery();
 
     const { data: getInviteTokenData } = useGetInviteTokenQuery({
         variables: {
@@ -65,8 +68,11 @@ export function useInviteTokens(selectedRole: DataHubRole | undefined) {
     );
 
     const inviteLink = useMemo(() => {
-        return `${baseUrl}/signup?invite_token=${inviteToken}&redirect_on_sso=true`;
-    }, [baseUrl, inviteToken]);
+        const ssoSettingsData = ssoSettings?.globalSettings?.ssoSettings;
+        const isSsoEnabled = ssoSettingsData ? checkIsSsoEnabled(ssoSettingsData) : false;
+        const redirectParam = isSsoEnabled ? '&redirect_on_sso=true' : '';
+        return `${baseUrl}/signup?invite_token=${inviteToken}${redirectParam}`;
+    }, [baseUrl, inviteToken, ssoSettings]);
 
     const resetInviteToken = useCallback(() => {
         setInviteToken('');

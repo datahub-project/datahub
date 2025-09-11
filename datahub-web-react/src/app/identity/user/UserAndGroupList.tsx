@@ -3,21 +3,18 @@ import { message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
+import { useDebounce } from 'react-use';
 
 import analytics, { EventType } from '@app/analytics';
 import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
-import { RecommendedUsersTable } from '@app/identity/user/RecommendedUsersTable';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import {
     ActionsContainer,
-    FilterContainer,
-    FiltersHeader,
+    AllUsersTab,
     ModalFooter,
-    SearchContainer,
+    RecommendedUsersTab,
     SubTabsContainer,
-    TableContainer,
     UserActionsMenu,
-    UserContainer,
     UserGroupsCell,
     UserNameCell,
     UserStatusCell,
@@ -28,19 +25,14 @@ import {
     useUserListData,
     useUserListState,
 } from '@app/identity/user/UserAndGroupList.hooks';
-import {
-    STATUS_FILTER_OPTIONS,
-    filterUsersByStatus,
-    getUserStatusColor,
-    getUserStatusText,
-} from '@app/identity/user/UserList.utils';
+import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserList.utils';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { USERS_ASSIGN_ROLE_ID, USERS_INTRO_ID, USERS_SSO_ID } from '@app/onboarding/config/UsersOnboardingConfig';
 import { clearRoleListCache } from '@app/permissions/roles/cacheUtils';
 import { CORP_USER_STATUS_FIELD, ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { Message } from '@app/shared/Message';
-import { Button, Modal, Pagination, SearchBar, SimpleSelect, Table, Tabs } from '@src/alchemy-components';
+import { Button, Modal, Tabs } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 
 import { useBatchAssignRoleMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
@@ -85,6 +77,24 @@ export const UserAndGroupList = () => {
         canManagePolicies,
     } = useUserListState();
 
+    const [debouncedQuery, setDebouncedQuery] = useState('');
+
+    useDebounce(
+        () => {
+            const trimmedQuery = query.trim();
+            if (trimmedQuery === '' || trimmedQuery.length >= 3) {
+                setDebouncedQuery(trimmedQuery);
+            }
+        },
+        300,
+        [query],
+    );
+
+    // Reset to page 1 when debounced search query or status filter changes
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedQuery, statusFilter, setPage]);
+
     const [sortField, setSortField] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.Ascending);
 
@@ -123,7 +133,7 @@ export const UserAndGroupList = () => {
     };
 
     const { usersData, loading, error, totalUsers, selectRoleOptions, usersRefetch, onChangePage, handleDelete } =
-        useUserListData(page, pageSize, query, setPage, setPageSize, sortInput, statusFilter);
+        useUserListData(page, pageSize, debouncedQuery, setPage, setPageSize, sortInput, statusFilter);
 
     const { onResetPassword, onCloseResetModal, onDelete } = useUserListActions(
         setIsViewingResetToken,
@@ -196,27 +206,27 @@ export const UserAndGroupList = () => {
     };
 
     useEffect(() => {
-        const users = usersData?.listUsers?.users || [];
+        const users =
+            (usersData?.listUsersAndGroups?.searchResults
+                ?.map((result) => result.entity)
+                .filter((entity) => entity?.__typename === 'CorpUser') as UserListItem[]) || [];
         setUsersList(users);
     }, [usersData, setUsersList]);
-
-    const filteredUsers = filterUsersByStatus(usersList, statusFilter);
-    const isFiltering = statusFilter !== 'all';
 
     // Sort invited users first for ascending, last for descending
     const sortedFilteredUsers = React.useMemo(() => {
         if (!sortField || sortField !== ENTITY_NAME_FIELD) {
-            return filteredUsers;
+            return usersList;
         }
 
-        const invitedUsers = filteredUsers.filter((user) => user.invitationStatus?.status === 'SENT');
-        const otherUsers = filteredUsers.filter((user) => user.invitationStatus?.status !== 'SENT');
+        const invitedUsers = usersList.filter((user) => user.invitationStatus?.status === 'SENT');
+        const otherUsers = usersList.filter((user) => user.invitationStatus?.status !== 'SENT');
 
         if (sortOrder === SortOrder.Ascending) {
             return [...invitedUsers, ...otherUsers];
         }
         return [...otherUsers, ...invitedUsers];
-    }, [filteredUsers, sortField, sortOrder]);
+    }, [usersList, sortField, sortOrder]);
 
     const handleSortColumnChange = ({
         sortColumn,
@@ -307,7 +317,6 @@ export const UserAndGroupList = () => {
             dataIndex: 'name',
             key: ENTITY_NAME_FIELD,
             minWidth: '30%',
-            sorter: false,
             render: (user: UserListItem) => <UserNameCell user={user} />,
         },
         {
@@ -315,7 +324,6 @@ export const UserAndGroupList = () => {
             dataIndex: 'status',
             key: CORP_USER_STATUS_FIELD,
             minWidth: '10%',
-            sorter: false,
             render: (user: UserListItem) => (
                 <UserStatusCell
                     user={user}
@@ -390,70 +398,25 @@ export const UserAndGroupList = () => {
     ];
 
     const renderAllUsersTab = () => (
-        <>
-            <UserContainer>
-                <FiltersHeader>
-                    <SearchContainer>
-                        <SearchBar
-                            placeholder="Search..."
-                            value={query}
-                            onChange={(value) => {
-                                setQuery(value);
-                                setPage(1);
-                            }}
-                            width="300px"
-                            allowClear
-                        />
-                    </SearchContainer>
-                    <FilterContainer>
-                        <SimpleSelect
-                            placeholder="Status"
-                            position="end"
-                            options={STATUS_FILTER_OPTIONS.filter((option) => option.value !== 'all').map((option) => ({
-                                value: option.value,
-                                label: option.label,
-                            }))}
-                            values={statusFilter === 'all' ? [] : [statusFilter]}
-                            showClear
-                            onUpdate={(values) => {
-                                setStatusFilter(values.length > 0 ? values[0] : 'all');
-                                setPage(1);
-                            }}
-                        />
-                    </FilterContainer>
-                </FiltersHeader>
-            </UserContainer>
-
-            <TableContainer>
-                {sortedFilteredUsers.length > 0 ? (
-                    <>
-                        <Table
-                            columns={columns}
-                            data={sortedFilteredUsers}
-                            isLoading={loading}
-                            isScrollable
-                            handleSortColumnChange={handleSortColumnChange}
-                        />
-                        <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
-                            <Pagination
-                                currentPage={page}
-                                itemsPerPage={pageSize}
-                                total={isFiltering ? sortedFilteredUsers.length : totalUsers}
-                                onPageChange={onChangePage}
-                            />
-                        </div>
-                    </>
-                ) : (
-                    <div style={{ padding: '20px', textAlign: 'center' }}>
-                        {loading ? 'Loading users...' : 'No users found'}
-                    </div>
-                )}
-            </TableContainer>
-        </>
+        <AllUsersTab
+            query={query}
+            setQuery={setQuery}
+            setPage={setPage}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            sortedFilteredUsers={sortedFilteredUsers}
+            loading={loading}
+            columns={columns}
+            handleSortColumnChange={handleSortColumnChange}
+            page={page}
+            pageSize={pageSize}
+            totalUsers={totalUsers}
+            onChangePage={onChangePage}
+        />
     );
 
     const renderRecommendedUsersTab = () => (
-        <RecommendedUsersTable onInviteUser={handleInviteRecommendedUser} selectRoleOptions={selectRoleOptions} />
+        <RecommendedUsersTab onInviteUser={handleInviteRecommendedUser} selectRoleOptions={selectRoleOptions} />
     );
 
     return (
@@ -466,6 +429,7 @@ export const UserAndGroupList = () => {
                 <Tabs
                     selectedTab={activeSubTab}
                     onChange={handleTabChange}
+                    secondary
                     tabs={[
                         {
                             key: SubTabType.All,

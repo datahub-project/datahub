@@ -9,8 +9,10 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.generated.SendUserInvitationsInput;
 import com.linkedin.datahub.graphql.generated.SendUserInvitationsResult;
+import com.linkedin.datahub.graphql.resolvers.settings.SettingsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationMessage;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientArray;
@@ -26,6 +28,7 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.settings.global.GlobalSettingsInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,16 +46,19 @@ public class UserInvitationService {
   private final IntegrationsService integrationsService;
   private final InviteTokenService inviteTokenService;
   private final EntityService<?> entityService;
+  private final EntityClient entityClient;
   private final String baseUrl;
 
   public UserInvitationService(
       IntegrationsService integrationsService,
       InviteTokenService inviteTokenService,
       EntityService<?> entityService,
+      EntityClient entityClient,
       @Value("${baseUrl:http://localhost:9002}") String baseUrl) {
     this.integrationsService = integrationsService;
     this.inviteTokenService = inviteTokenService;
     this.entityService = entityService;
+    this.entityClient = entityClient;
     this.baseUrl =
         baseUrl != null && !baseUrl.trim().isEmpty() && !"null".equals(baseUrl)
             ? baseUrl
@@ -80,8 +86,7 @@ public class UserInvitationService {
       for (int i = 0; i < emails.size(); i++) {
         String email = emails.get(i).trim(); // Trim whitespace from email
         String inviteToken = individualTokens.get(i); // Get unique token for this email
-        String inviteLink =
-            String.format("%s/signup?invite_token=%s&redirect_on_sso=true", baseUrl, inviteToken);
+        String inviteLink = buildInviteLink(operationContext, inviteToken);
 
         // Log for debugging
         log.debug(
@@ -269,6 +274,43 @@ public class UserInvitationService {
     } catch (Exception e) {
       log.error("Failed to create invitation aspect for user: {}", email, e);
       // Don't throw exception here to avoid breaking the invitation flow
+    }
+  }
+
+  /**
+   * Builds the invite link with conditional redirect_on_sso parameter based on SSO configuration.
+   */
+  private String buildInviteLink(OperationContext operationContext, String inviteToken) {
+    try {
+      boolean ssoEnabled = isSsoEnabled(operationContext);
+      String redirectParam = ssoEnabled ? "&redirect_on_sso=true" : "";
+      return String.format("%s/signup?invite_token=%s%s", baseUrl, inviteToken, redirectParam);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to check SSO status, falling back to including redirect_on_sso parameter", e);
+      // Fallback to the previous behavior if we can't determine SSO status
+      return String.format("%s/signup?invite_token=%s&redirect_on_sso=true", baseUrl, inviteToken);
+    }
+  }
+
+  /** Checks if SSO is enabled by retrieving the global settings. */
+  private boolean isSsoEnabled(OperationContext operationContext) {
+    try {
+      GlobalSettingsInfo globalSettings =
+          SettingsMapper.getGlobalSettings(operationContext, entityClient);
+      if (globalSettings.hasSso() && globalSettings.getSso() != null) {
+        var ssoSettings = globalSettings.getSso();
+        if (ssoSettings.hasOidcSettings()) {
+          var oidcSettings = ssoSettings.getOidcSettings();
+          if (oidcSettings != null) {
+            return oidcSettings.isEnabled();
+          }
+        }
+      }
+      return false;
+    } catch (Exception e) {
+      log.warn("Failed to retrieve SSO settings", e);
+      return false;
     }
   }
 }
