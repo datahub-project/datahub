@@ -142,9 +142,9 @@ public class AddLinkResolverTest {
     setupTest(mockEnv);
 
     AddLinkResolver resolver = new AddLinkResolver(mockService, mockClient);
-    resolver.get(mockEnv).get();
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 1, expectedAspect);
+    LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 0, expectedAspect);
   }
 
   @Test
