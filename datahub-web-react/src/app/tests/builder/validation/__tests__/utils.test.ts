@@ -619,6 +619,9 @@ describe('Validation Utils', () => {
             expect(ASSET_CATEGORIES.DATA_ASSETS.has(EntityType.DataFlow)).toBe(true);
             expect(ASSET_CATEGORIES.DATA_ASSETS.has(EntityType.DataJob)).toBe(true);
             expect(ASSET_CATEGORIES.DATA_ASSETS.has(EntityType.Container)).toBe(true);
+
+            // Note: DataProduct is conceptually a logical asset but functionally categorized as a data asset
+            // due to inheriting from assetProps (which includes platform, tags, glossary terms, etc.)
             expect(ASSET_CATEGORIES.DATA_ASSETS.has(EntityType.DataProduct)).toBe(true);
 
             // Metadata entities should include glossary terms, domains, etc.

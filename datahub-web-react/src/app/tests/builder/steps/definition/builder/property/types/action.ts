@@ -14,17 +14,26 @@ const CORE_DATA_ASSETS = [
     EntityType.Container,
 ] as const;
 
-const LOGICAL_ASSETS = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Domain] as const;
+const LOGICAL_ASSETS = [
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.Domain,
+    EntityType.DataProduct,
+] as const;
 
 export const ENTITY_GROUPS = {
-    /** Data assets that support most metadata operations (including DataProduct) */
-    DATA_ASSETS: [...CORE_DATA_ASSETS, EntityType.DataProduct],
+    /** Physical data assets */
+    DATA_ASSETS: CORE_DATA_ASSETS,
     /** Assets that can be assigned to data products (per DataProductProperties.pdl) */
     DATA_PRODUCT_ASSIGNABLE_ASSETS: CORE_DATA_ASSETS,
-    /** Logical assets (metadata assets) */
+    /**
+     * Logical assets (organizational/metadata constructs)
+     * Note: DataProduct is conceptually logical but may be auto-categorized as a data asset
+     * due to inheriting from assetProps in the property definitions
+     */
     LOGICAL_ASSETS,
     /** All assets including data assets and logical assets */
-    ALL_ASSETS: [...CORE_DATA_ASSETS, EntityType.DataProduct, ...LOGICAL_ASSETS],
+    ALL_ASSETS: [...CORE_DATA_ASSETS, ...LOGICAL_ASSETS],
 } as const;
 
 /**
