@@ -5,6 +5,7 @@ import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/C
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
+import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
 import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
 import WorkflowsModule from '@app/homeV3/modules/WorkflowsModule';
@@ -43,7 +44,9 @@ function Module(props: ModuleProps) {
 
     return (
         <ModuleErrorBoundary {...props}>
-            <Component {...props} />
+            <ModuleProvider {...props}>
+                <Component {...props} />
+            </ModuleProvider>
         </ModuleErrorBoundary>
     );
 }

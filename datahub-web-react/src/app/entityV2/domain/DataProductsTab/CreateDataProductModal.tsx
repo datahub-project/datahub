@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 
 import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 
 import { useCreateDataProductMutation } from '@graphql/dataProduct.generated';
-import { DataProduct, Domain } from '@types';
+import { DataHubPageModuleType, DataProduct, Domain } from '@types';
 
 export const MODAL_WIDTH = '75vw';
 
@@ -28,6 +29,7 @@ type Props = {
 export default function CreateDataProductModal({ domain, onCreateDataProduct, onClose }: Props) {
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>(DEFAULT_STATE);
     const [createDataProductMutation] = useCreateDataProductMutation();
+    const { reloadModules } = useModulesContext();
 
     function createDataProduct() {
         createDataProductMutation({
@@ -49,6 +51,9 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
                         onCreateDataProduct(updateDataProduct as DataProduct);
                     }
                     onClose();
+                    // Reload modules
+                    // DataProducts - handling of creating of new data product from data products tab
+                    reloadModules([DataHubPageModuleType.DataProducts], 3000);
                 }
             })
             .catch(() => {

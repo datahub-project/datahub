@@ -6,6 +6,7 @@ import GlobalSettingsProvider from '@app/context/GlobalSettingsProvider';
 import UserContextProvider from '@app/context/UserContextProvider';
 import { NavBarProvider } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import HomePageProvider from '@app/homeV3/context/HomePageProvider';
+import { ModulesProvider } from '@app/homeV3/module/context/ModulesContext';
 import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import SearchContextProvider from '@app/search/context/SearchContextProvider';
 import { EducationStepsProvider } from '@providers/EducationStepsProvider';
@@ -27,9 +28,11 @@ export default function AppProviders({ children }: Props) {
                                 <OnboardingTourProvider>
                                     <QuickFiltersProvider>
                                         <SearchContextProvider>
-                                            <HomePageProvider>
-                                                <NavBarProvider>{children}</NavBarProvider>
-                                            </HomePageProvider>
+                                            <ModulesProvider>
+                                                <HomePageProvider>
+                                                    <NavBarProvider>{children}</NavBarProvider>
+                                                </HomePageProvider>
+                                            </ModulesProvider>
                                         </SearchContextProvider>
                                     </QuickFiltersProvider>
                                 </OnboardingTourProvider>
