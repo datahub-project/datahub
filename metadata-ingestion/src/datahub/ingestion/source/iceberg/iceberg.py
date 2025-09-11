@@ -200,9 +200,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             auto_lowercase_dataset_urns,
             auto_materialize_referenced_tags_terms,
             partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
             ),
-            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
+            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
