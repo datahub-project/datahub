@@ -71,6 +71,7 @@ describe("incidents", () => {
       .click();
     cy.get('[data-testid="incident-create-button"]').click();
     // Wait for the incident to be created and appear in the list
+    cy.get('[data-testid="group-header-collapsed-icon"]').click();
     cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`, {
       timeout: 15000,
     }).should("exist");
@@ -149,7 +150,7 @@ describe("incidents", () => {
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
         .then(($icon) => {
           if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
+            cy.wrap($icon).should("be.visible").click();
           } else {
             cy.log("Collapsed icon not found or not visible, skipping click");
           }
@@ -242,7 +243,7 @@ describe("incidents", () => {
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
         .then(($icon) => {
           if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
+            cy.wrap($icon).should("be.visible").click();
           } else {
             cy.log("Collapsed icon not found or not visible, skipping click");
           }
@@ -316,7 +317,7 @@ describe("incidents", () => {
         .should(Cypress._.noop) // Prevent Cypress from failing if the element is missing
         .then(($icon) => {
           if ($icon.length > 0 && $icon.is(":visible")) {
-            cy.wrap($icon).click();
+            cy.wrap($icon).should("be.visible").click();
           } else {
             cy.log("Collapsed icon not found or not visible, skipping click");
           }
