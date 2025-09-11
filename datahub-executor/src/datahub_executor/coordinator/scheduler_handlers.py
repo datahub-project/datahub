@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from acryl.executor.request.execution_request import ExecutionRequest
 
@@ -18,3 +18,13 @@ def handle_execute_async(execute_async_input: ExecutionRequest) -> bool:
     except Exception:
         return False
     return True
+
+
+def handle_dump_jobs() -> Dict[str, Any]:
+    if scheduler is None:
+        return {}
+    try:
+        return scheduler.dump_jobs()
+    except Exception:
+        logger.exception("Failed to dump scheduler jobs")
+        return {}
