@@ -38,17 +38,31 @@ def ingest_from_mysql():
     pipeline.raise_from_status()
 
 
-with DAG(
-    "datahub_mysql_ingest",
-    default_args={
+# Create DAG arguments conditionally for Airflow version compatibility
+import airflow
+dag_kwargs = {
+    "dag_id": "datahub_mysql_ingest",
+    "default_args": {
         "owner": "airflow",
     },
-    description="An example DAG which ingests metadata from MySQL to DataHub",
-    start_date=datetime(2022, 1, 1),
-    schedule_interval=timedelta(days=1),
-    catchup=False,
-    default_view="tree",
-) as dag:
+    "description": "An example DAG which ingests metadata from MySQL to DataHub",
+    "start_date": datetime(2022, 1, 1),
+    "catchup": False,
+}
+
+# Handle schedule parameter change in Airflow 3.0
+if hasattr(airflow, '__version__') and airflow.__version__.startswith(('3.', '2.10', '2.9', '2.8', '2.7')):
+    # Use schedule for newer Airflow versions (2.7+)
+    dag_kwargs["schedule"] = timedelta(days=1)
+else:
+    # Use schedule_interval for older versions
+    dag_kwargs["schedule_interval"] = timedelta(days=1)
+
+# Add default_view only for older Airflow versions that support it
+if hasattr(airflow, '__version__') and not airflow.__version__.startswith('3.'):
+    dag_kwargs["default_view"] = "tree"
+
+with DAG(**dag_kwargs) as dag:
     # While it is also possible to use the PythonOperator, we recommend using
     # the PythonVirtualenvOperator to ensure that there are no dependency
     # conflicts between DataHub and the rest of your Airflow environment.

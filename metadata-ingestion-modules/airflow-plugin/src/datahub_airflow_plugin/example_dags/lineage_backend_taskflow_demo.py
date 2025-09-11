@@ -3,10 +3,17 @@
 An example DAG demonstrating the usage of DataHub's Airflow lineage backend using the TaskFlow API.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
-from airflow.utils.dates import days_ago
+
+# Conditional import for Airflow version compatibility
+try:
+    from airflow.utils.dates import days_ago
+except ImportError:
+    # days_ago was removed in Airflow 3.0, create a simple replacement
+    def days_ago(n):
+        return datetime(2025, 1, 1) - timedelta(days=n)
 
 from datahub_airflow_plugin.entities import Dataset, Urn
 
@@ -19,15 +26,29 @@ default_args = {
 }
 
 
-@dag(
-    default_args=default_args,
-    description="An example DAG demonstrating the usage of DataHub's Airflow lineage backend using the TaskFlow API.",
-    schedule_interval=timedelta(days=1),
-    start_date=days_ago(2),
-    tags=["example_tag"],
-    catchup=False,
-    default_view="tree",
-)
+# Create DAG decorator arguments conditionally for Airflow version compatibility
+import airflow
+dag_decorator_kwargs = {
+    "default_args": default_args,
+    "description": "An example DAG demonstrating the usage of DataHub's Airflow lineage backend using the TaskFlow API.",
+    "start_date": days_ago(2),
+    "tags": ["example_tag"],
+    "catchup": False,
+}
+
+# Handle schedule parameter change in Airflow 3.0
+if hasattr(airflow, '__version__') and airflow.__version__.startswith(('3.', '2.10', '2.9', '2.8', '2.7')):
+    # Use schedule for newer Airflow versions (2.7+)
+    dag_decorator_kwargs["schedule"] = timedelta(days=1)
+else:
+    # Use schedule_interval for older versions
+    dag_decorator_kwargs["schedule_interval"] = timedelta(days=1)
+
+# Add default_view only for older Airflow versions that support it
+if hasattr(airflow, '__version__') and not airflow.__version__.startswith('3.'):
+    dag_decorator_kwargs["default_view"] = "tree"
+
+@dag(**dag_decorator_kwargs)
 def datahub_lineage_backend_taskflow_demo():
     @task(
         inlets=[

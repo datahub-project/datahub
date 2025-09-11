@@ -27,6 +27,11 @@ base_requirements = {
     # We require Airflow 2.3.x at minimum, since we need the new DAG listener API.
     # We pin to 2.5.x, since we also need typing-extensions>=4.5 in acryl-datahub.
     "apache-airflow>=2.5.0",
+    # OpenLineage provider package required for Airflow 3.0+ compatibility
+    # This replaces the built-in OpenLineage support that was removed in Airflow 3.0
+    "apache-airflow-providers-openlineage>=1.0.0",
+    # FAB provider package required for Airflow 3.0+ authentication
+    "apache-airflow-providers-fab>=1.0.0",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -45,7 +50,7 @@ plugins: Dict[str, Set[str]] = {
         # We remain restrictive on the versions allowed here to prevent
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.30.1",
+        "openlineage-airflow>=1.2.0",
     },
 }
 

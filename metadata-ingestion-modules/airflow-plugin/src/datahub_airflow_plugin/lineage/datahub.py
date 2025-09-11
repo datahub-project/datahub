@@ -2,7 +2,18 @@ import json
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from airflow.configuration import conf
-from airflow.lineage.backend import LineageBackend
+
+# Conditional import for Airflow version compatibility
+try:
+    from airflow.lineage.backend import LineageBackend
+    LINEAGE_BACKEND_AVAILABLE = True
+except ImportError:
+    # airflow.lineage.backend was removed in Airflow 3.0
+    # Create a dummy base class for compatibility
+    class LineageBackend:
+        def __init__(self):
+            pass
+    LINEAGE_BACKEND_AVAILABLE = False
 
 from datahub_airflow_plugin.lineage._lineage_core import (
     DatahubLineageConfig,
@@ -53,7 +64,17 @@ class DatahubLineageBackend(LineageBackend):
 
         # By attempting to get and parse the config, we can detect configuration errors
         # ahead of time. The init method is only called in Airflow 2.x.
-        _ = get_lineage_backend_config()
+        if LINEAGE_BACKEND_AVAILABLE:
+            _ = get_lineage_backend_config()
+        else:
+            import warnings
+            warnings.warn(
+                "DataHub lineage backend is not available in Airflow 3.0+ as the lineage backend "
+                "system was removed. Consider using OpenLineage integration or manual lineage emission "
+                "through DataHub operators.",
+                DeprecationWarning,
+                stacklevel=2
+            )
 
     # With Airflow 2.0, this can be an instance method. However, with Airflow 1.10.x, this
     # method is used statically, even though LineageBackend declares it as an instance variable.
@@ -64,6 +85,10 @@ class DatahubLineageBackend(LineageBackend):
         outlets: Optional[List] = None,  # unused
         context: Optional[Dict] = None,
     ) -> None:
+        if not LINEAGE_BACKEND_AVAILABLE:
+            # Lineage backend system is not available in Airflow 3.0+
+            return
+
         config = get_lineage_backend_config()
         if not config.enabled:
             return

@@ -1,8 +1,17 @@
 from typing import List, Union
 
 from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
 from avrogen.dict_wrapper import DictWrapper
+
+# Conditional import for Airflow version compatibility
+try:
+    from airflow.utils.decorators import apply_defaults
+except ImportError:
+    # apply_defaults was removed in Airflow 3.0
+    def apply_defaults(func):
+        # In Airflow 3.0+, the default value handling is built into the BaseOperator
+        # so we just return the function unchanged
+        return func
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent

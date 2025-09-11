@@ -27,6 +27,37 @@ from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_STANDALONE_CMD,
 )
 
+
+def get_api_version() -> str:
+    """Get the correct API version for the running Airflow version."""
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        return "v2"
+    else:
+        return "v1"
+
+
+def _make_api_request(session: requests.Session, url: str, timeout: int = 5) -> requests.Response:
+    """Make an API request with v2/v1 fallback for Airflow 3.0 compatibility issues."""
+    try:
+        res = session.get(url, timeout=timeout)
+        res.raise_for_status()
+        return res
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            print(f"[DEBUG] Authentication failed (401) for {url}. Session auth: {session.auth}")
+            print(f"[DEBUG] Response: {e.response.text[:200]}")
+            raise
+        elif e.response.status_code == 404 and "/api/v2/" in url:
+            # Fallback to v1 if v2 is not available
+            fallback_url = url.replace("/api/v2/", "/api/v1/")
+            res = session.get(fallback_url, timeout=timeout)
+            res.raise_for_status()
+            return res
+        else:
+            raise
+
+
+
 pytestmark = pytest.mark.integration
 
 logger = logging.getLogger(__name__)
@@ -74,8 +105,28 @@ class AirflowInstance:
 )
 def _wait_for_airflow_healthy(airflow_port: int) -> None:
     print("Checking if Airflow is ready...")
-    res = requests.get(f"http://localhost:{airflow_port}/health", timeout=5)
-    res.raise_for_status()
+    
+    # Try the expected health endpoint for the version, with fallback
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        health_endpoints = ["/api/v2/monitor/health", "/health"]
+    else:
+        health_endpoints = ["/health"]
+    
+    res = None
+    for endpoint in health_endpoints:
+        try:
+            res = requests.get(f"http://localhost:{airflow_port}{endpoint}", timeout=5)
+            res.raise_for_status()
+            break
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404 and endpoint != health_endpoints[-1]:
+                print(f"[DEBUG] Health endpoint {endpoint} not found (404), trying next...")
+                continue
+            else:
+                raise
+    
+    if res is None:
+        raise RuntimeError("No working health endpoint found")
 
     airflow_health = res.json()
     assert airflow_health["metadatabase"]["status"] == "healthy"
@@ -96,10 +147,11 @@ def _wait_for_dag_finish(
     airflow_instance: AirflowInstance, dag_id: str, require_success: bool
 ) -> None:
     print("Checking if DAG is finished")
-    res = airflow_instance.session.get(
-        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
+    api_version = get_api_version()
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/{api_version}/dags/{dag_id}/dagRuns",
     )
-    res.raise_for_status()
 
     dag_runs = res.json()["dag_runs"]
     if not dag_runs:
@@ -123,11 +175,11 @@ def _wait_for_dag_finish(
 )
 def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
     print(f"Checking if DAG {dag_id} was loaded")
-    res = airflow_instance.session.get(
-        url=f"{airflow_instance.airflow_url}/api/v1/dags",
-        timeout=5,
+    api_version = get_api_version()
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/{api_version}/dags",
     )
-    res.raise_for_status()
 
     if len(list(filter(lambda x: x["dag_id"] == dag_id, res.json()["dags"]))) == 0:
         raise NotReadyError("DAG was not loaded yet")
@@ -135,19 +187,19 @@ def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> Non
 
 def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
     # Get the dag run info
-    res = airflow_instance.session.get(
-        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
+    api_version = get_api_version()
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/{api_version}/dags/{dag_id}/dagRuns",
     )
-    res.raise_for_status()
     dag_run = res.json()["dag_runs"][0]
     dag_run_id = dag_run["dag_run_id"]
 
     # List the tasks in the dag run
-    res = airflow_instance.session.get(
-        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
-        timeout=5,
+    res = _make_api_request(
+        airflow_instance.session,
+        f"{airflow_instance.airflow_url}/api/{api_version}/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
     )
-    res.raise_for_status()
     task_instances = res.json()["task_instances"]
 
     # Sort tasks by start_date to maintain execution order
@@ -164,7 +216,7 @@ def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
         # Get logs for the task's latest try number
         try:
             res = airflow_instance.session.get(
-                f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}"
+                f"{airflow_instance.airflow_url}/api/{api_version}/dags/{dag_id}/dagRuns/{dag_run_id}"
                 f"/taskInstances/{task_id}/logs/{try_number}",
                 params={"full_content": "true"},
                 timeout=5,
@@ -208,7 +260,7 @@ def _run_airflow(
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
         # Have the Airflow API use username/password authentication.
-        "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
+        "AIRFLOW__API__AUTH_BACKEND": "airflow.providers.fab.auth_manager.api.auth.backend.basic_auth" if AIRFLOW_VERSION >= packaging.version.parse("3.0.0") else "airflow.api.auth.backend.basic_auth",
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
@@ -262,6 +314,11 @@ def _run_airflow(
         if enable_datajob_lineage
         else "false",
     }
+    
+    # For Airflow 3.0+, explicitly set executor to SequentialExecutor since LocalExecutor 
+    # (the new default) cannot be used with SQLite
+    if AIRFLOW_VERSION >= packaging.version.parse("3.0.0"):
+        environment["AIRFLOW__CORE__EXECUTOR"] = "SequentialExecutor"
 
     if platform_instance:
         environment["AIRFLOW__DATAHUB__PLATFORM_INSTANCE"] = platform_instance
@@ -290,30 +347,46 @@ def _run_airflow(
         time.sleep(3)
 
         # Create an extra "airflow" user for easy testing.
+        # Note: In Airflow 3.0+ the users command is not available by default
+        # The standalone command auto-generates an admin user which we'll use instead
         if IS_LOCAL:
             print("Creating an extra test user...")
-            subprocess.check_call(
-                [
-                    # fmt: off
-                    "airflow",
-                    "users",
-                    "create",
-                    "--username",
-                    "airflow",
-                    "--password",
-                    "airflow",
-                    "--firstname",
-                    "admin",
-                    "--lastname",
-                    "admin",
-                    "--role",
-                    "Admin",
-                    "--email",
-                    "airflow@example.com",
-                    # fmt: on
-                ],
-                env=environment,
-            )
+            try:
+                # Check if users command is available (Airflow 2.x)
+                result = subprocess.run(
+                    ["airflow", "--help"],
+                    capture_output=True,
+                    text=True,
+                    env=environment,
+                )
+                if "users" in result.stdout:
+                    subprocess.check_call(
+                        [
+                            # fmt: off
+                            "airflow",
+                            "users",
+                            "create",
+                            "--username",
+                            "airflow",
+                            "--password",
+                            "airflow",
+                            "--firstname",
+                            "admin",
+                            "--lastname",
+                            "admin",
+                            "--role",
+                            "Admin",
+                            "--email",
+                            "airflow@example.com",
+                            # fmt: on
+                        ],
+                        env=environment,
+                    )
+                else:
+                    print("Users command not available (Airflow 3.0+) - will use auto-generated admin user")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to create user (this is expected in Airflow 3.0 without FAB provider): {e}")
+                print("Using auto-generated admin user instead")
 
         # Sanity check that the plugin got loaded.
         if not is_v1:
@@ -326,8 +399,29 @@ def _run_airflow(
         # Load the admin user's password. This is generated by the
         # `airflow standalone` command, and is different from the
         # airflow user that we create when running locally.
-        airflow_username = "admin"
-        airflow_password = (airflow_home / "standalone_admin_password.txt").read_text()
+        password_file = airflow_home / "standalone_admin_password.txt"
+        
+        # Always try to use admin credentials from standalone_admin_password.txt first
+        # The airflow standalone command should generate this file
+        if password_file.exists():
+            airflow_username = "admin"
+            airflow_password = password_file.read_text().strip()
+            print(f"[DEBUG] Using admin credentials from standalone_admin_password.txt")
+        else:
+            # Wait a bit more for the file to be created, then check again
+            print("[DEBUG] standalone_admin_password.txt not found, waiting for file creation...")
+            time.sleep(2)
+            if password_file.exists():
+                airflow_username = "admin"
+                airflow_password = password_file.read_text().strip()
+                print(f"[DEBUG] Found admin credentials after waiting")
+            else:
+                # Ultimate fallback - this shouldn't happen in Airflow 3.0 but just in case
+                print("[DEBUG] standalone_admin_password.txt still not found, this may cause authentication issues")
+                airflow_username = "admin"
+                airflow_password = "admin"  # Try default admin password
+        
+        print(f"[DEBUG] Final credentials: username={airflow_username}, password_length={len(airflow_password)}")
 
         airflow_instance = AirflowInstance(
             airflow_home=airflow_home,

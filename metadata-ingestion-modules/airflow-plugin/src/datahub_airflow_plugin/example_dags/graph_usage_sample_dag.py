@@ -9,11 +9,22 @@ from datahub.ingestion.graph.client import DataHubGraph, RemovedStatusFilter
 from datahub_airflow_plugin.hooks.datahub import DatahubRestHook
 
 
-@dag(
-    schedule_interval=timedelta(days=1),
-    start_date=pendulum.datetime(2021, 1, 1, tz="UTC"),
-    catchup=False,
-)
+# Create DAG decorator arguments conditionally for Airflow version compatibility
+import airflow
+dag_decorator_kwargs = {
+    "start_date": pendulum.datetime(2021, 1, 1, tz="UTC"),
+    "catchup": False,
+}
+
+# Handle schedule parameter change in Airflow 3.0
+if hasattr(airflow, '__version__') and airflow.__version__.startswith(('3.', '2.10', '2.9', '2.8', '2.7')):
+    # Use schedule for newer Airflow versions (2.7+)
+    dag_decorator_kwargs["schedule"] = timedelta(days=1)
+else:
+    # Use schedule_interval for older versions
+    dag_decorator_kwargs["schedule_interval"] = timedelta(days=1)
+
+@dag(**dag_decorator_kwargs)
 def datahub_graph_usage_sample_dag():
     @task()
     def use_the_graph():

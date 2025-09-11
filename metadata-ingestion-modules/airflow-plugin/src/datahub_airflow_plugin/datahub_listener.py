@@ -387,10 +387,7 @@ class DataHubListener:
     @hookimpl
     @run_in_thread
     def on_task_instance_running(
-        self,
-        previous_state: None,
-        task_instance: "TaskInstance",
-        session: "Session",  # This will always be QUEUED
+        self, previous_state, task_instance: "TaskInstance", session=None
     ) -> None:
         if self.check_kill_switch():
             return
@@ -566,7 +563,7 @@ class DataHubListener:
     @hookimpl
     @run_in_thread
     def on_task_instance_success(
-        self, previous_state: None, task_instance: "TaskInstance", session: "Session"
+        self, previous_state, task_instance: "TaskInstance", session=None
     ) -> None:
         if self.check_kill_switch():
             return
@@ -584,7 +581,7 @@ class DataHubListener:
     @hookimpl
     @run_in_thread
     def on_task_instance_failed(
-        self, previous_state: None, task_instance: "TaskInstance", session: "Session"
+        self, previous_state, task_instance: "TaskInstance", session=None
     ) -> None:
         if self.check_kill_switch():
             return
