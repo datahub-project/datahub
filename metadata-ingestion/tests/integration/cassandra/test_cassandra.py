@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import shutil
 import ssl
@@ -7,6 +8,16 @@ import time
 from unittest.mock import patch
 
 import pytest
+
+# Force Cassandra to use the pure-Python asyncore reactor in tests to avoid libev C-extension segfaults.
+# This must run before any Cassandra Cluster/Connection is created or the driver chooses a reactor.
+os.environ["CASSANDRA_IO_LIBEV"] = "false"  # Disable libev reactor
+try:
+    from cassandra.io import asyncorereactor
+
+    asyncorereactor.install()
+except Exception as e:
+    print("Warning: failed to install Cassandra asyncorereactor:", e)
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.cassandra.cassandra_api import CassandraAPI
@@ -93,10 +104,17 @@ def test_cassandra_ssl_configuration():
         report = SourceReport()
         api = CassandraAPI(config, report)
 
-        # Mock the SSL context creation to avoid file system dependencies
-        with patch("ssl.SSLContext") as mock_ssl_context:
+        # Mock the SSL context creation and Cluster to avoid file system dependencies and connection attempts
+        with (
+            patch("ssl.SSLContext") as mock_ssl_context,
+            patch("cassandra.cluster.Cluster") as mock_cluster,
+        ):
             mock_context = mock_ssl_context.return_value
             mock_context.load_verify_locations.return_value = None
+
+            # Mock the cluster and session
+            mock_cluster_instance = mock_cluster.return_value
+            mock_cluster_instance.connect.return_value = None
 
             # Test that SSL context is created with correct protocol
             try:
@@ -159,11 +177,18 @@ def test_cassandra_ssl_certificate_validation():
         report = SourceReport()
         api = CassandraAPI(config, report)
 
-        # Mock the SSL context to avoid actual file loading
-        with patch("ssl.SSLContext") as mock_ssl_context:
+        # Mock the SSL context and Cluster to avoid actual connection attempts
+        with (
+            patch("ssl.SSLContext") as mock_ssl_context,
+            patch("cassandra.cluster.Cluster") as mock_cluster,
+        ):
             mock_context = mock_ssl_context.return_value
             mock_context.load_verify_locations.return_value = None
             mock_context.load_cert_chain.return_value = None
+
+            # Mock the cluster and session
+            mock_cluster_instance = mock_cluster.return_value
+            mock_cluster_instance.connect.return_value = None
 
             # Test that SSL context is created and certificates are loaded
             try:
@@ -229,9 +254,16 @@ def test_cassandra_ssl_missing_certificate_file_error():
     api = CassandraAPI(config, report)
 
     # Mock the SSL context creation to avoid connection attempts
-    with patch("ssl.SSLContext") as mock_ssl_context:
+    with (
+        patch("ssl.SSLContext") as mock_ssl_context,
+        patch("cassandra.cluster.Cluster") as mock_cluster,
+    ):
         mock_context = mock_ssl_context.return_value
         mock_context.load_verify_locations.return_value = None
+
+        # Mock the cluster and session
+        mock_cluster_instance = mock_cluster.return_value
+        mock_cluster_instance.connect.return_value = None
 
         # Test that authentication fails with proper error message
         result = api.authenticate()
@@ -260,9 +292,16 @@ def test_cassandra_ssl_missing_keyfile_error():
     api = CassandraAPI(config, report)
 
     # Mock the SSL context creation to avoid connection attempts
-    with patch("ssl.SSLContext") as mock_ssl_context:
+    with (
+        patch("ssl.SSLContext") as mock_ssl_context,
+        patch("cassandra.cluster.Cluster") as mock_cluster,
+    ):
         mock_context = mock_ssl_context.return_value
         mock_context.load_verify_locations.return_value = None
+
+        # Mock the cluster and session
+        mock_cluster_instance = mock_cluster.return_value
+        mock_cluster_instance.connect.return_value = None
 
         # Test that authentication fails with proper error message
         result = api.authenticate()
