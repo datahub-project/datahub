@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import StrEnum
 from functools import cached_property
-from typing import Literal, cast
+from typing import Callable, Literal, cast
 
 from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import Aspect
@@ -107,19 +107,18 @@ class BulkBootstrapActionConfig(ConfigModel):
         ),
     )
 
-    num_urns_per_slice: int | None = Field(
-        default=None,
-        description=(
-            "Allows configuring the number of slices based on the total number of urns to boostrap. "
-            "Will issue a preliminary query to determine the approximate number of urns to bootstrap."
-        ),
-    )
-
     cache_aspects_on_disk: bool = Field(
         default=False,
         description=(
             "If True, aspects will be cached on disk to avoid fetching them multiple times. "
             "This is useful for actions that fetch the same aspects for multiple bootstrap urns."
+        ),
+    )
+
+    pit_keep_alive: str | None = Field(
+        default=None,
+        description=(
+            "How long to keep the point-in-time (PIT) alive for when scrolling entities or relationships."
         ),
     )
 
@@ -205,11 +204,7 @@ class BulkBootstrapAction(ReportingAction, ABC):
         # TODO: Support multiple sets of aspect lists, e.g. one for bootstrap query, one for batchGet
 
     def bootstrap_batch(self, entities: list[EntityWithData]) -> None:
-        """Bootstraps a single urn with the given aspects, with error handling.
-
-        Args:
-            entities: Urns with aspects attached to bootstrap.
-        """
+        """Bootstraps a batch of urns with the given aspects, with error handling."""
         try:
             self._bootstrap_batch_internal(entities)
         except Exception as e:
@@ -217,7 +212,18 @@ class BulkBootstrapAction(ReportingAction, ABC):
 
     @abstractmethod
     def _bootstrap_batch_internal(self, entities: list[EntityWithData]) -> None:
-        """Bootstraps a single urn with the given aspects, to be implemented by subclasses."""
+        """Bootstraps a batch of urns with the given aspects, to be implemented by subclasses."""
+
+    def rollback_batch(self, entities: list[EntityWithData]) -> None:
+        """Rolls back a batch of urns with the given aspects, with error handling."""
+        try:
+            self._rollback_batch_internal(entities)
+        except Exception as e:
+            logger.warning(e, exc_info=True)
+
+    @abstractmethod
+    def _rollback_batch_internal(self, entities: list[EntityWithData]) -> None:
+        """Rolls back a single urn with the given aspects, to be implemented by subclasses."""
 
     def close(self) -> None:
         self.report.end(success=False)
@@ -245,39 +251,68 @@ class BulkBootstrapAction(ReportingAction, ABC):
         self.report.start()
         success = True
         try:
-            self._bootstrap()
+            with BoundedThreadPoolExecutor(
+                max_workers=self.config.num_threads_per_worker,
+                max_pending=self.config.max_bootstrap_tasks,
+            ) as executor:
+                self._bulk_process(batch_fn=self.bootstrap_batch, executor=executor)
         except Exception as e:
             logger.warning(f"Error bootstrapping action: {e}", exc_info=True)
             success = False
         self.report.end(success=success)
 
-    def _bootstrap(self) -> None:
-        with BoundedThreadPoolExecutor(
-            max_workers=self.config.num_threads_per_worker,
-            max_pending=self.config.max_bootstrap_tasks,
-        ) as executor:
-            match self.bootstrap_urns_endpoint():
-                case BootstrapEndpoint.ENTITY_SCROLL, entity_type:
-                    self._bootstrap_via_entity_scroll(
-                        entity_type=cast(str, entity_type),
-                        slice=self.config.slice,
-                        executor=executor,
-                    )
-                case (
-                    BootstrapEndpoint.RELATIONSHIP_SCROLL,
-                    relationship_type,
-                    is_source,
-                ):
-                    self._bootstrap_via_relationship_scroll(
-                        relationship_type=cast(str, relationship_type),
-                        is_source=cast(bool, is_source),
-                        slice=self.config.slice,
-                        executor=executor,
-                    )
-                case _:
-                    raise NotImplementedError(
-                        f"Bootstrap endpoint and args {self.bootstrap_urns_endpoint()} not supported."
-                    )
+    def rollback(self) -> None:
+        """Rollback the action, emitting proposals to undo all changes as if the action never ran.
+
+        Should not emit unnecessary proposals.
+        """
+        if self.is_monitoring_process():
+            return
+
+        self.report.start()
+        success = True
+        try:
+            with BoundedThreadPoolExecutor(
+                max_workers=self.config.num_threads_per_worker,
+                max_pending=self.config.max_bootstrap_tasks,
+            ) as executor:
+                self._bulk_process(batch_fn=self.rollback_batch, executor=executor)
+        except Exception as e:
+            logger.warning(f"Error rolling back action: {e}", exc_info=True)
+            success = False
+        self.report.end(success=success)
+
+    def _bulk_process(
+        self,
+        *,
+        executor: BoundedThreadPoolExecutor,
+        batch_fn: Callable[[list[EntityWithData]], None],
+    ) -> None:
+        endpoint = self.bootstrap_urns_endpoint()
+        match endpoint:
+            case BootstrapEndpoint.ENTITY_SCROLL, entity_type:
+                self._bulk_process_via_entity_scroll(
+                    entity_type=cast(str, entity_type),
+                    slice=self.config.slice,
+                    executor=executor,
+                    batch_fn=batch_fn,
+                )
+            case (
+                BootstrapEndpoint.RELATIONSHIP_SCROLL,
+                relationship_type,
+                is_source,
+            ):
+                self._bulk_process_via_relationship_scroll(
+                    relationship_type=cast(str, relationship_type),
+                    is_source=cast(bool, is_source),
+                    slice=self.config.slice,
+                    executor=executor,
+                    batch_fn=batch_fn,
+                )
+            case _:
+                raise NotImplementedError(
+                    f"Bootstrap endpoint and args {endpoint} not supported."
+                )
 
     def monitor_bootstrap(self) -> None:
         """Stay alive to merge reports until all workers finish"""
@@ -291,42 +326,18 @@ class BulkBootstrapAction(ReportingAction, ABC):
         if not self.config.num_remote_workers:
             return 1
 
-        if self.config.num_urns_per_slice:
-            endpoint_info = self.bootstrap_urns_endpoint()
-            match endpoint_info:
-                case BootstrapEndpoint.ENTITY_SCROLL, entity_type:
-                    response = self._execute_entity_scroll(
-                        cast(str, entity_type), only_check_total=True
-                    )
-                case (
-                    BootstrapEndpoint.RELATIONSHIP_SCROLL,
-                    relationship_type,
-                ):
-                    response = self._execute_batch_relationship_query(
-                        cast(str, relationship_type)
-                    )
-                case _:
-                    raise NotImplementedError(
-                        f"Bootstrap endpoint and args {endpoint_info} not supported."
-                    )
-            try:
-                total = int(response.get("numEntities", 0))
-            except ValueError:
-                self.report.warnings.append(
-                    f"Failed to compute num_slices based on search total urns on {endpoint_info}."
-                )
-                total = None
-            if total:
-                return int(total / self.config.num_urns_per_slice)
-
         return int(self.config.num_remote_workers / DEFAULT_NUM_SLICES_PER_WORKER)
 
     @property
     def _bootstrap_aspect_names(self) -> list[str]:
         return [aspect.ASPECT_NAME for aspect in self.bootstrap_aspects()]
 
-    def _bootstrap_via_entity_scroll(
-        self, entity_type: str, slice: int | None, executor: BoundedThreadPoolExecutor
+    def _bulk_process_via_entity_scroll(
+        self,
+        entity_type: str,
+        slice: int | None,
+        executor: BoundedThreadPoolExecutor,
+        batch_fn: Callable[[list[EntityWithData]], None],
     ) -> None:
         first = True
         scroll_id: str | None = None
@@ -334,6 +345,7 @@ class BulkBootstrapAction(ReportingAction, ABC):
             first = False
             response = self._execute_entity_scroll(
                 entity_type,
+                query=self.bootstrap_urns_query(),
                 slice_id=slice,
                 scroll_id=scroll_id if isinstance(scroll_id, str) else None,
             )
@@ -345,15 +357,16 @@ class BulkBootstrapAction(ReportingAction, ABC):
                 if parsed_entity:
                     entities.append(parsed_entity)
 
-            executor.submit(self.bootstrap_batch, entities)
+            executor.submit(batch_fn, entities)
             scroll_id = response.get("scrollId")
 
-    def _bootstrap_via_relationship_scroll(
+    def _bulk_process_via_relationship_scroll(
         self,
         relationship_type: str,
         is_source: bool,
         slice: int | None,
         executor: BoundedThreadPoolExecutor,
+        batch_fn: Callable[[list[EntityWithData]], None],
     ) -> None:
         first = True
         scroll_id: str | None = None
@@ -389,7 +402,7 @@ class BulkBootstrapAction(ReportingAction, ABC):
                         )
                     )
 
-            executor.submit(self.bootstrap_batch, entities)
+            executor.submit(batch_fn, entities)
             scroll_id = response.get("scrollId")
 
     def _batch_augment_entities_with_aspects(
@@ -425,13 +438,21 @@ class BulkBootstrapAction(ReportingAction, ABC):
             )
 
         entity = entities[0]
-        related_entities = self.ctx.graph.graph.get_related_entities(
-            entity.urn,
-            [relationship_to_fetch],
-            DataHubGraph.RelationshipDirection.OUTGOING
-            if is_source
-            else DataHubGraph.RelationshipDirection.INCOMING,
-        )
+        try:
+            related_entities = self.ctx.graph.graph.get_related_entities(
+                entity.urn,
+                [relationship_to_fetch],
+                DataHubGraph.RelationshipDirection.OUTGOING
+                if is_source
+                else DataHubGraph.RelationshipDirection.INCOMING,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error fetching related entities for {entity.urn} with relationships {relationship_to_fetch}: {e}",
+                exc_info=True,
+            )
+            return
+
         for related_entity in related_entities:
             entity.get_relationships(is_source).setdefault(
                 relationship_to_fetch, []
@@ -452,17 +473,24 @@ class BulkBootstrapAction(ReportingAction, ABC):
         ]
 
         # Not actually a restli request
-        return self.ctx.graph.graph._send_restli_request(
-            "POST", url, params=params, json=body
-        )
+        try:
+            return self.ctx.graph.graph._send_restli_request(
+                "POST", url, params=params, json=body
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error executing batch get to {url} with body {body}: {e}",
+                exc_info=True,
+            )
+            return {}
 
     def _execute_entity_scroll(
         self,
         entity_type: str,
         *,
+        query: str | None = None,
         slice_id: int | None = None,
         scroll_id: str | None = None,
-        only_check_total: bool = False,
     ) -> dict:
         url = f"{self.ctx.graph.graph._gms_server.rstrip('/')}/openapi/v3/entity/{entity_type}"
         params = {
@@ -470,13 +498,21 @@ class BulkBootstrapAction(ReportingAction, ABC):
             "includeSoftDelete": False,
             "skipCache": False,
             "aspects": self._bootstrap_aspect_names,
-            "query": self.bootstrap_urns_query(),
-            "count": 1 if only_check_total else self.batch_size,
-            "scrollId": None if only_check_total else scroll_id,
-            "sliceId": None if only_check_total else slice_id,
-            "sliceMax": None if only_check_total else self.num_slices,
+            "query": query,
+            "count": self.batch_size,
+            "scrollId": scroll_id,
+            "sliceId": slice_id,
+            "sliceMax": self.num_slices if slice_id else None,
+            "pitKeepAlive": self.config.pit_keep_alive,
         }
-        return self.ctx.graph.graph._get_generic(url, params=params)
+        try:
+            return self.ctx.graph.graph._get_generic(url, params=params)
+        except Exception as e:
+            logger.warning(
+                f"Error executing entity scroll to {url} with params {params}: {e}",
+                exc_info=True,
+            )
+            return {}
 
     def _execute_batch_relationship_query(
         self,
@@ -492,9 +528,17 @@ class BulkBootstrapAction(ReportingAction, ABC):
             "count": ASPECTS_PER_BATCH,
             "scrollId": scroll_id,
             "sliceId": slice_id,
-            "sliceMax": self.num_slices,
+            "sliceMax": self.num_slices if slice_id else None,
+            "pitKeepAlive": self.config.pit_keep_alive,
         }
-        return self.ctx.graph.graph._get_generic(url, params=params)
+        try:
+            return self.ctx.graph.graph._get_generic(url, params=params)
+        except Exception as e:
+            logger.warning(
+                f"Error executing relationship scroll to {url} with params {params}: {e}",
+                exc_info=True,
+            )
+            return {}
 
     def _parse_search_entity(
         self, search_entity: dict, aspects_to_fetch: list[type[_Aspect]]
@@ -515,7 +559,8 @@ class BulkBootstrapAction(ReportingAction, ABC):
             }
         except Exception as e:
             logger.warning(
-                f"Failed to parse aspects for urn {urn}: {e}, {search_entity}"
+                f"Failed to parse aspects for urn {urn}: {e}, {search_entity}",
+                exc_info=True,
             )
             return None
 

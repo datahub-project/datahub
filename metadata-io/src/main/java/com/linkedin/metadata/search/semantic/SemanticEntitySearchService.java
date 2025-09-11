@@ -23,6 +23,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchResultUtils;
+import com.linkedin.metadata.utils.SearchUtil;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -181,11 +182,20 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
           entityNames);
     }
 
-    // 5) Build filters using ESUtils with proper field types
-    Map<String, Object> finalFilterMap =
+    // 5) Transform virtual filters (like _entityType) to actual semantic index fields
+    // This transformation converts _entityType filters to _index filters with _semantic suffix
+    SemanticIndexConvention semanticIndexConvention =
+        new SemanticIndexConvention(opContext.getSearchContext().getIndexConvention());
+    Filter transformedFilters =
         postFilters != null
+            ? SearchUtil.transformFilterForEntities(postFilters, semanticIndexConvention)
+            : null;
+
+    // 6) Build filters using ESUtils with proper field types
+    Map<String, Object> finalFilterMap =
+        transformedFilters != null
             ? ESUtils.buildFilterMap( // Use the new method that delegates to buildFilterQuery
-                postFilters,
+                transformedFilters, // Use transformed filters instead of raw postFilters
                 false, // not timeseries
                 searchableFieldTypes,
                 opContext,
@@ -200,7 +210,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             normalizedPageSize,
             Math.min(MAX_K, (int) Math.ceil(needed * DEFAULT_OVERSAMPLE_FACTOR)));
 
-    // 6) Build field set using same logic as keyword search
+    // 7) Build field set using same logic as keyword search
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     Set<String> fieldsToFetch =
         new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
@@ -208,19 +218,19 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
       fieldsToFetch.addAll(searchFlags.getFetchExtraFields());
     }
 
-    // 7) Execute OpenSearch nested kNN query with pre-filtering inside kNN
+    // 8) Execute OpenSearch nested kNN query with pre-filtering inside kNN
     List<SearchEntity> hits =
         executeKnn(
             opContext.getObjectMapper(), indices, queryEmbedding, k, finalFilterMap, fieldsToFetch);
 
-    // 8) Slice [from, from+pageSize)
+    // 9) Slice [from, from+pageSize)
     if (from >= hits.size()) {
       return emptyResult(from, normalizedPageSize);
     }
     int to = Math.min(hits.size(), from + normalizedPageSize);
     List<SearchEntity> page = hits.subList(from, to);
 
-    // 9) Build SearchResult following keyword search pattern
+    // 10) Build SearchResult following keyword search pattern
     // Note: For k-NN, numEntities represents the total candidates found (after filtering),
     // not total documents in index. With track_total_hits=false, hits.size() is our best estimate.
     SearchResultMetadata metadata =

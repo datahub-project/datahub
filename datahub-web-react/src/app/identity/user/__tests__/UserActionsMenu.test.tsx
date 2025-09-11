@@ -63,6 +63,29 @@ vi.mock('@src/alchemy-components', () => ({
             </div>
         </div>
     ),
+    Menu: ({ children, items }: any) => (
+        <div data-testid="menu">
+            {children}
+            <div data-testid="menu-items">
+                {items?.map((item: any) => (
+                    <div
+                        key={item.key}
+                        data-testid={
+                            item.key === 'resend-invitation' ? 'resend-invitation-menu-item' : `menu-item-${item.key}`
+                        }
+                        style={{ opacity: item.disabled ? '0.5' : '1' }}
+                        onClick={item.disabled ? undefined : item.onClick}
+                        onKeyDown={item.disabled ? undefined : item.onClick}
+                        role="button"
+                        tabIndex={0}
+                    >
+                        {item.title}
+                    </div>
+                ))}
+            </div>
+        </div>
+    ),
+    Icon: ({ icon, source, size }: any) => <div data-testid={`icon-${icon}`} data-source={source} data-size={size} />,
     Pill: ({ label }: { label: string }) => <span data-testid="pill">{label}</span>,
     Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
     Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

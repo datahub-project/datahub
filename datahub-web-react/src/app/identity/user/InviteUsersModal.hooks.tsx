@@ -17,7 +17,7 @@ export function useInviteUsersModal(options?: UseInviteUsersModalOptions) {
     const emailInvitations = useEmailInvitations();
     const inviteTokens = useInviteTokens(roleManagement.selectedRole);
 
-    // Only load recommendations when modal is open
+    // Load recommendations with proper filtering
     const userRecommendations = useUserRecommendations({
         ...recommendationsOptions,
         skip: !modalOpen, // Skip query when modal is closed

@@ -47,8 +47,8 @@ public class GetUserRecommendationsResolver
   private static final String DEFAULT_QUERY = "";
 
   // OpenSearch field mappings (based on actual index mapping)
-  private static final String USAGE_TOTAL_FIELD = "userUsageTotalPast30DaysFeature";
-  private static final String USAGE_PERCENTILE_FIELD = "userUsagePercentilePast30DaysFeature";
+  private static final String USAGE_TOTAL_FIELD = "userUsageTotalPast30Days";
+  private static final String USAGE_PERCENTILE_FIELD = "userUsagePercentilePast30Days";
   private static final String INVITATION_STATUS_FIELD = "invitationStatus";
 
   private final EntityClient _entityClient;
@@ -68,6 +68,8 @@ public class GetUserRecommendationsResolver
           bindArgument(environment.getArgument("input"), GetUserRecommendationsInput.class);
 
       final Integer limit = input.getLimit() == null ? DEFAULT_LIMIT : input.getLimit();
+      final Integer start = input.getStart() == null ? 0 : input.getStart();
+      final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
       final UserUsageSortField sortBy =
           input.getSortBy() == null ? DEFAULT_SORT_FIELD : input.getSortBy();
       final String platformFilter = input.getPlatformFilter();
@@ -78,39 +80,52 @@ public class GetUserRecommendationsResolver
               // Build filter to exclude invited users and optionally filter by platform
               final Filter filter = buildFilter(platformFilter);
 
-              // Build sort criteria based on usage metrics
-              final List<SortCriterion> sortCriteria = buildSortCriteria(sortBy);
+              // Build sort criteria with fallback for better sorting reliability
+              final List<SortCriterion> sortCriteria = buildSortCriteriaWithFallback(sortBy);
 
-              // Search for users with usage-based ranking
+              // Use searchAcrossEntities for more robust search infrastructure
               final SearchResult gmsResult =
-                  _entityClient.search(
+                  _entityClient.searchAcrossEntities(
                       context
                           .getOperationContext()
-                          .withSearchFlags(flags -> flags.setFulltext(false)),
-                      CORP_USER_ENTITY_NAME,
-                      DEFAULT_QUERY,
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
+                      Collections.singletonList(CORP_USER_ENTITY_NAME),
+                      query,
                       filter,
+                      start,
+                      limit,
                       sortCriteria,
-                      0,
-                      limit);
+                      Collections.emptyList(), // facets
+                      null // predicateJson
+                      );
 
               // Hydrate users with full entity data including usage features
+              // Preserve the original search order by maintaining the ordered list of URNs
+              final List<Urn> orderedUrns =
+                  gmsResult.getEntities().stream()
+                      .map(SearchEntity::getEntity)
+                      .collect(Collectors.toList());
+
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
                       context.getOperationContext(),
                       CORP_USER_ENTITY_NAME,
-                      new HashSet<>(
-                          gmsResult.getEntities().stream()
-                              .map(SearchEntity::getEntity)
-                              .collect(Collectors.toList())),
+                      new HashSet<>(orderedUrns),
                       null);
 
-              // Build result
+              // Build result preserving the original search sort order
               final GetUserRecommendationsResult result = new GetUserRecommendationsResult();
               result.setStart(gmsResult.getFrom());
               result.setCount(gmsResult.getPageSize());
               result.setTotal(gmsResult.getNumEntities());
-              result.setUsers(mapEntities(context, entities.values()));
+
+              // Map entities in the same order as returned by the search
+              final List<EntityResponse> orderedEntities =
+                  orderedUrns.stream()
+                      .map(entities::get)
+                      .filter(entity -> entity != null)
+                      .collect(Collectors.toList());
+              result.setUsers(mapEntities(context, orderedEntities));
 
               return result;
             } catch (Exception e) {
@@ -171,23 +186,39 @@ public class GetUserRecommendationsResolver
     return filter;
   }
 
-  private List<SortCriterion> buildSortCriteria(final UserUsageSortField sortBy) {
-    final SortCriterion sortCriterion = new SortCriterion();
-    sortCriterion.setOrder(SortOrder.DESCENDING);
+  private List<SortCriterion> buildSortCriteriaWithFallback(final UserUsageSortField sortBy) {
+    final List<SortCriterion> sortCriteria = new ArrayList<>();
+
+    // Primary sort criterion based on requested field
+    final SortCriterion primarySort = new SortCriterion();
+    primarySort.setOrder(SortOrder.DESCENDING);
 
     switch (sortBy) {
       case USAGE_TOTAL_PAST_30_DAYS:
-        sortCriterion.setField(USAGE_TOTAL_FIELD);
+        primarySort.setField(USAGE_TOTAL_FIELD);
         break;
       case USAGE_PERCENTILE_PAST_30_DAYS:
-        sortCriterion.setField(USAGE_PERCENTILE_FIELD);
-        break;
+        primarySort.setField(USAGE_PERCENTILE_FIELD);
+        // Add fallback to usage total when percentile data is unavailable/sparse
+        final SortCriterion fallbackSort = new SortCriterion();
+        fallbackSort.setField(USAGE_TOTAL_FIELD);
+        fallbackSort.setOrder(SortOrder.DESCENDING);
+        sortCriteria.add(primarySort);
+        sortCriteria.add(fallbackSort);
+        return sortCriteria;
       default:
-        sortCriterion.setField(USAGE_TOTAL_FIELD);
+        primarySort.setField(USAGE_TOTAL_FIELD);
         break;
     }
 
-    return Collections.singletonList(sortCriterion);
+    // For non-percentile sorts, add username as tie-breaker for consistency
+    sortCriteria.add(primarySort);
+    final SortCriterion tieBreaker = new SortCriterion();
+    tieBreaker.setField("username");
+    tieBreaker.setOrder(SortOrder.ASCENDING);
+    sortCriteria.add(tieBreaker);
+
+    return sortCriteria;
   }
 
   private static List<CorpUser> mapEntities(

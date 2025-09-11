@@ -56,6 +56,7 @@ const DisplayNameContainer = styled.span`
 `;
 
 const ColumnName = styled.span`
+    color: ${colors.gray[600]};
     font-family: 'Roboto Mono', monospace;
     font-weight: bold;
 `;

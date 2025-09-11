@@ -1,6 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
 import { Button, PageTitle, Pill } from '@src/alchemy-components';
 import { colors } from '@src/alchemy-components/theme';
 
@@ -60,15 +62,11 @@ export const TabTitleWithCount = ({ name, count }: TabTitleWithCountProps) => (
 
 type ManageIdentitiesHeaderProps = {
     version?: string;
-    canManagePolicies: boolean;
+    canManageUsers: boolean;
     onInviteUsers: () => void;
 };
 
-export const ManageUsersAndGroupsHeader = ({
-    version,
-    canManagePolicies,
-    onInviteUsers,
-}: ManageIdentitiesHeaderProps) => (
+export const ManageUsersAndGroupsHeader = ({ version, canManageUsers, onInviteUsers }: ManageIdentitiesHeaderProps) => (
     <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
         <HeaderLeft>
             <PageTitle
@@ -77,7 +75,19 @@ export const ManageUsersAndGroupsHeader = ({
             />
         </HeaderLeft>
         <HeaderRight>
-            <Button variant="filled" isDisabled={!canManagePolicies} onClick={onInviteUsers}>
+            <Button
+                variant="filled"
+                isDisabled={!canManageUsers}
+                onClick={() => {
+                    // Track invite users CTA click
+                    analytics.event({
+                        type: EventType.ClickInviteUsersCTAEvent,
+                        source: 'settings_page',
+                    });
+
+                    onInviteUsers();
+                }}
+            >
                 Invite Users
             </Button>
         </HeaderRight>

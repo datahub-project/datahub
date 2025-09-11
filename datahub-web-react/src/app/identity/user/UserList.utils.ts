@@ -49,10 +49,16 @@ export const filterUsersByStatus = (users: UserListItem[], statusFilter: string)
     });
 };
 
-export const STATUS_FILTER_OPTIONS = [
+type StatusFilterOption = {
+    label: string;
+    value: string;
+    disabled?: boolean;
+};
+
+export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
     { label: 'Status', value: 'all' },
     { label: 'Active', value: 'active' },
-    { label: 'Suspended', value: 'suspended' },
     { label: 'Invited', value: 'invited' },
-    { label: 'Inactive', value: 'inactive' },
+    // { label: 'Inactive', value: 'inactive'}, // disabled for now: filtering on status=null doesn't seem to work
+    // { label: 'Suspended', value: 'suspended' },
 ];

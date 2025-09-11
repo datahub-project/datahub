@@ -23,6 +23,18 @@ This is over and above updating-datahub.md file
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment variables
+
+## v0.3.13
+
+### Breaking Changes
+
 - The `DATAHUB_SLACK_AT_MENTION_ENABLED` environment variable has been completely removed from integrations-service. The @DataHub bot mention functionality is now controlled via an admin-configurable toggle in the DataHub UI under Settings > AI. The default / fallback value when nothing has been toggled in the UI is now provided by `SLACK_AT_MENTION_DEFAULT_ENABLED` in GMS. See [#6281](https://github.com/acryldata/datahub-fork/pull/6281). Note that this was gracefully migrated by https://github.com/acryldata/datahub-helm-fork/pull/680.
 
 ### Potential Downtime

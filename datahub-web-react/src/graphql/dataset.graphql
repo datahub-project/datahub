@@ -219,9 +219,7 @@ fragment nonSiblingDatasetFields on Dataset {
     logicalParent {
         urn
         type
-        ... on Dataset {
-            ...nonSiblingsDatasetSearchFields
-        }
+        ...logicalParentOrChildFields
     }
     physicalChildren: relationships(
         input: { types: ["PhysicalInstanceOf"], direction: INCOMING, start: 0, count: 10 }
@@ -233,9 +231,7 @@ fragment nonSiblingDatasetFields on Dataset {
             entity {
                 urn
                 type
-                ... on Dataset {
-                    ...nonSiblingsDatasetSearchFields
-                }
+                ...logicalParentOrChildFields
             }
             direction
             type

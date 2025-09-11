@@ -73,7 +73,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
 
     const defaultIcon =
         platform?.urn === LOGICAL_PLATFORM_URN ? (
-            <LogicalPlatformDefaultIcon />
+            <LogicalPlatformDefaultIcon size={size} />
         ) : (
             entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
         );

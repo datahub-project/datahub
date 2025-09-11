@@ -7,11 +7,14 @@ import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/
 import { scrollToTop } from '@app/shared/searchUtils';
 
 import { useListRolesQuery } from '@graphql/role.generated';
-import { ListUsersQuery, useListUsersQuery } from '@graphql/user.generated';
+import { ListUsersAndGroupsQuery, useListUsersAndGroupsQuery } from '@graphql/user.generated';
 import { DataHubRole, SortOrder } from '@types';
 
 // Type alias for the user data returned by the GraphQL query
-export type UserListItem = NonNullable<NonNullable<ListUsersQuery['listUsers']>['users'][0]>;
+export type UserListItem = Extract<
+    NonNullable<NonNullable<ListUsersAndGroupsQuery['listUsersAndGroups']>['searchResults'][0]['entity']>,
+    { __typename?: 'CorpUser' }
+>;
 
 export const useUserListState = () => {
     const location = useLocation();
@@ -58,9 +61,30 @@ export const useUserListData = (
     sortInput?: { field: string; sortOrder: SortOrder },
     statusFilter?: string,
 ) => {
-    const isFiltering = statusFilter && statusFilter !== 'all';
-    const start = isFiltering ? 0 : (page - 1) * pageSize;
-    const count = isFiltering ? 1000 : pageSize; // Use a large number to get all users when filtering
+    const start = (page - 1) * pageSize;
+    const count = pageSize;
+
+    // Build filters for status filtering
+    const buildFilters = (statusFilterParam?: string) => {
+        if (!statusFilterParam || statusFilterParam === 'all') {
+            return undefined;
+        }
+
+        switch (statusFilterParam.toLowerCase()) {
+            case 'active':
+                return [{ field: 'active', values: ['true'] }];
+            case 'suspended':
+                return [{ field: 'status', values: ['SUSPENDED'] }];
+            case 'invited':
+                return [{ field: 'invitationStatus', values: ['SENT'] }];
+            case 'inactive':
+                return [{ field: 'active', values: ['false'] }];
+            default:
+                return undefined;
+        }
+    };
+
+    const filters = buildFilters(statusFilter);
 
     const {
         loading: usersLoading,
@@ -68,12 +92,13 @@ export const useUserListData = (
         data: usersData,
         client,
         refetch: usersRefetch,
-    } = useListUsersQuery({
+    } = useListUsersAndGroupsQuery({
         variables: {
             input: {
                 start,
                 count,
-                query: (query?.length && query) || undefined,
+                query: query || '*',
+                filters,
                 sortInput: sortInput
                     ? {
                           sortCriteria: [
@@ -103,7 +128,7 @@ export const useUserListData = (
         },
     });
 
-    const totalUsers = usersData?.listUsers?.total || 0;
+    const totalUsers = usersData?.listUsersAndGroups?.total || 0;
     const loading = usersLoading || rolesLoading;
     const error = usersError || rolesError;
     const selectRoleOptions = rolesData?.listRoles?.roles?.map((role) => role as DataHubRole) || [];
