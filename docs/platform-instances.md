@@ -23,7 +23,7 @@ As part of the `v0.8.24+` releases, we are unlocking the first phase of supporti
 
 Many organizations face a critical challenge: **URNs serve dual purposes** - they are both internal system identifiers AND visible user-facing identifiers in the DataHub UI. This creates a conflict when organizational taxonomy changes (domains, products, systems) because:
 
-1. **Metadata Loss**: When URNs change, all metadata added outside of ingestion (descriptions, tags, lineage, ownership) is lost
+1. **Orphaned Assets**: When URNs change, all metadata added outside of ingestion (descriptions, tags, lineage, ownership) associated with the old asset
 2. **Integration Disruption**: Downstream applications and integrations that rely on specific URNs break
 3. **User Confusion**: URNs visible in the UI become outdated and misleading
 4. **Operational Overhead**: Teams must migrate all references to new URNs
