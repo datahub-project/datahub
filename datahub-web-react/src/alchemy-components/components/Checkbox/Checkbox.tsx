@@ -31,6 +31,7 @@ export const Checkbox = ({
     setIsChecked = checkboxDefaults.setIsChecked,
     size = checkboxDefaults.size,
     onCheckboxChange,
+    dataTestId,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
@@ -58,6 +59,7 @@ export const Checkbox = ({
                         onCheckboxChange?.();
                     }
                 }}
+                data-testid={dataTestId}
             >
                 <StyledCheckbox
                     type="checkbox"

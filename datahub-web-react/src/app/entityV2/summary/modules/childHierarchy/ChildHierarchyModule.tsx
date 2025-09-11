@@ -20,8 +20,8 @@ export default function ChildHierarchyModule(props: ModuleProps) {
             <LargeModule {...props} module={module} dataTestId="hierarchy-module">
                 <EmptyContent
                     icon="Stack"
-                    title="No Child Domains"
-                    description="This domain has no child domains. Add children to see them in this module."
+                    title="No Domains"
+                    description="This domain has no children domains. Add domains to see them in this module."
                 />
             </LargeModule>
         );

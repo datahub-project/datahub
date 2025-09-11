@@ -11,7 +11,7 @@ import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
-import { useGetSamplesSearchResultsQuery } from '@graphql/samples.generated';
+import { GetSamplesSearchResultsQuery, useGetSamplesSearchResultsQuery } from '@graphql/samples.generated';
 import { BrowsePathV2, DataPlatform, Entity, EntityType } from '@types';
 
 const Container = styled.div`
@@ -320,14 +320,23 @@ export const createTableColumns = (
     ];
 };
 
-export const SamplesTab = ({ data }: { data: GetIngestionExecutionRequestQuery | undefined }) => {
-    const entityRegistry = useEntityRegistry();
-    const [page, setPage] = useState(1);
-    const [pageSize] = useState(5);
-    const [selectedCoverageFilters, setSelectedCoverageFilters] = useState<MetadataCoverageOption[]>([]);
+export const mapEntityDataToTableData = (
+    searchData: GetSamplesSearchResultsQuery | undefined,
+    entityRegistry: any,
+    capabilityChecks: {
+        isProfilingSupported: (platformName: string) => boolean;
+        isLineageSupported: (platformName: string) => boolean;
+        isUsageSupported: (platformName: string) => boolean;
+    },
+): EntitySampleData[] => {
+    if (!searchData?.searchAcrossEntities?.searchResults) return [];
 
-    const { isProfilingSupported, isLineageSupported, isUsageSupported } = useCapabilitySummary();
+    return searchData.searchAcrossEntities.searchResults
+        .map((searchResult) => mapSearchResultToEntityData(searchResult, entityRegistry, capabilityChecks))
+        .filter((entityData): entityData is EntitySampleData => entityData !== null);
+};
 
+export const useGetSearchData = (data: GetIngestionExecutionRequestQuery | undefined) => {
     const result = data?.executionRequest?.result;
 
     // Extract unique URNs from samples data
@@ -372,6 +381,29 @@ export const SamplesTab = ({ data }: { data: GetIngestionExecutionRequestQuery |
         skip: uniqueUrns.length === 0,
     });
 
+    return {
+        searchData,
+        loading,
+        error,
+        uniqueUrns,
+    };
+};
+
+export const SamplesTab = ({ data }: { data: GetIngestionExecutionRequestQuery | undefined }) => {
+    const entityRegistry = useEntityRegistry();
+    const [page, setPage] = useState(1);
+    const [pageSize] = useState(5);
+    const [selectedCoverageFilters, setSelectedCoverageFilters] = useState<MetadataCoverageOption[]>([]);
+
+    const { searchData, loading, error, uniqueUrns } = useGetSearchData(data);
+    const { isProfilingSupported, isLineageSupported, isUsageSupported } = useCapabilitySummary();
+
+    const capabilityChecks = {
+        isProfilingSupported,
+        isLineageSupported,
+        isUsageSupported,
+    };
+
     const getStatusColor = (status: SampleStatus) => {
         switch (status) {
             case 'Ingested':
@@ -381,21 +413,7 @@ export const SamplesTab = ({ data }: { data: GetIngestionExecutionRequestQuery |
         }
     };
 
-    const mapEntityDataToTableData = (): EntitySampleData[] => {
-        if (!searchData?.searchAcrossEntities?.searchResults) return [];
-
-        const capabilityChecks = {
-            isProfilingSupported,
-            isLineageSupported,
-            isUsageSupported,
-        };
-
-        return searchData.searchAcrossEntities.searchResults
-            .map((searchResult) => mapSearchResultToEntityData(searchResult, entityRegistry, capabilityChecks))
-            .filter((entityData): entityData is EntitySampleData => entityData !== null);
-    };
-
-    const allTableData = mapEntityDataToTableData();
+    const allTableData = mapEntityDataToTableData(searchData, entityRegistry, capabilityChecks);
 
     const filterOptions = [
         {

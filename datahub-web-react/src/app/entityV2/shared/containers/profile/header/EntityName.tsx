@@ -123,6 +123,7 @@ function EntityName(props: Props) {
             ellipsis={{
                 tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
             }}
+            key={updatedName}
         >
             {updatedName}
         </EntityTitle>

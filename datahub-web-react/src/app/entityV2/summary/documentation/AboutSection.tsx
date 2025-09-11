@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
 import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescriptionModal';
@@ -45,6 +46,7 @@ interface Props {
 }
 
 export default function AboutSection({ hideLinksButton }: Props) {
+    const { entityData } = useEntityData();
     const history = useHistory();
     const { search, pathname } = useLocation();
     const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
@@ -54,6 +56,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
 
     const hasLinkPermissions = useLinkPermission();
     const canEditDescription = useDocumentationPermission();
+    const canProposeDescription = entityData?.privileges?.canProposeDescription;
     const {
         displayedDescription,
         updatedDescription,
@@ -106,7 +109,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                             />
                         </Tooltip>
                     )}
-                    {canEditDescription && (
+                    {(canEditDescription || canProposeDescription) && (
                         <Tooltip title="Edit description">
                             <Button
                                 variant="text"
