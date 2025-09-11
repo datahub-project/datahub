@@ -72,7 +72,7 @@ To ensure URN immutability and long-term stability, platform instance names shou
 4. **Uniqueness**: Ensure each platform instance has a unique identifier
 5. **Separation of concerns**: Use DataHub's domain and ownership features for business context
 
-**Note**: Business context like domains, ownership, data classification, and technology migration status should be managed through DataHub's dedicated features (domains, ownership, tags, etc.) rather than embedded in the platform instance name. Environment information is handled by the fabric type in the URN structure, and versioning should use DataHub's versioning capabilities.
+**Note**: Business context like domains, ownership, data classification, and technology migration status should be managed through DataHub's dedicated features (domains, ownership, tags, etc.) rather than embedded in the platform instance name. Environment information is best handled by tags instead of fabric type which allows for promotion over time, and versioning should use DataHub's versioning capabilities.
 
 ## Enabling Platform Instances
 
