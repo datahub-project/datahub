@@ -551,6 +551,7 @@ class Pipeline:
             finally:
                 clear_global_warnings()
 
+        # This can't be in the finally part because this should happen after context manager exists
         self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
