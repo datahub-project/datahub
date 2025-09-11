@@ -438,6 +438,10 @@ class LookMLSource(StatefulIngestionSourceBase):
             self.reporter,
         )
 
+        custom_properties: DatasetPropertiesClass = self._get_custom_properties(
+            looker_view
+        )
+
         yield Dataset(
             platform=self.source_config.platform_name,
             name=looker_view.id.get_view_dataset_name(self.source_config),
@@ -445,12 +449,12 @@ class LookMLSource(StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
             subtype=DatasetSubTypes.VIEW,
-            parent_container=list(
-                looker_view.id.get_view_dataset_parent_container(self.source_config)
+            parent_container=looker_view.id.get_view_dataset_parent_container(
+                self.source_config
             ),
             schema=schema_metadata,
-            custom_properties=self._get_custom_properties(looker_view).customProperties,
-            external_url=self._get_custom_properties(looker_view).externalUrl,
+            custom_properties=custom_properties.customProperties,
+            external_url=custom_properties.externalUrl,
             upstreams=self._get_upstream_lineage(looker_view),
             extra_aspects=dataset_extra_aspects,
         )
