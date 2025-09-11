@@ -1549,6 +1549,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """
         Note: Returns Entities from SDKv2 where possible else MCPs only.
+
+        Using SDKv2: Containers, Dashboards and Charts
+        Using MCPW: Explores, Tags, DashboardUsageStats and UserResourceMapping
+
+        TODO: Convert MCPWs to use SDKv2 entities
         """
         with self.reporter.report_stage("list_dashboards"):
             # Fetch all dashboards (not deleted)
@@ -1673,10 +1678,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             self.source_config.tag_measures_and_dimensions
             and self.reporter.explores_scanned > 0
         ):
-            # Emit tag MCEs for measures and dimensions if we produced any explores:
+            # Emit tag MCPs for measures and dimensions if we produced any explores:
+            # Tags MCEs are converted to MCPs
             for tag_mce in LookerUtil.get_tag_mces():
-                for mcp in mcps_from_mce(tag_mce):
-                    yield mcp.as_workunit()
+                yield from auto_workunit(mcps_from_mce(tag_mce))
 
         # Extract usage history is enabled
         if self.source_config.extract_usage_history:
@@ -1686,8 +1691,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                         looker_dashboards_for_usage, self.chart_urns
                     )
                 )
-                for usage_mcp in usage_mcps:
-                    yield usage_mcp.as_workunit()
+                yield from auto_workunit(usage_mcps)
 
         # Ingest looker user resource mapping workunits.
         logger.info("Ingesting looker user resource mapping workunits")
