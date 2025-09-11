@@ -35,6 +35,7 @@ jobs:
     env:
       DATAHUB_TELEMETRY_ENABLED: false
       CASSANDRA_DRIVER_NO_LIBEV: "1"
+      CASS_DRIVER_NO_CYTHON: "1"
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
