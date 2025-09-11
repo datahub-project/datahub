@@ -60,7 +60,7 @@ export default function useSelectableDomainTree(
                 tree.merge(preprocessRootNodes(treeNodes));
             } else {
                 // If there are no more domains to fetch or some error happened during loading
-                // set the root domains total to the current length of nodes to prevent 
+                // set the root domains total to the current length of nodes to prevent
                 // infinite calls of loading more root domains in case of using infinite scroll
                 setFinalRootDomainsTotal(tree.nodes.length);
             }

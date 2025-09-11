@@ -1,8 +1,10 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
+import { v4 as uuidv4 } from 'uuid';
 
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
 import AssetsTreeView from '@app/homeV3/modules/hierarchyViewModule/components/AssetsTreeView';
 import { ASSET_TYPE_DOMAINS, ASSET_TYPE_GLOSSARY } from '@app/homeV3/modules/hierarchyViewModule/constants';
@@ -17,12 +19,19 @@ import { AndFilterInput } from '@types';
 export default function HierarchyViewModule(props: ModuleProps) {
     const history = useHistory();
     const { showViewAll = true } = props;
+    const { isReloading } = useModuleContext();
 
     const hierarchyViewParams = useStableValue(props.module.properties.params.hierarchyViewParams);
 
     // FIY: `hierarchyViewParamsJson` is used as key to force a re-mount of the AssetsTreeView component
     // whenever the `stableHierarchyViewParams` change
     const hierarchyViewParamsJson = useMemo(() => JSON.stringify(hierarchyViewParams), [hierarchyViewParams]);
+    const [keySuffix, setSuffixKey] = useState<string>('');
+    // Add generated suffix to key to re-mount module on reload (isReloading)
+    useEffect(() => {
+        if (isReloading) setSuffixKey(uuidv4());
+    }, [isReloading]);
+    const key = useMemo(() => `${hierarchyViewParamsJson}-${keySuffix}`, [hierarchyViewParamsJson, keySuffix]);
 
     const assetType = useMemo(() => getAssetTypeFromAssetUrns(hierarchyViewParams?.assetUrns), [hierarchyViewParams]);
 
@@ -70,7 +79,7 @@ export default function HierarchyViewModule(props: ModuleProps) {
                 />
             ) : (
                 <AssetsTreeView
-                    key={hierarchyViewParamsJson}
+                    key={key}
                     assetType={assetType}
                     assetUrns={assetUrns}
                     shouldShowRelatedEntities={shouldShowRelatedEntities}
