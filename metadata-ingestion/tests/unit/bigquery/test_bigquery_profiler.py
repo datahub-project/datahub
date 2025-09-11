@@ -1,19 +1,6 @@
-"""
-Unit tests for BigQuery profiler functionality.
-
-This test suite directly imports and tests functions from the profiling modules,
-following the pattern used by other connectors like Snowflake and Redshift.
-
-Key Testing Strategy:
-1. Direct import and test of individual functions
-2. Use real inputs and expected outputs
-3. Parametrized tests for comprehensive coverage
-4. Minimal mocking - only for external dependencies
-"""
-
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import List, Optional
+from typing import Any, List, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -45,7 +32,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import TableProfilerReque
 # =============================================================================
 
 
-def create_test_config(**overrides) -> BigQueryV2Config:
+def create_test_config(**overrides: Any) -> BigQueryV2Config:
     """Create a test BigQuery config with sensible defaults."""
     config_dict = {
         "project_id": "test-project-123456",
@@ -65,7 +52,7 @@ def create_test_config(**overrides) -> BigQueryV2Config:
     # Apply overrides
     for key, value in overrides.items():
         if key in config_dict["profiling"]:
-            config_dict["profiling"][key] = value
+            config_dict["profiling"][key] = value  # type: ignore[index]
         else:
             config_dict[key] = value
 
@@ -78,7 +65,7 @@ def create_test_table(
     rows_count: Optional[int] = 10000,
     partitioned: bool = False,
     last_altered: Optional[datetime] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> BigqueryTable:
     """Create a test BigQuery table with realistic properties."""
     now = datetime.now(timezone.utc)
@@ -100,12 +87,14 @@ def create_test_table(
 
     # Add partition info if requested
     if partitioned:
-        table.partition_info = SimpleNamespace(
+        # Create a mock partition info object that matches the expected interface
+        partition_info = SimpleNamespace(
             type_="DAY",
             field="date_partition",
             fields=["date_partition"],  # Add fields attribute
             require_partition_filter=True,
         )
+        table.partition_info = partition_info  # type: ignore[assignment]
 
     return table
 
@@ -187,14 +176,14 @@ PARTITION_ID_TEST_DATA = [
 
 
 @pytest.mark.parametrize("input_id, expected", VALID_IDENTIFIERS_TEST_DATA)
-def test_validate_bigquery_identifier_valid(input_id: str, expected: str):
+def test_validate_bigquery_identifier_valid(input_id: str, expected: str) -> None:
     """Test validate_bigquery_identifier with valid identifiers."""
     result = validate_bigquery_identifier(input_id)
     assert result == expected
 
 
 @pytest.mark.parametrize("invalid_id", INVALID_IDENTIFIERS_TEST_DATA)
-def test_validate_bigquery_identifier_invalid(invalid_id: str):
+def test_validate_bigquery_identifier_invalid(invalid_id: str) -> None:
     """Test validate_bigquery_identifier rejects invalid identifiers."""
     with pytest.raises(ValueError, match="Invalid general identifier"):
         validate_bigquery_identifier(invalid_id)
@@ -208,14 +197,14 @@ def test_build_safe_table_reference():
 
 
 @pytest.mark.parametrize("filter_expr", VALID_FILTER_EXPRESSIONS_TEST_DATA)
-def test_validate_filter_expression_valid(filter_expr: str):
+def test_validate_filter_expression_valid(filter_expr: str) -> None:
     """Test validate_filter_expression with valid expressions."""
     result = validate_filter_expression(filter_expr)
     assert result is True
 
 
 @pytest.mark.parametrize("dangerous_sql", DANGEROUS_SQL_PATTERNS_TEST_DATA)
-def test_validate_sql_structure_dangerous(dangerous_sql: str):
+def test_validate_sql_structure_dangerous(dangerous_sql: str) -> None:
     """Test validate_sql_structure rejects dangerous SQL patterns."""
     with pytest.raises(ValueError, match="Query contains dangerous pattern"):
         validate_sql_structure(dangerous_sql)
@@ -400,7 +389,7 @@ def test_get_partition_range_from_partition_id():
 
 
 @pytest.mark.parametrize("column, expected", DATE_LIKE_COLUMNS_TEST_DATA)
-def test_partition_discovery_is_date_like_column(column: str, expected: bool):
+def test_partition_discovery_is_date_like_column(column: str, expected: bool) -> None:
     """Test PartitionDiscovery._is_date_like_column."""
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -410,7 +399,9 @@ def test_partition_discovery_is_date_like_column(column: str, expected: bool):
 
 
 @pytest.mark.parametrize("data_type, expected", DATE_TYPES_TEST_DATA)
-def test_partition_discovery_is_date_type_column(data_type: str, expected: bool):
+def test_partition_discovery_is_date_type_column(
+    data_type: str, expected: bool
+) -> None:
     """Test PartitionDiscovery._is_date_type_column."""
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -458,7 +449,10 @@ def test_partition_discovery_create_safe_filter():
     assert float_filter == "`price` = 99.99"
 
     # Test date filter
-    date_filter = discovery._create_safe_filter("event_date", date(2023, 12, 25))
+    test_date = date(2023, 12, 25)
+    date_filter = discovery._create_safe_filter(
+        "event_date", test_date.strftime("%Y-%m-%d")
+    )
     assert date_filter == "`event_date` = '2023-12-25'"
 
 
@@ -467,7 +461,7 @@ def test_partition_discovery_create_safe_filter():
 )
 def test_partition_discovery_convert_partition_id_to_filters(
     partition_id: str, required_columns: List[str], expected_filters: List[str]
-):
+) -> None:
     """Test PartitionDiscovery._convert_partition_id_to_filters."""
     config = create_test_config()
     discovery = PartitionDiscovery(config)
@@ -475,6 +469,7 @@ def test_partition_discovery_convert_partition_id_to_filters(
     result = discovery._convert_partition_id_to_filters(partition_id, required_columns)
 
     # Check that all expected filters are present
+    assert result is not None, "Expected filters but got None"
     for expected_filter in expected_filters:
         assert expected_filter in result or any(
             expected_filter in actual for actual in result
@@ -489,6 +484,7 @@ def test_partition_discovery_convert_partition_id_to_filters_invalid():
     # Invalid partition ID creates a literal filter
     required_columns = ["_PARTITIONDATE"]
     filters = discovery._convert_partition_id_to_filters("invalid", required_columns)
+    assert filters is not None, "Expected filters but got None"
     assert len(filters) == 1
     assert "`_PARTITIONDATE` = 'invalid'" in filters
 
@@ -1007,10 +1003,10 @@ def test_profiler_generate_profile_workunits_with_deferred_partitions():
     profile_request = TableProfilerRequest(
         pretty_name="test_table", batch_kwargs={"table": "test_table"}, table=test_table
     )
-    profile_request.needs_partition_discovery = True
-    profile_request.bq_table = create_test_table(external=True)
-    profile_request.db_name = "test-project"
-    profile_request.schema_name = "test_dataset"
+    profile_request.needs_partition_discovery = True  # type: ignore[attr-defined]
+    profile_request.bq_table = create_test_table(external=True)  # type: ignore[attr-defined]
+    profile_request.db_name = "test-project"  # type: ignore[attr-defined]
+    profile_request.schema_name = "test_dataset"  # type: ignore[attr-defined]
 
     # Mock the parent method to avoid complex dependencies
     with patch.object(profiler, "generate_profile_workunits") as mock_generate:
@@ -1255,9 +1251,6 @@ def test_query_executor_execute_query_safely():
 
 def test_security_validate_sql_structure_comprehensive():
     """Test validate_sql_structure with comprehensive patterns."""
-    from datahub.ingestion.source.bigquery_v2.profiling.security import (
-        validate_sql_structure,
-    )
 
     # Test more dangerous patterns
     additional_dangerous = [
@@ -1288,10 +1281,6 @@ def test_security_validate_sql_structure_comprehensive():
 
 def test_security_edge_cases():
     """Test security functions with edge cases."""
-    from datahub.ingestion.source.bigquery_v2.profiling.security import (
-        validate_and_filter_expressions,
-        validate_column_names,
-    )
 
     # Test with empty inputs
     assert validate_column_names([]) == []

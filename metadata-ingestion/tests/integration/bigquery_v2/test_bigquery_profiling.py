@@ -1,11 +1,5 @@
-"""
-Simple integration tests for BigQuery v2 profiling functionality.
-
-These tests focus on testing the profiling components in isolation
-without running the full BigQuery ingestion pipeline.
-"""
-
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 
@@ -135,42 +129,44 @@ def test_profiler_batch_kwargs_generation():
     def mock_get_partition_filters(table, project, dataset, execute_func):
         return ["`date` = '2023-12-25'"]
 
-    profiler.partition_discovery.get_required_partition_filters = (
-        mock_get_partition_filters
-    )
+    # Use patch context manager to avoid mypy method assignment error
+    with patch.object(
+        profiler.partition_discovery,
+        "get_required_partition_filters",
+        side_effect=mock_get_partition_filters,
+    ):
+        # Test small table (no sampling)
+        small_table = BigqueryTable(
+            name="small_table",
+            comment="Small table",
+            created=datetime.now(timezone.utc) - timedelta(days=1),
+            last_altered=datetime.now(timezone.utc) - timedelta(hours=1),
+            size_in_bytes=100000,
+            rows_count=500,  # Less than sample_size
+        )
 
-    # Test small table (no sampling)
-    small_table = BigqueryTable(
-        name="small_table",
-        comment="Small table",
-        created=datetime.now(timezone.utc) - timedelta(days=1),
-        last_altered=datetime.now(timezone.utc) - timedelta(hours=1),
-        size_in_bytes=100000,
-        rows_count=500,  # Less than sample_size
-    )
+        batch_kwargs = profiler.get_batch_kwargs(
+            small_table, "test_dataset", "test-project-123456"
+        )
+        assert "custom_sql" in batch_kwargs
+        assert "TABLESAMPLE" not in batch_kwargs["custom_sql"]
+        assert "LIMIT" in batch_kwargs["custom_sql"]
 
-    batch_kwargs = profiler.get_batch_kwargs(
-        small_table, "test_dataset", "test-project-123456"
-    )
-    assert "custom_sql" in batch_kwargs
-    assert "TABLESAMPLE" not in batch_kwargs["custom_sql"]
-    assert "LIMIT" in batch_kwargs["custom_sql"]
+        # Test large table (should use sampling)
+        large_table = BigqueryTable(
+            name="large_table",
+            comment="Large table",
+            created=datetime.now(timezone.utc) - timedelta(days=1),
+            last_altered=datetime.now(timezone.utc) - timedelta(hours=1),
+            size_in_bytes=10000000,
+            rows_count=50000,  # Greater than sample_size
+        )
 
-    # Test large table (should use sampling)
-    large_table = BigqueryTable(
-        name="large_table",
-        comment="Large table",
-        created=datetime.now(timezone.utc) - timedelta(days=1),
-        last_altered=datetime.now(timezone.utc) - timedelta(hours=1),
-        size_in_bytes=10000000,
-        rows_count=50000,  # Greater than sample_size
-    )
-
-    batch_kwargs = profiler.get_batch_kwargs(
-        large_table, "test_dataset", "test-project-123456"
-    )
-    assert "custom_sql" in batch_kwargs
-    assert "TABLESAMPLE SYSTEM" in batch_kwargs["custom_sql"]
+        batch_kwargs = profiler.get_batch_kwargs(
+            large_table, "test_dataset", "test-project-123456"
+        )
+        assert "custom_sql" in batch_kwargs
+        assert "TABLESAMPLE SYSTEM" in batch_kwargs["custom_sql"]
 
 
 def test_profiler_security_validation():
@@ -182,38 +178,41 @@ def test_profiler_security_validation():
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    # Mock partition discovery
-    profiler.partition_discovery.get_required_partition_filters = lambda *args: []
+    # Mock partition discovery using patch to avoid mypy method assignment error
+    with patch.object(
+        profiler.partition_discovery, "get_required_partition_filters", return_value=[]
+    ):
+        # Test with valid identifiers
+        valid_table = BigqueryTable(
+            name="valid_table",
+            comment="Valid table",
+            created=datetime.now(timezone.utc),
+            last_altered=datetime.now(timezone.utc),
+            size_in_bytes=1000,
+            rows_count=100,
+        )
 
-    # Test with valid identifiers
-    valid_table = BigqueryTable(
-        name="valid_table",
-        comment="Valid table",
-        created=datetime.now(timezone.utc),
-        last_altered=datetime.now(timezone.utc),
-        size_in_bytes=1000,
-        rows_count=100,
-    )
+        # Should not raise exception
+        batch_kwargs = profiler.get_batch_kwargs(
+            valid_table, "valid_dataset", "valid-project-123"
+        )
+        assert batch_kwargs is not None
 
-    # Should not raise exception
-    batch_kwargs = profiler.get_batch_kwargs(
-        valid_table, "valid_dataset", "valid-project-123"
-    )
-    assert batch_kwargs is not None
+        # Test with invalid identifiers
+        invalid_table = BigqueryTable(
+            name="valid_table",
+            comment="Table with invalid context",
+            created=datetime.now(timezone.utc),
+            last_altered=datetime.now(timezone.utc),
+            size_in_bytes=1000,
+            rows_count=100,
+        )
 
-    # Test with invalid identifiers
-    invalid_table = BigqueryTable(
-        name="valid_table",
-        comment="Table with invalid context",
-        created=datetime.now(timezone.utc),
-        last_altered=datetime.now(timezone.utc),
-        size_in_bytes=1000,
-        rows_count=100,
-    )
-
-    # Should raise ValueError for invalid dataset name
-    with pytest.raises(ValueError, match="Invalid dataset identifier"):
-        profiler.get_batch_kwargs(invalid_table, "invalid;dataset", "valid-project-123")
+        # Should raise ValueError for invalid dataset name
+        with pytest.raises(ValueError, match="Invalid dataset identifier"):
+            profiler.get_batch_kwargs(
+                invalid_table, "invalid;dataset", "valid-project-123"
+            )
 
 
 def test_partition_discovery_strategic_dates():
