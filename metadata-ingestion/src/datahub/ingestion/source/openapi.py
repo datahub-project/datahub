@@ -26,6 +26,7 @@ from datahub.ingestion.source.openapi_parser import (
     clean_url,
     compose_url_attr,
     extract_fields,
+    extract_schema_from_response,
     get_endpoints,
     get_swag_json,
     get_tok,
@@ -84,6 +85,9 @@ class OpenApiConfig(ConfigModel):
     )
     verify_ssl: bool = Field(
         default=True, description="Enable SSL certificate verification"
+    )
+    get_operations_only: bool = Field(
+        default=True, description="Only process GET operations. When set to False, processes PUT, POST, PATCH methods as well."
     )
 
     @validator("bearer_token", always=True)
@@ -267,7 +271,7 @@ class APISource(Source, ABC):
         link_url = clean_url(config.url + self.url_basepath + endpoint_k)
         link_description = "Link to call for the dataset."
         creation = AuditStampClass(
-            time=int(time.time()), actor="urn:li:corpuser:etl", impersonator=None
+            time=int(time.time()), actor="urn:li:corpuser:datahub", impersonator=None
         )
         link_metadata = InstitutionalMemoryMetadataClass(
             url=link_url, description=link_description, createStamp=creation
@@ -298,9 +302,9 @@ class APISource(Source, ABC):
 
         self.url_basepath = get_url_basepath(sw_dict)
 
-        # Getting all the URLs accepting the "GET" method
+        # Getting all the URLs based on get_operations_only setting
         with warnings.catch_warnings(record=True) as warn_c:
-            url_endpoints = get_endpoints(sw_dict)
+            url_endpoints = get_endpoints(sw_dict, config.get_operations_only)
 
             for w in warn_c:
                 w_msg = w.message
@@ -333,13 +337,24 @@ class APISource(Source, ABC):
                     ),
                 )
                 yield wu
+            elif "schema_fields" in endpoint_dets:
+                # Use schema fields extracted from OpenAPI definition
+                schema_metadata = set_metadata(dataset_name, endpoint_dets["schema_fields"])
+                wu = MetadataWorkUnit(
+                    id=f"{dataset_name}-schema",
+                    mcp=MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=schema_metadata
+                    ),
+                )
+                yield wu
             elif endpoint_dets["method"] != "GET":
-                self.report.report_warning(
-                    title="Failed to Extract Endpoint Metadata",
-                    message=f"No example provided for {endpoint_dets['method']}",
+                # For non-GET methods, we don't make actual calls but still process the endpoint
+                # if it has schema information or examples defined in the swagger
+                self.report.info(
+                    message=f"Processing {endpoint_dets['method']} method endpoint without making API call",
                     context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
                 )
-                continue  # Only test endpoints if they're GETs
+                continue  # Skip API calls for non-GET methods, but endpoint is still processed
             elif (
                 "{" not in endpoint_k
             ):  # if the API does not explicitly require parameters
