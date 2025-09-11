@@ -11572,6 +11572,12 @@ input CreateDomainInput {
   Optional parent domain urn for the domain
   """
   parentDomain: String
+
+  """
+  Optional - Add owners to the domain.
+  If not provided, we'll automatically assign the current actor as the owner.
+  """
+  owners: [OwnerInput!]
 }
 
 """
