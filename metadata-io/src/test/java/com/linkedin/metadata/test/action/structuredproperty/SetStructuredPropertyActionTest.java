@@ -1,7 +1,11 @@
 package com.linkedin.metadata.test.action.structuredproperty;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,96 +17,113 @@ import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 public class SetStructuredPropertyActionTest {
 
-  @Mock private StructuredPropertyService mockStructuredPropertyService;
-  @Mock private OperationContext mockOpContext;
+  private static final List<Urn> DATASET_URNS =
+      ImmutableList.of(
+          UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)"),
+          UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test1,PROD)"));
 
-  private SetStructuredPropertyAction action;
+  private static final List<Urn> ALL_URNS = new ArrayList<>();
 
-  @BeforeEach
-  public void setUp() {
-    MockitoAnnotations.openMocks(this);
-    action = new SetStructuredPropertyAction(mockStructuredPropertyService);
+  static {
+    ALL_URNS.addAll(DATASET_URNS);
   }
+
+  private static final Map<String, List<String>> VALID_STRING_PARAMS =
+      ImmutableMap.of(
+          "values", ImmutableList.of("urn:li:structuredProperty:test.property"),
+          "stringValues", ImmutableList.of("test value", "another value"));
+
+  private static final Map<String, List<String>> VALID_NUMBER_PARAMS =
+      ImmutableMap.of(
+          "values", ImmutableList.of("urn:li:structuredProperty:test.property"),
+          "numberValues", ImmutableList.of("123.45", "67.89"));
+
+  private static final Map<String, List<String>> INVALID_MISSING_VALUES_PARAMS =
+      ImmutableMap.of("values", ImmutableList.of("urn:li:structuredProperty:test.property"));
+
+  private static final Map<String, List<String>> INVALID_BOTH_VALUES_PARAMS =
+      ImmutableMap.of(
+          "values", ImmutableList.of("urn:li:structuredProperty:test.property"),
+          "stringValues", ImmutableList.of("test value"),
+          "numberValues", ImmutableList.of("123.45"));
+
+  private static final Map<String, List<String>> INVALID_EMPTY_STRING_VALUES_PARAMS =
+      ImmutableMap.of(
+          "values", ImmutableList.of("urn:li:structuredProperty:test.property"),
+          "stringValues", ImmutableList.of());
 
   @Test
   public void testGetActionType() {
-    assertEquals(ActionType.SET_STRUCTURED_PROPERTY, action.getActionType());
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+
+    Assert.assertEquals(ActionType.SET_STRUCTURED_PROPERTY, action.getActionType());
   }
 
   @Test
-  public void testValidateValidStringParams() {
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "stringValues", List.of("test value", "another value")));
+  public void testValidateValidStringParams() throws InvalidActionParamsException {
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(VALID_STRING_PARAMS);
 
-    assertDoesNotThrow(() -> action.validate(params));
+    action.validate(params); // Should not throw
   }
 
   @Test
-  public void testValidateValidNumberParams() {
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "numberValues", List.of("123.45", "67.89")));
+  public void testValidateValidNumberParams() throws InvalidActionParamsException {
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(VALID_NUMBER_PARAMS);
 
-    assertDoesNotThrow(() -> action.validate(params));
+    action.validate(params); // Should not throw
   }
 
-  @Test
-  public void testValidateMissingValueParams() {
-    ActionParameters params =
-        new ActionParameters(Map.of("values", List.of("urn:li:structuredProperty:test.property")));
+  @Test(expectedExceptions = InvalidActionParamsException.class)
+  public void testValidateMissingValueParams() throws InvalidActionParamsException {
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(INVALID_MISSING_VALUES_PARAMS);
 
-    assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
+    action.validate(params);
   }
 
-  @Test
-  public void testValidateBothStringAndNumberParams() {
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "stringValues", List.of("test value"),
-                "numberValues", List.of("123.45")));
+  @Test(expectedExceptions = InvalidActionParamsException.class)
+  public void testValidateBothStringAndNumberParams() throws InvalidActionParamsException {
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(INVALID_BOTH_VALUES_PARAMS);
 
-    assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
+    action.validate(params);
   }
 
-  @Test
-  public void testValidateEmptyStringValues() {
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "stringValues", List.of()));
+  @Test(expectedExceptions = InvalidActionParamsException.class)
+  public void testValidateEmptyStringValues() throws InvalidActionParamsException {
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(INVALID_EMPTY_STRING_VALUES_PARAMS);
 
-    assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
+    action.validate(params);
   }
 
   @Test
   public void testApplyWithStringValues() throws InvalidOperandException {
-    List<Urn> urns =
-        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test.topic,PROD)"));
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "stringValues", List.of("test value")));
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(VALID_STRING_PARAMS);
+    List<Urn> singleUrn = ImmutableList.of(DATASET_URNS.get(0));
 
-    action.apply(mockOpContext, urns, params);
+    action.apply(mock(OperationContext.class), singleUrn, params);
 
     // Verify that batchSetStructuredProperty was called with correct parameters
     ArgumentCaptor<Urn> structuredPropertyUrnCaptor = ArgumentCaptor.forClass(Urn.class);
@@ -111,85 +132,72 @@ public class SetStructuredPropertyActionTest {
         ArgumentCaptor.forClass(List.class);
     ArgumentCaptor<String> appSourceCaptor = ArgumentCaptor.forClass(String.class);
 
-    verify(mockStructuredPropertyService)
+    verify(service)
         .batchSetStructuredProperty(
-            eq(mockOpContext),
+            any(OperationContext.class),
             structuredPropertyUrnCaptor.capture(),
             resourcesCaptor.capture(),
             assignmentsCaptor.capture(),
             appSourceCaptor.capture());
 
-    assertEquals(
+    Assert.assertEquals(
         "urn:li:structuredProperty:test.property",
         structuredPropertyUrnCaptor.getValue().toString());
-    assertEquals(1, resourcesCaptor.getValue().size());
-    assertEquals(urns.get(0), resourcesCaptor.getValue().get(0).getUrn());
-    assertEquals(1, assignmentsCaptor.getValue().size());
-    assertEquals("METADATA_TESTS", appSourceCaptor.getValue());
+    Assert.assertEquals(1, resourcesCaptor.getValue().size());
+    Assert.assertEquals(DATASET_URNS.get(0), resourcesCaptor.getValue().get(0).getUrn());
+    Assert.assertEquals(1, assignmentsCaptor.getValue().size());
+    Assert.assertEquals(METADATA_TESTS_SOURCE, appSourceCaptor.getValue());
   }
 
   @Test
   public void testApplyWithNumberValues() throws InvalidOperandException {
-    List<Urn> urns =
-        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test.topic,PROD)"));
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "numberValues", List.of("123.45")));
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(VALID_NUMBER_PARAMS);
+    List<Urn> singleUrn = ImmutableList.of(DATASET_URNS.get(0));
 
-    action.apply(mockOpContext, urns, params);
+    action.apply(mock(OperationContext.class), singleUrn, params);
 
     // Verify that batchSetStructuredProperty was called
-    verify(mockStructuredPropertyService)
+    verify(service)
         .batchSetStructuredProperty(
-            eq(mockOpContext),
+            any(OperationContext.class),
             any(Urn.class),
             any(List.class),
             any(List.class),
-            eq("METADATA_TESTS"));
+            eq(METADATA_TESTS_SOURCE));
   }
 
   @Test
   public void testApplyWithMultipleUrns() throws InvalidOperandException {
-    List<Urn> urns =
-        List.of(
-            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test.topic1,PROD)"),
-            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test.topic2,PROD)"));
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "stringValues", List.of("test value")));
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(VALID_STRING_PARAMS);
 
-    action.apply(mockOpContext, urns, params);
+    action.apply(mock(OperationContext.class), ALL_URNS, params);
 
     // Verify that batchSetStructuredProperty was called with all URNs
     ArgumentCaptor<List<ResourceReference>> resourcesCaptor = ArgumentCaptor.forClass(List.class);
-    verify(mockStructuredPropertyService)
+    verify(service)
         .batchSetStructuredProperty(
-            eq(mockOpContext),
+            any(OperationContext.class),
             any(Urn.class),
             resourcesCaptor.capture(),
             any(List.class),
-            eq("METADATA_TESTS"));
+            eq(METADATA_TESTS_SOURCE));
 
-    assertEquals(2, resourcesCaptor.getValue().size());
+    Assert.assertEquals(ALL_URNS.size(), resourcesCaptor.getValue().size());
   }
 
   @Test
   public void testApplyWithEmptyUrns() throws InvalidOperandException {
-    List<Urn> urns = List.of();
-    ActionParameters params =
-        new ActionParameters(
-            Map.of(
-                "values", List.of("urn:li:structuredProperty:test.property"),
-                "stringValues", List.of("test value")));
+    StructuredPropertyService service = mock(StructuredPropertyService.class);
+    SetStructuredPropertyAction action = new SetStructuredPropertyAction(service);
+    ActionParameters params = new ActionParameters(VALID_STRING_PARAMS);
 
-    action.apply(mockOpContext, urns, params);
+    action.apply(mock(OperationContext.class), ImmutableList.of(), params);
 
     // Should not call the service method for empty URNs
-    verify(mockStructuredPropertyService, never())
-        .batchSetStructuredProperty(any(), any(), any(), any(), any());
+    verify(service, never()).batchSetStructuredProperty(any(), any(), any(), any(), any());
   }
 }

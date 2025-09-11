@@ -39,11 +39,11 @@ public class UnsetStructuredPropertyAction extends ValuesAction {
     if (urns.isEmpty()) return;
 
     try {
-      // Get the structured property URN from values parameter (first value)
+      // Get the structured property URN from values parameter (single property)
       final List<String> values = params.getParams().get(VALUES_PARAM);
       final Urn structuredPropertyUrn = UrnUtils.getUrn(values.get(0));
 
-      // Unset the structured property from all entities
+      // Unset the specific structured property from all entities
       this.structuredPropertyService.batchUnsetStructuredProperty(
           opContext,
           structuredPropertyUrn,

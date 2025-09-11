@@ -19,6 +19,7 @@ import {
 } from '@app/tests/builder/steps/definition/builder/property/utils';
 import { LogicalPredicate, PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
 import { convertTestPredicateToLogicalPredicate } from '@app/tests/builder/steps/definition/builder/utils';
+import { ValidationWarning } from '@app/tests/builder/validation/types';
 import { TestDefinition } from '@app/tests/types';
 
 import { EntityType } from '@types';
@@ -342,16 +343,6 @@ function getUnsupportedEntitiesForAction(actionId: ActionId, entityTypes: Entity
 }
 
 /**
- * Get validation warnings for invalid configurations
- */
-export interface ValidationWarning {
-    type: 'property' | 'action';
-    message: string;
-    propertyId?: string;
-    actionId?: ActionId;
-}
-
-/**
  * Extract and validate all properties and actions from a complete test definition.
  * This is a comprehensive validation that checks selection filters, rules, and actions.
  */
@@ -492,20 +483,6 @@ export function getPropertiesFromLogicalPredicate(predicate: LogicalPredicate | 
 // =============================================================================
 // ENHANCED STRUCTURED PROPERTY VALIDATION
 // =============================================================================
-
-/**
- * Cache to store structured property definitions for validation
- * This helps avoid repeated API calls and enables synchronous validation
- */
-export interface StructuredPropertyDefinitionCache {
-    [urn: string]: {
-        entityTypes: EntityType[];
-        valueType: string;
-        allowedValues?: Array<{ value: any; description?: string }>;
-        cardinality?: string;
-        displayName?: string;
-    };
-}
 
 /**
  * Extract structured property URN from a property ID

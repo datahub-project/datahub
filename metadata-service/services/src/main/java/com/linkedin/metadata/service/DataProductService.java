@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
+import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.applyAppSource;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -397,11 +399,18 @@ public class DataProductService {
       }
 
       dataProductProperties.setAssets(dataProductAssociations);
-      _entityClient.ingestProposal(
-          opContext,
+
+      // Create metadata change proposal
+      MetadataChangeProposal mcp =
           AspectUtils.buildMetadataChangeProposal(
-              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          false);
+              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties);
+
+      // Apply appSource if provided
+      if (appSource != null) {
+        applyAppSource(List.of(mcp), appSource);
+      }
+
+      _entityClient.ingestProposal(opContext, mcp, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update assets for %s", dataProductUrn), e);
@@ -415,10 +424,14 @@ public class DataProductService {
    * class have already authorized the operation
    *
    * @param resourceUrn the urn of the entity to remove the Data Product from
-   * @param authentication the current authentication
+   * @param actorUrn the current actor
+   * @param appSource optional indication of the origin for this request
    */
   public void unsetDataProduct(
-      @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn, @Nonnull Urn actorUrn) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn resourceUrn,
+      @Nonnull Urn actorUrn,
+      @Nullable String appSource) {
     try {
       Set<String> relationshipTypes = ImmutableSet.of("DataProductContains");
       EntityRelationships relationships =
@@ -436,7 +449,7 @@ public class DataProductService {
             .forEach(
                 relationship -> {
                   Urn dataProductUrn = relationship.getEntity();
-                  removeEntityFromDataProduct(opContext, dataProductUrn, resourceUrn);
+                  removeEntityFromDataProduct(opContext, dataProductUrn, resourceUrn, appSource);
                 });
       }
     } catch (Exception e) {
@@ -465,7 +478,8 @@ public class DataProductService {
     try {
       // Process each entity to unset its data product
       for (ResourceReference resource : resources) {
-        unsetDataProduct(opContext, resource.getUrn(), opContext.getActorContext().getActorUrn());
+        unsetDataProduct(
+            opContext, resource.getUrn(), opContext.getActorContext().getActorUrn(), appSource);
       }
       log.info("Successfully unset data products for {} entities", resources.size());
     } catch (Exception e) {
@@ -479,7 +493,10 @@ public class DataProductService {
   }
 
   private void removeEntityFromDataProduct(
-      @Nonnull OperationContext opContext, @Nonnull Urn dataProductUrn, @Nonnull Urn resourceUrn) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn dataProductUrn,
+      @Nonnull Urn resourceUrn,
+      @Nullable String appSource) {
     try {
       DataProductProperties dataProductProperties =
           getDataProductProperties(opContext, dataProductUrn);
@@ -501,11 +518,18 @@ public class DataProductService {
       }
 
       dataProductProperties.setAssets(finalAssociations);
-      _entityClient.ingestProposal(
-          opContext,
+
+      // Create metadata change proposal
+      MetadataChangeProposal mcp =
           AspectUtils.buildMetadataChangeProposal(
-              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties),
-          false);
+              dataProductUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties);
+
+      // Apply appSource if provided
+      if (appSource != null) {
+        applyAppSource(List.of(mcp), appSource);
+      }
+
+      _entityClient.ingestProposal(opContext, mcp, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to unset data product for %s", resourceUrn), e);

@@ -3,7 +3,7 @@ import { ArrowClockwise, Warning } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ValidationWarning as ValidationWarningType } from '@app/tests/builder/validation/utils';
+import { ValidationWarning as ValidationWarningType } from '@app/tests/builder/validation/types';
 import { Button, colors } from '@src/alchemy-components';
 
 const StyledAlert = styled(Alert)`

@@ -8,10 +8,9 @@ import {
     isSchemaFieldStructuredPropertyId,
     isStructuredPropertyId,
 } from '@app/tests/builder/steps/definition/builder/property/utils';
+import { StructuredPropertyDefinitionCache, ValidationWarning } from '@app/tests/builder/validation/types';
 import {
     ASSET_CATEGORIES,
-    StructuredPropertyDefinitionCache,
-    ValidationWarning,
     extractStructuredPropertyUrn,
     isActionSupportedForEntities,
     isPropertySupportedForEntities,
@@ -75,92 +74,6 @@ export function isStructuredPropertySupportedForEntities(
 }
 
 /**
- * Validate structured property value based on its type definition
- * @param propertyId The structured property ID
- * @param value The value to validate
- * @param cache Optional cache of structured property definitions
- */
-/**
- * Extract allowed string values from definition
- */
-function getAllowedStringValues(allowedValues?: Array<{ value: any }>): string[] {
-    return allowedValues?.map((av) => av.value?.stringValue).filter(Boolean) || [];
-}
-
-/**
- * Extract allowed number values from definition
- */
-function getAllowedNumberValues(allowedValues?: Array<{ value: any }>): number[] {
-    return allowedValues?.map((av) => av.value?.numberValue).filter((val) => val !== undefined && val !== null) || [];
-}
-
-/**
- * Validate string value against allowed values
- */
-function validateStringValue(
-    value: any,
-    allowedValues?: Array<{ value: any }>,
-): { isValid: boolean; errorMessage?: string } {
-    if (typeof value !== 'string') {
-        return { isValid: false, errorMessage: `Expected string value, got ${typeof value}` };
-    }
-
-    const allowedStringValues = getAllowedStringValues(allowedValues);
-    const hasRestrictions = allowedStringValues.length > 0;
-    const isAllowed = !hasRestrictions || allowedStringValues.includes(value);
-
-    return isAllowed
-        ? { isValid: true }
-        : { isValid: false, errorMessage: `Value must be one of: ${allowedStringValues.join(', ')}` };
-}
-
-/**
- * Validate number value against allowed values
- */
-function validateNumberValue(
-    value: any,
-    allowedValues?: Array<{ value: any }>,
-): { isValid: boolean; errorMessage?: string } {
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
-
-    if (Number.isNaN(numValue)) {
-        return { isValid: false, errorMessage: 'Expected numeric value' };
-    }
-
-    const allowedNumValues = getAllowedNumberValues(allowedValues);
-    const hasRestrictions = allowedNumValues.length > 0;
-    const isAllowed = !hasRestrictions || allowedNumValues.includes(numValue);
-
-    return isAllowed
-        ? { isValid: true }
-        : { isValid: false, errorMessage: `Value must be one of: ${allowedNumValues.join(', ')}` };
-}
-
-/**
- * Validate structured property value based on its type definition
- */
-export function validateStructuredPropertyValue(
-    propertyId: string,
-    value: any,
-    cache?: StructuredPropertyDefinitionCache,
-): { isValid: boolean; errorMessage?: string } {
-    const structuredPropertyUrn = extractStructuredPropertyUrn(propertyId);
-    const definition = structuredPropertyUrn ? cache?.[structuredPropertyUrn] : null;
-
-    // Without definition, assume valid
-    if (!definition) return { isValid: true };
-
-    const { valueType, allowedValues } = definition;
-
-    // Validate based on type
-    if (valueType === 'string') return validateStringValue(value, allowedValues);
-    if (valueType === 'number') return validateNumberValue(value, allowedValues);
-
-    // Unknown types are valid
-    return { isValid: true };
-}
-
-/**
  * Create validation message for unsupported properties
  */
 function createValidationMessage(
@@ -198,90 +111,6 @@ function createValidationMessage(
 /**
  * Get enhanced validation warnings that include structured property-specific validation
  */
-/**
- * Check if property is supported for entity types
- */
-function checkPropertySupport(
-    propertyId: string,
-    entityTypes: EntityType[],
-    structuredPropertyCache?: StructuredPropertyDefinitionCache,
-): boolean {
-    const isStructuredProp = isStructuredPropertyId(propertyId) || isSchemaFieldStructuredPropertyId(propertyId);
-    return isStructuredProp
-        ? isStructuredPropertySupportedForEntities(propertyId, entityTypes, structuredPropertyCache)
-        : isPropertySupportedForEntities(propertyId, entityTypes);
-}
-
-/**
- * Get unsupported entity types for a property
- */
-function getUnsupportedEntitiesForProperty(propertyId: string, entityTypes: EntityType[]): EntityType[] {
-    return entityTypes.filter((entityType) => {
-        const isStructuredProp = isStructuredPropertyId(propertyId) || isSchemaFieldStructuredPropertyId(propertyId);
-        return isStructuredProp
-            ? !isStructuredPropertySupportedForEntities(propertyId, [entityType])
-            : !isPropertySupportedForEntities(propertyId, [entityType]);
-    });
-}
-
-/**
- * Get unsupported entity types for an action
- */
-function getUnsupportedEntitiesForAction(actionId: any, entityTypes: EntityType[]): EntityType[] {
-    return entityTypes.filter((entityType) => !isActionSupportedForEntities(actionId, [entityType]));
-}
-
-/**
- * Create property validation warning
- */
-function createPropertyWarning(
-    propertyId: string,
-    entityTypes: EntityType[],
-    structuredPropertyCache?: StructuredPropertyDefinitionCache,
-): ValidationWarning {
-    const unsupportedEntities = getUnsupportedEntitiesForProperty(propertyId, entityTypes);
-    const unsupportedEntitiesText = unsupportedEntities
-        .map((type) =>
-            type
-                .toLowerCase()
-                .replace(/([A-Z])/g, ' $1')
-                .trim(),
-        )
-        .join(', ');
-
-    const message = createValidationMessage(propertyId, unsupportedEntitiesText, structuredPropertyCache);
-
-    return {
-        type: 'property',
-        propertyId,
-        message,
-    };
-}
-
-/**
- * Create action validation warning
- */
-function createActionWarning(action: ActionType, entityTypes: EntityType[]): ValidationWarning {
-    const unsupportedEntities = getUnsupportedEntitiesForAction(action.id, entityTypes);
-    const unsupportedEntitiesText = unsupportedEntities
-        .map((type) =>
-            type
-                .toLowerCase()
-                .replace(/([A-Z])/g, ' $1')
-                .trim(),
-        )
-        .join(', ');
-
-    return {
-        type: 'action',
-        actionId: action.id,
-        message: `Action "${action.displayName}" is not available for ${unsupportedEntitiesText}. This action only works with data assets.`,
-    };
-}
-
-/**
- * Get enhanced validation warnings that include structured property-specific validation
- */
 export function getEnhancedValidationWarnings(
     entityTypes: EntityType[],
     properties: string[],
@@ -296,9 +125,35 @@ export function getEnhancedValidationWarnings(
 
     // Validate properties
     properties.forEach((propertyId) => {
-        const isSupported = checkPropertySupport(propertyId, entityTypes, structuredPropertyCache);
+        const isStructuredProp = isStructuredPropertyId(propertyId) || isSchemaFieldStructuredPropertyId(propertyId);
+        const isSupported = isStructuredProp
+            ? isStructuredPropertySupportedForEntities(propertyId, entityTypes, structuredPropertyCache)
+            : isPropertySupportedForEntities(propertyId, entityTypes);
+
         if (!isSupported) {
-            warnings.push(createPropertyWarning(propertyId, entityTypes, structuredPropertyCache));
+            // Get unsupported entity types for error message
+            const unsupportedEntities = entityTypes.filter((entityType) => {
+                return isStructuredProp
+                    ? !isStructuredPropertySupportedForEntities(propertyId, [entityType], structuredPropertyCache)
+                    : !isPropertySupportedForEntities(propertyId, [entityType]);
+            });
+
+            const unsupportedEntitiesText = unsupportedEntities
+                .map((type) =>
+                    type
+                        .toLowerCase()
+                        .replace(/([A-Z])/g, ' $1')
+                        .trim(),
+                )
+                .join(', ');
+
+            const message = createValidationMessage(propertyId, unsupportedEntitiesText, structuredPropertyCache);
+
+            warnings.push({
+                type: 'property',
+                propertyId,
+                message,
+            });
         }
     });
 
@@ -306,7 +161,23 @@ export function getEnhancedValidationWarnings(
     actions.forEach((action) => {
         const isSupported = isActionSupportedForEntities(action.id, entityTypes);
         if (!isSupported) {
-            warnings.push(createActionWarning(action, entityTypes));
+            const unsupportedEntities = entityTypes.filter(
+                (entityType) => !isActionSupportedForEntities(action.id, [entityType]),
+            );
+            const unsupportedEntitiesText = unsupportedEntities
+                .map((type) =>
+                    type
+                        .toLowerCase()
+                        .replace(/([A-Z])/g, ' $1')
+                        .trim(),
+                )
+                .join(', ');
+
+            warnings.push({
+                type: 'action',
+                actionId: action.id,
+                message: `Action "${action.displayName}" is not available for ${unsupportedEntitiesText}. This action only works with data assets.`,
+            });
         }
     });
 

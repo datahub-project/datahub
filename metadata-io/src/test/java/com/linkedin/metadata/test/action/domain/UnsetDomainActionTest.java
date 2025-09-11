@@ -95,4 +95,29 @@ public class UnsetDomainActionTest {
     // Should still pass validation even with parameters since NoValidationAction doesn't validate
     action.validate(params);
   }
+
+  @Test
+  public void testBackwardCompatibilityWithDomainUrns() throws Exception {
+    DomainServiceAsync service = mock(DomainServiceAsync.class);
+    UnsetDomainAction action = new UnsetDomainAction(service);
+
+    // Test backward compatibility: in the old version, users would specify domain URNs to remove
+    // In the new version, we ignore these parameters and remove ALL domains
+    Map<String, List<String>> oldStyleParams =
+        Collections.singletonMap(
+            "values", ImmutableList.of("urn:li:domain:engineering", "urn:li:domain:marketing"));
+    ActionParameters params = new ActionParameters(oldStyleParams);
+
+    action.apply(mock(OperationContext.class), ALL_URNS, params);
+
+    // Verify that batchUnsetDomain is called (removes ALL domains, ignoring the specific domain
+    // URNs)
+    Mockito.verify(service, Mockito.times(1))
+        .batchUnsetDomain(
+            any(OperationContext.class),
+            Mockito.eq(ALL_REFERENCES),
+            Mockito.eq(METADATA_TESTS_SOURCE));
+
+    Mockito.verifyNoMoreInteractions(service);
+  }
 }

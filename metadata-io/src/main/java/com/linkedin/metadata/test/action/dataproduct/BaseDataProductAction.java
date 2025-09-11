@@ -8,6 +8,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.UrnValuesAction;
+import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -22,6 +23,17 @@ public abstract class BaseDataProductAction extends UrnValuesAction {
   protected final DataProductService dataProductService;
 
   @Override
+  public void validate(ActionParameters params) throws InvalidActionParamsException {
+    super.validate(params);
+    List<String> dataProductUrns = params.getParams().get(VALUES_PARAM);
+    if (dataProductUrns.size() != 1) {
+      throw new InvalidActionParamsException(
+          "Data product actions require exactly one data product URN. Found: "
+              + dataProductUrns.size());
+    }
+  }
+
+  @Override
   public void apply(@Nonnull OperationContext opContext, List<Urn> urns, ActionParameters params)
       throws InvalidOperandException {
     // For each entity type, group then apply the action.
@@ -31,6 +43,7 @@ public abstract class BaseDataProductAction extends UrnValuesAction {
       List<Urn> entityUrns = entityTypeToUrn.getValue();
       if (entityUrns.isEmpty()) continue;
 
+      // Apply the single data product (validated above) to all entities
       Urn dataProductUrn = UrnUtils.getUrn(dataProductUrnStrs.get(0));
       applyInternal(opContext, dataProductUrn, entityUrns);
     }
