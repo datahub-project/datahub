@@ -342,7 +342,7 @@ class HasContainer(Entity):
                 )
                 for entry in parsed_path
             ]
-        elif container is not None:
+        elif isinstance(container, ContainerKey):
             container_urn = container.as_urn()
 
             browse_path_reversed = [container_urn]
