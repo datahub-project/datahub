@@ -2,6 +2,7 @@ from typing import Iterable
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
@@ -31,6 +32,7 @@ def _get_urn(table_name: str = "fooIndex") -> str:
     )
 
 
+@platform_name("fake")
 class FakeSource(Source):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         return [
