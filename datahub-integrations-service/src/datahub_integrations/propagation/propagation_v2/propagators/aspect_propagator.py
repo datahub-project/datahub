@@ -26,6 +26,7 @@ from datahub_integrations.propagation.propagation_v2.types.source_details import
 
 logger = logging.getLogger(__name__)
 
+ChangeEventDict = dict[str, dict[tuple[str, str], list[EntityChangeEvent]]]
 PropagationOutput = Iterator[
     MetadataChangeProposalWrapper | MetadataChangeProposalClass
 ]
@@ -81,13 +82,19 @@ class AspectPropagator(Generic[*Aspects], ABC):
     def aspects(self) -> Sequence[type[_Aspect]]:
         """Returns the Aspect that this propagator handles."""
 
-    def should_fetch_schema_field_parent_schema_metadata(self) -> bool:
-        """If, when processing a schema field urn, we need to fetch
-        its parent's SchemaMetadata and EditableSchemaMetadata aspects.
+    @abstractmethod
+    def empty_aspects(self) -> Sequence[_Aspect]:
+        """Returns an instance of the empty aspect for each aspect that this propagator handles.
+        The length and order must match that of `aspects()`.
 
-        Needed for docs propagation to perform a full diff.
+        Used to rollback propagated aspects.
         """
-        return False
+
+    def empty_entity(self, urn: str) -> EntityWithData:
+        return EntityWithData(
+            urn=urn,
+            aspects={aspect.ASPECT_NAME: aspect for aspect in self.empty_aspects()},
+        )
 
     @abstractmethod
     def category(self) -> ChangeCategory:
@@ -134,7 +141,7 @@ class AspectPropagator(Generic[*Aspects], ABC):
         """Implements the logic for `compute_diff_eces`, with a cleaner type signature."""
 
     def compute_propagation_mcps(
-        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+        self, change_events: ChangeEventDict
     ) -> PropagationOutput:
         for mcp in self._compute_propagation_mcps(change_events):
             logger.info(mcp)
@@ -142,7 +149,7 @@ class AspectPropagator(Generic[*Aspects], ABC):
 
     @abstractmethod
     def _compute_propagation_mcps(
-        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+        self, change_events: ChangeEventDict
     ) -> PropagationOutput:
         """Produce MCPs that propagate Entity Change Events.
 
@@ -174,3 +181,11 @@ class AspectPropagator(Generic[*Aspects], ABC):
             else new_source_details.actor,
             sourceDetail=new_source_details.for_metadata_attribution(),
         )
+
+    def should_fetch_schema_field_parent_schema_metadata(self) -> bool:
+        """If, when processing a schema field urn, we need to fetch
+        its parent's SchemaMetadata and EditableSchemaMetadata aspects.
+
+        Needed for docs propagation to perform a full diff.
+        """
+        return False

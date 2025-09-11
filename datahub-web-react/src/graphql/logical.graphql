@@ -1,0 +1,19 @@
+fragment logicalParentOrChildFields on Entity {
+    urn
+    type
+    ... on Dataset {
+        ...nonSiblingsDatasetSearchFields
+    }
+    ... on SchemaFieldEntity {
+        urn
+        type
+        fieldPath
+        parent {
+            urn
+            type
+            ... on Dataset {
+                ...nonSiblingsDatasetSearchFields
+            }
+        }
+    }
+}

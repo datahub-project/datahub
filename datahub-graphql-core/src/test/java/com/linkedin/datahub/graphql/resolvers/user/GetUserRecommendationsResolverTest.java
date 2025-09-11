@@ -48,7 +48,9 @@ public class GetUserRecommendationsResolverTest {
     mockSearchResult.setNumEntities(0);
     mockSearchResult.setEntities(new SearchEntityArray());
 
-    Mockito.when(mockClient.search(any(), any(), any(), any(), any(), anyInt(), anyInt()))
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(), any(), any(), any(), anyInt(), anyInt(), any(), any(), any()))
         .thenReturn(mockSearchResult);
     Mockito.when(mockClient.batchGetV2(any(), any(), any(), any())).thenReturn(ImmutableMap.of());
 
@@ -75,8 +77,17 @@ public class GetUserRecommendationsResolverTest {
     assertEquals((int) finalResult.getTotal(), 0);
     assertNotNull(finalResult.getUsers());
 
-    // Verify search was called with correct entity type
+    // Verify searchAcrossEntities was called with correct entity type
     Mockito.verify(mockClient)
-        .search(any(), eq(CORP_USER_ENTITY_NAME), any(), any(), any(), eq(0), eq(6));
+        .searchAcrossEntities(
+            any(),
+            eq(java.util.Collections.singletonList(CORP_USER_ENTITY_NAME)),
+            any(),
+            any(),
+            eq(0),
+            eq(6),
+            any(),
+            any(),
+            any());
   }
 }

@@ -123,7 +123,10 @@ export const SidebarSection = ({
                         <SectionHeader collapsible={collapsible}>
                             <Title ellipsis={{ tooltip: true }}>{title}</Title>
                             {infoPopover && (
-                                <StyledInfoPopover content={<InfoPopoverContent>{infoPopover}</InfoPopoverContent>} />
+                                <StyledInfoPopover
+                                    content={<InfoPopoverContent>{infoPopover}</InfoPopoverContent>}
+                                    iconColor={colors.gray[1800]}
+                                />
                             )}
                             {count > 0 && (
                                 <CountStyle>

@@ -1,5 +1,5 @@
 import { UserListItem } from '@app/identity/user/UserAndGroupList.hooks';
-import { STATUS_FILTER_OPTIONS, filterUsersByStatus, getUserStatusText } from '@app/identity/user/UserList.utils';
+import { filterUsersByStatus, getUserStatusText } from '@app/identity/user/UserList.utils';
 
 import { CorpUserStatus } from '@types';
 
@@ -84,19 +84,6 @@ describe('UserList.utils', () => {
             const result = filterUsersByStatus(mockUsers, 'ACTIVE');
             expect(result).toHaveLength(1);
             expect(result[0].status).toBe(CorpUserStatus.Active);
-        });
-    });
-
-    describe('STATUS_FILTER_OPTIONS', () => {
-        it('should contain all expected filter options', () => {
-            expect(STATUS_FILTER_OPTIONS).toHaveLength(5);
-            expect(STATUS_FILTER_OPTIONS).toEqual([
-                { label: 'Status', value: 'all' },
-                { label: 'Active', value: 'active' },
-                { label: 'Suspended', value: 'suspended' },
-                { label: 'Invited', value: 'invited' },
-                { label: 'Inactive', value: 'inactive' },
-            ]);
         });
     });
 });

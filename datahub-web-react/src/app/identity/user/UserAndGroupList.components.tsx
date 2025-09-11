@@ -1,5 +1,4 @@
 import { message } from 'antd';
-import { Copy, LockOpen, Repeat, Trash } from 'phosphor-react';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -8,10 +7,26 @@ import { ColorValues } from '@components/theme/config';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
 import { EmailInvitationService } from '@app/identity/user/EmailInvitationService';
+import { RecommendedUsersTable } from '@app/identity/user/RecommendedUsersTable';
 import { UserListItem } from '@app/identity/user/UserAndGroupList.hooks';
+import { STATUS_FILTER_OPTIONS } from '@app/identity/user/UserList.utils';
 import { useRevokeUserInvitationMutation } from '@app/identity/user/hooks/useRevokeUserInvitation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Avatar, Button, Dropdown, Pill, Text, Tooltip, colors } from '@src/alchemy-components';
+import {
+    Avatar,
+    Button,
+    Menu,
+    Pagination,
+    Pill,
+    SearchBar,
+    SimpleSelect,
+    Table,
+    Text,
+    Tooltip,
+    colors,
+} from '@src/alchemy-components';
+import { ItemType } from '@src/alchemy-components/components/Menu/types';
+import { SortingState } from '@src/alchemy-components/components/Table/types';
 
 import { useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { CorpUser, CorpUserStatus, DataHubRole, EntityType } from '@types';
@@ -64,7 +79,7 @@ export const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 300px); /* Constrain to page height minus header/filters space */
+    max-height: calc(100vh - 350px); /* Constrain to page height minus header/filters space */
     overflow: auto;
 
     /* Make table header sticky */
@@ -91,7 +106,7 @@ export const FiltersHeader = styled.div`
 
 export const SearchContainer = styled.div`
     display: flex;
-    align-items: center;
+    flex-direction: column;
     flex: 1;
 `;
 
@@ -108,6 +123,7 @@ export const ActionsContainer = styled.div`
 `;
 
 export const SubTabsContainer = styled.div`
+    margin-top: 8px;
     margin-bottom: 16px;
 `;
 
@@ -323,19 +339,16 @@ export const UserActionsMenu = ({
         }
     };
 
-    const items = [
+    const items: ItemType[] = [
         // Don't show Copy Urn for invited users
         ...(isInvitedUser
             ? []
             : [
                   {
+                      type: 'item' as const,
                       key: 'copyurn',
-                      label: (
-                          <span>
-                              <Copy size={16} style={{ marginRight: '8px' }} />
-                              Copy Urn
-                          </span>
-                      ),
+                      title: 'Copy Urn',
+                      icon: 'Copy',
                       onClick: () => {
                           navigator.clipboard.writeText(user.urn);
                           message.success('Urn copied to clipboard');
@@ -343,49 +356,147 @@ export const UserActionsMenu = ({
                   },
               ]),
         {
+            type: 'item' as const,
             key: 'reset',
-            label: (
-                <span>
-                    <LockOpen size={16} style={{ marginRight: '8px' }} />
-                    Reset Password
-                </span>
-            ),
+            title: 'Reset Password',
+            icon: 'Password',
             onClick: () => {
                 onResetPassword({ urn: user.urn, username: user.username });
             },
             disabled: !shouldShowPasswordReset,
         },
         {
+            type: 'item' as const,
             key: 'resend-invitation',
-            'data-testid': 'resend-invitation-menu-item',
-            label: (
-                <span>
-                    <Repeat size={16} style={{ marginRight: '8px' }} />
-                    Resend Invitation
-                </span>
-            ),
+            title: 'Resend Invitation',
+            icon: 'Repeat',
             onClick: handleResendInvitation,
             disabled: !canResendInvitation,
         },
         {
+            type: 'item' as const,
             key: 'delete',
-            label: (
-                <span>
-                    <Trash size={16} style={{ marginRight: '8px' }} />
-                    Delete User
-                </span>
-            ),
+            title: 'Delete User',
+            icon: 'Trash',
+            danger: true,
             onClick: handleDeleteWithInvitationRevoke,
         },
     ];
 
     return (
-        <Dropdown trigger={['click']} menu={{ items }}>
+        <Menu items={items}>
             <StyledActionsButton
                 variant="text"
                 icon={{ icon: 'DotsThreeVertical', weight: 'bold', size: 'xl', source: 'phosphor', color: 'gray' }}
                 isCircle
             />
-        </Dropdown>
+        </Menu>
     );
 };
+
+type AllUsersTabProps = {
+    query: string;
+    setQuery: (query: string) => void;
+    setPage: (page: number) => void;
+    statusFilter: string;
+    setStatusFilter: (filter: string) => void;
+    sortedFilteredUsers: UserListItem[];
+    loading: boolean;
+    columns: any[];
+    handleSortColumnChange: ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => void;
+    page: number;
+    pageSize: number;
+    totalUsers: number;
+    onChangePage: (page: number) => void;
+};
+
+export const AllUsersTab = ({
+    query,
+    setQuery,
+    setPage,
+    statusFilter,
+    setStatusFilter,
+    sortedFilteredUsers,
+    loading,
+    columns,
+    handleSortColumnChange,
+    page,
+    pageSize,
+    totalUsers,
+    onChangePage,
+}: AllUsersTabProps) => (
+    <>
+        <UserContainer>
+            <FiltersHeader>
+                <SearchContainer>
+                    <SearchBar
+                        placeholder="Search..."
+                        value={query}
+                        onChange={(value) => {
+                            setQuery(value);
+                            setPage(1);
+                        }}
+                        width="300px"
+                        allowClear
+                    />
+                    {query.length > 0 && query.length < 3 && (
+                        <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                            Enter at least 3 characters to search
+                        </Text>
+                    )}
+                </SearchContainer>
+                <FilterContainer>
+                    <SimpleSelect
+                        placeholder="Status"
+                        position="end"
+                        options={STATUS_FILTER_OPTIONS.filter((option) => option.value !== 'all').map((option) => ({
+                            value: option.value,
+                            label: option.label,
+                        }))}
+                        values={statusFilter === 'all' ? [] : [statusFilter]}
+                        showClear
+                        onUpdate={(values) => {
+                            setStatusFilter(values.length > 0 ? values[0] : 'all');
+                            setPage(1);
+                        }}
+                    />
+                </FilterContainer>
+            </FiltersHeader>
+        </UserContainer>
+
+        <TableContainer>
+            {sortedFilteredUsers.length > 0 ? (
+                <>
+                    <Table
+                        columns={columns}
+                        data={sortedFilteredUsers}
+                        isLoading={loading}
+                        isScrollable
+                        handleSortColumnChange={handleSortColumnChange}
+                    />
+                    <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                        <Pagination
+                            currentPage={page}
+                            itemsPerPage={pageSize}
+                            total={totalUsers}
+                            onPageChange={onChangePage}
+                        />
+                    </div>
+                </>
+            ) : (
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                    {loading ? 'Loading users...' : 'No users found'}
+                </div>
+            )}
+        </TableContainer>
+    </>
+);
+
+type RecommendedUsersTabProps = {
+    onInviteUser: (user: CorpUser, role?: DataHubRole) => Promise<boolean>;
+    selectRoleOptions: DataHubRole[];
+};
+
+export const RecommendedUsersTab = ({ onInviteUser, selectRoleOptions }: RecommendedUsersTabProps) => (
+    <RecommendedUsersTable onInviteUser={onInviteUser} selectRoleOptions={selectRoleOptions} />
+);

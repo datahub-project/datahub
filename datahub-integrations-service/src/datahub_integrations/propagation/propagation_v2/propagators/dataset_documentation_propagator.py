@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from datahub_integrations.actions.bulk_bootstrap_action import EntityWithData
 from datahub_integrations.propagation.propagation_v2.propagators.aspect_propagator import (
     AspectPropagator,
+    ChangeEventDict,
     PropagationOutput,
 )
 from datahub_integrations.propagation.propagation_v2.types.ece_enums import (
@@ -47,6 +48,17 @@ class DatasetDocumentationPropagator(
             DatasetPropertiesClass,
             EditableDatasetPropertiesClass,
             DocumentationClass,
+        )
+
+    def empty_aspects(
+        self,
+    ) -> tuple[
+        DatasetPropertiesClass, EditableDatasetPropertiesClass, DocumentationClass
+    ]:
+        return (
+            DatasetPropertiesClass(),
+            EditableDatasetPropertiesClass(),
+            DocumentationClass(documentations=[]),
         )
 
     def should_fetch_schema_field_parent_schema_metadata(
@@ -135,11 +147,11 @@ class DatasetDocumentationPropagator(
         )
 
     def _compute_propagation_mcps(
-        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+        self, change_events: ChangeEventDict
     ) -> PropagationOutput:
         for target_urn, ece_map in change_events.items():
-            for operation, eces in ece_map.items():
-                for via_urn, ece in eces.items():
+            for (operation, via_urn), eces in ece_map.items():
+                for ece in eces:
                     if ece.category == ChangeCategory.DOCUMENTATION.value:
                         old_aspect = ece.safe_parameters.get("old_aspect")
                         if "old_aspect" not in ece.parameters:

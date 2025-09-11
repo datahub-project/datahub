@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 from datahub_integrations.propagation.propagation_v2.propagators.aspect_propagator import (
     AspectPropagator,
+    ChangeEventDict,
     PropagationOutput,
 )
 from datahub_integrations.propagation.propagation_v2.types.ece_enums import (
@@ -34,6 +35,9 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
 
     def aspects(self) -> tuple[type[StructuredPropertiesClass]]:
         return (StructuredPropertiesClass,)
+
+    def empty_aspects(self) -> tuple[StructuredPropertiesClass]:
+        return (StructuredPropertiesClass(properties=[]),)
 
     def category(self) -> ChangeCategory:
         return ChangeCategory.STRUCTURED_PROPERTY
@@ -85,12 +89,12 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
         )
 
     def _compute_propagation_mcps(
-        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+        self, change_events: ChangeEventDict
     ) -> PropagationOutput:
         for target_urn, ece_map in change_events.items():
             patch_builder = HasStructuredPropertiesPatch(target_urn)
-            for operation, eces in ece_map.items():
-                for via_urn, ece in eces.items():
+            for (operation, via_urn), eces in ece_map.items():
+                for ece in eces:
                     if ece.category == ChangeCategory.STRUCTURED_PROPERTY.value:
                         self._process_ece(via_urn, operation, ece, patch_builder)
             yield from patch_builder.build()

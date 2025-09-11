@@ -134,6 +134,7 @@ import com.linkedin.datahub.graphql.resolvers.test.RunTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.TestResultsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.test.UpdateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ValidateTestResolver;
+import com.linkedin.datahub.graphql.resolvers.user.ListUsersAndGroupsResolver;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.action.ActionPipelineType;
@@ -168,6 +169,7 @@ import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
 import com.linkedin.metadata.service.UserService;
+import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.MetadataTestClient;
@@ -211,6 +213,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private SettingsService settingsService;
   private ShareService shareService;
   private FormService formService;
+  private ViewService viewService;
   private TimeseriesAspectService timeseriesAspectService;
   private MetadataTestClient metadataTestClient;
   private ActionRequestService actionRequestService;
@@ -262,6 +265,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.testEngine = args.getTestEngine();
     this.shareService = args.getShareService();
     this.formService = args.getFormService();
+    this.viewService = args.getViewService();
     this.metadataTestClient = args.getMetadataTestClient();
     this.actionWorkflowService = args.getActionWorkflowService();
     this.inviteTokenService = args.getInviteTokenService();
@@ -271,7 +275,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     // Initialize UserInvitationService after all dependencies are set
     this.userInvitationService =
         new UserInvitationService(
-            this.integrationsService, this.inviteTokenService, this.entityService, this.baseUrl);
+            this.integrationsService,
+            this.inviteTokenService,
+            this.entityService,
+            args.getEntityClient(),
+            this.baseUrl);
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
@@ -604,7 +612,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "semanticSearchAcrossEntities",
                     new SemanticSearchAcrossEntitiesResolver(
-                        semanticSearchService, null, formService, entityClient)));
+                        semanticSearchService, null, formService, entityClient))
+                .dataFetcher(
+                    "listUsersAndGroups",
+                    new ListUsersAndGroupsResolver(
+                        this.entityClient, this.viewService, this.formService)));
   }
 
   private void configureContainerResolvers(final RuntimeWiring.Builder builder) {

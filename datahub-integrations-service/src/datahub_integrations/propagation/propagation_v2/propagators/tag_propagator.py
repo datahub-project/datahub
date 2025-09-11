@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from datahub_integrations.propagation.propagation_v2.propagators.aspect_propagator import (
     AspectPropagator,
+    ChangeEventDict,
     PropagationOutput,
 )
 from datahub_integrations.propagation.propagation_v2.types.ece_enums import (
@@ -31,6 +32,9 @@ class TagPropagator(AspectPropagator[GlobalTagsClass]):
 
     def aspects(self) -> tuple[type[GlobalTagsClass]]:
         return (GlobalTagsClass,)
+
+    def empty_aspects(self) -> tuple[GlobalTagsClass]:
+        return (GlobalTagsClass(tags=[]),)
 
     def category(self) -> ChangeCategory:
         return ChangeCategory.TAG
@@ -77,12 +81,12 @@ class TagPropagator(AspectPropagator[GlobalTagsClass]):
         )
 
     def _compute_propagation_mcps(
-        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+        self, change_events: ChangeEventDict
     ) -> PropagationOutput:
         for target_urn, ece_map in change_events.items():
             patch_builder = HasTagsPatch(target_urn)
-            for operation, eces in ece_map.items():
-                for via_urn, ece in eces.items():
+            for (operation, via_urn), eces in ece_map.items():
+                for ece in eces:
                     if ece.category == ChangeCategory.TAG.value:
                         self._process_ece(via_urn, operation, ece, patch_builder)
             yield from patch_builder.build()
@@ -115,7 +119,7 @@ class TagPropagator(AspectPropagator[GlobalTagsClass]):
             patch_builder.add_tag(
                 TagAssociationClass(
                     tag=tag_urn,
-                    context=context,
+                    context=context if context and context != "{}" else None,
                     attribution=attribution,
                 )
             )
