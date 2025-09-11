@@ -710,7 +710,9 @@ class TestSinkReportTimingOnClose:
 
         return pipeline, sink
 
-    def _add_pending_requests_to_sink(self, sink, count=3):
+    def _add_pending_requests_to_sink(
+        self, sink: RealisticDatahubRestSink, count: int = 3
+    ) -> int:
         """Add some pending requests to the sink to simulate async work"""
         print(f"📝 Adding {count} pending requests to sink...")
         for i in range(count):
