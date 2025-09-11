@@ -278,13 +278,13 @@ public class RequestContextTest {
 
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
-            eq("datahub.request.count"),
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
             eq(1.0d),
-            eq("user.category"),
+            eq("user_category"),
             eq("system"),
-            eq("agent.class"),
+            eq("agent_class"),
             eq("unknown"),
-            eq("request.api"),
+            eq("request_api"),
             eq("restli"));
   }
 
@@ -303,13 +303,13 @@ public class RequestContextTest {
 
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
-            eq("datahub.request.count"),
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
             eq(1.0d),
-            eq("user.category"),
+            eq("user_category"),
             eq("admin"),
-            eq("agent.class"),
+            eq("agent_class"),
             eq("unknown"),
-            eq("request.api"),
+            eq("request_api"),
             eq("restli"));
   }
 
@@ -328,13 +328,13 @@ public class RequestContextTest {
 
     verify(mockMetricUtils, atLeastOnce())
         .incrementMicrometer(
-            eq("datahub.request.count"),
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
             eq(1.0d),
-            eq("user.category"),
+            eq("user_category"),
             eq("regular"),
-            eq("agent.class"),
+            eq("agent_class"),
             eq("unknown"),
-            eq("request.api"),
+            eq("request_api"),
             eq("restli"));
   }
 
