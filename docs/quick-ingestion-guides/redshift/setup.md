@@ -20,40 +20,53 @@ CREATE USER datahub WITH PASSWORD 'Datahub1234';
 
 ## Redshift Setup
 
-1. Grant the following permissions to your `datahub` user:
+1. Grant the following permissions to your `datahub` user. For most users, the **minimal set** below will be sufficient:
+
+### Minimal Required Permissions (Recommended)
 
 ```sql
--- Enable access to system log tables (STL_*, SVL_*, SYS_*)
--- Required for lineage extraction and usage statistics
+-- Core system access (required for lineage and usage statistics)
 ALTER USER datahub WITH SYSLOG ACCESS UNRESTRICTED;
 
--- Database and schema metadata
+-- Core metadata extraction (always required)
 GRANT SELECT ON pg_catalog.svv_redshift_databases TO datahub;
 GRANT SELECT ON pg_catalog.svv_redshift_schemas TO datahub;
 GRANT SELECT ON pg_catalog.svv_external_schemas TO datahub;
-
--- Table and column metadata
-GRANT SELECT ON pg_catalog.svv_redshift_tables TO datahub;
-GRANT SELECT ON pg_catalog.svv_redshift_columns TO datahub;
 GRANT SELECT ON pg_catalog.svv_table_info TO datahub;
-
--- External table support (Amazon Redshift Spectrum)
 GRANT SELECT ON pg_catalog.svv_external_tables TO datahub;
 GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;
+GRANT SELECT ON pg_catalog.pg_class_info TO datahub;
 
--- User information for usage statistics
-GRANT SELECT ON pg_catalog.svv_user_info TO datahub;      -- Serverless workgroups
-GRANT SELECT ON pg_catalog.svl_user_info TO datahub;      -- Provisioned clusters
-
--- Materialized view information
-GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;        -- Provisioned clusters
-GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;        -- Serverless workgroups
-
--- Data sharing (cross-cluster lineage)
+-- Data sharing lineage (enabled by default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;
 
--- Table creation timestamps (provisioned clusters)
-GRANT SELECT ON pg_catalog.pg_class_info TO datahub;
+-- Choose ONE based on your Redshift type:
+-- For Provisioned Clusters:
+GRANT SELECT ON pg_catalog.stv_mv_info TO datahub;
+
+-- For Serverless Workgroups:
+-- GRANT SELECT ON pg_catalog.svv_user_info TO datahub;
+-- GRANT SELECT ON pg_catalog.svv_mv_info TO datahub;
+```
+
+### Additional Permissions (Only if needed)
+
+```sql
+-- Only if using shared databases (datashare consumers):
+-- GRANT SELECT ON pg_catalog.svv_redshift_tables TO datahub;
+-- GRANT SELECT ON pg_catalog.svv_redshift_columns TO datahub;
+
+-- For data profiling (if enabled):
+-- GRANT USAGE ON SCHEMA your_schema_name TO datahub;
+-- GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
+
+-- For production environments (future tables/views):
+-- IMPORTANT: Only works for objects created by the user running this command
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON TABLES TO datahub;
+-- ALTER DEFAULT PRIVILEGES IN SCHEMA your_schema_name GRANT SELECT ON VIEWS TO datahub;
+--
+-- Alternative: Run this periodically to catch all new objects regardless of creator:
+-- GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub;
 ```
 
 ## Next Steps
