@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Sequence, Type, Union
 
 from deprecated.sphinx import deprecated
 from typing_extensions import Self
@@ -73,7 +73,7 @@ class Chart(
         last_refreshed: Optional[datetime] = None,
         chart_type: Optional[Union[str, models.ChartTypeClass]] = None,
         access: Optional[str] = None,
-        input_datasets: Optional[List[Union[DatasetUrnOrStr, Dataset]]] = None,
+        input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
@@ -291,7 +291,7 @@ class Chart(
         return [DatasetUrn.from_string(input_urn) for input_urn in (props.inputs or [])]
 
     def set_input_datasets(
-        self, input_datasets: List[Union[DatasetUrnOrStr, Dataset]]
+        self, input_datasets: Sequence[Union[DatasetUrnOrStr, Dataset]]
     ) -> None:
         """Set the input datasets of the chart."""
         # Convert all inputs to strings
