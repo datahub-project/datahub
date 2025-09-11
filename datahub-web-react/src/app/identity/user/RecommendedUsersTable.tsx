@@ -294,7 +294,14 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                     </HeaderSection>
                     <RecommendedNoteContainer>
                         <Text size="sm" color="gray">
-                            Review these recommended users based on their activity in your connected sources
+                            Review these recommended users based on their activity in your connected sources.{' '}
+                            <a
+                                target="_blank"
+                                href="https://docs.datahub.com/docs/authentication/guides/add-users/"
+                                rel="noreferrer"
+                            >
+                                Learn more
+                            </a>
                         </Text>
                         <Text size="sm" color="gray" type="p" style={{ fontStyle: 'italic' }}>
                             Updated every 24 hours.
