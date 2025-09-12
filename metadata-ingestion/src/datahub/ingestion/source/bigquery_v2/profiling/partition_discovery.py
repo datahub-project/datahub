@@ -296,6 +296,9 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
 
         # First try sampling approach, but only as a fallback for very large tables
         # We want to discover actual partitions, not just sample a few values
+        logger.info(
+            f"Starting partition discovery for table {table.name} (may try multiple date formats to find data)"
+        )
         logger.debug(
             "Attempting comprehensive partition discovery before falling back to sampling"
         )
@@ -1123,37 +1126,69 @@ LIMIT @limit_rows"""
         """
         return self._create_safe_filter(col_name, val)
 
-    def _create_safe_filter(self, col_name: str, val: Union[str, int, float]) -> str:
+    def _create_safe_filter(
+        self, col_name: str, val: Union[str, int, float], col_type: Optional[str] = None
+    ) -> str:
         """
         Create a safe partition filter with upstream validation of inputs.
 
         This ensures we only create filters with safe, validated inputs before
-        they reach the downstream validation.
+        they reach the downstream validation. Uses string quoting for all values
+        to rely on BigQuery's implicit type casting, which handles most type
+        conversions automatically and avoids type mismatch errors.
         """
         # Validate column name
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
 
-        # Validate and format value based on type
-        if isinstance(val, str):
-            # String validation: check for injection patterns
-            if any(pattern in val for pattern in [";", "--", "/*", "'", "\\"]):
-                # For safety, escape single quotes and reject other dangerous chars
-                if "'" in val:
-                    escaped_val = val.replace("'", "''")
-                    return f"`{col_name}` = '{escaped_val}'"
-                else:
-                    raise ValueError(f"Invalid string value for filter: {val}")
-            else:
-                return f"`{col_name}` = '{val}'"
-        elif isinstance(val, (int, float)):
-            # Numeric values are safe
-            return f"`{col_name}` = {val}"
+        # Use column type information to format values correctly for partition pruning
+        str_val = str(val)
+
+        # Check for SQL injection patterns
+        if any(pattern in str_val for pattern in [";", "--", "/*", "\\"]):
+            raise ValueError(f"Invalid value for filter: {val}")
+
+        # Determine formatting based on BigQuery column type or Python type
+        should_quote = True
+
+        if col_type:
+            # Use BigQuery column type to determine quoting (for partition pruning efficiency)
+            numeric_types = {
+                "INT64",
+                "FLOAT64",
+                "NUMERIC",
+                "BIGNUMERIC",
+                "INTEGER",
+                "FLOAT",
+                "DECIMAL",
+            }
+            should_quote = col_type.upper() not in numeric_types
         else:
-            # Convert other types to string and validate
-            str_val = str(val)
-            if any(pattern in str_val for pattern in [";", "--", "/*", "'"]):
-                raise ValueError(f"Invalid value for filter: {val}")
+            # Fallback to Python type-based logic (for backward compatibility)
+            should_quote = not isinstance(val, (int, float))
+
+        if not should_quote:
+            # Don't quote numeric values
+            try:
+                # Validate that the value can be treated as a number
+                if "." in str_val:
+                    float(str_val)
+                else:
+                    int(str_val)
+                return f"`{col_name}` = {str_val}"
+            except ValueError:
+                # Value can't be converted to number
+                if col_type:
+                    logger.warning(
+                        f"Value '{str_val}' cannot be converted to numeric type {col_type} for column {col_name}"
+                    )
+                # Fall through to quoted string handling
+
+        # Quote the value
+        if "'" in str_val:
+            escaped_val = str_val.replace("'", "''")
+            return f"`{col_name}` = '{escaped_val}'"
+        else:
             return f"`{col_name}` = '{str_val}'"
 
     def _verify_partition_has_data(
@@ -1195,12 +1230,12 @@ LIMIT 1"""
 
             if count_verification_results and len(count_verification_results) > 0:
                 logger.debug(
-                    f"Verified partition filters for table {project}.{schema}.{table.name} have data: {where_clause}"
+                    f"Partition verification successful for table {project}.{schema}.{table.name}: {where_clause}"
                 )
                 return True
             else:
-                logger.warning(
-                    f"Partition verification found no data for table {project}.{schema}.{table.name}: {where_clause}"
+                logger.debug(
+                    f"Partition verification found no data for table {project}.{schema}.{table.name}: {where_clause} (trying other partition values...)"
                 )
                 return False
         except Exception as e:
@@ -1427,7 +1462,7 @@ LIMIT 1"""
                     continue
 
             logger.info(
-                f"Successfully obtained partition values for table {table.name}: {dict(actual_partition_values)}"
+                f"Successfully discovered partition values for table {table.name}: {dict(actual_partition_values)}"
             )
             logger.debug(
                 f"Generated partition filters from table query: {actual_filters}"
@@ -1794,7 +1829,7 @@ LIMIT @max_values"""
                         # Use the most common value
                         actual_value = results[0].col_value
                         enhanced_filter = self._create_safe_filter(
-                            col_name, actual_value
+                            col_name, actual_value, col_data_type
                         )
                         enhanced_filters.append(enhanced_filter)
 
