@@ -51,7 +51,7 @@ freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"]
 @pytest.fixture
 def mock_time(monkeypatch):
     def fake_time():
-        return 1615443388.0975091
+        return 1615443388.0975091  # 2021-03-11 06:16:28.097509
 
     monkeypatch.setattr(time, "time", fake_time)
 
@@ -73,7 +73,8 @@ def pytest_collection_modifyitems(
         if (
             "docker_compose_runner" in item.fixturenames  # type: ignore[attr-defined]
             or any(
-                marker.name == "integration_batch_2" for marker in item.iter_markers()
+                marker.name.startswith("integration_batch_")
+                for marker in item.iter_markers()
             )
         ):
             item.add_marker(pytest.mark.slow)

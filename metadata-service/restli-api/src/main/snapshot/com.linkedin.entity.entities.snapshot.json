@@ -841,19 +841,23 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRD" : "Alternative Prod spelling",
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "RVW" : "Designates review fabrics",
       "SANDBOX" : "Designates sandbox fabrics",
+      "SBX" : "Alternative spelling for sandbox",
+      "SIT" : "System Integration Testing",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
+      "TST" : "Alternative Test spelling",
       "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
@@ -1131,6 +1135,11 @@
             "name" : "createStamp",
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with creation of this record"
+          }, {
+            "name" : "updateStamp",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp associated with updation of this record",
+            "optional" : true
           } ]
         }
       },
@@ -1326,6 +1335,28 @@
       },
       "doc" : "Source information for the ownership",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "ownerAttributionActors",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/source" : {
+          "fieldName" : "ownerAttributionSources",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/time" : {
+          "fieldName" : "ownerAttributionDates",
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
+        }
+      }
     } ]
   }, {
     "type" : "record",
@@ -1986,7 +2017,15 @@
               "items" : "com.linkedin.common.Urn"
             },
             "doc" : "Upstream entities in the lineage",
-            "optional" : true
+            "optional" : true,
+            "Searchable" : {
+              "/*" : {
+                "fieldName" : "fineGrainedUpstreams",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasFineGrainedUpstreams",
+                "queryByDefault" : false
+              }
+            }
           }, {
             "name" : "downstreamType",
             "type" : {
@@ -2423,6 +2462,7 @@
       "Searchable" : {
         "fieldName" : "upstreams",
         "fieldType" : "URN",
+        "hasValuesFieldName" : "hasUpstreams",
         "queryByDefault" : false
       }
     }, {
@@ -5596,9 +5636,10 @@
                                     "type" : "enum",
                                     "name" : "PolicyMatchCondition",
                                     "doc" : "The matching condition in a filter criterion",
-                                    "symbols" : [ "EQUALS", "STARTS_WITH" ],
+                                    "symbols" : [ "EQUALS", "STARTS_WITH", "NOT_EQUALS" ],
                                     "symbolDocs" : {
                                       "EQUALS" : "Whether the field matches the value",
+                                      "NOT_EQUALS" : "Whether the field does not match the value",
                                       "STARTS_WITH" : "Whether the field value starts with the value"
                                     }
                                   },
@@ -5611,6 +5652,11 @@
                           } ]
                         },
                         "doc" : "Filter to apply privileges to",
+                        "optional" : true
+                      }, {
+                        "name" : "privilegeConstraints",
+                        "type" : "PolicyMatchFilter",
+                        "doc" : "Constraints around what sub-resources operations are allowed to modify, i.e. NOT_EQUALS - cannot modify a particular defined tag, EQUALS - can only modify a particular defined tag, STARTS_WITH - can only modify a tag starting with xyz",
                         "optional" : true
                       } ]
                     },
@@ -6181,8 +6227,28 @@
       "doc" : "Include only latest versions in version sets, default true",
       "default" : true,
       "optional" : true
+    }, {
+      "name" : "fieldConfiguration",
+      "type" : "string",
+      "doc" : "Which fieldConfiguration should be applied. The possible values\nare defined in the configuration file `search_config.yaml`",
+      "optional" : true
+    }, {
+      "name" : "sliceOptions",
+      "type" : {
+        "type" : "record",
+        "name" : "SliceOptions",
+        "fields" : [ {
+          "name" : "id",
+          "type" : "int"
+        }, {
+          "name" : "max",
+          "type" : "int"
+        } ]
+      },
+      "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
+      "optional" : true
     } ]
-  }, {
+  }, "com.linkedin.metadata.query.SliceOptions", {
     "type" : "enum",
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query.filter",
@@ -6801,6 +6867,16 @@
       "name" : "version",
       "type" : "string",
       "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
+      "optional" : true
+    }, {
+      "name" : "aspectCreated",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "When the aspect was initially created and who created it, detected by version 0 -> 1 change",
+      "optional" : true
+    }, {
+      "name" : "aspectModified",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "When the aspect was last modified and the actor that performed the modification",
       "optional" : true
     } ],
     "Aspect" : {

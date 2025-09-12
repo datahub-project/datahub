@@ -1,7 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.TestEntityTestBase;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -46,6 +48,12 @@ public class TestEntityElasticSearchTest extends TestEntityTestBase {
   @Override
   protected ESIndexBuilder getIndexBuilder() {
     return esIndexBuilder;
+  }
+
+  @NotNull
+  @Override
+  protected ElasticSearchConfiguration getElasticSearchConfiguration() {
+    return TEST_ES_SEARCH_CONFIG;
   }
 
   @Test

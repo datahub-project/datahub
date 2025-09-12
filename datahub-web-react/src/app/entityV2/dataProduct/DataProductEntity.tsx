@@ -17,6 +17,7 @@ import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfileTab } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import { SidebarViewDefinitionSection } from '@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -29,8 +30,10 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
+import SummaryTab from '@app/entityV2/summary/SummaryTab';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
@@ -69,10 +72,7 @@ export class DataProductEntity implements Entity<DataProduct> {
         return (
             <FileDoneOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -103,33 +103,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             headerActionItems={new Set([EntityActionItem.BATCH_ADD_DATA_PRODUCT])}
             headerDropdownItems={headerDropdownItems}
             isNameEditable
-            tabs={[
-                {
-                    id: EntityProfileTab.SUMMARY_TAB,
-                    name: 'Summary',
-                    component: DataProductSummaryTab,
-                    icon: ReadOutlined,
-                },
-                {
-                    name: 'Documentation',
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.entities?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
-                    },
-                    component: DataProductEntitiesTab,
-                    icon: AppstoreOutlined,
-                },
-                {
-                    name: 'Properties',
-                    component: PropertiesTab,
-                    icon: UnorderedListOutlined,
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
@@ -154,6 +128,9 @@ export class DataProductEntity implements Entity<DataProduct> {
                 updateOnly: true,
             },
         },
+        {
+            component: SidebarApplicationSection,
+        },
         // TODO: Is someone actually using the below code?
         {
             component: SidebarViewDefinitionSection,
@@ -175,6 +152,41 @@ export class DataProductEntity implements Entity<DataProduct> {
             component: StatusSection,
         },
     ];
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                id: EntityProfileTab.SUMMARY_TAB,
+                name: 'Summary',
+                component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
+                icon: ReadOutlined,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: 'Documentation',
+                          component: DocumentationTab,
+                          icon: FileOutlined,
+                      },
+                  ]
+                : []),
+            {
+                name: 'Assets',
+                getCount: (entityData, _) => {
+                    return entityData?.entities?.total;
+                },
+                component: DataProductEntitiesTab,
+                icon: AppstoreOutlined,
+            },
+            {
+                name: 'Properties',
+                component: PropertiesTab,
+                icon: UnorderedListOutlined,
+            },
+        ];
+    };
 
     getSidebarTabs = () => [
         {
@@ -262,6 +274,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 

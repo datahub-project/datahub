@@ -6,24 +6,7 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.21 AS binary
-
-# Re-declaring arg from above to make it available in this stage (will inherit default value)
-ARG ALPINE_REPO_URL
-
-ENV DOCKERIZE_VERSION=v0.9.3
-WORKDIR /go/src/github.com/jwilder
-
-# Optionally set corporate mirror for apk
-RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then sed -i "s#http.*://dl-cdn.alpinelinux.org/alpine#${ALPINE_REPO_URL}#g" /etc/apk/repositories ; fi
-
-RUN apk --no-cache --update add openssl git tar curl
-
-WORKDIR /go/src/github.com/jwilder/dockerize
-
-RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
-
-FROM alpine:3.21 AS base
+FROM alpine:3.22 AS base
 
 ENV JMX_VERSION=0.20.0
 
@@ -46,7 +29,7 @@ RUN apk --no-cache --update-cache --available upgrade \
     && wget --no-verbose ${GITHUB_REPO_URL}/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.15.0/opentelemetry-javaagent.jar \
     && wget --no-verbose ${MAVEN_CENTRAL_REPO_URL}/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-17-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
-COPY --from=binary /go/bin/dockerize /usr/local/bin
+COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
@@ -55,7 +38,7 @@ COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
-COPY war.war /datahub/datahub-gms/bin/war.war
+COPY metadata-service/war/build/libs/war.war /datahub/datahub-gms/bin/war.war
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

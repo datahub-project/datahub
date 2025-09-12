@@ -1,8 +1,8 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.entities.datajob import DataFlow, DataJob
+from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
@@ -16,7 +16,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
     Constant,
@@ -44,8 +47,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
+from datahub.sdk.entity import Entity
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -845,8 +850,18 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
         """Generate a DataProcessInstance entity from a job."""
+        # hack: convert to old instance for DataProcessInstance.from_datajob compatibility
+        datajob_v1 = DataJobV1(
+            id=datajob.name,
+            flow_urn=datajob.flow_urn,
+            platform_instance=self.config.platform_instance,
+            name=datajob.name,
+            inlets=datajob.inlets,
+            outlets=datajob.outlets,
+            fine_grained_lineages=datajob.fine_grained_lineages,
+        )
         return DataProcessInstance.from_datajob(
-            datajob=datajob,
+            datajob=datajob_v1,
             id=job.job_id,
             clone_inlets=True,
             clone_outlets=True,
@@ -1343,7 +1358,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """
         Datahub Ingestion framework invoke this method
         """

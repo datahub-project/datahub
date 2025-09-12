@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -39,7 +40,8 @@ public class JavaEntityClientFactory {
       final @Qualifier("relationshipSearchService") LineageSearchService _lineageSearchService,
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
-      final EntityClientConfig entityClientConfig) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -50,7 +52,8 @@ public class JavaEntityClientFactory {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        entityClientConfig);
+        entityClientConfig,
+        metricUtils);
   }
 
   @Bean("systemEntityClient")
@@ -67,7 +70,8 @@ public class JavaEntityClientFactory {
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
       final EntityClientCacheConfig entityClientCacheConfig,
-      final EntityClientConfig entityClientConfig) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     return new SystemJavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -79,6 +83,7 @@ public class JavaEntityClientFactory {
         rollbackService,
         _eventProducer,
         entityClientCacheConfig,
-        entityClientConfig);
+        entityClientConfig,
+        metricUtils);
   }
 }

@@ -49,6 +49,7 @@ entities:
       - partitionsSummary
       - versionProperties
       - icebergCatalogInfo
+      - logicalParent
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -247,6 +248,7 @@ entities:
       - forms
       - testResults
       - displayProperties
+      - assetSettings
   - name: container
     doc: A container of related data assets.
     category: core
@@ -298,6 +300,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - assetSettings
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -311,6 +314,7 @@ entities:
       - testResults
       - subTypes
       - displayProperties
+      - assetSettings
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
@@ -524,6 +528,9 @@ entities:
       - testResults
       - deprecation
       - subTypes
+      - logicalParent
+      - globalTags
+      - glossaryTerms
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
@@ -600,6 +607,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - assetSettings
   - name: application
     category: core
     keyAspect: applicationKey
@@ -679,6 +687,16 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubPageTemplate
+    category: core
+    keyAspect: dataHubPageTemplateKey
+    aspects:
+      - dataHubPageTemplateProperties
+  - name: dataHubPageModule
+    category: core
+    keyAspect: dataHubPageModuleKey
+    aspects:
+      - dataHubPageModuleProperties
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey
@@ -705,50 +723,6 @@ entities:
 events:
 plugins:
   aspectPayloadValidators:
-    - className: 'com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-        - UPSERT
-      supportedEntityAspectNames:
-        - entityName: structuredProperty
-          aspectName: propertyDefinition
-        - entityName: structuredProperty
-          aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - DELETE
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-        - DELETE
-        - UPSERT
-        - UPDATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
     - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
       enabled: true
       spring:
@@ -756,17 +730,6 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
   mcpSideEffects:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
-      enabled: true
-      supportedOperations:
-        - DELETE
-      supportedEntityAspectNames:
-        - entityName: structuredProperty
-          aspectName: propertyDefinition
-        - entityName: structuredProperty
-          aspectName: structuredPropertyKey
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
       enabled: true
       spring:
@@ -774,37 +737,6 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
   mutationHooks:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
-      enabled: true
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - UPDATE
-        - RESTATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'schemaMetadata'
-        - entityName: '*'
-          aspectName: 'editableSchemaMetadata'
-    - className: 'com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - UPDATE
-        - RESTATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'ownership'
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
       enabled: true
       spring:

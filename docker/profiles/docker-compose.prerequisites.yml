@@ -21,6 +21,7 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
+  - debug-aws
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -36,6 +37,7 @@ x-mysql-profiles: &mysql-profiles
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
+  - debug-aws
 
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
@@ -78,6 +80,7 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug-consumers
   - debug-neo4j
   - debug-backend-aws
+  - debug-aws
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -97,10 +100,12 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-consumers
   - debug-neo4j
   - debug-backend-aws
+  - debug-aws
 
 # AWS Infra profiles
 x-profiles-aws: &aws-profiles
   - debug-backend-aws
+  - debug-aws
 
 # Debug vs Quickstart Profiles
 x-profiles-quickstart: &profiles-quickstart
@@ -124,6 +129,7 @@ x-profiles-dev: &profiles-dev
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
+  - debug-aws
 
 services:
   mysql:
@@ -231,7 +237,7 @@ services:
       - neo4jdata:/data
   kafka-broker:
     hostname: broker
-    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.9.1}
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-8.0.0}
     command:
       - /bin/bash
       - -c
@@ -273,27 +279,6 @@ services:
       timeout: 5s
     volumes:
       - broker:/var/lib/kafka/data/
-  kafka-setup: &kafka-setup
-    profiles: *profiles-quickstart
-    hostname: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
-    env_file: kafka-setup/env/docker.env
-    environment: &kafka-setup-env
-      DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
-      KAFKA_BOOTSTRAP_SERVER: broker:29092
-      USE_CONFLUENT_SCHEMA_REGISTRY: false
-    depends_on:
-      kafka-broker:
-        condition: service_healthy
-    labels:
-      datahub_setup_job: true
-  kafka-setup-dev:
-    <<: *kafka-setup
-    profiles: *profiles-dev
-    environment:
-      <<: *kafka-setup-env
-      DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-debug}
   elasticsearch:
     profiles: *elasticsearch-profiles
     hostname: search

@@ -3,6 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import colors from '@components/theme/foundations/colors';
+
+import { useDomainsContext } from '@app/domainV2/DomainsContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
@@ -28,7 +31,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     `}
     &&& {
         margin-bottom: 0;
-        word-break: break-word;
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
@@ -52,6 +55,7 @@ function EntityName(props: Props) {
     const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { setUpdatedDomain } = useDomainsContext();
     const { urn, entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
@@ -85,6 +89,17 @@ function EntityName(props: Props) {
                     const parentNodeToUpdate = getParentNodeToUpdate(entityData, entityType);
                     updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                 }
+                if (setUpdatedDomain !== undefined) {
+                    const updatedDomain = {
+                        urn,
+                        type: EntityType.Domain,
+                        id: urn,
+                        properties: {
+                            name,
+                        },
+                    };
+                    setUpdatedDomain(updatedDomain);
+                }
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -94,6 +109,8 @@ function EntityName(props: Props) {
             });
     };
 
+    // Note: Bug with editable + ellipsis, if text is compressed, it never grows back
+    // imo we should just get rid of this editing feature, it looks bad
     const Title = isNameEditable ? (
         <EntityTitle
             disabled={isMutatingName}
@@ -103,11 +120,21 @@ function EntityName(props: Props) {
                 onStart: handleStartEditing,
             }}
             $showEntityLink={showEntityLink}
+            ellipsis={{
+                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+            }}
         >
             {updatedName}
         </EntityTitle>
     ) : (
-        <EntityTitle $showEntityLink={showEntityLink}>{entityName}</EntityTitle>
+        <EntityTitle
+            $showEntityLink={showEntityLink}
+            ellipsis={{
+                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
+            }}
+        >
+            {entityName}
+        </EntityTitle>
     );
 
     // have entity link open new tab if in the chrome extension

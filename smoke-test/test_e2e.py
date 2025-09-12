@@ -734,8 +734,8 @@ def test_list_users(auth_session):
         }""",
         "variables": {
             "input": {
-                "start": "0",
-                "count": "2",
+                "start": 0,
+                "count": 2,
             }
         },
     }
@@ -774,8 +774,8 @@ def test_list_groups(auth_session):
         }""",
         "variables": {
             "input": {
-                "start": "0",
-                "count": "2",
+                "start": 0,
+                "count": 2,
             }
         },
     }
@@ -1381,3 +1381,5 @@ def test_native_user_endpoints(auth_session):
     )
     remove_user_response.raise_for_status()
     assert "errors" not in remove_user_response
+
+

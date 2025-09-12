@@ -71,6 +71,18 @@ public class PoliciesConfig {
           "Update Users & Groups",
           "Update users and groups on DataHub.");
 
+  static final Privilege CREATE_USERS_PRIVILEGE =
+      Privilege.of("CREATE_USERS", "Create Users", "Create users on DataHub.");
+
+  static final Privilege UPDATE_USERS_PRIVILEGE =
+      Privilege.of("UPDATE_USERS", "Update Users", "Update users on DataHub.");
+
+  static final Privilege CREATE_GROUPS_PRIVILEGE =
+      Privilege.of("CREATE_GROUPS", "Create Groups", "Create groups on DataHub.");
+
+  static final Privilege UPDATE_GROUPS_PRIVILEGE =
+      Privilege.of("UPDATE_GROUPS", "Update Groups", "Update groups on DataHub.");
+
   private static final Privilege VIEW_ANALYTICS_PRIVILEGE =
       Privilege.of("VIEW_ANALYTICS", "View Analytics", "View the DataHub analytics dashboard.");
 
@@ -200,12 +212,28 @@ public class PoliciesConfig {
           "Get Platform Events",
           "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
+  public static final Privilege GET_METADATA_CHANGE_LOG_EVENTS =
+      Privilege.of(
+          "GET_METADATA_CHANGE_LOG_EVENTS",
+          "Get Metadata Change Log Events",
+          "The ability to use the Events API to read Metadata Change Log, or all low-level Metadata Change Events.");
+
+  public static final Privilege MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_HOME_PAGE_TEMPLATES",
+          "Manage Home Page Templates",
+          "Privilege allowing users to manage the default home page template and the global modules in it.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
           MANAGE_USERS_AND_GROUPS_PRIVILEGE,
           CREATE_USERS_AND_GROUPS_PRIVILEGE,
           UPDATE_USERS_AND_GROUPS_PRIVILEGE,
+          CREATE_USERS_PRIVILEGE,
+          UPDATE_USERS_PRIVILEGE,
+          CREATE_GROUPS_PRIVILEGE,
+          UPDATE_GROUPS_PRIVILEGE,
           VIEW_ANALYTICS_PRIVILEGE,
           GET_ANALYTICS_PRIVILEGE,
           MANAGE_DOMAINS_PRIVILEGE,
@@ -233,7 +261,9 @@ public class PoliciesConfig {
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
-          GET_PLATFORM_EVENTS_PRIVILEGE);
+          GET_PLATFORM_EVENTS_PRIVILEGE,
+          GET_METADATA_CHANGE_LOG_EVENTS,
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -243,8 +273,10 @@ public class PoliciesConfig {
   static final Privilege EXISTS_ENTITY_PRIVILEGE =
       Privilege.of(
           "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
+  static final Privilege EXECUTE_ENTITY_PRIVILEGE =
+      Privilege.of("EXECUTE_ENTITY", "Execute Entity", "The ability to execute an Entity.");
 
-  public static final Privilege CREATE_ENTITY_PRIVILEGE =
+  static final Privilege CREATE_ENTITY_PRIVILEGE =
       Privilege.of(
           "CREATE_ENTITY", "Create Entity", "The ability to create an entity if it doesn't exist.");
 
@@ -356,6 +388,12 @@ public class PoliciesConfig {
           "Create erModelRelationship",
           "The ability to add erModelRelationship on a dataset.");
 
+  public static final Privilege MANAGE_ASSET_SUMMARY_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ASSET_SUMMARY",
+          "Manage Asset Summary",
+          "The ability to manage the asset summary tab for an entity.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES =
       ImmutableList.of(
           VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -374,7 +412,8 @@ public class PoliciesConfig {
           EDIT_ENTITY_PROPERTIES_PRIVILEGE,
           EDIT_ENTITY_INCIDENTS_PRIVILEGE,
           CREATE_ENTITY_PRIVILEGE,
-          EXISTS_ENTITY_PRIVILEGE);
+          EXISTS_ENTITY_PRIVILEGE,
+          MANAGE_ASSET_SUMMARY_PRIVILEGE);
 
   // Dataset Privileges
   public static final Privilege EDIT_DATASET_COL_TAGS_PRIVILEGE =
@@ -427,12 +466,14 @@ public class PoliciesConfig {
 
   public static final Privilege DATA_READ_ONLY_PRIVILEGE =
       Privilege.of(
-          "DATA_READ_ONLY", "Read only data-access", "The ability to read the data in a dataset.");
+          "DATA_READ_ONLY",
+          "Iceberg Catalog Read only data-access",
+          "The ability to read the data in a dataset.");
 
   public static final Privilege DATA_READ_WRITE_PRIVILEGE =
       Privilege.of(
           "DATA_READ_WRITE",
-          "Read-write data-access",
+          "Iceberg Catalog Read-write data-access",
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
@@ -849,6 +890,14 @@ public class PoliciesConfig {
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE));
 
+  public static final ResourcePrivileges INGESTION_SOURCE_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.INGESTION_SOURCE_ENTITY_NAME,
+          "Ingestion Source",
+          "Privileges for Ingestion sources",
+          ImmutableList.of(
+              DELETE_ENTITY_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, EXECUTE_ENTITY_PRIVILEGE));
+
   // Version Set privileges
   public static final ResourcePrivileges VERSION_SET_PRIVILEGES =
       ResourcePrivileges.of(
@@ -889,6 +938,7 @@ public class PoliciesConfig {
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
+          INGESTION_SOURCE_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
           APPLICATION_PRIVILEGES);
@@ -935,6 +985,7 @@ public class PoliciesConfig {
                               DELETE_ENTITY_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.EXECUTE, Disjunctive.disjoint(EXECUTE_ENTITY_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
@@ -1078,17 +1129,23 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.CREATE,
                           Disjunctive.disjoint(
-                              CREATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                              CREATE_USERS_AND_GROUPS_PRIVILEGE,
+                              MANAGE_USERS_AND_GROUPS_PRIVILEGE,
+                              CREATE_USERS_PRIVILEGE,
+                              UPDATE_USERS_PRIVILEGE))
                       .put(
                           ApiOperation.READ,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(
-                              UPDATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                              UPDATE_USERS_AND_GROUPS_PRIVILEGE,
+                              MANAGE_USERS_AND_GROUPS_PRIVILEGE,
+                              UPDATE_USERS_PRIVILEGE))
                       .put(
                           ApiOperation.DELETE,
-                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              MANAGE_USERS_AND_GROUPS_PRIVILEGE, UPDATE_USERS_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
@@ -1099,17 +1156,23 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.CREATE,
                           Disjunctive.disjoint(
-                              CREATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                              CREATE_USERS_AND_GROUPS_PRIVILEGE,
+                              MANAGE_USERS_AND_GROUPS_PRIVILEGE,
+                              CREATE_GROUPS_PRIVILEGE,
+                              UPDATE_GROUPS_PRIVILEGE))
                       .put(
                           ApiOperation.READ,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
                       .put(
                           ApiOperation.UPDATE,
                           Disjunctive.disjoint(
-                              UPDATE_USERS_AND_GROUPS_PRIVILEGE, MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                              UPDATE_USERS_AND_GROUPS_PRIVILEGE,
+                              MANAGE_USERS_AND_GROUPS_PRIVILEGE,
+                              UPDATE_GROUPS_PRIVILEGE))
                       .put(
                           ApiOperation.DELETE,
-                          Disjunctive.disjoint(MANAGE_USERS_AND_GROUPS_PRIVILEGE))
+                          Disjunctive.disjoint(
+                              MANAGE_USERS_AND_GROUPS_PRIVILEGE, UPDATE_GROUPS_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
@@ -1121,8 +1184,16 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.READ,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
-                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
-                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXECUTE,
+                          Disjunctive.disjoint(
+                              EXECUTE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))

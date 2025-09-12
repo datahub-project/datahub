@@ -12,9 +12,9 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.io.Serializable;
 import java.sql.Timestamp;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -43,12 +43,16 @@ public class EbeanAspectV2 extends Model {
   /** Key for an aspect in the table. */
   @Embeddable
   @Getter
-  @AllArgsConstructor
   @NoArgsConstructor
-  @EqualsAndHashCode
   public static class PrimaryKey implements Serializable {
 
     private static final long serialVersionUID = 1L;
+
+    public PrimaryKey(@Nonnull String urn, @Nonnull String aspect, long version) {
+      this.urn = urn.stripTrailing();
+      this.aspect = aspect.stripTrailing();
+      this.version = version;
+    }
 
     @Nonnull
     @Index
@@ -70,6 +74,27 @@ public class EbeanAspectV2 extends Model {
 
     public EntityAspectIdentifier toAspectIdentifier() {
       return new EntityAspectIdentifier(getUrn(), getAspect(), getVersion());
+    }
+
+    // Custom Equals and Hash code that trims to handle MySQL PAD SPACE:
+    // https://dev.mysql.com/doc/refman/8.4/en/charset-binary-collations.html#charset-binary-collations-trailing-space-comparisons
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      PrimaryKey that = (PrimaryKey) o;
+      return version == that.version
+          && Objects.equals(urn.stripTrailing(), that.urn.stripTrailing())
+          && Objects.equals(aspect.stripTrailing(), that.aspect.stripTrailing());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(urn.stripTrailing(), aspect.stripTrailing(), version);
     }
   }
 
@@ -103,6 +128,7 @@ public class EbeanAspectV2 extends Model {
   private String createdFor;
 
   @Column(name = SYSTEM_METADATA_COLUMN, nullable = true)
+  @Lob
   protected String systemMetadata;
 
   public EbeanAspectV2(

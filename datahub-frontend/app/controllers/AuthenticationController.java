@@ -31,8 +31,8 @@ import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
-import org.apache.commons.httpclient.InvalidRedirectLocationException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.RedirectException;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.CallContext;
 import org.pac4j.core.context.WebContext;
@@ -109,13 +109,12 @@ public class AuthenticationController extends Controller {
     try {
       URI redirectUri = new URI(redirectPath);
       if (redirectUri.getScheme() != null || redirectUri.getAuthority() != null) {
-        throw new InvalidRedirectLocationException(
+        throw new RedirectException(
             "Redirect location must be relative to the base url, cannot "
                 + "redirect to other domains: "
-                + redirectPath,
-            redirectPath);
+                + redirectPath);
       }
-    } catch (URISyntaxException | InvalidRedirectLocationException e) {
+    } catch (URISyntaxException | RedirectException e) {
       logger.warn(e.getMessage());
       redirectPath = "/";
     }

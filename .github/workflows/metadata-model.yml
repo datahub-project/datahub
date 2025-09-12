@@ -28,12 +28,14 @@ jobs:
     needs: setup
     steps:
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - uses: acryldata/sane-checkout-action@v3
+      - uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -47,7 +49,7 @@ jobs:
         run: ./gradlew :metadata-ingestion:modelDocGen
       - name: Configure AWS Credentials
         if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ACRYL_CI_ARTIFACTS_ACCESS_KEY }}

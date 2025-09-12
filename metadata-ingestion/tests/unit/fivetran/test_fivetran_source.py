@@ -116,9 +116,12 @@ class FivetranAPIClientTest(unittest.TestCase):
         client = FivetranAPIClient(FivetranAPIConfig(api_key="test", api_secret="test"))
 
         # Mock detect_destination_platform to avoid actual API calls
-        with patch.object(
-            client, "detect_destination_platform", return_value="snowflake"
-        ), patch.object(client, "get_destination_database", return_value="TEST_DB"):
+        with (
+            patch.object(
+                client, "detect_destination_platform", return_value="snowflake"
+            ),
+            patch.object(client, "get_destination_database", return_value="TEST_DB"),
+        ):
             # Call method under test
             connector = client.extract_connector_metadata(api_connector, sync_history)
 

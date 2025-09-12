@@ -1,11 +1,16 @@
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.unity.platform_resource_repository import (
+        UnityCatalogPlatformResourceRepository,
+    )
 
 
 @dataclass
@@ -26,6 +31,10 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+    ml_models: EntityFilterReport = EntityFilterReport.field(type="ml_model")
+    ml_model_versions: EntityFilterReport = EntityFilterReport.field(
+        type="ml_model_version"
+    )
 
     hive_metastore_catalog_found: Optional[bool] = None
 
@@ -59,5 +68,9 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0
+    num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
+
+    # Platform resource repository for automatic cache statistics via SupportsAsObj
+    tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None

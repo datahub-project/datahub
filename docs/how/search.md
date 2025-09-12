@@ -146,8 +146,35 @@ If you want to:
   - BrowsePath is stored as a complete string, for instance `/datasets/prod/hive/SampleKafkaDataset`, hence the need for wildcards on both ends of the term to return a result.
 
 - Find a dataset without the **name** field
+
   - `/q -_exists_:name` [Sample results](https://demo.datahub.com/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
   - the `-` is negating the existence of the field name.
+
+- Find whether a dataset has upstream lineage as per the last emission of the relvant aspect.
+
+  - `/q hasUpstreams:true`
+  - `/q hasFineGrainedUpstreams:true`
+  - These 2 filters are supported starting from release `0.3.13.x` of DataHub Cloud.
+  - Note that whether or not the upstreams are valid URNs or not is not considered. It just considers whether the metadata was emitted or not.
+  - There is no corresponding filter for downstream lineage currently.
+  - This only works for `dataset` entity.
+
+- Find whether a dataset has usage as per the last emission of the relvant aspect.
+
+  - `/q hasUniqueUserCount:true`
+  - `/q hasTotalSqlQueriesCount:true`
+  - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
+  - Note that it does not check whether the field is zero. It just checks for whether the metadata was emitted or not.
+
+- Find the number of upstreams or downstreams a dataset has.
+
+  - `/q upstreamCountFeature:>2`
+  - `/q downstreamCountFeature:<3`
+  - The advantage of `upstreamCountFeature` over `hasUpstreams` is that it considers whether the upstreams and downstreams are valid URNs.
+  - The disadvantage of `upstreamCountFeature` over `hasUpstreams` is that these are updated once a day and are not real-time like `hasUpstreams`.
+  - The reason `upstreamCountFeature` is useful is that after lineage is emitted once it will probably not change drastically for most of the tables. So this information will be almost up-to-date for all tables with a lag of around 24 hours.
+  - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
+  - These are DataHub Cloud _only_ filters.
 
 <!--
 ## Additional Resources
@@ -539,6 +566,78 @@ autocompleteConfigurations:
           weight: 0.5
       score_mode: avg
       boost_mode: multiply
+```
+
+### Field Configurations
+
+Field configurations allow you to customize which fields are included in search queries and result highlighting. Each configuration is identified by a label and can modify the default behavior using three operations:
+
+- `add` - Adds fields to the system defaults
+- `remove` - Removes fields from the system defaults
+- `replace` - Completely replaces the system default field list
+
+As of today the UI will only exercise the `default` label, however calls to graphql can refer to other labels. See graphql documentation for further details.
+
+**Note:** The `replace` operation cannot be combined with `add` or `remove`. However, `add` and `remove` can be used together.
+
+#### Field Configuration Example
+
+```yaml
+fieldConfigurations:
+  # Default configuration - if searchFlags doesn't specify
+  default:
+    searchFields:
+      remove:
+        - fieldPaths
+
+    highlightFields:
+      enabled: true
+      remove:
+        - fieldPaths
+
+  # PDL legacy configuration
+  legacy:
+    searchFields:
+    # No modifications - use PDL defaults
+
+    highlightFields:
+      enabled: true
+      # No modifications - use PDL defaults
+
+  # Configuration for technical users - adds technical fields
+  technical:
+    searchFields:
+      add:
+        - fieldPaths
+        - platform
+      remove:
+        - customProperties
+    highlightFields:
+      enabled: true
+      add:
+        - fieldPaths
+        - platform
+
+  # Configuration for business users - simplified field set
+  business:
+    searchFields:
+      replace:
+        - name
+        - description
+        - tags
+        - glossaryTerms
+    highlightFields:
+      enabled: true
+      replace:
+        - name
+        - description
+
+  # Configuration with no highlighting
+  no-highlight:
+    searchFields:
+      # Uses system defaults
+    highlightFields:
+      enabled: false
 ```
 
 ## FAQ and Troubleshooting

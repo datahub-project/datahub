@@ -2,7 +2,7 @@ package com.datahub.auth.authentication;
 
 import static org.mockito.Mockito.*;
 
-import com.datahub.auth.authentication.filter.AuthenticationFilter;
+import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.TokenServiceConfiguration;
@@ -79,7 +79,7 @@ public class AuthTestConfiguration {
   @Bean
   // TODO: Constructor injection
   @DependsOn({"configurationProvider", "dataHubTokenService", "entityService"})
-  public AuthenticationFilter authenticationFilter() throws ServletException {
-    return new AuthenticationFilter();
+  public AuthenticationEnforcementFilter authenticationEnforcementFilter() throws ServletException {
+    return new AuthenticationEnforcementFilter();
   }
 }

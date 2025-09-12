@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.v1.event;
 
+import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME;
+import static io.datahubproject.event.ExternalEventsService.METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME;
 import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -31,7 +33,7 @@ import io.datahubproject.event.ExternalEventsService;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -300,7 +302,254 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   }
 
   @Test
+  public void testPollMetadataChangeLogVersionedTopic() throws Exception {
+    // Setup mock authorization
+    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Setup mock response
+    List<ExternalEvent> events = new ArrayList<>();
+    ExternalEvent event = new ExternalEvent();
+    event.setValue(TEST_CONTENT);
+    event.setContentType(TEST_CONTENT_TYPE);
+    events.add(event);
+
+    ExternalEvents externalEvents = new ExternalEvents();
+    externalEvents.setEvents(events);
+    externalEvents.setOffsetId(TEST_OFFSET_ID);
+    externalEvents.setCount(1L);
+
+    when(mockEventsService.poll(
+            eq(METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME),
+            nullable(String.class),
+            anyInt(),
+            anyInt(),
+            nullable(Integer.class)))
+        .thenReturn(externalEvents);
+
+    // Execute test
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                .param("topic", METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME)
+                .param("limit", "100")
+                .param("pollTimeoutSeconds", "10")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.events[0].value").value(TEST_CONTENT))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.events[0].contentType").value(TEST_CONTENT_TYPE));
+  }
+
+  @Test
+  public void testPollMetadataChangeLogTimeseriesTopic() throws Exception {
+    // Setup mock authorization
+    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Setup mock response
+    List<ExternalEvent> events = new ArrayList<>();
+    ExternalEvent event = new ExternalEvent();
+    event.setValue(TEST_CONTENT);
+    event.setContentType(TEST_CONTENT_TYPE);
+    events.add(event);
+
+    ExternalEvents externalEvents = new ExternalEvents();
+    externalEvents.setEvents(events);
+    externalEvents.setOffsetId(TEST_OFFSET_ID);
+    externalEvents.setCount(1L);
+
+    when(mockEventsService.poll(
+            eq(METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME),
+            nullable(String.class),
+            anyInt(),
+            anyInt(),
+            nullable(Integer.class)))
+        .thenReturn(externalEvents);
+
+    // Execute test
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                .param("topic", METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME)
+                .param("limit", "100")
+                .param("pollTimeoutSeconds", "10")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.events[0].value").value(TEST_CONTENT))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.events[0].contentType").value(TEST_CONTENT_TYPE));
+  }
+
+  @Test
+  public void testPollMetadataChangeLogVersionedTopicWithOffset() throws Exception {
+    // Setup mock authorization
+    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Setup mock response
+    List<ExternalEvent> events = new ArrayList<>();
+    ExternalEvent event = new ExternalEvent();
+    event.setValue(TEST_CONTENT);
+    event.setContentType(TEST_CONTENT_TYPE);
+    events.add(event);
+
+    ExternalEvents externalEvents = new ExternalEvents();
+    externalEvents.setEvents(events);
+    externalEvents.setOffsetId("new-offset-id");
+    externalEvents.setCount(1L);
+
+    when(mockEventsService.poll(
+            eq(METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME),
+            eq(TEST_OFFSET_ID),
+            anyInt(),
+            anyInt(),
+            nullable(Integer.class)))
+        .thenReturn(externalEvents);
+
+    // Execute test
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                .param("topic", METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME)
+                .param("offsetId", TEST_OFFSET_ID)
+                .param("limit", "100")
+                .param("pollTimeoutSeconds", "10")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value("new-offset-id"));
+  }
+
+  @Test
+  public void testPollMetadataChangeLogTimeseriesTopicWithOffset() throws Exception {
+    // Setup mock authorization
+    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Setup mock response
+    List<ExternalEvent> events = new ArrayList<>();
+    ExternalEvent event = new ExternalEvent();
+    event.setValue(TEST_CONTENT);
+    event.setContentType(TEST_CONTENT_TYPE);
+    events.add(event);
+
+    ExternalEvents externalEvents = new ExternalEvents();
+    externalEvents.setEvents(events);
+    externalEvents.setOffsetId("new-offset-id");
+    externalEvents.setCount(1L);
+
+    when(mockEventsService.poll(
+            eq(METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME),
+            eq(TEST_OFFSET_ID),
+            anyInt(),
+            anyInt(),
+            nullable(Integer.class)))
+        .thenReturn(externalEvents);
+
+    // Execute test
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                .param("topic", METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME)
+                .param("offsetId", TEST_OFFSET_ID)
+                .param("limit", "100")
+                .param("pollTimeoutSeconds", "10")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value("new-offset-id"));
+  }
+
+  @Test
+  public void testPollMetadataChangeLogVersionedTopicWithLookbackWindow() throws Exception {
+    // Setup mock authorization
+    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Setup mock response
+    List<ExternalEvent> events = new ArrayList<>();
+    ExternalEvent event = new ExternalEvent();
+    event.setValue(TEST_CONTENT);
+    event.setContentType(TEST_CONTENT_TYPE);
+    events.add(event);
+
+    ExternalEvents externalEvents = new ExternalEvents();
+    externalEvents.setEvents(events);
+    externalEvents.setOffsetId(TEST_OFFSET_ID);
+    externalEvents.setCount(1L);
+
+    when(mockEventsService.poll(
+            eq(METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME),
+            nullable(String.class),
+            anyInt(),
+            anyInt(),
+            eq(7)))
+        .thenReturn(externalEvents);
+
+    // Execute test
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                .param("topic", METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME)
+                .param("lookbackWindowDays", "7")
+                .param("limit", "100")
+                .param("pollTimeoutSeconds", "10")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID));
+  }
+
+  @Test
+  public void testPollMetadataChangeLogTimeseriesTopicWithLookbackWindow() throws Exception {
+    // Setup mock authorization
+    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
+    // Setup mock response
+    List<ExternalEvent> events = new ArrayList<>();
+    ExternalEvent event = new ExternalEvent();
+    event.setValue(TEST_CONTENT);
+    event.setContentType(TEST_CONTENT_TYPE);
+    events.add(event);
+
+    ExternalEvents externalEvents = new ExternalEvents();
+    externalEvents.setEvents(events);
+    externalEvents.setOffsetId(TEST_OFFSET_ID);
+    externalEvents.setCount(1L);
+
+    when(mockEventsService.poll(
+            eq(METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME),
+            nullable(String.class),
+            anyInt(),
+            anyInt(),
+            eq(7)))
+        .thenReturn(externalEvents);
+
+    // Execute test
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v1/events/poll")
+                .param("topic", METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME)
+                .param("lookbackWindowDays", "7")
+                .param("limit", "100")
+                .param("pollTimeoutSeconds", "10")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.count").value(1))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.offsetId").value(TEST_OFFSET_ID));
+  }
+
+  @Test
   public void testAuditEventsSearch() throws Exception {
+    when(mockAuthorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+
     LogInEvent usageEventResult =
         LogInEvent.builder()
             .eventType("LogInEvent")
@@ -339,7 +588,7 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   public static class ExternalEventsControllerTestConfig {
     @MockBean public ExternalEventsService eventsService;
     @MockBean public AuthorizerChain authorizerChain;
-    @MockBean public TraceContext traceContext;
+    @MockBean public SystemTelemetryContext systemTelemetryContext;
     @MockBean public DataHubUsageService dataHubUsageService;
 
     @Bean

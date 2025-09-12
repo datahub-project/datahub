@@ -27,8 +27,13 @@ jobs:
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         run: |
-          echo "Enable publish: ${{ env.SIGNING_KEY != '' }}"
-          echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
+          if [[ "${{ github.repository }}" == "acryldata/datahub" ]]; then
+            echo "Enable publish for main repository: ${{ env.SIGNING_KEY != '' }}"
+            echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
+          else
+            echo "Skipping publish for repository: ${{ github.repository }}"
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
   setup:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -36,7 +41,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Compute Tag
         id: tag
         env:
@@ -54,9 +59,9 @@ jobs:
     needs: ["check-secret", "setup"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
-      - uses: acryldata/sane-checkout-action@v3
+      - uses: acryldata/sane-checkout-action@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
@@ -76,8 +81,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion
@@ -89,8 +92,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish
@@ -102,8 +103,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:spark-lineage:printVersion
@@ -115,8 +114,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:spark-lineage:publish
@@ -128,8 +125,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-protobuf:printVersion
@@ -141,8 +136,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-protobuf:publish
@@ -154,8 +147,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-auth:auth-api:printVersion
@@ -167,8 +158,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-auth:auth-api:publish
@@ -180,8 +169,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:custom-plugin-lib:printVersion
@@ -193,8 +180,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:custom-plugin-lib:publish
@@ -207,9 +192,9 @@ jobs:
     needs: ["check-secret", "setup", "publish"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
-      - uses: acryldata/sane-checkout-action@v3
+      - uses: acryldata/sane-checkout-action@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
@@ -229,8 +214,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:datahub-client:printVersion -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
@@ -242,8 +225,6 @@ jobs:
           RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
         run: |
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=8 -ParchiveAppendix=java8

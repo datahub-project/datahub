@@ -1,3 +1,4 @@
+import { ActorWithDisplayNameFragment } from '@graphql/query.generated';
 import { CorpUser, Entity, SchemaFieldEntity } from '@types';
 
 export type QueryBuilderState = {
@@ -14,7 +15,7 @@ export type Query = {
     description?: string;
     lastRun?: number;
     createdTime?: number;
-    createdBy?: CorpUser | null;
+    createdBy?: ActorWithDisplayNameFragment | null;
     poweredEntity?: Entity;
     usedBy?: CorpUser[];
     columns?: SchemaFieldEntity[];

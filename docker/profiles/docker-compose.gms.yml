@@ -29,11 +29,12 @@ x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
 x-graph-datastore-search-env: &graph-datastore-search-env
   GRAPH_SERVICE_IMPL: elasticsearch
 
-x-search-datastore-elasticsearch-env: &search-datastore-env
+x-search-datastore-opensearch-env: &search-datastore-env
   ELASTICSEARCH_HOST: search
   ELASTICSEARCH_PORT: 9200
   ELASTICSEARCH_PROTOCOL: http
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+  ELASTICSEARCH_IMPLEMENTATION: opensearch
 
 x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
@@ -48,6 +49,13 @@ x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
 x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-dev}
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
+
+x-localstack-env: &localstack-env
+  AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
+  AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+  AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+  AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
+  DATAHUB_EXECUTOR_ROLE_ARN: ${DATAHUB_EXECUTOR_ROLE_ARN:-arn:aws:iam::000000000000:role/test-role}
 
 #################################
 # System Update
@@ -69,8 +77,13 @@ x-datahub-system-update-service: &datahub-system-update-service
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
+    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
+    KAFKA_BOOTSTRAP_SERVER: broker:29092
+    USE_CONFLUENT_SCHEMA_REGISTRY: false
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+  labels:
+    datahub_setup_job: true
 
 x-datahub-system-update-service-dev: &datahub-system-update-service-dev
   <<: *datahub-system-update-service
@@ -83,6 +96,7 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
   volumes:
     - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
@@ -106,6 +120,7 @@ x-datahub-gms-service: &datahub-gms-service
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
+    METADATA_SERVICE_AUTH_ENABLED: ${METADATA_SERVICE_AUTH_ENABLED:-true}
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -137,10 +152,6 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
-    AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
-    AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
-    AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
-    AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
@@ -196,11 +207,15 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
+  ports:
+    - 9090:9090
+    - 5009:5009
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
   volumes:
     - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
     - ../../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
@@ -223,8 +238,10 @@ services:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
-      kafka-setup:
-        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
   system-update-quickstart-cassandra:
     <<: *datahub-system-update-service
     profiles:
@@ -238,8 +255,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
-      kafka-setup:
-        condition: service_completed_successfully
   system-update-quickstart-postgres:
     <<: *datahub-system-update-service
     profiles:
@@ -250,8 +265,6 @@ services:
       postgres-setup:
         condition: service_completed_successfully
       opensearch-setup:
-        condition: service_completed_successfully
-      kafka-setup:
         condition: service_completed_successfully
   system-update-debug: &system-update-debug
     <<: *datahub-system-update-service-dev
@@ -265,7 +278,15 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
+  system-update-debug-aws: &system-update-debug
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-backend-aws
+      - debug-aws
+    depends_on:
+      mysql-setup-dev:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
         condition: service_completed_successfully
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
@@ -275,12 +296,13 @@ services:
     <<: *datahub-system-update-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-system-update-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
       elasticsearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
         condition: service_completed_successfully
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
@@ -293,8 +315,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-cassandra:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -306,8 +326,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-neo4j:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -318,8 +336,6 @@ services:
       neo4j:
         condition: service_healthy
       opensearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
         condition: service_completed_successfully
   #################################
   # GMS
@@ -366,9 +382,18 @@ services:
     profiles:
       - debug
       - debug-backend
-      - debug-backend-aws
     depends_on:
       system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-aws:
+    <<: *datahub-gms-service-dev
+    environment:
+      <<: [*localstack-env, *datahub-gms-dev-env]
+    profiles:
+      - debug-backend-aws
+      - debug-aws
+    depends_on:
+      system-update-debug-aws:
         condition: service_completed_successfully
   datahub-gms-debug-min:
     <<: *datahub-gms-service-dev
@@ -420,6 +445,9 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-gms-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully

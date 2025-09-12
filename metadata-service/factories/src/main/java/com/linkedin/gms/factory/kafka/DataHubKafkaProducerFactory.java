@@ -52,6 +52,9 @@ public class DataHubKafkaProducerFactory {
     props.put(
         ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
         kafkaConfiguration.getProducer().getDeliveryTimeout());
+    props.put(
+        ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG,
+        kafkaConfiguration.getProducer().getRequestTimeout());
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaConfiguration.getBootstrapServers());
     // key: Actor urn.
     // value: JSON object.

@@ -126,86 +126,92 @@ Once these are in place, you're ready to create your Column Assertions!
 
 ### Steps
 
-1. Navigate to the Table that you want to monitor
-2. Click the **Validations** tab
+#### 1. Navigate to the Table that you want to monitor
+
+#### 2. Click the **Quality** tab
 
 <p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
-3. Click **+ Create Assertion**
+#### 3. Click **+ Create Assertion**
+
+#### 4. Choose **'Column'**
 
 <p align="left">
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-choose-type.png"/>
 </p>
 
-4. Choose **Column**
+#### 5. Configure the evaluation **schedule**.
 
-5. Configure the evaluation **schedule**. This is the frequency at which the assertion will be evaluated to produce a
-   pass or fail result, and the times when the column values will be checked.
+This is the frequency at which the assertion will be evaluated to produce a
+pass or fail result, and the times when the column values will be checked.
 
-6. Configure the **column assertion type**. You can choose from **Column Value** or **Column Metric**.
-   **Column Value** assertions are used to monitor the value of a specific column in a table, and ensure that every row
-   adheres to a specific condition. **Column Metric** assertions are used to compute a metric for that column, and then compare the value of that metric to your expectations.
+#### 6. Configure the **column assertion type**.
+
+You can choose from **Column Value** or **Column Metric**.
+**Column Value** assertions are used to monitor the value of a specific column in a table, and ensure that every row
+adheres to a specific condition. **Column Metric** assertions are used to compute a metric for that column, and then compare the value of that metric to your expectations.
 
 <p align="left">
   <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-assertion-type.png"/>
 </p>
 
-7. Configure the **column selection**. This defines the column that should be monitored by the Column Assertion.
-   You can choose from any of the columns from the table listed in the dropdown.
+#### 7. Configure the **column selection**.
+
+This defines the column that should be monitored by the Column Assertion.
+You can choose from any of the columns from the table listed in the dropdown.
 
 <p align="left">
   <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-field-selection.png"/>
 </p>
 
-8. Configure the **evaluation criteria**. This step varies based on the type of assertion you chose in the previous step.
+#### 8. Configure the **evaluation criteria**. This step varies based on the type of assertion you chose in the previous step.
 
-   - **Column Value Assertions**: You will be able to choose from a set of operators that can be applied to the column
-     value. The options presented will vary based on the data type of the selected column. For example with numeric types, you
-     can check that the column value is greater than a specific value. For string types, you can check that the column value
-     matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
-     **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
-     assertion.
+- **Column Value Assertions**: You will be able to choose from a set of operators that can be applied to the column
+  value. The options presented will vary based on the data type of the selected column. For example with numeric types, you
+  can check that the column value is greater than a specific value. For string types, you can check that the column value
+  matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
+  **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
+  assertion. Note, Smart Assertions are not supported for Column Value Assertions today.
 
-   - **Column Metric Assertions**: You will be able to choose from a list of common metrics and then specify the operator
-     and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
-     with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
-     specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
-     is less than a specific number.
+- **Column Metric Assertions**: You will be able to choose from a list of common metrics and then specify the operator
+  and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
+  with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
+  specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
+  is less than a specific number. You can also select the **Detect with AI** option to use Smart Assertions to detect anomalies in the column metric.
 
-9. Configure the **row evaluation type**. This defines which rows in the table the Column Assertion should evaluate. You can choose
-   from the following options:
+#### 9. Configure the **row evaluation type**. This defines which rows in the table the Column Assertion should evaluate.
 
-   - **All Table Rows**: Evaluate the Column Assertion against all rows in the table. This is the default option. Note that
-     this may not be desirable for large tables.
+- **All Table Rows**: Evaluate the Column Assertion against all rows in the table. This is the default option. Note that
+  this may not be desirable for large tables.
 
-   - **Only Rows That Have Changed**: Evaluate the Column Assertion only against rows that have changed since the last
-     evaluation. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
-     have changed. A **High Watermark Column** is a column that contains a constantly-incrementing value - a date, a time, or
-     another always-increasing number. When selected, a query will be issued to the table find only the rows which have changed since the last assertion run.
+- **Only Rows That Have Changed**: Evaluate the Column Assertion only against rows that have changed since the last
+  evaluation. If you choose this option, you will need to specify a **High Watermark Column** to help determine which rows
+  have changed. A **High Watermark Column** is a column that contains a constantly-incrementing value - a date, a time, or
+  another always-increasing number. When selected, a query will be issued to the table find only the rows which have changed since the last assertion run.
 
 <p align="left">
   <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/assertion-builder-column-row-evaluation-type.png"/>
 </p>
 
-10. (Optional) Click **Advanced** to further customize the Column Assertion. The options listed here will vary based on the
-    type of assertion you chose in the previous step.
+#### 10. (Optional) Click **Advanced** to further customize the Column Assertion.
 
-    - **Invalid Values Threshold**: For **Column Value** assertions, you can configure the number of invalid values
-      (i.e. rows) that are allowed to fail before the assertion is marked as failing. This is useful if you want to allow a limited number
-      of invalid values in the column. By default this is 0, meaning the assertion will fail if any rows have an invalid column value.
+The options listed here will vary based on the type of assertion you chose in the previous step.
 
-    - **Source**: For **Column Metric** assertions, you can choose the mechanism that will be used to obtain the column
-      metric. **Query** will issue a query to the dataset to compute the metric. **DataHub Dataset Profile** will use the
-      DataHub Dataset Profile metadata to compute the metric. Note that this option requires that dataset profiling
-      statistics are up-to-date as of the assertion run time.
+- **Invalid Values Threshold**: For **Column Value** assertions, you can configure the number of invalid values
+  (i.e. rows) that are allowed to fail before the assertion is marked as failing. This is useful if you want to allow a limited number
+  of invalid values in the column. By default this is 0, meaning the assertion will fail if any rows have an invalid column value.
 
-    - **Additional Filters**: You can choose to add additional filters to the query that will be used to evaluate the
-      assertion. This is useful if you want to limit the assertion to a subset of rows in the table. Note this option will not
-      be available if you choose **DataHub Dataset Profile** as the **source**.
+- **Source**: For **Column Metric** assertions, you can choose the mechanism that will be used to obtain the column
+  metric. **Query** will issue a query to the dataset to compute the metric. This issues a query to the table, which can be more expensive than Information Schema.
+  **DataHub Dataset Profile** will use the DataHub Dataset Profile metadata to compute the metric. This is the cheapest option, but requires that Dataset Profiles are reported to DataHub. By default, Ingestion will report Dataset Profiles to DataHub, which can be and infrequent. You can report Dataset Profiles via the DataHub APIs for more frequent and reliable data.
 
-11. Configure actions that should be taken when the Column Assertion passes or fails
+- **Additional Filters**: You can choose to add additional filters to the query that will be used to evaluate the
+  assertion. This is useful if you want to limit the assertion to a subset of rows in the table. Note this option will not
+  be available if you choose **DataHub Dataset Profile** as the **source**.
+
+#### 11. Configure actions that should be taken when the Column Assertion passes or fails
 
 <p align="left">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
@@ -217,7 +223,7 @@ Once these are in place, you're ready to create your Column Assertions!
 - **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Column Assertion. Note that
   any other incidents will not be impacted.
 
-12. Click **Next** and then **Save**.
+#### 12. Click **Next** and then **Save**.
 
 And that's it! DataHub will now begin to monitor your Column Assertion for the table.
 
@@ -227,11 +233,27 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/profile-passing-column-assertions-expanded.png"/>
 </p>
 
+## Anomaly Detection with Smart Assertions ⚡
+
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides [Smart Assertions](./smart-assertions.md) out of the box. These are dynamic, AI-powered Column Metric Assertions that you can use to monitor anomalies on column metrics of important warehouse Tables, without requiring any manual setup.
+
+You can create smart assertions by simply selecting the column and the metric you wish to monitor, and then clicking the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/column-smart-assertion.png"/>
+</p>
+
+**Bulk Creating for Multiple Columns**
+
+To select several columns on a table to monitor at once, you can use the **Bulk-Create Smart Assertions** button below the column selector in the Column Metric Assertion authoring UI.
+
+<iframe width="560" height="343" src="https://www.loom.com/embed/e71598c4394c4d8dba0770b8fc67ff06?sid=25326338-8a72-4382-98b5-026486233ef9" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+
 ## Stopping a Column Assertion
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Column** to open the Column Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -260,7 +282,7 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 
 In order to create or update a Column Assertion, you can the `upsertDatasetColumnAssertionMonitor` mutation.
 
-##### Examples
+#### Examples
 
 Creating a Field Values Column Assertion that runs every 8 hours:
 
@@ -278,6 +300,44 @@ mutation upsertDatasetFieldAssertionMonitor {
         }
         operator: GREATER_THAN
         parameters: { value: { type: NUMBER, value: "10" } }
+        failThreshold: { type: COUNT, value: 0 }
+        excludeNulls: true
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: { sourceType: ALL_ROWS_QUERY }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create an AI Smart Column Nullness Metric Assertion:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: FIELD_METRIC
+      inferWithAI: true
+      fieldMetricAssertion: {
+        field: {
+          path: "<name of the column to be monitored>"
+          type: "NUMBER"
+          nativeType: "NUMBER(38,0)"
+        }
+        metric: NULL_PERCENTAGE
+        operator: BETWEEN
+        # you can provide any value for this as it will be overwritten continuously by the AI engine
+        parameters: {
+          minValue: { value: "0", type: NUMBER }
+          maxValue: { value: "0", type: NUMBER }
+        }
         failThreshold: { type: COUNT, value: 0 }
         excludeNulls: true
       }

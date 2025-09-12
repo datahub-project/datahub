@@ -18,6 +18,9 @@
 ### Other Notable Changes
 
 - #13726: Removed dgraph from tests
+- #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
+- #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
+- #14162: Added fields to SystemMetadata updating the MCP Avro schema which can affect users of external schema registries with mixed version deployments.
 
 -->
 
@@ -27,6 +30,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- #14580: (Ingestion) The redshift lineage v1 implementation (`RedshiftLineageExtractor`) has been removed, as lineage v2 (`RedshiftSqlLineageV2`) implementation has been default for a while already. As an effect `use_lineage_v2` config has also been removed along with all lineage v1 references and tests have been updated to v2 implementation. This should not impact most users as change is isolated in redshift ingestion source only.
+
 ### Known Issues
 
 ### Potential Downtime
@@ -34,6 +39,40 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 ### Other Notable Changes
+
+## 1.2.0
+
+### Breaking Changes
+
+- All DataHub Python packages now require Python 3.9+. This affects the following packages:
+  - `acryl-datahub` (DataHub CLI and SDK)
+  - `acryl-datahub-actions`
+  - `acryl-datahub-airflow-plugin`
+  - `acryl-datahub-prefect-plugin`
+  - `acryl-datahub-gx-plugin`
+  - `acryl-datahub-dagster-plugin` (already required Python 3.9+)
+- #13619: The `acryl-datahub-airflow-plugin` has dropped support for Airflow versions less than 2.7.
+- #14054: The v1 plugin in `acryl-datahub-airflow-plugin` has been removed. The v2 plugin has been the default for a while already, so this should not impact most users. Users who were explicitly setting `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true` will need to either upgrade or pin to an older version to continue using the v1 plugin.
+- #14015: In the sql-queries source, the `default_dialect` configuration parameter has been renamed to `override_dialect`. This also affects the Python SDK methods:
+  - `DataHubGraph.parse_sql_lineage(default_dialect=...)` → `DataHubGraph.parse_sql_lineage(override_dialect=...)`
+  - `LineageClient.add_lineage_via_sql(default_dialect=...)` → `LineageClient.add_lineage_via_sql(override_dialect=...)`
+- #14059: The `acryl-datahub-gx-plugin` now requires pydantic v2, which means the effective minimum supported version of GX is 0.17.15 (from Sept 2023).
+- #13601: The `use_queries_v2` flag is now enabled by default for Snowflake and BigQuery ingestion. This improves the quality of lineage and quantity of queries extracted.
+
+### Known Issues
+
+- Internal Schema Registry - The internal schema registry does not supply a compatible schema for older MCP messages. The short term recommendation is to process all MCPs before upgrading to this release.
+
+### Potential Downtime
+
+### Deprecations
+
+- #13858: For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
+
+### Other Notable Changes
+
+- The `acryl-datahub-actions` package now requires Pydantic V2, while it previously was compatible with both Pydantic V1 and V2.
+- #14123: Adds a new environment variable `DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES` to control batch size limits when using the RestEmitter in ingestions. Default is 15MB but configurable.
 
 ## 1.1.0
 
@@ -50,6 +89,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #13397: Ingestion Rest Emitter
   - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
   - SYNC_WAIT - Only available with OpenAPI ingestion
+- OpenAPI Reports OpenAPI Spec 3.1.0 when it only supports 3.0.1
 
 ### Potential Downtime
 

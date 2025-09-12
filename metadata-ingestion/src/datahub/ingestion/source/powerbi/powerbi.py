@@ -40,6 +40,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.powerbi.config import (
     Constant,
@@ -294,8 +295,6 @@ class Mapper:
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
 
             mcp = MetadataChangeProposalWrapper(
-                entityType=Constant.DATASET,
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=ds_urn,
                 aspect=upstream_lineage_class,
             )
@@ -538,9 +537,7 @@ class Mapper:
         profile.columnCount = table.column_count
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn=ds_urn,
-            aspectName="datasetProfile",
             aspect=profile,
         )
         dataset_mcps.append(mcp)
@@ -796,7 +793,6 @@ class Mapper:
             guid=container_key.guid(),
         )
         mcp = MetadataChangeProposalWrapper(
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=entity_urn,
             aspect=ContainerClass(container=f"{container_urn}"),
         )
@@ -1231,7 +1227,14 @@ class Mapper:
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.POWERBI_WORKSPACE,
+        SourceCapabilityModifier.POWERBI_DATASET,
+    ],
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -1253,6 +1256,7 @@ class Mapper:
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration profiling.enabled",
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

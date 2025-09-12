@@ -9,7 +9,17 @@
             {
                 "op": "add",
                 "path": "/inputEdges/urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
-                "value": "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+                    "created": {
+                        "time": 1749621934421,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "lastModified": {
+                        "time": 1749621934421,
+                        "actor": "urn:li:corpuser:datahub"
+                    }
+                }
             }
         ]
     }

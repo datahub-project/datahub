@@ -51,6 +51,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
@@ -125,6 +126,15 @@ logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, configured using `extract_usage_history`",
+)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.LOOKML_MODEL,
+        SourceCapabilityModifier.LOOKER_FOLDER,
+    ],
 )
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """

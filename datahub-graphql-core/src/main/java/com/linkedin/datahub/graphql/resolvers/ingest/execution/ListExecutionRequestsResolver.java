@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,7 +42,7 @@ public class ListExecutionRequestsResolver
   private static final String EXECUTION_REQUEST_INGESTION_SOURCE_FIELD = "ingestionSource";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_FIELD = "sourceType";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_SYSTEM = "SYSTEM";
-  private static final Integer NUMBER_OF_SYSTEM_INGESTION_SOURCES_TO_FETCH = 1000;
+  private static final Integer NUMBER_OF_INGESTION_SOURCES_TO_CHECK = 1000;
 
   private final EntityClient _entityClient;
 
@@ -58,7 +59,7 @@ public class ListExecutionRequestsResolver
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
     List<FacetFilterInput> filters =
-        input.getFilters() == null ? Collections.emptyList() : input.getFilters();
+        input.getFilters() == null ? new ArrayList<>() : input.getFilters();
 
     // construct sort criteria, defaulting to systemCreated
     final SortCriterion sortCriterion;
@@ -78,7 +79,7 @@ public class ListExecutionRequestsResolver
         () -> {
           try {
             // Add additional filters to show only or hide all system ingestion sources
-            addSystemIngestionSourceFilter(filters, input.getSystemSources(), context);
+            addDefaultFilters(context, filters, input.getSystemSources());
             // First, get all execution request Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
@@ -122,31 +123,40 @@ public class ListExecutionRequestsResolver
     return results;
   }
 
-  private void addSystemIngestionSourceFilter(
-      List<FacetFilterInput> filters, final Boolean systemSources, final QueryContext context)
+  private void addDefaultFilters(
+      final QueryContext context,
+      List<FacetFilterInput> filters,
+      @Nullable final Boolean systemSources)
       throws Exception {
-    if (systemSources != null) {
-      List<Urn> urns = getUrnsOfSystemIngestionSources(context);
-
-      filters.add(
-          new FacetFilterInput(
-              EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
-              null,
-              urns.stream().map(Urn::toString).toList(),
-              !systemSources,
-              FilterOperator.EQUAL));
-    }
+    addAccessibleIngestionSourceFilter(context, filters, systemSources); // Saas only
   }
 
-  private List<Urn> getUrnsOfSystemIngestionSources(final QueryContext context) throws Exception {
+  private void addAccessibleIngestionSourceFilter(
+      QueryContext context, List<FacetFilterInput> filters, @Nullable Boolean systemSources)
+      throws Exception {
+    List<Urn> sourceUrns = getUrnsOfIngestionSources(context, systemSources);
+    filters.add(
+        new FacetFilterInput(
+            EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
+            null,
+            sourceUrns.stream().map(Urn::toString).toList(),
+            false,
+            FilterOperator.EQUAL));
+  }
+
+  private List<Urn> getUrnsOfIngestionSources(
+      final QueryContext context, @Nullable final Boolean systemSources) throws Exception {
     List<FacetFilterInput> filters =
-        List.of(
-            new FacetFilterInput(
-                INGESTION_SOURCE_SOURCE_TYPE_FIELD,
-                null,
-                ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
-                false,
-                FilterOperator.EQUAL));
+        systemSources != null
+            ? List.of(
+                new FacetFilterInput(
+                    INGESTION_SOURCE_SOURCE_TYPE_FIELD,
+                    null,
+                    ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
+                    !systemSources,
+                    FilterOperator.EQUAL))
+            : Collections.emptyList();
+
     final SearchResult gmsResult =
         _entityClient.search(
             context.getOperationContext(),
@@ -155,7 +165,7 @@ public class ListExecutionRequestsResolver
             buildFilter(filters, Collections.emptyList()),
             null,
             0,
-            NUMBER_OF_SYSTEM_INGESTION_SOURCES_TO_FETCH);
+            NUMBER_OF_INGESTION_SOURCES_TO_CHECK);
 
     return gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
   }

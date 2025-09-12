@@ -54,12 +54,16 @@ dependencies {
   annotationProcessor externalDependency.lombok
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
-  runtimeOnly externalDependency.logbackClassic
+  implementation externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
+
+  // Required for springdocs/swagger
+  implementation("javax.xml.bind:jaxb-api:2.3.1")
+  implementation("org.glassfish.jaxb:jaxb-runtime:2.3.8")
 
   testImplementation externalDependency.testng
   testImplementation externalDependency.springBootTest

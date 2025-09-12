@@ -11,6 +11,9 @@ fragment globalTagsFields on GlobalTags {
             }
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
 }
 
@@ -107,6 +110,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
         description
+        createdOn {
+            time
+        }
     }
     displayProperties {
         ...displayPropertiesFields
@@ -178,6 +184,9 @@ fragment glossaryTerms on GlossaryTerms {
             urn
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
 }
 
@@ -335,6 +344,9 @@ fragment ownershipFields on Ownership {
             }
         }
         associatedUrn
+        attribution {
+            ...attributionFields
+        }
     }
     lastModified {
         time
@@ -371,24 +383,28 @@ fragment institutionalMemoryFields on InstitutionalMemory {
     }
 }
 
+fragment attributionFields on MetadataAttribution {
+    time
+    actor {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    source {
+        urn
+        type
+    }
+    sourceDetail {
+        key
+        value
+    }
+}
+
 fragment documentationFields on Documentation {
     documentations {
         documentation
         attribution {
-            time
-            actor {
-                urn
-                type
-                ...entityDisplayNameFields
-            }
-            source {
-                urn
-                type
-            }
-            sourceDetail {
-                key
-                value
-            }
+            ...attributionFields
         }
     }
 }
@@ -448,7 +464,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
-    ...entityDataProduct
+    application {
+        ...entityApplication
+    }
     container {
         ...entityContainer
     }
@@ -491,6 +509,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     deprecation {
         ...deprecationFields
@@ -517,12 +538,18 @@ fragment nonRecursiveDataJobFields on DataJob {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     deprecation {
         ...deprecationFields
     }
     subTypes {
         typeNames
+    }
+    platform {
+        ...platformFields
     }
 }
 
@@ -562,6 +589,9 @@ fragment dataJobFields on DataJob {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     deprecation {
         ...deprecationFields
@@ -592,6 +622,9 @@ fragment dataJobFields on DataJob {
     }
     dataTransformLogic {
         ...dataTransformLogicFields
+    }
+    platform {
+        ...platformFields
     }
 }
 
@@ -639,6 +672,9 @@ fragment dashboardFields on Dashboard {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     parentContainers {
@@ -735,6 +771,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -887,6 +926,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     tags {
         ...globalTagsFields
@@ -926,6 +968,12 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     }
     documentation {
         ...documentationFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 
@@ -1057,6 +1105,9 @@ fragment nonRecursiveMLModel on MLModel {
             properties {
                 name
             }
+            editableProperties {
+                description
+            }
         }
         customProperties {
             key
@@ -1078,6 +1129,9 @@ fragment nonRecursiveMLModel on MLModel {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -1122,6 +1176,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -1264,6 +1321,33 @@ fragment entityDomain on DomainAssociation {
         }
     }
     associatedUrn
+}
+
+fragment entityApplication on ApplicationAssociation {
+    application {
+        urn
+        type
+        properties {
+            name
+            description
+            externalUrl
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
+            total
+        }
+    }
 }
 
 fragment entityDataProduct on Entity {
@@ -1458,6 +1542,7 @@ fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     createdActor {
         urn
     }
+    cardinality
 }
 
 fragment relationshipFieldMapping on RelationshipFieldMapping {
@@ -1478,6 +1563,7 @@ fragment datasetERModelRelationshipFields on Dataset {
         description
     }
     editableProperties {
+        name
         description
     }
     schemaMetadata {
@@ -1487,6 +1573,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
@@ -1581,6 +1668,9 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         ...entityDisplayNameFields
     }
     associatedUrn
+    attribution {
+        ...attributionFields
+    }
 }
 
 fragment autoRenderAspectFields on RawAspect {
@@ -1709,6 +1799,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetUsage
     canViewDatasetProfile
     canViewDatasetOperations
+    canManageAssetSummary
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {

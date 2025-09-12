@@ -1,11 +1,5 @@
-import {
-    AppstoreOutlined,
-    FileDoneOutlined,
-    FileOutlined,
-    ReadOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
-import { ListBullets } from '@phosphor-icons/react';
+import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { AppWindow, ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -24,10 +18,10 @@ import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/pro
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 
 import { useGetApplicationQuery } from '@graphql/application.generated';
@@ -49,28 +43,21 @@ export class ApplicationEntity implements Entity<Application> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} />;
+            return <AppWindow className={TYPE_ICON_CLASS_NAME} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return (
-                <FileDoneOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />
-            );
+            return <AppWindow className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
-            return (
-                <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-600 72h560v208H232V136zm560 480H232V408h560v208zm0 272H232V680h560v208zM304 240a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0zm0 272a40 40 0 1080 0 40 40 0 10-80 0z" />
-            );
+            return <AppWindow className={TYPE_ICON_CLASS_NAME} />;
         }
 
         return (
-            <FileDoneOutlined
+            <AppWindow
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
@@ -98,7 +85,7 @@ export class ApplicationEntity implements Entity<Application> {
             useEntityQuery={useGetApplicationQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerActionItems={new Set([])}
+            headerActionItems={new Set([EntityActionItem.BATCH_ADD_APPLICATION])}
             headerDropdownItems={headerDropdownItems}
             isNameEditable
             tabs={[
@@ -115,9 +102,8 @@ export class ApplicationEntity implements Entity<Application> {
                 },
                 {
                     name: 'Assets',
-                    getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.children?.total;
-                        return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
+                    getCount: (entityData, _, loading) => {
+                        return !loading ? entityData?.children?.total : undefined;
                     },
                     component: ApplicationEntitiesTab,
                     icon: AppstoreOutlined,
