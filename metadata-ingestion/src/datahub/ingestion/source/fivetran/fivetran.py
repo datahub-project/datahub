@@ -577,7 +577,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
 
         # Create job name and description
-        job_name = f"Fivetran: {source_table} → {destination_table}"
+        job_name = f"{source_table} → {destination_table}"
         job_description = (
             f"Fivetran data pipeline from {source_table} to {destination_table}"
         )
@@ -1294,7 +1294,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
 
         # Create job name and description
-        job_name = f"Fivetran: {source_table} → {destination_table}"
+        job_name = f"{source_table} → {destination_table}"
         job_description = (
             f"Fivetran data pipeline from {source_table} to {destination_table}"
         )
