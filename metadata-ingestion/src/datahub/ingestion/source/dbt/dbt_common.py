@@ -1041,11 +1041,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
-        # First: Internal dbt reference filtering
+        """
+        Check whether a node should be processed, using multi-layer rules. Checks for materialized nodes might need to be restricted in the future to some cases
+        """
         if not self.config.node_name_pattern.allowed(node.dbt_name):
             return False
 
-        # Second: Materialized location filtering (for catalog consistency)
         if not self._is_allowed_materialized_node(node):
             return False
 
