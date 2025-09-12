@@ -29,9 +29,9 @@ from datahub.ingestion.source.fivetran.fivetran_access import (
     create_fivetran_access,
 )
 from datahub.ingestion.source.fivetran.fivetran_constants import (
-    FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM,
     MAX_JOBS_PER_CONNECTOR,
     DataJobMode,
+    get_platform_from_fivetran_service,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -90,15 +90,12 @@ class FivetranSource(StatefulIngestionSourceBase):
             connector.connector_id, PlatformDetail()
         )
 
-        # Map connector type to known platform if needed
+        # Map connector type to known platform using service information from API
         if source_details.platform is None:
-            connector_type = connector.connector_type.lower()
-            if connector_type in FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM:
-                source_details.platform = FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM[
-                    connector_type
-                ]
-            else:
-                source_details.platform = connector_type
+            # Use the improved service-based mapping instead of hardcoded connector aliases
+            source_details.platform = get_platform_from_fivetran_service(
+                connector.connector_type
+            )
 
         # Auto-detect source database if not present in config
         if source_details.database is None:
@@ -481,21 +478,20 @@ class FivetranSource(StatefulIngestionSourceBase):
         return lineage_properties
 
     def _detect_source_platform(self, connector: Connector) -> str:
-        """Detect source platform for a connector."""
-        connector_type = connector.connector_type.lower()
+        """Detect source platform for a connector using service information from API."""
+        # Use the improved service-based mapping
+        platform = get_platform_from_fivetran_service(connector.connector_type)
 
-        for match, platform in FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM.items():
-            if match in connector_type:
-                return platform
+        # Log if we're using the service name directly (no mapping found)
+        if platform == connector.connector_type.lower():
+            self.report.info(
+                title="Using service name as platform",
+                message="No explicit platform mapping found for this connector service. "
+                "Using the Fivetran service name as the DataHub platform.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id}, service: {connector.connector_type})",
+            )
 
-        # No match found, use connector type as platform
-        self.report.info(
-            title="Guessing source platform for lineage",
-            message="We encountered a connector type that we don't fully support yet. "
-            "We will attempt to guess the platform based on the connector type.",
-            context=f"{connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
-        )
-        return connector_type
+        return platform
 
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
         """Generate a DataFlow entity from a connector."""

@@ -244,6 +244,119 @@ class FivetranAPIClient:
             )
             return connector_data
 
+    def validate_connector_accessibility(self, connector_id: str) -> Dict[str, Any]:
+        """
+        Validate that a connector is accessible and properly set up.
+        Uses direct HTTP calls without retry logic to avoid infinite loops.
+
+        Returns:
+            Dict with validation results including:
+            - is_accessible: bool
+            - connector_exists: bool
+            - has_valid_config: bool
+            - is_active: bool
+            - error_message: str (if any)
+            - connector_info: dict (basic info if accessible)
+        """
+        validation_result = {
+            "is_accessible": False,
+            "connector_exists": False,
+            "has_valid_config": False,
+            "is_active": False,
+            "error_message": "",
+            "connector_info": {},
+        }
+
+        try:
+            # Make a single direct HTTP request without retries
+            url = f"https://api.fivetran.com/v1/connectors/{connector_id}"
+
+            response = requests.get(
+                url,
+                auth=(self.config.api_key, self.config.api_secret),
+                timeout=10,  # Short timeout
+            )
+
+            if response.status_code == 404:
+                validation_result["error_message"] = (
+                    f"Connector {connector_id} not found"
+                )
+                return validation_result
+            elif response.status_code == 401:
+                validation_result["error_message"] = (
+                    f"Authentication failed for connector {connector_id}"
+                )
+                return validation_result
+            elif response.status_code != 200:
+                validation_result["error_message"] = (
+                    f"HTTP {response.status_code} error for connector {connector_id}"
+                )
+                return validation_result
+
+            # Parse response
+            try:
+                data = response.json()
+                connector_info = data.get("data", {})
+
+                if not connector_info:
+                    validation_result["error_message"] = (
+                        f"Empty data for connector {connector_id}"
+                    )
+                    return validation_result
+
+            except ValueError as e:
+                validation_result["error_message"] = (
+                    f"Invalid JSON response for connector {connector_id}: {e}"
+                )
+                return validation_result
+
+            # Connector exists and is accessible
+            validation_result["connector_exists"] = True
+            validation_result["connector_info"] = connector_info
+            validation_result["is_accessible"] = True  # If we got here, it's accessible
+
+            # Check if connector is active (not paused)
+            is_paused = connector_info.get("paused", True)
+            validation_result["is_active"] = not is_paused
+
+            # Try to check configuration (optional, don't fail if this doesn't work)
+            try:
+                config_url = (
+                    f"https://api.fivetran.com/v1/connectors/{connector_id}/config"
+                )
+                config_response = requests.get(
+                    config_url,
+                    auth=(self.config.api_key, self.config.api_secret),
+                    timeout=5,
+                )
+
+                if config_response.status_code == 200:
+                    config_data = config_response.json().get("data", {})
+                    if config_data:
+                        validation_result["has_valid_config"] = True
+
+            except Exception:
+                # Config check is optional, don't fail validation
+                pass
+
+            return validation_result
+
+        except requests.exceptions.Timeout:
+            validation_result["error_message"] = (
+                f"Timeout accessing connector {connector_id}"
+            )
+            return validation_result
+        except requests.exceptions.RequestException as e:
+            validation_result["error_message"] = (
+                f"Network error accessing connector {connector_id}: {e}"
+            )
+            return validation_result
+        except Exception as e:
+            validation_result["error_message"] = (
+                f"Validation failed for connector {connector_id}: {e}"
+            )
+            return validation_result
+
     def get_table_columns(
         self, connector_id: str, schema_name: str, table_name: str
     ) -> List[Dict]:
@@ -1009,9 +1122,20 @@ class FivetranAPIClient:
 
             # First look for exact matches in different schemas
             for schema in schemas:
+                # Ensure schema is a dictionary before calling .get()
+                if not isinstance(schema, dict):
+                    continue
+
                 schema_name_check = schema.get("name", "")
                 if schema_name_check != schema_name:  # Different schema
-                    for table in schema.get("tables", []):
+                    tables = schema.get("tables", [])
+                    if not isinstance(tables, list):
+                        continue
+
+                    for table in tables:
+                        if not isinstance(table, dict):
+                            continue
+
                         if table.get("name") == table_name and table.get("columns"):
                             # Found exact name match in different schema
                             table_obj["columns"] = table.get("columns", [])
@@ -1022,7 +1146,12 @@ class FivetranAPIClient:
 
             # Then look for similar tables in same schema
             target_schema = next(
-                (s for s in schemas if s.get("name") == schema_name), None
+                (
+                    s
+                    for s in schemas
+                    if isinstance(s, dict) and s.get("name") == schema_name
+                ),
+                None,
             )
             if not target_schema:
                 return False
@@ -1033,7 +1162,14 @@ class FivetranAPIClient:
             best_score = 0.7  # Minimum similarity threshold
             best_columns = []
 
-            for table in target_schema.get("tables", []):
+            tables = target_schema.get("tables", [])
+            if not isinstance(tables, list):
+                return False
+
+            for table in tables:
+                if not isinstance(table, dict):
+                    continue
+
                 if not table.get("columns"):
                     continue
 
@@ -1081,11 +1217,21 @@ class FivetranAPIClient:
             # Create a lookup map for quick access
             schema_table_columns = {}
             for api_schema in api_schemas:
+                if not isinstance(api_schema, dict):
+                    continue
+
                 schema_name = api_schema.get("name")
                 if not schema_name:
                     continue
 
-                for api_table in api_schema.get("tables", []):
+                tables = api_schema.get("tables", [])
+                if not isinstance(tables, list):
+                    continue
+
+                for api_table in tables:
+                    if not isinstance(api_table, dict):
+                        continue
+
                     table_name = api_table.get("name")
                     if not table_name:
                         continue
@@ -1096,8 +1242,18 @@ class FivetranAPIClient:
             # Update our schemas with the retrieved column information
             tables_updated = 0
             for schema in schemas:
+                if not isinstance(schema, dict):
+                    continue
+
                 schema_name = schema.get("name", "")
-                for table in schema.get("tables", []):
+                tables = schema.get("tables", [])
+                if not isinstance(tables, list):
+                    continue
+
+                for table in tables:
+                    if not isinstance(table, dict):
+                        continue
+
                     table_name = table.get("name", "")
                     if not table_name or table.get("columns"):
                         continue  # Skip if already has columns

@@ -85,6 +85,23 @@ grant role fivetran_datahub to user snowflake_user;
 3. Create a new API key and secret.
 4. Use these credentials in the `api_config` section of your recipe.
 
+### Performance Optimization
+
+The Standard mode now supports parallel processing to improve ingestion performance:
+
+- **Parallel Column Retrieval**: Column information is fetched in parallel for multiple tables simultaneously
+- **Parallel Connector Processing**: Multiple connectors are processed concurrently for lineage extraction
+- **Configurable Workers**: Use the `max_workers` parameter to control the level of parallelism (default: 5)
+
+Example configuration with performance tuning:
+
+```yaml
+api_config:
+  api_key: your_api_key
+  api_secret: your_api_secret
+  max_workers: 10 # Increase for faster processing (be mindful of API rate limits)
+```
+
 ## Advanced Configurations
 
 ### Working with Platform Instances

@@ -98,6 +98,10 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
             "Auto mode: both configs available, trying enterprise mode first (better performance)"
         )
         try:
+            if config.fivetran_log_config is None:
+                raise ValueError("Fivetran log config is None")
+            if config.fivetran_log_config is None:
+                raise ValueError("Fivetran log config is None")
             enterprise_impl = FivetranLogAPI(config.fivetran_log_config, config=config)
             if not is_test:
                 enterprise_impl.test_connection()
@@ -107,6 +111,8 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
             logger.warning(f"Enterprise mode connection failed with error: {e}")
             logger.info("Auto mode: falling back to standard mode")
             try:
+                if config.api_config is None:
+                    raise ValueError("API config is None")
                 api_client = FivetranAPIClient(config.api_config)
                 standard_impl = FivetranStandardAPI(api_client, config=config)
                 # Test basic API connectivity
@@ -123,6 +129,8 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
     elif has_log_config:
         try:
             logger.info("Auto mode: only log config provided, using enterprise mode")
+            if config.fivetran_log_config is None:
+                raise ValueError("Fivetran log config is None")
             enterprise_impl = FivetranLogAPI(config.fivetran_log_config, config=config)
             if not is_test:
                 enterprise_impl.test_connection()
@@ -136,6 +144,8 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
     # If only API config is provided, use standard mode
     elif has_api_config:
         logger.info("Auto mode: only API config provided, using standard mode")
+        if config.api_config is None:
+            raise ValueError("API config is None")
         api_client = FivetranAPIClient(config.api_config)
         return FivetranStandardAPI(api_client, config=config)
 

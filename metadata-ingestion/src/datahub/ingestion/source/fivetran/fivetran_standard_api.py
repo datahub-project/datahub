@@ -174,7 +174,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
             logger.info("Extracting lineage from Fivetran API in parallel")
             max_workers = (
                 getattr(self.config.api_config, "max_workers", 5)
-                if hasattr(self.config, "api_config")
+                if self.config
+                and hasattr(self.config, "api_config")
+                and self.config.api_config
                 else 5
             )
 
@@ -375,6 +377,26 @@ class FivetranStandardAPI(FivetranAccessInterface):
             return None
 
         try:
+            # Quick validation - just check if connector exists and is accessible
+            logger.info(f"Validating connector {connector_name} ({connector_id})")
+            validation_result = self.api_client.validate_connector_accessibility(
+                connector_id
+            )
+
+            if not validation_result["is_accessible"]:
+                error_msg = (
+                    f"Skipping connector {connector_name} ({connector_id}): "
+                    f"{validation_result['error_message']}"
+                )
+                logger.warning(error_msg)
+                report.report_connectors_dropped(error_msg)
+                return None
+
+            # Log successful validation
+            logger.info(
+                f"Connector {connector_name} is accessible and ready for processing"
+            )
+
             # Get sync history for this connector
             sync_history = self._get_sync_history(
                 connector_id=connector_id, days=syncs_interval
