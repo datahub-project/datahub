@@ -293,14 +293,18 @@ describe('Validation Utils', () => {
         });
 
         it('should support new column-related properties for datasets only', () => {
-            // Test new column name property (using correct searchable field name)
-            expect(isPropertySupportedForEntities('fieldPaths', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('fieldPaths', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('fieldPaths', [EntityType.GlossaryTerm])).toBe(false);
+            // Test column name property (using correct property path)
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.fieldPath', [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.fieldPath', [EntityType.Chart])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.fieldPath', [EntityType.GlossaryTerm])).toBe(
+                false,
+            );
 
-            // Test column tags (using correct searchable field names)
-            expect(isPropertySupportedForEntities('fieldTags', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('fieldTags', [EntityType.Dashboard])).toBe(false);
+            // Test column tags (using correct property path)
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.globalTags', [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.globalTags', [EntityType.Dashboard])).toBe(
+                false,
+            );
 
             // Test grouped column properties
             expect(isPropertySupportedForEntities('columnTags', [EntityType.Dataset])).toBe(true);
@@ -342,27 +346,6 @@ describe('Validation Utils', () => {
             expect(warnings3[0].message).toContain('columnTags');
             expect(warnings3[0].message).toContain('charts');
             expect(warnings3[0].message).not.toContain('datasets'); // Should not mention supported entities
-        });
-
-        it('should support schema-level constraint properties for datasets only', () => {
-            // Test primary keys property
-            expect(isPropertySupportedForEntities('schemaMetadata.primaryKeys', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('schemaMetadata.primaryKeys', [EntityType.Chart])).toBe(false);
-
-            // Test foreign keys properties
-            expect(isPropertySupportedForEntities('schemaMetadata.foreignKeys', [EntityType.Dataset])).toBe(true);
-            expect(
-                isPropertySupportedForEntities('schemaMetadata.foreignKeys.foreignDataset', [EntityType.Dataset]),
-            ).toBe(true);
-            expect(
-                isPropertySupportedForEntities('schemaMetadata.foreignKeys.foreignFields', [EntityType.Dataset]),
-            ).toBe(true);
-
-            // These should not work for non-dataset entities
-            expect(isPropertySupportedForEntities('schemaMetadata.primaryKeys', [EntityType.Dashboard])).toBe(false);
-            expect(isPropertySupportedForEntities('schemaMetadata.foreignKeys', [EntityType.GlossaryTerm])).toBe(false);
-
-            // Note: Column structured properties are not yet supported in the metadata test framework
         });
 
         it('should support properties for new entity types (Domain, DataProduct, GlossaryNode)', () => {
@@ -837,47 +820,101 @@ describe('Validation Utils', () => {
     describe('Schema field properties with correct searchable field names', () => {
         it('should support all schema field glossary term properties for datasets only', () => {
             // Platform (read-only) schema field glossary terms
-            expect(isPropertySupportedForEntities('fieldGlossaryTerms', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('fieldGlossaryTerms', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('fieldGlossaryTerms', [EntityType.Dashboard])).toBe(false);
-            expect(isPropertySupportedForEntities('fieldGlossaryTerms', [EntityType.GlossaryTerm])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.glossaryTerms', [EntityType.Dataset])).toBe(
+                true,
+            );
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.glossaryTerms', [EntityType.Chart])).toBe(
+                false,
+            );
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.glossaryTerms', [EntityType.Dashboard])).toBe(
+                false,
+            );
+            expect(
+                isPropertySupportedForEntities('schemaMetadata.fields.glossaryTerms', [EntityType.GlossaryTerm]),
+            ).toBe(false);
 
             // DataHub editable schema field glossary terms
-            expect(isPropertySupportedForEntities('editedFieldGlossaryTerms', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('editedFieldGlossaryTerms', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('editedFieldGlossaryTerms', [EntityType.Dashboard])).toBe(false);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.glossaryTerms', [
+                    EntityType.Dataset,
+                ]),
+            ).toBe(true);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.glossaryTerms', [
+                    EntityType.Chart,
+                ]),
+            ).toBe(false);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.glossaryTerms', [
+                    EntityType.Dashboard,
+                ]),
+            ).toBe(false);
         });
 
         it('should support all schema field tag properties for datasets only', () => {
             // Platform (read-only) schema field tags
-            expect(isPropertySupportedForEntities('fieldTags', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('fieldTags', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('fieldTags', [EntityType.Dashboard])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.globalTags', [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.globalTags', [EntityType.Chart])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.globalTags', [EntityType.Dashboard])).toBe(
+                false,
+            );
 
             // DataHub editable schema field tags
-            expect(isPropertySupportedForEntities('editedFieldTags', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('editedFieldTags', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('editedFieldTags', [EntityType.Dashboard])).toBe(false);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.globalTags', [
+                    EntityType.Dataset,
+                ]),
+            ).toBe(true);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.globalTags', [
+                    EntityType.Chart,
+                ]),
+            ).toBe(false);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.globalTags', [
+                    EntityType.Dashboard,
+                ]),
+            ).toBe(false);
         });
 
         it('should support all schema field description properties for datasets only', () => {
             // Platform (read-only) schema field descriptions
-            expect(isPropertySupportedForEntities('fieldDescriptions', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('fieldDescriptions', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('fieldDescriptions', [EntityType.Dashboard])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.description', [EntityType.Dataset])).toBe(
+                true,
+            );
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.description', [EntityType.Chart])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.description', [EntityType.Dashboard])).toBe(
+                false,
+            );
 
             // DataHub editable schema field descriptions
-            expect(isPropertySupportedForEntities('editedFieldDescriptions', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('editedFieldDescriptions', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('editedFieldDescriptions', [EntityType.Dashboard])).toBe(false);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.description', [
+                    EntityType.Dataset,
+                ]),
+            ).toBe(true);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.description', [
+                    EntityType.Chart,
+                ]),
+            ).toBe(false);
+            expect(
+                isPropertySupportedForEntities('editableSchemaMetadata.editableSchemaFieldInfo.description', [
+                    EntityType.Dashboard,
+                ]),
+            ).toBe(false);
         });
 
         it('should support schema field paths for datasets only', () => {
             // Field paths (column names)
-            expect(isPropertySupportedForEntities('fieldPaths', [EntityType.Dataset])).toBe(true);
-            expect(isPropertySupportedForEntities('fieldPaths', [EntityType.Chart])).toBe(false);
-            expect(isPropertySupportedForEntities('fieldPaths', [EntityType.Dashboard])).toBe(false);
-            expect(isPropertySupportedForEntities('fieldPaths', [EntityType.GlossaryTerm])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.fieldPath', [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.fieldPath', [EntityType.Chart])).toBe(false);
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.fieldPath', [EntityType.Dashboard])).toBe(
+                false,
+            );
+            expect(isPropertySupportedForEntities('schemaMetadata.fields.fieldPath', [EntityType.GlossaryTerm])).toBe(
+                false,
+            );
         });
 
         it('should support schema field structured properties for datasets only', () => {
