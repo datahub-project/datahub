@@ -18,7 +18,7 @@ const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
-const TermContainer = styled.div`
+const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
     position: relative;
     max-width: 200px;
 
@@ -27,11 +27,15 @@ const TermContainer = styled.div`
         border: 1px solid ${colors.gray[100]};
     }
 
-    :hover {
-        .ant-tag.ant-tag {
-            border: 1px solid ${(props) => props.theme.styles['primary-color']};
+    ${(props) =>
+        props.$shouldHighlightBorderOnHover &&
+        `
+        :hover {
+            .ant-tag.ant-tag {
+                border: 1px solid ${props.theme.styles['primary-color']};
+            }
         }
-    }
+    `}
 `;
 
 const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
@@ -189,7 +193,7 @@ export default function TermContent({
     };
 
     return (
-        <TermContainer>
+        <TermContainer $shouldHighlightBorderOnHover={!readOnly}>
             <StyledTerm
                 style={{ cursor: 'pointer' }}
                 fontSize={fontSize}
