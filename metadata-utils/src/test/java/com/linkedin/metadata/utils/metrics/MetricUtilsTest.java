@@ -10,7 +10,6 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.mockito.Mock;
@@ -44,18 +43,25 @@ public class MetricUtilsTest {
   }
 
   @Test
-  public void testGetRegistryReturnsOptionalWithRegistry() {
-    Optional<MeterRegistry> registry = metricUtils.getRegistry();
-    assertTrue(registry.isPresent());
-    assertSame(registry.get(), meterRegistry);
+  public void testGetRegistryReturnsRegistry() {
+    MeterRegistry registry = metricUtils.getRegistry();
+    assertNotNull(registry);
+    assertSame(registry, meterRegistry);
   }
 
   @Test
-  public void testGetRegistryReturnsEmptyOptionalWhenNull() {
-    MetricUtils utilsWithNullRegistry = MetricUtils.builder().registry(null).build();
+  public void testGetRegistryReturnsDefaultWhenNotSpecified() {
+    MetricUtils utilsWithDefaultRegistry = MetricUtils.builder().build();
 
-    Optional<MeterRegistry> registry = utilsWithNullRegistry.getRegistry();
-    assertFalse(registry.isPresent());
+    MeterRegistry registry = utilsWithDefaultRegistry.getRegistry();
+    assertNotNull(registry);
+    assertTrue(registry instanceof io.micrometer.core.instrument.composite.CompositeMeterRegistry);
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testBuilderRejectsNullRegistry() {
+    // This should throw NullPointerException due to @NonNull annotation
+    MetricUtils.builder().registry(null).build();
   }
 
   @Test
@@ -72,11 +78,11 @@ public class MetricUtilsTest {
   }
 
   @Test
-  public void testTimeWithNullRegistryDoesNothing() {
-    MetricUtils utilsWithNullRegistry = MetricUtils.builder().registry(null).build();
+  public void testTimeWithDefaultRegistryWorks() {
+    MetricUtils utilsWithDefaultRegistry = MetricUtils.builder().build();
 
-    // Should not throw exception
-    utilsWithNullRegistry.time("test.timer", 1000);
+    // Should not throw exception and should work with default registry
+    utilsWithDefaultRegistry.time("test.timer", 1000);
   }
 
   @Test
@@ -217,16 +223,21 @@ public class MetricUtilsTest {
   }
 
   @Test
-  public void testAllMethodsWithNullRegistry() {
-    MetricUtils utilsWithNullRegistry = MetricUtils.builder().registry(null).build();
+  public void testAllMethodsWithDefaultRegistry() {
+    MetricUtils utilsWithDefaultRegistry = MetricUtils.builder().build();
 
-    // None of these should throw exceptions
-    utilsWithNullRegistry.time("timer", 1000);
-    utilsWithNullRegistry.increment(this.getClass(), "counter", 1);
-    utilsWithNullRegistry.increment("counter", 1);
-    utilsWithNullRegistry.exceptionIncrement(this.getClass(), "error", new RuntimeException());
-    utilsWithNullRegistry.setGaugeValue(this.getClass(), "gauge", 42);
-    utilsWithNullRegistry.histogram(this.getClass(), "histogram", 100);
+    // All methods should work with the default CompositeMeterRegistry
+    utilsWithDefaultRegistry.time("timer", 1000);
+    utilsWithDefaultRegistry.increment(this.getClass(), "counter", 1);
+    utilsWithDefaultRegistry.increment("counter", 1);
+    utilsWithDefaultRegistry.exceptionIncrement(this.getClass(), "error", new RuntimeException());
+    utilsWithDefaultRegistry.setGaugeValue(this.getClass(), "gauge", 42);
+    utilsWithDefaultRegistry.histogram(this.getClass(), "histogram", 100);
+
+    // Verify the registry is the expected type
+    assertTrue(
+        utilsWithDefaultRegistry.getRegistry()
+            instanceof io.micrometer.core.instrument.composite.CompositeMeterRegistry);
   }
 
   @Test

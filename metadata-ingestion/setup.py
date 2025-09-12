@@ -22,7 +22,7 @@ base_requirements = {
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
-    "mixpanel>=4.9.0",
+    "mixpanel>=4.9.0,<=4.10.1",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
 }
@@ -101,7 +101,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==26.26.0",
+    "sqlglot[rs]==27.12.0",
     "patchy==2.8.0",
 }
 
@@ -292,7 +292,11 @@ microsoft_common = {
 iceberg_common = {
     # Iceberg Python SDK
     # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
-    "pyiceberg>=0.4.0",
+    # The limitation <=0.6.1 is set temporarily, as >0.4 allows for using pydantic 2, but versions >0.6.1 use different
+    # parameters for configuring credentials, i.e. for Glue catalogs, for details, see:
+    # https://github.com/apache/iceberg-python/compare/pyiceberg-0.6.1...pyiceberg-0.7.0#diff-497e037708cc64870c6ba9372f6064a69ca1e74d65d6195dcee5a44851e8b47dR283
+    # this would cause existing recipes to start failing in some cases
+    "pyiceberg>=0.4.0,<=0.6.1",
     *cachetools_lib,
 }
 
