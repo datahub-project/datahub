@@ -1055,14 +1055,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _is_allowed_materialized_node(self, node: DBTNode) -> bool:
         """Filter nodes based on their materialized database location for catalog consistency"""
 
-        # Skip if using default patterns (no filtering intended)
-        if (
-            self.config.source_pattern.database_pattern == AllowDenyPattern.allow_all()
-            and self.config.source_pattern.schema_pattern
-            == AllowDenyPattern.allow_all()
-            and self.config.source_pattern.table_pattern == AllowDenyPattern.allow_all()
-        ):
-            return True
 
         # Database level filtering
         if node.database and not self.config.source_pattern.database_pattern.allowed(
