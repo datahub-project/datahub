@@ -160,7 +160,8 @@ public class LinkUtils {
 
     // if link exists, do not add it again
     if (hasDuplicates(linksArray, linkUrl, linkLabel)) {
-      return;
+      throw new IllegalArgumentException(
+          String.format("The link '%s' with label '%s' already exists", linkUrl, linkLabel));
     }
 
     InstitutionalMemoryMetadata newLink = new InstitutionalMemoryMetadata();

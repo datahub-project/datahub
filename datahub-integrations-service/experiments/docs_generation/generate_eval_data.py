@@ -5,7 +5,7 @@ import json
 import os
 import pathlib
 import shutil
-from typing import List, Tuple, TypedDict
+from typing import List, Tuple, TypedDict, Optional
 
 import asyncer
 from datahub.utilities.perf_timer import PerfTimer
@@ -19,6 +19,7 @@ from datahub_integrations.gen_ai.description_context import (
     ExtractedTableInfo,
     extract_metadata_for_urn,
 )
+import typer
 
 assert AI_EXPERIMENTATION_INITIALIZED
 from datahub_integrations.experimentation.docs_generation.eval_common import (
@@ -30,12 +31,6 @@ class EvalEntry(TypedDict):
     urn: str
     deployment: str
     notes: str
-
-
-eval_entries: List[EvalEntry] = json.loads(
-    (docs_generation_experiments_dir / "eval_config/eval_set.json").read_text()
-)["entities"]
-logger.info(f"Number of eval entries: {len(eval_entries)}")
 
 
 # Copy graph_credentials.json file to parent docs_generation directory
@@ -96,11 +91,27 @@ async def download_eval_data(
             )
 
 
-eval_data_path = docs_generation_experiments_dir / "eval_data"
-logger.info(f"eval data path: {eval_data_path}")
-shutil.rmtree(eval_data_path, ignore_errors=True)
-os.makedirs(eval_data_path)
-asyncer.syncify(download_eval_data, raise_sync_error=False)(
-    eval_entries, eval_data_path
-)
-logger.info(f"{len(os.listdir(eval_data_path))} eval entries generated")
+def main(urns: Optional[List[str]] = None):
+    eval_entries: List[EvalEntry] = json.loads(
+        (docs_generation_experiments_dir / "eval_config/eval_set.json").read_text()
+    )["entities"]
+    logger.info(f"Number of eval entries: {len(eval_entries)}")
+
+    eval_data_path = docs_generation_experiments_dir / "eval_data"
+    logger.info(f"eval data path: {eval_data_path}")
+
+    if urns:
+        eval_entries = [entry for entry in eval_entries if entry["urn"] in urns]
+    else:  # This is not selective update, but full refresh
+        shutil.rmtree(eval_data_path, ignore_errors=True)
+
+    os.makedirs(eval_data_path, exist_ok=True)
+
+    asyncer.syncify(download_eval_data, raise_sync_error=False)(
+        eval_entries, eval_data_path
+    )
+    logger.info(f"Total {len(os.listdir(eval_data_path))} eval entries available")
+
+
+if __name__ == "__main__":
+    typer.run(main)

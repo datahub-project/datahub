@@ -41,7 +41,7 @@ MAX_COLUMNS_PER_BATCH = int(
     os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS_PER_BATCH", 30)
 )
 ANYIO_THREAD_COUNT = 100
-LARGE_TABLE_THRESHOLD = 1000
+LARGE_TABLE_THRESHOLD = 100
 
 
 def split_columns_into_batch(columns: List[str], batch_size: int) -> List[List[str]]:
@@ -331,12 +331,10 @@ def generate_table_description(
     )
     formatted_columns_context = PROMPT_COLUMNS_CONTEXT.format(
         column_info={
-            col: column_info.model_dump(
-                exclude_none=True,
-                # pass only column name and description for large tables
-                include={"column_name", "description"}
+            col: (
+                column_info.minimal_dict()
                 if len(column_infos) > LARGE_TABLE_THRESHOLD
-                else None,
+                else column_info.model_dump(exclude_none=True)
             )
             for col, column_info in column_infos.items()
         },

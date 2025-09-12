@@ -60,6 +60,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -366,7 +367,16 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     String nextScrollId = null;
     if (searchHits.length == count) {
       Object[] sort = searchHits[searchHits.length - 1].getSortValues();
-      nextScrollId = new SearchAfterWrapper(sort, null, 0L).toScrollId();
+      String pitId = response.pointInTimeId();
+      if (pitId != null && keepAlive == null) {
+        throw new IllegalArgumentException("Should not set pitId without keepAlive");
+      }
+      long expirationTime =
+          keepAlive == null
+              ? 0L
+              : System.currentTimeMillis()
+                  + TimeValue.parseTimeValue(keepAlive, "keepAlive").millis();
+      nextScrollId = new SearchAfterWrapper(sort, pitId, expirationTime).toScrollId();
     }
 
     return RelatedEntitiesScrollResult.builder()

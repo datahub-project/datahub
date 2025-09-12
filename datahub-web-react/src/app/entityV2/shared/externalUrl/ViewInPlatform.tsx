@@ -22,6 +22,7 @@ interface Props {
     urn: string;
     suffix?: string;
     shouldFillAllAvailableSpace?: boolean;
+    isEntityPageHeader?: boolean;
 }
 
 export default function ViewInPlatform({
@@ -31,6 +32,7 @@ export default function ViewInPlatform({
     hideSiblingActions,
     suffix,
     shouldFillAllAvailableSpace = true,
+    isEntityPageHeader = false,
 }: Props) {
     const externalLinks = useExternalLinks(urn, data);
     const platformLinks = usePlatrofmLinks(urn, data, hideSiblingActions, suffix ?? '', className);
@@ -42,10 +44,18 @@ export default function ViewInPlatform({
             key: `${link.url}-${link.label}`,
             url: link.url,
             description: link.label,
-            node: <ExternalLink href={link.url} label={link.label} className={link.className} onClick={link.onClick} />,
+            node: (
+                <ExternalLink
+                    href={link.url}
+                    label={link.label}
+                    className={link.className}
+                    onClick={link.onClick}
+                    isEntityPageHeader={isEntityPageHeader}
+                />
+            ),
             attributes: link,
         }));
-    }, [externalLinks, platformLinks]);
+    }, [externalLinks, isEntityPageHeader, platformLinks]);
 
     if (linkItems.length === 0) return null;
 
