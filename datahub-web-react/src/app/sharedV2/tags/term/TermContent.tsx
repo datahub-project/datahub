@@ -24,7 +24,7 @@ const TermContainer = styled.div`
 
     .ant-tag.ant-tag {
         border-radius: 5px;
-        border: 1px solid #ccd1dd;
+        border: 1px solid ${colors.gray[100]};
     }
 
     :hover {

@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { colors, Tooltip } from '@components';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
@@ -11,6 +11,7 @@ import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileL
 const EntityTag = styled(Tag)<{ $showMargin?: boolean }>`
     ${(props) => (props.$showMargin ? `margin: 4px;` : `margin: 0px;`)}
     max-width: inherit;
+    border-color: ${colors.gray[100]} !important;
 `;
 
 const TitleContainer = styled.div`
