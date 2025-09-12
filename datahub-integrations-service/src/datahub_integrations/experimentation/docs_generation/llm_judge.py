@@ -2,10 +2,11 @@ import functools
 import glob
 import json
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import mlflow
 import tenacity
+from diskcache import Cache
 from loguru import logger
 from pydantic import BaseModel
 
@@ -24,6 +25,13 @@ from datahub_integrations.gen_ai.description_context import (
 from datahub_integrations.gen_ai.description_v3 import LARGE_TABLE_THRESHOLD
 
 AI_JUDGE_MODEL = BedrockModel.CLAUDE_4_SONNET
+
+
+JUDGE_CACHE_ENABLED = True
+if JUDGE_CACHE_ENABLED and not TYPE_CHECKING:
+    _cache = Cache("judge_cache")
+
+    call_bedrock_llm = _cache.memoize()(call_bedrock_llm)
 
 
 class FewShotExample(BaseModel):
@@ -83,16 +91,10 @@ Generated Description To Evaluate:
 Output: """
 
 # Additional Evaluation Notes from Human Annotations:
-# - we probably need to give it some instructions on how interpet dbt siblings stuff
+# - we probably need to give it some instructions on how interpret dbt siblings stuff
 # - consistency in the output format - use headings or not, multiple vs single paragraph, etc
-# - Description should not explain why the table is fact table or dimension table.
-# - Do we exclude empty lineage arrays from provided information?
-# - Change schema field urns to column name, table name
-# - Looker explores and dashboards are mentioned as tables due to absence of the downstream subtypes.
-# - Urn Links are probably not behaving correctly on UI
 
 
-@functools.cache
 @mlflow.trace(name="llm_judge_common_eval_fn", span_type="function")
 def llm_judge_common_eval_fn(
     table_description: Optional[str],

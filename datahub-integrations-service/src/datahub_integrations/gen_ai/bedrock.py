@@ -82,7 +82,9 @@ class BedrockPromptMessage(pydantic.BaseModel):
 
 @serialized
 @functools.cache
-def get_bedrock_client() -> "BedrockRuntimeClient":
+def get_bedrock_client(
+    read_timeout: int = 60, connect_timeout: int = 60
+) -> "BedrockRuntimeClient":
     """
     Get a singleton Bedrock client with appropriate authentication.
 
@@ -99,10 +101,9 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
     The cache decorator ensures that this is a singleton, and the serialized
     decorator ensures that it is only initialized once even if called from multiple threads.
     """
-    # Increase the read and connect timeouts, since Bedrock can be slow.
     config = botocore.config.Config(
-        read_timeout=300,
-        connect_timeout=60,
+        read_timeout=read_timeout,
+        connect_timeout=connect_timeout,
         max_pool_connections=100,
         retries={"max_attempts": _MAX_ATTEMPTS},
     )
