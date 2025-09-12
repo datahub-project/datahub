@@ -10,7 +10,6 @@ import json
 import logging
 import re
 import threading
-import traceback
 import unittest.mock
 import uuid
 from functools import lru_cache
@@ -78,7 +77,6 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
     IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
-    get_query_columns,
 )
 
 if TYPE_CHECKING:
@@ -110,8 +108,6 @@ elif original_gx_version:
     )
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-_original_get_column_median = SqlAlchemyDataset.get_column_median
 
 P = ParamSpec("P")
 POSTGRESQL = "postgresql"
@@ -181,58 +177,6 @@ class GEProfilerRequest:
     batch_kwargs: dict
 
 
-def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
-    if self.engine.dialect.name.lower() == REDSHIFT:
-        element_values = self.engine.execute(
-            sa.select(
-                [
-                    # We use coalesce here to force SQL Alchemy to see this
-                    # as a column expression.
-                    sa.func.coalesce(
-                        sa.text(f'APPROXIMATE count(distinct "{column}")')
-                    ),
-                ]
-            ).select_from(self._table)
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    elif (
-        self.engine.dialect.name.lower() == BIGQUERY
-        or self.engine.dialect.name.lower() == SNOWFLAKE
-    ):
-        element_values = self.engine.execute(
-            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
-                self._table
-            )
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    elif (
-        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
-        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
-    ):
-        return convert_to_json_serializable(
-            self.engine.execute(
-                sa.select(sa.func.approx_distinct(sa.column(column))).select_from(
-                    self._table
-                )
-            ).scalar()
-        )
-    elif self.engine.dialect.name.lower() == DATABRICKS:
-        return convert_to_json_serializable(
-            self.engine.execute(
-                sa.select(sa.func.approx_count_distinct(sa.column(column))).select_from(
-                    self._table
-                )
-            ).scalar()
-        )
-    return convert_to_json_serializable(
-        self.engine.execute(
-            sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
-                self._table
-            )
-        ).scalar()
-    )
-
-
 def _get_column_quantiles_bigquery_patch(  # type:ignore
     self, column: str, quantiles: Iterable
 ) -> list:
@@ -260,15 +204,14 @@ def _get_column_quantiles_awsathena_patch(  # type:ignore
 ) -> list:
     import ast
 
-    table_name = ".".join(
-        [f'"{table_part}"' for table_part in str(self._table).split(".")]
-    )
-
     quantiles_list = list(quantiles)
-    quantiles_query = (
-        f"SELECT approx_percentile({column}, ARRAY{str(quantiles_list)}) as quantiles "
-        f"from (SELECT {column} from {table_name})"
-    )
+    quantiles_query = sa.select(
+        [
+            sa.func.approx_percentile(
+                sa.column(column), sa.text(f"ARRAY{str(quantiles_list)}")
+            )
+        ]
+    ).select_from(self._table)
     try:
         quantiles_results = self.engine.execute(quantiles_query).fetchone()[0]
         quantiles_results_list = ast.literal_eval(quantiles_results)
@@ -277,93 +220,6 @@ def _get_column_quantiles_awsathena_patch(  # type:ignore
     except ProgrammingError as pe:
         self._treat_quantiles_exception(pe)
         return []
-
-
-def _get_column_median_patch(self, column):
-    # AWS Athena and presto have an special function that can be used to retrieve the median
-    if (
-        self.sql_engine_dialect.name.lower() == GXSqlDialect.AWSATHENA
-        or self.sql_engine_dialect.name.lower() == GXSqlDialect.TRINO
-    ):
-        table_name = ".".join(
-            [f'"{table_part}"' for table_part in str(self._table).split(".")]
-        )
-        element_values = self.engine.execute(
-            f"SELECT approx_percentile({column},  0.5) FROM {table_name}"
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    else:
-        return _original_get_column_median(self, column)
-
-
-def _is_single_row_query_method(query: Any) -> bool:
-    SINGLE_ROW_QUERY_FILES = {
-        # "great_expectations/dataset/dataset.py",
-        "great_expectations/dataset/sqlalchemy_dataset.py",
-    }
-    SINGLE_ROW_QUERY_METHODS = {
-        "get_row_count",
-        "get_column_min",
-        "get_column_max",
-        "get_column_mean",
-        "get_column_stdev",
-        "get_column_nonnull_count",
-        "get_column_unique_count",
-    }
-    CONSTANT_ROW_QUERY_METHODS = {
-        # This actually returns two rows instead of a single row.
-        "get_column_median",
-    }
-    UNPREDICTABLE_ROW_QUERY_METHODS = {
-        "get_column_value_counts",
-    }
-    UNHANDLEABLE_ROW_QUERY_METHODS = {
-        "expect_column_kl_divergence_to_be_less_than",
-        "get_column_quantiles",  # this is here for now since SQLAlchemy anonymous columns need investigation
-        "get_column_hist",  # this requires additional investigation
-    }
-    COLUMN_MAP_QUERY_METHOD = "inner_wrapper"
-    COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS = [
-        "element_count",
-        "null_count",
-        "unexpected_count",
-    ]
-
-    FIRST_PARTY_SINGLE_ROW_QUERY_METHODS = {
-        "get_column_unique_count_dh_patch",
-    }
-
-    # We'll do this the inefficient way since the arrays are pretty small.
-    stack = traceback.extract_stack()
-    for frame in reversed(stack):
-        if frame.name in FIRST_PARTY_SINGLE_ROW_QUERY_METHODS:
-            return True
-
-        if not any(frame.filename.endswith(file) for file in SINGLE_ROW_QUERY_FILES):
-            continue
-
-        if frame.name in UNPREDICTABLE_ROW_QUERY_METHODS:
-            return False
-        if frame.name in UNHANDLEABLE_ROW_QUERY_METHODS:
-            return False
-        if frame.name in SINGLE_ROW_QUERY_METHODS:
-            return True
-        if frame.name in CONSTANT_ROW_QUERY_METHODS:
-            # TODO: figure out how to handle these. A cross join will return (`constant` ** `queries`) rows rather
-            #  than `constant` rows with `queries` columns. See
-            #  https://stackoverflow.com/questions/35638753/create-query-to-join-2-tables-1-on-1-with-nothing-in-common.
-            return False
-
-        if frame.name == COLUMN_MAP_QUERY_METHOD:
-            # Some column map expectations are single-row.
-            # We can disambiguate by checking the column names.
-            query_columns = get_query_columns(query)
-            column_names = [column.name for column in query_columns]
-
-            if column_names == COLUMN_MAP_QUERY_SINGLE_ROW_COLUMNS:
-                return True
-
-    return False
 
 
 def _run_with_query_combiner(
@@ -387,7 +243,6 @@ class _SingleColumnSpec:
 
     unique_count: Optional[int] = None
     nonnull_count: Optional[int] = None
-    cardinality: Optional[Cardinality] = None
 
 
 @dataclasses.dataclass
@@ -471,13 +326,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         return sql_type in _get_column_types_to_ignore(self.dataset.engine.dialect.name)
 
-    @_run_with_query_combiner
-    def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
-        column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
-            self.dataset, column
-        )
+    def _get_column_type(self, column: str) -> Optional[ProfilerDataType]:
+        type_ = BasicDatasetProfilerBase._get_column_type(self.dataset, column)
 
-        if column_spec.type_ == ProfilerDataType.UNKNOWN:
+        if type_ == ProfilerDataType.UNKNOWN:
             try:
                 datahub_field_type = resolve_sql_type(
                     self.column_types[column], self.dataset.engine.dialect.name.lower()
@@ -488,16 +340,24 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 )
                 datahub_field_type = None
             if datahub_field_type is None:
-                return
+                return None
             if isinstance(datahub_field_type, NumberType):
-                column_spec.type_ = ProfilerDataType.NUMERIC
+                type_ = ProfilerDataType.NUMERIC
+
+        return type_
 
     @_run_with_query_combiner
-    def _get_column_cardinality(
+    def _get_column_nonnull_count(
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
-            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            nonnull_count = convert_to_json_serializable(
+                self.dataset.engine.execute(
+                    sa.select(sa.func.count(sa.column(column))).select_from(
+                        self.dataset._table
+                    )
+                ).scalar()
+            )
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
             logger.debug(
@@ -510,22 +370,44 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
-            return
 
+    @_run_with_query_combiner
+    def _get_column_unique_count(
+        self, column_spec: _SingleColumnSpec, column: str
+    ) -> None:
         unique_count = None
-        pct_unique = None
         try:
-            unique_count = self.dataset.get_column_unique_count(column)
-            if nonnull_count > 0:
-                pct_unique = float(unique_count) / nonnull_count
+            if self.dataset.engine.dialect.name.lower() == REDSHIFT:
+                # We use coalesce here to force SQL Alchemy to see this
+                # as a column expression.
+                expr = sa.func.coalesce(
+                    sa.text(f'APPROXIMATE count(distinct "{column}")')
+                )
+            elif (
+                self.dataset.engine.dialect.name.lower() == BIGQUERY
+                or self.dataset.engine.dialect.name.lower() == SNOWFLAKE
+            ):
+                expr = sa.func.APPROX_COUNT_DISTINCT(sa.column(column))
+            elif (
+                self.dataset.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+                or self.dataset.engine.dialect.name.lower() == GXSqlDialect.TRINO
+            ):
+                expr = sa.func.approx_distinct(sa.column(column))
+            elif self.dataset.engine.dialect.name.lower() == DATABRICKS:
+                expr = sa.func.approx_count_distinct(sa.column(column))
+            else:
+                expr = sa.func.count(sa.func.distinct(sa.column(column)))
+
+            unique_count = convert_to_json_serializable(
+                self.dataset.engine.execute(
+                    sa.select([expr]).select_from(self.dataset._table)
+                ).scalar()
+            )
         except Exception:
             logger.exception(
                 f"Failed to get unique count for column {self.dataset_name}.{column}"
             )
-
         column_spec.unique_count = unique_count
-
-        column_spec.cardinality = convert_to_cardinality(unique_count, pct_unique)
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
@@ -669,6 +551,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     self.dataset.engine.execute(
                         sa.select(
                             sa.text(f"approx_quantiles(`{column}`, 2) [OFFSET (1)]")
+                        ).select_from(self.dataset._table)
+                    ).scalar()
+                )
+            elif (
+                self.dataset.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+                or self.dataset.engine.dialect.name.lower() == GXSqlDialect.TRINO
+            ):
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            [sa.func.approx_percentile(sa.column(column), 0.5)]
                         ).select_from(self.dataset._table)
                     ).scalar()
                 )
@@ -833,21 +726,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             return
 
         try:
-            # TODO do this without GE
-            self.dataset.set_config_value("interactive_evaluation", True)
+            result = self.dataset.engine.execute(
+                sa.select(sa.column(column))
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .limit(self.config.field_sample_values_limit)
+            ).fetchall()
 
-            res = self.dataset.expect_column_values_to_be_in_set(
-                column,
-                [],
-                result_format={
-                    "result_format": "SUMMARY",
-                    "partial_unexpected_count": self.config.field_sample_values_limit,
-                },
-            ).result
-
-            column_profile.sampleValues = [
-                str(v) for v in res["partial_unexpected_list"]
-            ]
+            column_profile.sampleValues = [str(row[0]) for row in result]
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
@@ -921,8 +807,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     column_spec = _SingleColumnSpec(column, column_profile)
                     columns_profiling_queue.append(column_spec)
 
-                    self._get_column_type(column_spec, column)
-                    self._get_column_cardinality(column_spec, column)
+                    type_ = column_spec.type_ = self._get_column_type(column)
+
+                    self._get_column_nonnull_count(column_spec, column)
+                    self._get_column_unique_count(column_spec, column)
+
+                    if (
+                        not ignore_table_sampling
+                        and column not in columns_list_to_ignore_sampling
+                    ):
+                        if (
+                            type_ == ProfilerDataType.INT
+                            or type_ == ProfilerDataType.FLOAT
+                            or type_ == ProfilerDataType.NUMERIC
+                        ):
+                            self._get_dataset_column_min(column_profile, column)
+                            self._get_dataset_column_max(column_profile, column)
+                            self._get_dataset_column_mean(column_profile, column)
+                            self._get_dataset_column_median(column_profile, column)
+                            self._get_dataset_column_stdev(column_profile, column)
+                        elif type_ == ProfilerDataType.DATETIME:
+                            self._get_dataset_column_min(column_profile, column)
+                            self._get_dataset_column_max(column_profile, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
@@ -931,7 +837,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             column = column_spec.column
             column_profile = column_spec.column_profile
             type_ = column_spec.type_
-            cardinality = column_spec.cardinality
 
             non_null_count = column_spec.nonnull_count
             unique_count = column_spec.unique_count
@@ -945,16 +850,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         # Sometimes this value is bigger than 1 because of the approx queries
                         column_profile.nullProportion = min(1, null_count / row_count)
 
+            pct_unique = None
             if unique_count is not None:
+                if non_null_count is not None and non_null_count > 0:
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    pct_unique = min(1, float(unique_count) / non_null_count)
                 if self.config.include_field_distinct_count:
                     column_profile.uniqueCount = unique_count
-                    if non_null_count is not None and non_null_count > 0:
-                        # Sometimes this value is bigger than 1 because of the approx queries
-                        column_profile.uniqueProportion = min(
-                            1, unique_count / non_null_count
-                        )
+                    column_profile.uniqueProportion = pct_unique
+            cardinality = convert_to_cardinality(unique_count, pct_unique)
 
             if not profile.rowCount:
+                column_profile.min = None
+                column_profile.max = None
+                column_profile.mean = None
+                column_profile.median = None
+                column_profile.stdev = None
                 continue
 
             if (
@@ -968,12 +879,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     or type_ == ProfilerDataType.FLOAT
                     or type_ == ProfilerDataType.NUMERIC
                 ):
-                    self._get_dataset_column_min(column_profile, column)
-                    self._get_dataset_column_max(column_profile, column)
-                    self._get_dataset_column_mean(column_profile, column)
-                    self._get_dataset_column_median(column_profile, column)
-                    self._get_dataset_column_stdev(column_profile, column)
-
                     if cardinality in [
                         Cardinality.ONE,
                         Cardinality.TWO,
@@ -1004,9 +909,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         )
 
                 elif type_ == ProfilerDataType.DATETIME:
-                    self._get_dataset_column_min(column_profile, column)
-                    self._get_dataset_column_max(column_profile, column)
-
                     # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
                     if cardinality in [
@@ -1224,10 +1126,6 @@ class DatahubGEProfiler:
         with (
             PerfTimer() as timer,
             unittest.mock.patch(
-                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
-                get_column_unique_count_dh_patch,
-            ),
-            unittest.mock.patch(
                 "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
                 _get_column_quantiles_bigquery_patch,
             ),
@@ -1235,17 +1133,12 @@ class DatahubGEProfiler:
                 "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
                 _get_column_quantiles_awsathena_patch,
             ),
-            unittest.mock.patch(
-                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
-                _get_column_median_patch,
-            ),
             concurrent.futures.ThreadPoolExecutor(
                 max_workers=max_workers
             ) as async_executor,
             SQLAlchemyQueryCombiner(
                 enabled=self.config.query_combiner_enabled,
                 catch_exceptions=self.config.catch_exceptions,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
