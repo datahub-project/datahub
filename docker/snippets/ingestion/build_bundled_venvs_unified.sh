@@ -1,6 +1,6 @@
 #!/bin/bash
 # Self-contained script to build bundled venvs for DataHub ingestion sources
-# This script creates venvs with predictable names: <plugin-name>-default
+# This script creates venvs with predictable names: <plugin-name>-bundled
 # which are then leveraged within acryl-executor to run ingestion jobs.
 set -euo pipefail
 
