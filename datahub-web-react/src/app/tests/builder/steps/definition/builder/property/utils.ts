@@ -1,6 +1,8 @@
 import {
     OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
     OWNERSHIP_TYPE_REFERENCE_REGEX,
+    SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+    SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_REGEX,
     STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
     STRUCTURED_PROPERTY_REFERENCE_REGEX,
 } from '@app/tests/builder/steps/definition/builder/property/constants';
@@ -168,6 +170,28 @@ export const isStructuredPropertyId = (propertyId: string) => {
 };
 
 /**
+ * Attempts to determine whether the property id should be treated as a "schema field structured property id",
+ * which implies that the editor experience we show will be handled slightly differently than the default.
+ *
+ * There are 2 cases where we will consider the property to be related to schema field structured properties:
+ *
+ * 1. The property id is equivalent to the "placeholder" property id used by the normal Property Select.
+ * This implies that the user has just selected "Column Structured Property" from the list of possible entity properties,
+ * but has not yet selected a specific property (which is required to complete the test).
+ *
+ * 2. The property id is a reference to a specific structured property on schema fields, having the form "schemaFieldStructuredProperties.urn:li:structuredProperty:xyz".
+ * This implies that a property has already been chosen for testing by the user.
+ *
+ * @param propertyId the property id that may refer to the schema field structured property concept.
+ */
+export const isSchemaFieldStructuredPropertyId = (propertyId: string) => {
+    return (
+        propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID ||
+        SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_REGEX.test(propertyId)
+    );
+};
+
+/**
  * Attempts to determine whether the property id should be treated as a "ownership type id",
  * which implies that the editor experience we show will be handled slightly differently than the default.
  *
@@ -197,6 +221,20 @@ export const isOwnershipTypeId = (propertyId: string) => {
  */
 export const extractStructuredPropertyReferenceUrn = (propertyId: string) => {
     const match = propertyId.match(STRUCTURED_PROPERTY_REFERENCE_REGEX);
+    return match ? match[1] : undefined;
+};
+
+/**
+ * Attempts to extract the URN of a schema field structured property to reference using the property id.
+ * Does this by extracting a regex group if there is a match:
+ *
+ * schemaFieldStructuredProperties.urn:li:structuredProperty:xyz
+ *
+ * @param propertyId the property id that may contain reference to a specific schema field structured property.
+ * Returns undefined if a schema field structured property urn cannot be found (meaning one is not yet selected).
+ */
+export const extractSchemaFieldStructuredPropertyReferenceUrn = (propertyId: string) => {
+    const match = propertyId.match(SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_REGEX);
     return match ? match[1] : undefined;
 };
 

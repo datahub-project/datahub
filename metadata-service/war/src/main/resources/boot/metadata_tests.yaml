@@ -308,7 +308,7 @@
                     - Table
     rules:
       or:
-        - property: usageFeatures.usageCountLast30Days
+        - property: usageFeatures.queryCountLast30Days
           operator: equals
           values:
             - '0'

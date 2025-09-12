@@ -29,10 +29,12 @@ public abstract class DomainAbstractAction extends UrnValuesAction {
     final Map<String, List<Urn>> entityTypesToUrns = getEntityTypeToUrns(urns);
     for (Map.Entry<String, List<Urn>> entityTypeToUrn : entityTypesToUrns.entrySet()) {
       List<Urn> entityUrns = entityTypeToUrn.getValue();
-      Urn domainUrn = UrnUtils.getUrn(domainUrnStrs.get(0));
       if (entityUrns.isEmpty()) {
         continue;
       }
+
+      // Apply the single domain (validated above) to all entities
+      Urn domainUrn = UrnUtils.getUrn(domainUrnStrs.get(0));
       applyInternal(opContext, domainUrn, entityUrns);
     }
   }

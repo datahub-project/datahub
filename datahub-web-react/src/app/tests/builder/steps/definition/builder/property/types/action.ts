@@ -3,9 +3,9 @@ import { SelectInputMode, ValueTypeId } from '@app/tests/builder/steps/definitio
 import { EntityType } from '@types';
 
 /**
- * Entity type groups for action support
+ * Core entity type definitions for action support
  */
-const DATA_ASSETS = [
+const CORE_DATA_ASSETS = [
     EntityType.Dataset,
     EntityType.Dashboard,
     EntityType.Chart,
@@ -14,15 +14,26 @@ const DATA_ASSETS = [
     EntityType.Container,
 ] as const;
 
-const LOGICAL_ENTITIES = [EntityType.GlossaryTerm] as const;
+const LOGICAL_ASSETS = [
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
+    EntityType.Domain,
+    EntityType.DataProduct,
+] as const;
 
 export const ENTITY_GROUPS = {
-    /** Data assets that support most metadata operations */
-    DATA_ASSETS,
-    /** Logical entities (metadata entities) */
-    LOGICAL_ENTITIES,
-    /** All entities including both data assets and logical entities */
-    ALL_ENTITIES: [...DATA_ASSETS, ...LOGICAL_ENTITIES],
+    /** Physical data assets */
+    DATA_ASSETS: CORE_DATA_ASSETS,
+    /** Assets that can be assigned to data products (per DataProductProperties.pdl) */
+    DATA_PRODUCT_ASSIGNABLE_ASSETS: CORE_DATA_ASSETS,
+    /**
+     * Logical assets (organizational/metadata constructs)
+     * Note: DataProduct is conceptually logical but may be auto-categorized as a data asset
+     * due to inheriting from assetProps in the property definitions
+     */
+    LOGICAL_ASSETS,
+    /** All assets including data assets and logical assets */
+    ALL_ASSETS: [...CORE_DATA_ASSETS, ...LOGICAL_ASSETS],
 } as const;
 
 /**
@@ -37,6 +48,10 @@ export enum ActionId {
     REMOVE_GLOSSARY_TERMS = 'remove_glossary_terms',
     SET_DOMAIN = 'set_domain',
     UNSET_DOMAIN = 'unset_domain',
+    SET_DATA_PRODUCT = 'set_data_product',
+    UNSET_DATA_PRODUCT = 'unset_data_product',
+    SET_STRUCTURED_PROPERTY = 'set_structured_property',
+    UNSET_STRUCTURED_PROPERTY = 'unset_structured_property',
     DEPRECATE = 'deprecate',
     UN_DEPRECATE = 'un_deprecate',
 }
@@ -65,7 +80,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't support tag operations
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't support tag operations
     },
     {
         id: ActionId.REMOVE_TAGS,
@@ -76,7 +91,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't support tag operations
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't support tag operations
     },
     {
         id: ActionId.ADD_GLOSSARY_TERMS,
@@ -87,7 +102,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't have glossary terms attached to itself
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.REMOVE_GLOSSARY_TERMS,
@@ -98,7 +113,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't have glossary terms attached to itself
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.ADD_OWNERS,
@@ -112,7 +127,7 @@ export const ACTION_TYPES: ActionType[] = [
         additionalParams: {
             ownerType: 'TECHNICAL_OWNER',
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.REMOVE_OWNERS,
@@ -123,7 +138,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.SET_DOMAIN,
@@ -134,18 +149,58 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.SINGLE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.UNSET_DOMAIN,
         displayName: 'Remove Domain',
-        description: 'Remove Domain for an asset.',
-        valueType: ValueTypeId.URN_LIST,
+        description: 'Remove Domain assignment from an asset.',
+        valueType: ValueTypeId.NO_VALUE,
         valueOptions: {
-            entityTypes: [EntityType.Domain],
+            mode: SelectInputMode.NONE,
+        },
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
+    },
+    {
+        id: ActionId.SET_DATA_PRODUCT,
+        displayName: 'Set Data Product',
+        description: 'Assign a specific Data Product to an asset.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.DataProduct],
             mode: SelectInputMode.SINGLE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.DATA_PRODUCT_ASSIGNABLE_ASSETS, // Only specific assets can be assigned to data products
+    },
+    {
+        id: ActionId.UNSET_DATA_PRODUCT,
+        displayName: 'Remove Data Product',
+        description: 'Remove Data Product assignment from an asset.',
+        valueType: ValueTypeId.NO_VALUE,
+        valueOptions: {
+            mode: SelectInputMode.NONE,
+        },
+        entityTypes: ENTITY_GROUPS.DATA_PRODUCT_ASSIGNABLE_ASSETS, // Only specific assets can be assigned to data products
+    },
+    {
+        id: ActionId.SET_STRUCTURED_PROPERTY,
+        displayName: 'Set Structured Property',
+        description: 'Assign a value to a structured property on an asset.',
+        valueType: ValueTypeId.STRUCTURED_PROPERTY_VALUE,
+        valueOptions: {
+            mode: SelectInputMode.SINGLE,
+        },
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS, // Structured properties can be applied to all assets
+    },
+    {
+        id: ActionId.UNSET_STRUCTURED_PROPERTY,
+        displayName: 'Remove Structured Property',
+        description: 'Remove a structured property value from an asset.',
+        valueType: ValueTypeId.STRUCTURED_PROPERTY_VALUE,
+        valueOptions: {
+            mode: SelectInputMode.SINGLE,
+        },
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS, // Structured properties can be applied to all assets
     },
     {
         id: ActionId.DEPRECATE,
@@ -155,7 +210,7 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             mode: SelectInputMode.NONE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.UN_DEPRECATE,
@@ -165,6 +220,6 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             mode: SelectInputMode.NONE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
 ];

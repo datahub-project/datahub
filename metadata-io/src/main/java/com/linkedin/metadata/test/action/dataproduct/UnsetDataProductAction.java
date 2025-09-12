@@ -1,9 +1,9 @@
-package com.linkedin.metadata.test.action.domain;
+package com.linkedin.metadata.test.action.dataproduct;
 
 import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.service.DomainServiceAsync;
+import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.NoValidationAction;
 import com.linkedin.metadata.test.definition.ActionType;
@@ -16,13 +16,13 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class UnsetDomainAction extends NoValidationAction {
+public class UnsetDataProductAction extends NoValidationAction {
 
-  private final DomainServiceAsync domainService;
+  private final DataProductService dataProductService;
 
   @Override
   public ActionType getActionType() {
-    return ActionType.UNSET_DOMAIN;
+    return ActionType.UNSET_DATA_PRODUCT;
   }
 
   @Override
@@ -31,13 +31,14 @@ public class UnsetDomainAction extends NoValidationAction {
     if (urns.isEmpty()) return;
 
     try {
-      // Unset ALL domains from the entities (no specific domain URN needed)
-      this.domainService.batchUnsetDomain(
+      // Use batch method for consistency with other services
+      this.dataProductService.batchUnsetDataProduct(
           opContext, this.getResourceReferences(urns), METADATA_TESTS_SOURCE);
-      log.info("Successfully unset domains for {} entities", urns.size());
+      log.info("Successfully unset data products for {} entities", urns.size());
     } catch (Exception e) {
-      log.error("Failed to unset domains for entities: {}", e.getMessage(), e);
-      throw new InvalidOperandException("Failed to unset domains: " + e.getMessage(), e);
+      log.error("Failed to unset data product for entities {}", urns, e);
+      throw new InvalidOperandException(
+          String.format("Failed to unset data product for entities %s", urns), e);
     }
   }
 }

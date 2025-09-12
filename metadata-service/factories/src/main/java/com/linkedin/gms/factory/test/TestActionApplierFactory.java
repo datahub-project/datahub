@@ -4,11 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.cleanup.DeprecationAction;
 import com.linkedin.metadata.test.action.cleanup.UnDeprecationAction;
+import com.linkedin.metadata.test.action.dataproduct.SetDataProductAction;
+import com.linkedin.metadata.test.action.dataproduct.UnsetDataProductAction;
 import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
 import com.linkedin.metadata.test.action.form.AssignFormAction;
@@ -18,6 +21,8 @@ import com.linkedin.metadata.test.action.form.UnassignFormAction;
 import com.linkedin.metadata.test.action.form.VerifyFormAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
 import com.linkedin.metadata.test.action.owner.RemoveOwnersAction;
+import com.linkedin.metadata.test.action.structuredproperty.SetStructuredPropertyAction;
+import com.linkedin.metadata.test.action.structuredproperty.UnsetStructuredPropertyAction;
 import com.linkedin.metadata.test.action.tag.AddTagsAction;
 import com.linkedin.metadata.test.action.tag.RemoveTagsAction;
 import com.linkedin.metadata.test.action.term.AddGlossaryTermsAction;
@@ -42,6 +47,7 @@ public class TestActionApplierFactory {
   protected ActionApplier getInstance(
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
       @Qualifier("openApiClient") final OpenApiClient openApiClient,
+      @Qualifier("graphClient") final GraphClient graphClient,
       final ObjectMapper objectMapper) {
     List<Action> appliers = new ArrayList<>();
     TagServiceAsync tagService =
@@ -52,6 +58,9 @@ public class TestActionApplierFactory {
         new OwnerServiceAsync(systemEntityClient, openApiClient, objectMapper);
     DomainServiceAsync domainService =
         new DomainServiceAsync(systemEntityClient, openApiClient, objectMapper);
+    DataProductService dataProductService = new DataProductService(systemEntityClient, graphClient);
+    StructuredPropertyService structuredPropertyService =
+        new StructuredPropertyService(systemEntityClient, openApiClient, objectMapper);
     FormServiceAsync formService =
         new FormServiceAsync(
             systemEntityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE);
@@ -63,6 +72,10 @@ public class TestActionApplierFactory {
     appliers.add(new RemoveOwnersAction(ownerService));
     appliers.add(new SetDomainAction(domainService));
     appliers.add(new UnsetDomainAction(domainService));
+    appliers.add(new SetDataProductAction(dataProductService));
+    appliers.add(new UnsetDataProductAction(dataProductService));
+    appliers.add(new SetStructuredPropertyAction(structuredPropertyService));
+    appliers.add(new UnsetStructuredPropertyAction(structuredPropertyService));
     appliers.add(new DeprecationAction(entityService));
     appliers.add(new UnDeprecationAction(entityService));
     appliers.add(new AssignFormAction(formService));

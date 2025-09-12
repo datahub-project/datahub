@@ -13,6 +13,21 @@ export const STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID = '__structuredPropert
 export const STRUCTURED_PROPERTY_REFERENCE_REGEX = /^structuredProperties\.(urn:li:structuredProperty:.+)$/;
 
 /**
+ * This is a placeholder ID that is used in the Property Select experience to switch into the "Schema Field Structured Property"
+ * builder experience.
+ *
+ * Once this property value is selected, we will automatically display a specialized predicate builder that
+ * allows you to select a specific structured property that applies to schema fields (columns).
+ */
+export const SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID = '__schemaFieldStructuredPropertyRef';
+
+/**
+ * Regex used to match a property that references a specific structured property on schema fields
+ */
+export const SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_REGEX =
+    /^schemaFieldStructuredProperties\.(urn:li:structuredProperty:.+)$/;
+
+/**
  * This is a placeholder ID that is used in the Property Select experience to switch into the "Ownership Type"
  * builder experience.
  *

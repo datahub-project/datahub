@@ -17,12 +17,13 @@ type Props = {
 /**
  * Select a structured property from a dropdown. Allow search values.
  */
-export const StructuredPropertySelect = ({ selectedProperty, entityTypes, onSelect, onClear }: Props) => {
-    console.log(entityTypes);
-
+export const StructuredPropertySelect = ({ selectedProperty, entityTypes: _entityTypes, onSelect, onClear }: Props) => {
     const [searchProperties, { data: propertiesSearchData }] = useSearchStructuredPropertiesLazyQuery();
     const searchResults = propertiesSearchData?.searchAcrossEntities?.searchResults || [];
-    const properties = searchResults.map((result) => result.entity) as StructuredPropertyEntity[];
+    const allProperties = searchResults.map((result) => result.entity) as StructuredPropertyEntity[];
+
+    // Show all structured properties - let validation warnings handle incompatibility
+    const properties = allProperties;
 
     // Local of property urn to property object.
     const urnToProperty = createPropertyUrnMap(properties);
