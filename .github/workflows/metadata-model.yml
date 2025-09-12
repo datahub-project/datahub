@@ -36,7 +36,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@v4
         with:
           checkout-head-only: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.10"
           cache: "pip"
