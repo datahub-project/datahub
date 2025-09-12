@@ -79,12 +79,12 @@ Features aimed at making it easy to discover data assets at your organization an
 | Business User friendly experiences (for data analysts, BI analysts, data governance leads, PMs etc.) | ✅      | ✅            |
 | Personalization across the product                                                                   | ✅      | ✅            |
 | Browser extension for BI Tools                                                                       | ✅      | ✅            |
-| Slack AI Discovery Assistant - AI-powered, conversational data discovery                             | ❌      | ✅ **(beta)** |
+| **Ask DataHub** - AI-powered, conversational data discovery via Slack & Microsoft Teams              | ❌      | ✅ **(beta)** |
 | UI-based Automatic Documentation and Classification propagation across lineage                       | ❌      | ✅            |
 | Customizable Home Page for curated onboarding                                                        | ❌      | ✅ **(beta)** |
 | Usage and graph-based search ranking                                                                 | ❌      | ✅            |
 | Generative AI to accelerate documentation and metadata-completeness                                  | ❌      | ✅            |
-| Slack integration                                                                                    | ❌      | ✅            |
+| Slack & Microsoft Teams integrations                                                                 | ❌      | ✅            |
 | Subscribe to assets, activity, and notifications                                                     | ❌      | ✅            |
 
 ## Data Observability
