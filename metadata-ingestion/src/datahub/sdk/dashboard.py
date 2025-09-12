@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Sequence, Type, Union
 
 from deprecated.sphinx import deprecated
 from typing_extensions import Self
@@ -73,9 +73,9 @@ class Dashboard(
         custom_properties: Optional[Dict[str, str]] = None,
         last_modified: Optional[datetime] = None,
         last_refreshed: Optional[datetime] = None,
-        input_datasets: Optional[List[Union[DatasetUrnOrStr, Dataset]]] = None,
-        charts: Optional[List[Union[ChartUrnOrStr, Chart]]] = None,
-        dashboards: Optional[List[Union[DashboardUrnOrStr, Dashboard]]] = None,
+        input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]] = None,
+        charts: Optional[Sequence[Union[ChartUrnOrStr, Chart]]] = None,
+        dashboards: Optional[Sequence[Union[DashboardUrnOrStr, Dashboard]]] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
@@ -281,7 +281,7 @@ class Dashboard(
         ]
 
     def set_input_datasets(
-        self, input_datasets: List[Union[DatasetUrnOrStr, Dataset]]
+        self, input_datasets: Sequence[Union[DatasetUrnOrStr, Dataset]]
     ) -> None:
         """Set the input datasets of the dashboard."""
         props = self._ensure_dashboard_props()
@@ -332,7 +332,7 @@ class Dashboard(
             return []
         return [ChartUrn.from_string(edge.destinationUrn) for edge in chart_edges]
 
-    def set_charts(self, charts: List[Union[ChartUrnOrStr, Chart]]) -> None:
+    def set_charts(self, charts: Sequence[Union[ChartUrnOrStr, Chart]]) -> None:
         """Set the charts of the dashboard."""
         props = self._ensure_dashboard_props()
         chart_edges = props.chartEdges or []
@@ -384,7 +384,7 @@ class Dashboard(
         ]
 
     def set_dashboards(
-        self, dashboards: List[Union[DashboardUrnOrStr, Dashboard]]
+        self, dashboards: Sequence[Union[DashboardUrnOrStr, Dashboard]]
     ) -> None:
         """Set the dashboards of the dashboard."""
         props = self._ensure_dashboard_props()

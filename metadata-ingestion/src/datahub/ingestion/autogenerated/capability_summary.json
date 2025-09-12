@@ -2678,7 +2678,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+          "description": "Optionally enabled via `include_usage_statistics`",
           "subtype_modifier": null,
           "supported": true
         },
