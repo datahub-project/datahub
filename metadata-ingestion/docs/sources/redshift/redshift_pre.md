@@ -101,7 +101,7 @@ GRANT SELECT ON pg_catalog.svl_user_info TO datahub_user;    -- Covered by SYSLO
 GRANT SELECT ON pg_catalog.stv_mv_info TO datahub_user;
 ```
 
-#### Data Sharing Lineage
+#### Datashares Lineage
 
 ```sql
 -- Required when include_share_lineage: true (default)
@@ -263,7 +263,7 @@ The redshift stl redshift tables which are used for getting data lineage retain 
 
 :::
 
-## Data Sharing Lineage
+## Datashares Lineage
 
 This is enabled by default, can be disabled via setting `include_share_lineage: False`
 
