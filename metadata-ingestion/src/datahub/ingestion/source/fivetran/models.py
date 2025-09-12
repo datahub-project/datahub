@@ -28,7 +28,7 @@ class Connector(BaseModel):
     paused: bool
     sync_frequency: int
     destination_id: str
-    user_id: Optional[str]
-    lineage: List[TableLineage]
-    jobs: List[Job]
+    user_id: Optional[str] = None
+    lineage: List[TableLineage] = Field(default_factory=list)
+    jobs: List[Job] = Field(default_factory=list)
     additional_properties: Dict[str, Any] = Field(default_factory=dict)
