@@ -14,6 +14,11 @@ record GlobalSettingsInfo {
   sso: optional SsoSettings
 
   /**
+   * Settings related to the oauth authentication provider
+   */
+   oauth: optional OAuthSettings
+
+  /**
    * Settings related to the Views Feature
    */
   views: optional GlobalViewsSettings

@@ -23,6 +23,30 @@ authentication:
         salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
+    # OAuth/OIDC JWT token authenticator for service accounts
+    # Uses static configuration only (no dynamic GlobalSettings)
+    - type: com.datahub.authentication.authenticator.DataHubOAuthAuthenticator
+      configs:
+        # Enable/disable External OAuth authentication - Global disable switch.
+        enabled: ${EXTERNAL_OAUTH_ENABLED:false}
+
+        # Trusted JWT issuers - must match the 'iss' claim in JWT tokens (comma-separated)
+        trustedIssuers: ${EXTERNAL_OAUTH_TRUSTED_ISSUERS:}
+
+        # Allowed audiences - must match the 'aud' claim in JWT tokens (comma-separated)
+        allowedAudiences: ${EXTERNAL_OAUTH_ALLOWED_AUDIENCES:}
+
+        # Option 1: Direct JWKS URI for fetching JWT signing keys
+        jwksUri: ${EXTERNAL_OAUTH_JWKS_URI:}
+
+        # Option 2: Discovery URI to auto-derive JWKS URI (alternative to jwksUri)
+        discoveryUri: ${EXTERNAL_OAUTH_DISCOVERY_URI:}
+        
+        # JWT claim to use as user identifier (defaults to 'sub')
+        userIdClaim: ${EXTERNAL_OAUTH_USER_ID_CLAIM:sub}
+        
+        # JWT signing algorithm (defaults to 'RS256')
+        algorithm: ${EXTERNAL_OAUTH_ALGORITHM:RS256}
     - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
       configs:
         guestUser: ${GUEST_AUTHENTICATION_USER:guest}
@@ -364,7 +388,7 @@ kafka:
 
   topics:
     # Topic Dictionary Configuration - merged directly into topics section
-    # Each topic can be created by iterating through this dictionary  
+    # Each topic can be created by iterating through this dictionary
     # The key name matches the programmatic identifier used in code
     metadataChangeProposal:
       name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}
