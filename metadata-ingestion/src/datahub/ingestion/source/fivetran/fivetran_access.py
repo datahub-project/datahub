@@ -77,66 +77,65 @@ def create_fivetran_access(config: FivetranSourceConfig) -> FivetranAccessInterf
         api_client = FivetranAPIClient(config.api_config)
         return FivetranStandardAPI(api_client, config=config)
 
-    # Auto-detect mode - TRY ENTERPRISE FIRST, then fall back to standard
+    # Auto-detect mode - intelligently choose based on available configuration
+    has_log_config = (
+        hasattr(config, "fivetran_log_config")
+        and config.fivetran_log_config is not None
+    )
+    has_api_config = hasattr(config, "api_config") and config.api_config is not None
+
     # Special handling for test environments
     import inspect
 
-    # Check if we're being called from a test file
-    is_test = False
-    for frame in inspect.stack():
-        if "test_" in frame.filename or "conftest" in frame.filename:
-            is_test = True
-            break
+    is_test = any(
+        "test_" in frame.filename or "conftest" in frame.filename
+        for frame in inspect.stack()
+    )
 
-    # If in test mode and both configs are provided, prefer the one specified first in the config
-    if (
-        is_test
-        and hasattr(config, "fivetran_log_config")
-        and config.fivetran_log_config is not None
-        and hasattr(config, "api_config")
-        and config.api_config is not None
-    ):
-        logger.info("Test environment detected - using enterprise mode for tests")
-        return FivetranLogAPI(
-            config.fivetran_log_config, config=config
-        )  # Pass the full config
-
-    # Normal auto-detection logic for non-test environment
-    if (
-        hasattr(config, "fivetran_log_config")
-        and config.fivetran_log_config is not None
-    ):
+    # If both configs are provided, prefer enterprise mode for better performance
+    if has_log_config and has_api_config:
+        logger.info(
+            "Auto mode: both configs available, trying enterprise mode first (better performance)"
+        )
         try:
-            logger.info("Auto mode: trying enterprise mode first with log tables")
-            # Create the enterprise implementation with error handling
-            enterprise_impl = FivetranLogAPI(
-                config.fivetran_log_config, config=config
-            )  # Pass the full config
-
-            # Test connectivity by making a simple query - skip in test environments
+            enterprise_impl = FivetranLogAPI(config.fivetran_log_config, config=config)
             if not is_test:
                 enterprise_impl.test_connection()
-
             logger.info("Successfully connected using enterprise mode")
             return enterprise_impl
         except Exception as e:
             logger.warning(f"Enterprise mode connection failed with error: {e}")
             logger.info("Auto mode: falling back to standard mode")
-
-            # Fall back to standard mode if we have API config
-            if hasattr(config, "api_config") and config.api_config is not None:
-                logger.info("Falling back to standard mode with REST API")
+            try:
                 api_client = FivetranAPIClient(config.api_config)
-                return FivetranStandardAPI(api_client, config=config)
-            else:
-                # Re-raise the error if we can't fall back, properly chaining the exception
+                standard_impl = FivetranStandardAPI(api_client, config=config)
+                # Test basic API connectivity
+                api_client.list_connectors()  # Simple API test
+                logger.info("Successfully connected using standard mode")
+                return standard_impl
+            except Exception as standard_e:
                 raise ValueError(
-                    f"Enterprise mode failed and no API config is available for fallback. Original error: {e}"
-                ) from e
+                    f"Both enterprise and standard modes failed. "
+                    f"Enterprise error: {e}, Standard error: {standard_e}"
+                ) from standard_e
 
-    # If no enterprise config, try standard
-    if hasattr(config, "api_config") and config.api_config is not None:
-        logger.info("Auto-detected standard mode based on provided API config")
+    # If only log config is provided, use enterprise mode
+    elif has_log_config:
+        try:
+            logger.info("Auto mode: only log config provided, using enterprise mode")
+            enterprise_impl = FivetranLogAPI(config.fivetran_log_config, config=config)
+            if not is_test:
+                enterprise_impl.test_connection()
+            logger.info("Successfully connected using enterprise mode")
+            return enterprise_impl
+        except Exception as e:
+            raise ValueError(
+                f"Enterprise mode failed and no API config is available for fallback. Error: {e}"
+            ) from e
+
+    # If only API config is provided, use standard mode
+    elif has_api_config:
+        logger.info("Auto mode: only API config provided, using standard mode")
         api_client = FivetranAPIClient(config.api_config)
         return FivetranStandardAPI(api_client, config=config)
 

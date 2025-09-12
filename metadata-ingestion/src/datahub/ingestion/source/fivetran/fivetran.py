@@ -938,11 +938,17 @@ class FivetranSource(StatefulIngestionSourceBase):
         ]
 
         # For each job in connector's history, create DPIs for each table
+        # Note: In per-table mode, each job represents a connector-level sync that affects all tables
+        # We create separate DPIs for each table to show table-level execution status
+        # This is intentional - each Fivetran job sync affects all tables in the connector
         for job in sorted_jobs:
             for table_key, datajob in table_job_map.items():
-                table_job_id = f"{job.job_id}_{hash(table_key)}"
+                # Create a unique DPI ID that combines job and table info
+                # Use a more readable format for the ID
+                source_table, dest_table = table_key.split(":", 1)
+                table_job_id = f"{job.job_id}_{source_table.replace('.', '_')}_to_{dest_table.replace('.', '_')}"
 
-                # Create a DPI specific to this table
+                # Create a DPI specific to this table for this job execution
                 table_dpi = DataProcessInstance.from_datajob(
                     datajob=datajob,
                     id=table_job_id,

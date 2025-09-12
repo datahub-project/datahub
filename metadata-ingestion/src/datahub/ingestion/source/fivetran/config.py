@@ -133,6 +133,9 @@ class FivetranAPIConfig(ConfigModel):
     request_timeout_sec: int = Field(
         default=30, description="Request timeout in seconds"
     )
+    max_workers: int = Field(
+        default=5, description="Maximum number of parallel workers for API requests"
+    )
 
 
 @dataclasses.dataclass

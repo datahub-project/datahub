@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -290,9 +291,19 @@ class FivetranAPIClient:
             return columns_data
 
         except Exception as e:
-            logger.warning(
-                f"Failed to get columns from direct endpoint for {schema_name}.{table_name}: {e}"
-            )
+            # Check if it's a 400 error which might indicate the table doesn't support column retrieval
+            if (
+                hasattr(e, "response")
+                and hasattr(e.response, "status_code")
+                and e.response.status_code == 400
+            ):
+                logger.debug(
+                    f"Table {schema_name}.{table_name} doesn't support column retrieval (400 Bad Request) - this is normal for some table types"
+                )
+            else:
+                logger.warning(
+                    f"Failed to get columns from direct endpoint for {schema_name}.{table_name}: {e}"
+                )
             return []
 
     def list_connector_schemas(self, connector_id: str) -> List[Dict]:
@@ -794,28 +805,40 @@ class FivetranAPIClient:
         self, batch: List[Dict], connector_id: str, max_retries: int, retry_delay: int
     ) -> int:
         """
-        Process a batch of tables to retrieve column information.
+        Process a batch of tables to retrieve column information in parallel.
 
         Returns:
             Number of tables successfully updated with column information.
         """
         batch_success = 0
+        max_workers = getattr(self.config, "max_workers", 5)
 
-        for table_info in batch:
-            schema_name = table_info["schema"]
-            table_name = table_info["table"]
-            table_obj = table_info["table_obj"]
+        # Process tables in parallel within the batch
+        with ThreadPoolExecutor(max_workers=min(max_workers, len(batch))) as executor:
+            # Submit all table processing tasks
+            future_to_table = {
+                executor.submit(
+                    self._get_columns_with_retry,
+                    connector_id,
+                    table_info["schema"],
+                    table_info["table"],
+                    table_info["table_obj"],
+                    max_retries,
+                    retry_delay,
+                ): table_info
+                for table_info in batch
+            }
 
-            # Try to get columns with retry logic
-            if self._get_columns_with_retry(
-                connector_id,
-                schema_name,
-                table_name,
-                table_obj,
-                max_retries,
-                retry_delay,
-            ):
-                batch_success += 1
+            # Collect results
+            for future in as_completed(future_to_table):
+                table_info = future_to_table[future]
+                try:
+                    if future.result():
+                        batch_success += 1
+                except Exception as e:
+                    logger.warning(
+                        f"Error processing table {table_info['schema']}.{table_info['table']}: {e}"
+                    )
 
         return batch_success
 
@@ -848,7 +871,7 @@ class FivetranAPIClient:
                     return True
 
                 elif retry < max_retries - 1:
-                    logger.warning(
+                    logger.debug(
                         f"No columns returned for {schema_name}.{table_name}, retrying ({retry + 1}/{max_retries})..."
                     )
                     time.sleep(retry_delay)
@@ -863,7 +886,22 @@ class FivetranAPIClient:
                         return True
 
             except Exception as e:
-                if retry < max_retries - 1:
+                # Don't retry 400 errors - they're likely permanent
+                if (
+                    hasattr(e, "response")
+                    and hasattr(e.response, "status_code")
+                    and e.response.status_code == 400
+                ):
+                    logger.debug(
+                        f"Table {schema_name}.{table_name} doesn't support column retrieval (400 Bad Request) - skipping retries"
+                    )
+                    # Try fallback methods immediately
+                    if self._try_fallback_column_methods(
+                        connector_id, schema_name, table_name, table_obj
+                    ):
+                        return True
+                    break  # Exit retry loop for 400 errors
+                elif retry < max_retries - 1:
                     logger.warning(
                         f"Error fetching columns for {schema_name}.{table_name}, retrying ({retry + 1}/{max_retries}): {e}"
                     )

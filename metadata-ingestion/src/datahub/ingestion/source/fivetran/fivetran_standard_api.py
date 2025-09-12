@@ -4,6 +4,7 @@
 import difflib
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional, Tuple
 
 from datahub.configuration.common import AllowDenyPattern
@@ -168,10 +169,17 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         logger.info(f"Found {len(connectors)} allowed connectors")
 
-        # Process lineage for all connectors
+        # Process lineage for all connectors in parallel
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
-            logger.info("Extracting lineage from Fivetran API")
-            for connector in connectors:
+            logger.info("Extracting lineage from Fivetran API in parallel")
+            max_workers = (
+                getattr(self.config.api_config, "max_workers", 5)
+                if hasattr(self.config, "api_config")
+                else 5
+            )
+
+            def extract_connector_lineage(connector):
+                """Extract lineage for a single connector."""
                 try:
                     # Extract table-level and column-level lineage
                     lineage = self.api_client.extract_table_lineage(
@@ -197,14 +205,35 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         )
 
                     connector.lineage = lineage
+                    return connector, None
 
                 except Exception as e:
-                    logger.error(
-                        f"Error extracting lineage for connector {connector.connector_id}: {e}"
-                    )
-                    report.report_failure(
-                        f"Error extracting lineage for connector {connector.connector_id}: {e}"
-                    )
+                    error_msg = f"Error extracting lineage for connector {connector.connector_id}: {e}"
+                    logger.error(error_msg)
+                    connector.lineage = []
+                    return connector, error_msg
+
+            # Process connectors in parallel
+            with ThreadPoolExecutor(
+                max_workers=min(max_workers, len(connectors))
+            ) as executor:
+                # Submit all connector processing tasks
+                future_to_connector = {
+                    executor.submit(extract_connector_lineage, connector): connector
+                    for connector in connectors
+                }
+
+                # Collect results
+                for future in as_completed(future_to_connector):
+                    connector = future_to_connector[future]
+                    try:
+                        processed_connector, error = future.result()
+                        if error:
+                            report.report_failure(error)
+                    except Exception as e:
+                        error_msg = f"Unexpected error processing connector {connector.connector_id}: {e}"
+                        logger.error(error_msg)
+                        report.report_failure(error_msg)
 
         # Clean up job history
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:

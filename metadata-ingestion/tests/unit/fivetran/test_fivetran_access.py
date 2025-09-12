@@ -130,34 +130,37 @@ class FivetranAccessFactoryTests(unittest.TestCase):
         config.fivetran_log_config = MagicMock(spec=FivetranLogConfig)
         config.api_config = MagicMock(spec=FivetranAPIConfig)
 
-        # Setup mock to make connection test fail
+        # Setup mock to make enterprise connection test fail
         mock_log_api_instance = MagicMock()
         mock_log_api.return_value = mock_log_api_instance
         mock_log_api_instance.test_connection.side_effect = ConfigurationError(
             "Connection failed"
         )
 
+        # Setup standard API mock to succeed
+        mock_api_client_instance = MagicMock()
+        mock_api_client.return_value = mock_api_client_instance
+
         # Mock inspect.stack directly
         with patch("inspect.stack") as mock_stack:
             # Simulate we're NOT in a test file
             mock_stack.return_value = [MagicMock(filename="not_a_test.py")]
 
-            # Setup mock API client
-            mock_api_client_instance = MagicMock()
-            mock_api_client.return_value = mock_api_client_instance
-
             # Call factory
             access = create_fivetran_access(config)
 
-        # Verify enterprise implementation was tried but failed
+        # Verify enterprise implementation was tried first but failed
         mock_log_api.assert_called_once_with(config.fivetran_log_config, config=config)
         mock_log_api_instance.test_connection.assert_called_once()
 
-        # Verify standard API was created as fallback
+        # Verify standard API was used as fallback
         mock_api_client.assert_called_once_with(config.api_config)
+        mock_api_client_instance.list_connectors.assert_called_once()
         mock_standard_api.assert_called_once_with(
             mock_api_client_instance, config=config
         )
+
+        # Verify we got the standard implementation
         self.assertIsInstance(access, mock_standard_api.return_value.__class__)
 
     @patch("datahub.ingestion.source.fivetran.fivetran_api_client.FivetranAPIClient")
