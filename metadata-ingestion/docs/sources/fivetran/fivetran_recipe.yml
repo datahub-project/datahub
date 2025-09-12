@@ -67,22 +67,22 @@ source:
     # A mapping of Fivetran connector id to data platform instance
     sources_to_platform_instance:
       connector_id:
-        platform: postgres  # Optional override for platform detection
+        platform: postgres # Optional override for platform detection
         platform_instance: cloud_instance
         env: DEV
-        database: source_db  # Database name for the source
-        include_schema_in_urn: true  # Optional - whether to include schema in dataset URN, default true
-        column_naming_pattern: auto  # Optional - naming pattern for columns, options: auto, snake_case, camelCase, PascalCase, UPPER_CASE, lower_case
+        database: source_db # Database name for the source
+        include_schema_in_urn: true # Optional - whether to include schema in dataset URN, default true
+        column_naming_pattern: auto # Optional - naming pattern for columns, options: auto, snake_case, camelCase, PascalCase, UPPER_CASE, lower_case
 
     # Optional -- This mapping is optional and only required to configure platform-instance for destination.
     # A mapping of Fivetran destination id to data platform instance
     destination_to_platform_instance:
       destination_id:
-        platform: snowflake  # Optional override for platform detection
+        platform: snowflake # Optional override for platform detection
         platform_instance: cloud_instance
         env: DEV
-        database: dest_db  # Database name for the destination
-        include_schema_in_urn: true  # Optional - whether to include schema in dataset URN, default true
+        database: dest_db # Database name for the destination
+        include_schema_in_urn: true # Optional - whether to include schema in dataset URN, default true
 
 sink:
   # sink configs

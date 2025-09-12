@@ -7,8 +7,8 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceConfig,
     FivetranSourceReport,
 )
-from datahub.ingestion.source.fivetran.data_classes import Connector
 from datahub.ingestion.source.fivetran.fivetran_constants import FivetranMode
+from datahub.ingestion.source.fivetran.models import Connector
 
 logger = logging.getLogger(__name__)
 

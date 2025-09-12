@@ -12,7 +12,7 @@ from urllib3.util import Retry
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
+from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
     Connector,
     Job,

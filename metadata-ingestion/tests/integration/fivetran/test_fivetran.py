@@ -1027,6 +1027,10 @@ def test_mixed_lineage_handling():
         assert kafka_datajob.inlets
         assert kafka_datajob.outlets
 
+        # Check that connectors have lineage data available
+        assert len(postgres_connector.lineage) > 0
+        assert len(kafka_connector.lineage) > 0
+
         # Check platform in inlets
         postgres_inlet = str(postgres_datajob.inlets[0])
         kafka_inlet = str(kafka_datajob.inlets[0])

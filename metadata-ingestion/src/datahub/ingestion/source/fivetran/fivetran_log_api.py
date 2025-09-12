@@ -15,17 +15,17 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceConfig,
     FivetranSourceReport,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
-    ColumnLineage,
-    Connector,
-    Job,
-    TableLineage,
-)
 from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
 from datahub.ingestion.source.fivetran.fivetran_constants import (
     DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
 )
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
+from datahub.ingestion.source.fivetran.models import (
+    ColumnLineage,
+    Connector,
+    Job,
+    TableLineage,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 

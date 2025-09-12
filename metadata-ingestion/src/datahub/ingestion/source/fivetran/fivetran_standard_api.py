@@ -13,16 +13,16 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceConfig,
     FivetranSourceReport,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
-    ColumnLineage,
-    Connector,
-    TableLineage,
-)
 from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
 from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
 from datahub.ingestion.source.fivetran.fivetran_constants import (
     FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM,
     MAX_JOBS_PER_CONNECTOR,
+)
+from datahub.ingestion.source.fivetran.models import (
+    ColumnLineage,
+    Connector,
+    TableLineage,
 )
 
 logger = logging.getLogger(__name__)

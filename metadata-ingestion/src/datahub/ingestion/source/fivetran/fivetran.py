@@ -2,11 +2,11 @@ import logging
 from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -27,7 +27,6 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceReport,
     PlatformDetail,
 )
-from datahub.ingestion.source.fivetran.data_classes import Connector, Job, TableLineage
 from datahub.ingestion.source.fivetran.fivetran_access import (
     create_fivetran_access,
 )
@@ -36,18 +35,19 @@ from datahub.ingestion.source.fivetran.fivetran_constants import (
     DataJobMode,
     get_platform_from_fivetran_service,
 )
+from datahub.ingestion.source.fivetran.models import Connector, Job, TableLineage
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    FineGrainedLineage,
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
 )
-from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
@@ -210,7 +210,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Initialize empty lists for dataset URNs and fine-grained lineage
         input_dataset_urn_list: List[DatasetUrn] = []
         output_dataset_urn_list: List[DatasetUrn] = []
-        fine_grained_lineage: List[FineGrainedLineage] = []
+        fine_grained_lineage: List[FineGrainedLineageClass] = []
 
         # Obtain source and destination platform details if not provided
         if source_details is None:
@@ -289,10 +289,13 @@ class FivetranSource(StatefulIngestionSourceBase):
             f"Created lineage with {len(input_dataset_urn_list)} input URNs and {len(output_dataset_urn_list)} output URNs"
         )
 
-        # Add URNs and lineage to the datajob
-        datajob.inlets.extend(input_dataset_urn_list)
-        datajob.outlets.extend(output_dataset_urn_list)
-        datajob.fine_grained_lineages.extend(fine_grained_lineage)
+        # Add URNs and lineage to the datajob using SDK API
+        if input_dataset_urn_list:
+            datajob.set_inlets([str(urn) for urn in input_dataset_urn_list])
+        if output_dataset_urn_list:
+            datajob.set_outlets([str(urn) for urn in output_dataset_urn_list])
+        if fine_grained_lineage:
+            datajob.set_fine_grained_lineages(fine_grained_lineage)
 
         # Build properties from details and connector properties
         lineage_properties = self._build_lineage_properties(
@@ -350,13 +353,14 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"platform_instance={details.platform_instance}"
             )
 
-            urn = DatasetUrn.create_from_ids(
-                platform_id=platform,
-                table_name=full_table_name,
-                env=env,
+            urn_str = make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=full_table_name,
                 platform_instance=details.platform_instance,
+                env=env,
             )
 
+            urn = DatasetUrn.from_string(urn_str)
             logger.debug(f"Created URN: {urn}")
             return urn
         except Exception as e:
@@ -371,7 +375,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         lineage: TableLineage,
         source_urn: Optional[DatasetUrn],
         dest_urn: Optional[DatasetUrn],
-        fine_grained_lineage: List[FineGrainedLineage],
+        fine_grained_lineage: List[FineGrainedLineageClass],
     ) -> None:
         """Create column-level lineage between source and destination tables with better diagnostics."""
         if not source_urn or not dest_urn:
@@ -440,10 +444,10 @@ class FivetranSource(StatefulIngestionSourceBase):
 
                 # Add to fine-grained lineage
                 fine_grained_lineage.append(
-                    FineGrainedLineage(
-                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                         upstreams=[source_field_urn],
-                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                         downstreams=[dest_field_urn],
                     )
                 )
@@ -543,12 +547,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         properties["destination_platform"] = destination
 
         return DataFlow(
-            orchestrator=Constant.ORCHESTRATOR,
-            id=connector.connector_id,
+            platform=Constant.ORCHESTRATOR,
+            name=connector.connector_id,
             env=self.config.env or "PROD",
-            name=connector_name,
+            display_name=connector_name,
             description=description,
-            properties=properties,
+            custom_properties=properties,
             platform_instance=self.config.platform_instance,
         )
 
@@ -579,16 +583,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         # Get owner information
-        owner_email = self.fivetran_access.get_user_email(connector.user_id)
-        owner_set = {owner_email} if owner_email else set()
+        owner_email = (
+            self.fivetran_access.get_user_email(connector.user_id)
+            if connector.user_id
+            else None
+        )
 
         # Create the DataJob instance
         datajob = DataJob(
-            id=datajob_id,
+            name=datajob_id,
             flow_urn=dataflow_urn,
-            name=job_name,
+            display_name=job_name,
             description=job_description,
-            owners=owner_set,
+            owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
         # Build lineage for this specific table using the common function
@@ -621,10 +628,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         # Combine all properties
-        datajob.properties = {
-            **connector_properties,
-            **lineage_properties,
-        }
+        datajob.set_custom_properties(
+            {
+                **connector_properties,
+                **lineage_properties,
+            }
+        )
 
         return datajob
 
@@ -704,7 +713,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
             # Create column lineage if enabled
             if self.config.include_column_lineage:
-                fine_grained_lineage: List[FineGrainedLineage] = []
+                fine_grained_lineage: List[FineGrainedLineageClass] = []
                 self._create_column_lineage(
                     lineage=lineage,
                     source_urn=source_urn,
@@ -747,17 +756,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform}"
 
         # Get owner information
-        owner_email = self.fivetran_access.get_user_email(connector.user_id)
-        owner_set = {owner_email} if owner_email else set()
+        owner_email = (
+            self.fivetran_access.get_user_email(connector.user_id)
+            if connector.user_id
+            else None
+        )
 
         # Create the DataJob with enhanced information
         datajob = DataJob(
-            id=connector.connector_id,
+            name=connector.connector_id,
             flow_urn=dataflow_urn,
-            platform_instance=self.config.platform_instance,
-            name=connector_name,
+            display_name=connector_name,
             description=description,
-            owners=owner_set,
+            owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
         # Map connector source and destination table with dataset entity
@@ -786,10 +797,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         }
 
         # Combine all properties
-        datajob.properties = {
-            **connector_properties,
-            **lineage_properties,
-        }
+        datajob.set_custom_properties(
+            {
+                **connector_properties,
+                **lineage_properties,
+            }
+        )
 
         return datajob
 
@@ -850,21 +863,14 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
         """Generate a DataProcessInstance entity from a job."""
-        # hack: convert to old instance for DataProcessInstance.from_datajob compatibility
-        datajob_v1 = DataJobV1(
-            id=datajob.name,
-            flow_urn=datajob.flow_urn,
-            platform_instance=self.config.platform_instance,
-            name=datajob.name,
-            inlets=datajob.inlets,
-            outlets=datajob.outlets,
-            fine_grained_lineages=datajob.fine_grained_lineages,
-        )
-        return DataProcessInstance.from_datajob(
-            datajob=datajob_v1,
+        return DataProcessInstance(
             id=job.job_id,
-            clone_inlets=True,
-            clone_outlets=True,
+            orchestrator=datajob.flow_urn.orchestrator,
+            cluster=datajob.flow_urn.cluster,
+            template_urn=datajob.urn,
+            data_platform_instance=self.config.platform_instance,
+            inlets=list(datajob.inlets),
+            outlets=list(datajob.outlets),
         )
 
     def _get_dpi_workunits(
@@ -885,7 +891,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         result = status_result_map[job.status]
         start_timestamp_millis = job.start_time * 1000
         for mcp in dpi.generate_mcp(
-            created_ts_millis=start_timestamp_millis, materialize_iolets=False
+            created_ts_millis=start_timestamp_millis, materialize_iolets=True
         ):
             yield mcp.as_workunit()
         for mcp in dpi.start_event_mcp(start_timestamp_millis):
@@ -940,8 +946,8 @@ class FivetranSource(StatefulIngestionSourceBase):
                 table_job_map[table_key] = datajob
 
                 # Emit the datajob
-                for mcp in datajob.generate_mcp(materialize_iolets=False):
-                    yield mcp.as_workunit()
+                for workunit in datajob.as_workunits():
+                    yield workunit
 
         # Now process job history for each table
         sorted_jobs = sorted(connector.jobs, key=lambda j: j.end_time, reverse=True)[
@@ -960,11 +966,14 @@ class FivetranSource(StatefulIngestionSourceBase):
                 table_job_id = f"{job.job_id}_{source_table.replace('.', '_')}_to_{dest_table.replace('.', '_')}"
 
                 # Create a DPI specific to this table for this job execution
-                table_dpi = DataProcessInstance.from_datajob(
-                    datajob=datajob,
+                table_dpi = DataProcessInstance(
                     id=table_job_id,
-                    clone_inlets=True,
-                    clone_outlets=True,
+                    orchestrator=datajob.flow_urn.orchestrator,
+                    cluster=datajob.flow_urn.cluster,
+                    template_urn=datajob.urn,
+                    data_platform_instance=self.config.platform_instance,
+                    inlets=list(datajob.inlets),
+                    outlets=list(datajob.outlets),
                 )
 
                 # Generate DPI workunits
@@ -1018,16 +1027,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform}"
 
         # Get owner information
-        owner_email = self.fivetran_access.get_user_email(connector.user_id)
-        owner_set = {owner_email} if owner_email else set()
+        owner_email = (
+            self.fivetran_access.get_user_email(connector.user_id)
+            if connector.user_id
+            else None
+        )
 
         # Create the DataJob with enhanced information
         datajob = DataJob(
-            id=connector.connector_id,
+            name=connector.connector_id,
             flow_urn=dataflow_urn,
-            name=connector_name,
+            display_name=connector_name,
             description=description,
-            owners=owner_set,
+            owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
         # Map connector source and destination table with dataset entity
@@ -1065,10 +1077,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         }
 
         # Combine all properties
-        datajob.properties = {
-            **connector_properties,
-            **lineage_properties,
-        }
+        datajob.set_custom_properties(
+            {
+                **connector_properties,
+                **lineage_properties,
+            }
+        )
 
         return datajob
 
@@ -1082,20 +1096,24 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         destination_details = self._get_destination_details(connector)
 
-        owner_email = self.fivetran_access.get_user_email(connector.user_id)
-        owner_set = {owner_email} if owner_email else set()
+        owner_email = (
+            self.fivetran_access.get_user_email(connector.user_id)
+            if connector.user_id
+            else None
+        )
 
         datajob = DataJob(
-            id=connector.connector_id,
+            name=connector.connector_id,
             flow_urn=DataFlowUrn.create_from_ids(
                 orchestrator=Constant.ORCHESTRATOR,
                 flow_id=connector.connector_id,
                 env=self.config.env or "PROD",
                 platform_instance=self.config.platform_instance,
             ),
-            name=connector.connector_name or f"Fivetran-{connector.connector_id}",
+            display_name=connector.connector_name
+            or f"Fivetran-{connector.connector_id}",
             description=f"Fivetran data pipeline from {connector.connector_type} to {destination_details.platform}",
-            owners=owner_set,
+            owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
         # Process each table lineage through the common function
@@ -1108,6 +1126,14 @@ class FivetranSource(StatefulIngestionSourceBase):
                 destination_details=destination_details,
             )
 
+        # Add lineage to the datajob (inlets, outlets, fine-grained lineage)
+        lineage_properties = self._extend_lineage(
+            connector=connector,
+            datajob=datajob,
+            source_details=source_details,
+            destination_details=destination_details,
+        )
+
         # Add connector properties
         connector_properties: Dict[str, str] = {
             "connector_id": connector.connector_id,
@@ -1117,22 +1143,19 @@ class FivetranSource(StatefulIngestionSourceBase):
             "destination_id": connector.destination_id,
         }
 
-        # Add platform details
-        lineage_properties = self._build_lineage_properties(
-            connector=connector,
-            source_details=source_details,
-            destination_details=destination_details,
-        )
+        # Note: lineage_properties already obtained from _extend_lineage above
 
         # Combine all properties
-        datajob.properties = {
-            **connector_properties,
-            **lineage_properties,
-        }
+        datajob.set_custom_properties(
+            {
+                **connector_properties,
+                **lineage_properties,
+            }
+        )
 
         # Emit the datajob
-        for mcp in datajob.generate_mcp(materialize_iolets=False):
-            yield mcp.as_workunit()
+        for workunit in datajob.as_workunits():
+            yield workunit
 
         # Process job history
         if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
@@ -1157,8 +1180,8 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Create dataflow entity with detailed properties from connector
         dataflow = self._generate_dataflow_from_connector(connector)
-        for mcp in dataflow.generate_mcp():
-            yield mcp.as_workunit()
+        for workunit in dataflow.as_workunits():
+            yield workunit
 
         # Store field lineage workunits to emit after dataset workunits
         field_lineage_workunits = []
@@ -1209,16 +1232,11 @@ class FivetranSource(StatefulIngestionSourceBase):
 
                     if datajob:
                         # Emit the datajob
-                        for mcp in datajob.generate_mcp(materialize_iolets=False):
-                            if mcp.aspectName == "datajobFieldLineage" or (
-                                mcp.aspect is not None
-                                and mcp.systemMetadata is not None
-                                and mcp.systemMetadata.runId is not None
-                                and mcp.systemMetadata.runId.endswith("-field-lineage")
-                            ):
-                                field_lineage_workunits.append(mcp.as_workunit())
+                        for workunit in datajob.as_workunits():
+                            if workunit.id.endswith("-field-lineage"):
+                                field_lineage_workunits.append(workunit)
                             else:
-                                yield mcp.as_workunit()
+                                yield workunit
             else:
                 # Default: consolidated mode - one datajob per connector
                 # Create a single synthetic datajob with all lineage
@@ -1227,16 +1245,11 @@ class FivetranSource(StatefulIngestionSourceBase):
                 )
 
                 # Emit the datajob
-                for mcp in synthetic_datajob.generate_mcp(materialize_iolets=False):
-                    if mcp.aspectName == "datajobFieldLineage" or (
-                        mcp.aspect is not None
-                        and mcp.systemMetadata is not None
-                        and mcp.systemMetadata.runId is not None
-                        and mcp.systemMetadata.runId.endswith("-field-lineage")
-                    ):
-                        field_lineage_workunits.append(mcp.as_workunit())
+                for workunit in synthetic_datajob.as_workunits():
+                    if workunit.id.endswith("-field-lineage"):
+                        field_lineage_workunits.append(workunit)
                     else:
-                        yield mcp.as_workunit()
+                        yield workunit
         else:
             # Check if we should create one datajob per table or one per connector
             if self.config.datajob_mode == DataJobMode.PER_TABLE:
@@ -1287,16 +1300,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         # Get owner information
-        owner_email = self.fivetran_access.get_user_email(connector.user_id)
-        owner_set = {owner_email} if owner_email else set()
+        owner_email = (
+            self.fivetran_access.get_user_email(connector.user_id)
+            if connector.user_id
+            else None
+        )
 
         # Create the DataJob instance
         datajob = DataJob(
-            id=datajob_id,
+            name=datajob_id,
             flow_urn=dataflow_urn,
-            name=job_name,
+            display_name=job_name,
             description=job_description,
-            owners=owner_set,
+            owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
         # Build lineage for this specific table using the common function
@@ -1331,10 +1347,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         # Combine all properties
-        datajob.properties = {
-            **connector_properties,
-            **lineage_properties,
-        }
+        datajob.set_custom_properties(
+            {
+                **connector_properties,
+                **lineage_properties,
+            }
+        )
 
         return datajob
 

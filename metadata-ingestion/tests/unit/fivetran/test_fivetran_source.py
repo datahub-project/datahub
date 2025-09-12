@@ -11,14 +11,14 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceConfig,
     PlatformDetail,
 )
-from datahub.ingestion.source.fivetran.data_classes import (
-    Connector,
-)
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
 from datahub.ingestion.source.fivetran.fivetran_access import create_fivetran_access
 from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
 from datahub.ingestion.source.fivetran.fivetran_constants import FivetranMode
 from datahub.ingestion.source.fivetran.fivetran_standard_api import FivetranStandardAPI
+from datahub.ingestion.source.fivetran.models import (
+    Connector,
+)
 
 
 class FivetranAPIClientTest(unittest.TestCase):
