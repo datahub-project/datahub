@@ -37,7 +37,7 @@ GRANT SELECT ON pg_catalog.svv_external_tables TO datahub;
 GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;
 GRANT SELECT ON pg_catalog.pg_class_info TO datahub;
 
--- Data sharing lineage (enabled by default)
+-- Datashare lineage (enabled by default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;
 
 -- Choose ONE based on your Redshift type:

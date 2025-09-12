@@ -41,7 +41,7 @@ GRANT SELECT ON pg_catalog.svl_user_info TO datahub_user;      -- Provisioned cl
 GRANT SELECT ON pg_catalog.stv_mv_info TO datahub_user;        -- Provisioned clusters
 GRANT SELECT ON pg_catalog.svv_mv_info TO datahub_user;        -- Serverless workgroups
 
--- Data sharing (cross-cluster lineage)
+-- Datashares (cross-cluster lineage)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub_user;
 
 -- Table creation timestamps (provisioned clusters)
@@ -188,9 +188,9 @@ GRANT SELECT ON ALL TABLES IN SCHEMA your_schema_name TO datahub_user;
 
 :::
 
-#### Optional: Data Sharing Privileges
+#### Optional: Datashare Privileges
 
-To enable cross-cluster lineage through data sharing, grant the following privileges:
+To enable cross-cluster lineage through datashares, grant the following privileges:
 
 ```sql
 -- Grant SHARE privilege on datashares (replace with actual datashare names)
@@ -291,6 +291,6 @@ profiling:
 
 :::note
 
-**Data sharing lineage**: For cross-cluster lineage through data sharing, the DataHub user requires `SHARE` privileges on datashares in both producer and consumer namespaces. See the [Amazon Redshift data sharing documentation](https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_DATASHARES.html) for more information.
+**Datashare lineage**: For cross-cluster lineage through datashares, the DataHub user requires `SHARE` privileges on datashares in both producer and consumer namespaces. See the [Amazon Redshift datashare documentation](https://docs.aws.amazon.com/redshift/latest/dg/r_SVV_DATASHARES.html) for more information.
 
 :::

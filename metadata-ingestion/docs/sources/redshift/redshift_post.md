@@ -158,7 +158,7 @@ WHERE usename = 'datahub_user';
 -- usesyslog should be 't' (true)
 ```
 
-#### Cross-Cluster Lineage (Data Sharing)
+#### Cross-Cluster Lineage (Datashares)
 
 For lineage across datashares, ensure:
 
