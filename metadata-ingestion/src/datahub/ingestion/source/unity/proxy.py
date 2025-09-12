@@ -513,7 +513,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
             return result_dict
         except Exception as e:
-            logger.warning(
+            self.report.report_failure(
+                f"Error getting table lineage for catalog {catalog}", exc=e
+            )
+            logger.error(
                 f"Error getting table lineage for catalog {catalog}: {e}",
                 exc_info=True,
             )
@@ -572,7 +575,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
             return result_dict
         except Exception as e:
-            logger.warning(
+            self.report.report_failure(
+                f"Error getting column lineage for catalog {catalog}", exc=e
+            )
+            logger.error(
                 f"Error getting column lineage for catalog {catalog}: {e}",
                 exc_info=True,
             )
@@ -607,6 +613,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 or []
             )
         except Exception as e:
+            self.report.report_warning(
+                f"Error getting column lineage on table {table_name}, column {column_name}",
+                exc=e,
+            )
             logger.warning(
                 f"Error getting column lineage on table {table_name}, column {column_name}: {e}",
                 exc_info=True,
@@ -643,7 +653,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             else:
                 self._process_table_lineage_via_http_api(table, include_entity_lineage)
         except Exception as e:
-            logger.warning(
+            self.report.report_failure(
+                f"Error getting lineage on table {table.ref}",
+                exc=e,
+            )
+            logger.error(
                 f"Error getting lineage on table {table.ref}: {e}", exc_info=True
             )
 
@@ -810,7 +824,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         ).append(item["name"])
 
         except Exception as e:
-            logger.warning(
+            self.report.report_failure(
+                f"Error getting column lineage on table {table.ref}",
+                exc=e,
+            )
+            logger.error(
                 f"Error getting column lineage on table {table.ref}: {e}",
                 exc_info=True,
             )
@@ -1044,11 +1062,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 return rows
 
         except Exception as e:
-            logger.warning(f"Failed to execute SQL query: {e}", exc_info=True)
-            if logger.isEnabledFor(logging.DEBUG):
-                # Only log failed query details in debug mode for security
-                logger.debug(f"SQL query that failed: {query}")
-                logger.debug(f"SQL query parameters: {params}")
+            self.report.report_failure(
+                title="Failed to execute SQL query",
+                message=str(e),
+                context=f"SQL query that failed: {query}\nSQL query parameters: {params}",
+            )
+            logger.error(f"Failed to execute SQL query: {e}", exc_info=True)
+            logger.debug(f"SQL query that failed: {query}")
+            logger.debug(f"SQL query parameters: {params}")
 
             # Check if this might be a proxy-related error
             error_str = str(e).lower()
@@ -1062,6 +1083,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "connect",
                 ]
             ):
+                self.report.report_failure(
+                    "SQL query failure appears to be proxy-related. "
+                    "Please check proxy configuration and authentication.",
+                    context=f"Proxy environment variables detected: {list(proxy_env_debug.keys())}",
+                )
                 logger.error(
                     "SQL query failure appears to be proxy-related. "
                     "Please check proxy configuration and authentication. "
