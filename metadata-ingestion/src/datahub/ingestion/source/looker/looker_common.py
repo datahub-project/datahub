@@ -255,6 +255,11 @@ class LookerViewId:
 
         return generated_urn
 
+    def get_view_dataset_name(self, config: LookerCommonConfig) -> str:
+        n_mapping: ViewNamingPatternMapping = self.get_mapping(config)
+        n_mapping.file_path = self.preprocess_file_path(n_mapping.file_path)
+        return config.view_naming_pattern.replace_variables(n_mapping)
+
     def get_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.view_browse_pattern.replace_variables(
             self.get_mapping(config)
@@ -281,6 +286,22 @@ class LookerViewId:
                 *path_entries,
             ],
         )
+
+    def get_view_dataset_parent_container(
+        self, config: LookerCommonConfig
+    ) -> List[str]:
+        project_key = gen_project_key(config, self.project_name)
+        view_path = (
+            remove_suffix(self.file_path, ".view.lkml")
+            if "{file_path}" in config.view_browse_pattern.pattern
+            else os.path.dirname(self.file_path)
+        )
+        path_entries = view_path.split("/") if view_path else []
+        return [
+            "Develop",
+            project_key.as_urn(),
+            *path_entries,
+        ]
 
 
 class ViewFieldType(Enum):
