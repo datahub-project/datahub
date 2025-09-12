@@ -524,6 +524,10 @@ class TableauConfig(
         default=False,
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
+    use_email_as_username: bool = Field(
+        default=False,
+        description="Use email address instead of username for entity owners. Requires ingest_owner to be True.",
+    )
     ingest_tables_external: bool = Field(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
@@ -678,6 +682,14 @@ class TableauConfig(
             raise ValueError(
                 "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
             )
+
+        use_email_as_username = values.get("use_email_as_username")
+        ingest_owner = values.get("ingest_owner")
+        if use_email_as_username and not ingest_owner:
+            raise ValueError(
+                "use_email_as_username requires ingest_owner to be enabled."
+            )
+
         return values
 
 
@@ -2716,13 +2728,12 @@ class TableauSiteSource:
             dataset_snapshot.aspects.append(browse_paths)
 
         # Ownership
-        owner = (
-            self._get_ownership(datasource_info[c.OWNER][c.USERNAME])
-            if datasource_info
-            and datasource_info.get(c.OWNER)
-            and datasource_info[c.OWNER].get(c.USERNAME)
+        owner_identifier = (
+            self._get_owner_identifier(datasource_info[c.OWNER])
+            if datasource_info and datasource_info.get(c.OWNER)
             else None
         )
+        owner = self._get_ownership(owner_identifier) if owner_identifier else None
         if owner is not None:
             dataset_snapshot.aspects.append(owner)
 
@@ -3127,7 +3138,7 @@ class TableauSiteSource:
 
         creator: Optional[str] = None
         if workbook is not None and workbook.get(c.OWNER) is not None:
-            creator = workbook[c.OWNER].get(c.USERNAME)
+            creator = self._get_owner_identifier(workbook[c.OWNER])
         created_at = sheet.get(c.CREATED_AT, datetime.now())
         updated_at = sheet.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
@@ -3276,7 +3287,7 @@ class TableauSiteSource:
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         workbook_container_key = self.gen_workbook_key(workbook[c.ID])
-        creator = workbook.get(c.OWNER, {}).get(c.USERNAME)
+        creator = self._get_owner_identifier(workbook.get(c.OWNER, {}))
 
         owner_urn = (
             builder.make_user_urn(creator)
@@ -3458,7 +3469,7 @@ class TableauSiteSource:
 
         creator: Optional[str] = None
         if workbook is not None and workbook.get(c.OWNER) is not None:
-            creator = workbook[c.OWNER].get(c.USERNAME)
+            creator = self._get_owner_identifier(workbook[c.OWNER])
         created_at = dashboard.get(c.CREATED_AT, datetime.now())
         updated_at = dashboard.get(c.UPDATED_AT, datetime.now())
         last_modified = self.get_last_modified(creator, created_at, updated_at)
@@ -3604,6 +3615,19 @@ class TableauSiteSource:
                 lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
             )
         return last_modified
+
+    def _get_owner_identifier(self, owner_dict: dict) -> Optional[str]:
+        """Extract owner identifier (email or username) based on configuration."""
+        if not owner_dict:
+            return None
+
+        if self.config.use_email_as_username:
+            email = owner_dict.get(c.EMAIL)
+            if email:
+                return email
+            # Fall back to username if email is not available
+
+        return owner_dict.get(c.USERNAME)
 
     @lru_cache(maxsize=None)
     def _get_ownership(self, user: str) -> Optional[OwnershipClass]:
