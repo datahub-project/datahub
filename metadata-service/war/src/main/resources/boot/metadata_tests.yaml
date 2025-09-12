@@ -12,11 +12,11 @@
       conditions: []
     rules:
       and:
-        - property: statsSummary.queryCountPercentileLast30Days
+        - property: usageFeatures.queryCountPercentileLast30Days
           operator: greater_than
           values:
             - '25'
-        - property: statsSummary.uniqueUserPercentileLast30Days
+        - property: usageFeatures.uniqueUserPercentileLast30Days
           operator: greater_than
           values:
             - '25'
@@ -32,7 +32,7 @@
                     property: editableDatasetProperties.description
                     operator: exists
         -
-            property: statsSummary.writeCountLast30Days
+            property: usageFeatures.writeCountLast30Days
             operator: greater_than
             values:
                 - '0'
@@ -156,7 +156,7 @@
                     - Table
     rules:
       or:
-        - property: statsSummary.queryCountPercentileLast30Days
+        - property: usageFeatures.queryCountPercentileLast30Days
           operator: greater_than
           values:
             - '90'
@@ -194,7 +194,7 @@
                     - Table
     rules:
       or:
-        - property: statsSummary.sizeInBytesPercentile
+        - property: storageFeatures.sizeInBytesPercentile
           operator: greater_than
           values:
             - '90'
@@ -232,7 +232,7 @@
                     - Table
     rules:
       or:
-        - property: statsSummary.queryCountPercentileLast30Days
+        - property: usageFeatures.queryCountPercentileLast30Days
           operator: less_than
           values:
             - '10'
@@ -270,7 +270,7 @@
                     - Table
     rules:
       or:
-        - property: statsSummary.writeCountPercentileLast30Days
+        - property: usageFeatures.writeCountPercentileLast30Days
           operator: less_than
           values:
             - '10'
@@ -308,7 +308,7 @@
                     - Table
     rules:
       or:
-        - property: statsSummary.queryCountLast30Days
+        - property: usageFeatures.queryCountLast30Days
           operator: equals
           values:
             - '0'
@@ -346,7 +346,7 @@
                     - Table
     rules:
       or:
-        - property: statsSummary.writeCountLast30Days
+        - property: usageFeatures.writeCountLast30Days
           operator: equals
           values:
             - '0'

@@ -278,42 +278,42 @@ const datasetProps: Property[] = [
         displayName: 'Usage Metrics',
         children: [
             {
-                id: 'statsSummary.queryCountLast30Days',
+                id: 'usageFeatures.queryCountLast30Days',
                 displayName: 'Query Count in Last 30 Days',
                 description:
                     'The total query count in the past 30 days. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.uniqueUserCountLast30Days',
+                id: 'usageFeatures.uniqueUserCountLast30Days',
                 displayName: 'Unique Users in the Last 30 Days',
                 description:
                     'The unique user count in the past 30 days. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.queryCountPercentileLast30Days',
+                id: 'usageFeatures.queryCountPercentileLast30Days',
                 displayName: 'Query Count Percentile in Last 30 Days (0-100)',
                 description:
                     'The relative query count percentile for this dataset inside the data platform instance. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.updateCountLast30Days',
+                id: 'usageFeatures.writeCountLast30Days',
                 displayName: 'Update Count in Last 30 Days',
                 description:
                     'The total update/write count in the past 30 days. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.updateCountPercentileLast30Days',
+                id: 'usageFeatures.writeCountPercentileLast30Days',
                 displayName: 'Update Count Percentile in Last 30 Days (0-100)',
                 description:
                     'The relative update/write count percentile for this dataset within the data platform instance. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.uniqueUserPercentileLast30Days',
+                id: 'usageFeatures.uniqueUserPercentileLast30Days',
                 displayName: 'Unique User Percentile in the Last 30 Days (0-100)',
                 description:
                     'The relative unique user count percentile for this dataset within the data platform instance. This requires usage data ingestion to be enabled.',
@@ -438,28 +438,28 @@ const datasetProps: Property[] = [
         displayName: 'Storage & Size Metrics',
         children: [
             {
-                id: 'statsSummary.rowCount',
+                id: 'storageFeatures.rowCount',
                 displayName: 'Row Count Total',
                 description:
                     'The total number of rows in the dataset. This requires data profiling to be enabled for connected data sources.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.sizeInBytes',
+                id: 'storageFeatures.sizeInBytes',
                 displayName: 'Size In Bytes',
                 description:
                     'The total size of the dataset in bytes. This requires data profiling to be enabled for supported data sources.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.rowCountPercentile',
+                id: 'storageFeatures.rowCountPercentile',
                 displayName: 'Row Count Percentile (0-100)',
                 description:
                     'The relative row count percentile for this dataset within the data platform instance. This requires data profiling to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'statsSummary.sizeInBytesPercentile',
+                id: 'storageFeatures.sizeInBytesPercentile',
                 displayName: 'Size In Bytes Percentile (0-100)',
                 description:
                     'The relative storage size percentile for this dataset within the data platform instance. This requires data profiling to be enabled for supported sources.',
