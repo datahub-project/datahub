@@ -19,18 +19,6 @@ env:
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
-  # Centralized list of DataHub images to work with
-  # To add/remove images, just update this list and all operations will automatically include them
-  DATAHUB_IMAGES: |
-    datahub-gms
-    datahub-mce-consumer
-    datahub-mae-consumer
-    datahub-actions
-    datahub-upgrade
-    datahub-mysql-setup
-    datahub-postgres-setup
-    datahub-elasticsearch-setup
-    datahub-frontend-react
 
 permissions:
   contents: read
@@ -54,6 +42,7 @@ jobs:
       uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+      datahub_images: ${{ steps.collect-images.outputs.datahub_images }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
@@ -119,6 +108,28 @@ jobs:
           echo "yarn_cache_key=docker-unified-nightly-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=docker-unified-nightly-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
+      - name: Download build Metadata for latest head build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          mkdir -p ${{ github.workspace }}/build
+          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
+          unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
+          ls -l ${{ github.workspace }}/build/
+
+      - name: Collect image:tag from build log
+        id: collect-images
+        run: |
+          # contains full repo/image:tag for all published images (includes all variants)
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+
+          echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
+
+      - name: Show collected images
+        run: |
+          echo "${{ steps.collect-images.outputs.datahub_images }}"
+
   smoke_test_lint:
     name: Lint on smoke tests
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
@@ -127,7 +138,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -188,7 +199,7 @@ jobs:
 
           includes="$python_matrix,$cypress_matrix"
           echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
-          
+
           # Validate matrix output
           if [ -z "$includes" ]; then
             echo "Error: Matrix is empty"
@@ -239,7 +250,7 @@ jobs:
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -254,28 +265,53 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - name: Download build Metadata for latest head build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          mkdir -p ${{ github.workspace }}/build
+          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
+          unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
+          ls -l ${{ github.workspace }}/build/
+
+      - name: Collect image:tag from build log
+        id: collect-images
+        run: |
+          # contains full repo/image:tag for all published images (includes all variants)
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+
+          echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
+
+      - name: Show collected images
+        run: |
+          echo "${{ steps.collect-images.outputs.datahub_images }}"
+
       - name: Pull head images from registry
         run: |
+          echo collected images "${{ steps.collect-images.outputs.datahub_images }}"
           # Pull the latest head/master images from registry
           failed_pulls=0
-          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+          eval "set -- ${{ steps.collect-images.outputs.datahub_images }}"
+          for image do
             if [ -n "$image" ]; then
-              echo "Pulling ${{ env.DOCKER_REPOSITORY }}/$image:head"
-              if ! docker pull "${{ env.DOCKER_REPOSITORY }}/$image:head"; then
-                echo "Failed to pull ${{ env.DOCKER_REPOSITORY }}/$image:head"
+              echo "Pulling $image"
+              if ! docker pull "$image"; then
+                echo "Failed to pull $image"
                 failed_pulls=$((failed_pulls + 1))
               else
                 # Re-tag the head image with the nightly tag for smoke tests
-                echo "Tagging ${{ env.DOCKER_REPOSITORY }}/$image:head as ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
-                docker tag "${{ env.DOCKER_REPOSITORY }}/$image:head" "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+                newImage=${image/\:head/\:${{ needs.setup.outputs.tag }}}
+                echo "Tagging $image as $newImage"
+                docker tag "$image" "$newImage"
               fi
             fi
           done
-          
+
           if [ $failed_pulls -gt 0 ]; then
             echo "Warning: $failed_pulls images failed to pull"
           fi
-          
+
           docker images
 
       - name: run quickstart
@@ -407,7 +443,7 @@ jobs:
             echo "Error: DOCKER_REGISTRY and DOCKER_REPOSITORY must be set"
             exit 1
           fi
-          
+
           # Validate that required secrets are available for the target registry
           if [[ "${{ env.DOCKER_REGISTRY }}" == "docker.io" ]]; then
             if [[ -z "${{ secrets.ACRYL_DOCKER_USERNAME }}" || -z "${{ secrets.ACRYL_DOCKER_PASSWORD }}" ]]; then
@@ -415,7 +451,7 @@ jobs:
               exit 1
             fi
           fi
-          
+
           echo "Using registry: ${{ env.DOCKER_REGISTRY }}"
           echo "Using repository: ${{ env.DOCKER_REPOSITORY }}"
 
@@ -426,19 +462,42 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - name: Download build Metadata for latest head build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          mkdir -p ${{ github.workspace }}/build
+          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
+          unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
+          ls -l ${{ github.workspace }}/build/
+
+      - name: Collect image:tag from build log
+        id: collect-images
+        run: |
+          # contains full repo/image:tag for all published images (includes all variants)
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+
+          echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
+
+      - name: Show collected images
+        run: |
+          echo "${{ steps.collect-images.outputs.datahub_images }}"
+
       - name: Pull head images
         run: |
           failed_pulls=0
-          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+          eval "set -- ${{ steps.collect-images.outputs.datahub_images }}"
+          for image do
             if [ -n "$image" ]; then
-              echo "Pulling ${{ env.DOCKER_REPOSITORY }}/$image:head"
-              if ! docker pull "${{ env.DOCKER_REPOSITORY }}/$image:head"; then
-                echo "Failed to pull ${{ env.DOCKER_REPOSITORY }}/$image:head"
+              echo "Pulling $image"
+              if ! docker pull "$image"; then
+                echo "Failed to pull $image"
                 failed_pulls=$((failed_pulls + 1))
               fi
             fi
           done
-          
+
           if [ $failed_pulls -gt 0 ]; then
             echo "Warning: $failed_pulls images failed to pull"
           fi
@@ -446,54 +505,41 @@ jobs:
       - name: Tag images with nightly and daily tags
         run: |
           # Tag all images with nightly and daily tags
+
           failed_tags=0
-          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
+          failed_pushes=0
+          eval "set -- ${{ steps.collect-images.outputs.datahub_images }}"
+          for image do
             if [ -n "$image" ]; then
-              echo "Tagging ${{ env.DOCKER_REPOSITORY }}/$image:head as ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
-              if ! docker tag "${{ env.DOCKER_REPOSITORY }}/$image:head" "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"; then
-                echo "Failed to tag ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
+              imageWithNightlyTag=${image/\:head/\:${{ needs.setup.outputs.tag }}}
+              echo "Tagging $image as $imageWithNightlyTag"
+              if ! docker tag "$image" "$imageWithNightlyTag"; then
+                echo "Failed to tag $imageWithNightlyTag"
                 failed_tags=$((failed_tags + 1))
               fi
+              if ! docker push "$imageWithNightlyTag"; then
+                echo "Failed to push $imageWithNightlyTag"
+                failed_pushes=$((failed_pushes + 1))
+              fi
               
-              echo "Tagging ${{ env.DOCKER_REPOSITORY }}/$image:head as ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
-              if ! docker tag "${{ env.DOCKER_REPOSITORY }}/$image:head" "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"; then
-                echo "Failed to tag ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
+              imageWithDateTag=${image/\:head/\:${{ needs.setup.outputs.date_tag }}}
+              echo "Tagging $image as imageWithDateTag"
+              if ! docker tag "$image" "$imageWithDateTag"; then
+                echo "Failed to tag imageWithDateTag"
                 failed_tags=$((failed_tags + 1))
+              fi
+              if ! docker push "$imageWithDateTag"; then
+                echo "Failed to push $imageWithDateTag"
+                failed_pushes=$((failed_pushes + 1))
               fi
             fi
           done
-          
+
           if [ $failed_tags -gt 0 ]; then
             echo "Warning: $failed_tags tags failed to create"
           fi
-
-      - name: Push tagged images to registry
-        run: |
-          # Push all nightly tags
-          failed_pushes=0
-          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
-            if [ -n "$image" ]; then
-              echo "Pushing ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
-              if ! docker push "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"; then
-                echo "Failed to push ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.tag }}"
-                failed_pushes=$((failed_pushes + 1))
-              fi
-            fi
-          done
-          
-          # Push all daily tags
-          echo "${{ env.DATAHUB_IMAGES }}" | while read -r image; do
-            if [ -n "$image" ]; then
-              echo "Pushing ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
-              if ! docker push "${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"; then
-                echo "Failed to push ${{ env.DOCKER_REPOSITORY }}/$image:${{ needs.setup.outputs.date_tag }}"
-                failed_pushes=$((failed_pushes + 1))
-              fi
-            fi
-          done
-          
           if [ $failed_pushes -gt 0 ]; then
-            echo "Warning: $failed_pushes pushes failed"
+            echo "Warning: $failed_pushes tags failed to push"
           fi
 
       - name: Show pushed images

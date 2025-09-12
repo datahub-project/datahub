@@ -1105,6 +1105,9 @@ fragment nonRecursiveMLModel on MLModel {
             properties {
                 name
             }
+            editableProperties {
+                description
+            }
         }
         customProperties {
             key

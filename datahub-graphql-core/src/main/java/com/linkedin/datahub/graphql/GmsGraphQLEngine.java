@@ -1781,10 +1781,15 @@ public class GmsGraphQLEngine {
         .type(
             "Incident",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "assignees",
-                    new OwnerTypeBatchResolver(
-                        ownerTypes, (env) -> ((Incident) env.getSource()).getAssignees())))
+                typeWiring
+                    .dataFetcher(
+                        "entity",
+                        new EntityTypeResolver(
+                            entityTypes, (env) -> ((Incident) env.getSource()).getEntity()))
+                    .dataFetcher(
+                        "assignees",
+                        new OwnerTypeBatchResolver(
+                            ownerTypes, (env) -> ((Incident) env.getSource()).getAssignees())))
         .type(
             "SchemaField",
             typeWiring ->
@@ -3464,7 +3469,8 @@ public class GmsGraphQLEngine {
   private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Role",
-        typeWiring -> typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver()));
+        typeWiring ->
+            typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver(groupService)));
   }
 
   private void configureBusinessAttributeResolver(final RuntimeWiring.Builder builder) {
