@@ -259,7 +259,7 @@ class SourcePatternConfig(ConfigModel):
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for table names in format '{database}.{schema}.{table}' to filter materialized nodes.",
+        description="Regex patterns for table/view names in format '{database}.{schema}.{table}' to filter materialized nodes.",
     )
 
 
