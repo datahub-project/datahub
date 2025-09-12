@@ -12,6 +12,10 @@ import { Assertion, Maybe } from '@types';
 
 const StyledEditor = styled(Editor)`
     &&& {
+        .remirror-theme {
+            width: 100%;
+            overflow: hidden;
+        }
         .remirror-editor {
             min-height: 320px;
             max-width: 100%;
@@ -124,6 +128,7 @@ export const AssertionNoteTab = ({ loading, assertion, editAllowed }: Props) => 
                 <Skeleton />
             ) : (
                 <StyledEditor
+                    toolbarStyles={{ width: '100%' }}
                     content={note}
                     readOnly={!isEditing}
                     onChange={(content) => setNote(content)}
