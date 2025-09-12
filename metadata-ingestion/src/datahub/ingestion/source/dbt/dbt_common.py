@@ -1057,30 +1057,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
 
         # Database level filtering
-        if node.database and not self.config.source_pattern.database_pattern.allowed(
-            node.database
-        ):
+        if not node.database:
+            return True
+        if not self.config.source_pattern.database_pattern.allowed(node.database):
             return False
 
         # Schema level filtering: {database}.{schema}
-        if (
-            node.database
-            and node.schema
-            and not self.config.source_pattern.schema_pattern.allowed(
-                node._join_parts([node.database, node.schema])
-            )
-        ):
+        if not node.schema:
+            return True
+        if not self.config.source_pattern.schema_pattern.allowed(node._join_parts([node.database, node.schema])):
             return False
 
         # Table level filtering: {database}.{schema}.{table}
-        if (
-            node.database
-            and node.schema
-            and node.name
-            and not self.config.source_pattern.table_pattern.allowed(node.get_db_fqn())
-        ):
+        if not node.name:
+            return True
+        if not self.config.source_pattern.table_pattern.allowed(node.get_db_fqn()):
             return False
-
+        
         return True
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
