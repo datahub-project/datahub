@@ -16,7 +16,7 @@ export const AssetsYouSubscribeTo = ({ hideIfEmpty, trackClickInSection }: Refer
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
-    const { entities, loading } = useGetAssetsYouSubscribeTo(user);
+    const { entities, loading } = useGetAssetsYouSubscribeTo({ user });
 
     if (hideIfEmpty && entities.length === 0) {
         return null;

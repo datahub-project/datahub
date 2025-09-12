@@ -101,6 +101,7 @@ import com.linkedin.datahub.graphql.resolvers.remoteexecutor.ListRemoteExecutors
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateDefaultRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.remoteexecutor.UpdateRemoteExecutorPoolResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
+import com.linkedin.datahub.graphql.resolvers.role.DismissUserSuggestionResolver;
 import com.linkedin.datahub.graphql.resolvers.role.RevokeUserInvitationResolver;
 import com.linkedin.datahub.graphql.resolvers.role.SendUserInvitationsResolver;
 import com.linkedin.datahub.graphql.resolvers.role.UserInvitationService;
@@ -557,7 +558,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "revokeUserInvitation",
                     new RevokeUserInvitationResolver(
-                        this.entityClient, this.entityService, this.inviteTokenService)));
+                        this.entityClient, this.entityService, this.inviteTokenService))
+                .dataFetcher(
+                    "dismissUserSuggestion",
+                    new DismissUserSuggestionResolver(this.entityClient, this.entityService)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {

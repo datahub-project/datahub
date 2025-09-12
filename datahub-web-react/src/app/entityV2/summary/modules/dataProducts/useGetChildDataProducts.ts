@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { DOMAINS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -10,6 +11,7 @@ import { Entity, EntityType } from '@types';
 const MAX_ASSETS_TO_FETCH = 50;
 
 export const useGetChildDataProducts = (initialCount = MAX_ASSETS_TO_FETCH) => {
+    const { isReloading, onReloadingFinished } = useModuleContext();
     const { urn } = useEntityData();
 
     const getInputVariables = useCallback(
@@ -40,6 +42,8 @@ export const useGetChildDataProducts = (initialCount = MAX_ASSETS_TO_FETCH) => {
     } = useGetSearchResultsForMultipleQuery({
         variables: getInputVariables(0, initialCount),
         skip: !urn,
+        fetchPolicy: isReloading ? 'cache-and-network' : 'cache-first',
+        onCompleted: () => onReloadingFinished?.(),
     });
 
     const entityRegistry = useEntityRegistryV2();

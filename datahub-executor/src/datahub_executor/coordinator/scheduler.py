@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from acryl.executor.request.execution_request import ExecutionRequest
 from apscheduler.executors.pool import ThreadPoolExecutor
@@ -122,6 +122,7 @@ class ExecutionRequestScheduler:
         self.assertion_scheduler.shutdown()
         self.monitor_scheduler.shutdown()
         self.ingestion_scheduler.shutdown()
+
         self.assertion_executor.shutdown()
         self.assertion_executor.shutdown()
 
@@ -311,3 +312,30 @@ class ExecutionRequestScheduler:
             or execution_request.executor_id == DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
             or DATAHUB_EXECUTOR_POOL_ID == execution_request.executor_id
         )
+
+    def dump_jobs(self) -> Dict[str, Any]:
+        output: Dict[str, Any] = {
+            "assertion": [],
+            "ingestion": [],
+            "monitor": [],
+        }
+
+        def dump_add_jobs(key: str, scheduler: BackgroundScheduler) -> None:
+            for job in scheduler.get_jobs():
+                output[key].append(
+                    {
+                        "id": job.id,
+                        "trigger": str(job.trigger),
+                        "trigger_tz": str(
+                            getattr(job.trigger, "timezone", "<not-set>")
+                        ),
+                        "next_run_time": str(job.next_run_time),
+                        "args": job.args,
+                    }
+                )
+
+        dump_add_jobs("assertion", self.assertion_scheduler)
+        dump_add_jobs("ingestion", self.ingestion_scheduler)
+        dump_add_jobs("monitor", self.monitor_scheduler)
+
+        return output

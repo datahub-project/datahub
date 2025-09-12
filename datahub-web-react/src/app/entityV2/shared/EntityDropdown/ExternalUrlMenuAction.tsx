@@ -11,6 +11,11 @@ export default function ExternalUrlMenuAction({ shouldFillAllAvailableSpace }: P
     const { urn: entityUrn, entityData } = useEntityData();
 
     return (
-        <ViewInPlatform urn={entityUrn} data={entityData} shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
+        <ViewInPlatform
+            urn={entityUrn}
+            data={entityData}
+            shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}
+            isEntityPageHeader
+        />
     );
 }

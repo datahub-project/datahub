@@ -9,6 +9,7 @@ import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { IconStyleType } from '@app/entityV2/Entity';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
@@ -20,7 +21,7 @@ import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
-import { DataProduct, Entity, EntityType } from '@types';
+import { DataHubPageModuleType, DataProduct, Entity, EntityType } from '@types';
 
 const OptionWrapper = styled.div`
     padding: 2px 0;
@@ -56,6 +57,7 @@ export default function SetDataProductModal({
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { reloadModules } = useModulesContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
     const inputEl = useRef(null);
@@ -135,6 +137,9 @@ export default function SetDataProductModal({
                 // refetch is for search results, need to set a timeout
                 setTimeout(() => {
                     refetch?.();
+                    // Reload modules
+                    // Assets - as assets module on data product summary tab could be updated
+                    reloadModules([DataHubPageModuleType.Assets]);
                 }, 2000);
             })
             .catch((e) => {

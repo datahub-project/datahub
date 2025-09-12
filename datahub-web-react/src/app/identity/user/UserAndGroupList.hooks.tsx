@@ -72,13 +72,13 @@ export const useUserListData = (
 
         switch (statusFilterParam.toLowerCase()) {
             case 'active':
-                return [{ field: 'active', values: ['true'] }];
+                return [{ field: 'status', values: ['ACTIVE'] }];
             case 'suspended':
                 return [{ field: 'status', values: ['SUSPENDED'] }];
             case 'invited':
                 return [{ field: 'invitationStatus', values: ['SENT'] }];
             case 'inactive':
-                return [{ field: 'active', values: ['false'] }];
+                return [{ field: 'status', values: ['INACTIVE'] }];
             default:
                 return undefined;
         }

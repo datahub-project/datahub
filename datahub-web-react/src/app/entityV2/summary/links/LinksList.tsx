@@ -88,6 +88,8 @@ export default function LinksList() {
                 handleConfirm={handleDelete}
                 modalTitle="Confirm Delete"
                 modalText="Are you sure you want to delete this link?"
+                confirmButtonText="Delete"
+                isDeleteModal
             />
             {showEditLinkModal && (
                 <AddEditLinkModal

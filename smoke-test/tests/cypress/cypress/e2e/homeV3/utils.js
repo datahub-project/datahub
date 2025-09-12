@@ -140,7 +140,9 @@ export function createHierarchyModule(name) {
   cy.getWithTestId("add-hierarchy-module").click();
   cy.getWithTestId("hierarchy-module-name").should("be.visible").type(name);
   cy.getWithTestId("hierarchy-module-nodes").should("exist");
-  cy.getWithTestId("hierarchy-selection-checkbox").eq(0).click({ force: true });
+  cy.getWithTestId("hierarchy-selection-checkbox")
+    .first()
+    .click({ force: true });
   cy.getWithTestId("create-update-module-button").click();
 }
 

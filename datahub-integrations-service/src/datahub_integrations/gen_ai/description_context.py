@@ -23,6 +23,8 @@ _MAX_COLUMN_DESCRIPTION_LENGTH = 500
 _MAX_TAG_DESCRIPTION_LENGTH = 500
 _MAX_DOMAIN_DESCRIPTION_LENGTH = 500
 
+_MAX_QUERY_LENGTH = 1500
+
 
 class DescriptionParsingError(Exception):
     pass
@@ -137,6 +139,17 @@ class ColumnMetadataInfo(BaseModel):
     tags: Optional[List[TagInfo]] = None
     glossary_terms: Optional[List[GlossaryTermInfo]] = None
 
+    def minimal_dict(self) -> Dict[str, Any]:
+        out = self.model_dump(exclude_none=True, include={"column_name", "description"})
+        if isPartOfKey := (self.metadata.isPartOfKey if self.metadata else None):
+            out["isPartOfKey"] = isPartOfKey
+
+        if isPartitioningKey := (
+            self.metadata.isPartitioningKey if self.metadata else None
+        ):
+            out["isPartitioningKey"] = isPartitioningKey
+        return out
+
 
 class TableInfo(BaseModel):
     type: Optional[str] = None
@@ -213,7 +226,11 @@ def get_lineage_query(graph_client: DataHubGraph, urn: str) -> Optional[QueryInf
         logger.warning(f"Query properties not found on the query entity {urn}")
         return None
 
-    query = entity["queryProperties"].statement.value
+    query = truncate_with_ellipsis(
+        entity["queryProperties"].statement.value,
+        _MAX_QUERY_LENGTH,
+        suffix="[truncated]",
+    )
     language = entity["queryProperties"].statement.language
 
     return QueryInfo(value=query, language=language)
