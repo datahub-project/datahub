@@ -1,4 +1,5 @@
 import { message } from 'antd';
+import { useEffect, useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -10,10 +11,17 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
     const { urn: entityUrn, entityType } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
+    const [showInAssetPreview, setShowInAssetPreview] = useState(!!selectedLink?.settings?.showInAssetPreview);
 
     const [removeLinkMutation] = useRemoveLinkMutation();
     const [addLinkMutation] = useAddLinkMutation();
     const [updateLinkMutation] = useUpdateLinkMutation();
+
+    useEffect(() => {
+        if (selectedLink) {
+            setShowInAssetPreview(!!selectedLink?.settings?.showInAssetPreview);
+        }
+    }, [selectedLink, selectedLink?.settings?.showInAssetPreview]);
 
     const handleDeleteLink = async () => {
         if (!selectedLink) {
@@ -43,7 +51,12 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
         try {
             await addLinkMutation({
                 variables: {
-                    input: { linkUrl: formValues.url, label: formValues.label, resourceUrn: mutationUrn },
+                    input: {
+                        linkUrl: formValues.url,
+                        label: formValues.label,
+                        resourceUrn: mutationUrn,
+                        settings: { showInAssetPreview },
+                    },
                 },
             });
             message.success({ content: 'Link Added', duration: 2 });
@@ -73,6 +86,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                         resourceUrn: selectedLink.associatedUrn || entityUrn,
                         label: formData.label,
                         linkUrl: formData.url,
+                        settings: { showInAssetPreview },
                     },
                 },
             });
@@ -86,5 +100,5 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
         refetch?.();
     };
 
-    return { handleDeleteLink, handleAddLink, handleUpdateLink };
+    return { handleDeleteLink, handleAddLink, handleUpdateLink, showInAssetPreview, setShowInAssetPreview };
 }
