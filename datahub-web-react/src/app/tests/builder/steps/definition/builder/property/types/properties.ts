@@ -339,7 +339,7 @@ const datasetProps: Property[] = [
         children: [
             {
                 id: 'schemaFields',
-                displayName: 'Columns',
+                displayName: 'Column Names',
                 description: 'The set of columns associated with the dataset.',
                 valueType: ValueTypeId.SCHEMA_FIELD_LIST,
             },
