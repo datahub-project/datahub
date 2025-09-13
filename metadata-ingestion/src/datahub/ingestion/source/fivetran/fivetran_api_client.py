@@ -1395,6 +1395,15 @@ class FivetranAPIClient:
                 logger.info(
                     f"Destination {group_id} has service: {destination_data['service']}"
                 )
+            elif (
+                "config" in destination_data and "service" in destination_data["config"]
+            ):
+                # Extract service from config
+                service = destination_data["config"]["service"]
+                destination_data["service"] = service
+                logger.info(
+                    f"Destination {group_id} has service from config: {service}"
+                )
             else:
                 logger.warning(
                     f"No service field found in destination details for {group_id}"
@@ -1527,7 +1536,9 @@ class FivetranAPIClient:
         destination = self.get_destination_details(group_id)
 
         # Check config for database information
-        config = destination.get("config", {})
+        config_data = destination.get("config", {})
+        # Handle nested config structure from API
+        config = config_data.get("config", config_data)
 
         # Try different fields based on destination type
         service = destination.get("service", "").lower()
@@ -1772,7 +1783,9 @@ class FivetranAPIClient:
         if not connector_id:
             raise ValueError(f"Connector is missing required id field: {api_connector}")
 
-        connector_name = api_connector.get("name", "")
+        connector_name = api_connector.get(
+            "display_name", api_connector.get("name", "")
+        )
         connector_service = api_connector.get("service", "")
         paused = api_connector.get("paused", False)
 

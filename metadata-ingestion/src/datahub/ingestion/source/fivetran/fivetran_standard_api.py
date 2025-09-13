@@ -105,7 +105,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 if not connector_id:
                     continue
 
-                connector_name = api_connector.get("name", "")
+                connector_name = api_connector.get(
+                    "display_name", api_connector.get("name", "")
+                )
 
                 # Apply connector pattern filter (skip explicitly included connectors)
                 explicitly_included = False
@@ -342,7 +344,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
             logger.warning(f"Skipping connector with missing id: {api_connector}")
             return None
 
-        connector_name = api_connector.get("name", "")
+        connector_name = api_connector.get(
+            "display_name", api_connector.get("name", "")
+        )
         if not connector_name:
             connector_name = f"connector-{connector_id}"
 
