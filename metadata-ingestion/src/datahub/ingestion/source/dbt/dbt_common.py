@@ -246,7 +246,7 @@ class DBTEntitiesEnabled(ConfigModel):
         return self.model_performance == EmitDirective.YES
 
 
-class SourcePatternConfig(ConfigModel):
+class MaterializedNodePatternConfig(ConfigModel):
     """Configuration for filtering materialized nodes based on their physical location"""
 
     database_pattern: AllowDenyPattern = Field(
@@ -311,8 +311,8 @@ class DBTCommonConfig(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
     )
-    source_pattern: SourcePatternConfig = Field(
-        default=SourcePatternConfig(),
+    materialized_node_pattern: MaterializedNodePatternConfig = Field(
+        default=MaterializedNodePatternConfig(),
         description="Advanced filtering for materialized nodes based on their physical database location. "
         "Provides fine-grained control over database.schema.table patterns for catalog consistency.",
     )
@@ -1055,25 +1055,30 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _is_allowed_materialized_node(self, node: DBTNode) -> bool:
         """Filter nodes based on their materialized database location for catalog consistency"""
 
-
         # Database level filtering
         if not node.database:
             return True
-        if not self.config.source_pattern.database_pattern.allowed(node.database):
+        if not self.config.materialized_node_pattern.database_pattern.allowed(
+            node.database
+        ):
             return False
 
         # Schema level filtering: {database}.{schema}
         if not node.schema:
             return True
-        if not self.config.source_pattern.schema_pattern.allowed(node._join_parts([node.database, node.schema])):
+        if not self.config.materialized_node_pattern.schema_pattern.allowed(
+            node._join_parts([node.database, node.schema])
+        ):
             return False
 
         # Table level filtering: {database}.{schema}.{table}
         if not node.name:
             return True
-        if not self.config.source_pattern.table_pattern.allowed(node.get_db_fqn()):
+        if not self.config.materialized_node_pattern.table_pattern.allowed(
+            node.get_db_fqn()
+        ):
             return False
-        
+
         return True
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
