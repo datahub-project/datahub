@@ -100,7 +100,7 @@ public class AuthenticationControllerTest {
 
     // Create the controller
     controller = new AuthenticationController(mockConfig);
-    controller.playCookieSessionStore = playCookieSessionStore;
+    controller.sessionStore = playCookieSessionStore;
     controller.ssoManager = ssoManager;
     controller.authClient = authClient;
   }
