@@ -282,7 +282,7 @@ class DbtTestConfig:
             "dbt_test_with_source_schema_pattern_mces_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
-                "source_pattern": {
+                "materialized_node_pattern": {
                     "schema_pattern": {"allow": ["pagila\\.dbt_postgres"]}
                 }
             },
@@ -293,7 +293,7 @@ class DbtTestConfig:
             "dbt_test_with_source_database_pattern_mces_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
-                "source_pattern": {"database_pattern": {"allow": ["pagila"]}}
+                "materialized_node_pattern": {"database_pattern": {"allow": ["pagila"]}}
             },
         ),
         DbtTestConfig(
@@ -305,10 +305,21 @@ class DbtTestConfig:
                 "node_name_pattern": {
                     "deny": ["source.sample_dbt.pagila.payment_p2020_06"]
                 },
-                "source_pattern": {
+                "materialized_node_pattern": {
                     "database_pattern": {"allow": ["pagila"]},
                     "schema_pattern": {"allow": ["pagila\\.dbt_postgres"]},
                 },
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-source-table-pattern",
+            "dbt_test_with_source_table_pattern_mces.json",
+            "dbt_test_with_source_table_pattern_mces_golden.json",
+            manifest_file="dbt_manifest_complex_owner_patterns.json",
+            source_config_modifiers={
+                "materialized_node_pattern": {
+                    "table_pattern": {"allow": ["pagila\\.dbt_postgres\\.customer.*"]}
+                }
             },
         ),
     ],
