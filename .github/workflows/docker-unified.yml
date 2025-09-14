@@ -631,6 +631,7 @@ jobs:
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
+            **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
           retention-days: 5
@@ -702,12 +703,13 @@ jobs:
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
 
-      - name: Login to DockerHub
+      - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -719,7 +721,7 @@ jobs:
       - name: Push images from depot builder
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
-          depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
+          depot bake -f ${{ github.workspace }}/build/bake-spec-saaSImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
             TARGET=$(echo "$line" | jq -r '.target')
             TAG=$(echo "$line" | jq -r '.tags')
 
