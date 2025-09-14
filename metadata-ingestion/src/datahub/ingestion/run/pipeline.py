@@ -553,6 +553,10 @@ class Pipeline:
 
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED
+
+                # Notify reporters BEFORE closing the sink to prevent race condition
+                # where reporters try to submit after sink has shut down
+                self._notify_reporters_on_ingestion_completion()
             except (SystemExit, KeyboardInterrupt) as e:
                 self.final_status = PipelineStatus.CANCELLED
                 logger.error("Caught error", exc_info=e)
@@ -562,9 +566,6 @@ class Pipeline:
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-
-        # This can't be in the finally part because this should happen after context manager exists
-        self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
