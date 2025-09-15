@@ -307,9 +307,10 @@ class Neo4jSource(StatefulIngestionSourceBase):
                     self.report.obj_failures += 1
 
             except Exception as e:
-                log.error(f"Failed to process row {row['key']}: {str(e)}")
-                self.report.report_failure(
-                    message="Error processing Neo4j metadata",
+                log.warning(f"Failed to process row {row['key']}: {str(e)}")
+                self.report.report_warning(
+                    title="Error processing Neo4j metadata",
+                    message="Some entities will be missed",
                     context=row["key"],
                     exc=e,
                 )
