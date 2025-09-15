@@ -587,6 +587,7 @@ class BigQuerySchemaApi:
         run_optimized_column_query: bool = False,
         extract_policy_tags_from_catalog: bool = False,
         rate_limiter: Optional[RateLimiter] = None,
+        skip_schema_errors: bool = True,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         with PerfTimer() as timer:
@@ -605,12 +606,35 @@ class BigQuerySchemaApi:
                     ),
                 )
             except Exception as e:
-                report.warning(
-                    title="Failed to retrieve columns for dataset",
-                    message="Query to get columns for dataset failed with exception",
-                    context=f"{project_id}.{dataset_name}",
-                    exc=e,
+                # Check if this is a schema-related error
+                error_str = str(e).lower()
+                is_schema_error = (
+                    "does not have a schema" in error_str
+                    or "table not found" in error_str
+                    or "dataset not found" in error_str
                 )
+
+                if is_schema_error and skip_schema_errors:
+                    report.warning(
+                        title="Dataset schema unavailable",
+                        message="Dataset schema could not be retrieved due to missing or invalid schema, but continuing with dataset processing",
+                        context=f"{project_id}.{dataset_name}",
+                        exc=e,
+                    )
+                elif is_schema_error and not skip_schema_errors:
+                    report.failure(
+                        title="Dataset schema unavailable",
+                        message="Dataset schema could not be retrieved and skip_schema_errors is False",
+                        context=f"{project_id}.{dataset_name}",
+                        exc=e,
+                    )
+                else:
+                    report.warning(
+                        title="Failed to retrieve columns for dataset",
+                        message="Query to get columns for dataset failed with exception",
+                        context=f"{project_id}.{dataset_name}",
+                        exc=e,
+                    )
                 return None
 
             last_seen_table: str = ""
