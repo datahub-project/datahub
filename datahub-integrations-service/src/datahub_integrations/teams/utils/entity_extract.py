@@ -4,47 +4,7 @@ from typing import Dict, List, Optional
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
-from datahub_integrations.app import DATAHUB_FRONTEND_URL
 from datahub_integrations.graphql.slack import SLACK_GET_ENTITY_QUERY
-
-
-def get_type_url(entity_type: Optional[str], urn: Optional[str]) -> Optional[str]:
-    """
-    Generate a DataHub frontend URL for an entity.
-
-    Args:
-        entity_type: The type of entity (e.g., 'DATASET', 'CHART')
-        urn: The entity URN
-
-    Returns:
-        The frontend URL for the entity
-    """
-
-    if not entity_type or not urn:
-        return None
-
-    # Map entity types to frontend paths
-    type_to_path = {
-        "DATASET": "dataset",
-        "CHART": "chart",
-        "DASHBOARD": "dashboard",
-        "DATA_JOB": "dataJob",
-        "DATA_FLOW": "dataFlow",
-        "CONTAINER": "container",
-        "DOMAIN": "domain",
-        "DATA_PRODUCT": "dataProduct",
-        "GLOSSARY_TERM": "glossaryTerm",
-        "GLOSSARY_NODE": "glossaryNode",
-        "TAG": "tag",
-        "CORP_USER": "user",
-        "CORP_GROUP": "group",
-    }
-
-    path = type_to_path.get(entity_type)
-    if not path:
-        return None
-
-    return f"{DATAHUB_FRONTEND_URL}/{path}/{urn}?is_lineage_mode=false"
 
 
 class ExtractedEntity:
@@ -76,7 +36,9 @@ class ExtractedEntity:
         entity_type = self.type
         urn = self.urn
         if entity_type is not None and urn is not None:
-            return get_type_url(entity_type, urn)
+            import datahub_integrations.teams.url_utils as url_utils
+
+            return url_utils.get_type_url(entity_type, urn)
         return None
 
 
@@ -184,7 +146,7 @@ def extract_entities_from_response(response_text: str) -> List[dict]:
 
         if entity_type:
             # Generate URL from URN for consistency with URL-based entities
-            from datahub_integrations.teams.utils.entity_extract import get_type_url
+            import datahub_integrations.teams.url_utils as url_utils
 
             # Map display names back to internal type names for URL generation
             type_mapping = {
@@ -204,7 +166,7 @@ def extract_entities_from_response(response_text: str) -> List[dict]:
             }
 
             internal_type = type_mapping.get(entity_type)
-            url = get_type_url(internal_type, urn) if internal_type else None
+            url = url_utils.get_type_url(internal_type, urn) if internal_type else None
 
             entity_data = {
                 "name": name,

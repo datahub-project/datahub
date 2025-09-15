@@ -68,12 +68,6 @@ class DataHubBotAdapter:
         self._adapter = BotFrameworkAdapter(settings)
         self._initialized = True
 
-        # Initialize bot name with app_id - will be updated with display name on first message
-        self._bot.set_bot_name_from_config(app_details.app_id)
-        logger.info(
-            "📝 Bot initialized with app_id - display name will be updated from first message"
-        )
-
         logger.info("Bot Framework adapter initialized successfully")
 
     async def process_request(self, request: Request) -> Response:

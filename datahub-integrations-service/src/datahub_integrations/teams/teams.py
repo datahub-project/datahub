@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import fastapi
 import httpx
+from cachetools import TTLCache
 from fastapi import HTTPException, Request, status
 from fastapi.responses import Response
 from loguru import logger
@@ -24,15 +25,26 @@ from datahub_integrations.teams.exceptions import (
 )
 from datahub_integrations.teams.render.render_entity import render_entity_card
 from datahub_integrations.teams.search import SearchResponse, get_search_service
-from datahub_integrations.teams.utils.urls import extract_urn_from_url
+from datahub_integrations.teams.url_utils import extract_urn_from_url
 
 public_router = fastapi.APIRouter()
 private_router = fastapi.APIRouter()
 
+# TTL Configuration for Teams message update locks
+TEAMS_LOCK_CACHE_TTL_SECONDS_ENV_VAR = (
+    "INTEGRATION_SERVICE_TEAMS_LOCK_CACHE_TTL_SECONDS"
+)
+TEAMS_LOCK_CACHE_TTL_SECONDS_VALUE: int = int(
+    os.getenv(TEAMS_LOCK_CACHE_TTL_SECONDS_ENV_VAR) or "60"  # 1 minute default
+)
+TEAMS_LOCK_CACHE_MAX_SIZE = 100
 
-# Global dictionary to track locks for Teams message updates
+# TTL-based cache to track locks for Teams message updates
 # This prevents race conditions when multiple updates happen to the same message
-_message_update_locks: Dict[str, asyncio.Lock] = {}
+# Locks are automatically cleaned up after TTL to prevent memory leaks
+_message_update_locks: TTLCache[str, asyncio.Lock] = TTLCache(
+    maxsize=TEAMS_LOCK_CACHE_MAX_SIZE, ttl=TEAMS_LOCK_CACHE_TTL_SECONDS_VALUE
+)
 
 # Global set to track messages that have received their final response
 # Progress updates for these messages should be dropped
@@ -51,8 +63,17 @@ def is_message_finalized(activity_id: str) -> bool:
 
 
 def get_conversation_id(activity: "TeamsActivity") -> Optional[str]:
-    """Extract conversation ID from Teams activity."""
-    return activity.conversation.get("id") if activity.conversation else None
+    """Extract conversation ID from Teams activity (thread-aware for channels)."""
+    from datahub_integrations.teams.conversation_utils import get_teams_conversation_id
+
+    # Convert TeamsActivity to Bot Framework Activity-like object for compatibility
+    class ActivityLike:
+        def __init__(self, teams_activity: Any) -> None:
+            self.conversation = teams_activity.conversation
+            self.channel_data = getattr(teams_activity, "channel_data", None)
+
+    activity_like = ActivityLike(activity)
+    return get_teams_conversation_id(activity_like)
 
 
 async def safe_send_teams_message(
@@ -135,6 +156,7 @@ async def safe_update_teams_progress_message(
 
 def cleanup_message_state(activity_id: str) -> None:
     """Clean up message-specific state."""
+    # TTL cache will automatically clean up locks, but we can manually remove if needed
     if activity_id in _message_update_locks:
         del _message_update_locks[activity_id]
     _finalized_messages.discard(activity_id)
@@ -1125,10 +1147,10 @@ async def handle_personal_notifications_oauth(
     try:
         # Get app credentials
         app_id = os.environ.get("DATAHUB_TEAMS_APP_ID")
-        app_secret = os.environ.get("DATAHUB_TEAMS_APP_SECRET")
+        app_secret = os.environ.get("DATAHUB_TEAMS_APP_PASSWORD")
         if not app_id or not app_secret:
             raise TeamsOAuthException(
-                message="DATAHUB_TEAMS_APP_ID or DATAHUB_TEAMS_APP_SECRET environment variables not configured",
+                message="DATAHUB_TEAMS_APP_ID or DATAHUB_TEAMS_APP_PASSWORD environment variables not configured",
                 error_code=TeamsErrorCodes.MISSING_APP_CREDENTIALS,
                 redirect_url=redirect_url,
                 user_friendly_message="Teams integration is not properly configured. Please contact your administrator.",

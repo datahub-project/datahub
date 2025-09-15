@@ -42,14 +42,7 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetLineageCountsQuery } from '@graphql/lineage.generated';
 import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
-import {
-    Assertion,
-    DataHubPageModuleType,
-    DataHubSubscription,
-    EntityType,
-    NotificationSinkType,
-    TeamsNotificationSettingsInput,
-} from '@types';
+import { Assertion, DataHubPageModuleType, DataHubSubscription, EntityType, NotificationSinkType } from '@types';
 
 const SubscribeDrawer = styled(Drawer)`
     .ant-drawer-body {
@@ -276,14 +269,9 @@ const SubscriptionDrawerContent = ({
                 newEmailSettings = emailChannel ? { email: emailChannel } : undefined;
             }
 
-            // Teams settings - never save to personal settings, only for this subscription
-            // Use empty settings since we don't save as default anymore
-            const newTeamsSettings: TeamsNotificationSettingsInput = {};
-
             updateSinkSettings({
                 slackSettings: newSlackSettings,
                 emailSettings: newEmailSettings,
-                teamsSettings: newTeamsSettings,
                 sinkTypes: newSinkTypes || [],
             });
         }

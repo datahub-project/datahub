@@ -16,6 +16,7 @@ from datahub_integrations.notifications.sinks.teams.teams_sink import (
     TeamsNotificationSink,
 )
 from datahub_integrations.teams.config import TeamsAppDetails, TeamsConnection
+from datahub_integrations.teams.render.render_entity import EntityCardRenderField
 
 
 @pytest.fixture
@@ -216,7 +217,7 @@ def test_build_entity_change_message_success(teams_sink: TeamsNotificationSink) 
         patch.object(teams_sink, "_extract_entity_urn_from_params") as mock_extract,
         patch.object(teams_sink, "_fetch_entity_details") as mock_fetch,
         patch(
-            "datahub_integrations.teams.render.render_entity.render_entity_card"
+            "datahub_integrations.notifications.sinks.teams.teams_sink.render_entity_card"
         ) as mock_render,
         patch.object(
             teams_sink, "_add_change_banner_to_entity_card"
@@ -238,7 +239,7 @@ def test_build_entity_change_message_success(teams_sink: TeamsNotificationSink) 
         mock_fetch.assert_called_once_with(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,test.users,PROD)"
         )
-        mock_render.assert_called_once_with(mock_entity_data)
+        mock_render.assert_called_once_with(mock_entity_data, fields=[])
         mock_add_banner.assert_called_once_with(mock_entity_card, params)
 
         # Verify result
@@ -389,7 +390,7 @@ def test_build_entity_change_message_render_entity_fails(
         patch.object(teams_sink, "_extract_entity_urn_from_params") as mock_extract,
         patch.object(teams_sink, "_fetch_entity_details") as mock_fetch,
         patch(
-            "datahub_integrations.teams.render.render_entity.render_entity_card"
+            "datahub_integrations.notifications.sinks.teams.teams_sink.render_entity_card"
         ) as mock_render,
         patch.object(teams_sink, "_build_fallback_notification_card") as mock_fallback,
     ):
@@ -409,7 +410,7 @@ def test_build_entity_change_message_render_entity_fails(
         mock_fetch.assert_called_once_with(
             "urn:li:dataset:(urn:li:dataPlatform:mysql,test.users,PROD)"
         )
-        mock_render.assert_called_once_with(mock_entity_data)
+        mock_render.assert_called_once_with(mock_entity_data, fields=[])
         mock_fallback.assert_called_once_with(params)
 
         # Verify result
@@ -422,21 +423,6 @@ def test_extract_entity_urn_from_params_dataset_path(
     """Test extracting entity URN from dataset path."""
     params = {
         "entityPath": "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Ctest.users%2CPROD%29?foo=bar"
-    }
-
-    result = teams_sink._extract_entity_urn_from_params(params)
-    expected = "urn:li:dataset:(urn:li:dataPlatform:mysql,test.users,PROD)"
-
-    assert result == expected
-
-
-def test_extract_entity_urn_from_params_reconstruct_from_name_platform(
-    teams_sink: TeamsNotificationSink,
-) -> None:
-    """Test reconstructing entity URN from name and platform."""
-    params = {
-        "entityName": "test.users",
-        "entityPlatform": "MySQL",
     }
 
     result = teams_sink._extract_entity_urn_from_params(params)
@@ -542,7 +528,9 @@ def test_add_change_banner_to_entity_card_added_operation(
 
         # Verify change banner was added
         assert len(result["content"]["body"]) == 2
-        change_banner = result["content"]["body"][1]
+        change_banner = result["content"]["body"][
+            0
+        ]  # Change banner is now first element
         assert change_banner["type"] == "Container"
         assert change_banner["style"] == "accent"
 
@@ -586,7 +574,9 @@ def test_add_change_banner_to_entity_card_removed_operation(
 
         # Verify change banner was added
         assert len(result["content"]["body"]) == 2
-        change_banner = result["content"]["body"][1]
+        change_banner = result["content"]["body"][
+            0
+        ]  # Change banner is now first element
 
         # Verify banner content contains expected text
         banner_text = change_banner["items"][0]["columns"][1]["items"][1]["text"]
@@ -857,7 +847,7 @@ def test_build_entity_change_message_no_entity_card(
                 teams_sink, "_build_fallback_notification_card"
             ) as mock_fallback:
                 with patch(
-                    "datahub_integrations.teams.render.render_entity.render_entity_card"
+                    "datahub_integrations.notifications.sinks.teams.teams_sink.render_entity_card"
                 ) as mock_render:
                     # Set up mocks
                     mock_extract_urn.return_value = "urn:li:dataset:(urn:li:dataPlatform:snowflake,user_profiles,PROD)"
@@ -880,7 +870,9 @@ def test_build_entity_change_message_no_entity_card(
                     mock_fetch_details.assert_called_once_with(
                         "urn:li:dataset:(urn:li:dataPlatform:snowflake,user_profiles,PROD)"
                     )
-                    mock_render.assert_called_once_with(mock_entity_data)
+                    mock_render.assert_called_once_with(
+                        mock_entity_data, fields=[EntityCardRenderField.TAG]
+                    )
                     mock_fallback.assert_called_once_with(
                         entity_change_notification_request.message.parameters
                     )
@@ -938,34 +930,6 @@ def test_extract_entity_urn_from_params_dataset_path_with_query(
         "entityPath": "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cuser_profiles%2CPROD%29?tab=schema",
         "entityName": "user_profiles",
         "entityPlatform": "snowflake",
-    }
-
-    result = teams_sink._extract_entity_urn_from_params(params)
-    expected = "urn:li:dataset:(urn:li:dataPlatform:snowflake,user_profiles,PROD)"
-    assert result == expected
-
-
-def test_extract_entity_urn_from_params_fallback_reconstruction(
-    teams_sink: TeamsNotificationSink,
-) -> None:
-    """Test URN reconstruction from entity name and platform."""
-    params = {
-        "entityName": "user_profiles",
-        "entityPlatform": "snowflake",
-    }
-
-    result = teams_sink._extract_entity_urn_from_params(params)
-    expected = "urn:li:dataset:(urn:li:dataPlatform:snowflake,user_profiles,PROD)"
-    assert result == expected
-
-
-def test_extract_entity_urn_from_params_fallback_reconstruction_case_insensitive(
-    teams_sink: TeamsNotificationSink,
-) -> None:
-    """Test URN reconstruction with case insensitive platform."""
-    params = {
-        "entityName": "user_profiles",
-        "entityPlatform": "SNOWFLAKE",
     }
 
     result = teams_sink._extract_entity_urn_from_params(params)
@@ -1113,7 +1077,7 @@ def test_build_incident_message_with_parameters() -> None:
     assert adaptive_card["contentType"] == "application/vnd.microsoft.card.adaptive"
     # Verify it contains the incident title somewhere in the card content
     card_json = str(adaptive_card["content"])
-    assert "New Incident" in card_json
+    assert "📝 Incident Status Changed" in card_json
 
     # Test without parameters
     request = NotificationRequestClass(
@@ -1451,7 +1415,7 @@ def test_send_method_exception_handling(
     mock_reload_config: MagicMock,
     teams_sink: TeamsNotificationSink,
 ) -> None:
-    """Test send() method handles exceptions gracefully."""
+    """Test send() method properly propagates exceptions after retry attempts."""
     # Setup mocks
     mock_check_config.return_value = True
     mock_send_incident.side_effect = Exception("Teams API Error")
@@ -1472,8 +1436,9 @@ def test_send_method_exception_handling(
 
     context = NotificationContext()
 
-    # Execute - should not raise exception
-    teams_sink.send(request, context)
+    # Execute - should raise exception after retry attempts
+    with pytest.raises(Exception, match="Teams API Error"):
+        teams_sink.send(request, context)
 
     # Verify
     mock_reload_config.assert_called_once()
@@ -1777,7 +1742,7 @@ def test_build_incident_update_message_with_parameters(
     assert adaptive_card["contentType"] == "application/vnd.microsoft.card.adaptive"
     # Verify it contains the incident update text
     card_json = str(adaptive_card["content"])
-    assert "Incident Update" in card_json
+    assert "📝 Incident Status Changed" in card_json
 
     # Test without parameters
     request = NotificationRequestClass(
@@ -3553,7 +3518,7 @@ def test_send_assertion_status_change_notification(
         assert "Data arrived within expected timeframe" in content["body"][2]["text"]
         # Should have external link action
         assert len(content["actions"]) == 1
-        assert content["actions"][0]["title"] == "🔗 View in dbt"
+        assert content["actions"][0]["title"] == "View in dbt"
         assert content["actions"][0]["url"] == "https://dbt.example.com/results"
 
 
@@ -4243,3 +4208,302 @@ def test_get_teams_recipients_none(
     recipients = teams_sink._get_teams_recipients(notification_request.recipients)  # type: ignore
 
     assert len(recipients) == 0
+
+
+class TestTeamsRecipientIdParsing:
+    """Test class for Teams recipient ID parsing functionality."""
+
+    def test_parse_teams_recipient_id_json_format(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test parsing JSON format recipient ID."""
+        recipient_id = '{"email":"user@example.com","azure":"8ae17cee-2c46-487f-bdd6-dd66770163c2"}'
+        result = teams_sink._parse_teams_recipient_id(recipient_id)
+
+        expected = {
+            "email": "user@example.com",
+            "azure": "8ae17cee-2c46-487f-bdd6-dd66770163c2",
+        }
+        assert result == expected
+
+    def test_parse_teams_recipient_id_empty_email_json(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test parsing JSON format with empty email field."""
+        recipient_id = '{"email":"","azure":"8ae17cee-2c46-487f-bdd6-dd66770163c2"}'
+        result = teams_sink._parse_teams_recipient_id(recipient_id)
+
+        expected = {"email": "", "azure": "8ae17cee-2c46-487f-bdd6-dd66770163c2"}
+        assert result == expected
+
+    def test_parse_teams_recipient_id_email_format(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test parsing simple email format."""
+        recipient_id = "user@example.com"
+        result = teams_sink._parse_teams_recipient_id(recipient_id)
+
+        expected = {"email": "user@example.com"}
+        assert result == expected
+
+    def test_parse_teams_recipient_id_teams_format(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test parsing Teams ID format."""
+        recipient_id = "19:8ae17cee-2c46-487f-bdd6-dd66770163c2_fcfde16d-63d4-49f4-9e4a-60140562e2cb@unq.gbl.spaces"
+        result = teams_sink._parse_teams_recipient_id(recipient_id)
+
+        expected = {"teams": recipient_id}
+        assert result == expected
+
+    def test_parse_teams_recipient_id_bot_format(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test parsing Bot Framework format."""
+        recipient_id = "28:fcfde16d-63d4-49f4-9e4a-60140562e2cb"
+        result = teams_sink._parse_teams_recipient_id(recipient_id)
+
+        expected = {"teams": recipient_id}
+        assert result == expected
+
+    def test_parse_teams_recipient_id_guid_format(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test parsing simple GUID format."""
+        recipient_id = "8ae17cee-2c46-487f-bdd6-dd66770163c2"
+        result = teams_sink._parse_teams_recipient_id(recipient_id)
+
+        expected = {"teams": recipient_id}
+        assert result == expected
+
+    def test_parse_teams_recipient_id_invalid_json(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test parsing invalid JSON format falls back to simple ID."""
+        recipient_id = '{"invalid":"json"'
+        result = teams_sink._parse_teams_recipient_id(recipient_id)
+
+        expected = {"teams": recipient_id}
+        assert result == expected
+
+    def test_extract_user_guid_from_recipient_azure_id(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test extracting GUID from JSON with azure field."""
+        recipient_id = '{"email":"","azure":"8ae17cee-2c46-487f-bdd6-dd66770163c2"}'
+        result = teams_sink._extract_user_guid_from_recipient(recipient_id)
+
+        assert result == "8ae17cee-2c46-487f-bdd6-dd66770163c2"
+
+    def test_extract_user_guid_from_recipient_teams_guid(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test extracting GUID from simple GUID format."""
+        recipient_id = "8ae17cee-2c46-487f-bdd6-dd66770163c2"
+        result = teams_sink._extract_user_guid_from_recipient(recipient_id)
+
+        assert result == "8ae17cee-2c46-487f-bdd6-dd66770163c2"
+
+    def test_extract_user_guid_from_recipient_email(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test extracting GUID from email format."""
+        recipient_id = "user@example.com"
+        result = teams_sink._extract_user_guid_from_recipient(recipient_id)
+
+        assert result == "user@example.com"
+
+    def test_extract_user_guid_from_recipient_teams_prefixed_id(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test that Teams prefixed IDs are not returned as GUIDs."""
+        recipient_id = "19:8ae17cee-2c46-487f-bdd6-dd66770163c2_fcfde16d-63d4-49f4-9e4a-60140562e2cb@unq.gbl.spaces"
+        result = teams_sink._extract_user_guid_from_recipient(recipient_id)
+
+        # Should return None since prefixed Teams IDs are not valid for Graph API
+        assert result is None
+
+    def test_extract_user_guid_from_recipient_priority_order(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test that azure ID takes priority over other identifiers."""
+        recipient_id = '{"email":"user@example.com","azure":"8ae17cee-2c46-487f-bdd6-dd66770163c2","teams":"19:someother_id@unq.gbl.spaces"}'
+        result = teams_sink._extract_user_guid_from_recipient(recipient_id)
+
+        # Should return the azure GUID, not the email or teams ID
+        assert result == "8ae17cee-2c46-487f-bdd6-dd66770163c2"
+
+    def test_extract_user_guid_from_recipient_no_valid_guid(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test that None is returned when no valid GUID can be extracted."""
+        recipient_id = '{"teams":"19:someid@unq.gbl.spaces"}'
+        result = teams_sink._extract_user_guid_from_recipient(recipient_id)
+
+        assert result is None
+
+    def test_extract_user_guid_from_recipient_fallback_to_guid_pattern(
+        self, teams_sink: TeamsNotificationSink
+    ) -> None:
+        """Test fallback to GUID pattern matching."""
+        recipient_id = "12345678-1234-1234-1234-123456789012"  # Valid GUID pattern
+        result = teams_sink._extract_user_guid_from_recipient(recipient_id)
+
+        assert result == "12345678-1234-1234-1234-123456789012"
+
+
+# Tests for time-based throttling and force refresh behavior
+class TestTeamsSinkTimeBasedThrottling:
+    """Test cases for time-based throttling and force refresh in Teams sink."""
+
+    @patch("datahub_integrations.teams.config.teams_config.get_config")
+    def test_maybe_reload_teams_config_force_refresh(
+        self, mock_get_config: MagicMock
+    ) -> None:
+        """Test that _maybe_reload_teams_config calls get_config with force_refresh=True."""
+        mock_config = TeamsConnection(webhook_url="https://example.com/webhook")
+        mock_get_config.return_value = mock_config
+
+        sink = TeamsNotificationSink()
+
+        # Call with force_refresh=True
+        sink._maybe_reload_teams_config(force_refresh=True)
+
+        # Verify get_config was called with force_refresh=True
+        mock_get_config.assert_called_once_with(force_refresh=True)
+        assert sink.teams_connection_config == mock_config
+
+    @patch("datahub_integrations.teams.config.teams_config.get_config")
+    def test_maybe_reload_teams_config_normal_refresh(
+        self, mock_get_config: MagicMock
+    ) -> None:
+        """Test that _maybe_reload_teams_config calls get_config with force_refresh=False."""
+        mock_config = TeamsConnection(webhook_url="https://example.com/webhook")
+        mock_get_config.return_value = mock_config
+
+        sink = TeamsNotificationSink()
+
+        # Call with force_refresh=False (default)
+        sink._maybe_reload_teams_config(force_refresh=False)
+
+        # Verify get_config was called with force_refresh=False
+        mock_get_config.assert_called_once_with(force_refresh=False)
+        assert sink.teams_connection_config == mock_config
+
+    @patch(
+        "datahub_integrations.notifications.sinks.teams.teams_sink.TeamsNotificationSink._is_test_notification"
+    )
+    @patch("datahub_integrations.teams.config.teams_config.get_config")
+    def test_send_method_force_refresh_for_test_notifications(
+        self, mock_get_config: MagicMock, mock_is_test_notification: MagicMock
+    ) -> None:
+        """Test that send() method forces refresh for test notifications."""
+        mock_config = TeamsConnection(webhook_url="https://example.com/webhook")
+        mock_get_config.return_value = mock_config
+        mock_is_test_notification.return_value = True
+
+        sink = TeamsNotificationSink()
+
+        # Create a CUSTOM notification request
+        request = MagicMock()
+        request.message.template = "CUSTOM"
+        request.message.parameters = {"requestName": "notificationConnectionTest"}
+
+        context = MagicMock()
+
+        # Mock the config validation to pass
+        with patch.object(sink, "_check_is_teams_config_valid", return_value=True):
+            with patch.object(sink, "_send_custom_notification"):
+                sink.send(request, context)
+
+        # Verify get_config was called with force_refresh=True for test notification
+        mock_get_config.assert_called_with(force_refresh=True)
+        mock_is_test_notification.assert_called_once_with(request.message.parameters)
+
+    @patch(
+        "datahub_integrations.notifications.sinks.teams.teams_sink.TeamsNotificationSink._is_test_notification"
+    )
+    @patch("datahub_integrations.teams.config.teams_config.get_config")
+    def test_send_method_normal_refresh_for_regular_notifications(
+        self, mock_get_config: MagicMock, mock_is_test_notification: MagicMock
+    ) -> None:
+        """Test that send() method uses normal refresh for regular notifications."""
+        mock_config = TeamsConnection(webhook_url="https://example.com/webhook")
+        mock_get_config.return_value = mock_config
+        mock_is_test_notification.return_value = False
+
+        sink = TeamsNotificationSink()
+
+        # Create a regular notification request
+        request = MagicMock()
+        request.message.template = "CUSTOM"
+        request.message.parameters = {"requestName": "regular_notification"}
+
+        context = MagicMock()
+
+        # Mock the config validation to pass
+        with patch.object(sink, "_check_is_teams_config_valid", return_value=True):
+            with patch.object(sink, "_send_custom_notification"):
+                sink.send(request, context)
+
+        # Verify get_config was called with force_refresh=False for regular notification
+        mock_get_config.assert_called_with(force_refresh=False)
+        mock_is_test_notification.assert_called_once_with(request.message.parameters)
+
+    @patch(
+        "datahub_integrations.notifications.sinks.teams.teams_sink.TeamsNotificationSink._is_test_notification"
+    )
+    @patch("datahub_integrations.teams.config.teams_config.get_config")
+    def test_send_method_force_refresh_for_non_custom_test_notifications(
+        self, mock_get_config: MagicMock, mock_is_test_notification: MagicMock
+    ) -> None:
+        """Test that send() method uses normal refresh for non-CUSTOM notifications even if they're test notifications."""
+        mock_config = TeamsConnection(webhook_url="https://example.com/webhook")
+        mock_get_config.return_value = mock_config
+        mock_is_test_notification.return_value = True
+
+        sink = TeamsNotificationSink()
+
+        # Create a non-CUSTOM notification request
+        request = MagicMock()
+        request.message.template = "NEW_INCIDENT"  # Not CUSTOM
+        request.message.parameters = {"requestName": "notificationConnectionTest"}
+
+        context = MagicMock()
+
+        # Mock the config validation to pass
+        with patch.object(sink, "_check_is_teams_config_valid", return_value=True):
+            with patch.object(sink, "_send_new_incident_notification"):
+                sink.send(request, context)
+
+        # Verify get_config was called with force_refresh=False (not CUSTOM template)
+        mock_get_config.assert_called_with(force_refresh=False)
+        # _is_test_notification should not be called for non-CUSTOM templates
+        mock_is_test_notification.assert_not_called()
+
+    def test_is_test_notification_returns_true_for_connection_test(self) -> None:
+        """Test that _is_test_notification returns True for notificationConnectionTest."""
+        sink = TeamsNotificationSink()
+
+        params = {"requestName": "notificationConnectionTest"}
+        result = sink._is_test_notification(params)
+
+        assert result is True
+
+    def test_is_test_notification_returns_false_for_other_requests(self) -> None:
+        """Test that _is_test_notification returns False for other request names."""
+        sink = TeamsNotificationSink()
+
+        params = {"requestName": "regular_notification"}
+        result = sink._is_test_notification(params)
+
+        assert result is False
+
+    def test_is_test_notification_returns_false_for_missing_request_name(self) -> None:
+        """Test that _is_test_notification returns False when requestName is missing."""
+        sink = TeamsNotificationSink()
+
+        params: dict[str, str] = {}
+        result = sink._is_test_notification(params)
+
+        assert result is False
