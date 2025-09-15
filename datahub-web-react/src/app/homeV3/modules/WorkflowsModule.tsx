@@ -15,7 +15,7 @@ import {
 } from '@app/workflows/hooks/useListActionWorkflows';
 
 import { ActionWorkflowFragment } from '@graphql/actionWorkflow.generated';
-import { ActionWorkflowCategory, EntityType } from '@types';
+import { ActionWorkflowCategory } from '@types';
 
 const WorkflowItem = styled.div`
     display: flex;
