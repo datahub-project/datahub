@@ -1,0 +1,7 @@
+{"query": "SELECT * FROM snowflake.db.users WHERE active = true", "timestamp": 1609459200, "user": "etl_job", "operation_type": "SELECT"}
+{"query": "INSERT INTO snowflake.db.user_activity SELECT user_id, 'login' as action, NOW() as timestamp FROM snowflake.db.users WHERE last_login > '2021-01-01'", "timestamp": 1609459260, "user": "etl_job", "operation_type": "INSERT"}
+{"query": "SELECT COUNT(*) as total_users FROM snowflake.db.users", "timestamp": 1609459320, "user": "analyst", "operation_type": "SELECT"}
+{"query": "UPDATE snowflake.db.users SET last_seen = NOW() WHERE user_id IN (SELECT user_id FROM snowflake.db.user_activity WHERE action = 'login')", "timestamp": 1609459380, "user": "etl_job", "operation_type": "UPDATE"}
+{"query": "SELECT u.user_id, u.email, COUNT(a.action) as activity_count FROM snowflake.db.users u LEFT JOIN snowflake.db.user_activity a ON u.user_id = a.user_id GROUP BY u.user_id, u.email", "timestamp": 1609459440, "user": "analyst", "operation_type": "SELECT"}
+{"query": "DELETE FROM snowflake.db.user_activity WHERE timestamp < '2020-12-01'", "timestamp": 1609459500, "user": "cleanup_job", "operation_type": "DELETE"}
+

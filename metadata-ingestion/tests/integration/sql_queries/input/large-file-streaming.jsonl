@@ -1,0 +1,16 @@
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 1", "timestamp": 1609459200, "user": "user_1", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 2", "timestamp": 1609459201, "user": "user_2", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 3", "timestamp": 1609459202, "user": "user_3", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 4", "timestamp": 1609459203, "user": "user_4", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 5", "timestamp": 1609459204, "user": "user_5", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 6", "timestamp": 1609459205, "user": "user_6", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 7", "timestamp": 1609459206, "user": "user_7", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 8", "timestamp": 1609459207, "user": "user_8", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 9", "timestamp": 1609459208, "user": "user_9", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 10", "timestamp": 1609459209, "user": "user_10", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 11", "timestamp": 1609459210, "user": "user_11", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 12", "timestamp": 1609459211, "user": "user_12", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 13", "timestamp": 1609459212, "user": "user_13", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 14", "timestamp": 1609459213, "user": "user_14", "operation_type": "SELECT"}
+{"query": "SELECT * FROM snowflake.db.users WHERE user_id = 15", "timestamp": 1609459214, "user": "user_15", "operation_type": "SELECT"}
+

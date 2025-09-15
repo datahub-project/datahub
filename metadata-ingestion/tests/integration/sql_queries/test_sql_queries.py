@@ -74,6 +74,27 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
             "input/patch-lineage.yml",
             "golden/patch-lineage.json",
         ),
+        # New enhancement tests
+        (
+            "input/lazy-schema-loading.yml",
+            "golden/lazy-schema-loading.json",
+        ),
+        (
+            "input/streaming-processing.yml",
+            "golden/streaming-processing.json",
+        ),
+        (
+            "input/temp-table-patterns.yml",
+            "golden/temp-table-patterns.json",
+        ),
+        (
+            "input/combined-optimizations.yml",
+            "golden/combined-optimizations.json",
+        ),
+        (
+            "input/large-file-streaming.yml",
+            "golden/large-file-streaming.json",
+        ),
     ],
 )
 def test_sql_queries_ingestion(tmp_path, pytestconfig, recipe_file, golden_file):

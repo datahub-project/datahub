@@ -1,0 +1,15 @@
+source:
+  type: sql-queries
+  config:
+    query_file: ./input/lazy-schema-loading.jsonl
+    platform: snowflake
+    lazy_schema_resolver: true
+    use_schema_resolver: true
+
+sink:
+  type: file
+  config:
+    filename: ./output.json
+
+datahub_api:
+  server: http://localhost:8080
