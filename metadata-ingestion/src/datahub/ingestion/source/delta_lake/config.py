@@ -13,8 +13,8 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
 )
 
 # hide annoying debug errors from py4j
@@ -41,7 +41,7 @@ class S3(ConfigModel):
 class DeltaLakeSourceConfig(
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
-    StatefulIngestionConfigBase,
+    StatefulStaleMetadataRemovalConfig,
 ):
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
@@ -79,6 +79,11 @@ class DeltaLakeSourceConfig(
     )
 
     s3: Optional[S3] = Field(None)
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
+        default=None,
+        description="Stateful Ingestion Config with stale metadata removal",
+    )
 
     @cached_property
     def is_s3(self):
