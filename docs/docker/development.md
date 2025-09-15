@@ -31,7 +31,6 @@ Once the `debug` docker images are constructed you'll see images similar to the 
 
 ```shell
 acryldata/datahub-frontend-react                 debug              e52fef698025   28 minutes ago   763MB
-acryldata/datahub-kafka-setup                    debug              3375aaa2b12d   55 minutes ago   659MB
 acryldata/datahub-gms                            debug              ea2b0a8ea115   56 minutes ago   408MB
 acryldata/datahub-upgrade                       debug              322377a7a21d   56 minutes ago   463MB
 acryldata/datahub-mysql-setup                   debug              17768edcc3e5   2 hours ago      58.2MB
@@ -40,8 +39,8 @@ acryldata/datahub-elasticsearch-setup            debug              4d935be7c62c
 
 At this point it is possible to view the DataHub UI at `http://localhost:9002` as you normally would with quickstart.
 
-Like `quickStartDebug`, there are a few other tasks that bring up a different set of containers, for example
-`quickStartDebugConsumers` will also bring up mce-consumer and mae-consumer.
+Like `quickstartDebug`, there are a few other tasks that bring up a different set of containers, for example
+`quickstartDebugConsumers` will also bring up mce-consumer and mae-consumer.
 
 ## Reloading
 
@@ -56,13 +55,13 @@ The restart can be performed using following gradle task.
 
 This single task will build the artifacts that were modified and restart only those containers that were affected by the rebuilt artifacts.
 
-For each of the `quickStartDebug` variants, there is a corresponding `debugReload` task.
-For `quickStartDebugConsumers`, the reload task is `debugConsumersReload`
+For each of the `quickstartDebug` variants, there is a corresponding `debugReload` task.
+For `quickstartDebugConsumers`, the reload task is `debugConsumersReload`
 
-`debugReload` is generally much faster than re-running `quickStartDebug` and is recommended after an initial bringup of all services via `quickStartDebug` followed
+`debugReload` is generally much faster than re-running `quickstartDebug` and is recommended after an initial bringup of all services via `quickstartDebug` followed
 by loading the incremental changes using `debugReload`.
 
-If there are significant changes to the code, for example due to pulling the latest code, it is recommended to start with a `quickStartDebug` and then iterate using `debugReload`
+If there are significant changes to the code, for example due to pulling the latest code, it is recommended to start with a `quickstartDebug` and then iterate using `debugReload`
 
 # Setting environment variables via env files
 
@@ -70,15 +69,15 @@ You can define different sets of environment variables for all the containers in
 To use the env file, run
 
 ```shell
-DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickstartDebug
 ```
 
-The `debugReload` process continues to work, but the restarted containers will use the same settings that were present at the time of running `./gradlew quickStartDebug`.
+The `debugReload` process continues to work, but the restarted containers will use the same settings that were present at the time of running `./gradlew quickstartDebug`.
 
 If you need to reload the containers with a different env file or changes made to the env file, a task `debugReloadEnv` builds the artifacts that have code changes
 and recreates all the containers that refer to these the env file via the DATAHUB_LOCAL_COMMON_ENV environment variable.
 
-`debugReloadEnv` also has variants for all the `quickStartDebug` variants. For example, `quickStartDebugConsumers` has `debugConsumersReloadEnv`
+`debugReloadEnv` also has variants for all the `quickstartDebug` variants. For example, `quickstartDebugConsumers` has `debugConsumersReloadEnv`
 
 ## Start/Stop
 
@@ -95,6 +94,19 @@ Resume containers for further debugging.
 ```shell
 docker compose -p datahub start
 ```
+
+## Cleanup
+
+To completely remove containers and volumes for a specific project, you can use the nuke tasks:
+
+```shell
+# Remove containers and volumes for specific projects
+./gradlew quickstartNuke          # For default project (datahub)
+./gradlew quickstartDebugNuke     # For debug project (datahub)
+./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
+```
+
+> **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](../quickstart.md).
 
 ## Debugging
 

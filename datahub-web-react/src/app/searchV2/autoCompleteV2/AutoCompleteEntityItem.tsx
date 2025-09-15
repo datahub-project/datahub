@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
 import { getColor } from '@components/theme/utils';
@@ -11,26 +12,46 @@ import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/Ent
 import { VARIANT_STYLES } from '@app/searchV2/autoCompleteV2/constants';
 import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
+import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
 
-const Container = styled.div`
+const Container = styled.div<{
+    $navigateOnlyOnNameClick?: boolean;
+    $padding?: string;
+}>`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    padding: 8px 13px 8px 8px;
+    padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
+    gap: 8px;
 
-    :hover {
-        cursor: pointer;
-    }
+    ${(props) =>
+        !props.$navigateOnlyOnNameClick &&
+        `
+            :hover {
+                cursor: pointer;
+            }
+        `}
 `;
 
 // FYI: this hovering dependent on Container can't be applied by condition inside of styled component
 // so we have this separated version with hover
-const DisplayNameWithHover = styled(DisplayName)<{ $decorationColor?: string }>`
+
+// On container hover
+const DisplayNameHoverFromContainer = styled(DisplayName)<{ $decorationColor?: string }>`
     ${Container}:hover & {
         text-decoration: underline;
+        ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
+    }
+`;
+
+// On self (name) hover only
+const DisplayNameHoverFromSelf = styled(DisplayName)<{ $decorationColor?: string }>`
+    &:hover {
+        text-decoration: underline;
+        cursor: pointer;
         ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
     }
 `;
@@ -71,6 +92,13 @@ const IconContainer = styled.div<{ $variant?: EntityItemVariant }>`
 const TypeContainer = styled.div`
     display: flex;
     align-items: center;
+    white-space: nowrap;
+`;
+
+const Icons = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 interface EntityAutocompleteItemProps {
@@ -79,7 +107,14 @@ interface EntityAutocompleteItemProps {
     siblings?: Entity[];
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
-    customDetailsRenderer?: (entity: Entity) => void;
+    customDetailsRenderer?: (entity: Entity) => React.ReactNode;
+    navigateOnlyOnNameClick?: boolean;
+    dragIconRenderer?: () => React.ReactNode;
+    hideSubtitle?: boolean;
+    hideType?: boolean;
+    hideMatches?: boolean;
+    padding?: string;
+    onClick?: () => void;
 }
 
 export default function AutoCompleteEntityItem({
@@ -89,19 +124,63 @@ export default function AutoCompleteEntityItem({
     matchedFields,
     variant,
     customDetailsRenderer,
+    navigateOnlyOnNameClick,
+    dragIconRenderer,
+    hideSubtitle,
+    hideType,
+    hideMatches,
+    padding,
+    onClick,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
+    const linkProps = useGetModalLinkProps();
+
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
     const variantProps = VARIANT_STYLES.get(variant ?? 'default');
 
+    const DisplayNameHoverComponent = navigateOnlyOnNameClick
+        ? DisplayNameHoverFromSelf
+        : DisplayNameHoverFromContainer;
+
+    const displayNameContent = variantProps?.nameCanBeHovered ? (
+        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)} {...linkProps}>
+            <DisplayNameHoverComponent
+                displayName={displayName}
+                highlight={query}
+                color={variantProps?.nameColor}
+                colorLevel={variantProps?.nameColorLevel}
+                weight={variantProps?.nameWeight}
+                $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
+            />
+        </Link>
+    ) : (
+        <DisplayName
+            displayName={displayName}
+            highlight={query}
+            color={variantProps?.nameColor}
+            colorLevel={variantProps?.nameColorLevel}
+            weight={variantProps?.nameWeight}
+            showNameTooltipIfTruncated
+        />
+    );
+
     return (
-        <Container>
+        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
             <ContentContainer>
-                <IconContainer $variant={variant}>
-                    <EntityIcon entity={entity} siblings={siblings} />
-                </IconContainer>
+                {dragIconRenderer ? (
+                    <Icons>
+                        {dragIconRenderer()}
+                        <IconContainer $variant={variant}>
+                            <EntityIcon entity={entity} siblings={siblings} />
+                        </IconContainer>
+                    </Icons>
+                ) : (
+                    <IconContainer $variant={variant}>
+                        <EntityIcon entity={entity} siblings={siblings} />
+                    </IconContainer>
+                )}
 
                 <DescriptionContainer>
                     <HoverEntityTooltip
@@ -110,59 +189,41 @@ export default function AutoCompleteEntityItem({
                         showArrow={false}
                         canOpen={variantProps?.showEntityPopover}
                     >
-                        <DisplayNameWrapper>
-                            {variantProps?.nameCanBeHovered ? (
-                                <DisplayNameWithHover
-                                    displayName={displayName}
-                                    highlight={query}
-                                    color={variantProps?.nameColor}
-                                    colorLevel={variantProps?.nameColorLevel}
-                                    weight={variantProps?.nameWeight}
-                                    $decorationColor={getColor(
-                                        variantProps?.nameColor,
-                                        variantProps?.nameColorLevel,
-                                        theme,
-                                    )}
-                                />
-                            ) : (
-                                <DisplayName
-                                    displayName={displayName}
-                                    highlight={query}
-                                    color={variantProps?.nameColor}
-                                    colorLevel={variantProps?.nameColorLevel}
-                                    weight={variantProps?.nameWeight}
-                                    showNameTooltipIfTruncated
-                                />
-                            )}
-                        </DisplayNameWrapper>
+                        <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
                     </HoverEntityTooltip>
 
-                    <EntitySubtitle
-                        entity={entity}
-                        color={variantProps?.subtitleColor}
-                        colorLevel={variantProps?.subtitleColorLevel}
-                    />
+                    {!hideSubtitle && (
+                        <EntitySubtitle
+                            entity={entity}
+                            color={variantProps?.subtitleColor}
+                            colorLevel={variantProps?.subtitleColorLevel}
+                        />
+                    )}
 
-                    <Matches
-                        matchedFields={matchedFields}
-                        entity={entity}
-                        query={query}
-                        displayName={displayName}
-                        color={variantProps?.matchColor}
-                        colorLevel={variantProps?.matchColorLevel}
-                    />
+                    {!hideMatches && (
+                        <Matches
+                            matchedFields={matchedFields}
+                            entity={entity}
+                            query={query}
+                            displayName={displayName}
+                            color={variantProps?.matchColor}
+                            colorLevel={variantProps?.matchColorLevel}
+                        />
+                    )}
                 </DescriptionContainer>
             </ContentContainer>
 
-            <TypeContainer>
-                {customDetailsRenderer ? (
-                    customDetailsRenderer(entity)
-                ) : (
-                    <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
-                        {displayType}
-                    </Text>
-                )}
-            </TypeContainer>
+            {!hideType && (
+                <TypeContainer>
+                    {customDetailsRenderer ? (
+                        customDetailsRenderer(entity)
+                    ) : (
+                        <Text color={variantProps?.typeColor} colorLevel={variantProps?.typeColorLevel} size="sm">
+                            {displayType}
+                        </Text>
+                    )}
+                </TypeContainer>
+            )}
         </Container>
     );
 }

@@ -73,6 +73,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Precompiled regex for SQL identifier validation
+# Athena identifiers can only contain lowercase letters, numbers, underscore, and period (for complex types)
+# Note: Athena automatically converts uppercase to lowercase, but we're being strict for security
+_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_.]+$")
+
 assert STRUCT, "required type modules are not available"
 register_custom_type(STRUCT, RecordTypeClass)
 register_custom_type(MapType, MapTypeClass)
@@ -303,6 +308,11 @@ class AthenaConfig(SQLCommonConfig):
         print_warning=True,
     )
 
+    emit_schema_fieldpaths_as_v1: bool = pydantic.Field(
+        default=False,
+        description="Convert simple field paths to DataHub field path v1 format. Simple column paths are those that do not contain any nested fields.",
+    )
+
     profiling: AthenaProfilingConfig = AthenaProfilingConfig()
 
     def get_sql_alchemy_url(self):
@@ -342,12 +352,18 @@ class Partitionitem:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Supported for S3 tables",
-    subtype_modifier=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Supported for S3 tables",
-    subtype_modifier=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
@@ -500,19 +516,75 @@ class AthenaSource(SQLAlchemySource):
         return schemas
 
     @classmethod
+    def _sanitize_identifier(cls, identifier: str) -> str:
+        """Sanitize SQL identifiers to prevent injection attacks.
+
+        Args:
+            identifier: The SQL identifier to sanitize
+
+        Returns:
+            Sanitized identifier safe for SQL queries
+
+        Raises:
+            ValueError: If identifier contains unsafe characters
+        """
+        if not identifier:
+            raise ValueError("Identifier cannot be empty")
+
+        # Allow only alphanumeric characters, underscores, and periods for identifiers
+        # This matches Athena's identifier naming rules
+        if not _IDENTIFIER_PATTERN.match(identifier):
+            raise ValueError(
+                f"Identifier '{identifier}' contains unsafe characters. Only alphanumeric characters, underscores, and periods are allowed."
+            )
+
+        return identifier
+
+    @classmethod
     def _casted_partition_key(cls, key: str) -> str:
         # We need to cast the partition keys to a VARCHAR, since otherwise
         # Athena may throw an error during concatenation / comparison.
-        return f"CAST({key} as VARCHAR)"
+        sanitized_key = cls._sanitize_identifier(key)
+        return f"CAST({sanitized_key} as VARCHAR)"
+
+    @classmethod
+    def _build_max_partition_query(
+        cls, schema: str, table: str, partitions: List[str]
+    ) -> str:
+        """Build SQL query to find the row with maximum partition values.
+
+        Args:
+            schema: Database schema name
+            table: Table name
+            partitions: List of partition column names
+
+        Returns:
+            SQL query string to find the maximum partition
+
+        Raises:
+            ValueError: If any identifier contains unsafe characters
+        """
+        # Sanitize all identifiers to prevent SQL injection
+        sanitized_schema = cls._sanitize_identifier(schema)
+        sanitized_table = cls._sanitize_identifier(table)
+        sanitized_partitions = [
+            cls._sanitize_identifier(partition) for partition in partitions
+        ]
+
+        casted_keys = [cls._casted_partition_key(key) for key in partitions]
+        if len(casted_keys) == 1:
+            part_concat = casted_keys[0]
+        else:
+            separator = "CAST('-' AS VARCHAR)"
+            part_concat = f"CONCAT({f', {separator}, '.join(casted_keys)})"
+
+        return f'select {",".join(sanitized_partitions)} from "{sanitized_schema}"."{sanitized_table}$partitions" where {part_concat} = (select max({part_concat}) from "{sanitized_schema}"."{sanitized_table}$partitions")'
 
     @override
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        if (
-            not self.config.extract_partitions
-            and not self.config.extract_partitions_using_create_statements
-        ):
+        if not self.config.extract_partitions:
             return None
 
         if not self.cursor:
@@ -546,11 +618,9 @@ class AthenaSource(SQLAlchemySource):
             context=f"{schema}.{table}",
             level=StructuredLogLevel.WARN,
         ):
-            # We create an artifical concatenated partition key to be able to query max partition easier
-            part_concat = " || '-' || ".join(
-                self._casted_partition_key(key) for key in partitions
+            max_partition_query = self._build_max_partition_query(
+                schema, table, partitions
             )
-            max_partition_query = f'select {",".join(partitions)} from "{schema}"."{table}$partitions" where {part_concat} = (select max({part_concat}) from "{schema}"."{table}$partitions")'
             ret = self.cursor.execute(max_partition_query)
             max_partition: Dict[str, str] = {}
             if ret:
@@ -641,6 +711,11 @@ class AthenaSource(SQLAlchemySource):
                 partition_keys is not None and column["name"] in partition_keys
             ),
         )
+
+        # Keeping it as individual check to make it more explicit and easier to understand
+        if not self.config.emit_schema_fieldpaths_as_v1:
+            return fields
+
         if isinstance(
             fields[0].type.type, (RecordTypeClass, MapTypeClass, ArrayTypeClass)
         ):
@@ -662,16 +737,34 @@ class AthenaSource(SQLAlchemySource):
         ).get(table, None)
 
         if partition and partition.max_partition:
-            max_partition_filters = []
-            for key, value in partition.max_partition.items():
-                max_partition_filters.append(
-                    f"{self._casted_partition_key(key)} = '{value}'"
+            try:
+                # Sanitize identifiers to prevent SQL injection
+                sanitized_schema = self._sanitize_identifier(schema)
+                sanitized_table = self._sanitize_identifier(table)
+
+                max_partition_filters = []
+                for key, value in partition.max_partition.items():
+                    # Sanitize partition key and properly escape the value
+                    sanitized_key = self._sanitize_identifier(key)
+                    # Escape single quotes in the value to prevent injection
+                    escaped_value = value.replace("'", "''") if value else ""
+                    max_partition_filters.append(
+                        f"{self._casted_partition_key(sanitized_key)} = '{escaped_value}'"
+                    )
+                max_partition = str(partition.max_partition)
+                return (
+                    max_partition,
+                    f'SELECT * FROM "{sanitized_schema}"."{sanitized_table}" WHERE {" AND ".join(max_partition_filters)}',
                 )
-            max_partition = str(partition.max_partition)
-            return (
-                max_partition,
-                f'SELECT * FROM "{schema}"."{table}" WHERE {" AND ".join(max_partition_filters)}',
-            )
+            except ValueError as e:
+                # If sanitization fails due to malicious identifiers,
+                # return None to disable partition profiling for this table
+                # rather than crashing the entire ingestion
+                logger.warning(
+                    f"Failed to generate partition profiler query for {schema}.{table} due to unsafe identifiers: {e}. "
+                    f"Partition profiling disabled for this table."
+                )
+                return None, None
         return None, None
 
     def close(self):

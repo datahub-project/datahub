@@ -165,11 +165,7 @@ class LineageClient:
         ] = False,
         transformation_text: Optional[str] = None,
     ) -> None:
-        ...
-
-        """
-        Add dataset-to-dataset lineage with column-level mapping.
-        """
+        """Add dataset-to-dataset lineage with column-level mapping."""
 
     @overload
     def add_lineage(
@@ -178,11 +174,7 @@ class LineageClient:
         upstream: Union[DatajobUrnOrStr],
         downstream: DatasetUrnOrStr,
     ) -> None:
-        ...
-
-        """
-        Add dataset-to-datajob or dataset-to-mlmodel lineage.
-        """
+        """Add dataset-to-datajob or dataset-to-mlmodel lineage."""
 
     @overload
     def add_lineage(
@@ -191,11 +183,7 @@ class LineageClient:
         upstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
         downstream: DatajobUrnOrStr,
     ) -> None:
-        ...
-
-        """
-        Add datajob-to-dataset or datajob-to-datajob lineage.
-        """
+        """Add datajob-to-dataset or datajob-to-datajob lineage."""
 
     @overload
     def add_lineage(
@@ -204,11 +192,7 @@ class LineageClient:
         upstream: Union[DashboardUrnOrStr, DatasetUrnOrStr, ChartUrnOrStr],
         downstream: DashboardUrnOrStr,
     ) -> None:
-        ...
-
-        """
-        Add dashboard-to-dashboard or dashboard-to-dataset lineage.
-        """
+        """Add dashboard-to-dashboard or dashboard-to-dataset lineage."""
 
     @overload
     def add_lineage(
@@ -217,10 +201,7 @@ class LineageClient:
         upstream: DatasetUrnOrStr,
         downstream: ChartUrnOrStr,
     ) -> None:
-        ...
-        """
-        Add dataset-to-chart lineage.
-        """
+        """Add dataset-to-chart lineage."""
 
     # The actual implementation that handles all overloaded cases
     def add_lineage(
@@ -237,8 +218,7 @@ class LineageClient:
         ] = False,
         transformation_text: Optional[str] = None,
     ) -> None:
-        """
-        Add lineage between two entities.
+        """Add lineage between two entities.
 
         This flexible method handles different combinations of entity types:
         - dataset to dataset

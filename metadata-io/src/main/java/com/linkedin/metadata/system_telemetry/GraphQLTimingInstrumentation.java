@@ -1,6 +1,7 @@
 package com.linkedin.metadata.system_telemetry;
 
 import com.linkedin.metadata.config.graphql.GraphQLMetricsConfiguration;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import graphql.execution.instrumentation.InstrumentationContext;
 import graphql.execution.instrumentation.InstrumentationState;
@@ -77,7 +78,7 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
     this.config = config;
     this.fieldInstrumentedOperations = parseOperationsList(config.getFieldLevelOperations());
     this.fieldInstrumentedPaths = parsePathPatterns(config.getFieldLevelPaths());
-    this.percentiles = parsePercentiles(config.getPercentiles());
+    this.percentiles = MetricUtils.parsePercentiles(config.getPercentiles());
   }
 
   private Set<String> parseOperationsList(String operationsList) {
@@ -354,20 +355,6 @@ public class GraphQLTimingInstrumentation extends SimplePerformantInstrumentatio
     // - Array indices with slashes: /users/0/name -> /users/*/name
     return path.replaceAll("\\[\\d+\\]", "[*]") // Replace [0], [1], etc. with [*]
         .replaceAll("/\\d+", "/*"); // Replace /0, /1, etc. with /*
-  }
-
-  private double[] parsePercentiles(String percentilesConfig) {
-    if (percentilesConfig == null || percentilesConfig.trim().isEmpty()) {
-      // Default percentiles
-      return new double[] {0.5, 0.95, 0.99};
-    }
-
-    String[] parts = percentilesConfig.split(",");
-    double[] result = new double[parts.length];
-    for (int i = 0; i < parts.length; i++) {
-      result[i] = Double.parseDouble(parts[i].trim());
-    }
-    return result;
   }
 
   static class TimingState implements InstrumentationState {

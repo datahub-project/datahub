@@ -89,8 +89,15 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
     pushdown_deny_usernames: List[str] = pydantic.Field(
         default=[],
-        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'SERVICE_%', '%_PROD', 'TEST_USER') which will NOT be considered for lineage/usage/queries extraction. "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes.",
+    )
+
+    pushdown_allow_usernames: List[str] = pydantic.Field(
+        default=[],
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'ANALYST_%', '%_USER', 'MAIN_ACCOUNT') which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "If not specified, all users not in deny list are included.",
     )
 
     user_email_pattern: AllowDenyPattern = pydantic.Field(
@@ -396,6 +403,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             end_time=self.config.window.end_time,
             bucket_duration=self.config.window.bucket_duration,
             deny_usernames=self.config.pushdown_deny_usernames,
+            allow_usernames=self.config.pushdown_allow_usernames,
             dedup_strategy=self.config.query_dedup_strategy,
             database_pattern=self.filters.filter_config.database_pattern
             if self.config.push_down_database_pattern_access_history
@@ -740,7 +748,8 @@ class QueryLogQueryBuilder:
         start_time: datetime,
         end_time: datetime,
         bucket_duration: BucketDuration,
-        deny_usernames: Optional[List[str]],
+        deny_usernames: Optional[List[str]] = None,
+        allow_usernames: Optional[List[str]] = None,
         max_tables_per_query: int = 20,
         dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD,
         database_pattern: Optional[AllowDenyPattern] = None,
@@ -753,10 +762,7 @@ class QueryLogQueryBuilder:
         self.max_tables_per_query = max_tables_per_query
         self.dedup_strategy = dedup_strategy
 
-        self.users_filter = "TRUE"
-        if deny_usernames:
-            user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
-            self.users_filter = f"user_name NOT IN ({user_not_in})"
+        self.users_filter = self._build_user_filter(deny_usernames, allow_usernames)
 
         self.access_history_database_filter = (
             self._build_access_history_database_filter_condition(
@@ -766,6 +772,43 @@ class QueryLogQueryBuilder:
 
         self.time_bucket_size = bucket_duration.value
         assert self.time_bucket_size in ("HOUR", "DAY", "MONTH")
+
+    def _build_user_filter(
+        self,
+        deny_usernames: Optional[List[str]] = None,
+        allow_usernames: Optional[List[str]] = None,
+    ) -> str:
+        """
+        Build user filter SQL condition based on deny and allow username patterns.
+
+        Args:
+            deny_usernames: List of username patterns to exclude (SQL LIKE patterns)
+            allow_usernames: List of username patterns to include (SQL LIKE patterns)
+
+        Returns:
+            SQL WHERE condition string for filtering users
+        """
+        user_filters = []
+
+        if deny_usernames:
+            deny_conditions = []
+            for pattern in deny_usernames:
+                # Escape single quotes for SQL safety
+                escaped_pattern = pattern.replace("'", "''")
+                deny_conditions.append(f"user_name NOT ILIKE '{escaped_pattern}'")
+            if deny_conditions:
+                user_filters.append(f"({' AND '.join(deny_conditions)})")
+
+        if allow_usernames:
+            allow_conditions = []
+            for pattern in allow_usernames:
+                # Escape single quotes for SQL safety
+                escaped_pattern = pattern.replace("'", "''")
+                allow_conditions.append(f"user_name ILIKE '{escaped_pattern}'")
+            if allow_conditions:
+                user_filters.append(f"({' OR '.join(allow_conditions)})")
+
+        return " AND ".join(user_filters) if user_filters else "TRUE"
 
     def _build_access_history_database_filter_condition(
         self,
@@ -787,6 +830,11 @@ class QueryLogQueryBuilder:
         would be incorrectly filtered out because they don't populate the DML arrays, causing missing lineage
         and operational metadata.
 
+        Filtering Logic:
+        A query is included if it matches:
+        - Any database name in additional_database_names (exact match), OR
+        - Any database pattern in database_pattern.allow AND NOT any pattern in database_pattern.deny
+
         Args:
             database_pattern: The AllowDenyPattern configuration for database filtering
             additional_database_names: Additional database names to always include (no pattern matching)
@@ -797,13 +845,30 @@ class QueryLogQueryBuilder:
         if not database_pattern and not additional_database_names:
             return "TRUE"
 
-        # Build the database filter conditions for pattern matching
+        # Build the database filter conditions
+        # Logic: Allow if (matches additional_database_names_allowlist) OR (matches database_pattern.allow AND NOT matches database_pattern.deny)
         # Note: Using UPPER() + RLIKE for case-insensitive matching is more performant than REGEXP_LIKE with 'i' flag
-        database_filter_parts = []
 
+        # Build additional database names condition (exact matches) - these always get included
+        additional_db_condition = None
+        if additional_database_names:
+            additional_db_conditions = []
+            for db_name in additional_database_names:
+                # Escape single quotes
+                escaped_db_name = db_name.replace("'", "''")
+                additional_db_conditions.append(
+                    f"SPLIT_PART(UPPER(o:objectName), '.', 1) = '{escaped_db_name.upper()}'"
+                )
+            if additional_db_conditions:
+                additional_db_condition = " OR ".join(additional_db_conditions)
+
+        # Build database pattern condition (allow AND NOT deny)
+        database_pattern_condition = None
         if database_pattern:
             allow_patterns = database_pattern.allow
             deny_patterns = database_pattern.deny
+
+            pattern_parts = []
 
             # Add allow patterns (if not the default "allow all")
             if allow_patterns and allow_patterns != [".*"]:
@@ -815,7 +880,11 @@ class QueryLogQueryBuilder:
                         f"SPLIT_PART(UPPER(o:objectName), '.', 1) RLIKE '{escaped_pattern}'"
                     )
                 if allow_conditions:
-                    database_filter_parts.append(f"({' OR '.join(allow_conditions)})")
+                    pattern_parts.append(
+                        allow_conditions[0]
+                        if len(allow_conditions) == 1
+                        else f"({' OR '.join(allow_conditions)})"
+                    )
 
             # Add deny patterns
             if deny_patterns:
@@ -827,24 +896,36 @@ class QueryLogQueryBuilder:
                         f"SPLIT_PART(UPPER(o:objectName), '.', 1) NOT RLIKE '{escaped_pattern}'"
                     )
                 if deny_conditions:
-                    database_filter_parts.append(f"({' AND '.join(deny_conditions)})")
+                    pattern_parts.append(
+                        deny_conditions[0]
+                        if len(deny_conditions) == 1
+                        else f"({' AND '.join(deny_conditions)})"
+                    )
 
-        # Add additional database names (exact matches)
-        if additional_database_names:
-            additional_db_conditions = []
-            for db_name in additional_database_names:
-                # Escape single quotes
-                escaped_db_name = db_name.replace("'", "''")
-                additional_db_conditions.append(
-                    f"SPLIT_PART(UPPER(o:objectName), '.', 1) = '{escaped_db_name.upper()}'"
-                )
-            if additional_db_conditions:
-                database_filter_parts.append(
-                    f"({' OR '.join(additional_db_conditions)})"
-                )
+            if pattern_parts:
+                database_pattern_condition = " AND ".join(pattern_parts)
 
-        if database_filter_parts:
-            database_filter_condition = " AND ".join(database_filter_parts)
+        # Combine conditions: additional_database_names OR database_pattern
+        filter_conditions = []
+        if additional_db_condition:
+            filter_conditions.append(
+                f"({additional_db_condition})"
+                if len(additional_db_condition.split(" OR ")) > 1
+                else additional_db_condition
+            )
+        if database_pattern_condition:
+            filter_conditions.append(
+                f"({database_pattern_condition})"
+                if len(database_pattern_condition.split(" AND ")) > 1
+                else database_pattern_condition
+            )
+
+        if filter_conditions:
+            database_filter_condition = (
+                filter_conditions[0]
+                if len(filter_conditions) == 1
+                else " OR ".join(filter_conditions)
+            )
 
             # Build a condition that checks if any objects in the arrays match the database pattern
             # This implements "at least one" matching behavior: queries are allowed if they touch

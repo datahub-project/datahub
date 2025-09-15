@@ -2,15 +2,14 @@
 
 DataHub has several APIs to manipulate metadata on the platform. Here's the list of APIs and their pros and cons to help you choose the right one for your use case.
 
-| API                                                        | Definition                         | Pros                                     | Cons                                                                    |
-| ---------------------------------------------------------- | ---------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
-| **[Python SDK](/metadata-ingestion/as-a-library.md)**      | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                  |
-| **[Java SDK](/metadata-integration/java/as-a-library.md)** | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                  |
-| **[GraphQL API](docs/api/graphql/getting-started.md)**     | GraphQL interface                  | Intuitive; mirrors UI capabilities       | Less flexible than SDKs; requires knowledge of GraphQL syntax           |
-| **[OpenAPI](docs/api/openapi/openapi-usage-guide.md)**     | Lower-level API for advanced users | Most powerful and flexible               | Can be hard to use for straightforward use cases; no corresponding SDKs |
+| API                                                        | Definition                         | Pros                                     | Cons                                                                                                                      |
+| ---------------------------------------------------------- | ---------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **[Python SDK](/metadata-ingestion/as-a-library.md)**      | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                                                                    |
+| **[Java SDK](/metadata-integration/java/as-a-library.md)** | SDK                                | Highly flexible, Good for bulk execution | Requires an understanding of the metadata change event                                                                    |
+| **[GraphQL API](docs/api/graphql/getting-started.md)**     | GraphQL interface                  | Intuitive; mirrors UI capabilities       | Less flexible than SDKs; requires knowledge of GraphQL syntax                                                             |
+| **[OpenAPI](docs/api/openapi/openapi-usage-guide.md)**     | Lower-level API for advanced users | Most powerful and flexible               | Can be hard to use for straightforward use cases; no corresponding SDKs, but OpenAPI spec is generated within the product |
 
-In general, **Python and Java SDKs** are our most recommended tools for extending and customizing the behavior of your DataHub instance.
-We don't recommend using the **OpenAPI** directly, as it's more complex and less user-friendly than the other APIs.
+In general, **Python and Java SDKs** are our most recommended tools for extending and customizing the behavior of your DataHub instance, especially for programmatic use cases.
 
 :::warning
 About async usage of APIs - DataHub's asynchronous APIs perform only basic schema validation when receiving MCP requests, similar to direct production to MCP Kafka topics. While requests must conform to the MCP schema to be accepted, actual processing happens later in the pipeline. Any processing failures that occur after the initial acceptance are captured in the Failed MCP topic, but these failures are not immediately surfaced to the API caller since they happen asynchronously.
@@ -31,12 +30,12 @@ Learn more about the SDKs:
 
 ## GraphQL API
 
-The `graphql` API serves as the primary public API for the platform. It can be used to fetch and update metadata programatically in the language of your choice. Intended as a higher-level API that simplifies the most common operations.
+The `graphql` API serves as the primary API used by the DataHub frontend. It is generally assumed that accesses to the GraphQL API are coming in from the frontend so it often comes along with default caching, synchronous operations, and other UI targeted expectations. Care should be taken when used programmatically to fetch and update due to this since operations are intentionally limited in scope. Intended as a higher-level API that simplifies the most common operations.
 
-We recommend using the GraphQL API if you're getting started with DataHub since it's more user-friendly and straighfowrad. Here are some examples of how to use the GraphQL API:
+The GraphQL API can be useful if you're getting started with DataHub since it's more user-friendly and straightfoward, especially when using GraphiQL. Here are some examples of how to use the GraphQL API:
 
 - Search for datasets with conditions
-- Update a certain field of a dataset
+- Query for relationships between entities
 
 Learn more about the GraphQL API:
 

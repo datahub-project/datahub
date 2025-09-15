@@ -6,8 +6,11 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubPageTemplate;
+import com.linkedin.datahub.graphql.generated.PageTemplateAssetSummaryInput;
 import com.linkedin.datahub.graphql.generated.PageTemplateRowInput;
 import com.linkedin.datahub.graphql.generated.PageTemplateScope;
 import com.linkedin.datahub.graphql.generated.PageTemplateSurfaceType;
@@ -15,13 +18,18 @@ import com.linkedin.datahub.graphql.generated.UpsertPageTemplateInput;
 import com.linkedin.datahub.graphql.types.template.PageTemplateMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.service.PageTemplateService;
+import com.linkedin.template.DataHubPageTemplateAssetSummary;
 import com.linkedin.template.DataHubPageTemplateRow;
+import com.linkedin.template.SummaryElement;
+import com.linkedin.template.SummaryElementArray;
+import com.linkedin.template.SummaryElementType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,7 +52,10 @@ public class UpsertPageTemplateResolver
     PageTemplateScope scope = input.getScope();
     PageTemplateSurfaceType surfaceType = input.getSurfaceType();
 
-    // TODO: check permissions if the scope is GLOBAL
+    if (input.getScope().equals(PageTemplateScope.GLOBAL)
+        && !AuthorizationUtils.canManageHomePageTemplates(context)) {
+      throw new AuthorizationException("User does not have permission to update global templates.");
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -55,7 +66,8 @@ public class UpsertPageTemplateResolver
                     urn,
                     mapInputRows(rows),
                     com.linkedin.template.PageTemplateScope.valueOf(scope.toString()),
-                    com.linkedin.template.PageTemplateSurfaceType.valueOf(surfaceType.toString()));
+                    com.linkedin.template.PageTemplateSurfaceType.valueOf(surfaceType.toString()),
+                    mapAssetSummary(input.getAssetSummary()));
 
             EntityResponse response =
                 _pageTemplateService.getPageTemplateEntityResponse(
@@ -84,5 +96,31 @@ public class UpsertPageTemplateResolver
           finalRows.add(templateRow);
         });
     return finalRows;
+  }
+
+  @Nullable
+  private DataHubPageTemplateAssetSummary mapAssetSummary(
+      @Nullable final PageTemplateAssetSummaryInput inputAssetSummary) {
+    if (inputAssetSummary == null) {
+      return null;
+    }
+
+    DataHubPageTemplateAssetSummary assetSummary = new DataHubPageTemplateAssetSummary();
+
+    SummaryElementArray summaryElements = new SummaryElementArray();
+    inputAssetSummary
+        .getSummaryElements()
+        .forEach(
+            el -> {
+              SummaryElement element = new SummaryElement();
+              element.setElementType(SummaryElementType.valueOf(el.getElementType().toString()));
+              if (el.getStructuredPropertyUrn() != null) {
+                element.setStructuredPropertyUrn(UrnUtils.getUrn(el.getStructuredPropertyUrn()));
+              }
+              summaryElements.add(element);
+            });
+
+    assetSummary.setSummaryElements(summaryElements);
+    return assetSummary;
   }
 }

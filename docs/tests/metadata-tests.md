@@ -243,10 +243,13 @@ When you delete a Test, it may take up to 2 minutes for changes to be reflected.
 
 **When are Metadata Tests evaluated?**
 
-Metadata Tests are evaluated in 2 scenarios:
+Metadata Tests are evaluated in two scenarios:
 
-1. When an individual asset is changed in DataHub, all tests that include it in scope are evaluated
-2. On a recurring cadence (usually every 24 hours) by a dedicated Metadata Test evaluator, which evaluates all tests against the Metadata Graph
+1. **Real-time evaluation**: When an individual asset changes in DataHub, all tests that include it in scope are evaluated. This feature is typically disabled by default. It can be enabled on demand, subject to disussion.
+
+2. **Scheduled evaluation**: A dedicated Metadata Test evaluator runs on a recurring schedule (typically every 24 hours) and evaluates all tests against the entire Metadata Graph. The cadence can be adjusted. It can be made more frequent in limited cases where metadata is small, subject to discussion.
+
+Both scenarios have increased server load concerns which may require additional server resources and consultation with your Acryl representative for the associated cost.
 
 **Can I configure a custom evaluation schedule for my Metadata Test?**
 

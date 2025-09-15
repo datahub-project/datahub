@@ -31,12 +31,15 @@ public class GraphQueryConfiguration {
   /** Maximum lineage hops */
   private int lineageMaxHops;
 
-  /** Maximum impact analysis max hops */
-  private int impactMaxHops;
+  /** Impact analysis configuration */
+  private ImpactConfiguration impact;
 
   /** Maximum threads used in lineage queries * */
   private int maxThreads;
 
   /** reduce query nesting * */
   private boolean queryOptimization;
+
+  /** Enable creation of point in time snapshots for graph queries */
+  private boolean pointInTimeCreationEnabled;
 }

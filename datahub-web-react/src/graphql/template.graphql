@@ -1,21 +1,18 @@
-fragment pageTemplateFields on DataHubPageTemplate {
+fragment PageTemplate on DataHubPageTemplate {
     urn
     type
     properties {
         rows {
             ...PageTemplateRow
         }
+        assetSummary {
+            ...PageTemplateAssetSummary
+        }
         surface {
             surfaceType
         }
         visibility {
             scope
-        }
-        created {
-            time
-        }
-        lastModified {
-            time
         }
     }
 }
@@ -29,15 +26,10 @@ fragment PageTemplateRow on DataHubPageTemplateRow {
 fragment PageModule on DataHubPageModule {
     urn
     type
+    exists
     properties {
         name
         type
-        created {
-            time
-        }
-        lastModified {
-            time
-        }
         visibility {
             scope
         }
@@ -45,6 +37,53 @@ fragment PageModule on DataHubPageModule {
             richTextParams {
                 content
             }
+            assetCollectionParams {
+                assetUrns
+                dynamicFilterJson
+            }
+            linkParams {
+                linkUrl
+                imageUrl
+                description
+            }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+                relatedEntitiesFilterJson
+            }
         }
     }
+}
+
+fragment PageTemplateAssetSummary on DataHubPageTemplateAssetSummary {
+    summaryElements {
+        ...SummaryElement
+    }
+}
+
+fragment SummaryElement on SummaryElement {
+    elementType
+    structuredProperty {
+        ...structuredPropertyFields
+    }
+}
+
+mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
+    upsertPageTemplate(input: $input) {
+        ...PageTemplate
+    }
+}
+
+mutation upsertPageModule($input: UpsertPageModuleInput!) {
+    upsertPageModule(input: $input) {
+        urn
+    }
+}
+
+mutation deletePageModule($input: DeletePageModuleInput!) {
+    deletePageModule(input: $input)
+}
+
+mutation deletePageTemplate($input: DeletePageTemplateInput!) {
+    deletePageTemplate(input: $input)
 }

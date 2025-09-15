@@ -1,17 +1,26 @@
 import { Button, Dropdown, Icon, colors } from '@components';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { ModuleInfo, ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
-import { AddModuleHandlerInput, RowSide } from '@app/homeV3/template/types';
+import { ModulePositionInput, RowSide } from '@app/homeV3/template/types';
 
 type AddModuleButtonOrientation = 'vertical' | 'horizontal';
 
 const Wrapper = styled.div``;
 
 const StyledDropdownContainer = styled.div`
-    max-width: 330px;
+    max-width: 335px;
+
+    .ant-dropdown-menu {
+        border-radius: 12px;
+    }
+
+    &&& {
+        .ant-dropdown-menu-sub {
+            border-radius: 12px;
+        }
+    }
 `;
 
 const StyledButton = styled(Button)<{ $orientation: AddModuleButtonOrientation; $opened?: boolean }>`
@@ -44,41 +53,25 @@ const StyledVisibleOnHoverButton = styled(StyledButton)`
 
 interface Props {
     orientation: AddModuleButtonOrientation;
-    modulesAvailableToAdd: ModulesAvailableToAdd;
-    onAddModule?: (input: AddModuleHandlerInput) => void;
     className?: string;
-    originRowIndex?: number;
     rowIndex?: number;
     rowSide?: RowSide;
 }
 
-export default function AddModuleButton({
-    orientation,
-    modulesAvailableToAdd,
-    onAddModule,
-    className,
-    originRowIndex,
-    rowIndex,
-    rowSide,
-}: Props) {
+export default function AddModuleButton({ orientation, className, rowIndex, rowSide }: Props) {
     const [isOpened, setIsOpened] = useState<boolean>(false);
 
     const ButtonComponent = useMemo(() => (isOpened ? StyledButton : StyledVisibleOnHoverButton), [isOpened]);
 
-    const onAddModuleHandler = useCallback(
-        (module: ModuleInfo) => {
-            setIsOpened(false);
-            onAddModule?.({
-                module,
-                originRowIndex,
-                rowIndex,
-                rowSide,
-            });
-        },
-        [onAddModule, originRowIndex, rowIndex, rowSide],
-    );
+    // Create position object for the menu
+    const position: ModulePositionInput = {
+        rowIndex,
+        rowSide,
+    };
 
-    const menu = useAddModuleMenu(modulesAvailableToAdd, onAddModuleHandler);
+    const closeMenu = () => setIsOpened(false);
+
+    const menu = useAddModuleMenu(position, closeMenu);
 
     const onClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         // FYI: Antd can open dropdown in the cursor's position only for contextMenu trigger
@@ -95,7 +88,7 @@ export default function AddModuleButton({
     };
 
     return (
-        <Wrapper className={className}>
+        <Wrapper className={className} data-testid="add-button-container">
             <Dropdown
                 open={isOpened}
                 trigger={['click', 'contextMenu']}
@@ -104,7 +97,14 @@ export default function AddModuleButton({
                 menu={menu}
                 resetDefaultMenuStyles
             >
-                <ButtonComponent $orientation={orientation} color="gray" variant="text" size="xs" onClick={onClick}>
+                <ButtonComponent
+                    $orientation={orientation}
+                    color="gray"
+                    variant="text"
+                    size="xs"
+                    onClick={onClick}
+                    data-testid="add-module-button"
+                >
                     <Icon icon="Plus" source="phosphor" color="primary" />
                 </ButtonComponent>
             </Dropdown>

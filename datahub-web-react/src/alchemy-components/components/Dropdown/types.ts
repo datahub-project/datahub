@@ -1,7 +1,7 @@
-import { DropdownProps as AntdDropdwonProps } from 'antd';
+import { DropdownProps as AntdDropdownProps } from 'antd';
 
 export type DropdownProps = Pick<
-    AntdDropdwonProps,
+    AntdDropdownProps,
     | 'open'
     | 'overlayClassName'
     | 'disabled'
@@ -11,6 +11,7 @@ export type DropdownProps = Pick<
     | 'menu'
     | 'trigger'
     | 'destroyPopupOnHide'
+    | 'overlayStyle'
 > & {
     resetDefaultMenuStyles?: boolean;
 };

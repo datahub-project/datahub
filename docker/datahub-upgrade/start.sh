@@ -33,11 +33,6 @@ if [[ $ENTITY_SERVICE_IMPL == cassandra ]] && [[ $SKIP_CASSANDRA_CHECK != true ]
   WAIT_FOR_CASSANDRA=" -wait tcp://$CASSANDRA_DATASOURCE_HOST "
 fi
 
-WAIT_FOR_KAFKA=""
-if [[ $SKIP_KAFKA_CHECK != true ]]; then
-  WAIT_FOR_KAFKA=" -wait tcp://$(echo $KAFKA_BOOTSTRAP_SERVER | sed 's/,/ -wait tcp:\/\//g') "
-fi
-
 WAIT_FOR_NEO4J=""
 if [[ $GRAPH_SERVICE_IMPL != elasticsearch ]] && [[ $SKIP_NEO4J_CHECK != true ]]; then
   WAIT_FOR_NEO4J=" -wait $NEO4J_HOST "
@@ -62,7 +57,6 @@ fi
 COMMON="
     $WAIT_FOR_EBEAN \
     $WAIT_FOR_CASSANDRA \
-    $WAIT_FOR_KAFKA \
     $WAIT_FOR_NEO4J \
     -timeout 240s \
     java $JAVA_OPTS $JMX_OPTS \

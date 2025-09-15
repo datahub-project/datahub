@@ -7,7 +7,7 @@ from typing import Any, Callable, Optional, Tuple, TypeVar
 
 import click
 import humanfriendly
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel
 
 from datahub._version import __version__
@@ -28,11 +28,24 @@ class VersionStats(BaseModel, arbitrary_types_allowed=True):
     release_date: Optional[datetime] = None
 
 
+def _safe_version_stats(version_string: str) -> Optional[VersionStats]:
+    """
+    Safely create a VersionStats object from a version string.
+    Returns None if the version string is invalid.
+    """
+    try:
+        return VersionStats(version=Version(version_string), release_date=None)
+    except InvalidVersion:
+        log.warning(f"Invalid version format received: {version_string!r}")
+        return None
+
+
 class ServerVersionStats(BaseModel):
     current: VersionStats
     latest: Optional[VersionStats] = None
     current_server_type: Optional[str] = None
     current_server_default_cli_version: Optional[VersionStats] = None
+    is_cloud_server: Optional[bool] = None
 
 
 class ClientVersionStats(BaseModel):
@@ -133,7 +146,9 @@ async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceCo
 
 async def get_server_version_stats(
     server: Optional[DataHubGraph] = None,
-) -> Tuple[Optional[str], Optional[Version], Optional[str], Optional[datetime]]:
+) -> Tuple[
+    Optional[str], Optional[Version], Optional[str], Optional[datetime], Optional[bool]
+]:
     import aiohttp
 
     server_config: Optional[RestServiceConfig] = None
@@ -155,11 +170,13 @@ async def get_server_version_stats(
     server_version: Optional[Version] = None
     current_server_default_cli_version = None
     current_server_release_date = None
+    is_cloud_server: Optional[bool] = None
     if server_config:
         server_version_string = server_config.service_version
         commit_hash = server_config.commit_hash
         server_type = server_config.server_type
         current_server_default_cli_version = server_config.default_cli_version
+        is_cloud_server = server_config.is_datahub_cloud
         if server_type == "quickstart" and commit_hash:
             async with aiohttp.ClientSession(
                 headers={"Accept": "application/vnd.github.v3+json"}
@@ -179,6 +196,7 @@ async def get_server_version_stats(
         server_version,
         current_server_default_cli_version,
         current_server_release_date,
+        is_cloud_server,
     )
 
 
@@ -224,6 +242,7 @@ async def _retrieve_version_stats(
         current_server_version,
         current_server_default_cli_version,
         current_server_release_date,
+        is_cloud_server,
     ) = results[2]
 
     server_version_stats = None
@@ -233,10 +252,7 @@ async def _retrieve_version_stats(
                 version=current_server_version, release_date=current_server_release_date
             ),
             current_server_default_cli_version=(
-                VersionStats(
-                    version=Version(current_server_default_cli_version),
-                    release_date=None,
-                )
+                _safe_version_stats(current_server_default_cli_version)
                 if current_server_default_cli_version
                 else None
             ),
@@ -246,6 +262,7 @@ async def _retrieve_version_stats(
                 else None
             ),
             current_server_type=current_server_type,
+            is_cloud_server=is_cloud_server,
         )
 
     if client_version_stats and server_version_stats:
@@ -343,9 +360,15 @@ def _maybe_print_upgrade_message(
             if version_stats.client.latest
             else None
         )
-        client_server_compat = is_client_server_compatible(
-            version_stats.client.current, version_stats.server.current
-        )
+        client_server_compat = 0
+        # Skip version compatibility checks for cloud servers (serverEnv="cloud")
+        # Cloud servers use different versioning schemes between server and CLI
+        is_cloud = version_stats.server.is_cloud_server
+
+        if not is_cloud:
+            client_server_compat = is_client_server_compatible(
+                version_stats.client.current, version_stats.server.current
+            )
 
         if latest_release_date and current_release_date:
             assert version_stats.client.latest

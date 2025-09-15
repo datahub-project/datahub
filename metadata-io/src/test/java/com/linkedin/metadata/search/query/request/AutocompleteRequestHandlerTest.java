@@ -2,7 +2,7 @@ package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -99,9 +99,9 @@ public class AutocompleteRequestHandlerTest {
     partialConfiguration.setUrnFactor(0.7f);
 
     testQueryConfig =
-        TEST_ES_SEARCH_CONFIG.toBuilder()
+        TEST_OS_SEARCH_CONFIG.toBuilder()
             .search(
-                TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
+                TEST_OS_SEARCH_CONFIG.getSearch().toBuilder()
                     .maxTermBucketSize(20)
                     .exactMatch(exactMatchConfiguration)
                     .wordGram(wordGramConfiguration)
@@ -698,7 +698,7 @@ public class AutocompleteRequestHandlerTest {
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder().build(),
             QueryFilterRewriteChain.EMPTY,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             testLimitConfig);
 
     // Test with count below limit
@@ -738,7 +738,7 @@ public class AutocompleteRequestHandlerTest {
             TestEntitySpecBuilder.getSpec(),
             CustomSearchConfiguration.builder().build(),
             QueryFilterRewriteChain.EMPTY,
-            TEST_ES_SEARCH_CONFIG,
+            TEST_OS_SEARCH_CONFIG,
             strictConfig);
 
     // Test with count at the limit

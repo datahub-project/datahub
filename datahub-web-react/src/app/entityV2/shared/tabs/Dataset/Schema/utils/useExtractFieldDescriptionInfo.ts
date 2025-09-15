@@ -10,7 +10,7 @@ export default function useExtractFieldDescriptionInfo(
         const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-        const { displayedDescription, isPropagated, sourceDetail } = getFieldDescriptionDetails({
+        const { displayedDescription, isPropagated, sourceDetail, attribution } = getFieldDescriptionDetails({
             schemaFieldEntity: record.schemaFieldEntity,
             editableFieldInfo: editableFieldInfoB,
             defaultDescription: description || record?.description,
@@ -23,6 +23,7 @@ export default function useExtractFieldDescriptionInfo(
             sanitizedDescription,
             isPropagated,
             sourceDetail,
+            attribution,
         };
     };
 }

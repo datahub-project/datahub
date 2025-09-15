@@ -97,7 +97,7 @@ class HexQueryFetcher:
             if not query_urns or not entities_by_urn:
                 self.report.warning(
                     title="No Queries found with Hex as origin",
-                    message="No lineage because of no Queries found with Hex as origin in the given time range; you may consider extending the time range to fetch more queries.",
+                    message="No lineage because of no Queries found with Hex as origin in the given time range. You may need to set use_queries_v2: true on your warehouse ingestion or you may consider extending the time range to fetch more queries.",
                     context=str(
                         dict(
                             workspace_name=self.workspace_name,

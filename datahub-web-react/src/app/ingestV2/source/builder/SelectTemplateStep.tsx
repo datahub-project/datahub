@@ -82,7 +82,14 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
 /**
  * Component responsible for selecting the mechanism for constructing a new Ingestion Source
  */
-export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestionSources }: StepProps) => {
+export const SelectTemplateStep = ({
+    state,
+    updateState,
+    goTo,
+    cancel,
+    ingestionSources,
+    setSelectedSourceType,
+}: StepProps) => {
     const [searchFilter, setSearchFilter] = useState('');
 
     const onSelectTemplate = (type: string) => {
@@ -93,6 +100,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
         };
         updateState(newState);
         goTo(IngestionSourceBuilderStep.DEFINE_RECIPE);
+        setSelectedSourceType?.(type);
     };
 
     const filteredSources = ingestionSources.filter(

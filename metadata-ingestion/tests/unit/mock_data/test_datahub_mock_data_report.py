@@ -2,13 +2,14 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.mock_data.datahub_mock_data import (
     DataHubMockDataConfig,
     DataHubMockDataSource,
+    LineageConfigGen1,
 )
 
 
 class TestDataHubMockDataReport:
     def test_first_urn_capture(self):
         """Test that the first URN is captured correctly when using the source."""
-        config = DataHubMockDataConfig()
+        config = DataHubMockDataConfig(gen_1=LineageConfigGen1(enabled=True))
         config.gen_1.emit_lineage = True
         config.gen_1.lineage_fan_out = 1
         config.gen_1.lineage_hops = 0  # Only one table to make testing easier
@@ -29,7 +30,7 @@ class TestDataHubMockDataReport:
 
     def test_no_urns_when_lineage_disabled(self):
         """Test that no URNs are captured when lineage is disabled."""
-        config = DataHubMockDataConfig()
+        config = DataHubMockDataConfig(gen_1=LineageConfigGen1(enabled=False))
         config.gen_1.emit_lineage = False
 
         ctx = PipelineContext(run_id="test")

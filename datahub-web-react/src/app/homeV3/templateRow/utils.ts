@@ -1,10 +1,10 @@
 import { WrappedRow } from '@app/homeV3/templateRow/types';
 
-import { DataHubPageTemplateRow } from '@types';
+import { PageTemplateRowFragment } from '@graphql/template.generated';
 
 const DEFAULT_ROW_MAX_SIZE = 3;
 
-export function wrapRows(rows: DataHubPageTemplateRow[], chunkSize = DEFAULT_ROW_MAX_SIZE): WrappedRow[] {
+export function wrapRows(rows: PageTemplateRowFragment[], chunkSize = DEFAULT_ROW_MAX_SIZE): WrappedRow[] {
     const result: WrappedRow[] = [];
     let globalRowIndex = 0;
 

@@ -242,12 +242,18 @@ class LookerViewId:
 
         dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
-        return builder.make_dataset_urn_with_platform_instance(
+        generated_urn = builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
             name=dataset_name,
             platform_instance=config.platform_instance,
             env=config.env,
         )
+
+        logger.debug(
+            f"LookerViewId.get_urn for view '{self.view_name}': project='{self.project_name}', model='{self.model_name}', file_path='{self.file_path}', dataset_name='{dataset_name}', generated_urn='{generated_urn}'"
+        )
+
+        return generated_urn
 
     def get_browse_path(self, config: LookerCommonConfig) -> str:
         browse_path = config.view_browse_pattern.replace_variables(
@@ -373,6 +379,14 @@ class ExploreUpstreamViewField:
                 : -(len(self.field.field_group_variant.lower()) + 1)
             ]
 
+        # Validate that field_name is not empty to prevent invalid schema field URNs
+        if not field_name or not field_name.strip():
+            logger.warning(
+                f"Empty field name detected for field '{self.field.name}' in explore '{self.explore.name}'. "
+                f"Skipping field to prevent invalid schema field URN generation."
+            )
+            return None
+
         assert view_name  # for lint false positive
 
         project_include: ProjectInclude = ProjectInclude(
@@ -452,15 +466,36 @@ class ExploreUpstreamViewField:
         )
 
 
-def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
+def create_view_project_map(
+    view_fields: List[ViewField],
+    explore_primary_view: Optional[str] = None,
+    explore_project_name: Optional[str] = None,
+) -> Dict[str, str]:
     """
     Each view in a model has unique name.
     Use this function in scope of a model.
+
+    Args:
+        view_fields: List of ViewField objects
+        explore_primary_view: The primary view name of the explore (explore.view_name)
+        explore_project_name: The project name of the explore (explore.project_name)
     """
     view_project_map: Dict[str, str] = {}
     for view_field in view_fields:
         if view_field.view_name is not None and view_field.project_name is not None:
-            view_project_map[view_field.view_name] = view_field.project_name
+            # Override field-level project assignment for the primary view when different
+            if (
+                view_field.view_name == explore_primary_view
+                and explore_project_name is not None
+                and explore_project_name != view_field.project_name
+            ):
+                logger.debug(
+                    f"Overriding project assignment for primary view '{view_field.view_name}': "
+                    f"field-level project '{view_field.project_name}' → explore-level project '{explore_project_name}'"
+                )
+                view_project_map[view_field.view_name] = explore_project_name
+            else:
+                view_project_map[view_field.view_name] = view_field.project_name
 
     return view_project_map
 
@@ -953,6 +988,9 @@ class LookerExplore:
                         f"Could not resolve view {view_name} for explore {dict['name']} in model {model_name}"
                     )
                 else:
+                    logger.debug(
+                        f"LookerExplore.from_dict adding upstream view for explore '{dict['name']}' (model='{model_name}'): view_name='{view_name}', info[0].project='{info[0].project}'"
+                    )
                     upstream_views.append(
                         ProjectInclude(project=info[0].project, include=view_name)
                     )
@@ -981,6 +1019,7 @@ class LookerExplore:
     ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
+
             views: Set[str] = set()
             lkml_fields: List[LookmlModelExploreField] = (
                 explore_field_set_to_lkml_fields(explore)
@@ -1117,7 +1156,11 @@ class LookerExplore:
                                 )
                             )
 
-            view_project_map: Dict[str, str] = create_view_project_map(view_fields)
+            view_project_map: Dict[str, str] = create_view_project_map(
+                view_fields,
+                explore_primary_view=explore.view_name,
+                explore_project_name=explore.project_name,
+            )
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
@@ -1289,6 +1332,7 @@ class LookerExplore:
                     if self.upstream_views_file_path[view_ref.include] is not None
                     else ViewFieldValue.NOT_AVAILABLE.value
                 )
+
                 view_urn = LookerViewId(
                     project_name=(
                         view_ref.project
@@ -1315,7 +1359,25 @@ class LookerExplore:
             fine_grained_lineages = []
             if config.extract_column_level_lineage:
                 for field in self.fields or []:
+                    # Skip creating fine-grained lineage for empty field names to prevent invalid schema field URNs
+                    if not field.name or not field.name.strip():
+                        logger.warning(
+                            f"Skipping fine-grained lineage for field with empty name in explore '{self.name}'"
+                        )
+                        continue
+
                     for upstream_column_ref in field.upstream_fields:
+                        # Skip creating fine-grained lineage for empty column names to prevent invalid schema field URNs
+                        if (
+                            not upstream_column_ref.column
+                            or not upstream_column_ref.column.strip()
+                        ):
+                            logger.warning(
+                                f"Skipping some fine-grained lineage for field '{field.name}' in explore '{self.name}' "
+                                f"due to empty upstream column name in table '{upstream_column_ref.table}'"
+                            )
+                            continue
+
                         fine_grained_lineages.append(
                             FineGrainedLineageClass(
                                 upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
