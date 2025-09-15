@@ -1,4 +1,5 @@
 import datetime
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generic, List, Optional, Type, TypeVar, cast
@@ -11,6 +12,8 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUn
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -163,10 +166,6 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
         to ensure callbacks are executed.
         """
         # Execute pre-shutdown callbacks before shutdown
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         for callback in self._pre_shutdown_callbacks:
             try:
                 callback()
