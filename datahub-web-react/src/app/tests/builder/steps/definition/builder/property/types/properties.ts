@@ -4,6 +4,7 @@
  */
 import {
     OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+    SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
     STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
 } from '@app/tests/builder/steps/definition/builder/property/constants';
 import { SelectInputMode, ValueTypeId } from '@app/tests/builder/steps/definition/builder/property/types/values';
@@ -32,7 +33,6 @@ export type Property = {
  *          "If an asset has an upstream that is tagged with sensitive, tag it with sensitive."
  *          "If an asset has > 10 upstreams, then mark it as important."
  *          "If an asset has no upstreams, then mark it as root."
- *          "If an asset has > 10 downstreams, then mark it as Heavy node"
  *          "Must have an owner of type Technical Owner"
  */
 export const commonProps: Property[] = [
@@ -80,6 +80,18 @@ export const commonProps: Property[] = [
                 {
                     id: 'glossaryTerm',
                     displayName: 'Glossary Term',
+                },
+                {
+                    id: 'glossaryNode',
+                    displayName: 'Glossary Node',
+                },
+                {
+                    id: 'domain',
+                    displayName: 'Domain',
+                },
+                {
+                    id: 'dataProduct',
+                    displayName: 'Data Product',
                 },
             ],
         },
@@ -193,7 +205,7 @@ export const assetProps: Property[] = [
 
 /**
  * Properties that are specific to data assets (datasets, dashboards, charts, etc.)
- * but not applicable to other entities like glossaryTerm
+ * but not applicable to other assets like glossaryTerm
  */
 export const dataAssetProps: Property[] = [
     {
@@ -231,63 +243,52 @@ export const dataAssetProps: Property[] = [
 const datasetProps: Property[] = [
     ...assetProps,
     ...dataAssetProps,
+
+    // === CORE PROPERTIES ===
+    // Basic identification and context
+    {
+        id: 'datasetProperties.name',
+        displayName: 'Dataset Name',
+        description: 'The name of the dataset as defined in the source data platform.',
+        valueType: ValueTypeId.STRING,
+    },
     {
         id: 'datasetDescription',
         displayName: 'Description',
         children: [
-            {
-                id: 'datasetProperties.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
-                valueType: ValueTypeId.STRING,
-            },
             {
                 id: 'editableDatasetProperties.description',
                 displayName: 'DataHub Description',
                 description: 'The description as authored inside DataHub directly.',
                 valueType: ValueTypeId.STRING,
             },
+            {
+                id: 'datasetProperties.description',
+                displayName: 'Source Platform Description',
+                description: 'The description as authored and ingested from the source data platform.',
+                valueType: ValueTypeId.STRING,
+            },
         ],
     },
+
+    // === USAGE & IMPACT ===
+    // For understanding adoption and importance
     {
-        id: 'datasetProperties.name',
-        displayName: 'Dataset Name',
-        description: 'The name of the dataset as defined in the source platform.',
-        valueType: ValueTypeId.STRING,
-    },
-    {
-        id: 'upstreamLineage.upstreams',
-        displayName: 'Upstream Assets',
-        description: 'Assets that this dataset depends on (upstream in the data lineage).',
-        valueType: ValueTypeId.EXISTS_LIST,
-    },
-    {
-        id: 'datasetProperties.qualifiedName',
-        displayName: 'Qualified Name',
-        description: 'The fully-qualified name of the dataset.',
-        valueType: ValueTypeId.STRING,
-    },
-    {
-        id: 'schemaFields',
-        displayName: 'Columns',
-        description: 'The set of columns / fields associated with the dataset.',
-        valueType: ValueTypeId.SCHEMA_FIELD_LIST,
-    },
-    {
-        id: 'schemaFields.length',
-        displayName: 'Number of Columns',
-        description: 'The number of columns / fields associated with the dataset.',
-        valueType: ValueTypeId.NUMBER,
-    },
-    {
-        id: 'datasetMetrics',
-        displayName: 'Metrics',
+        id: 'usageMetrics',
+        displayName: 'Usage Metrics',
         children: [
             {
-                id: 'usageFeatures.usageCountLast30Days',
+                id: 'usageFeatures.queryCountLast30Days',
                 displayName: 'Query Count in Last 30 Days',
                 description:
                     'The total query count in the past 30 days. This requires usage data ingestion to be enabled.',
+                valueType: ValueTypeId.NUMBER,
+            },
+            {
+                id: 'usageFeatures.uniqueUserCountLast30Days',
+                displayName: 'Unique Users in the Last 30 Days',
+                description:
+                    'The unique user count in the past 30 days. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
@@ -301,21 +302,14 @@ const datasetProps: Property[] = [
                 id: 'usageFeatures.writeCountLast30Days',
                 displayName: 'Update Count in Last 30 Days',
                 description:
-                    'The total write count for this dataset in the past 30 days. This requires usage data ingestion to be enabled.',
+                    'The total update/write count in the past 30 days. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
                 id: 'usageFeatures.writeCountPercentileLast30Days',
                 displayName: 'Update Count Percentile in Last 30 Days (0-100)',
                 description:
-                    'The relative write count percentile for this dataset within the data platform instance. This requires usage data ingestion to be enabled.',
-                valueType: ValueTypeId.NUMBER,
-            },
-            {
-                id: 'usageFeatures.uniqueUserCountLast30Days',
-                displayName: 'Unique Users in the Last 30 Days',
-                description:
-                    'The total unique user count for this dataset in the past 30 days. This requires usage data ingestion to be enabled.',
+                    'The relative update/write count percentile for this dataset within the data platform instance. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
@@ -325,6 +319,124 @@ const datasetProps: Property[] = [
                     'The relative unique user count percentile for this dataset within the data platform instance. This requires usage data ingestion to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
+        ],
+    },
+
+    // === LINEAGE ===
+    // Critical for understanding data dependencies and impact analysis
+    {
+        id: 'upstreamLineage.upstreams',
+        displayName: 'Upstream Assets',
+        description: 'Assets that this dataset depends on (upstream in the data lineage).',
+        valueType: ValueTypeId.EXISTS_LIST,
+    },
+
+    // === COLUMNS ===
+    // Important for understanding data structure and content
+    {
+        id: 'schemaInformation',
+        displayName: 'Columns',
+        children: [
+            {
+                id: 'schemaFields',
+                displayName: 'Column Names',
+                description: 'The set of columns associated with the dataset.',
+                valueType: ValueTypeId.SCHEMA_FIELD_LIST,
+            },
+            {
+                id: 'schemaFields.length',
+                displayName: 'Number of Columns',
+                description: 'The number of columns associated with the dataset.',
+                valueType: ValueTypeId.NUMBER,
+            },
+        ],
+    },
+
+    // === COLUMN-LEVEL METADATA ===
+    // Detailed field-level information for granular rules
+    {
+        id: 'columnProperties',
+        displayName: 'Column-Level Properties',
+        children: [
+            {
+                id: 'schemaMetadata.fields.fieldPath',
+                displayName: 'Column Names',
+                description: 'The names (field paths) of individual columns in the dataset schema.',
+                valueType: ValueTypeId.STRING_LIST,
+            },
+            {
+                id: 'columnTags',
+                displayName: 'Column Tags',
+                children: [
+                    {
+                        id: 'editableSchemaMetadata.editableSchemaFieldInfo.globalTags',
+                        displayName: 'DataHub Column Tags',
+                        description: 'User-editable tags applied to individual columns/fields within DataHub.',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                    {
+                        id: 'schemaMetadata.fields.globalTags',
+                        displayName: 'Source Platform Column Tags',
+                        description:
+                            'Tags applied to individual columns/fields as ingested from the source data platform.',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                ],
+            },
+            {
+                id: 'columnGlossaryTerms',
+                displayName: 'Column Glossary Terms',
+                children: [
+                    {
+                        id: 'editableSchemaMetadata.editableSchemaFieldInfo.glossaryTerms',
+                        displayName: 'DataHub Column Glossary Terms',
+                        description:
+                            'User-editable glossary terms applied to individual columns/fields within DataHub.',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                    {
+                        id: 'schemaMetadata.fields.glossaryTerms',
+                        displayName: 'Source Platform Column Glossary Terms',
+                        description:
+                            'Glossary terms applied to individual columns/fields as ingested from the source data platform.',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                ],
+            },
+            {
+                id: 'columnDescriptions',
+                displayName: 'Column Descriptions',
+                children: [
+                    {
+                        id: 'editableSchemaMetadata.editableSchemaFieldInfo.description',
+                        displayName: 'DataHub Column Descriptions',
+                        description: 'User-editable descriptions of individual columns/fields within DataHub.',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                    {
+                        id: 'schemaMetadata.fields.description',
+                        displayName: 'Source Platform Column Descriptions',
+                        description:
+                            'Descriptions of individual columns/fields as ingested from the source data platform.',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                ],
+            },
+            {
+                id: SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+                displayName: 'Column Structured Property',
+                description: 'Match datasets that have any columns with specific structured properties',
+                valueType: ValueTypeId.NO_VALUE,
+            },
+        ],
+    },
+
+    // === STORAGE & SIZE METRICS ===
+    // Important for understanding data volume and resource usage
+    {
+        id: 'storageMetrics',
+        displayName: 'Storage & Size Metrics',
+        children: [
             {
                 id: 'storageFeatures.rowCount',
                 displayName: 'Row Count Total',
@@ -333,17 +445,17 @@ const datasetProps: Property[] = [
                 valueType: ValueTypeId.NUMBER,
             },
             {
-                id: 'storageFeatures.rowCountPercentile',
-                displayName: 'Row Count Percentile (0-100)',
-                description:
-                    'The relative row count percentile for this dataset within the data platform instance. This requires data profiling to be enabled.',
-                valueType: ValueTypeId.NUMBER,
-            },
-            {
                 id: 'storageFeatures.sizeInBytes',
                 displayName: 'Size In Bytes',
                 description:
                     'The total size of the dataset in bytes. This requires data profiling to be enabled for supported data sources.',
+                valueType: ValueTypeId.NUMBER,
+            },
+            {
+                id: 'storageFeatures.rowCountPercentile',
+                displayName: 'Row Count Percentile (0-100)',
+                description:
+                    'The relative row count percentile for this dataset within the data platform instance. This requires data profiling to be enabled.',
                 valueType: ValueTypeId.NUMBER,
             },
             {
@@ -355,58 +467,76 @@ const datasetProps: Property[] = [
             },
         ],
     },
+
+    // === ADVANCED CONFIGURATION ===
+    // Lower priority technical and administrative properties
     {
-        id: 'assertions',
-        displayName: 'Assertions',
+        id: 'datasetProperties.qualifiedName',
+        displayName: 'Qualified Name',
+        description: 'The fully-qualified name of the dataset.',
+        valueType: ValueTypeId.STRING,
+    },
+
+    // === DATA QUALITY & RELIABILITY ===
+    {
+        id: 'dataQualityReliability',
+        displayName: 'Data Quality & Reliability',
         children: [
             {
-                id: 'assertionsSummary.passingAssertionDetails',
-                displayName: 'Passing Assertions',
-                description: 'Passing assertions for the asset',
-                valueType: ValueTypeId.EXISTS_LIST,
+                id: 'dataContractStatus.state',
+                displayName: 'Contract State',
+                description: 'The current state of the data contract (ACTIVE, PENDING, etc.).',
+                valueType: ValueTypeId.STRING,
             },
             {
-                id: 'assertionsSummary.failingAssertionDetails',
-                displayName: 'Failing Assertions',
-                description: 'Failing Assertions for the asset',
-                valueType: ValueTypeId.EXISTS_LIST,
+                id: 'assertions',
+                displayName: 'Assertions',
+                children: [
+                    {
+                        id: 'assertionsSummary.passingAssertionDetails',
+                        displayName: 'Passing Assertions',
+                        description: 'Passing assertions for the asset',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                    {
+                        id: 'assertionsSummary.failingAssertionDetails',
+                        displayName: 'Failing Assertions',
+                        description: 'Failing Assertions for the asset',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                ],
+            },
+            {
+                id: 'incidents',
+                displayName: 'Incidents',
+                children: [
+                    {
+                        id: 'incidentsSummary.activeIncidentDetails',
+                        displayName: 'Active Incidents',
+                        description: 'Active incidents for the asset',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                    {
+                        id: 'incidentsSummary.resolvedIncidentDetails',
+                        displayName: 'Resolved Incidents',
+                        description: 'Resolved incidents for the asset',
+                        valueType: ValueTypeId.EXISTS_LIST,
+                    },
+                ],
             },
         ],
     },
-    {
-        id: 'incidents',
-        displayName: 'Incidents',
-        children: [
-            {
-                id: 'incidentsSummary.activeIncidentDetails',
-                displayName: 'Active Incidents',
-                description: 'Active incidents for the asset',
-                valueType: ValueTypeId.EXISTS_LIST,
-            },
-            {
-                id: 'incidentsSummary.resolvedIncidentDetails',
-                displayName: 'Resolved Incidents',
-                description: 'Resolved incidents for the asset',
-                valueType: ValueTypeId.EXISTS_LIST,
-            },
-        ],
-    },
-    // Simply serves as an entry point to defining a structured property reference.
-    // Once this property is selected, we'll transfer the user to the structured property predicate
-    // builder experience.
+
     {
         id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
         displayName: 'Structured Property',
-        description: 'Match entities that have a custom structured property',
+        description: 'Match assets that have a custom structured property',
         valueType: ValueTypeId.NO_VALUE,
     },
-    // Simply serves as an entry point to defining a ownership type reference.
-    // Once this type is selected, we'll transfer the user to the ownership type predicate
-    // builder experience.
     {
         id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
         displayName: 'Ownership Type',
-        description: 'Match entities that have a custom ownership type',
+        description: 'Match assets that have a custom ownership type',
         valueType: ValueTypeId.NO_VALUE,
     },
 ];
@@ -414,64 +544,98 @@ const datasetProps: Property[] = [
 const dataJobProps = [
     ...assetProps,
     ...dataAssetProps,
+
+    // BASIC PROPERTIES
+    {
+        id: 'dataJobInfo.name',
+        displayName: 'Job Name',
+        description: 'The name of the job as defined in the source data platform.',
+        valueType: ValueTypeId.STRING,
+    },
     {
         id: 'dataJobDescription',
         displayName: 'Description',
         children: [
-            {
-                id: 'dataJobInfo.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
-                valueType: ValueTypeId.STRING,
-            },
             {
                 id: 'editableDataJobProperties.description',
                 displayName: 'DataHub Description',
                 description: 'The description as authored inside DataHub directly.',
                 valueType: ValueTypeId.STRING,
             },
+            {
+                id: 'dataJobInfo.description',
+                displayName: 'Source Platform Description',
+                description: 'The description as authored and ingested from the source data platform.',
+                valueType: ValueTypeId.STRING,
+            },
         ],
     },
+
+    // TECHNICAL PROPERTIES
     {
-        id: 'dataJobInfo.name',
-        displayName: 'Job Name',
-        description: 'The name of the job as defined in the source platform.',
-        valueType: ValueTypeId.STRING,
+        id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Structured Property',
+        description: 'Match assets that have a custom structured property',
+        valueType: ValueTypeId.NO_VALUE,
+    },
+    {
+        id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Ownership Type',
+        description: 'Match assets that have a custom ownership type',
+        valueType: ValueTypeId.NO_VALUE,
     },
 ];
 
 const dataFlowProps = [
     ...assetProps,
     ...dataAssetProps,
+
+    // BASIC PROPERTIES
+    {
+        id: 'dataFlowInfo.name',
+        displayName: 'Flow Name',
+        description: 'The name of the data flow as defined in the source data platform.',
+        valueType: ValueTypeId.STRING,
+    },
     {
         id: 'dataFlowDescription',
         displayName: 'Description',
         children: [
-            {
-                id: 'dataFlowInfo.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
-                valueType: ValueTypeId.STRING,
-            },
             {
                 id: 'editableDataFlowProperties.description',
                 displayName: 'DataHub Description',
                 description: 'The description as authored inside DataHub directly.',
                 valueType: ValueTypeId.STRING,
             },
+            {
+                id: 'dataFlowInfo.description',
+                displayName: 'Source Platform Description',
+                description: 'The description as authored and ingested from the source data platform.',
+                valueType: ValueTypeId.STRING,
+            },
         ],
     },
+
+    // TECHNICAL PROPERTIES
     {
-        id: 'dataFlowInfo.name',
-        displayName: 'Flow Name',
-        description: 'The name of the data flow as defined in the source platform.',
-        valueType: ValueTypeId.STRING,
+        id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Structured Property',
+        description: 'Match assets that have a custom structured property',
+        valueType: ValueTypeId.NO_VALUE,
+    },
+    {
+        id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Ownership Type',
+        description: 'Match assets that have a custom ownership type',
+        valueType: ValueTypeId.NO_VALUE,
     },
 ];
 
 const dashboardProps = [
     ...assetProps,
     ...dataAssetProps,
+
+    // BASIC PROPERTIES
     {
         id: 'dashboardDescription',
         displayName: 'Description',
@@ -493,12 +657,14 @@ const dashboardProps = [
     {
         id: 'dashboardInfo.title',
         displayName: 'Dashboard Name',
-        description: 'The name of the dashboard as defined in the source platform.',
+        description: 'The name of the dashboard as defined in the source data platform.',
         valueType: ValueTypeId.STRING,
     },
+
+    // USAGE METRICS
     {
         id: 'dashboardMetrics',
-        displayName: 'Metrics',
+        displayName: 'Usage Metrics',
         children: [
             {
                 id: 'usageFeatures.viewCountTotal',
@@ -537,25 +703,41 @@ const dashboardProps = [
             },
         ],
     },
+
+    // TECHNICAL PROPERTIES
+    {
+        id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Structured Property',
+        description: 'Match assets that have a custom structured property',
+        valueType: ValueTypeId.NO_VALUE,
+    },
+    {
+        id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Ownership Type',
+        description: 'Match assets that have a custom ownership type',
+        valueType: ValueTypeId.NO_VALUE,
+    },
 ];
 
 const chartProps = [
     ...assetProps,
     ...dataAssetProps,
+
+    // BASIC PROPERTIES
     {
         id: 'chartDescription',
         displayName: 'Description',
         children: [
             {
-                id: 'chartInfo.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
-                valueType: ValueTypeId.STRING,
-            },
-            {
                 id: 'editableChartProperties.description',
                 displayName: 'DataHub Description',
                 description: 'The description as authored inside DataHub directly.',
+                valueType: ValueTypeId.STRING,
+            },
+            {
+                id: 'chartInfo.description',
+                displayName: 'Source Platform Description',
+                description: 'The description as authored and ingested from the source data platform.',
                 valueType: ValueTypeId.STRING,
             },
         ],
@@ -563,13 +745,14 @@ const chartProps = [
     {
         id: 'chartInfo.title',
         displayName: 'Chart Name',
-        description: 'The name of the chart as defined in the source platform.',
+        description: 'The name of the chart as defined in the source data platform.',
         valueType: ValueTypeId.STRING,
     },
 
+    // USAGE METRICS
     {
         id: 'chartMetrics',
-        displayName: 'Metrics',
+        displayName: 'Usage Metrics',
         selectable: false,
         children: [
             {
@@ -609,34 +792,64 @@ const chartProps = [
             },
         ],
     },
+
+    // TECHNICAL PROPERTIES
+    {
+        id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Structured Property',
+        description: 'Match assets that have a custom structured property',
+        valueType: ValueTypeId.NO_VALUE,
+    },
+    {
+        id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Ownership Type',
+        description: 'Match assets that have a custom ownership type',
+        valueType: ValueTypeId.NO_VALUE,
+    },
 ];
 
 const containerProps = [
     ...assetProps,
     ...dataAssetProps,
+
+    // BASIC PROPERTIES
+    {
+        id: 'containerProperties.name',
+        displayName: 'Source Platform Name',
+        description: 'The name of the container as defined in the source data platform.',
+        valueType: ValueTypeId.STRING,
+    },
     {
         id: 'containerDescription',
         displayName: 'Description',
         children: [
-            {
-                id: 'containerProperties.description',
-                displayName: 'Native Platform Description',
-                description: 'The description as authored and ingested from an external Data Platform.',
-                valueType: ValueTypeId.STRING,
-            },
             {
                 id: 'editableContainerProperties.description',
                 displayName: 'DataHub Description',
                 description: 'The description as authored inside DataHub directly.',
                 valueType: ValueTypeId.STRING,
             },
+            {
+                id: 'containerProperties.description',
+                displayName: 'Source Platform Description',
+                description: 'The description as authored and ingested from the source data platform.',
+                valueType: ValueTypeId.STRING,
+            },
         ],
     },
+
+    // TECHNICAL PROPERTIES
     {
-        id: 'containerProperties.name',
-        displayName: 'Native Platform Name',
-        description: 'The name of the container as defined in the source platform.',
-        valueType: ValueTypeId.STRING,
+        id: STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Structured Property',
+        description: 'Match assets that have a custom structured property',
+        valueType: ValueTypeId.NO_VALUE,
+    },
+    {
+        id: OWNERSHIP_TYPE_REFERENCE_PLACEHOLDER_ID,
+        displayName: 'Ownership Type',
+        description: 'Match assets that have a custom ownership type',
+        valueType: ValueTypeId.NO_VALUE,
     },
 ];
 
@@ -673,6 +886,76 @@ const glossaryTermProps = [
     },
 ];
 
+const glossaryNodeProps = [
+    ...commonProps,
+    {
+        id: 'glossaryNodeInfo.name',
+        displayName: 'Name',
+        description: 'Display name of the glossary node.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'glossaryNodeInfo.definition',
+        displayName: 'Description',
+        description: 'Description of the glossary node.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'glossaryNodeInfo.parentNode',
+        displayName: 'Parent Node',
+        description: 'Parent node of the glossary node.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.GlossaryNode],
+            mode: SelectInputMode.SINGLE,
+        },
+    },
+];
+
+const domainProps = [
+    ...commonProps,
+    {
+        id: 'domainProperties.name',
+        displayName: 'Name',
+        description: 'The name of the domain.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'domainProperties.description',
+        displayName: 'Description',
+        description: 'The description of the domain.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'domainProperties.parentDomain',
+        displayName: 'Parent Domain',
+        description: 'The parent domain of this domain.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.Domain],
+            mode: SelectInputMode.SINGLE,
+        },
+    },
+];
+
+const dataProductProps = [
+    ...assetProps,
+
+    // BASIC PROPERTIES
+    {
+        id: 'dataProductProperties.name',
+        displayName: 'Name',
+        description: 'The name of the data product.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'dataProductProperties.description',
+        displayName: 'Description',
+        description: 'The description of the data product.',
+        valueType: ValueTypeId.STRING,
+    },
+];
+
 /**
  * A list of entity types to the well-supported properties
  * that each can support.
@@ -705,5 +988,17 @@ export const entityProperties = [
     {
         type: EntityType.GlossaryTerm,
         properties: glossaryTermProps,
+    },
+    {
+        type: EntityType.GlossaryNode,
+        properties: glossaryNodeProps,
+    },
+    {
+        type: EntityType.Domain,
+        properties: domainProps,
+    },
+    {
+        type: EntityType.DataProduct,
+        properties: dataProductProps,
     },
 ];

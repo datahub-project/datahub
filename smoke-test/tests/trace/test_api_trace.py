@@ -440,7 +440,7 @@ def extract_trace_system_metadata(system_metadata):
     return system_metadata["properties"]["telemetryTraceId"]
 
 
-def delete_elasticsearch_trace(trace_id, timeout=10, refresh_interval=1):
+def delete_elasticsearch_trace(trace_id, timeout=10, refresh_interval=3):
     field_name = "telemetryTraceId"
     index_name = "system_metadata_service_v1"
 

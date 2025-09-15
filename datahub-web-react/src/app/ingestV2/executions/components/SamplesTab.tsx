@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { SectionHeading, SectionSecondaryText } from '@app/ingestV2/executions/components/BaseTab';
 import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import ContextPath from '@app/previewV2/ContextPath';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -20,12 +21,13 @@ const Container = styled.div`
     flex: 1;
     overflow: hidden;
     height: 100%;
+    padding-right: 24px;
+    padding-left: 24px;
+    padding-top: 8px;
 `;
 
 const SamplesSection = styled.div`
     padding-top: 16px;
-    padding-left: 16px;
-    padding-right: 16px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -51,20 +53,17 @@ const EntityNameContainer = styled.div`
 `;
 
 const FilterSection = styled.div`
-    padding: 16px;
+    padding-top: 16px;
     padding-bottom: 0px;
 `;
 
 const HeaderSection = styled.div`
-    padding-left: 16px;
     display: flex;
     align-items: center;
     gap: 8px;
 `;
 
-const DescriptionSection = styled.div`
-    padding-left: 16px;
-`;
+const DescriptionSection = styled.div``;
 
 type SampleStatus = 'Ingested' | 'Missing' | 'Unsupported' | '-';
 
@@ -457,46 +456,50 @@ export const SamplesTab = ({ data }: { data: GetIngestionExecutionRequestQuery |
 
     if (loading) {
         return (
-            <SamplesSection>
-                <Text color="gray" colorLevel={600}>
-                    Loading entity information...
-                </Text>
-            </SamplesSection>
+            <Container>
+                <SamplesSection>
+                    <SectionSecondaryText title="Loading entity information..." color="gray" colorLevel={600} />
+                </SamplesSection>
+            </Container>
         );
     }
 
     if (error) {
         return (
-            <SamplesSection>
-                <Text color="red" colorLevel={600}>
-                    Error loading entity information: {error.message}
-                </Text>
-            </SamplesSection>
+            <Container>
+                <SamplesSection>
+                    <SectionSecondaryText
+                        title={`Error loading entity information: ${error.message}`}
+                        color="red"
+                        colorLevel={600}
+                    />
+                </SamplesSection>
+            </Container>
         );
     }
 
     if (uniqueUrns.length === 0) {
         return (
-            <SamplesSection>
-                <Text color="gray" colorLevel={600}>
-                    No sample data available.
-                </Text>
-            </SamplesSection>
+            <Container>
+                <SamplesSection>
+                    <SectionSecondaryText title="No sample data available." color="gray" colorLevel={600} />
+                </SamplesSection>
+            </Container>
         );
     }
 
     return (
         <Container>
             <HeaderSection>
-                <Text size="lg" weight="semiBold">
-                    Sample Assets
-                </Text>
+                <SectionHeading title="Sample Assets" />
                 <Pill label={total.toString()} color="gray" size="sm" />
             </HeaderSection>
             <DescriptionSection>
-                <Text size="md" color="gray" colorLevel={600}>
-                    The following asset types were ingested during this run.
-                </Text>
+                <SectionSecondaryText
+                    title="The following asset types were ingested during this run."
+                    color="gray"
+                    colorLevel={600}
+                />
             </DescriptionSection>
             <FilterSection>
                 <SimpleSelect

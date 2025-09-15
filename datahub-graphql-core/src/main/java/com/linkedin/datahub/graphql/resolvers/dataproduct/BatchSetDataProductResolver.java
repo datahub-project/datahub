@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchSetDataProductInput;
+import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.service.DataProductService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -92,11 +93,17 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
         dataProductUrn,
         resources);
     try {
+      // Convert List<Urn> to List<ResourceReference>
+      List<ResourceReference> resourceReferences =
+          resources.stream()
+              .map(urn -> new ResourceReference(urn, null, null))
+              .collect(Collectors.toList());
+
       _dataProductService.batchSetDataProduct(
           context.getOperationContext(),
           UrnUtils.getUrn(dataProductUrn),
-          resources,
-          UrnUtils.getUrn(context.getActorUrn()));
+          resourceReferences,
+          null); // GraphQL operations don't use appSource
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(
@@ -109,10 +116,16 @@ public class BatchSetDataProductResolver implements DataFetcher<CompletableFutur
   private void batchUnsetDataProduct(List<Urn> resources, QueryContext context) {
     log.debug("Batch unsetting Data Product. resources: {}", resources);
     try {
-      for (Urn resource : resources) {
-        _dataProductService.unsetDataProduct(
-            context.getOperationContext(), resource, UrnUtils.getUrn(context.getActorUrn()));
-      }
+      // Convert List<Urn> to List<ResourceReference>
+      List<ResourceReference> resourceReferences =
+          resources.stream()
+              .map(urn -> new ResourceReference(urn, null, null))
+              .collect(Collectors.toList());
+
+      _dataProductService.batchUnsetDataProduct(
+          context.getOperationContext(),
+          resourceReferences,
+          null); // GraphQL operations don't use appSource
     } catch (Exception e) {
       throw new RuntimeException(
           String.format(

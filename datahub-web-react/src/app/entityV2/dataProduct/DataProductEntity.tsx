@@ -282,6 +282,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.TEST,
         ]);
     };
 

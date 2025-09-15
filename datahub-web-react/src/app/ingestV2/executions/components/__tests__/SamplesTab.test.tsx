@@ -64,6 +64,64 @@ vi.mock('@components', () => ({
     ),
 }));
 
+// Mock alchemy components
+vi.mock('@src/alchemy-components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@src/alchemy-components')>();
+    return {
+        ...actual,
+        Heading: ({ children, type, size, weight }: any) => (
+            <div data-testid="heading" data-type={type} data-size={size} data-weight={weight}>
+                {children}
+            </div>
+        ),
+        Text: ({ children, color, colorLevel }: any) => (
+            <span data-testid="alchemy-text" data-color={color} data-color-level={colorLevel}>
+                {children}
+            </span>
+        ),
+        Pill: ({ label, color, size }: any) => (
+            <span data-testid="alchemy-pill" data-color={color} data-size={size}>
+                {label}
+            </span>
+        ),
+        SimpleSelect: ({
+            values,
+            onUpdate,
+            _options,
+            placeholder,
+            _isMultiSelect,
+            showClear,
+            _selectLabelProps,
+        }: any) => (
+            <div data-testid="alchemy-simple-select">
+                <input
+                    data-testid="alchemy-select-input"
+                    value={values?.join(',') || ''}
+                    placeholder={placeholder}
+                    onChange={(e) => onUpdate(e.target.value ? e.target.value.split(',') : [])}
+                />
+                {showClear && (
+                    <button type="button" data-testid="alchemy-clear-button" onClick={() => onUpdate([])}>
+                        Clear
+                    </button>
+                )}
+            </div>
+        ),
+        Table: ({ _columns, data, isLoading, maxHeight }: any) => (
+            <div data-testid="alchemy-table" data-loading={isLoading} data-max-height={maxHeight}>
+                {data?.map((record: any, index: number) => (
+                    <div
+                        key={`alchemy-table-row-${record.urn || record.name || index}`}
+                        data-testid="alchemy-table-row"
+                    >
+                        {record.name}
+                    </div>
+                ))}
+            </div>
+        ),
+    };
+});
+
 // Mock the GraphQL hook using vi.hoisted
 const mockUseGetSamplesSearchResultsQuery = vi.hoisted(() => vi.fn());
 vi.mock('@graphql/samples.generated', () => ({
@@ -813,7 +871,7 @@ describe('SamplesTab Component', () => {
 
             renderComponent(mockData);
             expect(screen.getByText('Sample Assets')).toBeInTheDocument();
-            expect(screen.getByTestId('table')).toBeInTheDocument();
+            expect(screen.getByTestId('alchemy-table')).toBeInTheDocument();
         });
     });
 
