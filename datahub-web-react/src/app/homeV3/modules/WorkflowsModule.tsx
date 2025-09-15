@@ -108,6 +108,7 @@ export default function WorkflowsModule(props: ModuleProps) {
             return (
                 <EmptyContent
                     dataTestId={`workflow-item-${workflow.urn.split(':').pop()}`}
+                    key={workflow.urn}
                     icon="LockSimpleOpen"
                     title="Access Request"
                     description="Looking for access to a certain asset?"
