@@ -459,6 +459,25 @@ VERTICA_SQL_TYPES_MAP: Dict[str, Any] = {
     "uuid": StringType,
 }
 
+# Neo4j property types mapping
+# https://neo4j.com/docs/cypher-manual/current/values-and-types/property-structural-constructed/
+NEO4J_TYPES_MAP: Dict[str, Any] = {
+    "boolean": BooleanType,
+    "date": DateType,
+    "duration": TimeType,  # Neo4j duration represents a temporal amount
+    "float": NumberType,
+    "integer": NumberType,
+    "list": ArrayType,
+    "local_date_time": TimeType,
+    "local_time": TimeType,
+    "point": StringType,  # Neo4j point - spatial coordinate, represented as string
+    "string": StringType,
+    "zoned_date_time": TimeType,
+    "zoned_time": TimeType,
+    "node": StringType,  # Neo4j object type
+    "relationship": StringType,  # Neo4j object type
+}
+
 
 _merged_mapping = {
     "boolean": BooleanType,
@@ -478,6 +497,7 @@ _merged_mapping = {
     **TRINO_SQL_TYPES_MAP,
     **ATHENA_SQL_TYPES_MAP,
     **VERTICA_SQL_TYPES_MAP,
+    **NEO4J_TYPES_MAP,
 }
 
 
@@ -487,6 +507,8 @@ def resolve_sql_type(
 ) -> Optional[DATAHUB_FIELD_TYPE]:
     # In theory, we should use the platform-specific mapping where available.
     # However, the types don't ever conflict, so the merged mapping is fine.
+    # Wrong assumption - there ARE conflicts as the test_type_conflicts_across_platforms in test_sql_types.py shows.
+    # TODO: revisit this and make platform-specific mappings work.
     TypeClass: Optional[Type[DATAHUB_FIELD_TYPE]] = (
         _merged_mapping.get(column_type) if column_type else None
     )
