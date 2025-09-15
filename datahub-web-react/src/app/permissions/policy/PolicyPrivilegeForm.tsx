@@ -517,10 +517,10 @@ export default function PolicyPrivilegeForm({
             event.stopPropagation();
         };
 
-        const selectedItem = selectedTags?.find((term) => term?.urn === value) || {};
+        const selectedItem = selectedTags?.find((term) => term?.urn === value);
         return (
             <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
-                {entityRegistry.getDisplayName(EntityType.Tag, selectedItem)}
+                {!!selectedItem && entityRegistry.getDisplayName(EntityType.Tag, selectedItem)}
             </StyleTag>
         );
     };

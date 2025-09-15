@@ -311,8 +311,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         const { closable, onClose, value } = tagProps;
 
                         const handleClose = (event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
+                            onPreventMouseDown(event);
                             onClose();
                         };
 
@@ -326,7 +325,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
                         const selectedItem: CorpUser | undefined = usersSelectValues?.find((u) => u?.urn === value);
                         return (
-                            <ActorWrapper onMouseDown={(e) => e.stopPropagation()}>
+                            <ActorWrapper onMouseDown={onPreventMouseDown}>
                                 <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
                             </ActorWrapper>
                         );
@@ -356,8 +355,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         const { closable, onClose, value } = tagProps;
 
                         const handleClose = (event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
+                            onPreventMouseDown(event);
                             onClose();
                         };
 
@@ -371,7 +369,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
                         const selectedItem: CorpGroup | undefined = groupsSelectValues?.find((g) => g?.urn === value);
                         return (
-                            <ActorWrapper onMouseDown={(e) => e.stopPropagation()}>
+                            <ActorWrapper onMouseDown={onPreventMouseDown}>
                                 <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
                             </ActorWrapper>
                         );
