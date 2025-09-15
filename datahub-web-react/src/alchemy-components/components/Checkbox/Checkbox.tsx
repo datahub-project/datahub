@@ -31,6 +31,7 @@ export const Checkbox = ({
     setIsChecked = checkboxDefaults.setIsChecked,
     size = checkboxDefaults.size,
     onCheckboxChange,
+    dataTestId,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
@@ -49,13 +50,16 @@ export const Checkbox = ({
                 </Label>
             ) : null}
             <CheckboxBase
-                onClick={() => {
+                onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     if (!isDisabled) {
                         setChecked(!checked);
                         setIsChecked?.(!checked);
                         onCheckboxChange?.();
                     }
                 }}
+                data-testid={dataTestId}
             >
                 <StyledCheckbox
                     type="checkbox"

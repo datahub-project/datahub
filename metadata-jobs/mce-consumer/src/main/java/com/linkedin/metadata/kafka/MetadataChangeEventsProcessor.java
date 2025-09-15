@@ -2,8 +2,6 @@ package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -23,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -46,9 +44,6 @@ public class MetadataChangeEventsProcessor {
   private final SystemEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
-
   @Value(
       "${FAILED_METADATA_CHANGE_EVENT_NAME:${KAFKA_FMCE_TOPIC_NAME:"
           + Topics.FAILED_METADATA_CHANGE_EVENT
@@ -68,7 +63,14 @@ public class MetadataChangeEventsProcessor {
     systemOperationContext.withSpan(
         "consume",
         () -> {
-          kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.histogram(
+                          this.getClass(),
+                          "kafkaLag",
+                          System.currentTimeMillis() - consumerRecord.timestamp()));
           final GenericRecord record = consumerRecord.value();
 
           log.info(

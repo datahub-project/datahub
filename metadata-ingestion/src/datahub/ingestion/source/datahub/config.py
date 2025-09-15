@@ -118,6 +118,21 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         "Useful if the source system has duplicate field paths in the db, but we're pushing to a system with server-side duplicate checking.",
     )
 
+    structured_properties_template_cache_invalidation_interval: int = Field(
+        hidden_from_docs=True,
+        default=60,
+        description="Interval in seconds to invalidate the structured properties template cache.",
+    )
+
+    query_timeout: Optional[int] = Field(
+        default=None,
+        description="Timeout for each query in seconds. ",
+    )
+
+    preserve_system_metadata: bool = Field(
+        default=True, description="Copy system metadata from the source system"
+    )
+
     @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):
         if (

@@ -491,11 +491,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 64,
+          "maxLength" : 128,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 81,
+        "maxLength" : 145,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -803,7 +803,9 @@
       "type" : "boolean",
       "doc" : "Whether the entity is deprecated.",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldType" : "BOOLEAN",
+        "filterNameOverride" : "Deprecated",
         "weightsPerFieldValue" : {
           "true" : 0.5
         }
@@ -839,19 +841,23 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRD" : "Alternative Prod spelling",
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "RVW" : "Designates review fabrics",
       "SANDBOX" : "Designates sandbox fabrics",
+      "SBX" : "Alternative spelling for sandbox",
+      "SIT" : "System Integration Testing",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
+      "TST" : "Alternative Test spelling",
       "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
@@ -1129,6 +1135,11 @@
             "name" : "createStamp",
             "type" : "AuditStamp",
             "doc" : "Audit stamp associated with creation of this record"
+          }, {
+            "name" : "updateStamp",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp associated with updation of this record",
+            "optional" : true
           } ]
         }
       },
@@ -1324,6 +1335,28 @@
       },
       "doc" : "Source information for the ownership",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "ownerAttributionActors",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/source" : {
+          "fieldName" : "ownerAttributionSources",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/time" : {
+          "fieldName" : "ownerAttributionDates",
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
+        }
+      }
     } ]
   }, {
     "type" : "record",
@@ -1984,7 +2017,15 @@
               "items" : "com.linkedin.common.Urn"
             },
             "doc" : "Upstream entities in the lineage",
-            "optional" : true
+            "optional" : true,
+            "Searchable" : {
+              "/*" : {
+                "fieldName" : "fineGrainedUpstreams",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasFineGrainedUpstreams",
+                "queryByDefault" : false
+              }
+            }
           }, {
             "name" : "downstreamType",
             "type" : {
@@ -2421,6 +2462,7 @@
       "Searchable" : {
         "fieldName" : "upstreams",
         "fieldType" : "URN",
+        "hasValuesFieldName" : "hasUpstreams",
         "queryByDefault" : false
       }
     }, {
@@ -4968,7 +5010,10 @@
                       }
                     },
                     "doc" : "Status of the deployment",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "deploymentStatus"
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelDeploymentProperties"
@@ -5585,9 +5630,10 @@
                                     "type" : "enum",
                                     "name" : "PolicyMatchCondition",
                                     "doc" : "The matching condition in a filter criterion",
-                                    "symbols" : [ "EQUALS", "STARTS_WITH" ],
+                                    "symbols" : [ "EQUALS", "STARTS_WITH", "NOT_EQUALS" ],
                                     "symbolDocs" : {
                                       "EQUALS" : "Whether the field matches the value",
+                                      "NOT_EQUALS" : "Whether the field does not match the value",
                                       "STARTS_WITH" : "Whether the field value starts with the value"
                                     }
                                   },
@@ -5600,6 +5646,11 @@
                           } ]
                         },
                         "doc" : "Filter to apply privileges to",
+                        "optional" : true
+                      }, {
+                        "name" : "privilegeConstraints",
+                        "type" : "PolicyMatchFilter",
+                        "doc" : "Constraints around what sub-resources operations are allowed to modify, i.e. NOT_EQUALS - cannot modify a particular defined tag, EQUALS - can only modify a particular defined tag, STARTS_WITH - can only modify a tag starting with xyz",
                         "optional" : true
                       } ]
                     },

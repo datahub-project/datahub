@@ -12,16 +12,12 @@ from datahub.emitter.generic_emitter import Emitter
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
-
-assert AIRFLOW_PATCHED
 
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models import DagRun, TaskInstance
-
-    from datahub_airflow_plugin._airflow_shims import Operator
+    from airflow.models.operator import Operator
 
 
 def _task_downstream_task_ids(operator: "Operator") -> Set[str]:

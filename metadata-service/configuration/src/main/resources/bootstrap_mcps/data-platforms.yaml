@@ -538,6 +538,16 @@
     displayName: Superset
     type: OTHERS
     logoUrl: "/assets/platforms/supersetlogo.png"
+- entityUrn: urn:li:dataPlatform:preset
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: preset
+    displayName: Preset
+    type: OTHERS
+    logoUrl: "/assets/platforms/presetlogo.svg"
 - entityUrn: urn:li:dataPlatform:trino
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -777,3 +787,43 @@
     displayName: Google Sheets
     type: OTHERS
     logoUrl: "/assets/platforms/gsheet.svg"
+- entityUrn: urn:li:dataPlatform:grafana
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: grafana
+    displayName: Grafana
+    type: OTHERS
+    logoUrl: "/assets/platforms/grafana.png"
+- entityUrn: urn:li:dataPlatform:controlm
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: controlm
+    displayName: Control-M
+    type: OTHERS
+    logoUrl: "/assets/platforms/controlmlogo.png"
+- entityUrn: urn:li:dataPlatform:abinitio
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: abinitio
+    displayName: Ab Initio
+    type: OTHERS
+    logoUrl: "/assets/platforms/abinitiologo.png"
+- entityUrn: urn:li:dataPlatform:informatica
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: informatica
+    displayName: Informatica
+    type: OTHERS
+    logoUrl: "/assets/platforms/informaticalogo.png"

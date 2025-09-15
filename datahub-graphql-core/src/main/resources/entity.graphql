@@ -200,8 +200,9 @@ type Query {
 
   """
   Gets entities based on their urns
+  checkForExistence will do n+1 sql calls to check for existence of each entity requested if set to true
   """
-  entities(urns: [String!]!): [Entity]
+  entities(urns: [String!]!, checkForExistence: Boolean): [Entity]
 
   """
   List all DataHub Roles
@@ -275,6 +276,11 @@ type Query {
   Fetch a Data Process Instance by primary key (urn)
   """
   dataProcessInstance(urn: String!): DataProcessInstance
+
+  """
+  Fetch an Application by primary key (urn)
+  """
+  application(urn: String!): Application
 }
 
 """
@@ -385,6 +391,11 @@ type ERModelRelationshipProperties {
   relationshipFieldMappings: [RelationshipFieldMapping!]
 
   """
+  Cardinality of the ERModelRelationship
+  """
+  cardinality: ERModelRelationshipCardinality!
+
+  """
   Created timestamp millis associated with the ERModelRelationship
   """
   createdTime: Long
@@ -393,6 +404,31 @@ type ERModelRelationshipProperties {
   Created actor urn associated with the ERModelRelationship
   """
   createdActor: Entity
+}
+
+"""
+The Cardinality of the ERModelRelationship
+"""
+enum ERModelRelationshipCardinality {
+  """
+  One to One
+  """
+  ONE_ONE
+
+  """
+  One to Many
+  """
+  ONE_N
+
+  """
+  Many to One
+  """
+  N_ONE
+
+  """
+  Many to Many
+  """
+  N_N
 }
 
 """
@@ -567,6 +603,11 @@ type Mutation {
   Add a link, or institutional memory, from a particular Entity
   """
   addLink(input: AddLinkInput!): Boolean
+
+  """
+  Update a link, or institutional memory, from a particular Entity
+  """
+  updateLink(input: UpdateLinkInput!): Boolean
 
   """
   Remove a link, or institutional memory, from a particular Entity
@@ -764,6 +805,11 @@ type Mutation {
   updateCorpUserViewsSettings(input: UpdateCorpUserViewsSettingsInput!): Boolean
 
   """
+  Update the HomePage-related settings for a user.
+  """
+  updateUserHomePageSettings(input: UpdateUserHomePageSettingsInput!): Boolean
+
+  """
   Update a user setting
   """
   updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -883,6 +929,37 @@ type Mutation {
   batchSetDataProduct(
     "Input for batch setting data product"
     input: BatchSetDataProductInput!
+  ): Boolean
+
+  """
+  Create a new Application
+  """
+  createApplication(
+    "Inputs required to create a new Application."
+    input: CreateApplicationInput!
+  ): Application
+
+  """
+  Update a Application
+  """
+  updateApplication(
+    "The urn identifier for the Application to update."
+    urn: String!
+    "Inputs required to create a new Application."
+    input: UpdateApplicationInput!
+  ): Application
+
+  """
+  Delete a Application by urn.
+  """
+  deleteApplication("Urn of the application to remove." urn: String!): Boolean
+
+  """
+  Batch set or unset a Application to a list of entities
+  """
+  batchSetApplication(
+    "Input for batch setting application"
+    input: BatchSetApplicationInput!
   ): Boolean
 
   """
@@ -1256,6 +1333,21 @@ enum EntityType {
   A set of versioned entities, representing a single source / logical entity over time
   """
   VERSION_SET
+
+  """
+  An application
+  """
+  APPLICATION
+
+  """
+  An DataHub Page Template
+  """
+  DATAHUB_PAGE_TEMPLATE
+
+  """
+  An DataHub Page Module
+  """
+  DATAHUB_PAGE_MODULE
 }
 
 """
@@ -1649,6 +1741,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The application associated with the dataset
+  """
+  application: ApplicationAssociation
+
+  """
   The forms associated with the Dataset
   """
   forms: Forms
@@ -1661,8 +1758,14 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Statistics about how this Dataset is used
   The first parameter, `resource`, is deprecated and no longer needs to be provided
+  timeZone accepts standard IANA time zone identifier ie. America/New_York
   """
-  usageStats(resource: String, range: TimeRange): UsageQueryResult
+  usageStats(
+    resource: String
+    range: TimeRange
+    startTimeMillis: Long
+    timeZone: String
+  ): UsageQueryResult
 
   """
   Experimental - Summary operational & usage statistics about a Dataset
@@ -1823,6 +1926,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Structured properties about this Dataset
   """
   structuredProperties: StructuredProperties
+
+  """
+  Statistics about how this Dataset has been operated on
+  """
+  operationsStats(input: OperationsStatsInput): OperationsQueryResult
 }
 
 type RoleAssociation {
@@ -1880,6 +1988,11 @@ type Actor {
   List of users for which the role is provisioned
   """
   users: [RoleUser!]
+
+  """
+  List of groups for which the role is provisioned
+  """
+  groups: [RoleGroup!]
 }
 
 type RoleUser {
@@ -1887,6 +2000,13 @@ type RoleUser {
   Linked corp user of a role
   """
   user: CorpUser!
+}
+
+type RoleGroup {
+  """
+  Linked corp group of a role
+  """
+  group: CorpGroup!
 }
 
 type RoleProperties {
@@ -2094,6 +2214,11 @@ type VersionedDataset implements Entity {
   The Domain associated with the Dataset
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   Experimental! The resolved health status of the asset
@@ -2313,6 +2438,11 @@ type GlossaryTerm implements Entity {
   domain: DomainAssociation
 
   """
+  The application associated with the glossary term
+  """
+  application: ApplicationAssociation
+
+  """
   References to internal resources related to the Glossary Term
   """
   institutionalMemory: InstitutionalMemory
@@ -2479,6 +2609,11 @@ type GlossaryTermProperties {
   Schema definition of glossary term
   """
   rawSchema: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -2515,6 +2650,11 @@ type GlossaryNode implements Entity {
   Recursively get the lineage of glossary nodes for this entity
   """
   parentNodes: ParentNodesResult
+
+  """
+  References to internal resources related to the Glossary Node
+  """
+  institutionalMemory: InstitutionalMemory
 
   """
   Privileges given to a user relevant to this entity
@@ -2604,6 +2744,11 @@ type GlossaryNodeProperties {
   Custom properties of the Glossary Node
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -2957,6 +3102,11 @@ type Container implements Entity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   The deprecation status of the container
   """
   deprecation: Deprecation
@@ -3172,6 +3322,11 @@ type InstitutionalMemoryMetadata {
   An AuditStamp corresponding to the creation of this resource
   """
   created: AuditStamp!
+
+  """
+  An AuditStamp corresponding to the updating of this resource
+  """
+  updated: AuditStamp
 
   """
   Deprecated, use label instead
@@ -3436,6 +3591,16 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   deprecation status of the schema field
   """
   deprecation: Deprecation
+
+  """
+  Tags associated with the field
+  """
+  tags: GlobalTags
+
+  """
+  Glossary terms associated with the field
+  """
+  glossaryTerms: GlossaryTerms
 }
 
 """
@@ -3851,6 +4016,21 @@ type StringMapEntry {
 }
 
 """
+An entry in a integer string map represented as a tuple
+"""
+type IntMapEntry {
+  """
+  The key of the map entry
+  """
+  key: String!
+
+  """
+  The value for the map entry
+  """
+  value: Int
+}
+
+"""
 An entry in a custom properties map represented as a tuple
 """
 type CustomPropertiesEntry {
@@ -4127,6 +4307,11 @@ type CorpUserSettings {
   Settings related to the DataHub Views feature
   """
   views: CorpUserViewsSettings
+
+  """
+  Settings related to the home page for a user
+  """
+  homePage: CorpUserHomePageSettings
 }
 
 """
@@ -4153,6 +4338,21 @@ type CorpUserViewsSettings {
   The default view for the User.
   """
   defaultView: DataHubView
+}
+
+"""
+Settings related to the home page for a user
+"""
+type CorpUserHomePageSettings {
+  """
+  The default page template for the User.
+  """
+  pageTemplate: DataHubPageTemplate
+
+  """
+  List of urns of the announcements dismissed by the User.
+  """
+  dismissedAnnouncementUrns: [String]
 }
 
 """
@@ -4681,6 +4881,11 @@ type Owner {
   Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -4801,6 +5006,16 @@ type TagAssociation {
   Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this tag is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -4850,6 +5065,16 @@ type GlossaryTermAssociation {
   Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  The context of how/why this term is associated
+  """
+  context: String
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
@@ -5244,6 +5469,10 @@ input ERModelRelationshipPropertiesInput {
   """
   relationshipFieldmappings: [RelationshipFieldMappingInput!]
   """
+  optional field to store cardinality of the ERModelRelationship
+  """
+  erModelRelationshipCardinality: ERModelRelationshipCardinality
+  """
   optional flag about the ERModelRelationship is getting create
   """
   created: Boolean
@@ -5421,6 +5650,11 @@ type Notebook implements Entity & BrowsableEntity {
   The Domain associated with the Notebook
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -5708,6 +5942,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   The Domain associated with the Dashboard
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6046,6 +6285,11 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   The Domain associated with the Chart
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   The specific instance of the data platform that this entity belongs to
@@ -6447,6 +6691,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
@@ -6649,6 +6898,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   dataPlatformInstance: DataPlatformInstance
 
   """
+  Standardized platform urn where the data job is defined
+  """
+  platform: DataPlatform
+
+  """
   The parent container in which the entity resides
   """
   container: Container
@@ -6697,6 +6951,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   The Domain associated with the Data Job
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   Granular API for querying edges extending from this entity
@@ -7419,6 +7678,11 @@ enum TimeRange {
   Last quarter
   """
   QUARTER
+
+  """
+  Last half year
+  """
+  HALF_YEAR
 
   """
   Last year
@@ -8930,13 +9194,48 @@ input AddLinkInput {
 }
 
 """
+Input provided when updating the association between a Metadata Entity and a Link
+"""
+input UpdateLinkInput {
+  """
+  Current url of the link
+  """
+  currentUrl: String!
+
+  """
+  Current label of the link
+  """
+  currentLabel: String!
+
+  """
+  The new url of the link
+  """
+  linkUrl: String!
+
+  """
+  The new label of the link
+  """
+  label: String!
+
+  """
+  The urn of the resource or entity to attach the link to, for example a dataset urn
+  """
+  resourceUrn: String!
+}
+
+"""
 Input provided when removing the association between a Metadata Entity and a Link
 """
 input RemoveLinkInput {
   """
-  The url of the link to add or remove, which uniquely identifies the Link
+  The url of the link to remove, which uniquely identifies the Link
   """
   linkUrl: String!
+
+  """
+  The label of the link to remove, which uniquely identifies the Link
+  """
+  label: String
 
   """
   The urn of the resource or entity to attach the link to, for example a dataset urn
@@ -9373,6 +9672,11 @@ type ResourceFilter {
   Whether of not to apply the filter to all resources of the type
   """
   filter: PolicyMatchFilter
+
+  """
+  Constraints on what subresources can be acted upon
+  """
+  privilegeConstraints: PolicyMatchFilter
 }
 
 """
@@ -9494,6 +9798,10 @@ enum PolicyMatchCondition {
   Whether the field value starts with the value
   """
   STARTS_WITH
+  """
+  Whether the field does not match the value
+  """
+  NOT_EQUALS
 }
 
 """
@@ -9523,6 +9831,11 @@ input ResourceFilterInput {
   Whether of not to apply the filter to all resources of the type
   """
   filter: PolicyMatchFilterInput
+
+  """
+  Constraints on what subresources can be acted upon
+  """
+  privilegeConstraints: PolicyMatchFilterInput
 }
 
 """
@@ -9988,6 +10301,11 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   An additional set of of read write properties
   """
   editableProperties: MLModelEditableProperties
@@ -10118,6 +10436,11 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   The Domain associated with the entity
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   An additional set of of read write properties
@@ -10300,6 +10623,11 @@ type MLFeature implements EntityWithRelationships & Entity {
   The Domain associated with the entity
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   An additional set of of read write properties
@@ -10556,6 +10884,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   domain: DomainAssociation
 
   """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
+
+  """
   An additional set of of read write properties
   """
   editableProperties: MLPrimaryKeyEditableProperties
@@ -10703,6 +11036,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   The Domain associated with the entity
   """
   domain: DomainAssociation
+
+  """
+  The application associated with the entity
+  """
+  application: ApplicationAssociation
 
   """
   An additional set of of read write properties
@@ -11063,6 +11401,18 @@ type SubTypes {
   typeNames: [String!]
 }
 
+type ApplicationAssociation {
+  """
+  The application related to the assocaited urn
+  """
+  application: Application!
+
+  """
+  Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+  """
+  associatedUrn: String!
+}
+
 type DomainAssociation {
   """
   The domain related to the assocaited urn
@@ -11179,6 +11529,11 @@ type DomainProperties {
   Description of the Domain
   """
   description: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -11413,6 +11768,11 @@ type Health {
   type: HealthStatusType!
 
   """
+  The timestamp when the health was reported
+  """
+  reportedAt: Long
+
+  """
   An enum representing the resolved Health status of an Asset
   """
   status: HealthStatus!
@@ -11423,9 +11783,70 @@ type Health {
   message: String
 
   """
+  If type=INCIDENTS and status=FAIL, populate the details of the latest incident.
+  """
+  activeIncidentHealthDetails: ActiveIncidentHealthDetails
+
+  """
+  If type=ASSERTIONS, populate a breakdown of the assertion statuses by type.
+  """
+  latestAssertionStatusByType: [AssertionHealthStatusByType!]
+
+  """
+  NOTE: @deprecated
   The causes responsible for the health status
+  I.e., the assertion urns that are failing
   """
   causes: [String!]
+}
+
+type ActiveIncidentHealthDetails {
+  """
+  The latest incident
+  """
+  latestIncidentUrn: String
+
+  """
+  The title of the latest incident
+  """
+  latestIncidentTitle: String
+
+  """
+  The timestamp when the last incident was updated
+  """
+  lastActivityAt: Long
+
+  """
+  The number of active incidents
+  """
+  count: Int!
+}
+
+type AssertionHealthStatusByType {
+  """
+  The type group of assertions
+  """
+  type: AssertionType!
+
+  """
+  The status of the assertions in the given type group
+  """
+  status: HealthStatus!
+
+  """
+  The number of assertions in the given type group
+  """
+  total: Int!
+
+  """
+  The number of assertions in the given type group that have the given status (PASS, WARN, FAIL)
+  """
+  statusCount: Int!
+
+  """
+  The timestamp when the last assertion of this type group with the given status ran
+  """
+  lastStatusResultAt: Long
 }
 
 """
@@ -12219,6 +12640,26 @@ input UpdateCorpUserViewsSettingsInput {
 }
 
 """
+Input required to update a user's home page settings.
+"""
+input UpdateUserHomePageSettingsInput {
+  """
+  The URN of the page template to be rendered on the home page for the user.
+  """
+  pageTemplate: String
+
+  """
+  The list of urns of announcement posts dismissed by the user.
+  """
+  newDismissedAnnouncements: [String]
+
+  """
+  Whether to remove the page template for the user.
+  """
+  removePageTemplate: Boolean
+}
+
+"""
 Information required to render an embedded version of an asset
 """
 type Embed {
@@ -12311,6 +12752,11 @@ type QueryProperties {
   An Audit Stamp corresponding to the creation of this resource
   """
   created: AuditStamp!
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp!
 
   """
   An Audit Stamp corresponding to the update of this resource
@@ -12599,6 +13045,11 @@ type DataProduct implements Entity {
   domain: DomainAssociation
 
   """
+  The application associated with the data product
+  """
+  application: ApplicationAssociation
+
+  """
   Tags used for searching Data Product
   """
   tags: GlobalTags
@@ -12653,6 +13104,11 @@ type DataProductProperties {
   Custom properties of the Data Product
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -12741,6 +13197,200 @@ input BatchSetDataProductInput {
 
   """
   The urns of the entities the given data product should be set on
+  """
+  resourceUrns: [String!]!
+}
+
+"""
+An Application, or a grouping of Entities for a single business purpose. Compared with Data Products, Applications represent a grouping of tables that exist to serve a specific
+purpose. However, unlike Data Products, they don't represent groups that are tailored to be consumed for any particular purpose. Often, the assets in Applications power specific
+outcomes, for example a Pricing Application.
+"""
+type Application implements Entity {
+  """
+  The primary key of the Application
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Properties about an Application
+  """
+  properties: ApplicationProperties
+
+  """
+  Ownership metadata of the Application
+  """
+  ownership: Ownership
+
+  """
+  References to internal resources related to the Application
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
+  Edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  The structured glossary terms associated with the Application
+  """
+  glossaryTerms: GlossaryTerms
+
+  """
+  The Domain associated with the Application
+  """
+  domain: DomainAssociation
+
+  """
+  Tags used for searching Application
+  """
+  tags: GlobalTags
+
+  """
+  Experimental API.
+  For fetching extra entities that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect!]
+
+  """
+  Structured properties about this asset
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  The forms associated with the Application
+  """
+  forms: Forms
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+}
+
+"""
+Properties about an Application
+"""
+type ApplicationProperties {
+  """
+  Display name of the Application
+  """
+  name: String!
+
+  """
+  Description of the Application
+  """
+  description: String
+
+  """
+  External URL for the Appliation (most likely GitHub repo where Application may be managed as code)
+  """
+  externalUrl: String
+
+  """
+  Number of children entities inside of the Application. This number includes soft deleted entities.
+  """
+  numAssets: Int
+
+  """
+  Custom properties of the Application
+  """
+  customProperties: [CustomPropertiesEntry!]
+}
+
+"""
+Input required to fetch the entities inside of a Application.
+"""
+input ApplicationEntitiesInput {
+  """
+  Optional query filter for particular entities inside the Application
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Input required for creating a Application.
+"""
+input CreateApplicationInput {
+  """
+  Properties about the Application
+  """
+  properties: CreateApplicationPropertiesInput!
+
+  """
+  An Optional Domain
+  """
+  domainUrn: String
+
+  """
+  An optional id for the new application
+  """
+  id: String
+}
+
+"""
+Input properties required for creating a Application
+"""
+input CreateApplicationPropertiesInput {
+  """
+  A display name for the Application
+  """
+  name: String!
+
+  """
+  An optional description for the Application
+  """
+  description: String
+}
+
+"""
+Input properties required for update a Application
+"""
+input UpdateApplicationInput {
+  """
+  A display name for the Application
+  """
+  name: String
+
+  """
+  An optional description for the Application
+  """
+  description: String
+}
+
+"""
+Input properties required for batch setting a Application on other entities
+"""
+input BatchSetApplicationInput {
+  """
+  The urn of the application you are setting on a group of resources.
+  If this is null, the Application will be unset for the given resources.
+  """
+  applicationUrn: String
+
+  """
+  The urns of the entities the given application should be set on
   """
   resourceUrns: [String!]!
 }

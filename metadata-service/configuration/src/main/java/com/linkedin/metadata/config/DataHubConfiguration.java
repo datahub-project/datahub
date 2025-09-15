@@ -14,4 +14,13 @@ public class DataHubConfiguration {
   public String serverEnv;
 
   private PluginConfiguration plugin;
+
+  private DataHubMetrics metrics;
+
+  private PoliciesConfiguration policies;
+
+  @Data
+  public static class DataHubMetrics {
+    private MetricsOptions hookLatency;
+  }
 }

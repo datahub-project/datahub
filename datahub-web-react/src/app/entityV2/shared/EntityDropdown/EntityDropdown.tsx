@@ -42,6 +42,7 @@ import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
 import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
@@ -168,6 +169,11 @@ const EntityDropdown = (props: Props) => {
             });
             message.destroy();
             message.success({ content: 'Deprecation Updated', duration: 2 });
+            analytics.event({
+                type: EventType.SetDeprecation,
+                entityUrns: [urn],
+                deprecated: deprecatedStatus,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -347,12 +353,9 @@ const EntityDropdown = (props: Props) => {
                                 <ShareButtonMenu
                                     urn={urn}
                                     entityType={entityType}
-                                    subType={
-                                        (entityData?.subTypes?.typeNames?.length &&
-                                            entityData?.subTypes?.typeNames?.[0]) ||
-                                        undefined
-                                    }
+                                    subType={getFirstSubType(entityData)}
                                     name={entityData?.name}
+                                    qualifiedName={entityData?.properties?.qualifiedName}
                                 />
                             </StyledSubMenu>
                         )}{' '}

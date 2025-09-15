@@ -1,8 +1,12 @@
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from typing import List, Tuple
 from unittest.mock import Mock, call
 
 import pytest
+from boto3.session import Session
+from freezegun import freeze_time
+from moto import mock_s3
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -15,6 +19,31 @@ from datahub.ingestion.source.s3.source import (
     partitioned_folder_comparator,
 )
 
+logging.getLogger("boto3").setLevel(logging.INFO)
+logging.getLogger("botocore").setLevel(logging.INFO)
+logging.getLogger("s3transfer").setLevel(logging.INFO)
+
+
+@pytest.fixture(autouse=True)
+def s3():
+    with mock_s3():
+        conn = Session(
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            region_name="us-east-1",
+        )
+        yield conn
+
+
+@pytest.fixture(autouse=True)
+def s3_client(s3):
+    yield s3.client("s3")
+
+
+@pytest.fixture(autouse=True)
+def s3_resource(s3):
+    yield s3.resource("s3")
+
 
 def _get_s3_source(path_spec_: PathSpec) -> S3Source:
     return S3Source.create(
@@ -22,6 +51,10 @@ def _get_s3_source(path_spec_: PathSpec) -> S3Source:
             "path_spec": {
                 "include": path_spec_.include,
                 "table_name": path_spec_.table_name,
+            },
+            "aws_config": {
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
             },
         },
         ctx=PipelineContext(run_id="test-s3"),
@@ -261,7 +294,7 @@ def test_container_generation_with_multiple_folders():
     }
 
 
-def test_get_folder_info_returns_latest_file_in_each_folder() -> None:
+def test_get_folder_info_returns_latest_file_in_each_folder(s3_resource):
     """
     Test S3Source.get_folder_info returns the latest file in each folder
     """
@@ -271,36 +304,17 @@ def test_get_folder_info_returns_latest_file_in_each_folder() -> None:
         table_name="{table}",
     )
 
-    bucket = Mock()
-    bucket.objects.filter().page_size = Mock(
-        return_value=[
-            Mock(
-                bucket_name="my-bucket",
-                key="my-folder/dir1/0001.csv",
-                creation_time=datetime(2025, 1, 1, 1),
-                last_modified=datetime(2025, 1, 1, 1),
-                size=100,
-            ),
-            Mock(
-                bucket_name="my-bucket",
-                key="my-folder/dir2/0001.csv",
-                creation_time=datetime(2025, 1, 1, 2),
-                last_modified=datetime(2025, 1, 1, 2),
-                size=100,
-            ),
-            Mock(
-                bucket_name="my-bucket",
-                key="my-folder/dir1/0002.csv",
-                creation_time=datetime(2025, 1, 1, 2),
-                last_modified=datetime(2025, 1, 1, 2),
-                size=100,
-            ),
-        ]
-    )
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    with freeze_time("2025-01-01 01:00:00"):
+        bucket.put_object(Key="my-folder/dir1/0001.csv")
+    with freeze_time("2025-01-01 02:00:00"):
+        bucket.put_object(Key="my-folder/dir1/0002.csv")
+        bucket.put_object(Key="my-folder/dir2/0001.csv")
 
     # act
     res = _get_s3_source(path_spec).get_folder_info(
-        path_spec, bucket, prefix="/my-folder"
+        path_spec, bucket, prefix="my-folder"
     )
     res = list(res)
 
@@ -310,9 +324,7 @@ def test_get_folder_info_returns_latest_file_in_each_folder() -> None:
     assert res[1].sample_file == "s3://my-bucket/my-folder/dir2/0001.csv"
 
 
-def test_get_folder_info_ignores_disallowed_path(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     """
     Test S3Source.get_folder_info skips disallowed files and logs a message
     """
@@ -324,23 +336,14 @@ def test_get_folder_info_ignores_disallowed_path(
     )
     path_spec.allowed = Mock(return_value=False)
 
-    bucket = Mock()
-    bucket.objects.filter().page_size = Mock(
-        return_value=[
-            Mock(
-                bucket_name="my-bucket",
-                key="my-folder/ignore/this/path/0001.csv",
-                creation_time=datetime(2025, 1, 1, 1),
-                last_modified=datetime(2025, 1, 1, 1),
-                size=100,
-            ),
-        ]
-    )
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    bucket.put_object(Key="my-folder/ignore/this/path/0001.csv")
 
     s3_source = _get_s3_source(path_spec)
 
     # act
-    res = s3_source.get_folder_info(path_spec, bucket, prefix="/my-folder")
+    res = s3_source.get_folder_info(path_spec, bucket, prefix="my-folder")
     res = list(res)
 
     # assert
@@ -352,42 +355,29 @@ def test_get_folder_info_ignores_disallowed_path(
     assert f"File {expected_called_s3_uri} not allowed and skipping" in caplog.text, (
         "Dropped file should be logged"
     )
-    assert s3_source.get_report().filtered == [expected_called_s3_uri], (
+    assert list(s3_source.get_report().filtered) == [expected_called_s3_uri], (
         "Dropped file should be in the report.filtered"
     )
     assert res == [], "Dropped file should not be in the result"
 
 
-def test_get_folder_info_returns_expected_folder() -> None:
+def test_get_folder_info_returns_expected_folder(s3_resource):
     # arrange
     path_spec = PathSpec(
         include="s3://my-bucket/{table}/{partition0}/*.csv",
         table_name="{table}",
     )
 
-    bucket = Mock()
-    bucket.objects.filter().page_size = Mock(
-        return_value=[
-            Mock(
-                bucket_name="my-bucket",
-                key="my-folder/dir1/0001.csv",
-                creation_time=datetime(2025, 1, 1, 1),
-                last_modified=datetime(2025, 1, 1, 1),
-                size=100,
-            ),
-            Mock(
-                bucket_name="my-bucket",
-                key="my-folder/dir1/0002.csv",
-                creation_time=datetime(2025, 1, 1, 2),
-                last_modified=datetime(2025, 1, 1, 2),
-                size=50,
-            ),
-        ]
-    )
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    with freeze_time("2025-01-01 01:00:00"):
+        bucket.put_object(Key="my-folder/dir1/0001.csv")
+    with freeze_time("2025-01-01 02:00:00"):
+        bucket.put_object(Key="my-folder/dir1/0002.csv", Body=" " * 150)
 
     # act
     res = _get_s3_source(path_spec).get_folder_info(
-        path_spec, bucket, prefix="/my-folder"
+        path_spec, bucket, prefix="my-folder"
     )
     res = list(res)
 
@@ -396,8 +386,276 @@ def test_get_folder_info_returns_expected_folder() -> None:
     assert res[0] == Folder(
         partition_id=[("partition0", "dir1")],
         is_partition=True,
-        creation_time=datetime(2025, 1, 1, 1),
-        modification_time=datetime(2025, 1, 1, 2),
+        creation_time=datetime(2025, 1, 1, 1, tzinfo=timezone.utc),
+        modification_time=datetime(2025, 1, 1, 2, tzinfo=timezone.utc),
         size=150,
         sample_file="s3://my-bucket/my-folder/dir1/0002.csv",
     )
+
+
+def test_s3_region_in_external_url():
+    """Test that AWS region is properly used in external URLs."""
+    source = S3Source.create(
+        config_dict={
+            "path_specs": [
+                {
+                    "include": "s3://my-bucket/my-folder/*.csv",
+                }
+            ],
+            "aws_config": {
+                "aws_region": "eu-west-1",  # Use a non-default region
+                "aws_access_key_id": "test-key",
+                "aws_secret_access_key": "test-secret",
+            },
+        },
+        ctx=PipelineContext(run_id="test-s3"),
+    )
+
+    # Create a mock table data
+    table_data = Mock()
+    table_data.table_path = "s3://production-bucket/folder/my_data.csv"
+    table_data.full_path = "s3://production-bucket/folder/my_data.csv"
+
+    # Get the external URL
+    external_url = source.get_external_url(table_data)
+
+    # Verify that the correct region is used (not default us-east-1)
+    assert "https://eu-west-1.console.aws.amazon.com" in external_url
+    assert "production-bucket" in external_url
+    assert "folder" in external_url
+
+
+class TestResolveTemplatedFolders:
+    """Test suite for the resolve_templated_folders method."""
+
+    def test_resolve_templated_folders_no_wildcard(self):
+        """Test that paths without wildcards are returned as-is."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/files/"
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        assert result == ["s3://my-bucket/data/files/"]
+
+    def test_resolve_templated_folders_single_wildcard(self, s3_client):
+        """Test resolution of a single wildcard in the path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/files/"
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.put_object(Bucket="my-bucket", Key="data/2023/files/test.csv")
+        s3_client.put_object(Bucket="my-bucket", Key="data/2024/files/test.csv")
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        expected = [
+            "s3://my-bucket/data/2023/files/",
+            "s3://my-bucket/data/2024/files/",
+        ]
+        assert result == expected
+
+    def test_resolve_templated_folders_nested_wildcards(self, s3_client):
+        """Test resolution of nested wildcards in the path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/year=*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/year=*/files/"
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.put_object(
+            Bucket="my-bucket", Key="data/logs/year=2023/files/test.csv"
+        )
+        s3_client.put_object(
+            Bucket="my-bucket", Key="data/logs/year=2024/files/test.csv"
+        )
+        s3_client.put_object(
+            Bucket="my-bucket", Key="data/metrics/year=2023/files/test.csv"
+        )
+        s3_client.put_object(
+            Bucket="my-bucket", Key="data/metrics/year=2024/files/test.csv"
+        )
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        expected = [
+            "s3://my-bucket/data/logs/year=2023/files/",
+            "s3://my-bucket/data/logs/year=2024/files/",
+            "s3://my-bucket/data/metrics/year=2023/files/",
+            "s3://my-bucket/data/metrics/year=2024/files/",
+        ]
+        assert result == expected
+
+    def test_resolve_templated_folders_empty_folders(self, s3_client):
+        """Test handling when list_folders returns empty results."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/files/"
+
+        s3_client.create_bucket(Bucket="my-bucket")
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        assert result == []
+
+    def test_resolve_templated_folders_path_normalization(self, s3_client):
+        """Test that path normalization handles slashes correctly."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/files/"
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.put_object(Bucket="my-bucket", Key="data/folder1/files/test.csv")
+        s3_client.put_object(Bucket="my-bucket", Key="data/folder2/files/test.csv")
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        expected = [
+            "s3://my-bucket/data/folder1/files/",
+            "s3://my-bucket/data/folder2/files/",
+        ]
+        assert result == expected
+
+    def test_resolve_templated_folders_remaining_pattern_with_leading_slash(
+        self, s3_client
+    ):
+        """Test handling when remaining pattern starts with a slash."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*/subdir/"
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.put_object(Bucket="my-bucket", Key="data/2023/subdir/test.csv")
+        s3_client.put_object(Bucket="my-bucket", Key="data/2024/subdir/test.csv")
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        expected = [
+            "s3://my-bucket/data/2023/subdir/",
+            "s3://my-bucket/data/2024/subdir/",
+        ]
+        assert result == expected
+
+    def test_resolve_templated_folders_complex_nested_pattern(self, s3_client):
+        """Test complex nested pattern with multiple wildcards."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/logs/*/region=*/day=*/*.json")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "logs/*/region=*/day=*/"
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.put_object(
+            Bucket="my-bucket",
+            Key="logs/app1/region=eu-west-1/day=2024-01-01/test.json",
+        )
+        s3_client.put_object(
+            Bucket="my-bucket",
+            Key="logs/app1/region=us-east-1/day=2024-01-01/test.json",
+        )
+        s3_client.put_object(
+            Bucket="my-bucket",
+            Key="logs/app2/region=us-east-1/day=2024-01-01/test.json",
+        )
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        expected = [
+            "s3://my-bucket/logs/app1/region=eu-west-1/day=2024-01-01/",
+            "s3://my-bucket/logs/app1/region=us-east-1/day=2024-01-01/",
+            "s3://my-bucket/logs/app2/region=us-east-1/day=2024-01-01/",
+        ]
+        assert result == expected
+
+    def test_resolve_templated_folders_wildcard_at_end(self, s3_client):
+        """Test wildcard at the end of the path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-bucket/data/*")
+        s3_source = _get_s3_source(path_spec)
+        bucket_name = "my-bucket"
+        prefix = "data/*"
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.put_object(Bucket="my-bucket", Key="data/folder1/test.csv")
+        s3_client.put_object(Bucket="my-bucket", Key="data/folder2/test.csv")
+
+        # act
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
+
+        # assert
+        expected = ["s3://my-bucket/data/folder1/", "s3://my-bucket/data/folder2/"]
+        assert result == expected
+
+    def test_resolve_templated_buckets_single_wildcard(self, s3_client):
+        """Test resolution of a single wildcard in the bucket path."""
+        # arrange
+        path_spec = PathSpec(include="s3://*/data/")
+        s3_source = _get_s3_source(path_spec)
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.create_bucket(Bucket="my-bucket-1")
+
+        # act
+        result = list(s3_source.resolve_templated_folders("s3://*/data/"))
+
+        # assert
+        expected = ["s3://my-bucket/data/", "s3://my-bucket-1/data/"]
+        assert result == expected
+
+    def test_resolve_templated_buckets_wildcard_at_end(self, s3_client):
+        """Test wildcard at the end of the bucket path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-*/data/")
+        s3_source = _get_s3_source(path_spec)
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.create_bucket(Bucket="my-bucket-1")
+
+        # act
+        result = list(s3_source.resolve_templated_folders("s3://my-*/data/"))
+
+        # assert
+        expected = ["s3://my-bucket/data/", "s3://my-bucket-1/data/"]
+        assert result == expected

@@ -46,6 +46,7 @@ export default function useSearchResultsOptions(
                             query={searchQuery}
                             siblings={shouldCombineSiblings ? combinedEntity.matchedEntities : undefined}
                             matchedFields={combinedEntity.matchedFields}
+                            variant="searchBar"
                         />
                     ),
                     type: combinedEntity.entity.type,

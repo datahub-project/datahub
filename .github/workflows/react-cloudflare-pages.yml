@@ -26,7 +26,7 @@ jobs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
@@ -40,19 +40,19 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/gradle-build-action@v3
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
       - name: Publish
-        if: ${{ needs.setup.outputs.frontend_change == 'true' }}
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && secrets.CLOUDFLARE_API_TOKEN != '' }}
         uses: cloudflare/pages-action@1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

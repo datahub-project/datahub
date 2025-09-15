@@ -70,6 +70,7 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
     endpoint: RestSinkEndpoint = DEFAULT_REST_EMITTER_ENDPOINT
+    server_config_refresh_interval: Optional[int] = None
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -90,6 +91,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 @dataclasses.dataclass
 class DataHubRestSinkReport(SinkReport):
     mode: Optional[RestSinkMode] = None
+    endpoint: Optional[RestSinkEndpoint] = None
     max_threads: Optional[int] = None
     gms_version: Optional[str] = None
     pending_requests: int = 0
@@ -140,6 +142,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
         self.report.gms_version = gms_config.service_version
         self.report.mode = self.config.mode
+        self.report.endpoint = self.config.endpoint
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         logger.debug("Setting gms config")

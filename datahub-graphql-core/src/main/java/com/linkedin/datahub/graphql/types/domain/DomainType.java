@@ -41,7 +41,8 @@ public class DomainType
           Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
           Constants.STRUCTURED_PROPERTIES_ASPECT_NAME,
           Constants.FORMS_ASPECT_NAME,
-          Constants.DISPLAY_PROPERTIES_ASPECT_NAME);
+          Constants.DISPLAY_PROPERTIES_ASPECT_NAME,
+          Constants.ASSET_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   public DomainType(final EntityClient entityClient) {
@@ -99,7 +100,7 @@ public class DomainType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     throw new NotImplementedException(
@@ -111,7 +112,7 @@ public class DomainType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =

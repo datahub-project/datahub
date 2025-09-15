@@ -1467,11 +1467,18 @@ class ModeSource(StatefulIngestionSourceBase):
                     )
                     yield reports_page
         except ModeRequestError as e:
-            self.report.report_failure(
-                title="Failed to Retrieve Reports for Space",
-                message="Unable to retrieve reports for space token.",
-                context=f"Space Token: {space_token}, Error: {str(e)}",
-            )
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Reports Found in Space",
+                    message="No reports were found in the space. It may have been recently deleted.",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                )
+            else:
+                self.report.report_failure(
+                    title="Failed to Retrieve Reports for Space",
+                    message="Unable to retrieve reports for space token.",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                )
 
     def _get_datasets(self, space_token: str) -> Iterator[List[dict]]:
         """
@@ -1490,11 +1497,18 @@ class ModeSource(StatefulIngestionSourceBase):
                     )
                     yield dataset_page
         except ModeRequestError as e:
-            self.report.report_failure(
-                title="Failed to Retrieve Datasets for Space",
-                message=f"Unable to retrieve datasets for space token {space_token}.",
-                context=f"Error: {str(e)}",
-            )
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Datasets Found in Space",
+                    message="No datasets were found in the space. It may have been recently deleted.",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                )
+            else:
+                self.report.report_failure(
+                    title="Failed to Retrieve Datasets for Space",
+                    message=f"Unable to retrieve datasets for space token {space_token}.",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                )
 
     def _get_queries(self, report_token: str) -> List[dict]:
         try:
@@ -1555,13 +1569,18 @@ class ModeSource(StatefulIngestionSourceBase):
                 )
                 return charts.get("_embedded", {}).get("charts", [])
         except ModeRequestError as e:
-            self.report.report_failure(
-                title="Failed to Retrieve Charts",
-                message="Unable to retrieve charts from Mode.",
-                context=f"Report Token: {report_token}, "
-                f"Query token: {query_token}, "
-                f"Error: {str(e)}",
-            )
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Charts Found for Query",
+                    message="No charts were found for the query. The query may have been recently deleted.",
+                    context=f"Report Token: {report_token}, Query Token: {query_token}, Error: {str(e)}",
+                )
+            else:
+                self.report.report_failure(
+                    title="Failed to Retrieve Charts",
+                    message="Unable to retrieve charts from Mode.",
+                    context=f"Report Token: {report_token}, Query Token: {query_token}, Error: {str(e)}",
+                )
             return []
 
     def _get_paged_request_json(
@@ -1577,7 +1596,7 @@ class ModeSource(StatefulIngestionSourceBase):
             yield data
             page += 1
 
-    @lru_cache(maxsize=20480)
+    @lru_cache(maxsize=None)
     def _get_request_json(self, url: str) -> Dict:
         r = tenacity.Retrying(
             wait=wait_exponential(

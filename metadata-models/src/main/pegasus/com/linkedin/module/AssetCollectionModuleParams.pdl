@@ -1,0 +1,19 @@
+namespace com.linkedin.module
+
+import com.linkedin.common.Urn
+
+/**
+ * The params required if the module is type ASSET_COLLECTION
+ */
+record AssetCollectionModuleParams {
+  assetUrns: array[Urn]
+
+  /**
+   * Optional dynamic filters
+   *
+   * The stringified json representing the logical predicate built in the UI to select assets.
+   * This predicate is turned into orFilters to send through graphql since graphql doesn't support
+   * arbitrary nesting. This string is used to restore the UI for this logical predicate.
+   */
+  dynamicFilterJson: optional string
+}

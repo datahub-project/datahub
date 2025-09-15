@@ -7,7 +7,6 @@ import lombok.Data;
 public class FeatureFlags {
   private boolean showSimplifiedHomepageByDefault = false;
   private boolean lineageSearchCacheEnabled = false;
-  private boolean pointInTimeCreationEnabled = false;
   private boolean alwaysEmitChangeLog = false;
   private boolean readOnlyModeEnabled = false;
   private boolean showSearchFiltersV2 = false;
@@ -40,4 +39,13 @@ public class FeatureFlags {
   private boolean showSearchBarAutocompleteRedesign = false;
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
+  private boolean showIngestionPageRedesign = false;
+  private boolean showLineageExpandMore = true;
+  private boolean showStatsTabRedesign = false;
+  private boolean showHomePageRedesign = false;
+  private boolean lineageGraphV3 = true;
+  private boolean showProductUpdates = false;
+  private boolean logicalModelsEnabled = false;
+  private boolean showHomepageUserRole = false;
+  private boolean assetSummaryPageV1 = false;
 }

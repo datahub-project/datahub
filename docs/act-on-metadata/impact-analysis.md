@@ -97,4 +97,4 @@ We currently limit the list of dependencies to 10,000 records; we suggest applyi
 
 ### Related Features
 
-- [DataHub Lineage](../generated/lineage/lineage-feature-guide.md)
+- [DataHub Lineage](../features/feature-guides/lineage.md)

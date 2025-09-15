@@ -1,3 +1,5 @@
+#import "./incident.graphql"
+
 fragment autoCompleteFields on Entity {
     urn
     type
@@ -227,6 +229,11 @@ fragment autoCompleteFields on Entity {
             name
         }
     }
+    ... on Application {
+        properties {
+            name
+        }
+    }
     ... on Container {
         properties {
             name
@@ -336,6 +343,9 @@ fragment autoCompleteFields on Entity {
                 }
             }
         }
+    }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
     }
 }
 
@@ -854,6 +864,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 key
                 value
             }
+            createdOn {
+                time
+            }
         }
         deprecation {
             ...deprecationFields
@@ -1054,6 +1067,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
+    ... on Application {
+        ...applicationSearchFields
+    }
     ... on ERModelRelationship {
         urn
         type
@@ -1090,6 +1106,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    ... on Incident {
+        ...incidentFields
     }
 }
 
@@ -1204,6 +1223,11 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+            ... on Application {
                 properties {
                     name
                 }

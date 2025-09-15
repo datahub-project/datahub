@@ -108,7 +108,11 @@ public class CacheableSearcher<K> {
                 Span.current().setAttribute(CACHE_HIT_ATTR, false);
                 result = searcher.apply(batch);
                 cache.put(cacheKey, toJsonString(result));
-                MetricUtils.counter(this.getClass(), "getBatch_cache_miss_count").inc();
+                opContext
+                    .getMetricUtils()
+                    .ifPresent(
+                        metricUtils ->
+                            metricUtils.increment(this.getClass(), "getBatch_cache_miss_count", 1));
               } else {
                 Span.current().setAttribute(CACHE_HIT_ATTR, true);
               }

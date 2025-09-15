@@ -22,8 +22,8 @@ from datahub.ingestion.source.file import (
 )
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
+from datahub.testing import mce_helpers
 from datahub.testing.pytest_hooks import get_golden_settings
-from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 FROZEN_TIME = "2021-07-22 18:54:06"
@@ -207,11 +207,8 @@ def test_check_mce_schema_failure(
 ) -> None:
     json_file_path = pytestconfig.rootpath / json_filename
 
-    try:
+    with pytest.raises(Exception, match="is missing required field: active"):
         check_mce_file(str(json_file_path))
-        raise AssertionError("MCE File validated successfully when it should not have")
-    except Exception as e:
-        assert "is missing required field: active" in str(e)
 
 
 def test_field_discriminator() -> None:

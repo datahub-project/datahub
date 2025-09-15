@@ -9,6 +9,7 @@ query getContainer($urn: String!) {
         }
         properties {
             name
+            qualifiedName
             description
             externalUrl
             customProperties {

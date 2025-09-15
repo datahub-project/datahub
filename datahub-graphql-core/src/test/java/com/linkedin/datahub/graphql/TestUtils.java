@@ -37,24 +37,7 @@ public class TestUtils {
   }
 
   public static QueryContext getMockAllowContext(String actorUrn) {
-    QueryContext mockContext = mock(QueryContext.class);
-    when(mockContext.getActorUrn()).thenReturn(actorUrn);
-
-    Authorizer mockAuthorizer = mock(Authorizer.class);
-    AuthorizationResult result = mock(AuthorizationResult.class);
-    when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockAuthorizer.authorize(any())).thenReturn(result);
-
-    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    Authentication authentication =
-        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
-    when(mockContext.getAuthentication()).thenReturn(authentication);
-
-    OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
-    when(mockContext.getOperationContext()).thenReturn(operationContext);
-
-    return mockContext;
+    return getMockAllowContext(actorUrn, null);
   }
 
   public static QueryContext getMockAllowContext(String actorUrn, AuthorizationRequest request) {
@@ -62,12 +45,30 @@ public class TestUtils {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
 
     Authorizer mockAuthorizer = mock(Authorizer.class);
-    AuthorizationResult result = mock(AuthorizationResult.class);
-    when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
+
+    if (request == null) {
+      // Simple case: always allow
+      AuthorizationResult result =
+          new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, "");
+      when(mockAuthorizer.authorize(any())).thenReturn(result);
+    } else {
+      // Complex case: allow only for specific request
+      when(mockAuthorizer.authorize(Mockito.any(AuthorizationRequest.class)))
+          .thenAnswer(
+              args -> {
+                AuthorizationRequest req = args.getArgument(0);
+
+                if (request.equals(req)) {
+                  return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "");
+                } else {
+                  return new AuthorizationResult(req, AuthorizationResult.Type.DENY, "");
+                }
+              });
+    }
 
     Authentication authentication =
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
 
@@ -83,24 +84,7 @@ public class TestUtils {
   }
 
   public static QueryContext getMockDenyContext(String actorUrn) {
-    QueryContext mockContext = mock(QueryContext.class);
-    when(mockContext.getActorUrn()).thenReturn(actorUrn);
-
-    Authorizer mockAuthorizer = mock(Authorizer.class);
-    AuthorizationResult result = mock(AuthorizationResult.class);
-    when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockAuthorizer.authorize(any())).thenReturn(result);
-
-    Authentication authentication =
-        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
-    when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    when(mockContext.getAuthentication()).thenReturn(authentication);
-
-    OperationContext operationContext =
-        TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
-    when(mockContext.getOperationContext()).thenReturn(operationContext);
-
-    return mockContext;
+    return getMockDenyContext(actorUrn, null);
   }
 
   public static QueryContext getMockDenyContext(String actorUrn, AuthorizationRequest request) {
@@ -110,10 +94,18 @@ public class TestUtils {
     Authorizer mockAuthorizer = mock(Authorizer.class);
     AuthorizationResult result = mock(AuthorizationResult.class);
     when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
+
+    if (request == null) {
+      // Simple case: always deny
+      when(mockAuthorizer.authorize(any())).thenReturn(result);
+    } else {
+      // Specific case: deny only for this specific request
+      when(mockAuthorizer.authorize(Mockito.eq(request))).thenReturn(result);
+    }
 
     Authentication authentication =
         new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
 
@@ -147,10 +139,20 @@ public class TestUtils {
     // check without time
     Assert.assertEquals(
         batchCaptor.getValue().getItems().stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()),
         proposals.stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()));
   }
 

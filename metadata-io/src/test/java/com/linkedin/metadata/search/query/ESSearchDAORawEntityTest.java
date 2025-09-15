@@ -1,11 +1,13 @@
 package com.linkedin.metadata.search.query;
 
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -49,10 +51,11 @@ public class ESSearchDAORawEntityTest {
         new ESSearchDAO(
             mockClient,
             false,
-            "elasticsearch",
-            new SearchConfiguration(),
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
+            TEST_OS_SEARCH_CONFIG,
             null,
-            com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain.EMPTY);
+            com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     // Execute rawEntity method
     Map<Urn, SearchResponse> results = esSearchDAO.rawEntity(opContext, urns);

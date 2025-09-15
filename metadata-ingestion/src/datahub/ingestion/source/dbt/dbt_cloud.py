@@ -9,7 +9,9 @@ import requests
 from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -24,6 +26,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
+    DBTSourceReport,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -261,8 +264,10 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
+    report: DBTSourceReport  # nothing cloud-specific in the report
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -365,9 +370,12 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name = node["alias"]
 
         comment = node.get("comment", "")
-        description = node["description"]
-        if node.get("sourceDescription"):
-            description = node["sourceDescription"]
+
+        # In dbt sources, there are two types of descriptions:
+        # - description: table-level description (specific to the source table)
+        # - sourceDescription: schema-level description (describes the overall source schema)
+        # The table-level description should take precedence since it's more specific.
+        description = node["description"] or node.get("sourceDescription", "")
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
@@ -401,8 +409,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         if node["resourceType"] in {"model", "seed", "snapshot"}:
             status = node["status"]
             if status is None and materialization != "ephemeral":
-                self.report.report_warning(
-                    key, "node is missing a status, schema metadata will be incomplete"
+                self.report.warning(
+                    title="Schema information may be incomplete",
+                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
+                    context=key,
+                    log=False,
                 )
 
             # The code fields are new in dbt 1.3, and replace the sql ones.

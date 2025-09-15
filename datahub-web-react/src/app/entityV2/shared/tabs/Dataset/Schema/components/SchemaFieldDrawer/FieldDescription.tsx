@@ -1,4 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { message } from 'antd';
 import React, { useState } from 'react';
@@ -16,7 +17,7 @@ import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import { getFieldDescriptionDetails } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldDescriptionDetails';
 import { sanitizeRichText } from '@app/entityV2/shared/tabs/Documentation/components/editor/utils';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import DocumentationPropagationDetails from '@app/sharedV2/propagation/DocumentationPropagationDetails';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '@types';
@@ -57,10 +58,9 @@ const DescriptionWrapper = styled.div`
 interface Props {
     expandedField: SchemaField;
     editableFieldInfo?: EditableSchemaFieldInfo;
-    isShowMoreEnabled?: boolean;
 }
 
-export default function FieldDescription({ expandedField, editableFieldInfo, isShowMoreEnabled }: Props) {
+export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -112,7 +112,7 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
     };
 
     const { schemaFieldEntity, description } = expandedField;
-    const { displayedDescription, isPropagated, sourceDetail, propagatedDescription } = getFieldDescriptionDetails({
+    const { displayedDescription, isPropagated, propagatedDescription, attribution } = getFieldDescriptionDetails({
         schemaFieldEntity,
         editableFieldInfo,
         defaultDescription: description,
@@ -147,16 +147,17 @@ export default function FieldDescription({ expandedField, editableFieldInfo, isS
                                     <AddDescriptionText>Add Description</AddDescriptionText>
                                 </AddNewDescription>,
                             ]}
-                        <DescriptionWrapper>
-                            {isPropagated && <DocumentationPropagationDetails sourceDetail={sourceDetail} />}
-                            {!!displayedDescription && (
-                                <DescriptionSection
-                                    description={displayedDescription}
-                                    isShowMoreEnabled={isShowMoreEnabled}
-                                    isExpandable
-                                />
-                            )}
-                        </DescriptionWrapper>
+                        {!!displayedDescription && (
+                            <Tooltip
+                                title={
+                                    isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+                                }
+                            >
+                                <DescriptionWrapper>
+                                    <DescriptionSection description={displayedDescription} isExpandable />
+                                </DescriptionWrapper>
+                            </Tooltip>
+                        )}
                     </>
                 }
             />

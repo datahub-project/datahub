@@ -1,45 +1,77 @@
+import { useCallback, useMemo } from 'react';
+
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { CorpUser } from '@types';
+import { CorpUser, Entity } from '@types';
 
 const MAX_ASSETS_TO_FETCH = 50;
 
-export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO_FETCH) => {
-    const userUrn = user?.urn || '';
-    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(userUrn);
+export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_ASSETS_TO_FETCH) => {
+    const { reloadHomepageModules, setReloadHomepageModules } = usePageTemplateContext();
 
-    const { loading, data, error } = useGetSearchResultsForMultipleQuery({
-        variables: {
+    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(user?.urn);
+
+    const getInputVariables = useCallback(
+        (start: number, count: number) => ({
             input: {
                 query: '*',
-                start: 0,
+                start,
                 count,
                 types: ASSET_ENTITY_TYPES,
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: userUrn,
-                        values: [userUrn, ...groupUrns],
+                        value: user?.urn,
+                        values: [user?.urn || '', ...groupUrns],
                     },
                 ],
-                searchFlags: {
-                    skipCache: true,
-                },
+                searchFlags: { skipCache: true },
             },
+        }),
+        [user?.urn, groupUrns],
+    );
+
+    const {
+        loading: searchLoading,
+        data,
+        error,
+        refetch,
+    } = useGetSearchResultsForMultipleQuery({
+        variables: getInputVariables(0, initialCount),
+        skip: !user?.urn || groupDataLoading,
+        fetchPolicy: reloadHomepageModules ? 'cache-and-network' : 'cache-first',
+        onCompleted: () => {
+            if (reloadHomepageModules) setReloadHomepageModules(false);
         },
-        skip: !userUrn || groupDataLoading,
-        fetchPolicy: 'cache-first',
     });
 
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
+    const originEntities = useMemo(
+        () => data?.searchAcrossEntities?.searchResults?.map((result) => result.entity) || [],
+        [data?.searchAcrossEntities?.searchResults],
+    );
     const entities =
-        data?.searchAcrossEntities?.searchResults?.map((result) =>
-            entityRegistry.getGenericEntityProperties(result.entity.type, result.entity),
-        ) || [];
+        originEntities.map((entity) => entityRegistry.getGenericEntityProperties(entity.type, entity)) || [];
     const total = data?.searchAcrossEntities?.total || 0;
+    const loading = searchLoading || groupDataLoading || !data;
 
-    return { entities, loading: loading || groupDataLoading, error, total };
+    // For fetching paginated entities based on start and count
+    const fetchEntities = useCallback(
+        async (start: number, count: number): Promise<Entity[]> => {
+            if (start === 0) {
+                return originEntities;
+            }
+
+            const result = await refetch(getInputVariables(start, count));
+
+            return result.data?.searchAcrossEntities?.searchResults?.map((res) => res.entity) || [];
+        },
+        [refetch, getInputVariables, originEntities],
+    );
+
+    return { originEntities, entities, loading, error, total, fetchEntities };
 };

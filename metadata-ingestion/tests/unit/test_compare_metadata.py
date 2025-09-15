@@ -2,8 +2,8 @@ import json
 
 import pytest
 
+from datahub.testing import mce_helpers
 from datahub.testing.compare_metadata_json import diff_metadata_json
-from tests.test_helpers import mce_helpers
 
 basic_1 = json.loads(
     """[

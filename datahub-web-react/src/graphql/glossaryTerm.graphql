@@ -74,8 +74,10 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
             sourceUrl
             rawSchema
             customProperties {
-                key
-                value
+                ...customPropertiesFields
+            }
+            createdOn {
+                time
             }
         }
         schemaMetadata(version: 0) {
@@ -99,6 +101,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
             ...formsFields
         }
         ...notes
+        settings {
+            ...AssetSettingsFields
+        }
     }
 }
 

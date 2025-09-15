@@ -1,5 +1,4 @@
-import { CodeOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
+import { BookOpen, ChartBar, Code, ListBullets } from '@phosphor-icons/react';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -14,7 +13,7 @@ import {
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
 import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
-import StatsSidebarView from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -86,7 +85,6 @@ interface Props {
     displayedRows: ExtendedSchemaFields[];
     refetch?: () => void;
     mask?: boolean;
-    isShowMoreEnabled?: boolean;
     defaultSelectedTabName?: string;
 }
 
@@ -103,7 +101,6 @@ export default function SchemaFieldDrawer({
     displayedRows,
     refetch,
     mask = false,
-    isShowMoreEnabled,
     defaultSelectedTabName = 'About',
 }: Props) {
     const expandedFieldIndex = useMemo(
@@ -183,7 +180,7 @@ export default function SchemaFieldDrawer({
     const tabs: any = [
         {
             name: 'About',
-            icon: ReadOutlined,
+            icon: BookOpen,
             component: AboutFieldTab,
             properties: {
                 schemaFields,
@@ -193,7 +190,6 @@ export default function SchemaFieldDrawer({
                 fieldProfile,
                 profiles,
                 notes,
-                isShowMoreEnabled,
                 setSelectedTabName,
                 refetch,
                 refetchNotes,
@@ -201,8 +197,8 @@ export default function SchemaFieldDrawer({
         },
         {
             name: 'Statistics',
-            icon: QueryStatsOutlinedIcon,
-            component: StatsSidebarView,
+            icon: ChartBar,
+            component: StatsTabWrapper,
             properties: {
                 expandedField,
                 fieldProfile,
@@ -215,14 +211,14 @@ export default function SchemaFieldDrawer({
             name: 'Queries',
             component: SchemaFieldQueriesSidebarTab,
             description: 'View queries about this field',
-            icon: CodeOutlined,
+            icon: Code,
             properties: { fieldPath: expandedField?.fieldPath },
         },
         {
             name: 'Properties',
             component: PropertiesTab,
             description: 'View additional properties about this field',
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
             properties: {
                 fieldPath: expandedField?.fieldPath,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
