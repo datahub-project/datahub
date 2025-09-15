@@ -298,7 +298,7 @@ iceberg_common = {
     # this would cause existing recipes to start failing in some cases
     # the list of extras is quite arbitrary, it has been extended since 0.4.0, we can add more of them, once we bump
     # the lower version limit
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,gcsfs,pyarrow,zstandard,sql-postgres]>=0.4.0,<=0.6.1",
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.4.0,<=0.6.1",
     *cachetools_lib,
 }
 
