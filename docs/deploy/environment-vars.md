@@ -88,7 +88,7 @@ Reference Links:
 | `PLUGIN_SECURITY_MODE`                               | `RESTRICTED`                     | Plugin security mode (RESTRICTED or LENIENT)           | GMS        |
 | `ENTITY_REGISTRY_PLUGIN_PATH`                        | `/etc/datahub/plugins/models`    | Path for entity registry plugins                       | GMS        |
 | `ENTITY_REGISTRY_PLUGIN_LOAD_DELAY_SECONDS`          | `60`                             | Rate at which plugin runnable executes                 | GMS        |
-| `IGNORE_FAILURE_WHEN_LOADING_ENTITY_REGISTRY_PLUGIN` | `true`                           | Whether to ingore failure when loading entity registry | GMS        |
+| `IGNORE_FAILURE_WHEN_LOADING_ENTITY_REGISTRY_PLUGIN` | `true`                           | Whether to ignore failure when loading entity registry | GMS        |
 | `RETENTION_PLUGIN_PATH`                              | `/etc/datahub/plugins/retention` | Path for retention plugins                             | GMS        |
 | `AUTH_PLUGIN_PATH`                                   | `/etc/datahub/plugins/auth`      | Path for auth plugins                                  | GMS        |
 
