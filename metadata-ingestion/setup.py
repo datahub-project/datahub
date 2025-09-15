@@ -292,7 +292,13 @@ microsoft_common = {
 iceberg_common = {
     # Iceberg Python SDK
     # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
-    "pyiceberg>=0.4.0",
+    # The limitation <=0.6.1 is set temporarily, as >0.4 allows for using pydantic 2, but versions >0.6.1 use different
+    # parameters for configuring credentials, i.e. for Glue catalogs, for details, see:
+    # https://github.com/apache/iceberg-python/compare/pyiceberg-0.6.1...pyiceberg-0.7.0#diff-497e037708cc64870c6ba9372f6064a69ca1e74d65d6195dcee5a44851e8b47dR283
+    # this would cause existing recipes to start failing in some cases
+    # the list of extras is quite arbitrary, it has been extended since 0.4.0, we can add more of them, once we bump
+    # the lower version limit
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.4.0,<=0.6.1",
     *cachetools_lib,
 }
 

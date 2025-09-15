@@ -178,7 +178,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -245,7 +245,7 @@ jobs:
         with:
           checkout-head-only: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -277,7 +277,7 @@ jobs:
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
 
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
-          echo "matrix=$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '{"target":.target | keys}')" >> $GITHUB_OUTPUT
+          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
 
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -326,7 +326,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.0
+        uses: aquasecurity/trivy-action@0.33.1
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -440,7 +440,7 @@ jobs:
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -545,6 +545,7 @@ jobs:
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
+            **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
       - name: Upload test results to Codecov
@@ -606,7 +607,7 @@ jobs:
 
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
@@ -626,7 +627,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [setup, smoke_test_lint, smoke_test, publish_images]
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
