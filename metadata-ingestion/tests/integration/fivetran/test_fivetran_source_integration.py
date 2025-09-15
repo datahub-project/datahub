@@ -320,8 +320,8 @@ def get_api_mock_data():
     }
 
 
-def mock_requests_get(url, *args, **kwargs):
-    """Mock function for requests.get that returns appropriate responses based on URL."""
+def mock_requests_get(method, url, *args, **kwargs):
+    """Mock function for requests.Session.request that returns appropriate responses based on URL."""
     mock_data = get_api_mock_data()
 
     if url in mock_data:
