@@ -35,30 +35,34 @@ def cleanup_docker_containers():
     try:
         # Stop and remove any existing datahub-mock containers
         subprocess.run(
-            ["docker", "stop", "datahub-mock"], 
-            capture_output=True, 
-            check=False
+            ["docker", "stop", "datahub-mock"], capture_output=True, check=False
         )
         subprocess.run(
-            ["docker", "rm", "datahub-mock"], 
-            capture_output=True, 
-            check=False
+            ["docker", "rm", "datahub-mock"], capture_output=True, check=False
         )
-        
+
         # Clean up any pytest Docker networks
         result = subprocess.run(
-            ["docker", "network", "ls", "--filter", "name=pytest", "--format", "{{.Name}}"],
+            [
+                "docker",
+                "network",
+                "ls",
+                "--filter",
+                "name=pytest",
+                "--format",
+                "{{.Name}}",
+            ],
             capture_output=True,
             text=True,
-            check=False
+            check=False,
         )
         if result.stdout:
-            for network in result.stdout.strip().split('\n'):
+            for network in result.stdout.strip().split("\n"):
                 if network:
                     subprocess.run(
                         ["docker", "network", "rm", network],
                         capture_output=True,
-                        check=False
+                        check=False,
                     )
     except Exception:
         # Ignore cleanup errors
@@ -76,7 +80,9 @@ def ensure_docker_running():
             if i < max_retries - 1:
                 time.sleep(2)
             else:
-                raise RuntimeError("Docker daemon is not running. Please start Docker Desktop.")
+                raise RuntimeError(
+                    "Docker daemon is not running. Please start Docker Desktop."
+                ) from None
     return False
 
 
@@ -93,10 +99,10 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
     """Start Docker mock DataHub service for all tests."""
     # Ensure Docker is running
     ensure_docker_running()
-    
+
     # Clean up any existing containers before starting
     cleanup_docker_containers()
-    
+
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_queries"
 
     try:

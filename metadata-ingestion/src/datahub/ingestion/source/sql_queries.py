@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import partial
-from typing import ClassVar, Iterable, List, Optional, Union
+from typing import ClassVar, Iterable, List, Optional, Union, cast
 
 from pydantic import BaseModel, Field, validator
 
@@ -241,7 +241,7 @@ class SqlQueriesSource(Source):
     across temporary table operations.
     """
 
-    schema_resolver: Optional[SchemaResolver]
+    schema_resolver: Optional[Union[SchemaResolver, TrackingSchemaResolver]]
     aggregator: SqlParsingAggregator
 
     def __init__(self, ctx: PipelineContext, config: SqlQueriesSourceConfig):
@@ -295,7 +295,9 @@ class SqlQueriesSource(Source):
             platform=self.config.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            schema_resolver=self.schema_resolver,
+            schema_resolver=cast(SchemaResolver, self.schema_resolver)
+            if self.schema_resolver
+            else None,
             eager_graph_load=False,
             generate_lineage=True,  # TODO: make this configurable
             generate_queries=True,  # TODO: make this configurable
@@ -473,7 +475,7 @@ class SqlQueriesSource(Source):
                         self.report.warning(
                             title="Error processing query from S3",
                             message="Query skipped due to parsing error",
-                            context=line.strip(),
+                            context=line.strip().decode("utf-8"),
                             exc=e,
                         )
         except Exception as e:
