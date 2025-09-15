@@ -39,6 +39,7 @@ import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePa
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ZendeskWidget } from '@app/shared/ZendeskWidget';
+import { SidebarWidthProvider } from '@app/shared/hooks/useSidebarWidth';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -96,6 +97,7 @@ export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
     const [showZendeskWidget, setShowZendeskWidget] = useState(false);
+    const [zendeskTrigger, setZendeskTrigger] = useState(0);
 
     const { toggle, isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
@@ -425,7 +427,12 @@ export const NavSidebar = () => {
                 selectedIcon: <ChatTeardropText weight="fill" />,
                 key: 'supportTickets',
                 isHidden: !showSupportTickets,
-                onClick: () => setShowZendeskWidget(true),
+                onClick: () => {
+                    setShowZendeskWidget(true);
+                    setZendeskTrigger((prev) => {
+                        return prev + 1;
+                    });
+                },
             },
             {
                 type: NavBarMenuItemTypes.Item,
@@ -459,22 +466,28 @@ export const NavSidebar = () => {
         );
     };
 
+    const sidebarWidth = isCollapsed ? '60px' : '264px';
+
     return (
-        <Container>
-            {renderSvgSelectedGradientForReusingInIcons()}
-            <Content isCollapsed={isCollapsed}>
-                {showSkeleton ? (
-                    <NavSkeleton isCollapsed={isCollapsed} />
-                ) : (
-                    <>
-                        <NavBarHeader logotype={logoComponent} />
-                        <MenuWrapper>
-                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={mainMenu} />
-                        </MenuWrapper>
-                    </>
+        <SidebarWidthProvider isCollapsed={isCollapsed}>
+            <Container>
+                {renderSvgSelectedGradientForReusingInIcons()}
+                <Content isCollapsed={isCollapsed}>
+                    {showSkeleton ? (
+                        <NavSkeleton isCollapsed={isCollapsed} />
+                    ) : (
+                        <>
+                            <NavBarHeader logotype={logoComponent} />
+                            <MenuWrapper>
+                                <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={mainMenu} />
+                            </MenuWrapper>
+                        </>
+                    )}
+                </Content>
+                {showZendeskWidget && (
+                    <ZendeskWidget me={me} config={config} trigger={zendeskTrigger} offsetHorizontal={sidebarWidth} />
                 )}
-            </Content>
-            {showZendeskWidget && <ZendeskWidget me={me} config={config} />}
-        </Container>
+            </Container>
+        </SidebarWidthProvider>
     );
 };

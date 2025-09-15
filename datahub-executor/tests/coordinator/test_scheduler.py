@@ -71,6 +71,28 @@ def test_schedule_assertion() -> None:
     assert job.trigger.timezone == pytz.timezone(schedule.timezone)
 
 
+def test_dump_jobs() -> None:
+    # Initialize assertion scheduler with a mocked AssertionEngine
+    assertion_executor_mock = Mock(spec=AssertionExecutor)
+    monitor_executor_mock = Mock(spec=MonitorExecutor)
+    execution_request_scheduler = ExecutionRequestScheduler(
+        [],
+        default_schedule="0 * * * *",
+        default_timezone="America/Los_Angeles",
+        override_assertion_executor=assertion_executor_mock,
+        override_monitor_executor=monitor_executor_mock,
+    )
+
+    execution_request_scheduler.add_execution_request(ingestion_request, schedule)
+
+    jobs = execution_request_scheduler.dump_jobs()
+    assert jobs is not None
+
+    test = jobs["ingestion"][0]
+    assert list(test["args"]) == [ingestion_request]
+    assert test["next_run_time"] is not None
+
+
 def test_unschedule_assertion() -> None:
     # Initialize assertion scheduler with a mocked AssertionEngine
     assertion_executor_mock = Mock(spec=AssertionExecutor)

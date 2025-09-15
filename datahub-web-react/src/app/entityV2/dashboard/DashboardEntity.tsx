@@ -366,6 +366,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 }
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

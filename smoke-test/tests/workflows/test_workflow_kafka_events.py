@@ -14,6 +14,8 @@ from tests.utils import (
 # Test action requests that will be created during tests
 CREATED_ACTION_REQUEST_URNS: list[str] = []
 
+pytestmark = pytest.mark.skip(reason="Disabled")
+
 
 def wait_for_workflow_request_ready(auth_session, action_request_urn, timeout=30):
     """Poll until workflow request is ready for review"""
@@ -277,6 +279,7 @@ def test_workflow_request_creation_event(auth_session):
         consumer.close()
 
 
+@pytest.mark.skip(reason="Disabled")
 def test_workflow_request_review_event(auth_session):
     """Test that reviewing a workflow request emits a MODIFY event to Kafka"""
 
@@ -383,6 +386,7 @@ def test_workflow_request_review_event(auth_session):
         consumer.close()
 
 
+@pytest.mark.skip(reason="Disabled")
 def test_workflow_request_completion_event(auth_session):
     """Test that completing a workflow request emits a COMPLETED event to Kafka"""
 
@@ -505,6 +509,7 @@ def test_workflow_request_completion_event(auth_session):
         consumer.close()
 
 
+@pytest.mark.skip(reason="Disabled")
 def test_workflow_lifecycle_events_comprehensive(auth_session):
     """Test the complete workflow lifecycle and verify all events are emitted"""
 

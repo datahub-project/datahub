@@ -3,7 +3,7 @@ import { BookmarksSimple } from '@phosphor-icons/react';
 import React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import ChildrenTab from '@app/entityV2/glossaryNode/ChildrenTab';
+import ChildrenTabWrapper from '@app/entityV2/glossaryNode/ChildrenTabWrapper';
 import { Preview } from '@app/entityV2/glossaryNode/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
@@ -142,7 +142,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 : []),
             {
                 name: 'Contents',
-                component: ChildrenTab,
+                component: ChildrenTabWrapper,
                 icon: AppstoreOutlined,
             },
             ...(!showSummaryTab
@@ -219,6 +219,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.TEST,
         ]);
     };
 

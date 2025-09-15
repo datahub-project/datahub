@@ -77,6 +77,8 @@ TODOs:
 
 """
 
+pytestmark = pytest.mark.skip(reason="Covered by test_framework_tag_propagation.py")
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

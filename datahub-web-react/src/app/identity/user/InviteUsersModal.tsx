@@ -1,7 +1,9 @@
 import { Avatar, Button, Icon, Input, Modal, Text, Tooltip } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
 import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
 import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 import {
@@ -20,6 +22,12 @@ import EmailInviteSection from '@app/identity/user/InviteUsersModal/EmailInviteS
 import OrDividerComponent from '@app/identity/user/InviteUsersModal/OrDividerComponent';
 import RecommendedUsersList from '@app/identity/user/RecommendedUsersList';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
+import {
+    addToGlobalInvitedUsers,
+    getGlobalInvitedUsers,
+    getHasInvitedYet,
+    resetHasInvitedYet,
+} from '@app/identity/user/inviteUsersGlobalState';
 
 import { CorpUser, DataHubRole, UserUsageSortField } from '@types';
 
@@ -36,8 +44,23 @@ type Props = {
 };
 
 const MAX_RECOMMENDED_USERS = 6;
+// always fetch exactly 6, get fresh ones on reopen
 
 export default function InviteUsersModal({ open, onClose }: Props) {
+    // Track invited users within this modal session only
+    const [sessionInvitedUsers, setSessionInvitedUsers] = useState<Set<string>>(new Set());
+
+    // Force re-computation when global state changes
+    const [globalStateUpdate, setGlobalStateUpdate] = useState(0);
+
+    // Combine session and global invited users for filtering
+    const allInvitedUsers = useMemo(() => {
+        const globalUsers = getGlobalInvitedUsers();
+        const combined = new Set([...sessionInvitedUsers, ...globalUsers]);
+        return combined;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sessionInvitedUsers, globalStateUpdate]);
+
     const {
         selectedRole,
         emailInviteRole,
@@ -58,10 +81,11 @@ export default function InviteUsersModal({ open, onClose }: Props) {
         emailInvitations,
         refetchRecommendations,
     } = useInviteUsersModal({
-        limit: MAX_RECOMMENDED_USERS,
-        sortBy: UserUsageSortField.UsageTotalPast_30Days,
+        limit: MAX_RECOMMENDED_USERS * 3, // Fetch more to account for filtering, then slice to 6
+        sortBy: UserUsageSortField.UsagePercentilePast_30Days,
         platformFilter: null,
         modalOpen: open, // Only load recommendations when modal is open
+        excludeInvitedUsers: allInvitedUsers, // Exclude at query level for fresh results
     });
 
     // Track invitation status for recommended users
@@ -69,17 +93,25 @@ export default function InviteUsersModal({ open, onClose }: Props) {
     // Track users that have been successfully invited and should be hidden
     const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(new Set());
 
-    // Reset modal state when dialog opens
+    // Reset modal state when dialog opens and advance recommendation index
     useEffect(() => {
         if (open) {
             resetModalState();
             setRecommendedUserStates({}); // Reset recommended user states
             setHiddenUsers(new Set()); // Reset hidden users
+            setSessionInvitedUsers(new Set()); // Clear session invited users for fresh start
 
-            // Refetch recommendations to get fresh users (excluding previously invited ones)
-            refetchRecommendations?.();
+            // Trigger re-computation for fresh filtering
+            setGlobalStateUpdate((prev) => prev + 1);
+
+            // Only refetch if user has invited someone (gamification approach)
+            if (getHasInvitedYet()) {
+                refetchRecommendations?.();
+                resetHasInvitedYet(); // Reset flag after refetch
+            }
         }
-    }, [open, resetModalState, refetchRecommendations]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, resetModalState]);
 
     const handleInviteRecommendedUser = useCallback(
         async (user: CorpUser, role?: DataHubRole) => {
@@ -88,14 +120,14 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                 return false;
             }
 
-            try {
-                // Get user's email
-                const userEmail = user.info?.email || user.properties?.email || user.username;
-                if (!userEmail) {
-                    message.error('No email found for this user');
-                    return false;
-                }
+            // Get user's email
+            const userEmail = user.info?.email || user.properties?.email || user.username;
+            if (!userEmail) {
+                message.error('No email found for this user');
+                return false;
+            }
 
+            try {
                 // Update status to pending (for loading state if needed)
                 setRecommendedUserStates((prev) => ({
                     ...prev,
@@ -111,11 +143,31 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                     [user.urn]: { status: success ? 'success' : 'failed', role },
                 }));
 
-                // Schedule fadeout for successful invitations
+                // Add to both session and global tracking for successful invitations
                 if (success) {
+                    // Add to session invited users for immediate filtering
+                    setSessionInvitedUsers((prev) => {
+                        const newSet = new Set(prev);
+                        newSet.add(user.urn);
+                        if (userEmail && userEmail !== user.urn) {
+                            newSet.add(userEmail);
+                        }
+                        return newSet;
+                    });
+
+                    // Add to global invited users to persist across modal sessions
+                    const identifiers = [user.urn];
+                    if (userEmail && userEmail !== user.urn) {
+                        identifiers.push(userEmail);
+                    }
+                    addToGlobalInvitedUsers(identifiers);
+
+                    // Trigger re-computation
+                    setGlobalStateUpdate((prev) => prev + 1);
+
                     setTimeout(() => {
                         setHiddenUsers((prev) => new Set([...prev, user.urn]));
-                    }, 5000);
+                    }, 3000);
                 }
 
                 return success;
@@ -125,6 +177,15 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                     ...prev,
                     [user.urn]: { status: 'failed', role },
                 }));
+
+                // Track error event
+                analytics.event({
+                    type: EventType.InviteUserErrorEvent,
+                    roleUrn: role.urn,
+                    emailList: [userEmail],
+                    inviteMethod: 'recommended_user',
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                });
 
                 message.error('Invitation failed');
                 console.error('Failed to invite recommended user:', error);
@@ -205,6 +266,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                     <SectionTitle>Share Link</SectionTitle>
                     <InputRow>
                         <Input
+                            className="meticulous-ignore"
                             label=""
                             value={inviteLink}
                             readOnly
@@ -223,7 +285,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                             <Button
                                 className="refresh-btn"
                                 variant="text"
-                                onClick={() => createInviteToken(selectedRole?.urn)}
+                                onClick={() => createInviteToken(selectedRole?.urn, EventType.RefreshInviteLinkEvent)}
                                 style={{
                                     padding: '4px',
                                     width: '32px',
@@ -241,6 +303,12 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                                 try {
                                     await navigator.clipboard.writeText(inviteLink);
                                     message.success('Copied invite link to clipboard');
+
+                                    // Track copy invite link event
+                                    analytics.event({
+                                        type: EventType.ClickCopyInviteLinkEvent,
+                                        roleUrn: selectedRole?.urn || '',
+                                    });
                                 } catch (error) {
                                     message.error('Failed to copy invite link to clipboard');
                                 }

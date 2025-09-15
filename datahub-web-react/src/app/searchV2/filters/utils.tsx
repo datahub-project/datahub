@@ -55,8 +55,9 @@ import {
     pluralizeIfIrregular,
 } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { DATE_TYPE_URN, LOGICAL_PLATFORM_URN } from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
@@ -92,8 +93,7 @@ export function getNewFilters(
         ...activeFilters,
         {
             field: filterField,
-            values: selectedFilterValues,
-            // TODO: Define on filter field instead
+            values: selectedFilterValues, // TODO: Define on filter field instead
             condition: [LAST_MODIFIED_FILTER_NAME, CREATED_AT_FILTER_NAME].includes(filterField)
                 ? FilterOperator.GreaterThan
                 : undefined,
@@ -231,11 +231,13 @@ export function getFilterIconAndLabel(
         label = capitalizeFirstLetterOnly(forcePluralize(filterValue));
     } else if (filterField === PLATFORM_FILTER_NAME) {
         const logoUrl = (filterEntity as DataPlatform)?.properties?.logoUrl;
-        icon = logoUrl ? (
-            <PlatformIcon src={logoUrl} size={size} />
-        ) : (
-            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
-        );
+        if (logoUrl) {
+            icon = <PlatformIcon src={logoUrl} size={size} />;
+        } else if (filterValue === LOGICAL_PLATFORM_URN) {
+            icon = <LogicalPlatformDefaultIcon size={size} />;
+        } else {
+            icon = entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        }
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
         icon = <FolderFilled size={size} color="black" />;

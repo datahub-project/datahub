@@ -1,3 +1,7 @@
+import {
+    SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+    STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+} from '@app/tests/builder/steps/definition/builder/property/constants';
 import { ACTION_TYPES, ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
 import {
     Property,
@@ -6,8 +10,16 @@ import {
     dataAssetProps,
     entityProperties,
 } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import {
+    extractSchemaFieldStructuredPropertyReferenceUrn,
+    extractStructuredPropertyReferenceUrn,
+    isOwnershipTypeId,
+    isSchemaFieldStructuredPropertyId,
+    isStructuredPropertyId,
+} from '@app/tests/builder/steps/definition/builder/property/utils';
 import { LogicalPredicate, PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
 import { convertTestPredicateToLogicalPredicate } from '@app/tests/builder/steps/definition/builder/utils';
+import { ValidationWarning } from '@app/tests/builder/validation/types';
 import { TestDefinition } from '@app/tests/types';
 
 import { EntityType } from '@types';
@@ -110,12 +122,17 @@ const AUTO_ASSET_CATEGORIES = (() => {
 
         const entityPropertyIds = extractPropertyIds(entityProp.properties);
 
-        // Check if this entity supports data asset properties
+        // Check if this entity supports base entity properties (from assetProps)
+        const supportsBaseEntityProps = Array.from(AUTO_PROPERTY_SUPPORT.BASE_ENTITY_ONLY).some((propId) =>
+            entityPropertyIds.has(propId),
+        );
+
+        // Also check for data asset specific properties
         const supportsDataAssetProps = Array.from(AUTO_PROPERTY_SUPPORT.DATA_ASSET_ONLY).some((propId) =>
             entityPropertyIds.has(propId),
         );
 
-        if (supportsDataAssetProps) {
+        if (supportsBaseEntityProps || supportsDataAssetProps) {
             categories.DATA_ASSETS.add(entityProp.type);
         } else {
             categories.METADATA_ASSETS.add(entityProp.type);
@@ -182,6 +199,26 @@ export const ASSET_CATEGORIES = AUTO_ASSET_CATEGORIES;
  */
 export function isPropertySupportedForEntities(propertyId: string, entityTypes: EntityType[]): boolean {
     if (entityTypes.length === 0) return true; // No entities selected, allow all properties
+
+    // Schema field structured properties are only supported by datasets
+    if (
+        isSchemaFieldStructuredPropertyId(propertyId) ||
+        propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+    ) {
+        return entityTypes.every((type) => type === EntityType.Dataset);
+    }
+
+    // Ownership type properties (both placeholder and specific URNs) are supported by all data assets
+    if (isOwnershipTypeId(propertyId)) {
+        // All selected entities must be data assets (not metadata assets like glossaryTerm)
+        return entityTypes.every((type) => AUTO_ASSET_CATEGORIES.DATA_ASSETS.has(type));
+    }
+
+    // Structured properties (both placeholder and specific URNs) are supported by all data assets
+    if (isStructuredPropertyId(propertyId)) {
+        // All selected entities must be data assets (not metadata assets like glossaryTerm)
+        return entityTypes.every((type) => AUTO_ASSET_CATEGORIES.DATA_ASSETS.has(type));
+    }
 
     // Universal properties are supported by all entities
     if (AUTO_PROPERTY_SUPPORT.UNIVERSAL.has(propertyId)) {
@@ -265,6 +302,24 @@ function formatEntityName(entityType: EntityType, pluralize = false): string {
 function getUnsupportedEntitiesForProperty(propertyId: string, entityTypes: EntityType[]): string[] {
     return entityTypes
         .filter((entityType) => {
+            // Schema field structured properties are only supported by datasets
+            if (
+                isSchemaFieldStructuredPropertyId(propertyId) ||
+                propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+            ) {
+                return entityType !== EntityType.Dataset;
+            }
+
+            // Ownership type properties are supported by all data assets
+            if (isOwnershipTypeId(propertyId)) {
+                return !AUTO_ASSET_CATEGORIES.DATA_ASSETS.has(entityType);
+            }
+
+            // Structured properties are supported by all data assets
+            if (isStructuredPropertyId(propertyId)) {
+                return !AUTO_ASSET_CATEGORIES.DATA_ASSETS.has(entityType);
+            }
+
             // Check if this specific entity type supports this property
             const entityConfig = entityProperties.find((ep) => ep.type === entityType);
             if (!entityConfig) return true; // If entity config not found, consider it unsupported
@@ -285,16 +340,6 @@ function getUnsupportedEntitiesForAction(actionId: ActionId, entityTypes: Entity
     }
 
     return entityTypes.filter((type) => !supportedEntities.has(type)).map((type) => formatEntityName(type, true));
-}
-
-/**
- * Get validation warnings for invalid configurations
- */
-export interface ValidationWarning {
-    type: 'property' | 'action';
-    message: string;
-    propertyId?: string;
-    actionId?: ActionId;
 }
 
 /**
@@ -354,9 +399,35 @@ export function getValidationWarnings(
             const unsupportedEntities = getUnsupportedEntitiesForProperty(propertyId, entityTypes);
             const unsupportedEntitiesText = unsupportedEntities.join(', ');
 
+            // Special messages for different property types
+            let message: string;
+            if (
+                isSchemaFieldStructuredPropertyId(propertyId) ||
+                propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+            ) {
+                const displayName =
+                    propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+                        ? 'Column Structured Property'
+                        : propertyId;
+                message = `Property "${displayName}" is not available for ${unsupportedEntitiesText}. This property only works with datasets.`;
+            } else if (isOwnershipTypeId(propertyId)) {
+                const displayName = propertyId.startsWith('ownership.ownerTypes.')
+                    ? 'Ownership Type'
+                    : 'Ownership Type';
+                message = `Property "${displayName}" is not available for ${unsupportedEntitiesText}. This property only works with data assets.`;
+            } else if (isStructuredPropertyId(propertyId)) {
+                const displayName =
+                    propertyId === STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+                        ? 'Structured Property'
+                        : 'Structured Property';
+                message = `Property "${displayName}" is not available for ${unsupportedEntitiesText}. This property only works with data assets.`;
+            } else {
+                message = `Property "${propertyId}" is not available for ${unsupportedEntitiesText}. This property only works with data assets.`;
+            }
+
             warnings.push({
                 type: 'property',
-                message: `Property "${propertyId}" is not available for ${unsupportedEntitiesText}. This property only works with data assets.`,
+                message,
                 propertyId,
             });
         }
@@ -407,4 +478,21 @@ export function getPropertiesFromLogicalPredicate(predicate: LogicalPredicate | 
 
     extractFromPredicate(predicate);
     return [...new Set(properties)]; // Remove duplicates
+}
+
+// =============================================================================
+// ENHANCED STRUCTURED PROPERTY VALIDATION
+// =============================================================================
+
+/**
+ * Extract structured property URN from a property ID
+ */
+export function extractStructuredPropertyUrn(propertyId: string): string | undefined {
+    if (isSchemaFieldStructuredPropertyId(propertyId)) {
+        return extractSchemaFieldStructuredPropertyReferenceUrn(propertyId);
+    }
+    if (isStructuredPropertyId(propertyId)) {
+        return extractStructuredPropertyReferenceUrn(propertyId);
+    }
+    return undefined;
 }

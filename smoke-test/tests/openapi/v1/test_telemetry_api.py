@@ -132,6 +132,10 @@ def test_telemetry_api_via_tracking(graph_client: DataHubGraph) -> None:
             response_contents="Test response",
             response_generation_duration_sec=30.4,
             chat_session_id="1818b45b-db44-49ca-a373-2e51cd70092e",
+            num_tool_calls=1,
+            num_tool_call_errors=0,
+            num_history_messages=1,
+            full_history="Test history",
         )
         logger.info(f"Test event created: {test_event}")
 
@@ -188,6 +192,10 @@ def test_telemetry_api_via_tracking(graph_client: DataHubGraph) -> None:
         assert message["actorUrn"] == "urn:li:corpuser:admin"
         assert message["response_generation_duration_sec"] == 30.4
         assert message["chat_session_id"] == "1818b45b-db44-49ca-a373-2e51cd70092e"
+        assert message["num_tool_calls"] == 1
+        assert message["num_tool_call_errors"] == 0
+        assert message["num_history_messages"] == 1
+        assert message["full_history"] == "Test history"
 
         assert "timestamp" in message
         assert "origin" in message

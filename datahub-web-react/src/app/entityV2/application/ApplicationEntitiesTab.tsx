@@ -26,6 +26,7 @@ export function ApplicationEntitiesTab() {
                 placeholderText="Filter assets..."
                 skipCache
                 applyView
+                shouldRefetch
             />
         </SearchCardContext.Provider>
     );

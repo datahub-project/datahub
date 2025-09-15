@@ -352,7 +352,7 @@ describe('useAssetSummaryOperations', () => {
             const position = 1;
 
             act(() => {
-                result.current.removeSummaryElement(position);
+                result.current.removeSummaryElement(position, SummaryElementType.Created);
             });
 
             expect(validatePosition).toHaveBeenCalledWith(position, 'remove summary element');
@@ -388,7 +388,7 @@ describe('useAssetSummaryOperations', () => {
             );
 
             act(() => {
-                result.current.removeSummaryElement(0);
+                result.current.removeSummaryElement(0, SummaryElementType.Created);
             });
 
             expect(validatePosition).toHaveBeenCalledWith(0, 'remove summary element');
@@ -425,7 +425,7 @@ describe('useAssetSummaryOperations', () => {
             );
 
             act(() => {
-                result.current.removeSummaryElement(0);
+                result.current.removeSummaryElement(0, SummaryElementType.Created);
             });
 
             expect(handleValidationError).toHaveBeenCalled();
@@ -449,7 +449,7 @@ describe('useAssetSummaryOperations', () => {
             );
 
             act(() => {
-                result.current.removeSummaryElement(10);
+                result.current.removeSummaryElement(10, SummaryElementType.Created);
             });
 
             expect(validateArrayBounds).toHaveBeenCalledWith(10, 2, 'removal');
@@ -474,6 +474,7 @@ describe('useAssetSummaryOperations', () => {
             const input: ReplaceSummaryElementInput = {
                 elementType: SummaryElementType.Tags,
                 position: 0,
+                currentElementType: SummaryElementType.Created,
             };
 
             act(() => {
@@ -521,6 +522,7 @@ describe('useAssetSummaryOperations', () => {
                 elementType: SummaryElementType.StructuredProperty,
                 structuredProperty: mockStructuredProperty,
                 position: 1,
+                currentElementType: SummaryElementType.Created,
             };
 
             act(() => {
@@ -571,6 +573,7 @@ describe('useAssetSummaryOperations', () => {
             const input: ReplaceSummaryElementInput = {
                 elementType: null as any,
                 position: 0,
+                currentElementType: SummaryElementType.Created,
             };
 
             act(() => {

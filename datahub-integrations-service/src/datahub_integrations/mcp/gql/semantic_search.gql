@@ -1,0 +1,111 @@
+fragment SearchEntityInfo on Entity {
+  urn
+
+  # For some entity types, the urns are not human-readable. For those,
+  # we pull the name as well.
+  ... on Dataset {
+    properties {
+      name
+    }
+  }
+  ... on Chart {
+    properties {
+      name
+    }
+  }
+  ... on Dashboard {
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    properties {
+      name
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+  ... on GlossaryNode {
+    properties {
+      name
+    }
+  }
+  ... on Domain {
+    properties {
+      name
+    }
+  }
+  ... on DataProduct {
+    properties {
+      name
+    }
+  }
+}
+
+fragment FacetEntityInfo on Entity {
+  ... on Dataset {
+    name
+    properties {
+      name
+    }
+  }
+  ... on Container {
+    subTypes {
+      typeNames
+    }
+    properties {
+      name
+    }
+  }
+  ... on GlossaryTerm {
+    properties {
+      name
+    }
+  }
+}
+
+query semanticSearch(
+  $types: [EntityType!]
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+) {
+  semanticSearchAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      types: $types
+      orFilters: $orFilters
+      searchFlags: { skipHighlighting: true, maxAggValues: 5 }
+    }
+  ) {
+    count
+    total
+    searchResults {
+      entity {
+        ...SearchEntityInfo
+      }
+      # TODO: Consider adding these fields for enhanced semantic search experience:
+      # score               # Cosine similarity score (0-1) for semantic relevance
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+    # TODO: Consider adding metadata section for search algorithm transparency:
+    # metadata {
+    #   scoringMethod       # e.g., "COSINE_SIMILARITY" vs "BM25"
+    # }
+  }
+}

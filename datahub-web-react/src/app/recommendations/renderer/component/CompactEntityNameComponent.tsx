@@ -4,6 +4,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
 import { EntityPreviewTag } from '@app/recommendations/renderer/component/EntityPreviewTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
@@ -44,6 +45,7 @@ type CompactEntityNameProps = {
     linkUrlParams?: Record<string, string | boolean>;
     isProposed?: boolean;
     showMargin?: boolean;
+    previewContext?: PreviewContextProps;
 };
 
 export const CompactEntityNameComponent = ({
@@ -55,6 +57,7 @@ export const CompactEntityNameComponent = ({
     linkUrlParams,
     isProposed,
     showMargin = true,
+    previewContext,
 }: CompactEntityNameProps) => {
     const entityRegistry = useEntityRegistry();
 
@@ -65,7 +68,7 @@ export const CompactEntityNameComponent = ({
 
     if (entity.type === EntityType.SchemaField) {
         const { parent, fieldPath } = entity as SchemaFieldEntity;
-        processedEntity = parent;
+        processedEntity = parent ?? { urn: entity.urn, type: EntityType.Dataset };
         columnName = fieldPath;
     }
 
@@ -84,6 +87,7 @@ export const CompactEntityNameComponent = ({
                 canOpen={showFullTooltip}
                 placement={placement}
                 showArrow={false}
+                previewContext={previewContext}
             >
                 <FullWidthContainer>
                     <EntityPreviewTag

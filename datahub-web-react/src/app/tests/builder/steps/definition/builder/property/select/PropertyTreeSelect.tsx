@@ -56,12 +56,26 @@ export const PropertyTreeSelect = ({ selectedProperty, properties, onChangePrope
     return (
         <StyledTreeSelect
             autoFocus
+            showSearch
+            treeNodeFilterProp="title"
             treeNodeLabelProp="label"
-            placeholder="Select a property..."
+            placeholder="Search properties..."
             onSelect={(newVal) => onChangeProperty(newVal as string)}
             value={selectedProperty || undefined}
-            treeDefaultExpandAll
+            treeDefaultExpandAll={false}
             treeExpandAction="click"
+            filterTreeNode={(inputValue, treeNode) => {
+                // Search in both title and description
+                const searchText = inputValue.toLowerCase();
+                const property = (treeNode.title as any)?.props?.property;
+                if (!property) {
+                    // For custom node or nodes without property data, search in value
+                    return (treeNode.value as string)?.toLowerCase().includes(searchText) || false;
+                }
+                const nodeTitle = property.displayName?.toLowerCase() || '';
+                const nodeDescription = property.description?.toLowerCase() || '';
+                return nodeTitle.includes(searchText) || nodeDescription.includes(searchText);
+            }}
         >
             {properties.map((property) => {
                 return renderNode(property, []);

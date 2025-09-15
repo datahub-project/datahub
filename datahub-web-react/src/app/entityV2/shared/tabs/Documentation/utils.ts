@@ -28,20 +28,28 @@ export function getAssetDescriptionDetails({
     const editableDescription = editedDescription || originalDescription || '';
     const isUsingDocumentationAspect = !editableDescription && !!documentation;
 
+    const attribution = documentation?.attribution;
+    const isPropagated =
+        isUsingDocumentationAspect &&
+        !!attribution?.sourceDetail?.find((mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true');
     const isInferred = isUsingDocumentationAspect && checkIsInferredDocumentation(documentation);
 
     // Show the inferred documentation only when the editedDescription is undefined and orginal description is empty
     const displayedDescription =
         editedDescription ?? (originalDescription || documentation?.documentation || defaultDescription || '');
 
-    const sourceDetail = documentation?.attribution?.sourceDetail;
+    const sourceDetail = attribution?.sourceDetail;
+    const propagatedDescription = isPropagated ? documentation?.documentation : undefined;
     const inferredDescription = isInferred ? documentation.documentation : undefined;
 
     return {
         displayedDescription,
         isUsingDocumentationAspect,
+        isPropagated,
         isInferred,
         sourceDetail,
+        propagatedDescription,
         inferredDescription,
+        attribution,
     };
 }

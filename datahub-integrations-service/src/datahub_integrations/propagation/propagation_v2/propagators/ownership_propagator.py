@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from datahub_integrations.propagation.propagation_v2.propagators.aspect_propagator import (
     AspectPropagator,
+    ChangeEventDict,
     PropagationOutput,
 )
 from datahub_integrations.propagation.propagation_v2.types.ece_enums import (
@@ -30,7 +31,13 @@ class OwnershipPropagator(AspectPropagator[OwnershipClass]):
     def aspects(self) -> tuple[type[OwnershipClass]]:
         return (OwnershipClass,)
 
-    def supported_change_operations(self) -> set[ChangeOperation]:
+    def empty_aspects(self) -> tuple[OwnershipClass]:
+        return (OwnershipClass(owners=[], lastModified=None),)
+
+    def category(self) -> ChangeCategory:
+        return ChangeCategory.OWNER
+
+    def _supported_change_operations(self) -> set[ChangeOperation]:
         return {ChangeOperation.ADD, ChangeOperation.REMOVE}
 
     def _compute_diff_eces_internal(
@@ -74,13 +81,13 @@ class OwnershipPropagator(AspectPropagator[OwnershipClass]):
             audit_stamp=self._propagation_audit_stamp(),
         )
 
-    def compute_propagation_mcps(
-        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+    def _compute_propagation_mcps(
+        self, change_events: ChangeEventDict
     ) -> PropagationOutput:
         for target_urn, ece_map in change_events.items():
             patch_builder = HasOwnershipPatch(target_urn)
-            for operation, eces in ece_map.items():
-                for via_urn, ece in eces.items():
+            for (operation, via_urn), eces in ece_map.items():
+                for ece in eces:
                     if ece.category == ChangeCategory.OWNER.value:
                         self._process_ece(via_urn, operation, ece, patch_builder)
             yield from patch_builder.build()
@@ -92,9 +99,9 @@ class OwnershipPropagator(AspectPropagator[OwnershipClass]):
         ece: EntityChangeEvent,
         patch_builder: HasOwnershipPatch,
     ) -> None:
-        owner_type = ece.modifier or ece.parameters.get("ownerType")
-        owner_urn = ece.parameters.get("ownerUrn")
-        owner_type_urn = ece.parameters.get("ownerTypeUrn")
+        owner_type = ece.safe_parameters.get("ownerType")
+        owner_urn = ece.safe_parameters.get("ownerUrn")
+        owner_type_urn = ece.safe_parameters.get("ownerTypeUrn")
         if not owner_type or not owner_urn:
             logger.warning(
                 f"Could not determine owner type or owner urn for ECE: {ece}. Skipping."
@@ -107,7 +114,7 @@ class OwnershipPropagator(AspectPropagator[OwnershipClass]):
             return
         elif operation == ChangeOperation.ADD.value:
             # TODO: Update to support passing source details in ECE
-            old_source_details = SourceDetails()  # Allows all nulls
+            old_source_details = SourceDetails()
             attribution = self._compute_attribution(old_source_details, via_urn)
             # TODO: Support passing ownership source?
             patch_builder.add_owner(

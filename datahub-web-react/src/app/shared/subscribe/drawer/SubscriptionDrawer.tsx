@@ -2,6 +2,7 @@ import { Alert, Drawer, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '@app/settings/personal/notifications/constants';
 import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK, TEAMS_SINK } from '@app/settings/platform/types';
 import { isSinkEnabled } from '@app/settings/utils';
@@ -43,6 +44,7 @@ import { useGetLineageCountsQuery } from '@graphql/lineage.generated';
 import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';
 import {
     Assertion,
+    DataHubPageModuleType,
     DataHubSubscription,
     EntityType,
     NotificationSinkType,
@@ -113,6 +115,7 @@ const SubscriptionDrawerContent = ({
 }: Props) => {
     const { config } = useAppConfig();
     const { data: globalSettings } = useGetGlobalSettingsQuery();
+    const { reloadModules } = useModulesContext();
 
     const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
         isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
@@ -229,6 +232,9 @@ const SubscriptionDrawerContent = ({
 
     const onUpdate = () => {
         upsertSubscription();
+        // Reload modules
+        // SubscribedAssets - update module after adding subscription
+        reloadModules([DataHubPageModuleType.SubscribedAssets], 3000);
 
         const shouldUpdateNotificationSettings =
             slackSaveAsDefault ||
@@ -286,7 +292,12 @@ const SubscriptionDrawerContent = ({
     };
 
     const onCancelOrUnsubscribe = (isUnsubscribe: boolean) => {
-        if (isUnsubscribe) onDeleteSubscription?.();
+        if (isUnsubscribe) {
+            onDeleteSubscription?.();
+            // Reload modules
+            // SubscribedAssets - update module after removing subscription
+            reloadModules([DataHubPageModuleType.SubscribedAssets], 3000);
+        }
         onClose();
     };
 

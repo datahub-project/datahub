@@ -334,7 +334,9 @@ def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
     }
 
 
-def run_prompt_experiment(run_description: Optional[str] = None) -> None:
+def run_prompt_experiment(
+    run_description: Optional[str] = None, urns: Optional[List[str]] = None
+) -> None:
     logger.info(f"eval data directory: {docs_generation_experiments_dir / 'eval_data'}")
 
     mlflow.set_experiment(EXPERIMENT_NAME)
@@ -344,8 +346,8 @@ def run_prompt_experiment(run_description: Optional[str] = None) -> None:
     for file in list(eval_data_path.glob("*.json")):
         with open(file, "r") as f:
             data = json.load(f)
-            # if len(data["extracted_entity_info"]["column_names"]) <= LARGE_TABLE_THRESHOLD:
-            #    continue
+            if urns and data["urn"] not in urns:
+                continue
             eval_files.append(file)
             logger.debug(f"Added file: {file} for urn {data['urn']}")
     # NOTE: modify generate_entity_descriptions_for_urn_eval_wrapper to change prompt

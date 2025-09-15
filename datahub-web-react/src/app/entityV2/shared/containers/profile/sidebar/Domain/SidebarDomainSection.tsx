@@ -10,6 +10,7 @@ import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import ProposalModal from '@app/shared/tags/ProposalModal';
 import { DomainContent, DomainLink } from '@app/sharedV2/tags/DomainLink';
@@ -17,9 +18,9 @@ import { colors } from '@src/alchemy-components';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
 import { getProposedItemsByType } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { ActionRequest, ActionRequestType, EntityType } from '@src/types.generated';
 
 import { useUnsetDomainMutation } from '@graphql/mutations.generated';
+import { ActionRequest, ActionRequestType, DataHubPageModuleType, EntityType } from '@types';
 
 const Content = styled.div`
     display: flex;
@@ -59,7 +60,7 @@ interface Props {
 
 export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const updateOnly = properties?.updateOnly;
-    const { entityData } = useEntityData();
+    const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
     const refetch = useRefetch();
     const urn = useMutationUrn();
@@ -74,6 +75,8 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
         ActionRequestType.DomainAssociation,
     );
 
+    const { reloadModules } = useModulesContext();
+
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
     const canProposeDomains = !!entityData?.privileges?.canProposeDomains;
 
@@ -82,6 +85,13 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
             .then(() => {
                 message.success({ content: 'Removed Domain.', duration: 2 });
                 refetch?.();
+                // Reload modules
+                // Assets - as assets module in domain summary tab could be updated
+                reloadModules([DataHubPageModuleType.Assets], 3000);
+                // DataProduct - as data products module in domain summary tab could be updated
+                if (entityType === EntityType.DataProduct) {
+                    reloadModules([DataHubPageModuleType.DataProducts], 3000);
+                }
             })
             .catch((e: unknown) => {
                 message.destroy();

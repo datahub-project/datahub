@@ -24,19 +24,11 @@ const meta: Meta<typeof IncidentPriorityLabel> = {
                 type: { summary: '"CRITICAL" | "HIGH" | "MEDIUM" | "LOW"' },
             },
         },
-        title: {
-            description: 'Incident string containing title',
-            control: { type: 'text' },
-            table: {
-                type: { summary: 'title: string' },
-            },
-        },
     },
 
     // Default props
     args: {
         priority: 'CRITICAL',
-        title: 'Critical',
     },
 };
 
@@ -53,34 +45,29 @@ export const sandbox: Story = {
 export const criticalPriority: Story = {
     args: {
         priority: 'CRITICAL',
-        title: 'Critical',
     },
 };
 
 export const highPriority: Story = {
     args: {
         priority: 'HIGH',
-        title: 'High',
     },
 };
 
 export const mediumPriority: Story = {
     args: {
         priority: 'MEDIUM',
-        title: 'Medium',
     },
 };
 
 export const lowPriority: Story = {
     args: {
         priority: 'LOW',
-        title: 'Low',
     },
 };
 
 export const unknownPriority: Story = {
     args: {
         priority: 'UNKNOWN',
-        title: 'Unknown',
     },
 };

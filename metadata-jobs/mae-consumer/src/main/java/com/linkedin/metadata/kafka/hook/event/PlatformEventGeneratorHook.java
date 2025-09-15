@@ -368,7 +368,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
 
     List<RelationshipChangeEvent> relationshipChangeEvents = new ArrayList<>();
 
-    for (Edge edge : edgeDiff.getEdgesToAdd()) {
+    for (Edge edge : edgeDiff.getEdgesToRemove()) {
       if (edge.getRelationshipType() != null) {
         log.debug("Additive difference found for relationship type {}", edge.getRelationshipType());
       }
@@ -376,7 +376,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       RelationshipChangeEvent relationshipChangeEvent =
           new RelationshipChangeEvent()
               .setRelationshipType(edge.getRelationshipType())
-              .setOperation(RelationshipChangeOperation.ADD)
+              .setOperation(RelationshipChangeOperation.REMOVE)
               .setSourceUrn(edge.getSource())
               .setDestinationUrn(edge.getDestination())
               .setRelationshipType(edge.getRelationshipType());
@@ -387,7 +387,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       relationshipChangeEvents.add(relationshipChangeEvent);
     }
 
-    for (Edge edge : edgeDiff.getEdgesToRemove()) {
+    for (Edge edge : edgeDiff.getEdgesToAdd()) {
       if (edge.getRelationshipType() != null) {
         log.debug("Additive difference found for relationship type {}", edge.getRelationshipType());
       }
@@ -395,7 +395,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
       RelationshipChangeEvent relationshipChangeEvent =
           new RelationshipChangeEvent()
               .setRelationshipType(edge.getRelationshipType())
-              .setOperation(RelationshipChangeOperation.REMOVE)
+              .setOperation(RelationshipChangeOperation.ADD)
               .setSourceUrn(edge.getSource())
               .setDestinationUrn(edge.getDestination())
               .setRelationshipType(edge.getRelationshipType());

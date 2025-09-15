@@ -62,6 +62,10 @@ export enum ValueTypeId {
      * Schema field object type
      */
     SCHEMA_FIELD_LIST = 'SCHEMA_FIELD_LIST',
+    /**
+     * Structured property value type (requires custom handling)
+     */
+    STRUCTURED_PROPERTY_VALUE = 'STRUCTURED_PROPERTY_VALUE',
 }
 
 /**
@@ -149,6 +153,11 @@ export const valueTypes = [
         displayName: 'List',
         operators: [OperatorId.SCHEMA_FIELDS_HAVE_DESCRIPTIONS],
     },
+    {
+        id: ValueTypeId.STRUCTURED_PROPERTY_VALUE,
+        displayName: 'Structured Property Value',
+        operators: [], // No operators needed for actions
+    },
 ];
 
 /**
@@ -184,6 +193,10 @@ export enum ValueInputType {
      * No input type
      */
     NONE,
+    /**
+     * Structured property value input (custom component)
+     */
+    STRUCTURED_PROPERTY_VALUE,
 }
 
 export enum SelectInputMode {

@@ -42,7 +42,7 @@ class TeamsSearchService:
     def graph_client(self) -> GraphApiClient:
         """Get or create Graph API client."""
         if not self._graph_client:
-            self._graph_client = GraphApiClient(self.config)
+            self._graph_client = GraphApiClient(self.config, use_app_tenant_id=False)
         return self._graph_client
 
     @graph_client.setter

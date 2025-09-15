@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useHistory, useLocation } from 'react-router';
@@ -11,7 +12,6 @@ import {
     getAssigneeNamesWithAvatarUrl,
     getLinkedAssetsCount,
 } from '@app/entityV2/shared/tabs/Incident/utils';
-import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
@@ -30,7 +30,9 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
                     record.groupName ? (
                         <div>{record.groupName}</div>
                     ) : (
-                        <IncidentPriorityLabel priority={record?.priority} title={record?.title} />
+                        <Text size="md" color="gray" colorLevel={900} data-testid={record?.title}>
+                            {record?.title}
+                        </Text>
                     ),
                 width: '25%',
                 sorter: (a, b) => {

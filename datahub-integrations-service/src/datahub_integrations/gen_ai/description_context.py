@@ -3,6 +3,7 @@ import html
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from urllib.parse import unquote
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -22,6 +23,8 @@ _MAX_TABLE_DESCRIPTION_LENGTH = 1500
 _MAX_COLUMN_DESCRIPTION_LENGTH = 500
 _MAX_TAG_DESCRIPTION_LENGTH = 500
 _MAX_DOMAIN_DESCRIPTION_LENGTH = 500
+
+_MAX_QUERY_LENGTH = 1500
 
 
 class DescriptionParsingError(Exception):
@@ -137,6 +140,17 @@ class ColumnMetadataInfo(BaseModel):
     tags: Optional[List[TagInfo]] = None
     glossary_terms: Optional[List[GlossaryTermInfo]] = None
 
+    def minimal_dict(self) -> Dict[str, Any]:
+        out = self.model_dump(exclude_none=True, include={"column_name", "description"})
+        if isPartOfKey := (self.metadata.isPartOfKey if self.metadata else None):
+            out["isPartOfKey"] = isPartOfKey
+
+        if isPartitioningKey := (
+            self.metadata.isPartitioningKey if self.metadata else None
+        ):
+            out["isPartitioningKey"] = isPartitioningKey
+        return out
+
 
 class TableInfo(BaseModel):
     type: Optional[str] = None
@@ -213,7 +227,11 @@ def get_lineage_query(graph_client: DataHubGraph, urn: str) -> Optional[QueryInf
         logger.warning(f"Query properties not found on the query entity {urn}")
         return None
 
-    query = entity["queryProperties"].statement.value
+    query = truncate_with_ellipsis(
+        entity["queryProperties"].statement.value,
+        _MAX_QUERY_LENGTH,
+        suffix="[truncated]",
+    )
     language = entity["queryProperties"].statement.language
 
     return QueryInfo(value=query, language=language)
@@ -759,7 +777,9 @@ def transform_table_info_for_llm(
     # NOTE: Presence of clause "or None" with list type values is deliberate,
     # to exclude such keys when serializing using model_dump
     for column in column_urns:
-        column_name = SchemaFieldUrn.from_string(column).field_path
+        # URL-decode the field_path to handle encoded characters like %28 (parentheses)
+        # This fixes the issue where field names with special characters would fail validation
+        column_name = unquote(SchemaFieldUrn.from_string(column).field_path)
         column_info[column_name] = ColumnMetadataInfo(
             column_name=column_name,
             metadata=extracted_table_info.column_metadata.get(column),

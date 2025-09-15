@@ -7,6 +7,7 @@ import { useInviteUsersModal } from '@app/identity/user/InviteUsersModal.hooks';
 
 import { useCreateInviteTokenMutation, useSendUserInvitationsMutation } from '@graphql/mutations.generated';
 import { useGetInviteTokenQuery, useListRolesQuery } from '@graphql/role.generated';
+import { useGetSsoSettingsQuery } from '@graphql/settings.generated';
 import { useGetUserRecommendationsQuery } from '@graphql/user.generated';
 
 // Mock GraphQL hooks
@@ -18,6 +19,10 @@ vi.mock('@graphql/mutations.generated', () => ({
 vi.mock('@graphql/role.generated', () => ({
     useGetInviteTokenQuery: vi.fn(),
     useListRolesQuery: vi.fn(),
+}));
+
+vi.mock('@graphql/settings.generated', () => ({
+    useGetSsoSettingsQuery: vi.fn(),
 }));
 
 vi.mock('@graphql/user.generated', () => ({
@@ -47,6 +52,7 @@ const mockUseListRolesQuery = vi.mocked(useListRolesQuery);
 const mockUseGetInviteTokenQuery = vi.mocked(useGetInviteTokenQuery);
 const mockUseCreateInviteTokenMutation = vi.mocked(useCreateInviteTokenMutation);
 const mockUseSendUserInvitationsMutation = vi.mocked(useSendUserInvitationsMutation);
+const mockUseGetSsoSettingsQuery = vi.mocked(useGetSsoSettingsQuery);
 const mockUseGetUserRecommendationsQuery = vi.mocked(useGetUserRecommendationsQuery);
 const mockMessage = vi.mocked(message);
 const mockAnalytics = vi.mocked(analytics);
@@ -96,6 +102,34 @@ describe('useInviteUsersModal', () => {
     const mockCreateInviteTokenMutation = vi.fn();
     const mockSendUserInvitationsMutation = vi.fn();
 
+    const mockSsoSettingsQueryResponseEnabled = {
+        data: {
+            globalSettings: {
+                ssoSettings: {
+                    oidcSettings: {
+                        enabled: true,
+                    },
+                },
+            },
+        },
+        loading: false,
+        error: undefined,
+    };
+
+    const mockSsoSettingsQueryResponseDisabled = {
+        data: {
+            globalSettings: {
+                ssoSettings: {
+                    oidcSettings: {
+                        enabled: false,
+                    },
+                },
+            },
+        },
+        loading: false,
+        error: undefined,
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
 
@@ -117,6 +151,7 @@ describe('useInviteUsersModal', () => {
             mockSendUserInvitationsMutation,
             { loading: false, error: undefined, called: false, client: {} as any, reset: vi.fn() },
         ]);
+        mockUseGetSsoSettingsQuery.mockReturnValue(mockSsoSettingsQueryResponseEnabled as any);
         mockUseGetUserRecommendationsQuery.mockReturnValue({
             data: { getUserRecommendations: { recommended: [] } },
             loading: false,
@@ -134,7 +169,17 @@ describe('useInviteUsersModal', () => {
             expect(result.current.emailInviteRole?.name).toBe('Reader');
         });
 
-        it('should generate invite link with current token', () => {
+        it('should generate invite link with current token when SSO is enabled', () => {
+            const { result } = renderHook(() => useInviteUsersModal());
+
+            expect(result.current.inviteLink).toBe(
+                'https://test.datahub.com/signup?invite_token=test-invite-token-123&redirect_on_sso=true',
+            );
+        });
+
+        it('should generate invite link without redirect_on_sso when SSO is disabled', () => {
+            mockUseGetSsoSettingsQuery.mockReturnValue(mockSsoSettingsQueryResponseDisabled as any);
+
             const { result } = renderHook(() => useInviteUsersModal());
 
             expect(result.current.inviteLink).toBe(
@@ -578,12 +623,27 @@ describe('useInviteUsersModal', () => {
             expect(result.current.roles).toEqual([]);
         });
 
-        it('should handle missing invite token', () => {
+        it('should handle missing invite token with SSO enabled', () => {
             mockUseGetInviteTokenQuery.mockReturnValue({
                 data: undefined,
                 loading: false,
                 error: undefined,
             } as any);
+
+            const { result } = renderHook(() => useInviteUsersModal());
+
+            expect(result.current.inviteLink).toBe(
+                'https://test.datahub.com/signup?invite_token=&redirect_on_sso=true',
+            );
+        });
+
+        it('should handle missing invite token with SSO disabled', () => {
+            mockUseGetInviteTokenQuery.mockReturnValue({
+                data: undefined,
+                loading: false,
+                error: undefined,
+            } as any);
+            mockUseGetSsoSettingsQuery.mockReturnValue(mockSsoSettingsQueryResponseDisabled as any);
 
             const { result } = renderHook(() => useInviteUsersModal());
 

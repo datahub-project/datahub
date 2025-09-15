@@ -2,7 +2,12 @@ import { DownloadOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { DetailsContainer, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import {
+    DetailsContainer,
+    SectionBase,
+    SectionHeading,
+    SectionSecondaryText,
+} from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Button, Text, Tooltip } from '@src/alchemy-components';
 
@@ -12,16 +17,7 @@ const SectionSubHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-`;
-
-const SubHeaderParagraph = styled(Text)`
-    margin-bottom: 0px;
-`;
-
-const LogsSection = styled.div`
-    padding-top: 16px;
-    padding-left: 30px;
-    padding-right: 30px;
+    margin-top: 0;
 `;
 
 export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {
@@ -32,12 +28,14 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
     };
 
     return (
-        <LogsSection>
-            <SectionHeader level={5}>Logs</SectionHeader>
+        <SectionBase>
+            <SectionHeading title="Logs" />
             <SectionSubHeader>
-                <SubHeaderParagraph color="gray" colorLevel={600}>
-                    View logs that were collected during the sync.
-                </SubHeaderParagraph>
+                <SectionSecondaryText
+                    title="View logs that were collected during the sync."
+                    color="gray"
+                    colorLevel={600}
+                />
                 <Tooltip title="Download Logs">
                     <Button variant="text" onClick={downloadLogs}>
                         <DownloadOutlined />
@@ -49,6 +47,6 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
                     <pre>{output}</pre>
                 </Text>
             </DetailsContainer>
-        </LogsSection>
+        </SectionBase>
     );
 };

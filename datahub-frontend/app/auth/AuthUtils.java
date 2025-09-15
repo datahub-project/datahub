@@ -1,14 +1,24 @@
 package auth;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpUserStatus;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -167,7 +177,7 @@ public class AuthUtils {
   public static void tryProvisionUser(
       @Nonnull OperationContext opContext,
       CorpUserSnapshot corpUserSnapshot,
-      EntityClient systemEntityClient) {
+      SystemEntityClient systemEntityClient) {
 
     log.debug(String.format("Attempting to provision user with urn %s", corpUserSnapshot.getUrn()));
 
@@ -189,15 +199,152 @@ public class AuthUtils {
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
         systemEntityClient.update(opContext, newEntity);
         log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
+
+        // 3. Ensure newly provisioned user is active (JIT provisioning)
+        try {
+          ensureUserIsActive(opContext, corpUserSnapshot.getUrn(), systemEntityClient);
+        } catch (Exception e) {
+          log.error("Failed to ensure user is active: {}", e.getMessage(), e);
+          throw new RuntimeException("Failed to ensure user is active", e);
+        }
+      } else {
+        log.debug(
+            String.format(
+                "User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
       }
-      log.debug(
-          String.format(
-              "User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
-      // Otherwise, the user exists. Skip provisioning.
+
     } catch (RemoteInvocationException e) {
       // Failing provisioning is something worth throwing about.
       throw new RuntimeException(
           String.format("Failed to provision user with urn %s.", corpUserSnapshot.getUrn()), e);
+    }
+  }
+
+  /**
+   * Check if user status is active
+   *
+   * <p>Note: This method is primarily used internally by ensureUserIsActive() and for testing. For
+   * most use cases, prefer using tryProvisionUser() which includes user activation.
+   *
+   * @param opContext Operation context
+   * @param userUrn User URN to check
+   * @param entityClient Entity client to use for the query
+   * @return true if user is active, false otherwise
+   * @throws Exception if there's an error checking user status
+   */
+  public static boolean checkIsUserStatusActive(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn userUrn,
+      @Nonnull SystemEntityClient entityClient)
+      throws Exception {
+    final EntityResponse response =
+        entityClient.getV2(
+            opContext, userUrn, Collections.singleton(Constants.CORP_USER_STATUS_ASPECT_NAME));
+    if (response != null && response.hasAspects()) {
+      final EnvelopedAspect aspect =
+          response.getAspects().get(Constants.CORP_USER_STATUS_ASPECT_NAME);
+      final CorpUserStatus status = new CorpUserStatus(aspect.getValue().data());
+      return status.hasStatus() && status.getStatus().equals(Constants.CORP_USER_STATUS_ACTIVE);
+    }
+    return false;
+  }
+
+  /**
+   * Set user status to active
+   *
+   * <p>Note: This method is primarily used internally by ensureUserIsActive() and for testing. For
+   * most use cases, prefer using tryProvisionUser() which includes user activation.
+   *
+   * @param opContext Operation context
+   * @param urn User URN to update
+   * @param newStatus New user status
+   * @param entityClient Entity client to use for the update
+   * @throws Exception if there's an error setting user status
+   */
+  public static void setUserStatus(
+      @Nonnull OperationContext opContext,
+      final Urn urn,
+      final CorpUserStatus newStatus,
+      @Nonnull SystemEntityClient entityClient)
+      throws Exception {
+    // Update status aspect to be active.
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(Constants.CORP_USER_ENTITY_NAME);
+    proposal.setAspectName(Constants.CORP_USER_STATUS_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(newStatus));
+    proposal.setChangeType(ChangeType.UPSERT);
+    entityClient.ingestProposal(opContext, proposal, true);
+  }
+
+  /**
+   * Ensure user is active - checks if user status is active and sets it to active if not
+   *
+   * <p>Note: This method is primarily used internally by tryProvisionUser() and for testing. For
+   * most use cases, prefer using tryProvisionUser() which includes user activation.
+   *
+   * @param opContext Operation context
+   * @param userUrn User URN to check and potentially update
+   * @param entityClient Entity client to use for the operations
+   * @throws Exception if there's an error checking or setting user status
+   */
+  public static void ensureUserIsActive(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn userUrn,
+      @Nonnull SystemEntityClient entityClient)
+      throws Exception {
+    if (!checkIsUserStatusActive(opContext, userUrn, entityClient)) {
+      log.info("User {} is not active, updating status.", userUrn);
+      setUserStatus(
+          opContext,
+          userUrn,
+          new CorpUserStatus()
+              .setStatus(Constants.CORP_USER_STATUS_ACTIVE)
+              .setLastModified(
+                  new AuditStamp()
+                      .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                      .setTime(System.currentTimeMillis())),
+          entityClient);
+    }
+  }
+
+  /**
+   * Verify that a pre-provisioned user exists in the system
+   *
+   * <p>This method validates that a user account has been pre-created by an admin and is ready for
+   * use. It checks that the user has more than just the key aspect, indicating it has been properly
+   * provisioned.
+   *
+   * @param opContext Operation context
+   * @param userUrn User URN to verify
+   * @param entityClient Entity client to use for the verification
+   * @throws RuntimeException if user doesn't exist or validation fails
+   */
+  public static void verifyPreProvisionedUser(
+      @Nonnull OperationContext opContext,
+      @Nonnull CorpuserUrn userUrn,
+      @Nonnull SystemEntityClient entityClient) {
+    // Validate that the user exists in the system (there is more than just a key aspect for them,
+    // as of today).
+    try {
+      final Entity corpUser = entityClient.get(opContext, userUrn);
+
+      log.debug("Fetched GMS user with urn {}", userUrn);
+
+      // If we find more than the key aspect, then the entity "exists".
+      if (corpUser.getValue().getCorpUserSnapshot().getAspects().size() <= 1) {
+        log.debug(
+            "Found user that does not yet exist {}. Invalid login attempt. Throwing...", userUrn);
+        throw new RuntimeException(
+            String.format(
+                "User with urn %s has not yet been provisioned in DataHub. "
+                    + "Please contact your DataHub admin to provision an account.",
+                userUrn));
+      }
+      // Otherwise, the user exists.
+    } catch (RemoteInvocationException e) {
+      // Failing validation is something worth throwing about.
+      throw new RuntimeException(String.format("Failed to validate user with urn %s.", userUrn), e);
     }
   }
 }

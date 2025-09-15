@@ -203,6 +203,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

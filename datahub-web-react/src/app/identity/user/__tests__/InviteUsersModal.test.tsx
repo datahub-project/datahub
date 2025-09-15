@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { EventType } from '@app/analytics';
 import InviteUsersModal from '@app/identity/user/InviteUsersModal';
 import { useInviteUsersModal } from '@app/identity/user/InviteUsersModal.hooks';
 
@@ -281,7 +282,10 @@ describe('InviteUsersModal', () => {
             const refreshButton = document.querySelector('.refresh-btn') as HTMLElement;
             fireEvent.click(refreshButton);
 
-            expect(mockHookReturnValue.createInviteToken).toHaveBeenCalledWith(mockHookReturnValue.selectedRole?.urn);
+            expect(mockHookReturnValue.createInviteToken).toHaveBeenCalledWith(
+                mockHookReturnValue.selectedRole?.urn,
+                EventType.RefreshInviteLinkEvent,
+            );
         });
 
         it('should render copy button and handle clipboard operation', async () => {

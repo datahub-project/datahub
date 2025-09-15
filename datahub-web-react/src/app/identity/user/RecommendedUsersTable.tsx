@@ -1,45 +1,33 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
 
 import {
     EmptyStateContainer,
     FiltersHeader,
     HeaderSection,
     PaginationContainer,
-    PlatformIcon,
-    PlatformInfo,
-    PlatformPill,
-    PlatformPillsContainer,
-    PlatformUsageRow,
+    PlatformPills,
     RecommendationPill,
     RecommendedNoteContainer,
+    RecommendedTableContainer,
     RecommendedUsersContainer,
     SearchContainer,
-    TableContainer,
-    TooltipContainer,
-    UsageTooltipContent,
+    TopUserTooltip,
     UserAvatarSection,
 } from '@app/identity/user/RecommendedUsersTable.components';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
+import { useDismissUserSuggestionMutation } from '@app/identity/user/hooks/useDismissUserSuggestion';
 import { useUserRecommendations } from '@app/identity/user/useUserRecommendations';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
-import { pluralize } from '@app/shared/textUtil';
-import { Avatar, Button, Heading, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
+import { Avatar, Button, Heading, Pagination, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 
 import { CorpUser, DataHubRole, UserUsageSortField } from '@types';
 
-const RECOMMENDED_USERS_DISPLAY_COUNT = 500;
-
 type Props = {
-    onInviteUser: (user: CorpUser, role?: DataHubRole) => Promise<boolean>;
+    onInviteUser: (user: CorpUser, role?: DataHubRole, recommendedUsers?: CorpUser[]) => Promise<boolean>;
+    onDismissUser?: (user: CorpUser) => Promise<boolean>;
     selectRoleOptions: DataHubRole[];
-};
-
-// Helper function to extract platform name from URN
-const getPlatformNameFromUrn = (platformUrn: string): string => {
-    const parts = platformUrn.split(':');
-    const platformName = parts[parts.length - 1];
-    return platformName.charAt(0).toUpperCase() + platformName.slice(1);
 };
 
 // Helper function to get platform icon URL using DataHub's standard mapping
@@ -47,13 +35,29 @@ const getPlatformIconUrl = (platformUrn: string): string | null => {
     return PLATFORM_URN_TO_LOGO[platformUrn] || null;
 };
 
-export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props) => {
+export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleOptions }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+
+    useDebounce(
+        () => {
+            const trimmedQuery = searchQuery.trim();
+            if (trimmedQuery === '' || trimmedQuery.length >= 3) {
+                setDebouncedSearchQuery(trimmedQuery);
+            }
+        },
+        300,
+        [searchQuery],
+    );
     const [page, setPage] = useState(1);
-    const [pageSize] = useState(20);
-    const [sortField, setSortField] = useState<UserUsageSortField>(UserUsageSortField.UsageTotalPast_30Days);
+    const [pageSize, setPageSize] = useState(20);
+    const defaultSortField = UserUsageSortField.UsagePercentilePast_30Days;
+    const [sortField, setSortField] = useState<UserUsageSortField>(defaultSortField);
     const [userRoles, setUserRoles] = useState<Record<string, DataHubRole>>({});
     const [invitationStates, setInvitationStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
+    const [dismissalStates, setDismissalStates] = useState<Record<string, 'pending' | 'success' | 'failed'>>({});
+
+    const [dismissUserSuggestion] = useDismissUserSuggestionMutation();
 
     // Find the Reader role as default (same as InviteUsersModal logic)
     const defaultReaderRole = useMemo(() => {
@@ -63,111 +67,44 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
     // Default to Reader role, fallback to first role if Reader doesn't exist
     const defaultRole = defaultReaderRole || selectRoleOptions[0];
 
-    const { recommendedUsers, loading, error } = useUserRecommendations({
-        limit: RECOMMENDED_USERS_DISPLAY_COUNT,
+    // Use server-side filtering, sorting, search, and pagination
+    const { recommendedUsers, totalRecommendedUsers, loading, error } = useUserRecommendations({
+        limit: pageSize,
+        start: (page - 1) * pageSize,
+        query: debouncedSearchQuery || undefined,
         sortBy: sortField,
     });
 
-    // Use real recommended users data
-    const usersToDisplay = recommendedUsers;
-
-    // Filter users by search query
-    const filteredUsers = useMemo(() => {
-        let filtered = usersToDisplay;
-
-        if (searchQuery) {
-            filtered = filtered.filter((user) =>
-                (user.username || '').toLowerCase().includes(searchQuery.toLowerCase()),
-            );
-        }
-
-        return filtered;
-    }, [usersToDisplay, searchQuery]);
-
-    // Paginate filtered users
-    const paginatedUsers = useMemo(() => {
-        const startIndex = (page - 1) * pageSize;
-        return filteredUsers.slice(startIndex, startIndex + pageSize);
-    }, [filteredUsers, page, pageSize]);
+    // Reset to page 1 when debounced search query changes
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearchQuery]);
 
     const handleSortColumnChange = ({ sortColumn }: { sortColumn: string; sortOrder: SortingState }) => {
         if (sortColumn === 'usage') {
-            setSortField(UserUsageSortField.UsageTotalPast_30Days);
+            setSortField(UserUsageSortField.UsagePercentilePast_30Days); // Sort by percentile for top users
         }
-        setPage(1);
+        setPage(1); // Reset to first page when sorting changes
     };
 
-    const handleChangePage = (newPage: number) => {
-        setPage(newPage);
+    const handleChangePage = (newPage: number, newPageSize: number) => {
+        if (newPageSize !== pageSize) {
+            setPageSize(newPageSize);
+            setPage(1); // Reset to first page when page size changes
+        } else {
+            setPage(newPage);
+        }
+    };
+
+    const handleSearchChange = (value: string) => {
+        setSearchQuery(value);
+        // Page reset is handled by useEffect when debouncedSearchQuery changes
     };
 
     // Show "Top User" pill if usage percentile >= 90
     const shouldShowTopUserPill = (user: CorpUser) => {
         return Boolean(
             user.usageFeatures?.userUsagePercentilePast30Days && user.usageFeatures.userUsagePercentilePast30Days >= 90,
-        );
-    };
-
-    // Render platform pills with tooltip for usage stats
-    const renderPlatformPills = (user: CorpUser) => {
-        const platformUsages = user.usageFeatures?.userPlatformUsageTotalsPast30Days || [];
-        const displayPlatforms = platformUsages.slice(0, 3);
-        const extraCount = Math.max(0, platformUsages.length - 3);
-        const tooltipContent = (
-            <UsageTooltipContent>
-                <UserAvatarSection>
-                    <Avatar name={user.username || user.urn} size="lg" />
-                    <Text size="sm" weight="medium">
-                        {user.username || user.urn}
-                    </Text>
-                </UserAvatarSection>
-                <Text size="sm" weight="medium">
-                    Usage across {platformUsages.length} {pluralize(platformUsages.length, 'platform')}
-                </Text>
-                <TooltipContainer>
-                    {platformUsages.map((platformUsage) => {
-                        const platformName = getPlatformNameFromUrn(platformUsage.key);
-                        const iconUrl = getPlatformIconUrl(platformUsage.key);
-                        return (
-                            <PlatformUsageRow key={platformUsage.key}>
-                                <PlatformInfo>
-                                    {iconUrl && <PlatformIcon src={iconUrl} alt={platformName} title={platformName} />}
-                                    <Text size="sm">{platformName}</Text>
-                                </PlatformInfo>
-                                <Text size="sm" weight="medium">
-                                    {platformUsage.value}
-                                </Text>
-                            </PlatformUsageRow>
-                        );
-                    })}
-                </TooltipContainer>
-            </UsageTooltipContent>
-        );
-
-        return (
-            <PlatformPillsContainer>
-                {displayPlatforms.map((platformUsage) => {
-                    const platformName = getPlatformNameFromUrn(platformUsage.key);
-                    const iconUrl = getPlatformIconUrl(platformUsage.key);
-                    return (
-                        <Tooltip key={platformUsage.key} title={tooltipContent} placement="bottom">
-                            <PlatformPill>
-                                {iconUrl && <PlatformIcon src={iconUrl} alt={platformName} title={platformName} />}
-                                <Text size="sm" weight="medium">
-                                    &nbsp;{platformName}
-                                </Text>
-                            </PlatformPill>
-                        </Tooltip>
-                    );
-                })}
-                {extraCount > 0 && (
-                    <Tooltip title={tooltipContent} placement="bottom">
-                        <span>
-                            <Pill variant="filled" color="gray" label={`+${extraCount}`} />
-                        </span>
-                    </Tooltip>
-                )}
-            </PlatformPillsContainer>
         );
     };
 
@@ -183,8 +120,29 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
 
         setInvitationStates((prev) => ({ ...prev, [user.urn]: 'pending' }));
 
-        const success = await onInviteUser(user, role);
+        const success = await onInviteUser(user, role, recommendedUsers);
         setInvitationStates((prev) => ({ ...prev, [user.urn]: success ? 'success' : 'failed' }));
+    };
+
+    const handleDismissUser = async (user: CorpUser) => {
+        setDismissalStates((prev) => ({ ...prev, [user.urn]: 'pending' }));
+
+        try {
+            if (onDismissUser) {
+                const success = await onDismissUser(user);
+                setDismissalStates((prev) => ({ ...prev, [user.urn]: success ? 'success' : 'failed' }));
+            } else {
+                // Fallback to direct mutation call if no onDismissUser prop provided
+                const result = await dismissUserSuggestion({
+                    variables: { userUrn: user.urn },
+                });
+                const success = result.data?.dismissUserSuggestion ?? false;
+                setDismissalStates((prev) => ({ ...prev, [user.urn]: success ? 'success' : 'failed' }));
+            }
+        } catch (dismissError) {
+            console.error('Error dismissing user suggestion:', dismissError);
+            setDismissalStates((prev) => ({ ...prev, [user.urn]: 'failed' }));
+        }
     };
 
     const columns = [
@@ -211,15 +169,12 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
                 shouldShowTopUserPill(user) ? (
                     <Tooltip
                         title={
-                            <UsageTooltipContent>
-                                <Text size="sm" weight="bold">
-                                    Top User
-                                </Text>
-                                <br />
-                                <Text size="sm">Top 10% of users across 10 platforms.</Text>
-                            </UsageTooltipContent>
+                            <TopUserTooltip
+                                platformCount={user.usageFeatures?.userPlatformUsageTotalsPast30Days?.length || 0}
+                            />
                         }
                         placement="bottom"
+                        overlayStyle={{ minWidth: '320px' }}
                     >
                         <RecommendationPill>Top User</RecommendationPill>
                     </Tooltip>
@@ -230,7 +185,7 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
             dataIndex: 'platforms',
             key: 'platforms',
             minWidth: '30%',
-            render: (user: CorpUser) => renderPlatformPills(user),
+            render: (user: CorpUser) => <PlatformPills user={user} getPlatformIconUrl={getPlatformIconUrl} />,
         },
         {
             title: 'Role',
@@ -250,10 +205,33 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
             title: '',
             dataIndex: 'actions',
             key: 'actions',
-            minWidth: '15%',
+            minWidth: '20%',
             render: (user: CorpUser) => {
-                const state = invitationStates[user.urn];
-                switch (state) {
+                const invitationState = invitationStates[user.urn];
+                const dismissalState = dismissalStates[user.urn];
+
+                // Show dismissal states first if they exist
+                switch (dismissalState) {
+                    case 'pending':
+                        return <Text size="sm">Dismissing...</Text>;
+                    case 'success':
+                        return (
+                            <Text size="sm" color="gray">
+                                Dismissed
+                            </Text>
+                        );
+                    case 'failed':
+                        return (
+                            <Text size="sm" color="red">
+                                Dismiss Failed
+                            </Text>
+                        );
+                    default:
+                        break;
+                }
+
+                // Show invitation states if no dismissal state
+                switch (invitationState) {
                     case 'pending':
                         return <Text size="sm">Inviting...</Text>;
                     case 'success':
@@ -265,14 +243,19 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
                     case 'failed':
                         return (
                             <Text size="sm" color="red">
-                                Failed
+                                Invite Failed
                             </Text>
                         );
                     default:
                         return (
-                            <Button variant="secondary" size="sm" onClick={() => handleInviteUser(user)}>
-                                Invite
-                            </Button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <Button variant="link" size="sm" onClick={() => handleDismissUser(user)}>
+                                    Dismiss
+                                </Button>
+                                <Button variant="secondary" size="sm" onClick={() => handleInviteUser(user)}>
+                                    Invite
+                                </Button>
+                            </div>
                         );
                 }
             },
@@ -305,13 +288,20 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
                         <Heading size="md">Recommended Users</Heading>
                         <RecommendationPill>
                             <Text size="sm" color="gray">
-                                {filteredUsers.length}
+                                {totalRecommendedUsers}
                             </Text>
                         </RecommendationPill>
                     </HeaderSection>
                     <RecommendedNoteContainer>
                         <Text size="sm" color="gray">
-                            Review these recommended users based on their activity in your connected sources
+                            Review these recommended users based on their activity in your connected sources.{' '}
+                            <a
+                                target="_blank"
+                                href="https://docs.datahub.com/docs/authentication/guides/add-users/"
+                                rel="noreferrer"
+                            >
+                                Learn more
+                            </a>
                         </Text>
                         <Text size="sm" color="gray" type="p" style={{ fontStyle: 'italic' }}>
                             Updated every 24 hours.
@@ -319,18 +309,21 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
                     </RecommendedNoteContainer>
                     <SearchContainer>
                         <SearchBar
-                            placeholder="Search users..."
+                            placeholder="Search"
                             value={searchQuery}
-                            onChange={(value) => {
-                                setSearchQuery(value);
-                                setPage(1);
-                            }}
+                            onChange={handleSearchChange}
+                            width="300px"
                         />
+                        {searchQuery.length > 0 && searchQuery.length < 3 && (
+                            <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                                Enter at least 3 characters to search
+                            </Text>
+                        )}
                     </SearchContainer>
                 </div>
             </FiltersHeader>
-            <TableContainer>
-                {filteredUsers.length === 0 ? (
+            <RecommendedTableContainer>
+                {recommendedUsers.length === 0 && !loading ? (
                     <EmptyStateContainer>
                         <Text size="lg" weight="medium">
                             No recommended users found
@@ -340,19 +333,31 @@ export const RecommendedUsersTable = ({ onInviteUser, selectRoleOptions }: Props
                         </Text>
                     </EmptyStateContainer>
                 ) : (
-                    <Table columns={columns} data={paginatedUsers} handleSortColumnChange={handleSortColumnChange} />
+                    <>
+                        <Table
+                            isScrollable
+                            columns={columns}
+                            data={recommendedUsers}
+                            handleSortColumnChange={handleSortColumnChange}
+                        />
+                        {totalRecommendedUsers > pageSize && (
+                            <div>
+                                <PaginationContainer>
+                                    <Pagination
+                                        currentPage={page}
+                                        itemsPerPage={pageSize}
+                                        total={totalRecommendedUsers}
+                                        onPageChange={handleChangePage}
+                                        showSizeChanger
+                                        pageSizeOptions={['10', '20', '50', '100']}
+                                        loading={loading}
+                                    />
+                                </PaginationContainer>
+                            </div>
+                        )}
+                    </>
                 )}
-            </TableContainer>
-            {filteredUsers.length > pageSize && (
-                <PaginationContainer>
-                    <Pagination
-                        currentPage={page}
-                        itemsPerPage={pageSize}
-                        total={filteredUsers.length}
-                        onPageChange={handleChangePage}
-                    />
-                </PaginationContainer>
-            )}
+            </RecommendedTableContainer>
         </RecommendedUsersContainer>
     );
 };

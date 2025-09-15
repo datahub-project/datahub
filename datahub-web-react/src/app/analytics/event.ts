@@ -20,6 +20,7 @@ import {
     NotificationSinkType,
     OidcSettings,
     OwnerInput,
+    PageTemplateSurfaceType,
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
@@ -27,6 +28,7 @@ import {
     ScenarioType,
     SearchBarApi,
     StructuredPropertyFilterStatus,
+    SummaryElementType,
 } from '@types';
 
 // NOTE: If we move this file, update metadata-ingestion/scripts/analyticseventsdocgen.sh with new path for auto generating docs
@@ -93,6 +95,8 @@ export enum EventType {
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
+    IngestionViewAllClickEvent,
+    IngestionViewAllClickWarningEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -230,6 +234,15 @@ export enum EventType {
     WelcomeToDataHubModalClickViewDocumentationEvent,
     ProductTourButtonClickEvent,
     SetDeprecation,
+    ClickInviteUsersCTAEvent,
+    ClickCopyInviteLinkEvent,
+    ClickInviteViaEmailEvent,
+    ClickInviteRecommendedUserEvent,
+    InviteUserErrorEvent,
+    RefreshInviteLinkEvent,
+    AssetPageAddSummaryElement,
+    AssetPageRemoveSummaryElement,
+    AssetPageReplaceSummaryElement,
 }
 
 /**
@@ -506,6 +519,8 @@ export const EntityActionType = {
     UpdateTags: 'UpdateTags',
     UpdateTerms: 'UpdateTerms',
     UpdateLinks: 'UpdateLinks',
+    AddLink: 'AddLink',
+    DeleteLink: 'DeleteLink',
     UpdateOwnership: 'UpdateOwnership',
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
@@ -643,6 +658,11 @@ export interface CreateInviteLinkEvent extends BaseEvent {
     roleUrn?: string;
 }
 
+export interface RefreshInviteLinkEvent extends BaseEvent {
+    type: EventType.RefreshInviteLinkEvent;
+    roleUrn?: string;
+}
+
 export interface CreateResetCredentialsLinkEvent extends BaseEvent {
     type: EventType.CreateResetCredentialsLinkEvent;
     userUrn: string;
@@ -747,6 +767,16 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     sourceType: string;
     sourceUrn?: string;
     outcome?: string;
+}
+
+export interface IngestionViewAllClickEvent extends BaseEvent {
+    type: EventType.IngestionViewAllClickEvent;
+    executionUrn?: string;
+}
+
+export interface IngestionViewAllClickWarningEvent extends BaseEvent {
+    type: EventType.IngestionViewAllClickWarningEvent;
+    executionUrn?: string;
 }
 
 export interface IngestionExecutionResultViewedEvent extends BaseEvent {
@@ -1510,7 +1540,7 @@ export interface RetrainAsNewNormalEvent extends BaseEvent {
 
 export interface DatasetHealthFilterEvent extends BaseEvent {
     type: EventType.DatasetHealthFilterEvent;
-    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
     filterType: 'search' | 'filter' | 'timeRange';
     filterSubType?: string;
     content:
@@ -1524,7 +1554,7 @@ export interface DatasetHealthFilterEvent extends BaseEvent {
 
 export interface DatasetHealthClickEvent extends BaseEvent {
     type: EventType.DatasetHealthClickEvent;
-    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset' | 'IncidentsByIncident';
     target: 'asset_assertions' | 'asset_incidents' | 'assertion' | 'incident';
     subTarget?: string;
     targetUrn?: string;
@@ -1589,6 +1619,7 @@ export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleAddEvent extends BaseEvent {
@@ -1596,6 +1627,7 @@ export interface HomePageTemplateModuleAddEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
@@ -1603,6 +1635,7 @@ export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
@@ -1610,27 +1643,32 @@ export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
     templateUrn: string;
     isPersonal: boolean;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleMove;
     templateUrn: string;
     isPersonal: boolean;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCreateOpen;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalEditOpen;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleModalCancel;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
@@ -1649,17 +1687,20 @@ export interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleAssetClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleExpandClick;
     moduleType: DataHubPageModuleType;
     assetUrn: string;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleViewAllClick;
     moduleType: DataHubPageModuleType;
+    location: PageTemplateSurfaceType;
 }
 
 export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
@@ -1676,6 +1717,62 @@ export interface SetDeprecationEvent extends BaseEvent {
     entityUrns: string[];
     deprecated: boolean;
     resources?: ResourceRefInput[];
+}
+
+// Invite Users Events
+
+export interface ClickInviteUsersCTAEvent extends BaseEvent {
+    type: EventType.ClickInviteUsersCTAEvent;
+    source: 'settings_page' | 'user_management' | 'nav_menu';
+}
+
+export interface ClickCopyInviteLinkEvent extends BaseEvent {
+    type: EventType.ClickCopyInviteLinkEvent;
+    roleUrn: string;
+}
+
+export interface ClickInviteViaEmailEvent extends BaseEvent {
+    type: EventType.ClickInviteViaEmailEvent;
+    roleUrn: string;
+    emailList?: string[];
+    emailCount?: number;
+    enteredInvalidEmail: boolean;
+}
+
+export interface ClickInviteRecommendedUserEvent extends BaseEvent {
+    type: EventType.ClickInviteRecommendedUserEvent;
+    roleUrn: string;
+    userEmail: string;
+    location: 'invite_users_modal' | 'recommended_users_preview' | 'recommended_users_list';
+    recommendationType: 'top_user';
+    recommendationIndex?: number;
+}
+
+export interface InviteUserErrorEvent extends BaseEvent {
+    type: EventType.InviteUserErrorEvent;
+    roleUrn: string;
+    emailList?: string[];
+    inviteMethod: 'email' | 'recommended_user';
+    errorMessage: string;
+}
+
+export interface AssetPageAddSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageAddSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageRemoveSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageRemoveSummaryElement;
+    templateUrn: string;
+    elementType: SummaryElementType;
+}
+
+export interface AssetPageReplaceSummaryElementEvent extends BaseEvent {
+    type: EventType.AssetPageReplaceSummaryElement;
+    templateUrn: string;
+    currentElementType: SummaryElementType;
+    newElementType: SummaryElementType;
 }
 
 /**
@@ -1723,6 +1820,7 @@ export type Event =
     | RevokeAccessTokenEvent
     | CreateGroupEvent
     | CreateInviteLinkEvent
+    | RefreshInviteLinkEvent
     | CreateResetCredentialsLinkEvent
     | DeleteEntityEvent
     | SelectUserRoleEvent
@@ -1874,4 +1972,15 @@ export type Event =
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
     | IngestionSourceConfigurationImpressionEvent
-    | SetDeprecationEvent;
+    | IngestionViewAllClickEvent
+    | IngestionViewAllClickWarningEvent
+    | SetDeprecationEvent
+    | SetDeprecationEvent
+    | ClickInviteUsersCTAEvent
+    | ClickCopyInviteLinkEvent
+    | ClickInviteViaEmailEvent
+    | ClickInviteRecommendedUserEvent
+    | InviteUserErrorEvent
+    | AssetPageAddSummaryElementEvent
+    | AssetPageRemoveSummaryElementEvent
+    | AssetPageReplaceSummaryElementEvent;

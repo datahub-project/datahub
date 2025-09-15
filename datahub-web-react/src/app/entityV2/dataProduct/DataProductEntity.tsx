@@ -242,6 +242,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
@@ -281,6 +282,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.TEST,
         ]);
     };
 

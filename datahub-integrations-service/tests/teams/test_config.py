@@ -17,6 +17,7 @@ class TestTeamsConfig:
         details = TeamsAppDetails(
             app_id="test-app-id",
             app_password="test-password",
+            app_tenant_id="test-tenant-id",
             tenant_id="test-tenant-id",
         )
 
@@ -29,6 +30,7 @@ class TestTeamsConfig:
         app_details = TeamsAppDetails(
             app_id="test-app-id",
             app_password="test-password",
+            app_tenant_id="test-tenant-id",
             tenant_id="test-tenant-id",
         )
 
@@ -91,6 +93,7 @@ class TestTeamsConfig:
             app_details=TeamsAppDetails(
                 app_id="test-app-id",
                 app_password="test-password",
+                app_tenant_id="test-tenant-id",
                 tenant_id="test-tenant-id",
             ),
             webhook_url="https://example.com/webhook",
@@ -177,6 +180,7 @@ class TestTeamsConfig:
         details = TeamsAppDetails(
             app_id="test-app-id",
             app_password="test-password",
+            app_tenant_id="test-tenant-id",
             tenant_id="test-tenant-id",
         )
 
@@ -198,6 +202,7 @@ class TestTeamsConfig:
             app_details=TeamsAppDetails(
                 app_id="test-app-id",
                 app_password="test-password",
+                app_tenant_id="test-tenant-id",
                 tenant_id="test-tenant-id",
             ),
             webhook_url="https://example.com/webhook",

@@ -160,6 +160,11 @@ type Query {
   listUsers(input: ListUsersInput!): ListUsersResult
 
   """
+  List all DataHub Users and Groups with enhanced filtering
+  """
+  listUsersAndGroups(input: SearchAcrossEntitiesInput!): SearchResults
+
+  """
   Get user recommendations based on usage metrics
   """
   getUserRecommendations(
@@ -865,6 +870,11 @@ type Mutation {
   Revoke a user invitation and invalidate the invitation token
   """
   revokeUserInvitation(userUrn: String!): Boolean!
+
+  """
+  Dismiss a user suggestion to prevent them from being recommended again
+  """
+  dismissUserSuggestion(userUrn: String!): Boolean!
 
   """
   Create a post
@@ -10713,6 +10723,16 @@ input GetUserRecommendationsInput {
   The maximum number of users to be returned (default: 6)
   """
   limit: Int
+
+  """
+  The starting offset for pagination (default: 0)
+  """
+  start: Int
+
+  """
+  Search query to filter users by name, email, or title
+  """
+  query: String
 
   """
   Field to sort recommendations by (default: USAGE_TOTAL_PAST_30_DAYS)

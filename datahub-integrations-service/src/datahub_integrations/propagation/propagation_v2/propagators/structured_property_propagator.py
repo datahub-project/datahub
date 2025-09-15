@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Iterator
 
@@ -15,6 +16,7 @@ from pydantic import ValidationError
 
 from datahub_integrations.propagation.propagation_v2.propagators.aspect_propagator import (
     AspectPropagator,
+    ChangeEventDict,
     PropagationOutput,
 )
 from datahub_integrations.propagation.propagation_v2.types.ece_enums import (
@@ -34,7 +36,13 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
     def aspects(self) -> tuple[type[StructuredPropertiesClass]]:
         return (StructuredPropertiesClass,)
 
-    def supported_change_operations(self) -> set[ChangeOperation]:
+    def empty_aspects(self) -> tuple[StructuredPropertiesClass]:
+        return (StructuredPropertiesClass(properties=[]),)
+
+    def category(self) -> ChangeCategory:
+        return ChangeCategory.STRUCTURED_PROPERTY
+
+    def _supported_change_operations(self) -> set[ChangeOperation]:
         return {ChangeOperation.ADD, ChangeOperation.REMOVE, ChangeOperation.MODIFY}
 
     def _compute_diff_eces_internal(
@@ -80,13 +88,13 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
             audit_stamp=self._propagation_audit_stamp(),
         )
 
-    def compute_propagation_mcps(
-        self, change_events: dict[str, dict[str, dict[str, EntityChangeEvent]]]
+    def _compute_propagation_mcps(
+        self, change_events: ChangeEventDict
     ) -> PropagationOutput:
         for target_urn, ece_map in change_events.items():
             patch_builder = HasStructuredPropertiesPatch(target_urn)
-            for operation, eces in ece_map.items():
-                for via_urn, ece in eces.items():
+            for (operation, via_urn), eces in ece_map.items():
+                for ece in eces:
                     if ece.category == ChangeCategory.STRUCTURED_PROPERTY.value:
                         self._process_ece(via_urn, operation, ece, patch_builder)
             yield from patch_builder.build()
@@ -98,11 +106,25 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
         ece: EntityChangeEvent,
         patch_builder: HasStructuredPropertiesPatch,
     ) -> None:
-        property_urn = ece.modifier or ece.parameters.get("propertyUrn")
-        property_values = ece.parameters.get("propertyValues")
+        property_urn = ece.modifier or ece.safe_parameters.get("propertyUrn")
+        try:
+            property_values = json.loads(ece.safe_parameters.get("propertyValues"))
+        except (TypeError, json.JSONDecodeError) as e:
+            logger.warning(
+                f"Could not decode structured property values for ece {ece}: {e}"
+            )
+            return
+
         if not property_urn or property_values is None:
             logger.warning(
                 f"Could not find structured property urn or property values for ECE: {ece}. Skipping."
+            )
+            return
+        elif not isinstance(property_values, list) or not all(
+            isinstance(v, (bool, str, int, float)) for v in property_values
+        ):
+            logger.warning(
+                f"Invalid structured property values of type {type(property_values)}: {property_values}"
             )
             return
 
@@ -112,7 +134,7 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
             return
         elif operation == ChangeOperation.ADD.value:
             # TODO: Update to support passing source details in ECE
-            old_source_details = SourceDetails()  # Allows all nulls
+            old_source_details = SourceDetails()
             attribution = self._compute_attribution(old_source_details, via_urn)
             patch_builder.add_structured_property_manual(
                 StructuredPropertyValueAssignmentClass(
@@ -126,7 +148,7 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
             return
         elif operation == ChangeOperation.MODIFY.value:
             # TODO: Update to support passing source details in ECE
-            old_source_details = SourceDetails()  # Allows all nulls
+            old_source_details = SourceDetails()
             attribution = self._compute_attribution(old_source_details, via_urn)
             patch_builder.set_structured_property_manual(
                 StructuredPropertyValueAssignmentClass(
@@ -198,7 +220,7 @@ def compute_structured_property_diff_mcps(
             operation=ChangeOperation.ADD.value,
             parameters={  # type: ignore
                 "propertyUrn": property,
-                "propertyValues": property_assoc.values,
+                "propertyValues": json.dumps(property_assoc.values),
             },
             auditStamp=audit_stamp,
             modifier=property,
@@ -213,7 +235,7 @@ def compute_structured_property_diff_mcps(
             operation=ChangeOperation.REMOVE.value,
             parameters={  # type: ignore
                 "propertyUrn": property,
-                "propertyValues": property_assoc.values,
+                "propertyValues": json.dumps(property_assoc.values),
             },
             auditStamp=audit_stamp,
             modifier=property,
@@ -230,7 +252,7 @@ def compute_structured_property_diff_mcps(
                 operation=ChangeOperation.MODIFY.value,
                 parameters={  # type: ignore
                     "propertyUrn": property,
-                    "propertyValues": new_property_assoc.values,
+                    "propertyValues": json.dumps(new_property_assoc.values),
                 },
                 auditStamp=audit_stamp,
                 modifier=property,

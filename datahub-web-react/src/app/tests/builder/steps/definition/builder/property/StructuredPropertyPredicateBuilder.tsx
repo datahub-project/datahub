@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '@app/tests/builder/steps/definition/builder/property/constants';
+import {
+    SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+    STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID,
+} from '@app/tests/builder/steps/definition/builder/property/constants';
 import { OperatorSelect } from '@app/tests/builder/steps/definition/builder/property/select/OperatorSelect';
 import { ValueSelect } from '@app/tests/builder/steps/definition/builder/property/select/ValueSelect';
 import { StructuredPropertySelect } from '@app/tests/builder/steps/definition/builder/property/select/structured/StructuredPropertySelect';
 import {
+    extractSchemaFieldStructuredPropertyReferenceUrn,
     extractStructuredPropertyReferenceUrn,
     getStructuredPropertiesOperatorOptions,
     getStructuredPropertyValueOptions,
@@ -25,6 +29,7 @@ type Props = {
     onChangeProperty: (newPropertyId?: string) => void;
     onChangeOperator: (newOperatorId?: string) => void;
     onChangeValues: (newOperatorValues?: string[]) => void;
+    isSchemaFieldProperty?: boolean;
 };
 
 /**
@@ -35,10 +40,15 @@ export const StructuredPropertyPredicateBuilder = ({
     onChangeProperty,
     onChangeOperator,
     onChangeValues,
+    isSchemaFieldProperty = false,
 }: Props) => {
-    const selectedPropertyUrn =
-        (selectedPredicate?.property && extractStructuredPropertyReferenceUrn(selectedPredicate?.property)) ||
-        undefined;
+    const selectedPropertyUrn = useMemo(() => {
+        if (!selectedPredicate?.property) return undefined;
+
+        return isSchemaFieldProperty
+            ? extractSchemaFieldStructuredPropertyReferenceUrn(selectedPredicate.property)
+            : extractStructuredPropertyReferenceUrn(selectedPredicate.property);
+    }, [selectedPredicate?.property, isSchemaFieldProperty]);
 
     // If a property is selected, we look up the property.
     const [resolvedPropertyDefinition, setResolvedPropertyDefinition] = useState<StructuredPropertyEntity | null>(null);
@@ -93,11 +103,16 @@ export const StructuredPropertyPredicateBuilder = ({
      */
     const onSelectProperty = (newProperty) => {
         if (newProperty) {
-            const newPropertyId = `structuredProperties.${newProperty.urn}`;
+            const newPropertyId = isSchemaFieldProperty
+                ? `schemaFieldStructuredProperties.${newProperty.urn}`
+                : `structuredProperties.${newProperty.urn}`;
             onChangeProperty(newPropertyId);
             setResolvedPropertyDefinition(newProperty);
         } else {
-            onChangeProperty(STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID);
+            const placeholderId = isSchemaFieldProperty
+                ? SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+                : STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID;
+            onChangeProperty(placeholderId);
             setResolvedPropertyDefinition(null);
         }
     };

@@ -206,14 +206,15 @@ def suggest_terms(
     return _suggest_terms(graph, entity_urn, glossary_info)
 
 
-@router.post("/suggest_terms_batch", response_model=dict[str, SuggestedTerms])
-def suggest_terms_batch(
-    graph: Annotated[DataHubGraph, fastapi.Depends(cached_graph)],
+def _suggest_terms_batch(
+    graph: DataHubGraph,
     entity_urns: List[str],
-    universe_config: GlossaryUniverseConfig,
+    glossary_info: GlossaryInfo,
 ) -> dict[str, SuggestedTerms]:
-    glossary_info = fetch_glossary_info(graph_client=graph, universe=universe_config)
+    """Internal helper that processes multiple URNs with pre-fetched glossary info.
 
+    This avoids fetching glossary info multiple times when processing URNs individually.
+    """
     last_exception: Exception | None = None
     results = {}
     for entity_urn in entity_urns:
@@ -232,6 +233,16 @@ def suggest_terms_batch(
         raise last_exception
 
     return results
+
+
+@router.post("/suggest_terms_batch", response_model=dict[str, SuggestedTerms])
+def suggest_terms_batch(
+    graph: Annotated[DataHubGraph, fastapi.Depends(cached_graph)],
+    entity_urns: List[str],
+    universe_config: GlossaryUniverseConfig,
+) -> dict[str, SuggestedTerms]:
+    glossary_info = fetch_glossary_info(graph_client=graph, universe=universe_config)
+    return _suggest_terms_batch(graph, entity_urns, glossary_info)
 
 
 class QueryEmbeddingRequest(pydantic.BaseModel):

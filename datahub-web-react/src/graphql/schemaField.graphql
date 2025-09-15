@@ -67,18 +67,7 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     logicalParent {
         urn
         type
-        ... on SchemaFieldEntity {
-            urn
-            fieldPath
-            type
-            parent {
-                ... on Dataset {
-                    urn
-                    type
-                    ...nonSiblingsDatasetSearchFields
-                }
-            }
-        }
+        ...logicalParentOrChildFields
     }
     physicalChildren: relationships(
         input: { types: ["PhysicalInstanceOf"], direction: INCOMING, start: 0, count: 10 }
@@ -90,18 +79,7 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
             entity {
                 urn
                 type
-                ... on SchemaFieldEntity {
-                    urn
-                    fieldPath
-                    type
-                    parent {
-                        ... on Dataset {
-                            urn
-                            type
-                            ...nonSiblingsDatasetSearchFields
-                        }
-                    }
-                }
+                ...logicalParentOrChildFields
             }
             direction
             type

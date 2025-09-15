@@ -1,8 +1,9 @@
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
 import { Button, Form, Image, Input, Select, message } from 'antd';
+import * as QueryString from 'query-string';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
@@ -69,6 +70,7 @@ export type SignUpProps = Record<string, never>;
 
 export const SignUp: React.VFC<SignUpProps> = () => {
     const history = useHistory();
+    const location = useLocation();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const inviteToken = useGetInviteTokenFromUrlParams();
 
@@ -139,6 +141,29 @@ export const SignUp: React.VFC<SignUpProps> = () => {
         },
         [refreshContext, inviteToken],
     );
+
+    // Check if we should redirect away from signup when SSO is enabled
+    useEffect(() => {
+        const params = QueryString.parse(location.search, { decode: true });
+        const shouldRedirect = params.redirect_on_sso;
+
+        if (shouldRedirect) {
+            // Test if SSO is available by calling the endpoint
+            fetch('/sso', {
+                method: 'HEAD', // Use HEAD to avoid actual redirect
+                redirect: 'manual', // Don't follow redirects
+            })
+                .then((response) => {
+                    // If we get a redirect response, SSO is enabled
+                    if (response.type === 'opaqueredirect' || response.status === 302) {
+                        history.push('/');
+                    }
+                })
+                .catch(() => {
+                    // SSO not configured or error - stay on signup
+                });
+        }
+    }, [location.search, history]);
 
     useEffect(() => {
         if (isLoggedIn && !loading) {

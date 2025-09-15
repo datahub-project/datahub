@@ -3,10 +3,14 @@ import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { DetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import {
+    DetailsContainer,
+    SectionBase,
+    SectionHeading,
+    SectionSecondaryText,
+} from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Button, Text, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
@@ -14,14 +18,6 @@ const SectionSubHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-`;
-
-const SubHeaderParagraph = styled(Text)`
-    margin-bottom: 0px;
-`;
-
-const RecipeSection = styled(SectionBase)`
-    border-top: 1px solid ${colors.gray[1400]};
 `;
 
 export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {
@@ -38,12 +34,14 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
     };
 
     return (
-        <RecipeSection>
-            <SectionHeader level={5}>Recipe</SectionHeader>
+        <SectionBase>
+            <SectionHeading title="Recipe" />
             <SectionSubHeader>
-                <SubHeaderParagraph color="gray" colorLevel={600}>
-                    The configurations used for this sync with the data source.
-                </SubHeaderParagraph>
+                <SectionSecondaryText
+                    title="The configurations used for this sync with the data source."
+                    color="gray"
+                    colorLevel={600}
+                />
                 <Tooltip title="Download Recipe">
                     <Button variant="text" onClick={downloadRecipe}>
                         <DownloadOutlined />
@@ -55,6 +53,6 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
                     <pre>{recipeYaml || 'No recipe found.'}</pre>
                 </Text>
             </DetailsContainer>
-        </RecipeSection>
+        </SectionBase>
     );
 };

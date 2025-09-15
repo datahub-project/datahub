@@ -340,19 +340,6 @@ public class DescriptionUtils {
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
-  public static boolean isAuthorizedToUpdateDomainDescription(
-      @Nonnull QueryContext context, Urn targetUrn) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
-  }
-
   public static boolean isAuthorizedToUpdateContainerDescription(
       @Nonnull QueryContext context, Urn targetUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -373,7 +360,9 @@ public class DescriptionUtils {
             ImmutableList.of(
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType()))));
+                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType())),
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);

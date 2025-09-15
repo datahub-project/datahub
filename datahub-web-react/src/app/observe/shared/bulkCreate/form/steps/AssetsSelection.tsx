@@ -21,12 +21,18 @@ export const AssetsSelection = ({ filters, setFilters }: Props) => {
     return (
         <div>
             <Text size="lg" color="gray" colorLevel={600} weight="semiBold">
-                Select the Datasets to bulk create assertions for...
+                Select Datasets...
             </Text>
             <Text size="md" color="gray" colorLevel={1700}>
-                If more than {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} datasets are selected, only the
-                first {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} will be processed. Contact support if
-                you need to create more.
+                Max {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} datasets can be processed. Use the{' '}
+                <a
+                    href="https://docs.datahub.com/docs/api/tutorials/sdk/bulk-assertions-sdk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Bulk Assertions SDK
+                </a>{' '}
+                for more.
             </Text>
             <LogicalFiltersBuilder
                 filters={filters}

@@ -219,7 +219,7 @@ export const Table = <T,>({
                                         }
                                     }}
                                     isRowClickable={isRowClickable}
-                                    data-testId={rowDataTestId?.(row)}
+                                    data-testid={rowDataTestId?.(row)}
                                     canHover
                                 >
                                     {/* Render each cell in the row */}
@@ -240,13 +240,13 @@ export const Table = <T,>({
                                                             <CaretDown
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-expanded-icon"
+                                                                data-testid="group-header-expanded-icon"
                                                             /> // Expanded icon
                                                         ) : (
                                                             <CaretUp
                                                                 size={16}
                                                                 weight="bold"
-                                                                data-testId="group-header-collapsed-icon"
+                                                                data-testid="group-header-collapsed-icon"
                                                             /> // Collapsed icon
                                                         )}
                                                     </div>

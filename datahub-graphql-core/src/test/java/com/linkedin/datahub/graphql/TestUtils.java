@@ -13,6 +13,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
@@ -146,7 +147,8 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
-                  return m.getSystemMetadata().setLastObserved(0);
+                  m.getSystemMetadata().setLastObserved(0);
+                  return ((MCPItem) m).getMetadataChangeProposal();
                 })
             .collect(Collectors.toList()),
         proposals.stream()
@@ -154,7 +156,8 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
-                  return m.getSystemMetadata().setLastObserved(0);
+                  m.getSystemMetadata().setLastObserved(0);
+                  return m;
                 })
             .collect(Collectors.toList()));
   }

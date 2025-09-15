@@ -42,8 +42,8 @@ class RelationshipLookup(ConfigModel):
     lookup_type: Literal["relationship"]
     relationship_type: RelationshipType
 
-    # Whether to search for urn as source or destination
-    is_source: bool = False
+    # Whether the *origin* is the source in the relationship edge
+    origin_is_source: bool = False
 
 
 TargetUrnResolutionLookup = Annotated[

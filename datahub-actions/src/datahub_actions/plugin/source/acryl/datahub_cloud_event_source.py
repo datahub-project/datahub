@@ -14,8 +14,10 @@ from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
     METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+    RELATIONSHIP_CHANGE_EVENT_V1_TYPE,
     EntityChangeEvent,
     MetadataChangeLogEvent,
+    RelationshipChangeEvent,
 )
 
 # May or may not need these.
@@ -25,6 +27,7 @@ from datahub_actions.plugin.source.acryl.constants import (
     METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
     METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
     PLATFORM_EVENT_TOPIC_NAME,
+    RELATIONSHIP_CHANGE_EVENT_NAME,
 )
 from datahub_actions.plugin.source.acryl.datahub_cloud_events_ack_manager import (
     AckManager,
@@ -261,8 +264,11 @@ class DataHubEventSource(EventSource):
             post_json_transform(value["payload"])
         )
         if ENTITY_CHANGE_EVENT_NAME == value["name"]:
-            event = build_entity_change_event(payload)
-            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, event, {})
+            ece = build_entity_change_event(payload)
+            yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, ece, {})
+        elif RELATIONSHIP_CHANGE_EVENT_NAME == value["name"]:
+            rce = RelationshipChangeEvent.from_json(payload.get("value"))
+            yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, {})
 
     @staticmethod
     def handle_mcl(msg: ExternalEvent) -> Iterable[EventEnvelope]:

@@ -175,8 +175,22 @@ public class OidcImplicitController extends Controller {
       final Urn userUrn = new CorpuserUrn(email.trim());
       final String userUrnString = userUrn.toString();
 
-      CorpUserSnapshot extractedUser = extractUser((CorpuserUrn) userUrn, claimsSet, email);
-      provisionUser(systemOperationContext, extractedUser, entityClient);
+      // If just-in-time User Provisioning is enabled, try to create the DataHub user if it does not
+      // exist.
+      if (oidcConfigs.isJitProvisioningEnabled()) {
+        if (verbose) {
+          logger.debug("Just-in-time provisioning is enabled. Beginning provisioning process...");
+        }
+        CorpUserSnapshot extractedUser = extractUser((CorpuserUrn) userUrn, claimsSet, email);
+        provisionUser(systemOperationContext, extractedUser, entityClient);
+      } else if (oidcConfigs.isPreProvisioningRequired()) {
+        // We should only allow logins for user accounts that have been pre-provisioned
+        if (verbose) {
+          logger.debug("Pre Provisioning is required. Beginning validation of extracted user...");
+        }
+        AuthUtils.verifyPreProvisionedUser(
+            systemOperationContext, (CorpuserUrn) userUrn, entityClient);
+      }
 
       // Generate session token
       final String sessionToken =

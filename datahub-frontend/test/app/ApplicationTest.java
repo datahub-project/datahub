@@ -302,60 +302,10 @@ public class ApplicationTest extends WithBrowser {
   }
 
   private void startMockOauthServer() throws IOException {
-    // Configure HEAD responses and userInfo endpoint
+    // Configure only the userInfo endpoint - let MockOAuth2Server handle the rest
     Route[] routes =
         new Route[] {
-          new Route() {
-            @Override
-            public boolean match(@NotNull OAuth2HttpRequest oAuth2HttpRequest) {
-              return "HEAD".equals(oAuth2HttpRequest.getMethod())
-                  && (String.format("/%s/.well-known/openid-configuration", ISSUER_ID)
-                          .equals(oAuth2HttpRequest.getUrl().url().getPath())
-                      || String.format("/%s/token", ISSUER_ID)
-                          .equals(oAuth2HttpRequest.getUrl().url().getPath())
-                      || String.format("/%s/userinfo", ISSUER_ID)
-                          .equals(oAuth2HttpRequest.getUrl().url().getPath()));
-            }
-
-            @Override
-            public OAuth2HttpResponse invoke(OAuth2HttpRequest oAuth2HttpRequest) {
-              String path = oAuth2HttpRequest.getUrl().url().getPath();
-              String responseBody = null;
-
-              if (path.equals(String.format("/%s/.well-known/openid-configuration", ISSUER_ID))) {
-                // Return well-known configuration with userinfo endpoint
-                int port = oAuth2HttpRequest.getUrl().url().getPort();
-                responseBody =
-                    String.format(
-                        "{\n"
-                            + "  \"issuer\": \"http://localhost:%d/%s\",\n"
-                            + "  \"authorization_endpoint\": \"http://localhost:%d/%s/authorize\",\n"
-                            + "  \"token_endpoint\": \"http://localhost:%d/%s/token\",\n"
-                            + "  \"userinfo_endpoint\": \"http://localhost:%d/%s/userinfo\",\n"
-                            + "  \"jwks_uri\": \"http://localhost:%d/%s/.well-known/jwks.json\",\n"
-                            + "  \"response_types_supported\": [\"code\"],\n"
-                            + "  \"subject_types_supported\": [\"public\"],\n"
-                            + "  \"id_token_signing_alg_values_supported\": [\"RS256\"]\n"
-                            + "}",
-                        port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port, ISSUER_ID, port,
-                        ISSUER_ID);
-              } else if (path.equals(String.format("/%s/userinfo", ISSUER_ID))) {
-                // For HEAD requests to userinfo endpoint, just return 200 with no body
-                responseBody = null;
-              }
-
-              return new OAuth2HttpResponse(
-                  Headers.of(
-                      Map.of(
-                          "Content-Type", "application/json",
-                          "Cache-Control", "no-store",
-                          "Pragma", "no-cache")),
-                  200,
-                  responseBody,
-                  null);
-            }
-          },
-          // Add userInfo endpoint route
+          // Add userInfo endpoint route for returning groups
           new Route() {
             @Override
             public boolean match(@NotNull OAuth2HttpRequest oAuth2HttpRequest) {

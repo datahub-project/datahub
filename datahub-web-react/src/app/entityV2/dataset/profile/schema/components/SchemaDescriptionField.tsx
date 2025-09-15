@@ -275,6 +275,7 @@ export default function DescriptionField({
                         shouldWrap
                     > */}
                         <Tooltip
+                            placement="topLeft"
                             title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
                         >
                             <DescriptionWrapper>

@@ -152,3 +152,15 @@ class ChatHistory(BaseModel):
     @classmethod
     def load_file(cls, path: pathlib.Path) -> "ChatHistory":
         return cls.model_validate_json(path.read_text())
+
+    @property
+    def num_tool_calls(self) -> int:
+        return sum(
+            1 for message in self.messages if isinstance(message, ToolCallRequest)
+        )
+
+    @property
+    def num_tool_call_errors(self) -> int:
+        return sum(
+            1 for message in self.messages if isinstance(message, ToolResultError)
+        )
