@@ -22,7 +22,7 @@ base_requirements = {
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
-    "mixpanel>=4.9.0",
+    "mixpanel>=4.9.0,<=4.10.1",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
 }
@@ -75,7 +75,8 @@ kafka_common = {
     # With the release of 2.8.1, confluent-kafka only released a source distribution,
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
-    "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
+    # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
+    "confluent_kafka[schemaregistry,avro]>=2.10.1",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -100,7 +101,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==26.26.0",
+    "sqlglot[rs]==27.12.0",
     "patchy==2.8.0",
 }
 
@@ -291,7 +292,13 @@ microsoft_common = {
 iceberg_common = {
     # Iceberg Python SDK
     # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
-    "pyiceberg>=0.4.0",
+    # The limitation <=0.6.1 is set temporarily, as >0.4 allows for using pydantic 2, but versions >0.6.1 use different
+    # parameters for configuring credentials, i.e. for Glue catalogs, for details, see:
+    # https://github.com/apache/iceberg-python/compare/pyiceberg-0.6.1...pyiceberg-0.7.0#diff-497e037708cc64870c6ba9372f6064a69ca1e74d65d6195dcee5a44851e8b47dR283
+    # this would cause existing recipes to start failing in some cases
+    # the list of extras is quite arbitrary, it has been extended since 0.4.0, we can add more of them, once we bump
+    # the lower version limit
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.4.0,<=0.6.1",
     *cachetools_lib,
 }
 
@@ -370,6 +377,9 @@ databricks = {
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
+    # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
+    # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
+    # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
     "databricks-sql-connector>=2.8.0,<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -392,7 +402,12 @@ superset_common = {
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
-    "datahub-kafka": kafka_common,
+    "datahub-kafka": {
+        # At some moment, we decoupled from using here kafka_common
+        # That's becuase kafka_common has more strict lower bound versions that conflict with airflow depedency constraints
+        "confluent_kafka[schemaregistry,avro]>=1.9.0, != 2.8.1",
+        "fastavro>=1.2.0",
+    },
     "datahub-rest": rest_common,
     "sync-file-emitter": {"filelock"},
     "datahub-lite": {
@@ -454,6 +469,7 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4", *cachetools_lib},
+    "excel": {"openpyxl>=3.1.5", "pandas", *aws_common, *abs_base, *cachetools_lib, *data_lake_profiling},
     "cassandra": {
         "cassandra-driver>=3.28.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -614,8 +630,7 @@ mypy_stubs = {
     "types-click==0.1.12",
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
-    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.28.15",
-    "mypy-boto3-sagemaker==1.28.15",  # For some reason, above pin only restricts `mypy-boto3-sagemaker<1.29.0,>=1.28.0`
+    "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
@@ -722,6 +737,7 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
+            "mssql-odbc"
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -742,6 +758,7 @@ full_test_dev_requirements = {
             "clickhouse",
             "delta-lake",
             "druid",
+            "excel",
             "feast",
             "hana",
             "hive",
@@ -752,6 +769,7 @@ full_test_dev_requirements = {
             "mongodb",
             "slack",
             "mssql",
+            "mssql-odbc",
             "mysql",
             "mariadb",
             "redash",
@@ -786,6 +804,7 @@ entry_points = {
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
+        "excel = datahub.ingestion.source.excel.source:ExcelSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",

@@ -353,6 +353,19 @@ class PowerBiDashboardSourceConfig(
         "For example with an ODBC connection string 'DSN=database' where the database type "
         "is 'PostgreSQL' you would configure the mapping as 'database: postgres'.",
     )
+    # ODBC DSN to database (or database.schema) mapping
+    dsn_to_database_schema: Dict[str, str] = pydantic.Field(
+        default={},
+        description="A mapping of ODBC DSN to database names with optional schema names "
+        "(some database platforms such a MySQL use the table name pattern 'database.table', "
+        "while others use the pattern 'database.schema.table'). "
+        "This mapping is used in conjunction with ODBC SQL query parsing. "
+        "If SQL queries used with ODBC do not reference fully qualified tables names, "
+        "then you should configure mappings for your DSNs. "
+        "For example with an ODBC connection string 'DSN=database' where the database "
+        "is 'prod' you would configure the mapping as 'database: prod'. "
+        "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'.",
+    )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
         "dataset_type_mapping",
@@ -613,4 +626,24 @@ class PowerBiDashboardSourceConfig(
             add_global_warning(
                 "Please use `extract_dataset_schema: true`, otherwise dataset schema extraction will be skipped."
             )
+        return values
+
+    @root_validator(skip_on_failure=True)
+    def validate_dsn_to_database_schema(cls, values: Dict) -> Dict:
+        if values.get("dsn_to_database_schema") is not None:
+            dsn_mapping = values.get("dsn_to_database_schema")
+            if not isinstance(dsn_mapping, dict):
+                raise ValueError("dsn_to_database_schema must contain key-value pairs")
+
+            for _key, value in dsn_mapping.items():
+                if not isinstance(value, str):
+                    raise ValueError(
+                        "dsn_to_database_schema mapping values must be strings"
+                    )
+                parts = value.split(".")
+                if len(parts) != 1 and len(parts) != 2:
+                    raise ValueError(
+                        f"dsn_to_database_schema invalid mapping value: {value}"
+                    )
+
         return values

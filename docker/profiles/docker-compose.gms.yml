@@ -29,11 +29,12 @@ x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
 x-graph-datastore-search-env: &graph-datastore-search-env
   GRAPH_SERVICE_IMPL: elasticsearch
 
-x-search-datastore-elasticsearch-env: &search-datastore-env
+x-search-datastore-opensearch-env: &search-datastore-env
   ELASTICSEARCH_HOST: search
   ELASTICSEARCH_PORT: 9200
   ELASTICSEARCH_PROTOCOL: http
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+  ELASTICSEARCH_IMPLEMENTATION: opensearch
 
 x-kafka-env: &kafka-env
   KAFKA_BOOTSTRAP_SERVER: broker:29092
@@ -76,6 +77,9 @@ x-datahub-system-update-service: &datahub-system-update-service
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
+    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
+    KAFKA_BOOTSTRAP_SERVER: broker:29092
+    USE_CONFLUENT_SCHEMA_REGISTRY: false
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   labels:
@@ -92,6 +96,7 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
   volumes:
     - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
@@ -233,8 +238,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
-      kafka-setup:
-        condition: service_completed_successfully
       opensearch:
         condition: service_healthy
       mysql:
@@ -252,8 +255,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
-      kafka-setup:
-        condition: service_completed_successfully
   system-update-quickstart-postgres:
     <<: *datahub-system-update-service
     profiles:
@@ -264,8 +265,6 @@ services:
       postgres-setup:
         condition: service_completed_successfully
       opensearch-setup:
-        condition: service_completed_successfully
-      kafka-setup:
         condition: service_completed_successfully
   system-update-debug: &system-update-debug
     <<: *datahub-system-update-service-dev
@@ -279,8 +278,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-aws: &system-update-debug
     <<: *datahub-system-update-service-dev
     profiles:
@@ -291,8 +288,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
     profiles:
@@ -301,12 +296,13 @@ services:
     <<: *datahub-system-update-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-system-update-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
       elasticsearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
         condition: service_completed_successfully
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
@@ -319,8 +315,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-cassandra:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -332,8 +326,6 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
-      kafka-setup-dev:
-        condition: service_completed_successfully
   system-update-debug-neo4j:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -344,8 +336,6 @@ services:
       neo4j:
         condition: service_healthy
       opensearch-setup-dev:
-        condition: service_completed_successfully
-      kafka-setup-dev:
         condition: service_completed_successfully
   #################################
   # GMS
@@ -455,6 +445,9 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug-elasticsearch
+    environment:
+      <<: *datahub-gms-dev-env
+      ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully

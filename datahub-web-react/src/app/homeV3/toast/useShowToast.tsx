@@ -14,10 +14,10 @@ const notificationStyles = {
 };
 
 export default function useShowToast() {
-    function showToast(title: string, description?: string) {
+    function showToast(title: string, description?: string, dataTestId?: string) {
         notification.open({
             message: (
-                <Text color="blue" colorLevel={1000} weight="semiBold" lineHeight="sm">
+                <Text color="blue" colorLevel={1000} weight="semiBold" lineHeight="sm" data-testid={dataTestId}>
                     {title}
                 </Text>
             ),
@@ -29,7 +29,9 @@ export default function useShowToast() {
             placement: 'bottomRight',
             duration: 0,
             icon: <Icon icon="Info" weight="fill" source="phosphor" color="blue" />,
-            closeIcon: <Icon icon="X" source="phosphor" color="blue" size="lg" />,
+            closeIcon: (
+                <Icon icon="X" source="phosphor" color="blue" size="lg" data-testid="toast-notification-close-icon" />
+            ),
             style: notificationStyles,
         });
     }

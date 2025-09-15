@@ -1,6 +1,7 @@
 namespace com.linkedin.structured
 import com.linkedin.common.Urn
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.MetadataAttribution
 
 record StructuredPropertyValueAssignment {
 
@@ -24,6 +25,28 @@ record StructuredPropertyValueAssignment {
    */
   lastModified: optional AuditStamp
 
+  
+  /**
+   * Information about who, why, and how this metadata was applied
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "structuredPropertyAttributionDates",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+      },
+    "/actor": {
+        "fieldName": "structuredPropertyAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/source": {
+        "fieldName": "structuredPropertyAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+  }
+  attribution: optional MetadataAttribution
 }
 
 

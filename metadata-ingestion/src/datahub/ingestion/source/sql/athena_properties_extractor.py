@@ -174,20 +174,16 @@ class AthenaPropertiesExtractor:
     def format_column_definition(line):
         # Use regex to parse the line more accurately
         # Pattern: column_name data_type [COMMENT comment_text] [,]
-        # Use greedy match for comment to capture everything until trailing comma
-        pattern = r"^\s*(.+?)\s+([\s,\w<>\[\]]+)((\s+COMMENT\s+(.+?)(,?))|(,?)\s*)?$"
-        match = re.match(pattern, line, re.IGNORECASE)
+        # Improved pattern to better separate column name, data type, and comment
+        pattern = r"^\s*([`\w']+)\s+([\w<>\[\](),\s]+?)(\s+COMMENT\s+(.+?))?(,?)\s*$"
+        match = re.match(pattern, line.strip(), re.IGNORECASE)
 
         if not match:
             return line
-        column_name = match.group(1)
-        data_type = match.group(2)
-        comment_part = match.group(5)  # COMMENT part
-        # there are different number of match groups depending on whether comment exists
-        if comment_part:
-            trailing_comma = match.group(6) if match.group(6) else ""
-        else:
-            trailing_comma = match.group(7) if match.group(7) else ""
+        column_name = match.group(1).strip()
+        data_type = match.group(2).strip()
+        comment_part = match.group(4)  # COMMENT part
+        trailing_comma = match.group(5) if match.group(5) else ""
 
         # Add backticks to column name if not already present
         if not (column_name.startswith("`") and column_name.endswith("`")):
@@ -201,17 +197,19 @@ class AthenaPropertiesExtractor:
 
             # Handle comment quoting and escaping
             if comment_part.startswith("'") and comment_part.endswith("'"):
-                # Already properly single quoted - keep as is
-                formatted_comment = comment_part
+                # Already single quoted - but check for proper escaping
+                inner_content = comment_part[1:-1]
+                # Re-escape any single quotes that aren't properly escaped
+                escaped_content = inner_content.replace("'", "''")
+                formatted_comment = f"'{escaped_content}'"
             elif comment_part.startswith('"') and comment_part.endswith('"'):
                 # Double quoted - convert to single quotes and escape internal single quotes
                 inner_content = comment_part[1:-1]
                 escaped_content = inner_content.replace("'", "''")
                 formatted_comment = f"'{escaped_content}'"
             else:
-                # Not quoted - add quotes and escape any single quotes
-                escaped_content = comment_part.replace("'", "''")
-                formatted_comment = f"'{escaped_content}'"
+                # Not quoted - use double quotes to avoid escaping issues with single quotes
+                formatted_comment = f'"{comment_part}"'
 
             result_parts.extend(["COMMENT", formatted_comment])
 
@@ -240,19 +238,39 @@ class AthenaPropertiesExtractor:
                 formatted_lines.append(line)
                 continue
 
-            # Check if we're exiting column definitions (closing parenthesis before PARTITIONED BY or end)
-            if in_column_definition and ")" in line:
-                in_column_definition = False
+            # Skip processing PARTITIONED BY clauses as column definitions
+            if in_column_definition and "PARTITIONED BY" in line.upper():
                 formatted_lines.append(line)
                 continue
 
-            # Process only column definitions (not PARTITIONED BY or other sections)
+            # Process column definitions first, then check for exit condition
             if in_column_definition and stripped_line:
-                # Match column definition pattern and format it
-                formatted_line = AthenaPropertiesExtractor.format_column_definition(
-                    line
-                )
-                formatted_lines.append(formatted_line)
+                # Check if this line contains a column definition (before the closing paren)
+                if ")" in line:
+                    # Split the line at the closing parenthesis
+                    paren_index = line.find(")")
+                    column_part = line[:paren_index].strip()
+                    closing_part = line[paren_index:]
+
+                    if column_part:
+                        # Format the column part
+                        formatted_column = (
+                            AthenaPropertiesExtractor.format_column_definition(
+                                column_part
+                            )
+                        )
+                        # Reconstruct the line
+                        formatted_line = formatted_column.rstrip() + closing_part
+                        formatted_lines.append(formatted_line)
+                    else:
+                        formatted_lines.append(line)
+                    in_column_definition = False
+                else:
+                    # Regular column definition line
+                    formatted_line = AthenaPropertiesExtractor.format_column_definition(
+                        line
+                    )
+                    formatted_lines.append(formatted_line)
             else:
                 # For all other lines, keep as-is
                 formatted_lines.append(line)

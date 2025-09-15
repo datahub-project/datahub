@@ -152,9 +152,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickFirstOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");
@@ -189,9 +189,9 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-label", "Test Label");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
 
     // Verify link addition
     cy.waitTextVisible("Test Label");

@@ -1,3 +1,5 @@
+#import "./incident.graphql"
+
 fragment autoCompleteFields on Entity {
     urn
     type
@@ -862,6 +864,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 key
                 value
             }
+            createdOn {
+                time
+            }
         }
         deprecation {
             ...deprecationFields
@@ -1101,6 +1106,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    ... on Incident {
+        ...incidentFields
     }
 }
 

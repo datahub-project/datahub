@@ -43,9 +43,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.action.search.DeletePitRequest;
+import org.opensearch.action.search.DeletePitResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
@@ -1245,6 +1247,50 @@ public class ESUtils {
     } catch (IOException e) {
       log.warn("Failed to generate PointInTime Identifier:", e);
       throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
+    }
+  }
+
+  /**
+   * Clean up a Point-in-Time (PIT) to prevent hitting the PIT context limit. This method should be
+   * called in finally blocks after PIT usage.
+   *
+   * @param client The OpenSearch client
+   * @param pitId The PIT ID to clean up
+   * @param elasticSearchImpl The implementation type (elasticsearch or opensearch)
+   * @param context Optional context for logging (e.g., "slice 0", "search request")
+   */
+  public static void cleanupPointInTime(
+      RestHighLevelClient client, String pitId, String elasticSearchImpl, String context) {
+    if (pitId == null) {
+      return;
+    }
+
+    try {
+      if (ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+        DeletePitRequest deletePitRequest = new DeletePitRequest(pitId);
+        DeletePitResponse deletePitResponse =
+            client.deletePit(deletePitRequest, RequestOptions.DEFAULT);
+        // DeletePitResponse doesn't have isAcknowledged(), but if we get here without exception, it
+        // succeeded
+        log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
+      } else if (ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+        // For Elasticsearch, use the low-level client to delete PIT
+        String endPoint = "/_pit";
+        Request request = new Request("DELETE", endPoint);
+        request.setJsonEntity("{\"id\":\"" + pitId + "\"}");
+        Response response = client.getLowLevelClient().performRequest(request);
+        if (response.getStatusLine().getStatusCode() == 200) {
+          log.debug("Successfully cleaned up PIT {} for {}", pitId, context);
+        } else {
+          log.warn(
+              "Failed to clean up PIT {} for {}: HTTP {}",
+              pitId,
+              context,
+              response.getStatusLine().getStatusCode());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Error cleaning up PIT {} for {}: {}", pitId, context, e.getMessage());
     }
   }
 }

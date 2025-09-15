@@ -4,6 +4,7 @@ import React, { ReactNode } from 'react';
 import styled from 'styled-components';
 
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -15,6 +16,7 @@ import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/p
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import ShortMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/ShortMarkdownViewer';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
 import { CompactView } from '@app/previewV2/CompactView';
@@ -22,8 +24,16 @@ import ContextPath from '@app/previewV2/ContextPath';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import EntityHeader from '@app/previewV2/EntityHeader';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
-import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
+import {
+    useRemoveApplicationAssets,
+    useRemoveDataProductAssets,
+    useRemoveDomainAssets,
+    useRemoveGlossaryTermAssets,
+} from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
@@ -105,8 +115,15 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
-const Documentation = styled.div`
+const DocumentationTopMarginWrapper = styled.div`
     margin-top: 8px;
+`;
+
+const ShortDocumentation = styled(DocumentationTopMarginWrapper)`
+    width: 100%;
+`;
+
+const Documentation = styled(DocumentationTopMarginWrapper)`
     max-height: 300px;
     overflow-y: auto;
 `;
@@ -169,6 +186,7 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
+    propagationDetails?: AttributionDetails;
 }
 
 export default function DefaultPreviewCard({
@@ -215,9 +233,19 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
+    propagationDetails,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
+    const { config } = useAppConfig();
+
+    const shouldShowRedesignedDescription = config.searchCardConfig.showDescription;
+    const shouldShowDescriptionsForSearch =
+        previewType === PreviewType.SEARCH && config.searchCardConfig.showDescription;
+    const shouldShowDescription =
+        previewType === PreviewType.HOVER_CARD ||
+        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType) ||
+        shouldShowDescriptionsForSearch;
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -311,17 +339,24 @@ export default function DefaultPreviewCard({
                             entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
                         />
                     </RowContainer>
-                    {(previewType === PreviewType.HOVER_CARD ||
-                        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
-                    description ? (
-                        <Documentation>
-                            <CompactMarkdownViewer content={description} />
-                        </Documentation>
-                    ) : null}
+                    {shouldShowDescription &&
+                        !!description &&
+                        (shouldShowRedesignedDescription ? (
+                            <ShortDocumentation>
+                                <ShortMarkdownViewer content={description} clearMarkdown />
+                            </ShortDocumentation>
+                        ) : (
+                            <Documentation>
+                                <CompactMarkdownViewer content={removeMarkdown(description)} />
+                            </Documentation>
+                        ))}
                     {shouldShowDPIinfo && (
                         <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
                             <DataProcessInstanceInfo {...lastRunEvent} />
                         </RowContainer>
+                    )}
+                    {previewType === PreviewType.HOVER_CARD && (
+                        <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                     )}
                 </>
             ) : (
@@ -378,6 +413,7 @@ function useRemoveRelationship(entityType: EntityType) {
     const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
     const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
     const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
+    const { removeApplication } = useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch);
 
     const previewData = usePreviewData();
     const entityData = useEntityData();
@@ -404,6 +440,13 @@ function useRemoveRelationship(entityType: EntityType) {
             removeButtonText: showRemovalFromList ? removeText || 'Remove from Data Product' : null,
         };
     }
+    if (pageEntityType === EntityType.Application) {
+        return {
+            removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
+            removeButtonText: showRemovalFromList ? removeText || 'Remove from Application' : null,
+        };
+    }
+
     return {
         removeRelationship: () => {},
         removeButtonText: null,

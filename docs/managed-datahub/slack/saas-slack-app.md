@@ -96,7 +96,7 @@ Some of the most commonly used features within our Slack app are the Incidents m
 The DataHub UI offers a rich set of [Incident tracking and management](https://docs.datahub.com/docs/incidents/incidents/) features.
 When a Slack member or channel receives notifications about an Incident, many of these features are made accessible right within the Slack app.
 
-When an incident is raised, you will recieve rich context about the incident in the Slack message itself. You will also be able to `Mark as Resolved`, update the `Priorty`, set a triage `Stage` and `View Details` - directly from the Slack message.
+When an incident is raised, you will receive rich context about the incident in the Slack message itself. You will also be able to `Mark as Resolved`, update the `Priority`, set a triage `Stage` and `View Details` - directly from the Slack message.
 
 <p align="center">
     <img width="70%" alt="Example of search results being displayed within Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_incidents_1.png" />

@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { DEFAULT_GLOBAL_MODULE_TYPES } from '@app/homeV3/modules/constants';
+import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { getCustomGlobalModules } from '@app/homeV3/template/components/addModuleMenu/utils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -36,7 +36,7 @@ interface Props {
 export default function ModuleMenu({ module, position }: Props) {
     const [showRemoveModuleConfirmation, setShowRemoveModuleConfirmation] = useState<boolean>(false);
     const { type } = module.properties;
-    const canEdit = !DEFAULT_GLOBAL_MODULE_TYPES.includes(type);
+    const canEdit = !DEFAULT_MODULE_URNS.includes(module.urn);
 
     const { globalTemplate } = usePageTemplateContext();
     const isAdminCreatedModule = useMemo(() => {
@@ -58,6 +58,7 @@ export default function ModuleMenu({ module, position }: Props) {
             module,
             position,
         });
+        setShowRemoveModuleConfirmation(false);
     }, [removeModule, module, position]);
 
     const handleMenuClick = useCallback((e: React.MouseEvent) => {
@@ -66,51 +67,55 @@ export default function ModuleMenu({ module, position }: Props) {
 
     const menuItemStyle = { fontSize: '14px', padding: '5px 16px' };
 
+    const menu = {
+        items: [
+            {
+                title: 'Edit',
+                key: 'edit',
+                label: (
+                    <>
+                        {!canEdit ? (
+                            <Tooltip title="Default modules are not editable">
+                                <Text color="gray" colorLevel={300}>
+                                    Edit
+                                </Text>
+                            </Tooltip>
+                        ) : (
+                            <Text color="gray" colorLevel={600}>
+                                Edit
+                            </Text>
+                        )}
+                    </>
+                ),
+                style: {
+                    ...menuItemStyle,
+                },
+                onClick: handleEditModule,
+                disabled: !canEdit,
+                'data-testid': 'edit-module',
+            },
+
+            {
+                title: 'Remove',
+                label: 'Remove',
+                key: 'remove',
+                style: {
+                    ...menuItemStyle,
+                    color: colors.red[500],
+                },
+                onClick: () => setShowRemoveModuleConfirmation(true),
+                'data-testid': 'remove-module',
+            },
+        ],
+    };
+
     return (
         <>
-            <DropdownWrapper onClick={handleMenuClick}>
+            <DropdownWrapper onClick={handleMenuClick} data-testid="module-options">
                 <Dropdown
                     trigger={['click']}
                     dropdownRender={(originNode) => <StyledDropdownContainer>{originNode}</StyledDropdownContainer>}
-                    menu={{
-                        items: [
-                            {
-                                title: 'Edit',
-                                key: 'edit',
-                                label: (
-                                    <>
-                                        {!canEdit ? (
-                                            <Tooltip title="Default modules are not editable">
-                                                <Text color="gray" colorLevel={300}>
-                                                    Edit
-                                                </Text>
-                                            </Tooltip>
-                                        ) : (
-                                            <Text color="gray" colorLevel={600}>
-                                                Edit
-                                            </Text>
-                                        )}
-                                    </>
-                                ),
-                                style: {
-                                    ...menuItemStyle,
-                                },
-                                onClick: handleEditModule,
-                                disabled: !canEdit,
-                            },
-
-                            {
-                                title: 'Remove',
-                                label: 'Remove',
-                                key: 'remove',
-                                style: {
-                                    ...menuItemStyle,
-                                    color: colors.red[500],
-                                },
-                                onClick: () => setShowRemoveModuleConfirmation(true),
-                            },
-                        ],
-                    }}
+                    menu={menu}
                 >
                     <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
                 </Dropdown>

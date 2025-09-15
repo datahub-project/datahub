@@ -133,6 +133,15 @@ input AssetCollectionModuleParamsInput {
   The list of asset urns for the asset collection module
   """
   assetUrns: [String!]!
+
+  """
+  Optional dynamic filters
+
+  The stringified json representing the logical predicate built in the UI to select assets.
+  This predicate is turned into orFilters to send through graphql since graphql doesn't support
+  arbitrary nesting. This string is used to restore the UI for this logical predicate.
+  """
+  dynamicFilterJson: String
 }
 
 """
@@ -222,6 +231,22 @@ enum DataHubPageModuleType {
   Module displaying the top domains
   """
   DOMAINS
+  """
+  Module displaying the assets of parent entities
+  """
+  ASSETS
+  """
+  Module displaying the hierarchy of the children of a given entity. Glossary or Domains.
+  """
+  CHILD_HIERARCHY
+  """
+  Module displaying child data products of a given domain
+  """
+  DATA_PRODUCTS
+  """
+  Module displaying the related terms of a given glossary term
+  """
+  RELATED_TERMS
 }
 
 """
@@ -311,6 +336,15 @@ type AssetCollectionModuleParams {
   The list of asset urns for the asset collection module
   """
   assetUrns: [String!]!
+
+  """
+  Optional dynamic filter
+
+  The stringified json representing the logical predicate built in the UI to select assets.
+  This predicate is turned into orFilters to send through graphql since graphql doesn't support
+  arbitrary nesting. This string is used to restore the UI for this logical predicate.
+  """
+  dynamicFilterJson: String
 }
 
 """
