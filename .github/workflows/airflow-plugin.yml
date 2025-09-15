@@ -62,7 +62,7 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
       - uses: acryldata/sane-checkout-action@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
