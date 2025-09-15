@@ -306,9 +306,7 @@ class SqlQueriesSource(Source):
             generate_usage_statistics=True,
             generate_operations=True,  # TODO: make this configurable
             usage_config=self.config.usage,
-            is_temp_table=self.is_temp_table
-            if self.config.temp_table_patterns
-            else None,
+            is_temp_table=self.is_temp_table,
             is_allowed_table=None,
             format_queries=False,
         )
