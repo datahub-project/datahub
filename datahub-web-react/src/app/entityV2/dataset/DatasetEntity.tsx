@@ -47,6 +47,7 @@ import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { getFilteredTestResults } from '@app/entityV2/shared/tabs/Dataset/Governance/testUtils';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabWrapper';
@@ -255,9 +256,10 @@ export class DatasetEntity implements Entity<Dataset> {
                     ),
                     component: GovernanceTab,
                     getCount: (_, dataset) => {
-                        const passingTests = dataset?.dataset?.testResults?.passing || [];
-                        const failingTests = dataset?.dataset?.testResults?.failing || [];
-                        return passingTests.length + failingTests.length;
+                        const passing = dataset?.dataset?.testResults?.passing || [];
+                        const failing = dataset?.dataset?.testResults?.failing || [];
+                        const { totalTests } = getFilteredTestResults(passing, failing);
+                        return totalTests;
                     },
                 },
                 {
