@@ -90,7 +90,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     // Enable state parameter validation
     oidcConfiguration.setWithState(true);
 
-    final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration);
+    final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration, oidcConfigs);
     oidcClient.setName(OIDC_CLIENT_NAME);
     oidcClient.setCallbackUrl(oidcConfigs.getAuthBaseUrl() + oidcConfigs.getAuthBaseCallbackPath());
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());

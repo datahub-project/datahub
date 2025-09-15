@@ -1988,6 +1988,11 @@ type Actor {
   List of users for which the role is provisioned
   """
   users: [RoleUser!]
+
+  """
+  List of groups for which the role is provisioned
+  """
+  groups: [RoleGroup!]
 }
 
 type RoleUser {
@@ -1995,6 +2000,13 @@ type RoleUser {
   Linked corp user of a role
   """
   user: CorpUser!
+}
+
+type RoleGroup {
+  """
+  Linked corp group of a role
+  """
+  group: CorpGroup!
 }
 
 type RoleProperties {
@@ -2638,6 +2650,11 @@ type GlossaryNode implements Entity {
   Recursively get the lineage of glossary nodes for this entity
   """
   parentNodes: ParentNodesResult
+
+  """
+  References to internal resources related to the Glossary Node
+  """
+  institutionalMemory: InstitutionalMemory
 
   """
   Privileges given to a user relevant to this entity
