@@ -1,20 +1,7 @@
-from datahub_integrations.chat.slackify import slackify_markdown
 from datahub_integrations.gen_ai.linkify import (
     auto_fix_chat_links,
     auto_fix_entity_mention_links,
 )
-
-
-def test_slackify_markdown() -> None:
-    text = "\n\nThis is a **bold** and _italic_ text.\nMy list:\n- item 1\n- item 2"
-    expected = "This is a *bold* and _italic_ text.\nMy list:\n• item 1\n• item 2"
-    assert slackify_markdown(text) == expected
-
-
-def test_slackify_markdown_full_dataset_link() -> None:
-    text = "For [pet_profiles](https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cpet_profiles%2CPROD%29) the owner is Donald Duck."
-    expected = "For <https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cpet_profiles%2CPROD%29|pet_profiles> the owner is Donald Duck."
-    assert slackify_markdown(text) == expected
 
 
 def test_datahub_linkify_dataset_link() -> None:
