@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -40,6 +42,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class LineageSearchServiceTest {
@@ -136,6 +139,45 @@ public class LineageSearchServiceTest {
     _lineageSearchService =
         new LineageSearchService(
             _searchService, _graphService, _cacheManager.getCache("test-cache"), true, _appConfig);
+  }
+
+  @BeforeMethod
+  public void setUp() {
+    // Reset mocks before each test to avoid interference
+    reset(_graphService, _searchService, _lineageRegistry);
+
+    // Clear cache to avoid interference between tests
+    _cacheManager.getCache("test-cache").clear();
+
+    // Re-setup basic mocks that are needed for all tests
+    when(_lineageRegistry.getEntitiesWithLineageToEntityType(DATASET_ENTITY_NAME))
+        .thenReturn(Collections.singleton(DATASET_ENTITY_NAME));
+
+    // Re-setup GraphService configuration that was cleared by reset
+    GraphServiceConfiguration graphServiceConfig =
+        GraphServiceConfiguration.builder()
+            .limit(
+                LimitConfig.builder()
+                    .results(ResultsLimitConfig.builder().apiDefault(100).build())
+                    .build())
+            .build();
+    when(_graphService.getGraphServiceConfig()).thenReturn(graphServiceConfig);
+
+    // Re-setup GraphService lineage methods that were cleared by reset
+    EntityLineageResult mockLineageResult = createMockEntityLineageResult();
+    when(_graphService.getImpactLineage(any(), any(), any(), anyInt()))
+        .thenReturn(mockLineageResult);
+    when(_graphService.getLineage(
+            any(), any(), any(LineageDirection.class), anyInt(), anyInt(), anyInt()))
+        .thenReturn(mockLineageResult);
+
+    // Re-setup SearchService mock for both method signatures
+    SearchResult mockSearchResult = createMockSearchResult();
+    when(_searchService.searchAcrossEntities(any(), any(), any(), any(), any(), anyInt(), any()))
+        .thenReturn(mockSearchResult);
+    when(_searchService.searchAcrossEntities(
+            any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenReturn(mockSearchResult);
   }
 
   @Test
@@ -433,6 +475,334 @@ public class LineageSearchServiceTest {
 
     LineageGraphFilters capturedFilters = filtersCaptor.getValue();
     assertEquals(capturedFilters.getLineageDirection(), direction);
+  }
+
+  @Test
+  public void testLineageVisualizationMode() throws Exception {
+    // Test that when LineageFlags has entitiesExploredPerHopLimit > 0,
+    // the service calls getLineage instead of getImpactLineage
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    LineageDirection direction = LineageDirection.DOWNSTREAM;
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    Integer maxHops = 3;
+
+    // Create operation context with lineage flags indicating visualization mode
+    LineageFlags lineageFlags = new LineageFlags().setEntitiesExploredPerHopLimit(10);
+    OperationContext contextWithVisualizationFlags =
+        _operationContext.withLineageFlags(f -> lineageFlags);
+
+    // Mock the graph service response for getLineage call
+    EntityLineageResult mockLineageResult = new EntityLineageResult();
+    mockLineageResult.setTotal(2);
+    mockLineageResult.setRelationships(new LineageRelationshipArray());
+
+    LineageRelationship rel1 = new LineageRelationship();
+    rel1.setEntity(UrnUtils.getUrn("urn:li:dataset:downstream-1"));
+    rel1.setType("DownstreamOf");
+    rel1.setDegree(1);
+
+    LineageRelationship rel2 = new LineageRelationship();
+    rel2.setEntity(UrnUtils.getUrn("urn:li:dataset:downstream-2"));
+    rel2.setType("DownstreamOf");
+    rel2.setDegree(1);
+
+    mockLineageResult.getRelationships().add(rel1);
+    mockLineageResult.getRelationships().add(rel2);
+
+    // Mock the getLineage call (visualization mode)
+    when(_graphService.getLineage(
+            eq(contextWithVisualizationFlags),
+            eq(sourceUrn),
+            eq(direction),
+            eq(0), // start
+            eq(100), // count (from config)
+            eq(maxHops)))
+        .thenReturn(mockLineageResult);
+
+    // Call the method under test
+    LineageSearchResult result =
+        _lineageSearchService.searchAcrossLineage(
+            contextWithVisualizationFlags,
+            sourceUrn,
+            direction,
+            entities,
+            null, // input
+            maxHops,
+            null, // inputFilters
+            null, // sortCriteria
+            0, // from
+            10); // size
+
+    // Verify the result
+    assertNotNull(result);
+
+    // Verify that getLineage was called instead of getImpactLineage
+    verify(_graphService)
+        .getLineage(
+            eq(contextWithVisualizationFlags),
+            eq(sourceUrn),
+            eq(direction),
+            eq(0), // start
+            eq(100), // count
+            eq(maxHops));
+
+    // Verify that getImpactLineage was NOT called
+    verify(_graphService, never())
+        .getImpactLineage(any(), any(), any(LineageGraphFilters.class), anyInt());
+  }
+
+  @Test
+  public void testImpactAnalysisMode() throws Exception {
+    // Test that when LineageFlags has entitiesExploredPerHopLimit <= 0 or null,
+    // the service calls getImpactLineage (default behavior)
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    LineageDirection direction = LineageDirection.DOWNSTREAM;
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    Integer maxHops = 3;
+
+    // Create operation context with lineage flags indicating impact analysis mode
+    LineageFlags lineageFlags = new LineageFlags().setEntitiesExploredPerHopLimit(0);
+    OperationContext contextWithImpactFlags = _operationContext.withLineageFlags(f -> lineageFlags);
+
+    // Mock the graph service response for getImpactLineage call
+    EntityLineageResult mockLineageResult = new EntityLineageResult();
+    mockLineageResult.setTotal(2);
+    mockLineageResult.setRelationships(new LineageRelationshipArray());
+
+    when(_graphService.getImpactLineage(
+            eq(contextWithImpactFlags), eq(sourceUrn), any(LineageGraphFilters.class), eq(maxHops)))
+        .thenReturn(mockLineageResult);
+
+    // Call the method under test
+    LineageSearchResult result =
+        _lineageSearchService.searchAcrossLineage(
+            contextWithImpactFlags,
+            sourceUrn,
+            direction,
+            entities,
+            null, // input
+            maxHops,
+            null, // inputFilters
+            null, // sortCriteria
+            0, // from
+            10); // size
+
+    // Verify the result
+    assertNotNull(result);
+
+    // Verify that getImpactLineage was called
+    verify(_graphService)
+        .getImpactLineage(
+            eq(contextWithImpactFlags), eq(sourceUrn), any(LineageGraphFilters.class), eq(maxHops));
+
+    // Verify that getLineage was NOT called
+    verify(_graphService, never())
+        .getLineage(any(), any(), any(LineageDirection.class), anyInt(), anyInt(), anyInt());
+  }
+
+  @Test
+  public void testIsLineageVisualizationWithNullFlags() throws Exception {
+    // Test that null LineageFlags results in impact analysis mode
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    LineageDirection direction = LineageDirection.DOWNSTREAM;
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    Integer maxHops = 3;
+
+    // Use operation context with null lineage flags
+    OperationContext contextWithNullFlags = _operationContext.withLineageFlags(f -> null);
+
+    // Mock the graph service response
+    EntityLineageResult mockLineageResult = new EntityLineageResult();
+    mockLineageResult.setTotal(0);
+    mockLineageResult.setRelationships(new LineageRelationshipArray());
+
+    when(_graphService.getImpactLineage(
+            eq(contextWithNullFlags), eq(sourceUrn), any(LineageGraphFilters.class), eq(maxHops)))
+        .thenReturn(mockLineageResult);
+
+    // Call the method under test
+    LineageSearchResult result =
+        _lineageSearchService.searchAcrossLineage(
+            contextWithNullFlags,
+            sourceUrn,
+            direction,
+            entities,
+            null, // input
+            maxHops,
+            null, // inputFilters
+            null, // sortCriteria
+            0, // from
+            10); // size
+
+    // Verify the result
+    assertNotNull(result);
+
+    // Verify that getImpactLineage was called (impact analysis mode)
+    verify(_graphService)
+        .getImpactLineage(
+            eq(contextWithNullFlags), eq(sourceUrn), any(LineageGraphFilters.class), eq(maxHops));
+  }
+
+  @Test
+  public void testIsLineageVisualizationWithNullLimit() throws Exception {
+    // Test that LineageFlags with null entitiesExploredPerHopLimit results in impact analysis mode
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    LineageDirection direction = LineageDirection.DOWNSTREAM;
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    Integer maxHops = 3;
+
+    // Create operation context with lineage flags having null limit
+    // Note: LineageFlags doesn't allow null values, so we create a flags object without setting the
+    // limit
+    LineageFlags lineageFlags = new LineageFlags();
+    OperationContext contextWithNullLimitFlags =
+        _operationContext.withLineageFlags(f -> lineageFlags);
+
+    // Mock the graph service response
+    EntityLineageResult mockLineageResult = new EntityLineageResult();
+    mockLineageResult.setTotal(0);
+    mockLineageResult.setRelationships(new LineageRelationshipArray());
+
+    when(_graphService.getImpactLineage(
+            eq(contextWithNullLimitFlags),
+            eq(sourceUrn),
+            any(LineageGraphFilters.class),
+            eq(maxHops)))
+        .thenReturn(mockLineageResult);
+
+    // Call the method under test
+    LineageSearchResult result =
+        _lineageSearchService.searchAcrossLineage(
+            contextWithNullLimitFlags,
+            sourceUrn,
+            direction,
+            entities,
+            null, // input
+            maxHops,
+            null, // inputFilters
+            null, // sortCriteria
+            0, // from
+            10); // size
+
+    // Verify the result
+    assertNotNull(result);
+
+    // Verify that getImpactLineage was called (impact analysis mode)
+    verify(_graphService)
+        .getImpactLineage(
+            eq(contextWithNullLimitFlags),
+            eq(sourceUrn),
+            any(LineageGraphFilters.class),
+            eq(maxHops));
+  }
+
+  @Test
+  public void testApplyMaxHopsLimitWithVisualizationMode() throws Exception {
+    // Test that applyMaxHopsLimit uses the correct config limit for visualization mode
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    LineageDirection direction = LineageDirection.DOWNSTREAM;
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+
+    // Create operation context with lineage flags indicating visualization mode
+    LineageFlags lineageFlags = new LineageFlags().setEntitiesExploredPerHopLimit(5);
+    OperationContext contextWithVisualizationFlags =
+        _operationContext.withLineageFlags(f -> lineageFlags);
+
+    // Mock the graph service response
+    EntityLineageResult mockLineageResult = new EntityLineageResult();
+    mockLineageResult.setTotal(0);
+    mockLineageResult.setRelationships(new LineageRelationshipArray());
+
+    when(_graphService.getLineage(
+            eq(contextWithVisualizationFlags),
+            eq(sourceUrn),
+            eq(direction),
+            eq(0), // start
+            eq(100), // count
+            eq(10))) // Should use lineageMaxHops from config (set to 10 in init)
+        .thenReturn(mockLineageResult);
+
+    // Call the method under test with null maxHops to trigger applyMaxHopsLimit
+    LineageSearchResult result =
+        _lineageSearchService.searchAcrossLineage(
+            contextWithVisualizationFlags,
+            sourceUrn,
+            direction,
+            entities,
+            null, // input
+            null, // maxHops - should use config default
+            null, // inputFilters
+            null, // sortCriteria
+            0, // from
+            10); // size
+
+    // Verify the result
+    assertNotNull(result);
+
+    // Verify that getLineage was called with the lineageMaxHops limit (10)
+    verify(_graphService)
+        .getLineage(
+            eq(contextWithVisualizationFlags),
+            eq(sourceUrn),
+            eq(direction),
+            eq(0), // start
+            eq(100), // count
+            eq(10)); // Should use lineageMaxHops from config
+  }
+
+  @Test
+  public void testApplyMaxHopsLimitWithImpactMode() throws Exception {
+    // Test that applyMaxHopsLimit uses the correct config limit for impact analysis mode
+
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:test-dataset");
+    LineageDirection direction = LineageDirection.DOWNSTREAM;
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+
+    // Create operation context with lineage flags indicating impact analysis mode
+    LineageFlags lineageFlags = new LineageFlags().setEntitiesExploredPerHopLimit(0);
+    OperationContext contextWithImpactFlags = _operationContext.withLineageFlags(f -> lineageFlags);
+
+    // Mock the graph service response
+    EntityLineageResult mockLineageResult = new EntityLineageResult();
+    mockLineageResult.setTotal(0);
+    mockLineageResult.setRelationships(new LineageRelationshipArray());
+
+    when(_graphService.getImpactLineage(
+            eq(contextWithImpactFlags),
+            eq(sourceUrn),
+            any(LineageGraphFilters.class),
+            eq(10))) // Should use impact maxHops from config (set to 10 in init)
+        .thenReturn(mockLineageResult);
+
+    // Call the method under test with null maxHops to trigger applyMaxHopsLimit
+    LineageSearchResult result =
+        _lineageSearchService.searchAcrossLineage(
+            contextWithImpactFlags,
+            sourceUrn,
+            direction,
+            entities,
+            null, // input
+            null, // maxHops - should use config default
+            null, // inputFilters
+            null, // sortCriteria
+            0, // from
+            10); // size
+
+    // Verify the result
+    assertNotNull(result);
+
+    // Verify that getImpactLineage was called with the impact maxHops limit (10)
+    verify(_graphService)
+        .getImpactLineage(
+            eq(contextWithImpactFlags),
+            eq(sourceUrn),
+            any(LineageGraphFilters.class),
+            eq(10)); // Should use impact maxHops from config
   }
 
   private EntityLineageResult createMockEntityLineageResult() {
