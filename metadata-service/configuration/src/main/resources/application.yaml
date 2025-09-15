@@ -108,6 +108,7 @@ datahub:
     entityRegistry:
       path: ${ENTITY_REGISTRY_PLUGIN_PATH:/etc/datahub/plugins/models}
       loadDelaySeconds: ${ENTITY_REGISTRY_PLUGIN_LOAD_DELAY_SECONDS:60} # Rate at which plugin runnable executes, will run every N seconds.
+      ignoreFailureWhenLoadingRegistry: ${IGNORE_FAILURE_WHEN_LOADING_ENTITY_REGISTRY_PLUGIN:true}
     retention:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:
