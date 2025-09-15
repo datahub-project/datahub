@@ -1,20 +1,21 @@
-import React from 'react';
 import LaunchIcon from '@mui/icons-material/Launch';
+import React from 'react';
 import styled from 'styled-components';
-import { colors, Popover } from '@src/alchemy-components';
-import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
-import { REDESIGN_COLORS } from '../constants';
 
-const Link = styled.a`
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { Popover } from '@src/alchemy-components';
+import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
+
+const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
     display: flex;
     align-items: center;
     gap: 5px;
 
     border-radius: 4px;
-    padding: 4px 6px;
+    padding: ${(props) => (props.$isEntityPageHeader ? '6px' : '4px 6px')};
 
     background: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
-    color: ${colors.violet[500]};
+    color: ${(props) => props.theme.styles['primary-color']};
 
     max-width: 215px;
     width: fit-content;
@@ -34,6 +35,7 @@ const IconWrapper = styled.span`
 
 const PopoverWrapper = styled.div`
     max-width: 300px;
+    overflow-wrap: break-word;
 `;
 
 interface Props {
@@ -41,14 +43,21 @@ interface Props {
     label: string;
     onClick?: React.MouseEventHandler<HTMLAnchorElement>;
     className?: string;
+    isEntityPageHeader?: boolean;
 }
 
-export default function ExternalLink({ href, label, onClick, className }: Props) {
+export default function ExternalLink({ href, label, onClick, className, isEntityPageHeader }: Props) {
     const { measuredRef, isHorizontallyTruncated } = useMeasureIfTrancated();
 
     return (
         <Popover content={isHorizontallyTruncated ? <PopoverWrapper>{label}</PopoverWrapper> : undefined}>
-            <Link href={href} target="_blank" onClick={onClick} className={className}>
+            <Link
+                href={href}
+                target="_blank"
+                onClick={onClick}
+                className={className}
+                $isEntityPageHeader={isEntityPageHeader}
+            >
                 <IconWrapper>
                     <LaunchIcon fontSize="inherit" />
                 </IconWrapper>

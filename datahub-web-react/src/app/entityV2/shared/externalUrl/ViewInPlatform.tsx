@@ -1,14 +1,13 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
+import ExternalLink from '@app/entityV2/shared/externalUrl/ExternalLink';
+import ViewMoreDropdown from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/ViewMoreDropdown';
+import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
+import useExternalLinks from '@app/entityV2/shared/externalUrl/useExternalLinks';
+import usePlatrofmLinks from '@app/entityV2/shared/externalUrl/usePlatformLinks';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import OverflowList from '@src/app/sharedV2/OverflowList';
-
-import ExternalLink from './ExternalLink';
-import ViewMoreDropdown from './components/VeiwMoreDropdown/ViewMoreDropdown';
-import { LinkItem } from './types';
-import useExternalLinks from './useExternalLinks';
-import usePlatrofmLinks from './usePlatformLinks';
 
 const Links = styled.div<{ $shouldTakeAllAvailableSpace?: boolean }>`
     display: flex;
@@ -23,6 +22,7 @@ interface Props {
     urn: string;
     suffix?: string;
     shouldFillAllAvailableSpace?: boolean;
+    isEntityPageHeader?: boolean;
 }
 
 export default function ViewInPlatform({
@@ -32,21 +32,32 @@ export default function ViewInPlatform({
     hideSiblingActions,
     suffix,
     shouldFillAllAvailableSpace = true,
+    isEntityPageHeader = false,
 }: Props) {
     const externalLinks = useExternalLinks(urn, data);
-    const platformLinks = usePlatrofmLinks(urn, data, !!hideSiblingActions, suffix ?? '', className);
+    const platformLinks = usePlatrofmLinks(urn, data, hideSiblingActions, suffix ?? '', className);
 
     const linkItems: LinkItem[] = useMemo(() => {
         const links = [...externalLinks, ...platformLinks];
 
         return links.map((link) => ({
-            key: link.url,
+            key: `${link.url}-${link.label}`,
             url: link.url,
             description: link.label,
-            node: <ExternalLink href={link.url} label={link.label} className={link.className} onClick={link.onClick} />,
+            node: (
+                <ExternalLink
+                    href={link.url}
+                    label={link.label}
+                    className={link.className}
+                    onClick={link.onClick}
+                    isEntityPageHeader={isEntityPageHeader}
+                />
+            ),
             attributes: link,
         }));
-    }, [externalLinks, platformLinks]);
+    }, [externalLinks, isEntityPageHeader, platformLinks]);
+
+    if (linkItems.length === 0) return null;
 
     return (
         <Links $shouldTakeAllAvailableSpace={shouldFillAllAvailableSpace}>

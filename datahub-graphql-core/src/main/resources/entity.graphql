@@ -2688,11 +2688,6 @@ type GlossaryNode implements Entity {
   displayProperties: DisplayProperties
 
   """
-  References to internal resources related to the glossary node
-  """
-  institutionalMemory: InstitutionalMemory
-
-  """
   Carries information about where an entity originated from.
   """
   childrenCount: GlossaryNodeChildrenCount
