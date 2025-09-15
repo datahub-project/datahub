@@ -373,11 +373,13 @@ class Pipeline:
             )
             current_version = version_stats.client.current.version
 
-            logger.debug(f"""
+            logger.debug(
+                f"""
                 client_version: {current_version}
                 server_default_version: {server_default_version}
                 server_default_cli_ahead: True
-            """)
+            """
+            )
 
             self.source.get_report().warning(
                 title="Server default CLI version is ahead of CLI version",
@@ -560,8 +562,9 @@ class Pipeline:
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-                self.sink.flush()
-                self._notify_reporters_on_ingestion_completion()
+
+        # This can't be in the finally part because this should happen after context manager exists
+        self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
