@@ -430,7 +430,7 @@ jobs:
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
             echo "cypress_batch_count=15" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=14" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=12" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
