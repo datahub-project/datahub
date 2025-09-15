@@ -59,7 +59,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
         return (
             <ShareAltOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }}
             />
         );
     };
