@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useBrowsePath, useEntityType } from '@app/searchV2/sidebar/BrowseContext';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from '@app/searchV2/sidebar/constants';
