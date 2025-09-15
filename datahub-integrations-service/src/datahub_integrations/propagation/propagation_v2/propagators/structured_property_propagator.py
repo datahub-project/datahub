@@ -30,11 +30,16 @@ from datahub_integrations.propagation.propagation_v2.types.source_details import
 logger = logging.getLogger(__name__)
 
 
-class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
+class StructuredPropertyPropagator(
+    AspectPropagator[StructuredPropertiesClass, StructuredPropertiesClass]
+):
     # TODO: Support custom config, init, and create to customize propagator
 
-    def aspects(self) -> tuple[type[StructuredPropertiesClass]]:
+    def origin_aspects(self) -> tuple[type[StructuredPropertiesClass]]:
         return (StructuredPropertiesClass,)
+
+    def target_aspect(self) -> type[StructuredPropertiesClass]:
+        return StructuredPropertiesClass
 
     def empty_aspects(self) -> tuple[StructuredPropertiesClass]:
         return (StructuredPropertiesClass(properties=[]),)
@@ -51,10 +56,9 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
         origin_urn: str,
         target_urn: str,
         origin_aspects: tuple[StructuredPropertiesClass],
-        target_aspects: tuple[StructuredPropertiesClass | None],
+        target_aspect: StructuredPropertiesClass | None,
     ) -> Iterator[EntityChangeEvent]:
         origin_aspect = origin_aspects[0]
-        target_aspect = target_aspects[0]
         if target_aspect:
             # Filter to only structured properties attributed to this propagation action
             relevant_property_value_assignments = []
@@ -82,7 +86,7 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
             )
 
         return compute_structured_property_diff_mcps(
-            entity_urn=origin_urn,
+            origin_urn=origin_urn,
             old_aspect=target_aspect,
             new_aspect=origin_aspect,
             audit_stamp=self._propagation_audit_stamp(),
@@ -162,7 +166,7 @@ class StructuredPropertyPropagator(AspectPropagator[StructuredPropertiesClass]):
 
 
 def compute_structured_property_diff_mcps(
-    entity_urn: str,
+    origin_urn: str,
     old_aspect: StructuredPropertiesClass | None,
     new_aspect: StructuredPropertiesClass,
     audit_stamp: AuditStampClass,
@@ -174,7 +178,7 @@ def compute_structured_property_diff_mcps(
     although logic is significantly different, using Python's set operations for clarity.
 
     Args:
-        entity_urn: URN of the entity being changed
+        origin_urn: URN of the entity being changed
         old_aspect: The original structured properties aspect
         new_aspect: The new structured properties aspect
         audit_stamp: Audit stamp with information about how the ECEs were created
@@ -214,8 +218,8 @@ def compute_structured_property_diff_mcps(
     for property in properties_added:
         property_assoc = new_property_association_map[property]
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.STRUCTURED_PROPERTY.value,
             operation=ChangeOperation.ADD.value,
             parameters={  # type: ignore
@@ -229,8 +233,8 @@ def compute_structured_property_diff_mcps(
     for property in properties_removed:
         property_assoc = old_property_association_map[property]
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.STRUCTURED_PROPERTY.value,
             operation=ChangeOperation.REMOVE.value,
             parameters={  # type: ignore
@@ -246,8 +250,8 @@ def compute_structured_property_diff_mcps(
         new_property_assoc = new_property_association_map[property]
         if old_property_assoc.values != new_property_assoc.values:
             yield EntityChangeEvent(
-                entityUrn=entity_urn,
-                entityType=Urn.from_string(entity_urn).entity_type,
+                entityUrn=origin_urn,
+                entityType=Urn.from_string(origin_urn).entity_type,
                 category=ChangeCategory.STRUCTURED_PROPERTY.value,
                 operation=ChangeOperation.MODIFY.value,
                 parameters={  # type: ignore
