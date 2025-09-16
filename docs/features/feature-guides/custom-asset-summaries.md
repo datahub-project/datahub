@@ -88,6 +88,10 @@ You can also add the same custom modules available on the home page:
 
 ## Customizing Asset Summaries
 
+:::note
+Customization is currently only supported in DataHub Cloud. DataHub Core will support out of the box summary pages with no way to customize.
+:::
+
 ### Editing Summary Page Headers
 
 To customize which properties appear in your asset's header:
