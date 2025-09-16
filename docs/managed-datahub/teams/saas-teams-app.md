@@ -8,7 +8,7 @@ The DataHub Microsoft Teams App brings several of DataHub's key capabilities dir
 The integration enables your team to:
 
 1. Ask DataHub about your data (by tagging @DataHub)
-2. Receive notifications when Data Assets change
+2. Get notified when Data Assets change
 3. Manage Data Incidents
 
 The Teams App makes data discovery easier and more accessible, by making DataHub available where you work.
