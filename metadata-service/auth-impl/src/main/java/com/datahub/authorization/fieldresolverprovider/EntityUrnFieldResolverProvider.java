@@ -27,6 +27,15 @@ public class EntityUrnFieldResolverProvider implements EntityFieldResolverProvid
     if (entitySpec.getEntity().isEmpty()) {
       return FieldResolver.emptyFieldValue();
     }
+    System.out.println("~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~~");
+    System.out.println(entitySpec.getEntity());
+    System.out.println("~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~~");
+    // could simply add parent urns if this is a domain? i think yes maybe
+    if (!entitySpec.getEntity().equals("urn:li:domain:marketing")) {
+      return FieldResolver.FieldValue.builder()
+          .values(Set.of(entitySpec.getEntity(), "urn:li:domain:marketing"))
+          .build();
+    }
     return FieldResolver.FieldValue.builder().values(Set.of(entitySpec.getEntity())).build();
   }
 }

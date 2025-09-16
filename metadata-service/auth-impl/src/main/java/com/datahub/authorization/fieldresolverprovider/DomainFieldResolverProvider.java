@@ -41,6 +41,7 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
     return FieldResolver.getResolverFromFunction(entitySpec, spec -> getDomains(opContext, spec));
   }
 
+  // i would need to getBatchedParentDomainsForDomains  that's why i can't see the children
   private Set<Urn> getBatchedParentDomains(
       @Nonnull OperationContext opContext, @Nonnull final Set<Urn> urns) {
     final Set<Urn> parentUrns = new HashSet<>();
@@ -91,13 +92,17 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
 
       final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
 
+      System.out.println("~~~~~~~~~~~~~~~~HERE2~~~~~~~~~~~~");
+      System.out.println(entityUrn);
+      System.out.println("~~~~~~~~~~~~~~~~HERE2~~~~~~~~~~~~");
+
       // In the case that the entity is a domain, the associated domain is the domain itself
       if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
+        // would need to call getBatchedParentDomainsForDomains to get all the parents here
         return FieldResolver.FieldValue.builder()
             .values(Collections.singleton(entityUrn.toString()))
             .build();
       }
-
       EntityResponse response =
           _entityClient.getV2(
               opContext,
