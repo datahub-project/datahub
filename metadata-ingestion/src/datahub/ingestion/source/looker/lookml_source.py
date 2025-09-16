@@ -146,6 +146,7 @@ class LookerView:
         ctx: PipelineContext,
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
+        looker_client: Optional[LookerAPI] = None,
     ) -> Optional["LookerView"]:
         view_name = view_context.name()
 
@@ -164,6 +165,7 @@ class LookerView:
             config=config,
             ctx=ctx,
             reporter=reporter,
+            looker_client=looker_client,
         )
 
         field_type_vs_raw_fields = OrderedDict(
@@ -911,6 +913,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 populate_sql_logic_in_descriptions=self.source_config.populate_sql_logic_for_missing_descriptions,
                                 config=self.source_config,
                                 ctx=self.ctx,
+                                looker_client=self.looker_client,
                             )
                         except Exception as e:
                             self.reporter.report_warning(
