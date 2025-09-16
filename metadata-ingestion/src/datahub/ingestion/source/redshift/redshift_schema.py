@@ -349,17 +349,70 @@ class RedshiftDataDictionary:
         # driver only functions.
         enriched_tables = self.enrich_tables(conn)
 
-        cur = RedshiftDataDictionary.get_query_result(
-            conn,
-            RedshiftCommonQuery.list_tables(
-                database=database,
-                skip_external_tables=skip_external_tables,
-                is_shared_database=is_shared_database,
-            ),
-        )
-        field_names = [i[0] for i in cur.description]
-        db_tables = cur.fetchall()
-        logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")
+        # Try primary table discovery query
+        try:
+            cur = RedshiftDataDictionary.get_query_result(
+                conn,
+                RedshiftCommonQuery.list_tables(
+                    database=database,
+                    skip_external_tables=skip_external_tables,
+                    is_shared_database=is_shared_database,
+                ),
+            )
+            field_names = [i[0] for i in cur.description]
+            db_tables = cur.fetchall()
+            logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")
+
+            # If no tables found and database is local, check for shared tables in regular schemas
+            if not db_tables and not is_shared_database:
+                logger.info(
+                    "No tables found with pg_catalog query, checking for shared tables in regular schemas..."
+                )
+                if self._has_shared_tables_in_regular_schemas(conn, database):
+                    logger.info(
+                        "Shared tables detected in regular schemas, switching to shared database query mode"
+                    )
+                    cur = RedshiftDataDictionary.get_query_result(
+                        conn,
+                        RedshiftCommonQuery.list_tables(
+                            database=database,
+                            skip_external_tables=skip_external_tables,
+                            is_shared_database=True,  # Force shared mode
+                        ),
+                    )
+                    field_names = [i[0] for i in cur.description]
+                    db_tables = cur.fetchall()
+                    logger.info(
+                        f"Fetched {len(db_tables)} tables/views using shared database query"
+                    )
+
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "oid" in error_msg or "column" in error_msg or "relation" in error_msg:
+                logger.warning(
+                    f"Primary table query failed ({e}), falling back to shared database query"
+                )
+                try:
+                    cur = RedshiftDataDictionary.get_query_result(
+                        conn,
+                        RedshiftCommonQuery.list_tables(
+                            database=database,
+                            skip_external_tables=skip_external_tables,
+                            is_shared_database=True,  # Force shared mode
+                        ),
+                    )
+                    field_names = [i[0] for i in cur.description]
+                    db_tables = cur.fetchall()
+                    logger.info(
+                        f"Successfully fetched {len(db_tables)} tables/views using fallback shared database query"
+                    )
+                except Exception as fallback_error:
+                    logger.error(
+                        f"Both primary and fallback queries failed. Primary error: {e}, Fallback error: {fallback_error}"
+                    )
+                    raise e from fallback_error  # Re-raise original error with context
+            else:
+                raise
 
         for table in db_tables:
             schema = table[field_names.index("schema")]
@@ -539,6 +592,36 @@ class RedshiftDataDictionary:
             columns = cursor.fetchmany()
 
         return table_columns
+
+    def _has_shared_tables_in_regular_schemas(
+        self, conn: redshift_connector.Connection, database: str
+    ) -> bool:
+        """
+        Check if the database contains shared tables within regular schemas.
+        This handles the case where tables are shared via datashares but the database
+        itself is not marked as shared.
+        """
+        try:
+            query = f"""
+            SELECT COUNT(*) as shared_count
+            FROM svv_table_info 
+            WHERE database = '{database}' 
+              AND share_name IS NOT NULL
+            """
+            cur = RedshiftDataDictionary.get_query_result(conn, query)
+            result = cur.fetchone()
+            shared_count = result[0] if result else 0
+
+            if shared_count > 0:
+                logger.info(
+                    f"Found {shared_count} shared tables in regular schemas for database '{database}'"
+                )
+                return True
+            return False
+
+        except Exception as e:
+            logger.warning(f"Failed to check for shared tables in regular schemas: {e}")
+            return False
 
     @staticmethod
     def get_lineage_rows(

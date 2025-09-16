@@ -551,9 +551,13 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                             f"Table processed: {schema.database}.{schema.name}.{table.name}"
                         )
                 else:
+                    # Enhanced logging for troubleshooting empty schemas
+                    logger.warning(
+                        f"No tables found in schema {schema.database}.{schema.name}"
+                    )
                     self.report.info(
-                        title="No tables found in some schemas",
-                        message="No tables found in some schemas. This may be due to insufficient privileges for the provided user.",
+                        title="No tables found in schema",
+                        message="No tables found in schema. This may be due to: (1) insufficient privileges on pg_catalog tables, (2) shared tables in regular schemas, (3) external tables only, or (4) empty schema. Check DataHub logs for fallback query attempts.",
                         context=f"Schema: {schema.database}.{schema.name}",
                     )
             else:
