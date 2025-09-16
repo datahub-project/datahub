@@ -234,6 +234,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 headerDropdownItems={headerDropdownItems}
                 parentContainers={data.parentContainers}
                 subTypes={genericProperties?.subTypes}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

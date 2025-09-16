@@ -250,6 +250,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data?.browsePathV2 || undefined}
                 parentContainers={data.parentContainers}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

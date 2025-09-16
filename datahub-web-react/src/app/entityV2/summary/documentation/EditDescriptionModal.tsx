@@ -3,6 +3,8 @@ import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+
 const StyledEditor = styled(Editor)`
     border: none;
     &&& {
@@ -38,6 +40,7 @@ export default function EditDescriptionModal({
     emptyDescriptionText,
     closeModal,
 }: Props) {
+    const canEditDescription = useDocumentationPermission();
     return (
         <Modal
             title="Edit Description"
@@ -62,6 +65,7 @@ export default function EditDescriptionModal({
                         });
                         closeModal();
                     },
+                    disabled: !canEditDescription,
                 },
             ]}
         >

@@ -25,7 +25,7 @@ export const Preview = ({
     paths?: EntityPath[];
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
-    previewType?: PreviewType;
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const genericProperties = entityRegistry.getGenericEntityProperties(EntityType.MlmodelGroup, group);
