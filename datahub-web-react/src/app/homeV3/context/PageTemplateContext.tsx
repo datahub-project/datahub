@@ -21,7 +21,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
     const { entityData } = useEntityData();
     const editable = !!entityData?.privileges?.canManageAssetSummary;
     const isTemplateEditable = useMemo(
-        () => (templateType === PageTemplateSurfaceType.AssetSummary ? editable : true),
+        () => (templateType === PageTemplateSurfaceType.AssetSummary ? editable : false),
         [editable, templateType],
     );
     // Template state management

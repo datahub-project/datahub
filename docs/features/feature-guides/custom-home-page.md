@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Custom Home Page
 
-<FeatureAvailability/>
+<FeatureAvailability saasOnly />
 
 DataHub's **Custom Home Page** empowers organizations and individual users to create personalized, modular home page experiences that put the most relevant data assets and information front and center.
 
