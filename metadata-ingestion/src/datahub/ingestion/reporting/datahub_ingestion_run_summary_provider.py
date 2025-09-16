@@ -268,4 +268,4 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             entity_urn=self.execution_request_input_urn,
             aspect_value=execution_result_aspect,
         )
-        self.sink.close()
+        # Note: sink.close() is handled by the pipeline's context manager

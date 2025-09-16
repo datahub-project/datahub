@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
 import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -18,6 +18,7 @@ export const Preview = ({
     platform,
     degree,
     paths,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -29,6 +30,7 @@ export const Preview = ({
     platform?: DataPlatform | null | undefined;
     degree?: number;
     paths?: EntityPath[];
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -48,6 +50,7 @@ export const Preview = ({
             dataProduct={dataProduct}
             degree={degree}
             paths={paths}
+            previewType={previewType}
         />
     );
 };
