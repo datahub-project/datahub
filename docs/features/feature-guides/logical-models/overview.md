@@ -38,7 +38,7 @@ Columns on the logical parent and physical children can be linked as well:
 
 ## Creating Logical Models
 
-At its core, the logical -> physical relationship is created by the [`LogicalParent`](./generated/metamodel/entities/dataset.md#logicalparent) aspect. However, for ease of use, we recommend the OpenAPI endpoint.
+At its core, the logical -> physical relationship is created by the [`LogicalParent`](../../../generated/metamodel/entities/dataset.md#logicalparent) aspect. To link columns, this aspect must also be created on each child schmea field entity. However, for ease of use, we recommend the OpenAPI endpoint.
 
 ### OpenAPI
 
