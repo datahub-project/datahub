@@ -195,6 +195,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
