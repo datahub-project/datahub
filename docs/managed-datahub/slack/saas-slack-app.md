@@ -8,9 +8,9 @@ The DataHub Slack App brings several of DataHub's key capabilities directly into
 The integration enables your team to:
 
 1. Ask DataHub about your data (by tagging @DataHub)
-2. Get notified when Data Assets change 
-3. Search for & subscribe to data assets using slash commands 
-3. Manage Data Incidents 
+2. Get notified when Data Assets change
+3. Search for & subscribe to data assets using slash commands
+4. Manage Data Incidents
 
 The Slack App makes data discovery easier and more accessible, by making DataHub available where you work.
 Learn more about [how to set up the Slack app](./saas-slack-setup.md) or [how to troubleshoot issues](./saas-slack-troubleshoot.md).

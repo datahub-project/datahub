@@ -29,7 +29,7 @@ Simply mention @DataHub in any channel or chat to ask questions about your data.
 
 ## Get Notified
 
-To get personal notifications via Teams, you must first [connect your teams account](./saas-teams-setup#connecting-your-teams-account).
+To get personal notifications via Teams, you must first [connect your teams account](./saas-teams-setup.md#connecting-your-personal-teams-account).
 
 The DataHub Teams app enables you to be notified in specific Teams channels or direct messages when important changes to your Data Assets occur.
 Notification preferences & subscriptions [can be configured](../subscription-and-notification.md) in the DataHub UI once the [Teams app is set up](./saas-teams-setup.md).

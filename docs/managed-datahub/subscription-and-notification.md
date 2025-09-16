@@ -9,10 +9,10 @@ Currently, DataHub supports notifications on Slack, Microsoft Teams, and Email. 
 
 ## Prerequisites
 
-Email subscriptions & notifications are enabled by default. 
+Email subscriptions & notifications are enabled by default.
 
 To install the Slack App, see:
-👉 [Configure Slack for Notifications](slack/saas-slack-setup.md). 
+👉 [Configure Slack for Notifications](slack/saas-slack-setup.md).
 
 To install the Microsoft Teams App, see:
 👉 [Configure Microsoft Teams for Notifications](teams/saas-teams-setup.md).
@@ -25,7 +25,7 @@ To install the Microsoft Teams App, see:
 
 ### Personal Notifications
 
-To manage personal notification settings, go to Settings > "My Notifications". 
+To manage personal notification settings, go to Settings > "My Notifications".
 From here, enable or disable each notification channel & provide your handle.
 
 ### Group Notifications
