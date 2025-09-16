@@ -347,8 +347,8 @@ public class AuthorizationUtils {
   }
 
   public static boolean canManageStructuredProperties(@Nonnull QueryContext context) {
-    return AuthUtil.isAuthorized(
-        context.getOperationContext(), PoliciesConfig.MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE);
+    return AuthUtil.isAuthorizedEntityType(
+        context.getOperationContext(), MANAGE, List.of(STRUCTURED_PROPERTY_ENTITY_NAME));
   }
 
   public static boolean canViewStructuredPropertiesPage(@Nonnull QueryContext context) {
