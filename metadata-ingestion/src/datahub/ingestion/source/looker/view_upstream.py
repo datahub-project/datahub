@@ -291,12 +291,39 @@ class AbstractViewUpstream(ABC):
 
 class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     """
-    Create upstream column refs and upstream dataset urns from calling Looker run_query API and parsing the response SQL for upstream tables
-    TODO:
-    Add note about field names in different format
-    Add sample request and response fir the API call
-    Add cases which are handled by this implementation
-    Fix logger -> reporter
+    Implements Looker view upstream lineage extraction using the Looker Query API.
+
+    This class leverages the Looker API to generate the fully resolved SQL for a Looker view by constructing a WriteQuery
+    that includes all dimensions, dimension groups and measures. The SQL is then parsed to extract column-level lineage.
+    The Looker client is required for this class, as it is used to execute the WriteQuery and retrieve the SQL.
+
+    Key Features:
+    - Requires a Looker client (`looker_client`) to execute queries and retrieve SQL for the view.
+    - Field name translation is handled: Looker API field names are constructed as `<view_name>.<field_name>`, and helper
+      methods are provided to convert between Looker API field names and raw field names.
+    - SQL parsing is cached for efficiency, and the class is designed to gracefully fall back if the Looker Query API fails.
+    - All lineage extraction is based on the SQL returned by the Looker API, ensuring accurate and up-to-date lineage.
+
+    Example WriteQuery request (see `_execute_query` for details):
+        {
+            "model": "test_model",
+            "view": "users",
+            "fields": [
+                "users.email", "users.lifetime_purchase_count"
+            ],
+            "limit": "1",
+            "cache": true
+        }
+    The SQL response is then parsed to extract upstream tables and column-level lineage.
+
+    For further details, see the method-level docstrings, especially:
+      - `__get_spr`: SQL parsing and lineage extraction workflow
+      - `_get_sql_write_query`: WriteQuery construction and field enumeration
+      - `_execute_query`: Looker API invocation and SQL retrieval
+      - Field name translation: `_get_looker_api_field_name` and `_get_field_name_from_looker_api_field_name`
+
+    Note: This class is intended to be robust and to report warnings if SQL parsing or API calls fail, and will fall back to
+    other implementations if necessary.
     """
 
     def __init__(
@@ -318,19 +345,31 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         # Initialize the cache
         # Done to fallback to other implementations if the Looker Query API fails
-        self.__get_spr()
+        self._get_spr()
 
     def __get_spr(self) -> Optional[SqlParsingResult]:
-        """Get SQL parsing result by querying Looker API for SQL representation"""
+        """
+        Retrieves the SQL parsing result for the current Looker view by:
+        1. Building a WriteQuery for the view.
+        2. Executing the query via the Looker API to get the SQL.
+        3. Parsing the SQL to extract lineage information.
+
+        Returns:
+            SqlParsingResult if successful, otherwise None.
+        Raises:
+            Exception if the Looker API call or SQL parsing fails.
+        """
         try:
-            sql_query: Optional[WriteQuery] = self._get_view_sql_query()
+            # Build the WriteQuery for the current view.
+            sql_query: Optional[WriteQuery] = self._get_sql_write_query()
             if not sql_query:
+                # No query could be constructed (e.g., no fields found).
                 return None
 
-            # Get SQL from Looker API
+            # Execute the query to get the SQL representation from Looker.
             sql_response = self._execute_query(sql_query)
 
-            # Parse the SQL for lineage
+            # Parse the SQL to extract lineage information.
             spr = create_lineage_sql_parsed_result(
                 query=sql_response,
                 default_schema=self.view_context.view_connection.default_schema,
@@ -341,104 +380,206 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 graph=self.ctx.graph,
             )
             return spr
-        except Exception as e:
-            logger.warning(
-                f"Failed to get SQL representation for view {self.view_context.name()}: {e}"
-            )
+
+        except Exception as exc:
             self.reporter.report_warning(
                 f"view-{self.view_context.name()}",
-                f"Failed to get SQL representation: {e}",
+                f"Failed to get SQL representation: {exc}",
             )
-            raise e
+            # Reraise the exception to allow higher-level handling.
+            raise
 
-    def _get_view_sql_query(self) -> Optional[WriteQuery]:
-        """Create a WriteQuery to get SQL representation of the view"""
-        view_name = self.view_context.name()
-        # TODO: Need to handle dimension groups -> names are different based on type of dimension group
+    def _get_sql_write_query(self) -> Optional[WriteQuery]:
+        """
+        Constructs a WriteQuery object to obtain the SQL representation of the current Looker view.
+
+        We need to list all the fields for the view to get the SQL representation of the view - this fully resolved SQL for view dimensions and measures.
+
+        Ref: https://cloud.google.com/looker/docs/reference/param-field-sql#sql_for_dimensions
+        Ref: https://linear.app/acryl-data/issue/ING-970/lookerml-column-lineage-not-handling-intra-view-references
+
+        Returns:
+            Optional[WriteQuery]: The WriteQuery object if fields are found, otherwise None.
+        """
+
+        # Collect all dimension and measure fields for the view.
         view_fields: List[str] = []
 
+        # Add dimension fields in the format: <view_name>.<dimension_name>
         for dim in self.view_context.dimensions():
-            view_fields.append(f"{view_name}.{dim['name']}")
-        for measure in self.view_context.measures():
-            view_fields.append(f"{view_name}.{measure['name']}")
-        # for dim_group in self.view_context.dimension_groups():
-        #     dim_group_fields.append(
-        #         f"{self.view_context.name()}.{dim_group['name']}"
-        #     )
+            dim_name = dim.get("name")
+            if dim_name:
+                view_fields.append(self._get_looker_api_field_name(dim_name))
 
+        # Add measure fields in the format: <view_name>.<measure_name>
+        for measure in self.view_context.measures():
+            measure_name = measure.get("name")
+            if measure_name:
+                view_fields.append(self._get_looker_api_field_name(measure_name))
+
+        # NOTE: Dimension groups are not currently handled.
+        # If needed, uncomment and implement the following:
+        # for dim_group in self.view_context.dimension_groups():
+        #     dim_group_name = dim_group.get("name")
+        #     if dim_group_name:
+        #         view_fields.append(f"{view_name}.{dim_group_name}")
+
+        # If no fields are found, log a warning and return None.
         if not view_fields:
-            logger.warning(
-                f"No fields found for view {view_name}. Cannot proceed with Looker API for view lineage."
+            self.reporter.report_warning(
+                f"view-{self.view_context.name()}",
+                f"No fields found for view '{self.view_context.name()}'. Cannot proceed with Looker API for view lineage.",
             )
             return None
 
+        # Construct and return the WriteQuery object.
+        # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
         return WriteQuery(
             model=self.looker_view_id_cache.model_name,
-            view=view_name,
+            view=self.view_context.name(),
             fields=view_fields,
             filters={},
-            limit="1",  # This number should not matter as the query is not executed
+            limit="1",
         )
 
     def _execute_query(self, query: WriteQuery) -> str:
+        """
+        Executes a Looker SQL query using the Looker API and returns the SQL string.
+
+        Ref: https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Query/run_query
+
+        Example Request:
+            WriteQuery:
+                {
+                    "model": "test_model",
+                    "view": "users",
+                    "fields": [
+                        "users.email", "users.lifetime_purchase_count"
+                    ],
+                    "limit": "1",
+                    "cache": true
+                }
+
+            Response:
+                "
+                SELECT
+                    users."EMAIL"  AS "users.email",
+                    COUNT(DISTINCT ( purchases."PK"  ) ) AS "users.lifetime_purchase_count"
+                FROM "ECOMMERCE"."USERS"  AS users
+                LEFT JOIN "ECOMMERCE"."PURCHASES"  AS purchases ON (users."PK") = (purchases."USER_FK")
+                GROUP BY
+                    1
+                ORDER BY
+                    2 DESC
+                FETCH NEXT 1 ROWS ONLY
+                "
+        Args:
+            query (WriteQuery): The Looker WriteQuery object to execute.
+
+        Returns:
+            str: The SQL string returned by the Looker API, or an empty string if execution fails.
+        """
         sql_response_str: str = ""
+
         try:
+            # Record the start time for latency measurement.
             start_time = datetime.now()
+
+            # Execute the query using the Looker client.
             sql_response = self.looker_client.execute_query(
                 write_query=query,
                 result_format=LookerQueryResponseFormat.SQL,
                 use_cache=self.config.use_api_for_view_lineage,
             )
+
+            # Record the end time after query execution.
             end_time = datetime.now()
 
+            # Log the time taken to retrieve the SQL query.
             logger.debug(
-                f"LookerQueryApiStats: Retrieved SQL query in {(end_time - start_time).total_seconds()} seconds"
+                "LookerQueryApiStats: Retrieved SQL query in %.2f seconds",
+                (end_time - start_time).total_seconds(),
             )
 
+            # Attempt to get the LookerViewId for reporting.
             looker_view_id: Optional[LookerViewId] = (
                 self.looker_view_id_cache.get_looker_view_id(
                     view_name=self.view_context.name(),
                     base_folder_path=self.view_context.base_folder_path,
                 )
             )
+
+            # Report the query API latency if the view ID is available.
             if looker_view_id is not None:
                 self.reporter.report_looker_query_api_latency(
                     looker_view_id.get_urn(self.config),
                     end_time - start_time,
                 )
 
-            assert len(sql_response) == 1
-            assert sql_response[0]["sql"] is not None
-            sql_response_str = sql_response[0]["sql"]
-        except Exception as e:
-            logger.warning(f"Failed to execute {self.view_context.name()}: {e}")
+            # Validate the response structure.
+            if not sql_response or len(sql_response) != 1:
+                logger.debug(
+                    "Unexpected SQL response format for view '%s': %s",
+                    self.view_context.name(),
+                    sql_response,
+                )
+                return ""
+
+            # Extract the SQL string from the response.
+            sql = sql_response[0].get("sql")
+            if sql is None:
+                logger.debug(
+                    "No SQL found in response for view '%s'. Response: %s",
+                    self.view_context.name(),
+                    sql_response,
+                )
+                return ""
+
+            sql_response_str = sql
+
+        except Exception as exc:
+            self.reporter.report_warning(
+                f"view-{self.view_context.name()}",
+                "Failed to execute query for view",
+                exc=exc,
+            )
 
         return sql_response_str
 
     def __get_upstream_dataset_urn(self) -> List[Urn]:
-        """Get upstream dataset URNs from SQL parsing result"""
-        sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
+        """
+        Extract upstream dataset URNs by parsing the SQL for the current view.
 
+        Returns:
+            List[Urn]: List of upstream dataset URNs, or an empty list if parsing fails.
+        """
+        # Attempt to get the SQL parsing result for the current view.
+        sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
         if sql_parsing_result is None:
+            # No parsing result available; return empty list.
             return []
 
-        if sql_parsing_result.debug_info.table_error is not None:
+        # Check for errors encountered during table extraction.
+        table_error = sql_parsing_result.debug_info.table_error
+        if table_error is not None:
             logger.warning(
-                f"SQL parsing failed for view {self.view_context.name()}: "
-                f"{sql_parsing_result.debug_info.table_error}"
+                "SQL parsing failed for view '%s': %s",
+                self.view_context.name(),
+                table_error,
             )
             self.reporter.report_warning(
                 f"view-{self.view_context.name()}",
                 "Error in parsing SQL for upstream tables",
-                exc=sql_parsing_result.debug_info.table_error,
+                exc=table_error,
             )
             return []
 
+        # Remove any 'hive.' prefix from upstream table URNs.
         upstream_dataset_urns: List[str] = [
             _drop_hive_dot(urn) for urn in sql_parsing_result.in_tables
         ]
 
-        # fix any derived view reference present in urn
+        # Fix any derived view references present in the URNs.
         upstream_dataset_urns = fix_derived_view_urn(
             urns=upstream_dataset_urns,
             looker_view_id_cache=self.looker_view_id_cache,
@@ -448,18 +589,24 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         return upstream_dataset_urns
 
-    def get_upstream_dataset_urn(self) -> List[Urn]:
-        """Get upstream dataset URNs"""
-        return self._get_upstream_dataset_urn()
-
     def _get_looker_api_field_name(self, field_name: str) -> str:
-        # pk -> purchases.pk
+        """
+        Translate the field name to the looker api field name
+
+        Example:
+            pk -> purchases.pk
+        """
         return f"{self.view_context.name()}.{field_name}"
 
     def _get_field_name_from_looker_api_field_name(
         self, looker_api_field_name: str
     ) -> str:
-        # purchases.pk -> pk
+        """
+        Translate the looker api field name to the field name
+
+        Example:
+            purchases.pk -> pk
+        """
         # Remove the view name at the start and the dot from the looker_api_field_name, but only if it matches the current view name
         prefix = f"{self.view_context.name()}."
         if looker_api_field_name.startswith(prefix):
@@ -468,84 +615,73 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             # Don't throw an error, just return the original field name
             return looker_api_field_name
 
+    def get_upstream_dataset_urn(self) -> List[Urn]:
+        """Get upstream dataset URNs"""
+        return self._get_upstream_dataset_urn()
+
     def get_upstream_column_ref(
         self, field_context: LookerFieldContext
     ) -> List[ColumnRef]:
-        """Get upstream column references for a field"""
-        sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
-
-        if sql_parsing_result is None:
+        """Return upstream column references for a given field."""
+        spr: Optional[SqlParsingResult] = self._get_spr()
+        if spr is None:
             return []
 
-        if sql_parsing_result.debug_info.column_error is not None:
+        if spr.debug_info.column_error:
             logger.warning(
-                f"Column-level SQL parsing failed for field {field_context.name()} "
-                f"in view {self.view_context.name()}: "
-                f"{sql_parsing_result.debug_info.column_error}"
+                "Column-level SQL parsing failed for field %s in view %s: %s",
+                field_context.name(),
+                self.view_context.name(),
+                spr.debug_info.column_error,
             )
             return []
 
-        if sql_parsing_result.column_lineage is None:
+        if not spr.column_lineage:
             return []
 
-        # Find column lineage for this field
         field_name = field_context.name()
-        upstream_column_refs: List[ColumnRef] = []
+        field_api_name = self._get_looker_api_field_name(field_name).lower()
+        upstream_refs: List[ColumnRef] = []
 
-        for column_lineage in sql_parsing_result.column_lineage:
-            if (
-                column_lineage.downstream.column.lower()
-                == self._get_looker_api_field_name(field_name).lower()
-            ):
-                for upstream in column_lineage.upstreams:
-                    upstream_column_refs.append(
-                        ColumnRef(
-                            table=upstream.table,
-                            column=upstream.column,
-                        )
+        for lineage in spr.column_lineage:
+            if lineage.downstream.column.lower() == field_api_name:
+                for upstream in lineage.upstreams:
+                    upstream_refs.append(
+                        ColumnRef(table=upstream.table, column=upstream.column)
                     )
 
-        return _drop_hive_dot_from_upstream(upstream_column_refs)
+        return _drop_hive_dot_from_upstream(upstream_refs)
 
     def create_fields(self) -> List[ViewField]:
-        """Create ViewField objects from SQL parsing result"""
-        sql_parsing_result: Optional[SqlParsingResult] = self._get_spr()
-
-        if sql_parsing_result is None:
+        """Create ViewField objects from SQL parsing result."""
+        spr: Optional[SqlParsingResult] = self._get_spr()
+        if spr is None:
             return []
 
-        if sql_parsing_result.debug_info.column_error is not None:
+        if spr.debug_info.column_error:
             self.reporter.report_warning(
                 title="Column Level Lineage Missing",
                 message="Error in parsing derived sql for CLL",
                 context=f"View-name: {self.view_context.name()}",
-                exc=sql_parsing_result.debug_info.column_error,
+                exc=spr.debug_info.column_error,
             )
             return []
 
         fields: List[ViewField] = []
-
-        if sql_parsing_result.column_lineage is not None:
-            for column_lineage in sql_parsing_result.column_lineage:
+        if spr.column_lineage:
+            for lineage in spr.column_lineage:
                 fields.append(
                     ViewField(
                         name=self._get_field_name_from_looker_api_field_name(
-                            column_lineage.downstream.column
+                            lineage.downstream.column
                         ),
                         label="",
-                        type=(
-                            column_lineage.downstream.native_column_type
-                            if column_lineage.downstream.native_column_type is not None
-                            else "unknown"
-                        ),
+                        type=lineage.downstream.native_column_type or "unknown",
                         description="",
                         field_type=ViewFieldType.UNKNOWN,
-                        upstream_fields=_drop_hive_dot_from_upstream(
-                            column_lineage.upstreams
-                        ),
+                        upstream_fields=_drop_hive_dot_from_upstream(lineage.upstreams),
                     )
                 )
-
         return fields
 
 
