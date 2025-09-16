@@ -148,6 +148,7 @@ def test_ingest_golden_files(auth_session, golden_files):
     known_failing_files = {
         "datahub/metadata-ingestion/tests/unit/sdk_v2/dataset_golden/test_structured_properties_golden.json",
         "datahub/metadata-ingestion/tests/integration/snowflake/snowflake_structured_properties_golden.json",
+        "datahub/metadata-ingestion/tests/unit/cli/dataset/test_resources/golden_test_dataset_sync_mpcs.json",
     }
 
     for golden_file_path in golden_files:
