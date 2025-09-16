@@ -61,7 +61,7 @@ const editPolicy = (policyName, type, select) => {
   cy.contains("tr", policyName).as("metadataPolicyRow");
   cy.contains("EDIT").click();
   clickOnButton("nextButton");
-  cy.get('[data-testid*="remove-owner-"]').click();
+  cy.clickOptionWithId(".ant-tag-close-icon");
   updateAndSave("privileges", type, select);
   clickOnButton("nextButton");
   cy.get('[data-testid*="remove-owner-"]').click();
