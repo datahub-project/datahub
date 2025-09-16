@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 
-import ProposedIcon from '@app/entityV2/shared/sidebarSection/ProposedIcon';
 import { PartialExtendedOwner } from '@app/sharedV2/owners/types';
 import { getOwnershipTypeDescriptionFromOwner, getOwnershipTypeNameFromOwner } from '@app/sharedV2/owners/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -34,8 +33,7 @@ export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }
     const avatarPhotoUrl = owner?.owner?.editableProperties?.pictureLink;
     const userName = entityRegistry.getDisplayName(owner.owner.type, owner.owner);
 
-    const isProposed = !!owner.isProposed;
-    const removable = !readonly && !isProposed;
+    const removable = !readonly;
 
     const onRemoveClick = useCallback(
         (e: React.MouseEvent<HTMLElement>) => {
@@ -48,7 +46,6 @@ export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }
     const renderButtons = useCallback(() => {
         return (
             <>
-                {isProposed ? <ProposedIcon propertyName="Owner" /> : null}
                 {removable ? (
                     <Icon
                         icon="XCircle"
@@ -61,7 +58,7 @@ export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }
                 ) : null}
             </>
         );
-    }, [isProposed, removable, onRemoveClick]);
+    }, [removable, onRemoveClick]);
 
     const avatarType = mapEntityTypeToAvatarType(owner.owner.type);
 
@@ -104,7 +101,6 @@ export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }
             imageUrl={avatarPhotoUrl}
             showInPill
             extraRightContent={renderButtons()}
-            pillBorderType={isProposed ? 'dashed' : 'default'}
             type={avatarType}
             namePopover={namePopoverProps}
         />
