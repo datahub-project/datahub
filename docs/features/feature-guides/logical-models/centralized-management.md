@@ -14,9 +14,9 @@ Centralized Management support is currently limited to documentation, tags, glos
 
 You can hover over propagated attributes to see when and from where this information came.
 
-<p align="center">
-    <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/description-propagated.png" />
-    <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/tag-propagated.png" />
+<p style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+    <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/description-propagated.png" />
+    <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/tag-propagated.png" />
 </p>
 
 ## Getting Started
