@@ -187,7 +187,7 @@ export class ContainerEntity implements Entity<Container> {
         },
     ];
 
-    renderPreview = (_: PreviewType, data: Container) => {
+    renderPreview = (previewType: PreviewType, data: Container) => {
         const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
@@ -207,6 +207,7 @@ export class ContainerEntity implements Entity<Container> {
                 entityCount={data.entities?.total}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={previewType}
             />
         );
     };
@@ -239,6 +240,7 @@ export class ContainerEntity implements Entity<Container> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data.browsePathV2 || undefined}
+                previewType={PreviewType.SEARCH}
             />
         );
     };
