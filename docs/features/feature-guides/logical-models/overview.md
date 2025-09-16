@@ -18,20 +18,20 @@ The environment variable `LOGICAL_MODELS_ENABLED` must be set to `true` on `data
 
 For example, suppose there exists a `Users` table Snowflake, an `AllUsers` table in BigQuery, and a `UsersAttributes` table Apache Hive. These three tables may have different names and slightly different structures, but logically represent the same data: a table of users, with certain information (columns) for each user. We create a logical table called `Users` and link it to each physical child:
 
-<p style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+<p style={{ display: "flex", flexDirection: "row", justifyContent: "center", gap: "60px" }}>
     <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/relationship-diagram.png" />
 </p>
 
 Once the relationships are [created](#creating-logical-models), they will show up in the entity sidebar for both logical parents and their physical children:
 
-<p style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+<p style={{ display: "flex", flexDirection: "row", justifyContent: "center", gap: "60px" }}>
     <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/logical-parent.png" />
     <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/physical-child.png" />
 </p>
 
 Columns on the logical parent and physical children can be linked as well:
 
-<p style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+<p style={{ display: "flex", flexDirection: "row", justifyContent: "center", gap: "60px" }}>
     <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/logical-parent-column.png" />
     <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/physical-child-column.png" />
 </p>

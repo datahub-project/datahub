@@ -14,7 +14,7 @@ Centralized Management support is currently limited to documentation, tags, glos
 
 You can hover over propagated attributes to see when and from where this information came.
 
-<p style="display: flex; flex-direction: column; align-items: center; gap: 16px;">
+<p style={{ display: "flex", flexDirection: "row", justifyContent: "center", gap: "60px" }}>
     <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/description-propagated.png" />
     <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/logical/tag-propagated.png" />
 </p>
