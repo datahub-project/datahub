@@ -1,10 +1,28 @@
 import logging
-from typing import Any, Dict, List, Optional
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
+# Import url_utils directly to avoid circular import through utils/__init__.py
+import datahub_integrations.teams.url_utils as url_utils
 from datahub_integrations.app import DATAHUB_FRONTEND_URL
-from datahub_integrations.teams.utils.entity_extract import get_type_url
 
 logger = logging.getLogger(__name__)
+
+
+class EntityCardRenderField(Enum):
+    DESCRIPTION = "description"
+    TAG = "tag"
+    TERM = "term"
+    OWNERSHIP = "ownership"
+    DEPRECATED = "deprecated"
+    UNHEALTHY = "unhealthy"
+    HEALTH_INDICATORS = "health_indicators"
+    DOMAIN = "domain"
+    USAGE_STATS = "usage_stats"
+    LINEAGE_COUNTS = "lineage_counts"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 def _extract_name_from_urn(urn: str) -> Optional[str]:
@@ -417,46 +435,6 @@ def _get_health_indicators(raw_entity: Dict[str, Any]) -> List[str]:
     return indicators
 
 
-def _is_certified(raw_entity: Dict[str, Any]) -> bool:
-    """Check if entity has any certification indicators."""
-    if not raw_entity:
-        return False
-
-    # Don't show as certified if deprecated or unhealthy
-    if _is_deprecated(raw_entity) or _is_unhealthy(raw_entity):
-        return False
-
-    # Check for tags that indicate certification
-    global_tags = raw_entity.get("globalTags", {})
-    if isinstance(global_tags, dict):
-        tags_list = global_tags.get("tags", [])
-        if isinstance(tags_list, list):
-            for tag_entry in tags_list:
-                if isinstance(tag_entry, dict):
-                    tag = tag_entry.get("tag", {})
-                    if isinstance(tag, dict):
-                        tag_props = tag.get("properties", {})
-                        tag_name = ""
-                        if isinstance(tag_props, dict):
-                            tag_name = tag_props.get("name", "")
-                        if not tag_name:
-                            tag_name = tag.get("name", "")
-
-                        tag_name = tag_name.lower()
-                        if any(
-                            cert_keyword in tag_name
-                            for cert_keyword in [
-                                "certified",
-                                "verified",
-                                "approved",
-                                "production",
-                            ]
-                        ):
-                            return True
-
-    return False
-
-
 def _get_domain_info(raw_entity: Dict[str, Any]) -> Optional[str]:
     """Get domain information."""
     if not raw_entity:
@@ -551,8 +529,94 @@ def _format_number(num: int) -> str:
         return str(num)
 
 
-def render_entity_card(raw_entity: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Render an entity as a Teams adaptive card with rich information."""
+def _should_include_field(
+    field: EntityCardRenderField,
+    fields: Optional[List[EntityCardRenderField]],
+    field_filtering: bool,
+) -> bool:
+    """Check if a field should be included based on field filtering logic."""
+    return not field_filtering or (fields is not None and field in fields)
+
+
+def _get_field_value_with_error_handling(
+    field_name: str,
+    field_func: Callable[[], Any],
+    raw_entity: Dict[str, Any],
+    urn: str,
+    default_value: Any = None,
+) -> Any:
+    """Get field value with consistent error handling."""
+    try:
+        return field_func()
+    except Exception as e:
+        logger.warning(f"Error getting {field_name} for {urn}: {e}")
+        return default_value
+
+
+def _extract_entity_fields(
+    raw_entity: Dict[str, Any], fields: Optional[List[EntityCardRenderField]], urn: str
+) -> Dict[str, Any]:
+    """Extract all entity fields with proper filtering and error handling."""
+    field_filtering = fields is not None
+
+    # Field extraction functions mapped to their field types
+    field_extractors = {
+        EntityCardRenderField.DESCRIPTION: lambda: raw_entity.get("properties", {}).get(
+            "description"
+        )
+        or "No description available",
+        EntityCardRenderField.TAG: lambda: _get_entity_tags(raw_entity),
+        EntityCardRenderField.TERM: lambda: _get_entity_terms(raw_entity),
+        EntityCardRenderField.OWNERSHIP: lambda: _get_ownership_text(raw_entity),
+        EntityCardRenderField.DEPRECATED: lambda: _is_deprecated(raw_entity),
+        EntityCardRenderField.UNHEALTHY: lambda: _is_unhealthy(raw_entity),
+        EntityCardRenderField.HEALTH_INDICATORS: lambda: _get_health_indicators(
+            raw_entity
+        ),
+        EntityCardRenderField.DOMAIN: lambda: _get_domain_info(raw_entity),
+        EntityCardRenderField.USAGE_STATS: lambda: _get_usage_stats(raw_entity),
+        EntityCardRenderField.LINEAGE_COUNTS: lambda: _get_lineage_counts(raw_entity),
+    }
+
+    # Default values for each field type
+    default_values: Dict[EntityCardRenderField, Any] = {
+        EntityCardRenderField.DESCRIPTION: None,
+        EntityCardRenderField.TAG: [],
+        EntityCardRenderField.TERM: [],
+        EntityCardRenderField.OWNERSHIP: "",
+        EntityCardRenderField.DEPRECATED: False,
+        EntityCardRenderField.UNHEALTHY: False,
+        EntityCardRenderField.HEALTH_INDICATORS: [],
+        EntityCardRenderField.DOMAIN: None,
+        EntityCardRenderField.USAGE_STATS: {},
+        EntityCardRenderField.LINEAGE_COUNTS: {},
+    }
+
+    extracted_fields = {}
+
+    # Extract each field if it should be included
+    for field, extractor_func in field_extractors.items():
+        if _should_include_field(field, fields, field_filtering):
+            field_name = field.value
+            default_value = default_values[field]
+            extracted_fields[field_name] = _get_field_value_with_error_handling(
+                field_name, extractor_func, raw_entity, urn, default_value
+            )
+
+    return extracted_fields
+
+
+def render_entity_card(
+    raw_entity: Optional[Dict[str, Any]],
+    fields: Optional[List[EntityCardRenderField]] = None,
+) -> Dict[str, Any]:
+    """Render an entity as a Teams adaptive card with rich information.
+    Args:
+        raw_entity: The raw entity data.
+        fields: The fields to render. If empty list, minimal card will be rendered. If None, all fields will be rendered.
+    Returns:
+        The Teams adaptive card.
+    """
 
     if not raw_entity:
         return {}
@@ -567,14 +631,10 @@ def render_entity_card(raw_entity: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         # Extract name from URN if properties.name is missing
         name = _extract_name_from_urn(str(urn) if urn else "") or "Unknown"
 
-    description = properties.get("description") or "No description available"
-
-    # Truncate description if too long
-    if len(description) > 150:
-        description = description[:147] + "..."
-
     # Get the entity URL
-    entity_url = get_type_url(entity_type, urn) if entity_type and urn else None
+    entity_url = (
+        url_utils.get_type_url(entity_type, urn) if entity_type and urn else None
+    )
 
     # Get enhanced information with error handling
     try:
@@ -589,60 +649,27 @@ def render_entity_card(raw_entity: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         logger.warning(f"Error building breadcrumb for {urn}: {e}")
         breadcrumb_text = ""
 
-    try:
-        tags = _get_entity_tags(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error getting tags for {urn}: {e}")
-        tags = []
+    # Extract all fields using the helper function
+    extracted_fields = _extract_entity_fields(raw_entity, fields, urn or "")
 
-    try:
-        terms = _get_entity_terms(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error getting terms for {urn}: {e}")
-        terms = []
+    # Assign extracted fields to variables for backward compatibility
+    description = extracted_fields.get("description")
+    if description and len(description) > 150:
+        description = description[:147] + "..."
 
-    try:
-        ownership_text = _get_ownership_text(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error getting ownership for {urn}: {e}")
-        ownership_text = ""
-
-    try:
-        is_certified = _is_certified(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error checking certification for {urn}: {e}")
-        is_certified = False
-
-    try:
-        health_indicators = _get_health_indicators(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error getting health indicators for {urn}: {e}")
-        health_indicators = []
-
-    try:
-        domain_info = _get_domain_info(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error getting domain info for {urn}: {e}")
-        domain_info = None
-
-    try:
-        usage_stats = _get_usage_stats(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error getting usage stats for {urn}: {e}")
-        usage_stats = {}
-
-    try:
-        lineage_counts = _get_lineage_counts(raw_entity)
-    except Exception as e:
-        logger.warning(f"Error getting lineage counts for {urn}: {e}")
-        lineage_counts = {}
+    tags = extracted_fields.get("tag", [])
+    terms = extracted_fields.get("term", [])
+    ownership_text = extracted_fields.get("ownership", "")
+    health_indicators = extracted_fields.get("health_indicators", [])
+    domain_info = extracted_fields.get("domain")
+    usage_stats = extracted_fields.get("usage_stats", {})
+    lineage_counts = extracted_fields.get("lineage_counts", {})
 
     try:
         external_url = _get_external_url(raw_entity)
     except Exception as e:
         logger.warning(f"Error getting external URL for {urn}: {e}")
         external_url = None
-
     # Build the header items
     header_items: List[Dict[str, Any]] = []
 
@@ -674,10 +701,8 @@ def render_entity_card(raw_entity: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
     # Add entity name with status indicators
     entity_name_text = name
-    if is_certified:
-        entity_name_text = f"✅ {name}"
 
-    # Add health indicators (warnings override certification)
+    # Add health indicators
     if health_indicators:
         entity_name_text = f"{' '.join(health_indicators)} {name}"
 
@@ -758,15 +783,16 @@ def render_entity_card(raw_entity: Optional[Dict[str, Any]]) -> Dict[str, Any]:
             }
         )
 
-    # Add description
-    body_items.append(
-        {
-            "type": "TextBlock",
-            "text": description,
-            "wrap": True,
-            "spacing": "Medium",
-        }
-    )
+    if description:
+        # Add description
+        body_items.append(
+            {
+                "type": "TextBlock",
+                "text": description,
+                "wrap": True,
+                "spacing": "Medium",
+            }
+        )
 
     # Add ownership info with section header
     if ownership_text:

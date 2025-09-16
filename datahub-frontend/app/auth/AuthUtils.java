@@ -3,12 +3,15 @@ package auth;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpUserInvitationStatus;
 import com.linkedin.identity.CorpUserStatus;
+import com.linkedin.identity.InvitationStatus;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -188,13 +191,15 @@ public class AuthUtils {
 
       log.debug(String.format("Fetched GMS user with urn %s", corpUserSnapshot.getUrn()));
 
-      // If we find more than the key aspect, then the entity "exists".
-      if (existingCorpUserSnapshot.getAspects().size() <= 1) {
+      // Check if we should provision the user (either they don't exist or only have SENT invitation
+      // status)
+      if (shouldProvisionUserWithExistingAspects(
+          opContext, corpUserSnapshot.getUrn(), existingCorpUserSnapshot, systemEntityClient)) {
         log.debug(
             String.format(
-                "Extracted user that does not yet exist %s. Provisioning...",
+                "Extracted user that needs provisioning %s. Provisioning...",
                 corpUserSnapshot.getUrn()));
-        // 2. The user does not exist. Provision them.
+        // 2. The user does not exist or only has a SENT invitation. Provision them.
         final Entity newEntity = new Entity();
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
         systemEntityClient.update(opContext, newEntity);
@@ -306,6 +311,53 @@ public class AuthUtils {
                       .setTime(System.currentTimeMillis())),
           entityClient);
     }
+  }
+
+  /**
+   * Helper method to check if a user should be provisioned even though they have existing aspects.
+   * This allows provisioning when the user has a CorpUserInvitationStatus with SENT status.
+   *
+   * @param opContext Operation context
+   * @param corpUserUrn The user URN
+   * @param existingCorpUserSnapshot The existing user snapshot
+   * @param systemEntityClient Entity client to check invitation status
+   * @return true if the user should be provisioned, false otherwise
+   */
+  private static boolean shouldProvisionUserWithExistingAspects(
+      @Nonnull OperationContext opContext,
+      @Nonnull CorpuserUrn corpUserUrn,
+      CorpUserSnapshot existingCorpUserSnapshot,
+      @Nonnull SystemEntityClient systemEntityClient) {
+
+    // If only the key aspect exists, we should provision
+    if (existingCorpUserSnapshot.getAspects().size() <= 1) {
+      return true;
+    }
+
+    // Check if the user has a SENT invitation status by making a direct call to the entity client
+    try {
+      Aspect invitationAspectObject =
+          systemEntityClient.getLatestAspectObject(
+              opContext, corpUserUrn, Constants.CORP_USER_INVITATION_STATUS_ASPECT_NAME, false);
+
+      if (invitationAspectObject != null) {
+        CorpUserInvitationStatus invitationStatus =
+            new CorpUserInvitationStatus(invitationAspectObject.data());
+        if (invitationStatus.getStatus() == InvitationStatus.SENT) {
+          log.debug("User {} has SENT invitation status, allowing SSO provisioning", corpUserUrn);
+          return true;
+        } else {
+          log.debug(
+              "User {} has invitation status {}, not allowing SSO provisioning",
+              corpUserUrn,
+              invitationStatus.getStatus());
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Failed to check CorpUserInvitationStatus for user {}", corpUserUrn, e);
+    }
+
+    return false;
   }
 
   /**

@@ -15,6 +15,10 @@ record TeamsUser {
    * The Azure AD user ID (Azure Active Directory object ID).
    * This is the primary identifier for Azure AD operations and Microsoft Graph API calls.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
   azureUserId: optional string
 
   /**

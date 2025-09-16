@@ -139,7 +139,7 @@ class DevBotSetup:
 
 # Azure Bot Configuration
 DATAHUB_TEAMS_APP_ID={bot_result["app_registration"]["app_id"]}
-DATAHUB_TEAMS_APP_SECRET={bot_result["app_registration"]["client_secret"]}
+DATAHUB_TEAMS_APP_PASSWORD={bot_result["app_registration"]["client_secret"]}
 DATAHUB_TEAMS_WEBHOOK_URL={bot_result["teams_config"]["webhook_url"]}
 
 # Azure Resource Information

@@ -25,11 +25,14 @@ from datahub_integrations.propagation.propagation_v2.types.source_details import
 logger = logging.getLogger(__name__)
 
 
-class OwnershipPropagator(AspectPropagator[OwnershipClass]):
+class OwnershipPropagator(AspectPropagator[OwnershipClass, OwnershipClass]):
     # TODO: Support custom config, init, and create to customize propagator
 
-    def aspects(self) -> tuple[type[OwnershipClass]]:
+    def origin_aspects(self) -> tuple[type[OwnershipClass]]:
         return (OwnershipClass,)
+
+    def target_aspect(self) -> type[OwnershipClass]:
+        return OwnershipClass
 
     def empty_aspects(self) -> tuple[OwnershipClass]:
         return (OwnershipClass(owners=[], lastModified=None),)
@@ -46,10 +49,9 @@ class OwnershipPropagator(AspectPropagator[OwnershipClass]):
         origin_urn: str,
         target_urn: str,
         origin_aspects: tuple[OwnershipClass],
-        target_aspects: tuple[OwnershipClass | None],
+        target_aspect: OwnershipClass | None,
     ) -> Iterator[EntityChangeEvent]:
         origin_aspect = origin_aspects[0]
-        target_aspect = target_aspects[0]
         if target_aspect:
             # Filter to only owners attributed to this propagation action
             relevant_owners = []
@@ -75,7 +77,7 @@ class OwnershipPropagator(AspectPropagator[OwnershipClass]):
             )
 
         return compute_ownership_diff_eces(
-            entity_urn=origin_urn,
+            origin_urn=origin_urn,
             old_aspect=target_aspect,
             new_aspect=origin_aspect,
             audit_stamp=self._propagation_audit_stamp(),
@@ -131,7 +133,7 @@ class OwnershipPropagator(AspectPropagator[OwnershipClass]):
 
 
 def compute_ownership_diff_eces(
-    entity_urn: str,
+    origin_urn: str,
     old_aspect: OwnershipClass | None,
     new_aspect: OwnershipClass,
     audit_stamp: AuditStampClass,
@@ -143,7 +145,7 @@ def compute_ownership_diff_eces(
     although logic is significantly different, using Python's set operations for clarity.
 
     Args:
-        entity_urn: URN of the entity being changed
+        origin_urn: URN of the entity being changed
         old_aspect: The original ownership aspect
         new_aspect: The new ownership aspect
         audit_stamp: Audit stamp with information about how the ECEs were created
@@ -176,8 +178,8 @@ def compute_ownership_diff_eces(
         for owner in owners_added:
             owner_assoc = new_owner_map[owner]
             yield EntityChangeEvent(
-                entityUrn=entity_urn,
-                entityType=Urn.from_string(entity_urn).entity_type,
+                entityUrn=origin_urn,
+                entityType=Urn.from_string(origin_urn).entity_type,
                 category=ChangeCategory.OWNER.value,
                 operation=ChangeOperation.ADD.value,
                 parameters={  # type: ignore
@@ -192,8 +194,8 @@ def compute_ownership_diff_eces(
         for owner in owners_removed:
             owner_assoc = old_owner_map[owner]
             yield EntityChangeEvent(
-                entityUrn=entity_urn,
-                entityType=Urn.from_string(entity_urn).entity_type,
+                entityUrn=origin_urn,
+                entityType=Urn.from_string(origin_urn).entity_type,
                 category=ChangeCategory.OWNER.value,
                 operation=ChangeOperation.REMOVE.value,
                 parameters={  # type: ignore

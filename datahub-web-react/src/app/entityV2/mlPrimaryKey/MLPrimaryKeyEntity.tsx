@@ -46,7 +46,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         return (
             <DotChartOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }}
             />
         );
     };

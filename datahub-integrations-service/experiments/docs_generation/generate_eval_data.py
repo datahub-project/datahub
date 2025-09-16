@@ -5,9 +5,10 @@ import json
 import os
 import pathlib
 import shutil
-from typing import List, Tuple, TypedDict, Optional
+from typing import List, Optional, Tuple, TypedDict
 
 import asyncer
+import typer
 from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
 
@@ -19,7 +20,6 @@ from datahub_integrations.gen_ai.description_context import (
     ExtractedTableInfo,
     extract_metadata_for_urn,
 )
-import typer
 
 assert AI_EXPERIMENTATION_INITIALIZED
 from datahub_integrations.experimentation.docs_generation.eval_common import (

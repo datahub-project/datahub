@@ -24,14 +24,13 @@ export type NotificationConnectionTestResult = {
     status: string;
     report: NotificationConnectionTestStructuredReport;
 };
-export type NotificationConnectionTestStructuredReport = [
-    {
-        timestamp?: number;
-        error?: string;
-        message?: string;
-        warning?: string;
-    },
-];
+export type NotificationConnectionTestStructuredReport = Array<{
+    timestamp?: number;
+    error?: string;
+    errorType?: string;
+    message?: string;
+    warning?: string;
+}>;
 
 export type ExtraContextForErrorMessage = {
     destinationName: string;

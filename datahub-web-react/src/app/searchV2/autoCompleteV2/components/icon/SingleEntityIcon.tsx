@@ -46,7 +46,7 @@ export function SingleEntityIcon({ entity, size }: Props) {
     }
 
     if (properties?.platform?.urn === LOGICAL_PLATFORM_URN) {
-        return <LogicalPlatformDefaultIcon />;
+        return <LogicalPlatformDefaultIcon size={size} />;
     }
 
     return <EntityIcon>{entityRegistry.getIcon(entity.type, size, IconStyleType.ACCENT)}</EntityIcon>;

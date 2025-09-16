@@ -5,6 +5,8 @@ import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundati
 
 import { TestResult, TestResultType } from '@src/types.generated';
 
+export const TEST_CATEGORIES_TO_EXCLUDE: string[] = ['Forms'];
+
 /**
  * Returns the display text assoociated with an Test Result Type
  */
@@ -55,3 +57,17 @@ export const getResultIcon = (result: TestResultType) => {
 export const excludeTestsByCategories = (tests: TestResult[], categoriesToExclude: string[]) => {
     return tests.filter((test) => test.test?.category && !categoriesToExclude.includes(test.test?.category));
 };
+
+export function getFilteredTestResults(passing: TestResult[], failing: TestResult[]) {
+    const filteredPassing = excludeTestsByCategories(
+        passing.filter((testResult) => testResult.test !== null) || [],
+        TEST_CATEGORIES_TO_EXCLUDE,
+    );
+    const filteredFailing = excludeTestsByCategories(
+        failing.filter((testResult) => testResult.test !== null) || [],
+        TEST_CATEGORIES_TO_EXCLUDE,
+    );
+    const totalTests = filteredPassing.length + filteredFailing.length;
+
+    return { filteredPassing, filteredFailing, totalTests };
+}

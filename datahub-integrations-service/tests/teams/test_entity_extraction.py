@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from datahub_integrations.teams.url_utils import get_type_url
 from datahub_integrations.teams.utils.entity_extract import (
     ExtractedEntity,
     _extract_entity_name,
@@ -19,7 +20,6 @@ from datahub_integrations.teams.utils.entity_extract import (
     _get_usage_level,
     extract_entities_from_response,
     extract_entities_with_metadata,
-    get_type_url,
 )
 from tests.teams.shared_mocks import (
     MockDataHubGraph,
@@ -52,7 +52,7 @@ class TestGetTypeUrl:
 
         for entity_type, urn, expected_path in test_cases:
             with patch(
-                "datahub_integrations.teams.utils.entity_extract.DATAHUB_FRONTEND_URL",
+                "datahub_integrations.teams.url_utils.DATAHUB_FRONTEND_URL",
                 "https://test.datahub.com",
             ):
                 url = get_type_url(entity_type, urn)
@@ -82,7 +82,7 @@ class TestGetTypeUrl:
     def test_get_type_url_special_characters(self) -> None:
         """Test URL generation with special characters in URN."""
         with patch(
-            "datahub_integrations.teams.utils.entity_extract.DATAHUB_FRONTEND_URL",
+            "datahub_integrations.teams.url_utils.DATAHUB_FRONTEND_URL",
             "https://test.datahub.com",
         ):
             urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table%20with%20spaces,PROD)"
@@ -136,9 +136,7 @@ class TestExtractedEntity:
         """Test URL generation through ExtractedEntity."""
         entity_data = {"urn": "urn:li:dataset:test", "type": "DATASET"}
 
-        with patch(
-            "datahub_integrations.teams.utils.entity_extract.get_type_url"
-        ) as mock_url:
+        with patch("datahub_integrations.teams.url_utils.get_type_url") as mock_url:
             mock_url.return_value = (
                 "https://test.datahub.com/dataset/urn:li:dataset:test"
             )

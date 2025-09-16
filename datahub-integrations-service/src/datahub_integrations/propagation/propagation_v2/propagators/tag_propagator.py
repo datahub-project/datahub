@@ -27,11 +27,14 @@ from datahub_integrations.propagation.propagation_v2.types.source_details import
 logger = logging.getLogger(__name__)
 
 
-class TagPropagator(AspectPropagator[GlobalTagsClass]):
+class TagPropagator(AspectPropagator[GlobalTagsClass, GlobalTagsClass]):
     # TODO: Support custom config, init, and create to customize propagator
 
-    def aspects(self) -> tuple[type[GlobalTagsClass]]:
+    def origin_aspects(self) -> tuple[type[GlobalTagsClass]]:
         return (GlobalTagsClass,)
+
+    def target_aspect(self) -> type[GlobalTagsClass]:
+        return GlobalTagsClass
 
     def empty_aspects(self) -> tuple[GlobalTagsClass]:
         return (GlobalTagsClass(tags=[]),)
@@ -47,10 +50,9 @@ class TagPropagator(AspectPropagator[GlobalTagsClass]):
         origin_urn: str,
         target_urn: str,
         origin_aspects: tuple[GlobalTagsClass],
-        target_aspects: tuple[GlobalTagsClass | None],
+        target_aspect: GlobalTagsClass | None,
     ) -> Iterator[EntityChangeEvent]:
         origin_aspect = origin_aspects[0]
-        target_aspect = target_aspects[0]
         if target_aspect:
             # Filter to only tags attributed to this propagation action
             relevant_tags = []
@@ -74,7 +76,7 @@ class TagPropagator(AspectPropagator[GlobalTagsClass]):
             target_aspect = GlobalTagsClass(tags=relevant_tags)
 
         return compute_tag_diff_eces(
-            entity_urn=origin_urn,
+            origin_urn=origin_urn,
             old_aspect=target_aspect,
             new_aspect=origin_aspect,
             audit_stamp=self._propagation_audit_stamp(),
@@ -127,7 +129,7 @@ class TagPropagator(AspectPropagator[GlobalTagsClass]):
 
 
 def compute_tag_diff_eces(
-    entity_urn: str,
+    origin_urn: str,
     old_aspect: GlobalTagsClass | None,
     new_aspect: GlobalTagsClass,
     audit_stamp: AuditStampClass,
@@ -139,7 +141,7 @@ def compute_tag_diff_eces(
     although logic is significantly different, using Python's set operations for clarity.
 
     Args:
-        entity_urn: URN of the entity being changed
+        origin_urn: URN of the entity being changed
         old_aspect: The original global tags aspect
         new_aspect: The new global tags aspect
         audit_stamp: Audit stamp with information about how the ECEs were created
@@ -165,8 +167,8 @@ def compute_tag_diff_eces(
     for tag in tags_added:
         tag_assoc = new_tag_association_map[tag]
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.TAG.value,
             operation=ChangeOperation.ADD.value,
             parameters={"context": tag_assoc.context},  # type: ignore
@@ -177,8 +179,8 @@ def compute_tag_diff_eces(
     for tag in tags_removed:
         tag_assoc = old_tag_association_map[tag]
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.TAG.value,
             operation=ChangeOperation.REMOVE.value,
             parameters={"context": tag_assoc.context},  # type: ignore
