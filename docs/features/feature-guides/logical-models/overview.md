@@ -12,6 +12,10 @@ Logical models are useful for those who have multiple tables that represent the 
 
 ## How It Looks
 
+:::note Feature Flag
+The environment variable `LOGICAL_MODELS_ENABLED` must be set to `true` on `datahub-gms` for logical models to be viewed in the UI.
+:::
+
 For example, suppose there exists a `Users` table Snowflake, an `AllUsers` table in BigQuery, and a `UsersAttributes` table Apache Hive. These three tables may have different names and slightly different structures, but logically represent the same data: a table of users, with certain information (columns) for each user. We create a logical table called `Users` and link it to each physical child:
 
 <p align="center">
