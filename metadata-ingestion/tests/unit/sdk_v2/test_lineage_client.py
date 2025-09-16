@@ -760,9 +760,9 @@ def test_get_lineage_no_platform(client: DataHubClient) -> None:
             source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
             direction="downstream",
         )
-    results = [result.urn for result in results]
+    results_urns = [result.urn for result in results]
     TestCase().assertCountEqual(
-        results,
+        results_urns,
         [
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table4,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table3,PROD)",
