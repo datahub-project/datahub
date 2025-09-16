@@ -1,4 +1,4 @@
-import { colors, Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { Divider, Image, Tag } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
