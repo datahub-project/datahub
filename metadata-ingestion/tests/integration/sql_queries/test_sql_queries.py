@@ -150,7 +150,6 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
             "input/patch-lineage.yml",
             "golden/patch-lineage.json",
         ),
-        # New enhancement tests
         (
             "input/lazy-schema-loading.yml",
             "golden/lazy-schema-loading.json",
