@@ -65,7 +65,7 @@ record IncidentInfo {
     "addToFilters": true,
     "filterNameOverride": "Priority"
   }
-  priority: optional int = 0
+  priority: optional int
 
   /**
    * The parties assigned with resolving the incident

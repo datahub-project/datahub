@@ -94,6 +94,11 @@ class CassandraSourceConfig(
         description="Path to the SSL key file for SSL connections.",
     )
 
+    ssl_version: Optional[str] = Field(
+        default="TLS_CLIENT",
+        description="SSL protocol version to use for connections. Options: TLS_CLIENT, TLSv1, TLSv1_1, TLSv1_2, TLSv1_3. Defaults to TLS_CLIENT.",
+    )
+
     keyspace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter keyspaces for ingestion.",
