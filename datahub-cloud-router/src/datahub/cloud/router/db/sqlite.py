@@ -150,12 +150,13 @@ class SQLiteDatabase(Database):
             )
 
     def has_mapping(self, tenant_id: str) -> Optional[str]:
-        """Check if tenant has a mapping and return instance ID"""
+        """Check if tenant has a mapping and return instance ID (latest wins)"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 """
                 SELECT datahub_instance_id FROM tenant_instance_mappings 
-                WHERE tenant_id = ? AND is_active = 1 AND is_default_for_tenant = 1
+                WHERE tenant_id = ? AND is_active = 1
+                ORDER BY created_at DESC
                 LIMIT 1
             """,
                 (tenant_id,),
@@ -164,13 +165,14 @@ class SQLiteDatabase(Database):
             return row[0] if row else None
 
     def get_mapping(self, tenant_id: str) -> Optional[TenantMapping]:
-        """Get the tenant mapping for a given tenant ID"""
+        """Get the tenant mapping for a given tenant ID (latest wins)"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.execute(
                 """
                 SELECT * FROM tenant_instance_mappings 
-                WHERE tenant_id = ? AND is_active = 1 AND is_default_for_tenant = 1
+                WHERE tenant_id = ? AND is_active = 1
+                ORDER BY created_at DESC
                 LIMIT 1
             """,
                 (tenant_id,),

@@ -268,14 +268,14 @@ class MySQLDatabase(Database):
         return mapping
 
     def get_mapping(self, tenant_id: str) -> Optional[TenantMapping]:
-        """Get tenant mapping by tenant ID."""
+        """Get tenant mapping by tenant ID (latest wins)."""
         with self._get_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
                     SELECT * FROM tenant_instance_mappings 
                     WHERE tenant_id = %s AND is_active = TRUE
-                    ORDER BY is_default_for_tenant DESC, created_at
+                    ORDER BY created_at DESC
                     LIMIT 1
                 """,
                     (tenant_id,),
@@ -287,14 +287,14 @@ class MySQLDatabase(Database):
                 return None
 
     def has_mapping(self, tenant_id: str) -> Optional[str]:
-        """Check if tenant has a mapping and return instance ID."""
+        """Check if tenant has a mapping and return instance ID (latest wins)."""
         with self._get_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
                     SELECT datahub_instance_id FROM tenant_instance_mappings 
                     WHERE tenant_id = %s AND is_active = TRUE
-                    ORDER BY is_default_for_tenant DESC, created_at
+                    ORDER BY created_at DESC
                     LIMIT 1
                 """,
                     (tenant_id,),
