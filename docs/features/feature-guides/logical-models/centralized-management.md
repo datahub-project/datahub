@@ -1,5 +1,7 @@
 # Centralized Management
 
+<FeatureAvailability saasOnly />
+
 :::info
 This feature is currently in private beta in DataHub Cloud. Reach out to your DataHub Cloud representative to learn more.
 :::
@@ -8,9 +10,17 @@ This feature is currently in private beta in DataHub Cloud. Reach out to your Da
 
 Centralized Management allows governance of all physical children at the logical parent level. This means that metadata changes made to the logical model will be propagated to all its physical children.
 
-:::note
-Centralized Management support is currently limited to documentation, tags, glossary terms, ownership, and structured properties. Domains, data products, and data quality assertions are not currently supported.
-:::
+<table>
+<tr><th>Metadata at Logical Level</th><th>Change at Physical Level</th></tr>
+<tr><td>Tags</td><td>✅ Tags are replicated on physical children.</td></tr>
+<tr><td>Glossary Terms</td><td>✅ Terms are replicated on physical children.</td></tr>
+<tr><td>Documentation</td><td>✅ The description shown on the logical parent is copied to physical children. If the child has its own description, that will be shown instead.</td></tr>
+<tr><td>Ownership</td><td>⚠️ Owners are replicated on physical children. If the same user is an owner for multiple ownership types, only one ownership type replicated.</td></tr>
+<tr><td>Structured Properties</td><td>⚠️ Structured properties are replicated on physical children. If the child has an existing value for the same property, it will be replaced, even if that property is multi-valued.</td></tr>
+<tr><td>Domains</td><td>❌ Domains are not propagated.</td></tr>
+<tr><td>Data Products</td><td>❌ Data products are not propagated.</td></tr>
+<tr><td>Data Quality Assertions</td><td>❌ Assertions are not propagated.</td></tr>
+</table>
 
 You can hover over propagated attributes to see when and from where this information came.
 
