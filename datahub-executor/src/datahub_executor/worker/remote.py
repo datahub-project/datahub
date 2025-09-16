@@ -88,7 +88,7 @@ def add_cloud_logging_configs(
     if aspect_value_args is None:
         aspect_value_args = {}
         aspect_value["args"] = aspect_value_args
-    extra_env_vars = aspect_value_args["extra_env_vars"]
+    extra_env_vars = aspect_value_args.get("extra_env_vars")
     if extra_env_vars is None:
         extra_env_vars = "{}"
         aspect_value_args["extra_env_vars"] = extra_env_vars
