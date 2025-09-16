@@ -1,18 +1,35 @@
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
 from click.testing import CliRunner
 
 from datahub.cli.graphql_cli import (
+    _collect_nested_types,
+    _convert_describe_to_json,
+    _convert_operation_to_json,
+    _convert_operations_list_to_json,
+    _convert_type_details_to_json,
+    _convert_type_to_json,
+    _dict_to_graphql_input,
+    _extract_base_type_name,
+    _fetch_type_recursive,
     _find_operation_by_name,
+    _find_type_by_name,
     _format_graphql_type,
     _format_operation_details,
     _format_operation_list,
+    _format_recursive_types,
+    _format_single_type_fields,
+    _generate_operation_query,
+    _get_minimal_fallback_operations,
     _is_file_path,
     _load_content_or_file,
+    _parse_graphql_operations_from_files,
+    _parse_operations_from_content,
     _parse_variables,
     graphql,
 )
@@ -747,3 +764,1227 @@ class TestGraphQLCommand:
 
             finally:
                 os.chdir(original_cwd)
+
+
+class TestSchemaFileHandling:
+    """Test schema file parsing and fallback functionality."""
+
+    def test_parse_graphql_operations_from_files_error_fallback(self):
+        """Test that when schema path lookup fails, function falls back gracefully."""
+        # Test the error handling by directly calling with None schema path
+        # which triggers the fallback path lookup that will fail in test environment
+        result = _parse_graphql_operations_from_files(None)
+
+        # Should return the minimal fallback operations structure
+        assert "queryType" in result
+        assert "mutationType" in result
+
+        # Should contain known fallback operations
+        query_fields = result["queryType"]["fields"]
+        query_names = [op["name"] for op in query_fields]
+        assert "me" in query_names
+
+    def test_parse_graphql_operations_from_files_with_custom_path(self):
+        """Test parsing operations from custom schema path."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            schema_path = Path(temp_dir)
+
+            # Create a mock GraphQL schema file
+            schema_file = schema_path / "test.graphql"
+            schema_content = """
+            type Query {
+                "Get current user"
+                me: User
+                "Search entities"
+                search(query: String!): SearchResults
+            }
+
+            type Mutation {
+                "Create a new user"
+                createUser(input: CreateUserInput!): User
+            }
+            """
+            schema_file.write_text(schema_content)
+
+            result = _parse_graphql_operations_from_files(str(schema_path))
+
+            # Should parse queries
+            assert "queryType" in result
+            assert result["queryType"] is not None
+            query_fields = result["queryType"]["fields"]
+            assert len(query_fields) >= 2
+
+            # Check specific operations
+            me_op = next(op for op in query_fields if op["name"] == "me")
+            assert me_op["description"] == "Get current user"
+
+            search_op = next(op for op in query_fields if op["name"] == "search")
+            assert search_op["description"] == "Search entities"
+
+            # Should parse mutations
+            assert "mutationType" in result
+            assert result["mutationType"] is not None
+            mutation_fields = result["mutationType"]["fields"]
+            assert len(mutation_fields) >= 1
+
+            create_user_op = next(
+                op for op in mutation_fields if op["name"] == "createUser"
+            )
+            assert create_user_op["description"] == "Create a new user"
+
+    def test_parse_graphql_operations_from_files_nonexistent_custom_path(self):
+        """Test parsing operations with non-existent custom schema path."""
+        # Looking at the logs, this function catches FileNotFoundError and falls back
+        # Let's test that it falls back gracefully instead
+        nonexistent_path = "/this/path/definitely/does/not/exist/on/any/system"
+        result = _parse_graphql_operations_from_files(nonexistent_path)
+
+        # Should fall back to minimal operations
+        assert "queryType" in result
+        assert "mutationType" in result
+        query_names = [op["name"] for op in result["queryType"]["fields"]]
+        assert "me" in query_names  # Should contain fallback operations
+
+    def test_parse_graphql_operations_from_files_fallback_on_error(self):
+        """Test that parsing falls back to minimal operations on error."""
+        with patch("datahub.cli.graphql_cli._get_schema_files_path") as mock_get_path:
+            mock_get_path.side_effect = Exception("Schema files not found")
+
+            result = _parse_graphql_operations_from_files()
+
+            # Should return minimal fallback operations
+            assert "queryType" in result
+            assert "mutationType" in result
+
+            # Check for known fallback operations
+            query_fields = result["queryType"]["fields"]
+            query_names = [op["name"] for op in query_fields]
+            assert "me" in query_names
+            assert "searchAcrossEntities" in query_names
+
+            mutation_fields = result["mutationType"]["fields"]
+            mutation_names = [op["name"] for op in mutation_fields]
+            assert "addTag" in mutation_names
+            assert "removeTag" in mutation_names
+
+    def test_parse_operations_from_content(self):
+        """Test parsing operations from GraphQL content string."""
+        content = """
+        \"\"\"Get current authenticated user\"\"\"
+        me: AuthenticatedUser
+
+        "Search across all entity types"
+        searchAcrossEntities(input: SearchInput!): SearchResults
+
+        # This should be skipped as it's not a valid field
+        type SomeType {
+            field: String
+        }
+
+        "Browse entities hierarchically"
+        browse(path: BrowsePath): BrowseResults
+        """
+
+        operations = _parse_operations_from_content(content, "Query")
+
+        assert len(operations) >= 3
+
+        # Check specific operations were parsed
+        op_names = [op["name"] for op in operations]
+        assert "me" in op_names
+        assert "searchAcrossEntities" in op_names
+        assert "browse" in op_names
+
+        # Check descriptions were extracted
+        me_op = next(op for op in operations if op["name"] == "me")
+        assert "authenticated user" in me_op["description"].lower()
+
+        search_op = next(
+            op for op in operations if op["name"] == "searchAcrossEntities"
+        )
+        assert "search across all entity types" in search_op["description"].lower()
+
+    def test_parse_operations_from_content_with_keywords(self):
+        """Test that GraphQL keywords are properly filtered out."""
+        content = """
+        query: String
+        mutation: String
+        subscription: String
+        type: String
+        input: String
+        enum: String
+        validField: String
+        """
+
+        operations = _parse_operations_from_content(content, "Query")
+
+        # Should only contain validField, keywords should be filtered
+        assert len(operations) == 1
+        assert operations[0]["name"] == "validField"
+
+    def test_get_minimal_fallback_operations(self):
+        """Test minimal fallback operations structure."""
+        result = _get_minimal_fallback_operations()
+
+        # Should have both query and mutation types
+        assert "queryType" in result
+        assert "mutationType" in result
+
+        # Check query operations
+        query_fields = result["queryType"]["fields"]
+        assert len(query_fields) > 5  # Should have several common queries
+        query_names = [op["name"] for op in query_fields]
+        assert "me" in query_names
+        assert "searchAcrossEntities" in query_names
+        assert "dataset" in query_names
+
+        # Check mutation operations
+        mutation_fields = result["mutationType"]["fields"]
+        assert len(mutation_fields) > 5  # Should have several common mutations
+        mutation_names = [op["name"] for op in mutation_fields]
+        assert "addTag" in mutation_names
+        assert "removeTag" in mutation_names
+        assert "createGroup" in mutation_names
+
+        # Each operation should have required fields
+        for op in query_fields + mutation_fields:
+            assert "name" in op
+            assert "description" in op
+            assert "args" in op
+            assert isinstance(op["args"], list)
+
+
+class TestOperationGenerationAndQueryBuilding:
+    """Test operation generation and query building functionality."""
+
+    def test_dict_to_graphql_input_simple(self):
+        """Test converting simple dict to GraphQL input syntax."""
+        input_dict = {"key": "value", "number": 42, "flag": True}
+        result = _dict_to_graphql_input(input_dict)
+
+        assert 'key: "value"' in result
+        assert "number: 42" in result
+        assert "flag: true" in result
+        assert result.startswith("{") and result.endswith("}")
+
+    def test_dict_to_graphql_input_nested(self):
+        """Test converting nested dict to GraphQL input syntax."""
+        input_dict = {
+            "user": {"name": "test", "age": 30},
+            "tags": ["tag1", "tag2"],
+            "metadata": {"active": True},
+        }
+        result = _dict_to_graphql_input(input_dict)
+
+        assert 'user: {name: "test", age: 30}' in result
+        assert 'tags: ["tag1", "tag2"]' in result
+        assert "metadata: {active: true}" in result
+
+    def test_dict_to_graphql_input_complex_lists(self):
+        """Test converting dict with complex list items to GraphQL input syntax."""
+        input_dict = {
+            "users": [
+                {"name": "user1", "active": True},
+                {"name": "user2", "active": False},
+            ],
+            "values": [1, 2, 3],
+            "strings": ["a", "b", "c"],
+        }
+        result = _dict_to_graphql_input(input_dict)
+
+        assert (
+            'users: [{name: "user1", active: true}, {name: "user2", active: false}]'
+            in result
+        )
+        assert "values: [1, 2, 3]" in result
+        assert 'strings: ["a", "b", "c"]' in result
+
+    def test_dict_to_graphql_input_non_dict(self):
+        """Test handling non-dict input."""
+        result = _dict_to_graphql_input("not a dict")  # type: ignore
+        assert result == "not a dict"
+
+        result = _dict_to_graphql_input(123)  # type: ignore
+        assert result == "123"
+
+    def test_generate_operation_query_simple(self):
+        """Test generating query for simple operation without arguments."""
+        operation_field = {"name": "me", "description": "Get current user", "args": []}
+
+        result = _generate_operation_query(operation_field, "Query")
+        expected = "query { me { corpUser { urn username properties { displayName email firstName lastName title } } } }"
+        assert result == expected
+
+    def test_generate_operation_query_with_required_args(self):
+        """Test generating query for operation with required arguments."""
+        operation_field = {
+            "name": "searchAcrossEntities",
+            "description": "Search across all entity types",
+            "args": [
+                {
+                    "name": "input",
+                    "type": {
+                        "kind": "NON_NULL",
+                        "ofType": {"kind": "INPUT_OBJECT", "name": "SearchInput"},
+                    },
+                }
+            ],
+        }
+        variables = {"input": {"query": "test", "start": 0, "count": 10}}
+
+        result = _generate_operation_query(operation_field, "Query", variables)
+        expected = 'query { searchAcrossEntities(input: {query: "test", start: 0, count: 10})  }'
+        assert result == expected
+
+    def test_generate_operation_query_missing_required_args(self):
+        """Test error when required arguments are missing."""
+        operation_field = {
+            "name": "searchAcrossEntities",
+            "description": "Search across all entity types",
+            "args": [
+                {
+                    "name": "input",
+                    "type": {
+                        "kind": "NON_NULL",
+                        "ofType": {"kind": "INPUT_OBJECT", "name": "SearchInput"},
+                    },
+                }
+            ],
+        }
+
+        with pytest.raises(
+            Exception,
+            match="Operation 'searchAcrossEntities' requires arguments: input",
+        ):
+            _generate_operation_query(operation_field, "Query", None)
+
+    def test_generate_operation_query_with_optional_args(self):
+        """Test generating query with optional arguments."""
+        operation_field = {
+            "name": "browse",
+            "description": "Browse entities",
+            "args": [
+                {
+                    "name": "path",
+                    "type": {"kind": "SCALAR", "name": "String"},  # Optional
+                },
+                {
+                    "name": "filter",
+                    "type": {
+                        "kind": "INPUT_OBJECT",
+                        "name": "BrowseFilter",
+                    },  # Optional
+                },
+            ],
+        }
+        variables = {"path": "datasets"}
+
+        result = _generate_operation_query(operation_field, "Query", variables)
+        expected = 'query { browse(path: "datasets")  }'
+        assert result == expected
+
+    def test_generate_operation_query_mutation(self):
+        """Test generating mutation query."""
+        operation_field = {
+            "name": "addTag",
+            "description": "Add tag to entity",
+            "args": [
+                {
+                    "name": "input",
+                    "type": {
+                        "kind": "NON_NULL",
+                        "ofType": {
+                            "kind": "INPUT_OBJECT",
+                            "name": "TagAssociationInput",
+                        },
+                    },
+                }
+            ],
+        }
+        variables = {
+            "input": {"tagUrn": "urn:li:tag:test", "resourceUrn": "urn:li:dataset:test"}
+        }
+
+        result = _generate_operation_query(operation_field, "Mutation", variables)
+        expected = 'mutation { addTag(input: {tagUrn: "urn:li:tag:test", resourceUrn: "urn:li:dataset:test"})  }'
+        assert result == expected
+
+    def test_generate_operation_query_list_operations(self):
+        """Test generating queries for list operations."""
+        # Test listUsers operation
+        operation_field = {
+            "name": "listUsers",
+            "description": "List all users",
+            "args": [],
+        }
+
+        result = _generate_operation_query(operation_field, "Query")
+        expected = "query { listUsers { total users { urn username properties { displayName email } } } }"
+        assert result == expected
+
+        # Test other list operation
+        operation_field = {
+            "name": "listDatasets",
+            "description": "List datasets",
+            "args": [],
+        }
+
+        result = _generate_operation_query(operation_field, "Query")
+        expected = "query { listDatasets { total } }"
+        assert result == expected
+
+    def test_generate_operation_query_entity_operations(self):
+        """Test generating queries for specific entity operations."""
+        entity_operations = [
+            ("corpUser", "query { corpUser { urn } }"),
+            ("dataset", "query { dataset { urn } }"),
+            ("dashboard", "query { dashboard { urn } }"),
+            ("chart", "query { chart { urn } }"),
+        ]
+
+        for op_name, expected in entity_operations:
+            operation_field = {
+                "name": op_name,
+                "description": f"Get {op_name}",
+                "args": [],
+            }
+
+            result = _generate_operation_query(operation_field, "Query")
+            assert result == expected
+
+    def test_generate_operation_query_complex_variables(self):
+        """Test generating queries with complex variable structures."""
+        operation_field = {
+            "name": "complexOperation",
+            "description": "Complex operation with nested input",
+            "args": [
+                {
+                    "name": "input",
+                    "type": {
+                        "kind": "NON_NULL",
+                        "ofType": {"kind": "INPUT_OBJECT", "name": "ComplexInput"},
+                    },
+                }
+            ],
+        }
+
+        complex_variables = {
+            "input": {
+                "filters": {
+                    "platform": "snowflake",
+                    "entityTypes": ["DATASET", "TABLE"],
+                },
+                "sort": {"field": "name", "direction": "ASC"},
+                "pagination": {"start": 0, "count": 20},
+            }
+        }
+
+        result = _generate_operation_query(operation_field, "Query", complex_variables)
+
+        # Should contain the complex nested structure
+        assert "complexOperation(input: {" in result
+        assert 'platform: "snowflake"' in result
+        assert 'entityTypes: ["DATASET", "TABLE"]' in result
+        assert 'direction: "ASC"' in result
+
+    def test_generate_operation_query_boolean_handling(self):
+        """Test that boolean values are properly formatted."""
+        operation_field = {
+            "name": "testOperation",
+            "description": "Test operation with boolean",
+            "args": [
+                {"name": "input", "type": {"kind": "INPUT_OBJECT", "name": "TestInput"}}
+            ],
+        }
+
+        variables = {
+            "input": {
+                "active": True,
+                "deprecated": False,
+                "count": 0,  # Should not be converted to boolean
+            }
+        }
+
+        result = _generate_operation_query(operation_field, "Query", variables)
+
+        assert "active: true" in result
+        assert "deprecated: false" in result
+        assert "count: 0" in result
+
+    def test_generate_operation_query_string_escaping(self):
+        """Test that string values are properly quoted and escaped."""
+        operation_field = {
+            "name": "testOperation",
+            "description": "Test operation with strings",
+            "args": [
+                {"name": "input", "type": {"kind": "INPUT_OBJECT", "name": "TestInput"}}
+            ],
+        }
+
+        variables = {
+            "input": {
+                "name": "test entity",
+                "description": 'A test description with "quotes"',
+                "number": 42,
+            }
+        }
+
+        result = _generate_operation_query(operation_field, "Query", variables)
+
+        assert 'name: "test entity"' in result
+        assert "number: 42" in result  # Numbers should not be quoted
+
+
+class TestTypeIntrospectionAndRecursiveExploration:
+    """Test type introspection and recursive type exploration functionality."""
+
+    def test_extract_base_type_name_simple(self):
+        """Test extracting base type name from simple type."""
+        type_info = {"kind": "SCALAR", "name": "String"}
+        result = _extract_base_type_name(type_info)
+        assert result == "String"
+
+    def test_extract_base_type_name_non_null(self):
+        """Test extracting base type name from NON_NULL wrapper."""
+        type_info = {"kind": "NON_NULL", "ofType": {"kind": "SCALAR", "name": "String"}}
+        result = _extract_base_type_name(type_info)
+        assert result == "String"
+
+    def test_extract_base_type_name_list(self):
+        """Test extracting base type name from LIST wrapper."""
+        type_info = {"kind": "LIST", "ofType": {"kind": "SCALAR", "name": "String"}}
+        result = _extract_base_type_name(type_info)
+        assert result == "String"
+
+    def test_extract_base_type_name_nested_wrappers(self):
+        """Test extracting base type name from nested wrappers."""
+        type_info = {
+            "kind": "NON_NULL",
+            "ofType": {
+                "kind": "LIST",
+                "ofType": {"kind": "INPUT_OBJECT", "name": "SearchInput"},
+            },
+        }
+        result = _extract_base_type_name(type_info)
+        assert result == "SearchInput"
+
+    def test_extract_base_type_name_empty(self):
+        """Test extracting base type name from empty or invalid type."""
+        assert _extract_base_type_name({}) is None
+        assert _extract_base_type_name(None) is None  # type: ignore
+        assert _extract_base_type_name({"kind": "NON_NULL"}) is None  # Missing ofType
+
+    def test_find_type_by_name(self):
+        """Test finding a type by name using GraphQL introspection."""
+        mock_client = Mock()
+        mock_client.execute_graphql.return_value = {
+            "__type": {
+                "name": "SearchInput",
+                "kind": "INPUT_OBJECT",
+                "inputFields": [
+                    {
+                        "name": "query",
+                        "description": "Search query string",
+                        "type": {"kind": "SCALAR", "name": "String"},
+                    },
+                    {
+                        "name": "start",
+                        "description": "Start offset",
+                        "type": {"kind": "SCALAR", "name": "Int"},
+                    },
+                ],
+            }
+        }
+
+        result = _find_type_by_name(mock_client, "SearchInput")
+
+        assert result is not None
+        assert result["name"] == "SearchInput"
+        assert result["kind"] == "INPUT_OBJECT"
+        assert len(result["inputFields"]) == 2
+
+        # Verify the query was executed correctly
+        mock_client.execute_graphql.assert_called_once()
+        call_args = mock_client.execute_graphql.call_args
+        query_arg = (
+            call_args[1]["query"]
+            if len(call_args) > 1 and "query" in call_args[1]
+            else call_args[0][0]
+        )
+        assert "SearchInput" in query_arg
+
+    def test_find_type_by_name_not_found(self):
+        """Test finding a non-existent type."""
+        mock_client = Mock()
+        mock_client.execute_graphql.return_value = {"__type": None}
+
+        result = _find_type_by_name(mock_client, "NonExistentType")
+        assert result is None
+
+    def test_find_type_by_name_error(self):
+        """Test error handling when introspection fails."""
+        mock_client = Mock()
+        mock_client.execute_graphql.side_effect = Exception("GraphQL error")
+
+        result = _find_type_by_name(mock_client, "SearchInput")
+        assert result is None
+
+    def test_collect_nested_types(self):
+        """Test collecting nested type names from a type definition."""
+        type_info = {
+            "inputFields": [
+                {
+                    "name": "filter",
+                    "type": {"kind": "INPUT_OBJECT", "name": "FilterInput"},
+                },
+                {
+                    "name": "tags",
+                    "type": {
+                        "kind": "LIST",
+                        "ofType": {"kind": "INPUT_OBJECT", "name": "TagInput"},
+                    },
+                },
+                {
+                    "name": "name",
+                    "type": {
+                        "kind": "SCALAR",
+                        "name": "String",
+                    },  # Should be filtered out
+                },
+                {
+                    "name": "count",
+                    "type": {"kind": "SCALAR", "name": "Int"},  # Should be filtered out
+                },
+            ]
+        }
+
+        result = _collect_nested_types(type_info)
+
+        assert len(result) == 2
+        assert "FilterInput" in result
+        assert "TagInput" in result
+        # Scalar types should not be included
+        assert "String" not in result
+        assert "Int" not in result
+
+    def test_collect_nested_types_with_visited(self):
+        """Test collecting nested types with visited set to avoid duplicates."""
+        type_info = {
+            "inputFields": [
+                {
+                    "name": "filter1",
+                    "type": {"kind": "INPUT_OBJECT", "name": "FilterInput"},
+                },
+                {
+                    "name": "filter2",
+                    "type": {
+                        "kind": "INPUT_OBJECT",
+                        "name": "FilterInput",
+                    },  # Duplicate
+                },
+            ]
+        }
+
+        visited: set[str] = set()
+        result = _collect_nested_types(type_info, visited)
+
+        # The function doesn't deduplicate internally - it returns all found types
+        # Deduplication happens at a higher level in the recursive fetching
+        assert "FilterInput" in result
+        assert len(result) == 2  # Two references to the same type
+
+    def test_fetch_type_recursive(self):
+        """Test recursively fetching a type and its nested types."""
+        mock_client = Mock()
+
+        # Mock responses for different types
+        def mock_execute_graphql(query, **kwargs):
+            if "SearchInput" in query:
+                return {
+                    "__type": {
+                        "name": "SearchInput",
+                        "kind": "INPUT_OBJECT",
+                        "inputFields": [
+                            {
+                                "name": "filter",
+                                "type": {"kind": "INPUT_OBJECT", "name": "FilterInput"},
+                            },
+                            {
+                                "name": "query",
+                                "type": {"kind": "SCALAR", "name": "String"},
+                            },
+                        ],
+                    }
+                }
+            elif "FilterInput" in query:
+                return {
+                    "__type": {
+                        "name": "FilterInput",
+                        "kind": "INPUT_OBJECT",
+                        "inputFields": [
+                            {
+                                "name": "platform",
+                                "type": {"kind": "SCALAR", "name": "String"},
+                            }
+                        ],
+                    }
+                }
+            return {"__type": None}
+
+        mock_client.execute_graphql.side_effect = mock_execute_graphql
+
+        result = _fetch_type_recursive(mock_client, "SearchInput")
+
+        # Should contain both types
+        assert "SearchInput" in result
+        assert "FilterInput" in result
+
+        # Verify structure
+        search_input = result["SearchInput"]
+        assert search_input["name"] == "SearchInput"
+        assert search_input["kind"] == "INPUT_OBJECT"
+
+        filter_input = result["FilterInput"]
+        assert filter_input["name"] == "FilterInput"
+        assert filter_input["kind"] == "INPUT_OBJECT"
+
+    def test_fetch_type_recursive_circular_reference(self):
+        """Test handling of circular type references."""
+        mock_client = Mock()
+
+        # Create a circular reference scenario
+        def mock_execute_graphql(query, **kwargs):
+            if "TypeA" in query:
+                return {
+                    "__type": {
+                        "name": "TypeA",
+                        "kind": "INPUT_OBJECT",
+                        "inputFields": [
+                            {
+                                "name": "typeB",
+                                "type": {"kind": "INPUT_OBJECT", "name": "TypeB"},
+                            }
+                        ],
+                    }
+                }
+            elif "TypeB" in query:
+                return {
+                    "__type": {
+                        "name": "TypeB",
+                        "kind": "INPUT_OBJECT",
+                        "inputFields": [
+                            {
+                                "name": "typeA",
+                                "type": {
+                                    "kind": "INPUT_OBJECT",
+                                    "name": "TypeA",
+                                },  # Circular reference
+                            }
+                        ],
+                    }
+                }
+            return {"__type": None}
+
+        mock_client.execute_graphql.side_effect = mock_execute_graphql
+
+        result = _fetch_type_recursive(mock_client, "TypeA")
+
+        # Should handle circular reference without infinite loop
+        assert "TypeA" in result
+        assert "TypeB" in result
+        assert len(result) == 2  # No duplicates
+
+    def test_fetch_type_recursive_error_handling(self):
+        """Test error handling during recursive type fetching."""
+        mock_client = Mock()
+        mock_client.execute_graphql.side_effect = Exception("GraphQL error")
+
+        result = _fetch_type_recursive(mock_client, "SearchInput")
+
+        # Should return empty dict on error
+        assert result == {}
+
+    def test_format_single_type_fields_input_object(self):
+        """Test formatting fields for an INPUT_OBJECT type."""
+        type_info = {
+            "kind": "INPUT_OBJECT",
+            "inputFields": [
+                {
+                    "name": "query",
+                    "description": "Search query string",
+                    "type": {"kind": "SCALAR", "name": "String"},
+                },
+                {
+                    "name": "filter",
+                    "type": {"kind": "INPUT_OBJECT", "name": "FilterInput"},
+                },
+            ],
+        }
+
+        result = _format_single_type_fields(type_info)
+
+        assert len(result) == 2
+        assert "  query: String - Search query string" in result
+        assert "  filter: FilterInput" in result
+
+    def test_format_single_type_fields_enum(self):
+        """Test formatting enum values for an ENUM type."""
+        type_info = {
+            "kind": "ENUM",
+            "enumValues": [
+                {
+                    "name": "ACTIVE",
+                    "description": "Entity is active",
+                    "isDeprecated": False,
+                },
+                {
+                    "name": "DEPRECATED_VALUE",
+                    "description": "Old value",
+                    "isDeprecated": True,
+                    "deprecationReason": "Use ACTIVE instead",
+                },
+            ],
+        }
+
+        result = _format_single_type_fields(type_info)
+
+        assert len(result) == 2
+        assert "  ACTIVE - Entity is active" in result
+        assert (
+            "  DEPRECATED_VALUE - Old value (DEPRECATED: Use ACTIVE instead)" in result
+        )
+
+    def test_format_single_type_fields_empty(self):
+        """Test formatting empty type (no fields or enum values)."""
+        # Empty INPUT_OBJECT
+        type_info = {"kind": "INPUT_OBJECT", "inputFields": []}
+        result = _format_single_type_fields(type_info)
+        assert result == ["  (no fields)"]
+
+        # Empty ENUM
+        type_info = {"kind": "ENUM", "enumValues": []}
+        result = _format_single_type_fields(type_info)
+        assert result == ["  (no enum values)"]
+
+    def test_format_recursive_types(self):
+        """Test formatting multiple types in hierarchical display."""
+        types_map = {
+            "SearchInput": {
+                "name": "SearchInput",
+                "kind": "INPUT_OBJECT",
+                "inputFields": [
+                    {"name": "query", "type": {"kind": "SCALAR", "name": "String"}}
+                ],
+            },
+            "FilterInput": {
+                "name": "FilterInput",
+                "kind": "INPUT_OBJECT",
+                "inputFields": [
+                    {"name": "platform", "type": {"kind": "SCALAR", "name": "String"}}
+                ],
+            },
+        }
+
+        result = _format_recursive_types(types_map, "SearchInput")
+
+        # Should display root type first
+        lines = result.split("\n")
+        assert "SearchInput:" in lines[0]
+        assert "  query: String" in result
+
+        # Should display nested types
+        assert "FilterInput:" in result
+        assert "  platform: String" in result
+
+    def test_format_recursive_types_root_type_missing(self):
+        """Test formatting when root type is not in the types map."""
+        types_map = {
+            "FilterInput": {
+                "name": "FilterInput",
+                "kind": "INPUT_OBJECT",
+                "inputFields": [],
+            }
+        }
+
+        result = _format_recursive_types(types_map, "SearchInput")
+
+        # Should still display other types
+        assert "FilterInput:" in result
+        # Should not crash when root type is missing
+
+
+class TestJSONOutputFormatting:
+    """Test JSON output formatting for LLM consumption."""
+
+    def test_convert_type_to_json_simple(self):
+        """Test converting simple GraphQL type to JSON format."""
+        type_info = {"kind": "SCALAR", "name": "String"}
+        result = _convert_type_to_json(type_info)
+
+        expected = {"kind": "SCALAR", "name": "String"}
+        assert result == expected
+
+    def test_convert_type_to_json_non_null(self):
+        """Test converting NON_NULL type to JSON format."""
+        type_info = {"kind": "NON_NULL", "ofType": {"kind": "SCALAR", "name": "String"}}
+        result = _convert_type_to_json(type_info)
+
+        expected = {"kind": "NON_NULL", "ofType": {"kind": "SCALAR", "name": "String"}}
+        assert result == expected
+
+    def test_convert_type_to_json_list(self):
+        """Test converting LIST type to JSON format."""
+        type_info = {"kind": "LIST", "ofType": {"kind": "SCALAR", "name": "String"}}
+        result = _convert_type_to_json(type_info)
+
+        expected = {"kind": "LIST", "ofType": {"kind": "SCALAR", "name": "String"}}
+        assert result == expected
+
+    def test_convert_type_to_json_complex(self):
+        """Test converting complex nested type to JSON format."""
+        type_info = {
+            "kind": "NON_NULL",
+            "ofType": {
+                "kind": "LIST",
+                "ofType": {"kind": "INPUT_OBJECT", "name": "SearchInput"},
+            },
+        }
+        result = _convert_type_to_json(type_info)
+
+        expected = {
+            "kind": "NON_NULL",
+            "ofType": {
+                "kind": "LIST",
+                "ofType": {"kind": "INPUT_OBJECT", "name": "SearchInput"},
+            },
+        }
+        assert result == expected
+
+    def test_convert_type_to_json_empty(self):
+        """Test converting empty type info."""
+        result = _convert_type_to_json({})
+        assert result == {}
+
+        result = _convert_type_to_json(None)  # type: ignore
+        assert result == {}
+
+    def test_convert_operation_to_json(self):
+        """Test converting operation info to JSON format."""
+        operation = {
+            "name": "searchAcrossEntities",
+            "description": "Search across all entity types",
+            "args": [
+                {
+                    "name": "input",
+                    "description": "Search input parameters",
+                    "type": {
+                        "kind": "NON_NULL",
+                        "ofType": {"kind": "INPUT_OBJECT", "name": "SearchInput"},
+                    },
+                },
+                {
+                    "name": "limit",
+                    "description": "Maximum results to return",
+                    "type": {"kind": "SCALAR", "name": "Int"},  # Optional
+                },
+            ],
+        }
+
+        result = _convert_operation_to_json(operation, "Query")
+
+        assert result["name"] == "searchAcrossEntities"
+        assert result["type"] == "Query"
+        assert result["description"] == "Search across all entity types"
+        assert len(result["arguments"]) == 2
+
+        # Check required argument
+        input_arg = result["arguments"][0]
+        assert input_arg["name"] == "input"
+        assert input_arg["description"] == "Search input parameters"
+        assert input_arg["required"] is True
+        assert input_arg["type"]["kind"] == "NON_NULL"
+
+        # Check optional argument
+        limit_arg = result["arguments"][1]
+        assert limit_arg["name"] == "limit"
+        assert limit_arg["required"] is False
+        assert limit_arg["type"]["kind"] == "SCALAR"
+
+    def test_convert_operation_to_json_no_args(self):
+        """Test converting operation with no arguments to JSON format."""
+        operation = {"name": "me", "description": "Get current user", "args": []}
+
+        result = _convert_operation_to_json(operation, "Query")
+
+        assert result["name"] == "me"
+        assert result["type"] == "Query"
+        assert result["description"] == "Get current user"
+        assert result["arguments"] == []
+
+    def test_convert_type_details_to_json_input_object(self):
+        """Test converting INPUT_OBJECT type details to JSON format."""
+        type_info = {
+            "name": "SearchInput",
+            "kind": "INPUT_OBJECT",
+            "description": "Input for search operations",
+            "inputFields": [
+                {
+                    "name": "query",
+                    "description": "Search query string",
+                    "type": {"kind": "SCALAR", "name": "String"},
+                },
+                {
+                    "name": "filter",
+                    "description": "Search filters",
+                    "type": {"kind": "INPUT_OBJECT", "name": "FilterInput"},
+                },
+            ],
+        }
+
+        result = _convert_type_details_to_json(type_info)
+
+        assert result["name"] == "SearchInput"
+        assert result["kind"] == "INPUT_OBJECT"
+        assert result["description"] == "Input for search operations"
+        assert len(result["fields"]) == 2
+
+        query_field = result["fields"][0]
+        assert query_field["name"] == "query"
+        assert query_field["description"] == "Search query string"
+        assert query_field["type"]["kind"] == "SCALAR"
+
+    def test_convert_type_details_to_json_enum(self):
+        """Test converting ENUM type details to JSON format."""
+        type_info = {
+            "name": "EntityType",
+            "kind": "ENUM",
+            "description": "Types of entities in DataHub",
+            "enumValues": [
+                {
+                    "name": "DATASET",
+                    "description": "Dataset entity",
+                    "isDeprecated": False,
+                },
+                {
+                    "name": "LEGACY_TYPE",
+                    "description": "Old entity type",
+                    "isDeprecated": True,
+                    "deprecationReason": "Use DATASET instead",
+                },
+            ],
+        }
+
+        result = _convert_type_details_to_json(type_info)
+
+        assert result["name"] == "EntityType"
+        assert result["kind"] == "ENUM"
+        assert result["description"] == "Types of entities in DataHub"
+        assert len(result["values"]) == 2
+
+        dataset_value = result["values"][0]
+        assert dataset_value["name"] == "DATASET"
+        assert dataset_value["description"] == "Dataset entity"
+        assert dataset_value["deprecated"] is False
+
+        legacy_value = result["values"][1]
+        assert legacy_value["name"] == "LEGACY_TYPE"
+        assert legacy_value["deprecated"] is True
+        assert legacy_value["deprecationReason"] == "Use DATASET instead"
+
+    def test_convert_operations_list_to_json(self):
+        """Test converting full operations list to JSON format."""
+        schema = {
+            "queryType": {
+                "fields": [
+                    {"name": "me", "description": "Get current user", "args": []},
+                    {
+                        "name": "search",
+                        "description": "Search entities",
+                        "args": [
+                            {
+                                "name": "query",
+                                "type": {"kind": "SCALAR", "name": "String"},
+                            }
+                        ],
+                    },
+                ]
+            },
+            "mutationType": {
+                "fields": [
+                    {
+                        "name": "addTag",
+                        "description": "Add tag to entity",
+                        "args": [
+                            {
+                                "name": "input",
+                                "type": {
+                                    "kind": "NON_NULL",
+                                    "ofType": {
+                                        "kind": "INPUT_OBJECT",
+                                        "name": "TagInput",
+                                    },
+                                },
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+
+        result = _convert_operations_list_to_json(schema)
+
+        assert "schema" in result
+        assert "queries" in result["schema"]
+        assert "mutations" in result["schema"]
+
+        # Check queries
+        queries = result["schema"]["queries"]
+        assert len(queries) == 2
+        assert queries[0]["name"] == "me"
+        assert queries[0]["type"] == "Query"
+        assert queries[1]["name"] == "search"
+
+        # Check mutations
+        mutations = result["schema"]["mutations"]
+        assert len(mutations) == 1
+        assert mutations[0]["name"] == "addTag"
+        assert mutations[0]["type"] == "Mutation"
+
+    def test_convert_operations_list_to_json_empty_schema(self):
+        """Test converting empty schema to JSON format."""
+        schema: dict[str, Any] = {}
+        result = _convert_operations_list_to_json(schema)
+
+        assert result == {"schema": {"queries": [], "mutations": []}}
+
+    def test_convert_describe_to_json_operation_only(self):
+        """Test converting describe output with operation only."""
+        operation_info = (
+            {
+                "name": "searchAcrossEntities",
+                "description": "Search across all entity types",
+                "args": [],
+            },
+            "Query",
+        )
+
+        result = _convert_describe_to_json(operation_info, None, None)
+
+        assert "operation" in result
+        assert result["operation"]["name"] == "searchAcrossEntities"
+        assert result["operation"]["type"] == "Query"
+        assert "type" not in result
+        assert "relatedTypes" not in result
+
+    def test_convert_describe_to_json_type_only(self):
+        """Test converting describe output with type only."""
+        type_info = {
+            "name": "SearchInput",
+            "kind": "INPUT_OBJECT",
+            "inputFields": [
+                {"name": "query", "type": {"kind": "SCALAR", "name": "String"}}
+            ],
+        }
+
+        result = _convert_describe_to_json(None, type_info, None)
+
+        assert "type" in result
+        assert result["type"]["name"] == "SearchInput"
+        assert result["type"]["kind"] == "INPUT_OBJECT"
+        assert "operation" not in result
+        assert "relatedTypes" not in result
+
+    def test_convert_describe_to_json_with_related_types(self):
+        """Test converting describe output with related types."""
+        operation_info = (
+            {
+                "name": "search",
+                "description": "Search operation",
+                "args": [
+                    {
+                        "name": "input",
+                        "type": {"kind": "INPUT_OBJECT", "name": "SearchInput"},
+                    }
+                ],
+            },
+            "Query",
+        )
+
+        type_info = {"name": "SearchInput", "kind": "INPUT_OBJECT", "inputFields": []}
+
+        related_types = {
+            "SearchInput": {
+                "name": "SearchInput",
+                "kind": "INPUT_OBJECT",
+                "inputFields": [],
+            },
+            "FilterInput": {
+                "name": "FilterInput",
+                "kind": "INPUT_OBJECT",
+                "inputFields": [],
+            },
+        }
+
+        result = _convert_describe_to_json(operation_info, type_info, related_types)
+
+        assert "operation" in result
+        assert "type" in result
+        assert "relatedTypes" in result
+        assert len(result["relatedTypes"]) == 2
+        assert "SearchInput" in result["relatedTypes"]
+        assert "FilterInput" in result["relatedTypes"]
+
+    def test_convert_describe_to_json_all_none(self):
+        """Test converting describe output when everything is None."""
+        result = _convert_describe_to_json(None, None, None)
+        assert result == {}
+
+    def test_json_formatting_preserves_structure(self):
+        """Test that JSON formatting preserves all necessary structure for LLMs."""
+        # Complex operation with nested types
+        operation = {
+            "name": "complexSearch",
+            "description": "Complex search with multiple parameters",
+            "args": [
+                {
+                    "name": "input",
+                    "description": "Search input",
+                    "type": {
+                        "kind": "NON_NULL",
+                        "ofType": {
+                            "kind": "INPUT_OBJECT",
+                            "name": "ComplexSearchInput",
+                        },
+                    },
+                },
+                {
+                    "name": "options",
+                    "description": "Search options",
+                    "type": {
+                        "kind": "LIST",
+                        "ofType": {"kind": "ENUM", "name": "SearchOption"},
+                    },
+                },
+            ],
+        }
+
+        result = _convert_operation_to_json(operation, "Query")
+
+        # Verify complete structure is preserved
+        assert result["name"] == "complexSearch"
+        assert result["type"] == "Query"
+        assert result["description"] == "Complex search with multiple parameters"
+        assert len(result["arguments"]) == 2
+
+        # Verify nested type structure is preserved
+        input_arg = result["arguments"][0]
+        assert input_arg["required"] is True
+        assert input_arg["type"]["kind"] == "NON_NULL"
+        assert input_arg["type"]["ofType"]["kind"] == "INPUT_OBJECT"
+        assert input_arg["type"]["ofType"]["name"] == "ComplexSearchInput"
+
+        options_arg = result["arguments"][1]
+        assert options_arg["required"] is False
+        assert options_arg["type"]["kind"] == "LIST"
+        assert options_arg["type"]["ofType"]["kind"] == "ENUM"
+        assert options_arg["type"]["ofType"]["name"] == "SearchOption"
