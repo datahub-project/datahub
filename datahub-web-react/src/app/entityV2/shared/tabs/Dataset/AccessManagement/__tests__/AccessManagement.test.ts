@@ -1,8 +1,6 @@
 import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
 
 import { GetExternalRolesQuery } from '@graphql/dataset.generated';
-import { GetMeQuery } from '@graphql/me.generated';
-import { EntityType } from '@types';
 
 describe('handleAccessRoles (EntityV2)', () => {
     it('should properly map external roles using isAssignedToMe field', () => {
