@@ -21,9 +21,16 @@ from datahub_integrations.identity.identity_provider import IdentityProvider
 from datahub_integrations.notifications.constants import (
     DATAHUB_BASE_URL,
     MAX_NOTIFICATION_RETRIES,
-    STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED,
+    STATEFUL_TEAMS_INCIDENT_MESSAGES_ENABLED,
 )
 from datahub_integrations.notifications.sinks.context import NotificationContext
+from datahub_integrations.notifications.sinks.shared.incident_message_builder import (
+    IncidentMessageBuilder,
+)
+from datahub_integrations.notifications.sinks.shared.interactive_buttons import (
+    IncidentContext,
+    create_incident_buttons,
+)
 from datahub_integrations.notifications.sinks.sink import NotificationSink
 from datahub_integrations.notifications.sinks.teams.error_handling import (
     TeamsError,
@@ -42,8 +49,69 @@ from datahub_integrations.teams.config import TeamsConnection, teams_config
 from datahub_integrations.teams.exceptions import (
     TeamsErrorCodes,
     TeamsMessageSendException,
+    map_teams_api_error_to_error_code,
 )
-from datahub_integrations.teams.utils.entity_extract import get_type_url
+
+# Generate the complete entity card using existing renderer
+from datahub_integrations.teams.render.render_entity import (
+    EntityCardRenderField,
+    render_entity_card,
+)
+from datahub_integrations.teams.url_utils import get_type_url
+
+# Constants
+VIEW_IN_DATAHUB_TITLE = "View in DataHub"
+
+
+def map_priority_to_readable(raw_priority: Any) -> str:
+    """Map numeric priority to readable text, similar to Slack implementation."""
+    if raw_priority is None:
+        return "Not Set"
+
+    # Handle both string and numeric priorities
+    priority_str = str(raw_priority)
+    priority_mapping = {
+        "0": "Critical",
+        "1": "High",
+        "2": "Medium",
+        "3": "Low",
+        "CRITICAL": "Critical",
+        "HIGH": "High",
+        "MEDIUM": "Medium",
+        "LOW": "Low",
+    }
+    return priority_mapping.get(priority_str, f"Unknown ({raw_priority})")
+
+
+def map_stage_to_readable(raw_stage: Any) -> str:
+    """Map stage value to readable text, similar to Slack implementation."""
+    if raw_stage is None:
+        return "Not Set"
+
+    stage_mapping = {
+        "NO_ACTION_REQUIRED": "No Action Required",
+        "TRIAGE": "Triage",
+        "INVESTIGATION": "Investigation",
+        "WORK_IN_PROGRESS": "Work in Progress",
+        "FIXED": "Fixed",
+    }
+    return stage_mapping.get(str(raw_stage), str(raw_stage))
+
+
+def map_incident_type_to_readable(raw_type: str) -> str:
+    """Map incident type to readable text, similar to Slack implementation."""
+    if not raw_type:
+        return "Unknown"
+
+    type_mapping = {
+        "FRESHNESS": "Freshness",
+        "OPERATIONAL": "Operational",
+        "DATA_SCHEMA": "Schema",
+        "VOLUME": "Volume",
+        "FIELD": "Column",
+        "SQL": "Custom SQL",
+    }
+    return type_mapping.get(raw_type, raw_type)
 
 
 class RetryMode(Enum):
@@ -93,10 +161,17 @@ class TeamsNotificationSink(NotificationSink):
     def send(
         self, request: NotificationRequestClass, context: NotificationContext
     ) -> None:
-        # Maybe reload teams config if it's stale
-        self._maybe_reload_teams_config()
-
         template_type: str = str(request.message.template)
+
+        # Force refresh config for test notifications
+        if template_type == "CUSTOM" and self._is_test_notification(
+            request.message.parameters or {}
+        ):
+            logger.info("Test notification detected - forcing Teams config refresh")
+            self._maybe_reload_teams_config(force_refresh=True)
+        else:
+            # Maybe reload teams config if it's stale (normal behavior)
+            self._maybe_reload_teams_config()
 
         if not self._check_is_teams_config_valid(self.teams_connection_config):
             config_error = TeamsError(
@@ -233,6 +308,7 @@ class TeamsNotificationSink(NotificationSink):
             logger.error(
                 f"Failed to send Teams notification after {max_attempts} attempts: {e}"
             )
+            raise
 
     async def _send_new_incident_notification(
         self, request: NotificationRequestClass
@@ -317,6 +393,7 @@ class TeamsNotificationSink(NotificationSink):
                 logger.error(
                     f"Failed to send Teams adaptive card to {recipient} after all retries: {e}"
                 )
+                raise
 
     async def _send_teams_adaptive_card_with_request(
         self,
@@ -334,6 +411,7 @@ class TeamsNotificationSink(NotificationSink):
                 )
             except Exception as e:
                 logger.error(f"Failed to send Teams adaptive card to {recipient}: {e}")
+                raise
 
     def _deserialize_json_list(self, serialized_list: str) -> List[str]:
         """
@@ -363,14 +441,56 @@ class TeamsNotificationSink(NotificationSink):
             )
 
         # Fallback: treat as simple identifier
-        # Try to detect type based on format, otherwise assume it's a Teams ID
-        if "@" in recipient_id and "." in recipient_id:
-            return {"email": recipient_id}
-        elif recipient_id.startswith("19:") or recipient_id.startswith("28:"):
+        # Try to detect type based on format, with Teams IDs taking priority over emails
+        if recipient_id.startswith("19:") or recipient_id.startswith("28:"):
             return {"teams": recipient_id}  # Common Teams ID patterns
+        elif (
+            "@" in recipient_id
+            and "." in recipient_id
+            and not recipient_id.startswith(("19:", "28:"))
+        ):
+            return {"email": recipient_id}
         else:
             # Could be Azure ID or Teams ID, default to Teams for backwards compatibility
             return {"teams": recipient_id}
+
+    def _extract_user_guid_from_recipient(self, recipient_id: str) -> Optional[str]:
+        """Extract a valid user GUID from recipient ID for Microsoft Graph API calls.
+
+        Args:
+            recipient_id: Either a JSON string with multiple identifiers or a simple string
+
+        Returns:
+            Valid user GUID string that can be used in Microsoft Graph API calls, or None if not found
+        """
+        identifiers = self._parse_teams_recipient_id(recipient_id)
+
+        # Try identifiers in priority order: azure (GUID), then teams, then email
+        for id_type in ["azure", "teams", "email"]:
+            if id_type in identifiers:
+                identifier_value = identifiers[id_type]
+                # Azure IDs are GUIDs and work directly with Graph API
+                if id_type == "azure" and identifier_value:
+                    return identifier_value
+                # Teams IDs might be GUIDs if they don't have the 19:/28: prefix
+                elif id_type == "teams" and identifier_value:
+                    # If it's a simple GUID (no prefix), use it
+                    if not identifier_value.startswith(("19:", "28:")):
+                        return identifier_value
+                    # Teams prefixed IDs are not valid for Graph API calls
+                    else:
+                        continue
+                # Email addresses can also be used as user identifiers in Graph API
+                elif id_type == "email" and identifier_value:
+                    # Don't use emails that are actually Teams IDs misidentified
+                    if not identifier_value.startswith(("19:", "28:")):
+                        return identifier_value
+
+        # Fallback: if the recipient looks like a GUID, use it directly
+        if len(recipient_id) == 36 and "-" in recipient_id:
+            return recipient_id
+
+        return None
 
     async def _send_message_to_recipient(
         self, recipient: str, message_text: str
@@ -1203,11 +1323,17 @@ class TeamsNotificationSink(NotificationSink):
                 logger.info(
                     f"Found existing conversation for {recipient}: {conversation_id}"
                 )
-                await self._send_adaptive_card_to_conversation(
+                message_id = await self._send_adaptive_card_to_conversation(
                     conversation_id, adaptive_card
                 )
-                logger.info(f"Successfully sent Teams adaptive card to {recipient}")
-                return
+                if message_id:
+                    logger.info(f"Successfully sent Teams adaptive card to {recipient}")
+                    return
+                else:
+                    logger.error(
+                        f"Failed to send Teams adaptive card to {recipient} - no message ID returned"
+                    )
+                    raise Exception("Failed to send adaptive card to conversation")
             else:
                 logger.warning(
                     f"No existing conversation found for {recipient}. User may need to install the bot as a personal app or interact with it first."
@@ -1227,13 +1353,27 @@ class TeamsNotificationSink(NotificationSink):
 
         from datahub_integrations.teams.graph_api import GraphApiClient
 
+        # DEBUG: Log config values for Graph API
+        if self.teams_connection_config and self.teams_connection_config.app_details:
+            app_details = self.teams_connection_config.app_details
+            logger.info(f"DEBUG Graph API - app_id: {app_details.app_id is not None}")
+            logger.info(
+                f"DEBUG Graph API - app_password: {app_details.app_password is not None}"
+            )
+            logger.info(f"DEBUG Graph API - tenant_id: {repr(app_details.tenant_id)}")
+            logger.info(
+                f"DEBUG Graph API - app_tenant_id: {repr(app_details.app_tenant_id)}"
+            )
+        else:
+            logger.info("DEBUG Graph API - No app details found")
+
         # Get access token for Microsoft Graph
-        app_details = self.teams_connection_config
-        if not app_details:
+        teams_config = self.teams_connection_config
+        if not teams_config:
             raise Exception("No Teams connection config available")
 
         # Create GraphApiClient and get access token
-        graph_client = GraphApiClient(app_details)
+        graph_client = GraphApiClient(teams_config)
         token = await graph_client._get_graph_access_token()
 
         headers = {
@@ -1253,11 +1393,11 @@ class TeamsNotificationSink(NotificationSink):
             # Try to send a message by creating a chat first
             # Use the app ID directly since we're using application permissions
             # For Microsoft Graph Chat API, just use the plain app ID (not Bot Framework format)
-            app_details = self.teams_connection_config
-            if not app_details or not app_details.app_details:
+            teams_config = self.teams_connection_config
+            if not teams_config or not teams_config.app_details:
                 raise Exception("No Teams app configuration available")
 
-            app_user_id = app_details.app_details.app_id
+            app_user_id = teams_config.app_details.app_id
 
             chat_payload = {
                 "chatType": "oneOnOne",
@@ -1326,7 +1466,7 @@ class TeamsNotificationSink(NotificationSink):
         for action in actions:
             if action.get("type") == "Action.OpenUrl":
                 url = action.get("url", "")
-                title = action.get("title", "View in DataHub")
+                title = action.get("title", VIEW_IN_DATAHUB_TITLE)
                 if url:
                     text_parts.append(f"{title}: {url}")
 
@@ -1505,9 +1645,8 @@ class TeamsNotificationSink(NotificationSink):
 
     def _should_save_message_details(self, template_type: str) -> bool:
         """Check if message details should be saved for this template type."""
-        # For now, use same setting as Slack - teams can have their own setting later
         if (
-            STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED
+            STATEFUL_TEAMS_INCIDENT_MESSAGES_ENABLED
             and template_type == "BROADCAST_NEW_INCIDENT"
         ):
             return True
@@ -1892,10 +2031,19 @@ class TeamsNotificationSink(NotificationSink):
             service_url = "https://smba.trafficmanager.net/apis/"
             create_conversation_url = f"{service_url}v3/conversations"
 
-            # Use the Teams user ID directly as received from Teams search
-            # The Teams search API returns proper member IDs that can be used directly
-            member_id = teams_id
+            # Parse the teams_id to get the appropriate member ID for Bot Framework
+            # Bot Framework expects the raw identifier, not necessarily a GUID
+            identifiers = self._parse_teams_recipient_id(teams_id)
+
+            # For Bot Framework conversation creation, prefer the original format or teams ID
+            member_id = teams_id  # Use original format for Bot Framework compatibility
             member_name = teams_id
+
+            # If we have structured identifiers, log for debugging
+            if len(identifiers) > 1:
+                logger.debug(
+                    f"Creating conversation with structured ID {teams_id}, parsed identifiers: {list(identifiers.keys())}"
+                )
 
             # Create conversation payload
             conversation_payload = {
@@ -1941,7 +2089,7 @@ class TeamsNotificationSink(NotificationSink):
         params = request.message.parameters or {}
         new_status = params.get("newStatus", "Unknown Status")
 
-        # Use appropriate emoji based on status
+        # Use appropriate emoji and title based on status (matching Slack format)
         if new_status == "RESOLVED":
             emoji = "✅"
             title = "Incident Resolved"
@@ -1960,16 +2108,14 @@ class TeamsNotificationSink(NotificationSink):
         """Build rich adaptive card for incident notifications with detailed information."""
         params = request.message.parameters or {}
 
-        # Extract detailed incident information similar to Slack implementation
-        incident_title = params.get("incidentTitle", "Unknown Incident")
-        incident_description = params.get("incidentDescription", "")
-        entity_name = params.get("entityName", "Unknown Entity")
-        entity_platform = params.get("entityPlatform", "")
-        priority = params.get("incidentPriority", "")
-        stage = params.get("incidentStage", "")
-        new_status = params.get("newStatus", "")
-        prev_status = params.get("prevStatus", "")
-        entity_path = params.get("entityPath", "")
+        # Use shared message builder to get incident context
+        base_url = self.base_url or "http://localhost:9002"
+        context = IncidentMessageBuilder.build_incident_message_context(
+            params, base_url
+        )
+
+        # Extract additional information needed for Teams
+        urn = params.get("incidentUrn", "")
 
         # Extract owner information for tagging
         owner_urns = self._deserialize_json_list(params.get("owners", "[]"))
@@ -1984,72 +2130,157 @@ class TeamsNotificationSink(NotificationSink):
             all_owner_urns = set(owner_urns + downstream_owner_urns)
             actors = self.identity_provider.batch_get_actors(all_owner_urns)
 
-        # Build DataHub URL
-        base_url = self.base_url or "http://localhost:9002"
-        incident_url = (
-            f"{base_url}{entity_path}/Incidents"
-            if entity_path
-            else f"{base_url}/Incidents"
+        # Build DataHub URL (now using context)
+        incident_url = context.incident_url
+
+        # Use shared message builder to get status information
+        emoji, status_title, action_verb = (
+            IncidentMessageBuilder.get_incident_status_info(
+                context.new_status, context.prev_status
+            )
         )
 
-        # Build adaptive card structure
+        # Build header text using shared logic
+        header_text = f"{emoji} {status_title}"
+
+        # Build incident message using shared logic
+        incident_message = IncidentMessageBuilder.build_incident_summary_message(
+            context, action_verb
+        )
+
+        # Get appropriate color using shared logic
+        is_resolved = context.new_status == "RESOLVED"
+        status_color = IncidentMessageBuilder.get_status_color(is_resolved)
+
         card_body = [
             {
                 "type": "TextBlock",
-                "text": title,
+                "text": header_text,
                 "weight": "Bolder",
                 "size": "Large",
-                "color": "attention" if "resolved" not in title.lower() else "good",
+                "color": status_color,
             },
             {
                 "type": "TextBlock",
-                "text": incident_title,
-                "weight": "Bolder",
-                "size": "Medium",
+                "text": incident_message,
                 "wrap": True,
+                "spacing": "Small",
             },
         ]
 
-        # Add incident description if available
-        if incident_description and incident_description != "None":
+        # Add Note if there's a meaningful resolution message (right after main message)
+        if (
+            context.message
+            and context.message.strip()
+            and context.message.strip() != "None"
+        ):
             card_body.append(
                 {
                     "type": "TextBlock",
-                    "text": incident_description,
+                    "text": f"**Note**\n{context.message.strip()}",
                     "wrap": True,
-                    "spacing": "Small",
+                    "spacing": "Medium",
                 }
             )
 
-        # Add entity information
-        entity_info = f"**Entity:** {entity_name}"
-        if entity_platform:
-            entity_info += f" ({entity_platform})"
+        # Add incident title
         card_body.append(
             {
                 "type": "TextBlock",
-                "text": entity_info,
+                "text": f"**{context.incident_title}**",
+                "weight": "Bolder",
+                "size": "Medium",
                 "wrap": True,
                 "spacing": "Medium",
             }
         )
 
-        # Add owner information with tagging
+        # Add reason right after the title
+        if context.incident_description and context.incident_description != "None":
+            # Always show the original incident description as "Reason"
+            card_body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"**Reason**\n{context.incident_description}",
+                    "wrap": True,
+                    "spacing": "Medium",
+                }
+            )
+
+        # Add Category, Priority, Stage on separate lines with bold labels
+        # Add category
+        incident_type = params.get("incidentType", "")
+        if incident_type:
+            readable_type = map_incident_type_to_readable(incident_type)
+            card_body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"**Category**: {readable_type}",
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+            )
+
+        # Add priority
+        if context.priority:
+            readable_priority = map_priority_to_readable(context.priority)
+            card_body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"**Priority**: {readable_priority}",
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+            )
+
+        # Add stage
+        if context.stage:
+            readable_stage = map_stage_to_readable(context.stage)
+            card_body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"**Stage**: {readable_stage}",
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+            )
+
+        # Add owner information in two-column layout like Slack
+        owner_facts = []
+
+        # Add asset owners (left column)
         if owner_urns and actors:
             owners_raw = [actors.get(urn) for urn in owner_urns if urn in actors]
             owners = [owner for owner in owners_raw if owner is not None]
             if owners:
-                owners_str = create_actors_tag_string(owners)
-                card_body.append(
-                    {
-                        "type": "TextBlock",
-                        "text": f"**Owners:** {owners_str}",
-                        "wrap": True,
-                        "spacing": "Small",
-                    }
+                owners_str = create_actors_tag_string(
+                    owners, self.teams_connection_config
                 )
+                owner_facts.append(
+                    {"title": "Asset Owners:", "value": owners_str or "None"}
+                )
+        else:
+            owner_facts.append({"title": "Asset Owners:", "value": "None"})
 
-        # Add downstream owners if different from direct owners
+        # Add impacted asset count (right column) - moved here since category is now above
+        downstream_asset_count = params.get("downstreamAssetCount", "")
+        if downstream_asset_count:
+            owner_facts.append(
+                {"title": "Impacted Asset Count:", "value": str(downstream_asset_count)}
+            )
+        else:
+            owner_facts.append({"title": "Impacted Asset Count:", "value": "None"})
+
+        # Add owner information as a fact set (first row)
+        if owner_facts:
+            card_body.append(
+                {"type": "FactSet", "facts": owner_facts, "spacing": "Medium"}
+            )
+
+        # Add second row: Impacted Owners (deduplicated)
+        impact_facts = []
+
+        # Add downstream owners (left column) with deduplication
         if downstream_owner_urns and actors:
             downstream_owners_raw = [
                 actors.get(urn) for urn in downstream_owner_urns if urn in actors
@@ -2058,34 +2289,50 @@ class TeamsNotificationSink(NotificationSink):
                 owner for owner in downstream_owners_raw if owner is not None
             ]
             if downstream_owners and downstream_owner_urns != owner_urns:
-                downstream_owners_str = create_actors_tag_string(downstream_owners)
-                card_body.append(
+                # Deduplicate downstream owners while preserving order
+                seen = set()
+                deduplicated_downstream_owners = []
+                for owner in downstream_owners:
+                    # Use a unique identifier for deduplication (email or display name)
+                    owner_id = (
+                        getattr(owner, "email", None)
+                        or getattr(owner, "display_name", None)
+                        or str(owner)
+                    )
+                    if owner_id not in seen:
+                        seen.add(owner_id)
+                        deduplicated_downstream_owners.append(owner)
+
+                downstream_owners_str = create_actors_tag_string(
+                    deduplicated_downstream_owners, self.teams_connection_config
+                )
+                impact_facts.append(
                     {
-                        "type": "TextBlock",
-                        "text": f"**Downstream Owners:** {downstream_owners_str}",
-                        "wrap": True,
-                        "spacing": "Small",
+                        "title": "Impacted Owners:",
+                        "value": downstream_owners_str or "None",
                     }
                 )
+        else:
+            impact_facts.append({"title": "Impacted Owners:", "value": "None"})
 
-        # Add incident details in a fact set
-        facts = []
-        if priority:
-            facts.append({"title": "Priority:", "value": priority})
-        if stage:
-            facts.append({"title": "Stage:", "value": stage})
-        if new_status:
-            facts.append({"title": "Status:", "value": new_status})
-        if prev_status and new_status != prev_status:
-            facts.append({"title": "Previous Status:", "value": prev_status})
+        # Add impact information as a fact set (second row)
+        if impact_facts:
+            card_body.append(
+                {"type": "FactSet", "facts": impact_facts, "spacing": "Medium"}
+            )
 
-        if facts:
-            card_body.append({"type": "FactSet", "facts": facts, "spacing": "Medium"})
+        # Skip adding redundant status information - the title already indicates the status change
 
-        # Add action button to view in DataHub
-        actions = [
-            {"type": "Action.OpenUrl", "title": "View in DataHub", "url": incident_url}
-        ]
+        # Create incident context for interactive buttons
+        incident_context = IncidentContext(urn=urn, stage=context.stage)
+
+        # Create appropriate interactive buttons based on incident status
+        interactive_buttons = create_incident_buttons(
+            incident_context, context.new_status, incident_url
+        )
+
+        # Convert to Teams format
+        actions = [button.to_teams_format() for button in interactive_buttons]
 
         return {
             "contentType": "application/vnd.microsoft.card.adaptive",
@@ -2122,7 +2369,7 @@ class TeamsNotificationSink(NotificationSink):
             except Exception as e:
                 logger.error(f"Failed to send test notification: {e}")
                 # Mark as failed
-                await self._execute_post_send_actions(request, False)
+                await self._execute_post_send_actions(request, False, e)
                 raise
         else:
             message_text = self._build_custom_message(request)
@@ -2258,7 +2505,7 @@ class TeamsNotificationSink(NotificationSink):
                 "actions": [
                     {
                         "type": "Action.OpenUrl",
-                        "title": "🔗 View Proposal Details",
+                        "title": "View Proposal Details",
                         "url": details_url,
                     }
                 ]
@@ -2266,7 +2513,7 @@ class TeamsNotificationSink(NotificationSink):
                     [
                         {
                             "type": "Action.OpenUrl",
-                            "title": "📄 View Entity",
+                            "title": VIEW_IN_DATAHUB_TITLE,
                             "url": entity_url,
                         }
                     ]
@@ -2329,7 +2576,7 @@ class TeamsNotificationSink(NotificationSink):
                 "actions": [
                     {
                         "type": "Action.OpenUrl",
-                        "title": "🔗 View Proposal Details",
+                        "title": "View Proposal Details",
                         "url": details_url,
                     }
                 ]
@@ -2337,7 +2584,7 @@ class TeamsNotificationSink(NotificationSink):
                     [
                         {
                             "type": "Action.OpenUrl",
-                            "title": "📄 View Entity",
+                            "title": VIEW_IN_DATAHUB_TITLE,
                             "url": entity_url,
                         }
                     ]
@@ -2442,7 +2689,7 @@ class TeamsNotificationSink(NotificationSink):
             actions.append(
                 {
                     "type": "Action.OpenUrl",
-                    "title": f"🔗 View in {external_platform}",
+                    "title": f"View in {external_platform}",
                     "url": external_url,
                 }
             )
@@ -2450,7 +2697,7 @@ class TeamsNotificationSink(NotificationSink):
             actions.append(
                 {
                     "type": "Action.OpenUrl",
-                    "title": "📄 View Entity",
+                    "title": VIEW_IN_DATAHUB_TITLE,
                     "url": entity_url,
                 }
             )
@@ -2670,8 +2917,34 @@ class TeamsNotificationSink(NotificationSink):
             },
         }
 
+    def _get_render_field_from_modifier_type(
+        self, modifier_type: str
+    ) -> Optional[EntityCardRenderField]:
+        logger.info(f"Getting render field from modifier type: {modifier_type}")
+        if modifier_type.lower() == "tag(s)":
+            return EntityCardRenderField.TAG
+        elif modifier_type.lower() == "glossary term(s)":
+            return EntityCardRenderField.TERM
+        elif modifier_type.lower() == "owner(s)":
+            return EntityCardRenderField.OWNERSHIP
+        elif modifier_type == "deprecation":
+            return EntityCardRenderField.DEPRECATED
+        elif modifier_type == "unhealthy":
+            return EntityCardRenderField.UNHEALTHY
+        elif modifier_type == "health_indicators":
+            return EntityCardRenderField.HEALTH_INDICATORS
+        elif modifier_type == "domain":
+            return EntityCardRenderField.DOMAIN
+        elif modifier_type == "usage_stats":
+            return EntityCardRenderField.USAGE_STATS
+        elif modifier_type == "lineage_counts":
+            return EntityCardRenderField.LINEAGE_COUNTS
+        else:
+            return None
+
     def _build_entity_change_message(self, request: NotificationRequestClass) -> dict:
         """Build rich notification card by fetching full entity details and adding change banner."""
+        logger.info(f"Building entity change message for request: {request}")
         params = request.message.parameters or {}
 
         # Extract change information
@@ -2695,10 +2968,11 @@ class TeamsNotificationSink(NotificationSink):
             )
             return self._build_fallback_notification_card(params)
 
-        # Generate the complete entity card using existing renderer
-        from datahub_integrations.teams.render.render_entity import render_entity_card
-
-        entity_card = render_entity_card(entity_data)
+        modifier_type = params.get("modifierType", "property")
+        render_field = self._get_render_field_from_modifier_type(modifier_type)
+        entity_card = render_entity_card(
+            entity_data, fields=[render_field] if render_field else []
+        )
 
         if not entity_card:
             logger.error(f"Failed to render entity card for {entity_urn}")
@@ -2730,14 +3004,14 @@ class TeamsNotificationSink(NotificationSink):
     def _fetch_entity_details(self, entity_urn: str) -> Optional[dict]:
         """Fetch full entity details from DataHub GraphQL API."""
         try:
-            from datahub_integrations.graphql.slack import SLACK_GET_ENTITY_QUERY
+            from datahub_integrations.graphql.teams import TEAMS_GET_ENTITY_QUERY
 
             variables = {"urn": entity_urn}
             if self.graph is None:
                 logger.error("DataHub graph client is not initialized")
                 return None
             data = self.graph.execute_graphql(
-                SLACK_GET_ENTITY_QUERY, variables=variables
+                TEAMS_GET_ENTITY_QUERY, variables=variables
             )
             return data.get("entity") if data else None
         except Exception as e:
@@ -2757,6 +3031,7 @@ class TeamsNotificationSink(NotificationSink):
         operation = params.get("operation", "changed")
         modifier_type = params.get("modifierType", "property")
         modifier_name = params.get("modifier0Name", "")
+        note = params.get("note", "")
 
         # Resolve actor for tagging if available
         tagged_actor_name = actor_name
@@ -2765,7 +3040,9 @@ class TeamsNotificationSink(NotificationSink):
             actor = actors.get(actor_urn)
             if actor:
                 # Use template utils to create a tagged actor string
-                tagged_actor_name = create_actors_tag_string([actor])
+                tagged_actor_name = create_actors_tag_string(
+                    [actor], self.teams_connection_config
+                )
             else:
                 # Fallback to the original actor name
                 tagged_actor_name = actor_name
@@ -2780,8 +3057,11 @@ class TeamsNotificationSink(NotificationSink):
             operation_text = f"removed **{modifier_name}**"
             operation_color = "Warning"
         else:
-            operation_icon = "🔄"
-            operation_text = f"{operation} **{modifier_name}**"
+            logger.info(f"Operation: {operation}")
+            operation_icon = ""
+            operation_text = (
+                f"{operation} **{modifier_name}**" if modifier_name else operation
+            )
             operation_color = "Accent"
 
         # Create change banner
@@ -2832,10 +3112,65 @@ class TeamsNotificationSink(NotificationSink):
             "spacing": "Medium",
         }
 
-        # Insert change banner after the entity header (first item)
+        # Insert change banner before the entity header (first item)
         content = entity_card["content"]
         if "body" in content and content["body"]:
-            content["body"].insert(1, change_banner)
+            content["body"].insert(0, change_banner)
+
+        # Add note section if note is present
+        if note and note.strip():
+            note_section = {
+                "type": "Container",
+                "style": "default",
+                "items": [
+                    {
+                        "type": "ColumnSet",
+                        "columns": [
+                            {
+                                "type": "Column",
+                                "width": "auto",
+                                "items": [
+                                    {
+                                        "type": "TextBlock",
+                                        "text": "│",
+                                        "size": "Small",
+                                        "color": "Light",
+                                        "spacing": "None",
+                                    }
+                                ],
+                                "spacing": "None",
+                            },
+                            {
+                                "type": "Column",
+                                "width": "stretch",
+                                "items": [
+                                    {
+                                        "type": "TextBlock",
+                                        "text": "**Note**",
+                                        "size": "Small",
+                                        "weight": "Bolder",
+                                        "color": "Default",
+                                        "spacing": "None",
+                                    },
+                                    {
+                                        "type": "TextBlock",
+                                        "text": note,
+                                        "size": "Small",
+                                        "color": "Default",
+                                        "wrap": True,
+                                        "spacing": "Small",
+                                    },
+                                ],
+                            },
+                        ],
+                    }
+                ],
+                "spacing": "Medium",
+                "separator": True,
+            }
+
+            # Insert note section after the change banner
+            content["body"].insert(1, note_section)
 
         return entity_card
 
@@ -2875,7 +3210,7 @@ class TeamsNotificationSink(NotificationSink):
                 "actions": [
                     {
                         "type": "Action.OpenUrl",
-                        "title": "🔗 View in DataHub",
+                        "title": VIEW_IN_DATAHUB_TITLE,
                         "url": entity_url,
                     }
                 ]
@@ -2887,6 +3222,7 @@ class TeamsNotificationSink(NotificationSink):
     def _format_modifier_type(self, modifier_type: str) -> str:
         """Format modifier type with proper capitalization."""
         # Handle special cases
+        logger.info(f"Formatting modifier type: {modifier_type}")
         if modifier_type.lower() == "tag(s)":
             return "Tag(s)"
         elif modifier_type.lower() == "term(s)":
@@ -2895,6 +3231,8 @@ class TeamsNotificationSink(NotificationSink):
             return "Owner(s)"
         elif modifier_type.lower() == "glossary term(s)":
             return "Glossary Term(s)"
+        elif modifier_type.lower() == "deprecation":
+            return "Deprecation Status"
         else:
             # For other types, use title case but preserve parentheses
             return modifier_type.title()
@@ -2911,26 +3249,61 @@ class TeamsNotificationSink(NotificationSink):
                 "TEAMS_DM",
             ]:
                 if recipient.id:
-                    # HACK: Replace specific Azure user ID with Teams user ID for testing
                     recipient_id = recipient.id
-                    # if recipient_id == "8ae17cee-2c46-487f-bdd6-dd66770163c2":
-                    #     logger.info(f"🔧 HACK: Replacing Azure user ID {recipient_id} with Teams user ID ZvlMSQ7TPFiXCkay1BLqPVyXH2BNxoTfJHmhM3lRhh0")
-                    #     recipient_id = "ZvlMSQ7TPFiXCkay1BLqPVyXH2BNxoTfJHmhM3lRhh0"
                     teams_recipients.append(recipient_id)
         return teams_recipients
 
-    def _maybe_reload_teams_config(self) -> None:
-        """Reload Teams configuration if it's stale or not loaded."""
+    def _maybe_reload_teams_config(self, force_refresh: bool = False) -> None:
+        """Get Teams configuration with time-based throttling handled by config manager.
+
+        Args:
+            force_refresh: If True, always reload from DataHub regardless of cache state
+        """
         try:
-            current_config = teams_config.get_config()
-            if current_config != self.teams_connection_config:
-                self.teams_connection_config = current_config
-                logger.info("Reloaded Teams configuration")
+            # Always call teams_config.get_config() - it handles time-based throttling internally
+            current_config = teams_config.get_config(force_refresh=force_refresh)
+
+            # Update our cached instance
+            self.teams_connection_config = current_config
+
+            # DEBUG: Log the loaded config values
+            if current_config and current_config.app_details:
+                app_details = current_config.app_details
+                logger.info(f"DEBUG Reload - app_id: {repr(app_details.app_id)}")
+                logger.info(f"DEBUG Reload - tenant_id: {repr(app_details.tenant_id)}")
+                logger.info(
+                    f"DEBUG Reload - app_tenant_id: {repr(app_details.app_tenant_id)}"
+                )
+            else:
+                logger.info("DEBUG Reload - No app details found")
         except Exception as e:
             logger.error(f"Failed to reload Teams configuration: {e}")
 
     async def _find_existing_bot_conversation(self, recipient: str) -> Optional[str]:
-        """Find existing bot conversation ID via Microsoft Graph API."""
+        """Find existing bot conversation ID via Microsoft Graph API with fast retry."""
+        import asyncio
+
+        # Fast retry: 2 attempts max, 100ms between retries = ~200ms max overhead
+        for attempt in range(2):
+            try:
+                return await self._find_existing_bot_conversation_impl(recipient)
+            except Exception as e:
+                if attempt == 0:  # Only retry once
+                    logger.warning(
+                        f"Find conversation attempt {attempt + 1} failed, retrying: {e}"
+                    )
+                    await asyncio.sleep(0.1)  # 100ms delay
+                else:
+                    logger.error(
+                        f"Find conversation failed after {attempt + 1} attempts: {e}"
+                    )
+                    raise
+        return None
+
+    async def _find_existing_bot_conversation_impl(
+        self, recipient: str
+    ) -> Optional[str]:
+        """Implementation of finding existing bot conversation ID via Microsoft Graph API."""
         try:
             import httpx
 
@@ -2950,6 +3323,18 @@ class TeamsNotificationSink(NotificationSink):
             ):
                 logger.error("Missing Teams app credentials")
                 return None
+
+            # Extract valid user GUID from recipient ID using centralized parser
+            user_guid = self._extract_user_guid_from_recipient(recipient)
+            if not user_guid:
+                logger.error(
+                    f"Could not extract valid user GUID from recipient: {recipient}"
+                )
+                return None
+
+            logger.debug(
+                f"Using user GUID {user_guid} extracted from recipient {recipient}"
+            )
 
             # Get Microsoft Graph token (not Bot Framework token)
             token_url = f"https://login.microsoftonline.com/{app_details.tenant_id}/oauth2/v2.0/token"
@@ -2980,7 +3365,7 @@ class TeamsNotificationSink(NotificationSink):
             headers = {"Authorization": f"Bearer {access_token}"}
 
             # Get user's chats to find existing bot conversation
-            chats_url = f"https://graph.microsoft.com/v1.0/users/{recipient}/chats"
+            chats_url = f"https://graph.microsoft.com/v1.0/users/{user_guid}/chats"
 
             async with httpx.AsyncClient() as client:
                 response = await client.get(chats_url, headers=headers)
@@ -2988,7 +3373,7 @@ class TeamsNotificationSink(NotificationSink):
                 if response.status_code == 200:
                     chats_data = response.json()
                     logger.info(
-                        f"Found {len(chats_data.get('value', []))} chats for user {recipient}"
+                        f"Found {len(chats_data.get('value', []))} chats for user {user_guid}"
                     )
 
                     # Look for existing bot conversations
@@ -2999,12 +3384,12 @@ class TeamsNotificationSink(NotificationSink):
 
                         # Check if this chat involves our bot
                         # Bot conversation IDs typically contain both user ID and app ID
-                        if app_details.app_id in chat_id and recipient in chat_id:
+                        if app_details.app_id in chat_id and user_guid in chat_id:
                             logger.info(f"Found existing bot conversation: {chat_id}")
                             return chat_id
 
                     logger.warning(
-                        f"No existing bot conversation found for user {recipient}"
+                        f"No existing bot conversation found for user {user_guid}"
                     )
                     return None
                 else:
@@ -3131,10 +3516,25 @@ class TeamsNotificationSink(NotificationSink):
                 not self.teams_connection_config
                 or not self.teams_connection_config.app_details
             ):
-                logger.error("Teams configuration not available")
-                return None
+                raise TeamsMessageSendException(
+                    message="Teams configuration not available",
+                    error_code=TeamsErrorCodes.TEAMS_CONFIG_INVALID,
+                    user_friendly_message="Teams integration is not properly configured. Please contact your administrator.",
+                )
 
             app_details = self.teams_connection_config.app_details
+
+            # DEBUG: Log config values for Bot Framework
+            logger.info(f"DEBUG Bot Framework - app_id: {repr(app_details.app_id)}")
+            logger.info(
+                f"DEBUG Bot Framework - app_password: {app_details.app_password is not None}"
+            )
+            logger.info(
+                f"DEBUG Bot Framework - tenant_id: {repr(app_details.tenant_id)}"
+            )
+            logger.info(
+                f"DEBUG Bot Framework - app_tenant_id: {repr(app_details.app_tenant_id)}"
+            )
 
             # Get Azure AD token using proper tenant_id
             if not app_details.tenant_id:
@@ -3142,6 +3542,7 @@ class TeamsNotificationSink(NotificationSink):
                 return None
 
             token_url = f"https://login.microsoftonline.com/{app_details.app_tenant_id}/oauth2/v2.0/token"
+            logger.info(f"DEBUG Bot Framework - token_url: {token_url}")
 
             data = {
                 "grant_type": "client_credentials",
@@ -3156,10 +3557,17 @@ class TeamsNotificationSink(NotificationSink):
                 response = await client.post(token_url, data=data, headers=headers)
 
                 if response.status_code != 200:
-                    logger.error(
-                        f"Failed to get Bot Framework token: {response.status_code} {response.text}"
+                    error_code = map_teams_api_error_to_error_code(
+                        status_code=response.status_code,
+                        response_text=response.text,
+                        error_context="token_request",
                     )
-                    return None
+                    raise TeamsMessageSendException(
+                        message=f"Failed to get Bot Framework token: {response.status_code} {response.text}",
+                        error_code=error_code,
+                        status_code=response.status_code,
+                        response_text=response.text,
+                    )
 
                 token_data = response.json()
                 bot_token = token_data["access_token"]
@@ -3236,7 +3644,10 @@ class TeamsNotificationSink(NotificationSink):
             raise
 
     async def _execute_post_send_actions(
-        self, request: NotificationRequestClass, success: bool
+        self,
+        request: NotificationRequestClass,
+        success: bool,
+        error: Optional[Exception] = None,
     ) -> None:
         """Execute post-send actions for the notification request."""
         params = request.message.parameters or {}
@@ -3245,10 +3656,57 @@ class TeamsNotificationSink(NotificationSink):
 
         # Handle test notification completion
         if request_name == "notificationConnectionTest" and test_notification_urn:
-            await self._complete_test_notification(test_notification_urn, success)
+            await self._complete_test_notification(
+                test_notification_urn, success, error
+            )
+
+    def _get_user_friendly_error_message(self, error: Exception) -> str:
+        """Convert technical error to user-friendly message with actionable guidance."""
+        error_str = str(error).lower()
+
+        # Configuration errors
+        if (
+            "missing teams app credentials" in error_str
+            or "app_id" in error_str
+            or "app_password" in error_str
+            or "tenant_id" in error_str
+        ):
+            return "Teams app configuration is incomplete. Please verify that App ID, App Password, and Tenant ID are properly configured in Settings > Integrations > Teams."
+
+        # Authentication/OAuth errors
+        if (
+            "aadsts" in error_str
+            or "invalid_request" in error_str
+            or "tenant identifier" in error_str
+        ):
+            if "none" in error_str or "tenant identifier 'none'" in error_str:
+                return "Teams Tenant ID is missing or invalid. Please check that your Tenant ID is set to a valid Azure AD tenant identifier (GUID format) in Settings > Integrations > Teams."
+            return "Teams authentication failed. Please check your App ID, App Password, and Tenant ID configuration in Settings > Integrations > Teams."
+
+        # Bot Framework token errors
+        if "failed to get bot framework token" in error_str:
+            return "Teams Bot Framework authentication failed. Please verify your App Password and Tenant ID are correct in Settings > Integrations > Teams."
+
+        # Graph API errors
+        if "graph api" in error_str or "microsoft graph" in error_str:
+            return "Microsoft Graph API access failed. Please check your App ID has the required permissions and your credentials are valid in Settings > Integrations > Teams."
+
+        # Network/connectivity errors
+        if (
+            "connection" in error_str
+            or "timeout" in error_str
+            or "network" in error_str
+        ):
+            return "Network connection to Teams failed. Please check your internet connectivity and try again."
+
+        # Generic fallback with some guidance
+        return f"Teams notification failed: {str(error)[:100]}{'...' if len(str(error)) > 100 else ''}. Please check your Teams configuration in Settings > Integrations > Teams."
 
     async def _complete_test_notification(
-        self, execution_request_urn: str, success: bool
+        self,
+        execution_request_urn: str,
+        success: bool,
+        error: Optional[Exception] = None,
     ) -> None:
         """Complete a test notification execution request with result."""
         try:
@@ -3260,14 +3718,23 @@ class TeamsNotificationSink(NotificationSink):
 
             from datahub_integrations.app import graph
 
+            # Generate user-friendly error message if there was a failure
+            error_message = None
+            user_message = "Teams test notification sent successfully"
+
+            if not success and error:
+                error_message = self._get_user_friendly_error_message(error)
+                user_message = error_message
+            elif not success:
+                error_message = "Teams notification failed"
+                user_message = "Failed to send Teams test notification"
+
             # Prepare the execution result - must match Slack's format (array of reports)
             report_entry = {
-                "error": None if success else "Teams notification failed",
+                "error": error_message,
                 "warning": None,
                 "timestamp": str(int(datetime.now().timestamp() * 1000)),
-                "message": "Teams test notification sent successfully"
-                if success
-                else "Failed to send Teams test notification",
+                "message": user_message,
             }
 
             # Create array of reports (to match Slack format that UI expects)

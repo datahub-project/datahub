@@ -27,8 +27,8 @@ const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.ANNO
 export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
 
-    icon = (fontSize?: number, styleType?: IconStyleType, color = 'inherit') => (
-        <PicCenterOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />
+    icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => (
+        <PicCenterOutlined style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }} />
     );
 
     isSearchEnabled = () => true;

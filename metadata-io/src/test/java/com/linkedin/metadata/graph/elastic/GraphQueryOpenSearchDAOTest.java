@@ -759,7 +759,10 @@ public class GraphQueryOpenSearchDAOTest {
     LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
 
     Assert.assertNotNull(response);
-    Assert.assertEquals(3, response.getTotal());
+    Assert.assertEquals(response.getTotal(), 3);
+    for (LineageRelationship rel : response.getLineageRelationships()) {
+      Assert.assertNotEquals(rel.isExplored(), Boolean.TRUE); // Allow false or null
+    }
 
     // Verify that search was called at least 4 times (2 slices × 2 searches each)
     verify(mockClient, atLeast(4)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
@@ -900,7 +903,7 @@ public class GraphQueryOpenSearchDAOTest {
 
     Assert.assertNotNull(response);
     Assert.assertNotNull(response.getLineageRelationships());
-    Assert.assertEquals(0, response.getTotal());
+    Assert.assertEquals(response.getTotal(), 0);
   }
 
   @Test
@@ -948,9 +951,17 @@ public class GraphQueryOpenSearchDAOTest {
     // Note: The actual result count depends on whether relationships are extracted from mock data
     // For now, just verify the response structure is correct
     Assert.assertTrue(response.getTotal() >= 0, "Response total should be non-negative");
+    Set<Urn> oneHopUrns = new HashSet<>();
+    for (LineageRelationship rel : response.getLineageRelationships()) {
+      Assert.assertNotEquals(rel.isExplored(), Boolean.TRUE);
+      oneHopUrns.add(rel.getEntity());
+    }
 
     // Test with maxHops = 2 (should also return results, potentially the same if no multi-hop data)
     LineageResponse responseTwoHops = dao.getImpactLineage(operationContext, sourceUrn, filters, 2);
+    for (LineageRelationship rel : responseTwoHops.getLineageRelationships()) {
+      Assert.assertNotEquals(rel.isExplored(), !oneHopUrns.contains(rel.getEntity()));
+    }
 
     Assert.assertNotNull(responseTwoHops);
     Assert.assertNotNull(responseTwoHops.getLineageRelationships());
@@ -1658,7 +1669,12 @@ public class GraphQueryOpenSearchDAOTest {
           graphQueryDAO.getImpactLineage(operationContext, testUrn, lineageGraphFilters, 5);
       // If we get here, the validation passed and the method completed successfully
       Assert.assertNotNull(response);
-      Assert.assertEquals(0, response.getTotal());
+      Assert.assertEquals(response.getTotal(), 0);
+      for (LineageRelationship rel : response.getLineageRelationships()) {
+        Assert.assertNotEquals(
+            rel.isExplored(),
+            rel.getDegrees().stream().min(Integer::compareTo).map(v -> v == 5).orElse(null));
+      }
     } catch (IllegalStateException e) {
       // This should NOT be the PIT validation exception
       if (hasMessageInChain(e, "Point-in-Time creation is required")) {

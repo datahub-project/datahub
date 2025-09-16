@@ -1,7 +1,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Generic, Iterator, Self, Sequence, TypeVarTuple, cast
+from typing import Generic, Iterator, Self, Sequence, TypeVar, TypeVarTuple, cast
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -43,7 +43,7 @@ class AspectPropagatorConfig(BaseModel):
 
     # Used for dataset -> schema field propagation
     # Users do not think of this data as propagated, so we shouldn't represent it as such
-    omit_attribution: bool = Field(
+    omit_attribution_is_propagated: bool = Field(
         False,
         description="If true, propagated aspects will not include attribution information.",
     )
@@ -51,10 +51,11 @@ class AspectPropagatorConfig(BaseModel):
     max_propagation_depth: int = 5
 
 
-Aspects = TypeVarTuple("Aspects")
+OriginAspects = TypeVarTuple("OriginAspects")
+TargetAspect = TypeVar("TargetAspect", bound=_Aspect)
 
 
-class AspectPropagator(Generic[*Aspects], ABC):
+class AspectPropagator(Generic[TargetAspect, *OriginAspects], ABC):
     actor_urn = "urn:li:corpuser:__datahub_system"
 
     def __init__(
@@ -79,7 +80,11 @@ class AspectPropagator(Generic[*Aspects], ABC):
         return AuditStampClass(actor=cls.actor_urn, time=cls._now())
 
     @abstractmethod
-    def aspects(self) -> Sequence[type[_Aspect]]:
+    def origin_aspects(self) -> Sequence[type[_Aspect]]:
+        """Returns the Aspects that this propagator needs to fetch for the origin entity."""
+
+    @abstractmethod
+    def target_aspect(self) -> type[TargetAspect]:
         """Returns the Aspect that this propagator handles."""
 
     @abstractmethod
@@ -117,16 +122,18 @@ class AspectPropagator(Generic[*Aspects], ABC):
         MCPs are created based on and with appropriate attribution information.
         """
 
-        origin_aspect = tuple([origin.get_aspect(aspect) for aspect in self.aspects()])
-        target_aspect = tuple([target.get_aspect(aspect) for aspect in self.aspects()])
+        origin_aspect = tuple(
+            [origin.get_aspect(aspect) for aspect in self.origin_aspects()]
+        )
+        target_aspect = target.get_aspect(self.target_aspect())
         if any(origin_aspect):
             # Don't think the Python type system can figure out typing here without cast
             # Implementers need to remember that only one of the aspects is guaranteed to be non-null
             yield from self._compute_diff_eces_internal(
                 origin_urn=origin.urn,
                 target_urn=target.urn,
-                origin_aspects=cast(tuple[*Aspects], origin_aspect),
-                target_aspects=cast(tuple[*Aspects], target_aspect),
+                origin_aspects=cast(tuple[*OriginAspects], origin_aspect),
+                target_aspect=target_aspect,
             )
 
     @abstractmethod
@@ -135,8 +142,8 @@ class AspectPropagator(Generic[*Aspects], ABC):
         *,
         origin_urn: str,
         target_urn: str,
-        origin_aspects: tuple[*Aspects],
-        target_aspects: tuple[*Aspects],
+        origin_aspects: tuple[*OriginAspects],
+        target_aspect: TargetAspect | None,
     ) -> Iterator[EntityChangeEvent]:
         """Implements the logic for `compute_diff_eces`, with a cleaner type signature."""
 
@@ -160,12 +167,9 @@ class AspectPropagator(Generic[*Aspects], ABC):
     def _compute_attribution(
         self, old_source_details: SourceDetails, via_urn: str
     ) -> MetadataAttributionClass | None:
-        if self.config.omit_attribution:
-            return None
-
         origin = old_source_details.origin or via_urn
         new_source_details = SourceDetails(
-            propagated=True,
+            propagated=not self.config.omit_attribution_is_propagated,
             origin=origin,
             via=via_urn if origin != via_urn else None,
             propagation_depth=(old_source_details.propagation_depth or 0) + 1,

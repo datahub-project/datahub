@@ -6,7 +6,6 @@ from datahub_integrations.teams.render.render_entity import (
     _get_entity_tags,
     _get_ownership_text,
     _get_platform_logo_url,
-    _is_certified,
     render_entity_card,
 )
 
@@ -83,27 +82,7 @@ class TestEntityCardRendering:
         ownership = _get_ownership_text(entity)
         assert ownership == "👤 Data Team, john.doe"
 
-    def test_is_certified_true(self) -> None:
-        """Test certification detection - certified entity."""
-        entity = {
-            "globalTags": {"tags": [{"tag": {"properties": {"name": "certified"}}}]}
-        }
-
-        assert _is_certified(entity) is True
-
-    def test_is_certified_false_deprecated(self) -> None:
-        """Test certification detection - deprecated entity."""
-        entity = {"deprecation": {"deprecated": True}}
-
-        assert _is_certified(entity) is False
-
-    def test_is_certified_false_health_fail(self) -> None:
-        """Test certification detection - unhealthy entity."""
-        entity = {"health": {"status": "FAIL"}}
-
-        assert _is_certified(entity) is False
-
-    @patch("datahub_integrations.teams.render.render_entity.get_type_url")
+    @patch("datahub_integrations.teams.url_utils.get_type_url")
     def test_render_entity_card_basic(self, mock_get_type_url: Any) -> None:
         """Test basic entity card rendering."""
         mock_get_type_url.return_value = (
@@ -124,7 +103,7 @@ class TestEntityCardRendering:
         assert len(card["content"]["body"]) >= 2  # Header + description
         assert card["content"]["actions"][0]["title"] == "View in DataHub"
 
-    @patch("datahub_integrations.teams.render.render_entity.get_type_url")
+    @patch("datahub_integrations.teams.url_utils.get_type_url")
     def test_render_entity_card_enhanced(self, mock_get_type_url: Any) -> None:
         """Test enhanced entity card rendering with all features."""
         mock_get_type_url.return_value = (
@@ -171,10 +150,6 @@ class TestEntityCardRendering:
         # Check for ownership
         ownership_found = any("👤" in str(item) for item in body)
         assert ownership_found
-
-        # Check for certification (since it has "verified" tag)
-        card_str = str(card)
-        assert "✅" in card_str
 
     def test_render_entity_card_empty(self) -> None:
         """Test rendering with empty entity."""

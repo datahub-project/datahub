@@ -10,6 +10,7 @@ import com.linkedin.metadata.timeline.data.dataset.schema.SchemaFieldTagChangeEv
 import com.linkedin.metadata.timeline.data.entity.GlossaryTermChangeEvent;
 import com.linkedin.metadata.timeline.data.entity.TagChangeEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -78,6 +79,24 @@ public class ChangeEventGeneratorUtils {
                   .build();
             })
         .collect(Collectors.toList());
+  }
+
+  public static ChangeEvent convertEntityDocumentationChangeEvent(
+      @Nonnull String fieldPath, @Nonnull Urn parentUrn, @Nonnull ChangeEvent event) {
+    Map<String, Object> parameters = new HashMap<>(event.getParameters());
+    parameters.put("fieldPath", fieldPath);
+    parameters.put("parentUrn", parentUrn.toString());
+
+    return ChangeEvent.builder()
+        .modifier(event.getModifier())
+        .entityUrn(event.getEntityUrn())
+        .category(event.getCategory())
+        .operation(event.getOperation())
+        .semVerChange(event.getSemVerChange())
+        .description(event.getDescription())
+        .parameters(parameters)
+        .auditStamp(event.getAuditStamp())
+        .build();
   }
 
   public static <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(

@@ -51,9 +51,27 @@ export const NotificationSettingValue = ({
         setSelected(newSelected);
     }, [sink, notificationType, existingNotificationSettings, enabledByDefault]);
 
+    // Disable Teams checkbox for specific notification types
+    const isTeamsDisabledForType = () => {
+        if (sink.id !== 'microsoft-teams') {
+            return false;
+        }
+
+        // Disable Teams for Compliance Forms and Workflow notifications
+        const disabledTypes = [
+            NotificationScenarioType.ComplianceFormPublish,
+            NotificationScenarioType.NewActionWorkflowFormRequest,
+            NotificationScenarioType.RequesterActionWorkflowFormRequestStatusChange,
+        ];
+
+        return disabledTypes.includes(notificationType);
+    };
+
+    const shouldDisableCheckbox = disabled || isTeamsDisabledForType();
+
     return (
         <SettingValue key={`${notificationType}-${sink.id}`}>
-            {!disabled ? (
+            {!shouldDisableCheckbox ? (
                 <Checkbox
                     data-testid={`notification-type-${sink.id}-${notificationType.toLowerCase()}`}
                     checked={selected}
@@ -71,11 +89,15 @@ export const NotificationSettingValue = ({
                 />
             ) : (
                 <Tooltip
-                    title={`${sink.name} notifications are currently disabled! ${
-                        sink.id === EMAIL_SINK.id
-                            ? 'Contact your Acryl representative for more details.'
-                            : `You can enable it inside Integrations settings.`
-                    }`}
+                    title={
+                        isTeamsDisabledForType()
+                            ? 'Teams notifications are not available for this notification type'
+                            : `${sink.name} notifications are currently disabled! ${
+                                  sink.id === EMAIL_SINK.id
+                                      ? 'Contact your Acryl representative for more details.'
+                                      : `You can enable it inside Integrations settings.`
+                              }`
+                    }
                 >
                     <Checkbox disabled />
                 </Tooltip>

@@ -26,7 +26,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     _Aspect,
 )
-from datahub.metadata.urns import SchemaFieldUrn, Urn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     EntityChangeEvent,
@@ -150,18 +150,23 @@ class PropagationV2Action(BulkBootstrapAction):
         stats = self.report.event_processing_stats
         if isinstance(event.event, EntityChangeEvent):
             ece = event.event
+            if not self._should_process_ece(ece):
+                logger.debug(f"Skipping {ece}")
+                return
+
             ece_entity = EntityWithData(ece.entityUrn)
             logger.debug(f"Received {ece.category} {ece.operation} on {ece.entityUrn}")
 
-            self._preprocess_origin_entities([ece_entity])
+            origin_entities = [ece_entity]
+            origin_entities = self._preprocess_origin_entities(origin_entities)
             if not self._should_process_urn(ece_entity):
                 logger.debug(f"Skipping {ece_entity}")
                 return
 
             logger.info(f"Processing {ece}")
             stats.start(event)
-            self._hydrate_origin_entities([ece_entity])
-            target_to_origin = self._get_target_urns([ece_entity])
+            self._hydrate_origin_entities(origin_entities)
+            target_to_origin = self._get_target_urns(origin_entities, ece=ece)
             for target_urn, origin_entity in target_to_origin.items():
                 try:
                     self._process_ece(ece, origin_entity, target_urn)
@@ -170,15 +175,9 @@ class PropagationV2Action(BulkBootstrapAction):
                     logger.warning(f"Error processing {event}:", exc_info=True)
                     stats.end(event, success=False)
         elif isinstance(event.event, RelationshipChangeEvent):
-            if len(self.config.propagation_rule.target_urn_resolution) != 1:
-                return
-
             rce = event.event
-            resolution = self.config.propagation_rule.target_urn_resolution[0]
-            if (
-                not isinstance(resolution, RelationshipLookup)
-                or resolution.relationship_type != rce.relationshipType
-            ):
+            if not (resolution := self._should_process_rce(rce)):
+                logger.debug(f"Skipping {rce}")
                 return
 
             logger.info(f"Processing {rce}")
@@ -202,8 +201,11 @@ class PropagationV2Action(BulkBootstrapAction):
         ):
             target_entity = EntityWithData(target_urn)
             origin_entity = EntityWithData(origin_urn)
+            origin_entities = [origin_entity]
+            origin_entities = self._preprocess_origin_entities(origin_entities)
+            self._hydrate_origin_entities(origin_entities)
             self._batch_augment_entities_with_aspects(
-                [target_entity, origin_entity], list(self.bootstrap_aspects())
+                [target_entity], list(self.bootstrap_aspects())
             )
             self._bootstrap_single_urn(
                 origin_entity=origin_entity, target_entity=target_entity
@@ -212,7 +214,7 @@ class PropagationV2Action(BulkBootstrapAction):
             # TODO: Handle bulk deletion via lifecycle owner and entity hard delete events
             target_entity = EntityWithData(target_urn)
             self._batch_augment_entities_with_aspects(
-                [target_entity], list(self.bootstrap_aspects())
+                [target_entity], list(self.target_propagator_aspects())
             )
             self._rollback_single_urn(
                 origin_urn=origin_urn, target_entity=target_entity
@@ -277,34 +279,53 @@ class PropagationV2Action(BulkBootstrapAction):
                 f"Unsupported origin urn resolution lookup: {origin_urn_resolution.lookup_type}"
             )
 
-    def propagator_aspects(self) -> set[type[_Aspect]]:
+    def origin_propagator_aspects(self) -> set[type[_Aspect]]:
         return set(
-            aspect for propagator in self.propagators for aspect in propagator.aspects()
+            aspect
+            for propagator in self.propagators
+            for aspect in propagator.origin_aspects()
         )
 
-    @property
-    def _propagator_aspect_names(self) -> list[str]:
-        return [aspect.ASPECT_NAME for aspect in self.propagator_aspects()]
+    def target_propagator_aspects(self) -> set[type[_Aspect]]:
+        return set(propagator.target_aspect() for propagator in self.propagators)
 
     def bootstrap_aspects(self) -> set[type[_Aspect]]:
-        return self.propagator_aspects()
+        return self.origin_propagator_aspects() | self.target_propagator_aspects()
 
     def _preprocess_origin_entities(
         self, origin_entities: list[EntityWithData]
-    ) -> None:
-        """Converts schema field urns to their parent dataset urns for schema field propagation.
+    ) -> list[EntityWithData]:
+        """Prepares a list of origin entities for propagation analysis.
 
-        Mutates the origin entities in place.
+        1. Combines duplicate entities.
+        2. Converts schema field urns to their parent dataset urns for schema field propagation.
+
+        Mutates the origin entities in place and returns a new list of origin_entities.
         """
 
-        # ECEs on schema fields will have schema field urns
-        # We still need to fetch the parent dataset urn to get its docs, to perform the docs diff
-        # Swap the entity urn to its dataset urn, but remember the field path for later
+        # Combine duplicate entities
+        origin_entity_map: dict[str, EntityWithData] = {}
         for entity in origin_entities:
-            urn_obj = Urn.create_from_string(entity.urn)
-            if isinstance(urn_obj, SchemaFieldUrn):
-                entity.urn = str(urn_obj.parent)
-                entity.field_path = urn_obj.field_path
+            if entity.urn in origin_entity_map:
+                origin_entity_map[entity.urn].merge_in_place(entity)
+            else:
+                origin_entity_map[entity.urn] = entity
+        origin_entities = list(origin_entity_map.values())
+
+        if (
+            self.config.propagation_rule.target_urn_resolution
+            == LookupType.SCHEMA_FIELD.value
+        ):
+            # ECEs on schema fields will have schema field urns
+            # We still need to fetch the parent dataset urn to get its docs, to perform the docs diff
+            # Swap the entity urn to its dataset urn, but remember the field path for later
+            for entity in origin_entities:
+                urn_obj = Urn.create_from_string(entity.urn)
+                if isinstance(urn_obj, SchemaFieldUrn):
+                    entity.urn = str(urn_obj.parent)
+                    entity.field_path = urn_obj.field_path
+
+        return origin_entities
 
     def _hydrate_origin_entities(self, origin_entities: list[EntityWithData]) -> None:
         entities_needing_resolution = [
@@ -313,13 +334,16 @@ class PropagationV2Action(BulkBootstrapAction):
             if set(self._bootstrap_aspect_names) - entity.aspects.keys()
         ]
         self._batch_augment_entities_with_aspects(
-            entities_needing_resolution, list(self.bootstrap_aspects())
+            entities_needing_resolution, list(self.origin_propagator_aspects())
         )
 
         self._attach_descriptions_from_schema_metadata(origin_entities)
 
     def _get_target_urns(
-        self, origin_entities: list[EntityWithData]
+        self,
+        origin_entities: list[EntityWithData],
+        *,
+        ece: EntityChangeEvent | None = None,
     ) -> dict[str, EntityWithData]:
         """
         Given a list of origin entities, resolve the target urns based on target_urn_resolution.
@@ -337,6 +361,15 @@ class PropagationV2Action(BulkBootstrapAction):
             self.config.propagation_rule.target_urn_resolution
             == LookupType.SCHEMA_FIELD.value
         ):
+            if ece and not ece.safe_parameters.get("parentUrn"):
+                logger.debug(
+                    f"Skipping schema field propagation: no parentUrn in {ece}"
+                )
+                return {}
+            if ece:
+                # Do not process ECEs on non-schema field urns
+                origin_entities = [e for e in origin_entities if e.field_path]
+
             target_to_origin = self._get_schema_field_target_urns(origin_entities)
         else:
             batch = origin_entities
@@ -361,7 +394,7 @@ class PropagationV2Action(BulkBootstrapAction):
             SchemaMetadataClass,
             EditableSchemaMetadataClass,
         }
-        aspects_to_fetch = list(self.bootstrap_aspects() | extra_aspects)
+        aspects_to_fetch = list(self.origin_propagator_aspects() | extra_aspects)
         entities_needing_resolution = [
             entity
             for entity in origin_entities
@@ -372,11 +405,12 @@ class PropagationV2Action(BulkBootstrapAction):
         )
 
         for entity in origin_entities:
-            if not entity.field_path:
+            if not isinstance(Urn.from_string(entity.urn), DatasetUrn):
                 logger.warning(
-                    f"Schema field propagation received entity {entity} without a field path. Skipping."
+                    f"Schema field propagation received non-dataset entity: {entity}. Skipping."
                 )
                 continue
+
             schema_metadata = entity.get_aspect(SchemaMetadataClass)
             editable_schema_metadata = entity.get_aspect(EditableSchemaMetadataClass)
             if not schema_metadata and not editable_schema_metadata:
@@ -454,7 +488,7 @@ class PropagationV2Action(BulkBootstrapAction):
                 )
 
                 target_to_origin[target_urn] = EntityWithData(
-                    urn=SchemaFieldUrn(entity.urn, entity.field_path).urn(),
+                    urn=SchemaFieldUrn(entity.urn, field_path).urn(),
                     aspects={
                         "globalTags": GlobalTagsClass(
                             tags=list(editable_tags.values()) + list(base_tags.values())
@@ -483,12 +517,12 @@ class PropagationV2Action(BulkBootstrapAction):
         return target_to_origin
 
     def _bootstrap_batch_internal(self, entities: list[EntityWithData]) -> None:
-        self._preprocess_origin_entities(entities)
+        entities = self._preprocess_origin_entities(entities)
         self._hydrate_origin_entities(entities)
         target_to_origin = self._get_target_urns(entities)
         target_urn_batch = [EntityWithData(urn) for urn in target_to_origin]
         self._batch_augment_entities_with_aspects(
-            target_urn_batch, list(self.propagator_aspects())
+            target_urn_batch, list(self.target_propagator_aspects())
         )
         target_entity_by_urn = {entity.urn: entity for entity in target_urn_batch}
         for propagator in self.propagators:
@@ -515,14 +549,13 @@ class PropagationV2Action(BulkBootstrapAction):
                 self.sink.write_record_async(
                     RecordEnvelope(mcp, metadata={}), self.noop_callback
                 )
-        self.sink.flush()
 
     def _rollback_batch_internal(self, entities: list[EntityWithData]) -> None:
-        self._preprocess_origin_entities(entities)
+        entities = self._preprocess_origin_entities(entities)
         target_to_origin = self._get_target_urns(entities)
         target_urn_batch = [EntityWithData(urn) for urn in target_to_origin]
         self._batch_augment_entities_with_aspects(
-            target_urn_batch, list(self.propagator_aspects())
+            target_urn_batch, list(self.target_propagator_aspects())
         )
         target_entity_by_urn = {entity.urn: entity for entity in target_urn_batch}
         for propagator in self.propagators:
@@ -550,7 +583,6 @@ class PropagationV2Action(BulkBootstrapAction):
                 self.sink.write_record_async(
                     RecordEnvelope(mcp, metadata={}), self.noop_callback
                 )
-        self.sink.flush()
 
     def _bootstrap_single_urn(
         self, *, origin_entity: EntityWithData, target_entity: EntityWithData
@@ -617,9 +649,9 @@ class PropagationV2Action(BulkBootstrapAction):
                 )
             return {
                 entity.urn: set(
-                    entity.get_relationships(lookup.origin_is_source).get(
-                        lookup.relationship_type, []
-                    )
+                    entity.get_relationships(lookup.origin_is_source)[
+                        lookup.relationship_type
+                    ]
                 )
                 for entity in entities
             }
@@ -630,6 +662,26 @@ class PropagationV2Action(BulkBootstrapAction):
                 f"Unsupported target urn resolution lookup: {lookup.lookup_type}"
             )
             return {}
+
+    def _should_process_ece(self, ece: EntityChangeEvent) -> bool:
+        return ece.category in {
+            propagator.category().value for propagator in self.propagators
+        }
+
+    def _should_process_rce(
+        self, rce: RelationshipChangeEventClass
+    ) -> RelationshipLookup | None:
+        if len(self.config.propagation_rule.target_urn_resolution) != 1:
+            return None
+
+        resolution = self.config.propagation_rule.target_urn_resolution[0]
+        if (
+            isinstance(resolution, RelationshipLookup)
+            and resolution.relationship_type == rce.relationshipType
+        ):
+            return resolution
+        else:
+            return None
 
     def _should_process_urn(self, entity: EntityWithData) -> bool:
         entity_type = Urn.from_string(entity.urn).entity_type
@@ -733,8 +785,9 @@ class PropagationV2Action(BulkBootstrapAction):
         # documentations rather than just the primary one,
         # and the UI can prioritize which one to show not based on recency
         target_entity = EntityWithData(target_urn)
-        self._batch_augment_entities_with_aspects(
-            [target_entity], list(propagator.aspects())
+        target_aspect_cls = propagator.target_aspect()
+        target_entity.aspects[target_aspect_cls.ASPECT_NAME] = (
+            self.ctx.graph.graph.get_aspect(target_urn, propagator.target_aspect())
         )
         for new_ece in propagator.compute_diff_eces(
             origin=origin_entity, target=target_entity

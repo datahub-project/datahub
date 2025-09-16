@@ -34,6 +34,14 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = illException.getMessage();
     }
 
+    IllegalStateException illStateException =
+        findFirstThrowableCauseOfClass(exception, IllegalStateException.class);
+    if (illStateException != null) {
+      log.error("Failed to execute", illStateException);
+      errorCode = DataHubGraphQLErrorCode.SERVER_ERROR;
+      message = illStateException.getMessage();
+    }
+
     DataHubGraphQLException graphQLException =
         findFirstThrowableCauseOfClass(exception, DataHubGraphQLException.class);
     if (graphQLException != null) {
@@ -50,7 +58,10 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       message = validationException.getMessage();
     }
 
-    if (illException == null && graphQLException == null && validationException == null) {
+    if (illException == null
+        && illStateException == null
+        && graphQLException == null
+        && validationException == null) {
       log.error("Failed to execute", exception);
     }
     DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
