@@ -47,6 +47,9 @@ DERIVED_VIEW_PATTERN: str = r"\$\{([^}]*)\}"
 @dataclass
 class LookMLSourceReport(StaleEntityRemovalSourceReport):
     git_clone_latency: Optional[timedelta] = None
+    looker_query_api_latency: Optional[Dict[str, timedelta]] = (
+        None  # Key: view name, Value: latency
+    )
     models_discovered: int = 0
     models_dropped: LossyList[str] = dataclass_field(default_factory=LossyList)
     views_discovered: int = 0
@@ -80,6 +83,13 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
         if self._looker_api:
             self.api_stats = self._looker_api.compute_stats()
         return super().compute_stats()
+
+    def report_looker_query_api_latency(
+        self, view_urn: str, latency: timedelta
+    ) -> None:
+        if self.looker_query_api_latency is None:
+            self.looker_query_api_latency = {}
+        self.looker_query_api_latency[view_urn] = latency
 
 
 class LookMLSourceConfig(
@@ -122,6 +132,14 @@ class LookMLSourceConfig(
         description="List of regex patterns for LookML views to include in the extraction.",
     )
     parse_table_names_from_sql: bool = Field(True, description="See note below.")
+    use_api_for_view_lineage: bool = Field(
+        False,
+        description="When enabled, uses Looker API to get SQL representation of views for lineage parsing instead of parsing LookML files directly. Requires 'api' configuration to be provided.",
+    )
+    use_api_cache_for_view_lineage: bool = Field(
+        False,
+        description="When enabled, uses Looker API server-side caching for query execution. Requires 'api' configuration to be provided.",
+    )
     api: Optional[LookerAPIConfig] = None
     project_name: Optional[str] = Field(
         None,
@@ -236,6 +254,17 @@ class LookMLSourceConfig(
             raise ValueError(
                 "Neither project_name not an API credential was found. LookML source requires either api credentials "
                 "for Looker or a project_name to accurately name views and models."
+            )
+        return values
+
+    @root_validator(skip_on_failure=True)
+    def check_api_provided_for_view_lineage(cls, values):
+        """Validate that we must have an api credential to use Looker API for view's column lineage"""
+        if not values.get("api") and values.get("use_api_for_view_lineage"):
+            raise ValueError(
+                "API credential was not found. LookML source requires api credentials "
+                "for Looker to use Looker APIs for view's column lineage extraction."
+                "Set `use_api_for_view_lineage` to False to skip using Looker APIs."
             )
         return values
 

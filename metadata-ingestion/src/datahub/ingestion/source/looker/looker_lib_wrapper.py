@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from enum import Enum
 from functools import lru_cache
 from typing import Dict, List, MutableMapping, Optional, Sequence, Set, Union, cast
 
@@ -29,6 +30,11 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 
 logger = logging.getLogger(__name__)
+
+
+class LookerQueryResponseFormat(Enum):
+    JSON = "json"
+    SQL = "sql"
 
 
 class TransportOptionsConfig(ConfigModel):
@@ -166,18 +172,31 @@ class LookerAPI:
             logger.warning(f"Failure was {e}")
         return []
 
-    def execute_query(self, write_query: WriteQuery) -> List[Dict]:
+    def execute_query(
+        self,
+        write_query: WriteQuery,
+        result_format: LookerQueryResponseFormat = LookerQueryResponseFormat.JSON,
+        use_cache: bool = False,
+    ) -> List[Dict]:
         logger.debug(f"Executing query {write_query}")
         self.client_stats.query_calls += 1
 
-        response_json = self.client.run_inline_query(
-            result_format="json",
+        response = self.client.run_inline_query(
+            result_format=result_format.value,
             body=write_query,
             transport_options=self.transport_options,
+            cache=use_cache,
         )
 
+        data = None
+        match result_format:
+            case LookerQueryResponseFormat.JSON:
+                data = json.loads(response)
+            case LookerQueryResponseFormat.SQL:
+                # Convert response sql string to list of dicts to match return type consistency
+                data = [{"sql": response}]
+
         logger.debug("=================Response=================")
-        data = json.loads(response_json)
         logger.debug("Length of response: %d", len(data))
         return data
 
