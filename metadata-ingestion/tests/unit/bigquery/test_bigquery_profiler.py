@@ -439,13 +439,13 @@ def test_partition_discovery_create_safe_filter():
     string_filter = discovery._create_safe_filter("status", "active")
     assert string_filter == "`status` = 'active'"
 
-    # Test numeric filter
+    # Test numeric filter - now always quoted for type safety
     numeric_filter = discovery._create_safe_filter("count", 100)
-    assert numeric_filter == "`count` = 100"
+    assert numeric_filter == "`count` = '100'"
 
-    # Test float filter
+    # Test float filter - now always quoted for type safety
     float_filter = discovery._create_safe_filter("price", 99.99)
-    assert float_filter == "`price` = 99.99"
+    assert float_filter == "`price` = '99.99'"
 
     # Test date filter
     test_date = date(2023, 12, 25)

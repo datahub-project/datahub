@@ -1133,58 +1133,25 @@ LIMIT @limit_rows"""
         Create a safe partition filter with upstream validation of inputs.
 
         This ensures we only create filters with safe, validated inputs before
-        they reach the downstream validation. Uses string quoting for all values
+        they reach the downstream validation. Always uses string quoting for all values
         to rely on BigQuery's implicit type casting, which handles most type
-        conversions automatically and avoids type mismatch errors.
+        conversions automatically and avoids type mismatch errors between
+        schema-declared types and actual stored values.
         """
         # Validate column name
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
 
-        # Use column type information to format values correctly for partition pruning
+        # Convert value to string for consistent handling
         str_val = str(val)
 
         # Check for SQL injection patterns
         if any(pattern in str_val for pattern in [";", "--", "/*", "\\"]):
             raise ValueError(f"Invalid value for filter: {val}")
 
-        # Determine formatting based on BigQuery column type or Python type
-        should_quote = True
-
-        if col_type:
-            # Use BigQuery column type to determine quoting (for partition pruning efficiency)
-            numeric_types = {
-                "INT64",
-                "FLOAT64",
-                "NUMERIC",
-                "BIGNUMERIC",
-                "INTEGER",
-                "FLOAT",
-                "DECIMAL",
-            }
-            should_quote = col_type.upper() not in numeric_types
-        else:
-            # Fallback to Python type-based logic (for backward compatibility)
-            should_quote = not isinstance(val, (int, float))
-
-        if not should_quote:
-            # Don't quote numeric values
-            try:
-                # Validate that the value can be treated as a number
-                if "." in str_val:
-                    float(str_val)
-                else:
-                    int(str_val)
-                return f"`{col_name}` = {str_val}"
-            except ValueError:
-                # Value can't be converted to number
-                if col_type:
-                    logger.warning(
-                        f"Value '{str_val}' cannot be converted to numeric type {col_type} for column {col_name}"
-                    )
-                # Fall through to quoted string handling
-
-        # Quote the value
+        # Always quote values to avoid type mismatch issues
+        # BigQuery's implicit casting handles STRING -> INT64, STRING -> DATE, etc.
+        # This is safer than trying to guess the correct format based on schema types
         if "'" in str_val:
             escaped_val = str_val.replace("'", "''")
             return f"`{col_name}` = '{escaped_val}'"
