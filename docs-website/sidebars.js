@@ -431,7 +431,7 @@ module.exports = {
           type: "doc",
           id: "docs/managed-datahub/teams/saas-teams-setup",
           className: "saasOnly",
-        }
+        },
       ],
     },
     {
