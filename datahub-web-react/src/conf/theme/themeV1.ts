@@ -1,0 +1,69 @@
+import light from '@conf/theme/colorThemes/light';
+import { Theme } from '@conf/theme/types';
+
+const themeV1: Theme = {
+    id: 'themeV1',
+    colors: light,
+    styles: {
+        'primary-color': '#1890ff',
+        'primary-color-light': '#F0F5FF',
+        'primary-color-dark': '#002766',
+        'layout-header-background': 'white',
+        'layout-header-color': '#434343',
+        'layout-body-background': 'white',
+        'component-background': 'white',
+        'body-background': 'white',
+        'border-color-base': '#ececec',
+        'text-color': 'fade(black, 85%)',
+        'text-color-secondary': 'fade(black, 45%)',
+        'heading-color': 'fade(black, 85%)',
+        'background-color-light': 'hsv(0, 0, 98%)',
+        'divider-color': 'fade(black, 6%)',
+        'disabled-color': 'fade(black, 25%)',
+        'steps-nav-arrow-color': 'fade(black, 25%)',
+        'homepage-background-upper-fade': '#FFFFFF',
+        'homepage-background-lower-fade': '#FFFFFF',
+        'homepage-text-color': '#434343',
+        'box-shadow': '0px 0px 30px 0px rgb(239 239 239)',
+        'box-shadow-hover': '0px 1px 0px 0.5px rgb(239 239 239)',
+        'box-shadow-navbar-redesign': '0 0 6px 0px rgba(93, 102, 139, 0.20)',
+        'border-radius-navbar-redesign': '12px',
+        'highlight-color': '#E6F4FF',
+        'highlight-border-color': '#BAE0FF',
+    },
+    assets: {
+        logoUrl: '/assets/logo.png',
+    },
+    content: {
+        title: 'DataHub',
+        search: {
+            searchbarMessage: 'Search Tables, Dashboards, People, & more...',
+        },
+        menu: {
+            items: [
+                {
+                    label: 'Project',
+                    path: 'https://docs.datahub.com',
+                    shouldOpenInNewTab: true,
+                },
+                {
+                    label: 'Docs',
+                    path: 'https://docs.datahub.com/docs',
+                    shouldOpenInNewTab: true,
+                },
+                {
+                    label: 'Releases',
+                    path: 'https://docs.datahub.com/docs/releases/',
+                    shouldOpenInNewTab: true,
+                },
+                {
+                    label: 'GitHub',
+                    path: 'https://github.com/datahub-project/datahub',
+                    shouldOpenInNewTab: true,
+                },
+            ],
+        },
+    },
+};
+
+export default themeV1;

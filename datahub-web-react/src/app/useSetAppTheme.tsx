@@ -2,14 +2,15 @@ import { useEffect } from 'react';
 
 import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
+import themes from '@conf/theme/themes';
 import { useCustomTheme } from '@src/customThemeContext';
 
-// add new theme ids here
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-enum ThemeId {}
-
-function useCustomThemeId() {
+export function useCustomThemeId(): string | null {
     const { config, loaded } = useAppConfig();
+
+    if (import.meta.env.REACT_APP_THEME) {
+        return import.meta.env.REACT_APP_THEME;
+    }
 
     if (!loaded) {
         return loadThemeIdFromLocalStorage();
@@ -20,7 +21,6 @@ function useCustomThemeId() {
 
 export function useSetAppTheme() {
     const isThemeV2 = useIsThemeV2();
-    const { config } = useAppConfig();
     const { updateTheme } = useCustomTheme();
     const customThemeId = useCustomThemeId();
 
@@ -29,14 +29,24 @@ export function useSetAppTheme() {
     }, [customThemeId]);
 
     useEffect(() => {
-        // here is where we can start adding new custom themes based on customThemeId
-
-        if (isThemeV2) {
-            import('../conf/theme/theme_v2.config.json').then((theme) => updateTheme(theme));
+        if (customThemeId && customThemeId.endsWith('.json')) {
+            if (import.meta.env.DEV) {
+                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`).then((theme) => {
+                    updateTheme(theme);
+                });
+            } else {
+                fetch(`/assets/conf/theme/${customThemeId}`)
+                    .then((response) => response.json())
+                    .then((theme) => {
+                        updateTheme(theme);
+                    });
+            }
+        } else if (customThemeId && themes[customThemeId]) {
+            updateTheme(themes[customThemeId]);
         } else {
-            import('../conf/theme/theme_light.config.json').then((theme) => updateTheme(theme));
+            updateTheme(isThemeV2 ? themes.themeV2 : themes.themeV1);
         }
-    }, [config, isThemeV2, updateTheme, customThemeId]);
+    }, [customThemeId, isThemeV2, updateTheme]);
 }
 
 function setThemeIdLocalStorage(customThemeId: string | null) {
@@ -49,7 +59,7 @@ function setThemeIdLocalStorage(customThemeId: string | null) {
 
 const CUSTOM_THEME_ID_KEY = 'customThemeId';
 
-export function loadThemeIdFromLocalStorage(): string | null {
+function loadThemeIdFromLocalStorage(): string | null {
     return localStorage.getItem(CUSTOM_THEME_ID_KEY);
 }
 

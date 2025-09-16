@@ -1,4 +1,5 @@
 {
+    "id": "theme_dark_example.config.json",
     "styles": {
         "primary-color": "#1890ff",
         "primary-color-light": "#F0F5FF",
