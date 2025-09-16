@@ -20,7 +20,10 @@ interface Props {
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
     const { entityData } = useEntityData();
     const editable = !!entityData?.privileges?.canManageAssetSummary;
-    const isTemplateEditable = templateType === PageTemplateSurfaceType.AssetSummary ? editable : true;
+    const isTemplateEditable = useMemo(
+        () => (templateType === PageTemplateSurfaceType.AssetSummary ? editable : true),
+        [editable, templateType],
+    );
     // Template state management
     const {
         personalTemplate,
@@ -42,7 +45,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
     const moduleModalState = useModuleModalState();
 
     // Module operations
-    const { addModule, removeModule, upsertModule, moveModule } = useModuleOperations(
+    const { addModule, removeModule, upsertModule, moveModule, moduleContext } = useModuleOperations(
         isEditingGlobalTemplate,
         personalTemplate,
         globalTemplate,
@@ -89,6 +92,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             resetTemplateToDefault,
             reloadHomepageModules,
             setReloadHomepageModules,
+            moduleContext,
             // Asset summary operations
             summaryElements,
             addSummaryElement,
@@ -114,6 +118,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             resetTemplateToDefault,
             reloadHomepageModules,
             setReloadHomepageModules,
+            moduleContext,
             // Asset summary operations
             summaryElements,
             addSummaryElement,

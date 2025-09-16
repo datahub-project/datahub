@@ -3,6 +3,7 @@ import {
     AddSummaryElementInput,
     ReplaceSummaryElementInput,
 } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
+import { TemplateUpdateContext } from '@app/homeV3/context/hooks/utils/templateOperationUtils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
@@ -70,6 +71,7 @@ export type PageTemplateContextState = {
     resetTemplateToDefault: () => void;
     reloadHomepageModules: boolean;
     setReloadHomepageModules: (val: boolean) => void;
+    moduleContext: TemplateUpdateContext;
     // Asset summary operations
     summaryElements?: AssetProperty[];
     addSummaryElement: (input: AddSummaryElementInput) => void;
