@@ -16,40 +16,40 @@ The following steps should be performed by a Teams or Azure Administrator:
 1. Download **Teams App zip** file [here](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/datahub-teams.zip)
 
 2. Open [Teams Admin UI](https://admin.teams.microsoft.com/) in your web browser, and in the sidebar click **Teams Apps** > **Manage Apps**
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-1.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-1.png" /></p>
 
 3. On the Apps page, click **Actions** > **Upload new app**
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-2.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-2.png" /></p>
 
 4. In the "Upload a custom app" window, click **Upload**, and then in the file browser, select the ZIP file you downloaded in Step #1.
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-3.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-3.png" /></p>
 
 5. Once the app is uploaded, log out of Teams Admin and User UIs, wait 5 minutes, and then log back into [Teams Web UI](https://teams.microsoft.com/v2/) in a new tab.
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-4.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-4.png" /></p>
 
 6. On the sidebar in the Teams Web UI, click **Apps** > **Built for your org**
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-5.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-5.png" /></p>
 
 7. On **Built for your org** page, locate **DataHub** application in the list, and click **Add**.
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-6.png" />
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-7.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-6.png" /></p>
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-7.png" /></p>
 
 8. Confirm installation by clicking **Add** in the pop-up
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-8.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-8.png" /></p>
 
 9. In the pop-up, click **Open** to open a chat window with the DataHub Teams bot.
-   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-9.png" />
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-9.png" /></p>
 
 ### Connecting the App to Your DataHub Instance
 
 10. **First, get your team URL:** On the sidebar, click **Chat**, locate your team name in the list, and click "..." next to open a dropdown manu. Then click **Copy Link**
-<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-10.png" />
+<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-10.png" /></p>
 
 11. **Then, link in DataHub:** In a separate web browser tab, open your DataHub UI, go to **Settings** > **Integrations** and click **Teams**
-<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-11.png" />
+<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-11.png" /></p>
 
 12. Paste the URL obtained is Step #10 into the Teams URL field, and click **Connect to Teams**
-<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-12.png" />
+<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-12.png" /></p>
 
 13. When prompted, complete the Teams authentication flow. After completion, you should be redirected back to DataHub.
 
