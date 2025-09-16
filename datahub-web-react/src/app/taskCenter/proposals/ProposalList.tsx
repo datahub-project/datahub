@@ -4,6 +4,10 @@ import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { Message } from '@app/shared/Message';
+import {
+    MinimalActionRequest,
+    useReloadModuleOnProposalApprove,
+} from '@app/taskCenterV2/proposalsV2/useReloadModulesOnProposalApprove';
 import { Button } from '@src/alchemy-components';
 import ActionRequestListItem from '@src/app/actionrequest/item/ActionRequestListItem';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
@@ -78,11 +82,17 @@ type Props = {
 
 export const ProposalList = ({ title, status, assignee }: Props) => {
     const [page, setPage] = useState(1);
-    const [selectedUrns, setSelectedUrns] = useState(new Set<string>());
+    const [selectedActionRequests, setSelectedActionRequests] = useState<MinimalActionRequest[]>([]);
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const reloadModulesOnApprove = useReloadModuleOnProposalApprove();
+
+    const selectedUrns = useMemo(
+        () => new Set(selectedActionRequests.map((request) => request.urn)),
+        [selectedActionRequests],
+    );
 
     // Policy list paging.
     const start = (page - 1) * pageSize;
@@ -117,6 +127,27 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
         refetch();
     };
 
+    const updateSelectedActionRequests = (urns: string[]) => {
+        setSelectedActionRequests((prev) => {
+            const currentUrns = prev.map((request) => request.urn);
+            const urnsToExclude = currentUrns.filter((urn) => !urns.includes(urn));
+            const urnsToAdd = urns.filter((urn) => !currentUrns.includes(urn));
+
+            const filteredRequests = prev.filter((request) => !urnsToExclude.includes(request.urn));
+            const requestsToAdd: MinimalActionRequest[] = actionRequests
+                .filter((request) => urnsToAdd.includes(request.urn))
+                .map(
+                    (request) =>
+                        ({
+                            urn: request.urn,
+                            type: request.type,
+                            params: request.params,
+                        }) as MinimalActionRequest,
+                );
+            return [...filteredRequests, ...requestsToAdd];
+        });
+    };
+
     const onSelectUrn = (urn: string) => {
         // If the urn is already present in selected, unselect, and vice versa.
         const newSelectedUrns = new Set(selectedUrns);
@@ -125,7 +156,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
         } else {
             newSelectedUrns.add(urn);
         }
-        setSelectedUrns(newSelectedUrns);
+        updateSelectedActionRequests(Array.from(newSelectedUrns));
     };
 
     const onSelectPage = (selected: boolean) => {
@@ -136,7 +167,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
         } else {
             actionRequests?.forEach((request) => newSelectedUrns.delete(request.urn));
         }
-        setSelectedUrns(newSelectedUrns);
+        updateSelectedActionRequests(Array.from(newSelectedUrns));
     };
 
     const acceptSelectedProposals = () => {
@@ -153,8 +184,9 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                             entityUrns: Array.from(selectedUrns),
                         });
                         message.success('Accepted proposals!');
+                        reloadModulesOnApprove(selectedActionRequests);
                         refetch();
-                        setSelectedUrns(new Set());
+                        updateSelectedActionRequests([]);
                     })
                     .catch((err) => {
                         console.log(err);
@@ -179,7 +211,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                         });
                         message.success('Proposals declined.');
                         refetch();
-                        setSelectedUrns(new Set());
+                        updateSelectedActionRequests([]);
                     })
                     .catch((err) => {
                         console.log(err);
