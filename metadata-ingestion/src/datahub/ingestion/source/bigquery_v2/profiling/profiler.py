@@ -817,11 +817,24 @@ WHERE {partition_where}"""
 
         # Add date range filters for each date column
         for col_name in date_columns:
-            # Use flexible date formatting based on column type
-            start_date_str = self._format_date_for_bigquery_column(start_date, col_name)
-            end_date_str = self._format_date_for_bigquery_column(
-                reference_date, col_name
+            # Detect the format used in existing filters for this column
+            existing_format = self._detect_date_format_in_filters(
+                partition_filters, col_name
             )
+
+            # Use consistent formatting based on existing filter format
+            if existing_format == "YYYYMMDD":
+                # STRING format like '20250913'
+                start_date_str = f"'{start_date.strftime('%Y%m%d')}'"
+                end_date_str = f"'{reference_date.strftime('%Y%m%d')}'"
+            elif existing_format == "YYYY-MM-DD":
+                # STRING format like '2025-09-13'
+                start_date_str = f"'{start_date.strftime('%Y-%m-%d')}'"
+                end_date_str = f"'{reference_date.strftime('%Y-%m-%d')}'"
+            else:
+                # Default to YYYY-MM-DD string format (let BigQuery handle casting)
+                start_date_str = f"'{start_date.strftime('%Y-%m-%d')}'"
+                end_date_str = f"'{reference_date.strftime('%Y-%m-%d')}'"
 
             # Add range filter to limit the date window
             range_filter = (
@@ -835,6 +848,40 @@ WHERE {partition_where}"""
         )
 
         return windowed_filters
+
+    def _detect_date_format_in_filters(
+        self, partition_filters: List[str], col_name: str
+    ) -> Optional[str]:
+        """
+        Detect the date format used in existing partition filters for a specific column.
+
+        This helps ensure consistent formatting when adding date windowing filters,
+        avoiding type mismatch errors between STRING and DATE types.
+
+        Args:
+            partition_filters: List of existing partition filter expressions
+            col_name: Column name to check format for
+
+        Returns:
+            Format string ("YYYYMMDD", "YYYY-MM-DD", or None for DATE functions)
+        """
+        for filter_expr in partition_filters:
+            # Look for patterns like `date` = '20250913' (YYYYMMDD format)
+            yyyymmdd_pattern = rf"`{re.escape(col_name)}`\s*=\s*'(\d{{8}})'"
+            match = re.search(yyyymmdd_pattern, filter_expr, re.IGNORECASE)
+            if match:
+                return "YYYYMMDD"
+
+            # Look for patterns like `date` = '2025-09-13' (YYYY-MM-DD format)
+            yyyy_mm_dd_pattern = (
+                rf"`{re.escape(col_name)}`\s*=\s*'(\d{{4}}-\d{{2}}-\d{{2}})'"
+            )
+            match = re.search(yyyy_mm_dd_pattern, filter_expr, re.IGNORECASE)
+            if match:
+                return "YYYY-MM-DD"
+
+        # If no specific format detected, assume DATE function format
+        return None
 
     def _extract_date_columns_from_filters(
         self, partition_filters: List[str]
@@ -886,64 +933,3 @@ WHERE {partition_where}"""
                         continue
 
         return None
-
-    def _format_date_for_bigquery_column(self, date_obj: date, col_name: str) -> str:
-        """
-        Format a date for BigQuery based on the likely column type.
-
-        Uses the most compatible format for different BigQuery partition column types:
-        - DATE columns: '2025-08-28'
-        - DATETIME/TIMESTAMP columns: DATE('2025-08-28') function for compatibility
-        - Unknown columns: DATE('2025-08-28') as safest option
-
-        Args:
-            date_obj: Date to format
-            col_name: Column name (used to infer type)
-
-        Returns:
-            Formatted date string suitable for BigQuery queries
-        """
-        date_str = date_obj.strftime("%Y-%m-%d")
-
-        # For most date-like columns, use DATE() function for maximum compatibility
-        # This works for DATE, DATETIME, and TIMESTAMP columns
-        if self._is_likely_timestamp_column(col_name):
-            # For timestamp columns, use TIMESTAMP() function with start/end of day
-            if col_name.endswith("_start") or "start" in col_name.lower():
-                return f"TIMESTAMP('{date_str} 00:00:00')"
-            elif col_name.endswith("_end") or "end" in col_name.lower():
-                return f"TIMESTAMP('{date_str} 23:59:59')"
-            else:
-                # Default to start of day for timestamp comparisons
-                return f"TIMESTAMP('{date_str}')"
-        elif self._is_likely_datetime_column(col_name):
-            # For datetime columns, use DATETIME() function
-            return f"DATETIME('{date_str}')"
-        else:
-            # For DATE columns and unknown types, use DATE() function (safest)
-            return f"DATE('{date_str}')"
-
-    def _is_likely_timestamp_column(self, col_name: str) -> bool:
-        """Check if column name suggests it's a TIMESTAMP type."""
-        timestamp_indicators = [
-            "timestamp",
-            "ts",
-            "created_at",
-            "updated_at",
-            "modified_at",
-            "event_time",
-            "log_time",
-            "ingested_at",
-            "processed_at",
-        ]
-        return any(indicator in col_name.lower() for indicator in timestamp_indicators)
-
-    def _is_likely_datetime_column(self, col_name: str) -> bool:
-        """Check if column name suggests it's a DATETIME type."""
-        datetime_indicators = [
-            "datetime",
-            "date_time",
-            "event_datetime",
-            "log_datetime",
-        ]
-        return any(indicator in col_name.lower() for indicator in datetime_indicators)

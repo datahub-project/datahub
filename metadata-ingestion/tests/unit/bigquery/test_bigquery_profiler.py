@@ -530,60 +530,34 @@ def test_profiler_get_dataset_name():
     assert result == "project1.dataset1.table1"
 
 
-def test_profiler_is_likely_timestamp_column():
-    """Test BigqueryProfiler._is_likely_timestamp_column."""
+def test_profiler_simplified_date_windowing():
+    """Test that date windowing always uses string literals for simplicity."""
     config = create_test_config()
+    config.profiling.partition_datetime_window_days = 7
     report = BigQueryV2Report()
     profiler = BigqueryProfiler(config, report)
 
-    # Timestamp-like columns
-    assert profiler._is_likely_timestamp_column("created_at") is True
-    assert profiler._is_likely_timestamp_column("updated_at") is True
-    assert profiler._is_likely_timestamp_column("timestamp") is True
-    assert profiler._is_likely_timestamp_column("event_time") is True
+    table = create_test_table()
 
-    # Non-timestamp columns
-    assert profiler._is_likely_timestamp_column("event_date") is False
-    assert profiler._is_likely_timestamp_column("user_id") is False
-    assert profiler._is_likely_timestamp_column("name") is False
+    # Test with no existing format detected (should use YYYY-MM-DD default)
+    input_filters = ["`event_date` IS NOT NULL"]  # Date column but no format to detect
+    result = profiler._apply_partition_date_windowing(input_filters, table)
 
+    # Should have original filter plus windowing filters using YYYY-MM-DD default
+    assert len(result) > len(input_filters)
 
-def test_profiler_is_likely_datetime_column():
-    """Test BigqueryProfiler._is_likely_datetime_column."""
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
+    # Check that windowing filters use default YYYY-MM-DD string format
+    windowing_filters = [f for f in result if f not in input_filters]
+    assert len(windowing_filters) == 1
 
-    # Datetime-like columns
-    assert profiler._is_likely_datetime_column("datetime") is True
-    assert profiler._is_likely_datetime_column("event_datetime") is True
-    assert profiler._is_likely_datetime_column("log_datetime") is True
-
-    # Non-datetime columns
-    assert profiler._is_likely_datetime_column("created_at") is False
-    assert profiler._is_likely_datetime_column("event_date") is False
-    assert profiler._is_likely_datetime_column("user_id") is False
-
-
-def test_profiler_format_date_for_bigquery_column():
-    """Test BigqueryProfiler._format_date_for_bigquery_column."""
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    test_date = date(2023, 12, 25)
-
-    # Date column
-    result = profiler._format_date_for_bigquery_column(test_date, "event_date")
-    assert result == "DATE('2023-12-25')"
-
-    # Timestamp column
-    result = profiler._format_date_for_bigquery_column(test_date, "created_at")
-    assert result == "TIMESTAMP('2023-12-25')"
-
-    # Datetime column
-    result = profiler._format_date_for_bigquery_column(test_date, "event_datetime")
-    assert result == "DATETIME('2023-12-25')"
+    # The windowing filter should use YYYY-MM-DD string format (not DATE functions)
+    windowing_filter = windowing_filters[0]
+    assert "DATE(" not in windowing_filter  # Should not use DATE() function
+    assert (
+        ">= '" in windowing_filter and "<= '" in windowing_filter
+    )  # Should use string literals
+    # Should use YYYY-MM-DD format (contains dashes)
+    assert "-" in windowing_filter
 
 
 def test_profiler_extract_date_columns_from_filters():
@@ -1071,6 +1045,76 @@ def test_profiler_apply_partition_date_windowing_comprehensive():
             assert len(result) == len(input_filters)
 
 
+def test_profiler_detect_date_format_in_filters():
+    """Test BigqueryProfiler._detect_date_format_in_filters for consistent formatting."""
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    # Test YYYYMMDD format detection
+    filters_yyyymmdd = ["`date` = '20250913'", "`user_id` = 123"]
+    format_result = profiler._detect_date_format_in_filters(filters_yyyymmdd, "date")
+    assert format_result == "YYYYMMDD"
+
+    # Test YYYY-MM-DD format detection
+    filters_yyyy_mm_dd = ["`event_date` = '2025-09-13'", "`status` = 'active'"]
+    format_result = profiler._detect_date_format_in_filters(
+        filters_yyyy_mm_dd, "event_date"
+    )
+    assert format_result == "YYYY-MM-DD"
+
+    # Test no specific format (should return None for DATE functions)
+    filters_no_format = ["`user_id` = 123", "`status` = 'active'"]
+    format_result = profiler._detect_date_format_in_filters(filters_no_format, "date")
+    assert format_result is None
+
+    # Test column not found
+    filters_other_col = ["`other_date` = '20250913'"]
+    format_result = profiler._detect_date_format_in_filters(filters_other_col, "date")
+    assert format_result is None
+
+
+def test_profiler_date_windowing_with_string_format():
+    """Test that date windowing uses consistent string formats to avoid type mismatches."""
+    config = create_test_config()
+    config.profiling.partition_datetime_window_days = 7
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table()
+
+    # Test with YYYYMMDD format (the problematic case from the error)
+    input_filters = ["`date` = '20250913'"]
+    result = profiler._apply_partition_date_windowing(input_filters, table)
+
+    # Should have original filter plus windowing filters
+    assert len(result) > len(input_filters)
+
+    # Check that windowing filters use consistent YYYYMMDD string format
+    windowing_filters = [f for f in result if f not in input_filters]
+    assert len(windowing_filters) == 1
+
+    # The windowing filter should use string format, not DATE() functions
+    windowing_filter = windowing_filters[0]
+    assert "DATE(" not in windowing_filter  # Should not use DATE() function
+    assert (
+        ">= '" in windowing_filter and "<= '" in windowing_filter
+    )  # Should use string literals
+
+    # Test with YYYY-MM-DD format
+    input_filters_dash = ["`event_date` = '2025-09-13'"]
+    result_dash = profiler._apply_partition_date_windowing(input_filters_dash, table)
+
+    # Should have windowing filters in YYYY-MM-DD format
+    windowing_filters_dash = [f for f in result_dash if f not in input_filters_dash]
+    assert len(windowing_filters_dash) == 1
+    windowing_filter_dash = windowing_filters_dash[0]
+    assert "DATE(" not in windowing_filter_dash  # Should not use DATE() function
+    assert (
+        ">= '" in windowing_filter_dash and "<= '" in windowing_filter_dash
+    )  # Should use string literals
+
+
 def test_profiler_get_dataset_name_variations():
     """Test BigqueryProfiler.get_dataset_name with different inputs."""
     config = create_test_config()
@@ -1107,72 +1151,6 @@ def test_profiler_string_representations():
     # Test __repr__
     repr_result = repr(profiler)
     assert "BigqueryProfiler" in repr_result
-
-
-def test_profiler_column_type_detection_comprehensive():
-    """Test all column type detection methods comprehensively."""
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    # Test timestamp column detection
-    timestamp_columns = [
-        "created_at",
-        "updated_at",
-        "timestamp",
-        "event_time",
-        "last_modified_at",
-        "processed_at",  # Removed "inserted_at" as it fails
-    ]
-    for col in timestamp_columns:
-        assert profiler._is_likely_timestamp_column(col), (
-            f"Expected {col} to be timestamp-like"
-        )
-
-    # Test datetime column detection
-    datetime_columns = [
-        "datetime",
-        "event_datetime",
-        "log_datetime",
-        "start_datetime",
-        "end_datetime",
-    ]
-    for col in datetime_columns:
-        assert profiler._is_likely_datetime_column(col), (
-            f"Expected {col} to be datetime-like"
-        )
-
-    # Test non-date columns
-    non_date_columns = ["user_id", "name", "status", "count", "amount", "email"]
-    for col in non_date_columns:
-        assert not profiler._is_likely_timestamp_column(col), (
-            f"Expected {col} to NOT be timestamp-like"
-        )
-        assert not profiler._is_likely_datetime_column(col), (
-            f"Expected {col} to NOT be datetime-like"
-        )
-
-
-def test_profiler_date_formatting_all_types():
-    """Test date formatting for all supported column types."""
-    config = create_test_config()
-    report = BigQueryV2Report()
-    profiler = BigqueryProfiler(config, report)
-
-    test_date = date(2023, 12, 25)
-
-    test_cases = [
-        # (column_name, expected_format)
-        ("event_date", "DATE('2023-12-25')"),  # Regular date
-        ("created_at", "TIMESTAMP('2023-12-25')"),  # Timestamp
-        ("event_datetime", "DATETIME('2023-12-25')"),  # Datetime
-        ("log_time", "TIMESTAMP('2023-12-25')"),  # Time suffix -> timestamp
-        ("start_dt", "DATE('2023-12-25')"),  # dt suffix -> date
-    ]
-
-    for col_name, expected in test_cases:
-        result = profiler._format_date_for_bigquery_column(test_date, col_name)
-        assert result == expected, f"Failed for column {col_name}"
 
 
 # =============================================================================
