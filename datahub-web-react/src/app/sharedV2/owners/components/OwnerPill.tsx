@@ -55,7 +55,7 @@ export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }
                         source="phosphor"
                         color="gray"
                         size="lg"
-                        colorValue={400}
+                        colorLevel={400}
                         onClick={onRemoveClick}
                     />
                 ) : null}
