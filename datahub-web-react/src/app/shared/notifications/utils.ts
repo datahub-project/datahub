@@ -30,18 +30,46 @@ export const getDestinationId = (
 
 /**
  * Gets error content to display, guiding user to best course of action to correct the issue
- * NOTE: uses mapping provided by slack docs here: https://api.slack.com/methods/chat.postMessage#errors
+ * For Slack: uses mapping provided by slack docs here: https://api.slack.com/methods/chat.postMessage#errors
+ * For Teams: provides generic error handling for common failure scenarios
  * NOTE: currently assumes current user is not an admin
  * TODO: include isCurrentUserDataHubAdmin in {@param extraContext}, so we can personalize the message to admins vs non-admins
  * @param errorCode based on the codes provided here: https://api.slack.com/methods/chat.postMessage#errors
  * @param extraContext to personalize the message to the user's current situation
  * @returns {string} Error content to display
  */
-export const getErrorDisplayContentFromSlackErrorCode = (
+export const getErrorDisplayContentFromErrorCode = (
     errorCode: string,
     extraContext: ExtraContextForErrorMessage,
 ): string => {
-    let message = `Slack message failed to send with error '${errorCode}'`;
+    let message = `Notification failed to send with error '${errorCode}'`;
+
+    // Handle common error patterns that apply to both Slack and Teams
+    if (errorCode.toLowerCase().includes('connection')) {
+        message =
+            'Unable to connect to the notification service. This could be a temporary network issue. Please try again, and if the problem persists, contact your DataHub admin.';
+    } else if (errorCode.toLowerCase().includes('timeout')) {
+        message =
+            'The notification request timed out. Please try again, and if the problem persists, contact your DataHub admin.';
+    } else if (errorCode.toLowerCase().includes('auth') || errorCode.toLowerCase().includes('unauthorized')) {
+        message =
+            'Authentication failed when sending the notification. The integration may need to be re-configured. Contact your DataHub admin.';
+    } else if (errorCode.toLowerCase().includes('config') || errorCode.toLowerCase().includes('invalid')) {
+        message =
+            'The notification service configuration appears to be invalid. Contact your DataHub admin to verify the integration settings.';
+    } else if (errorCode.toLowerCase().includes('not found') || errorCode.toLowerCase().includes('404')) {
+        message = `The destination '${extraContext.destinationName}' was not found. Please verify the destination exists and is accessible.`;
+    } else if (errorCode.toLowerCase().includes('forbidden') || errorCode.toLowerCase().includes('403')) {
+        message =
+            'Permission denied when sending the notification. The integration may need additional permissions. Contact your DataHub admin.';
+    } else if (errorCode.toLowerCase().includes('service unavailable') || errorCode.toLowerCase().includes('503')) {
+        message = 'The notification service is temporarily unavailable. Please try again later.';
+    } else if (errorCode === 'RuntimeException' || errorCode === 'Exception') {
+        message =
+            'An unexpected error occurred while sending the notification. Please try again, and if the problem persists, contact your DataHub admin.';
+    }
+
+    // If we have a specific Slack error, use the Slack-specific handling
     switch (errorCode) {
         // --- channel/conversation related errors --- //
         case 'channel_not_found':
@@ -151,3 +179,6 @@ export const getErrorDisplayContentFromSlackErrorCode = (
 
     return message;
 };
+
+// Backwards compatibility export
+export const getErrorDisplayContentFromSlackErrorCode = getErrorDisplayContentFromErrorCode;

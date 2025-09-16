@@ -16,7 +16,6 @@ from datahub_integrations.teams.render.render_entity import (
     _get_ownership_text,
     _get_platform_logo_url,
     _get_platform_name,
-    _is_certified,
     _is_valid_teams_image_url,
     render_entity_card,
     render_entity_preview,
@@ -438,54 +437,10 @@ class TestEntityMetadataExtraction:
         assert ownership == ""
 
 
-class TestCertificationChecking:
-    """Test entity certification status checking."""
-
-    def test_is_certified_by_tag(self) -> None:
-        """Test certification detection via tags."""
-        certification_tags = ["certified", "verified", "approved", "production"]
-
-        for tag_name in certification_tags:
-            entity = {
-                "globalTags": {"tags": [{"tag": {"properties": {"name": tag_name}}}]}
-            }
-            assert _is_certified(entity) is True
-
-    def test_is_certified_case_insensitive(self) -> None:
-        """Test certification detection is case insensitive."""
-        entity = {
-            "globalTags": {"tags": [{"tag": {"properties": {"name": "CERTIFIED"}}}]}
-        }
-        assert _is_certified(entity) is True
-
-    def test_is_certified_deprecated_override(self) -> None:
-        """Test that deprecation overrides certification."""
-        entity = {
-            "deprecation": {"deprecated": True},
-            "globalTags": {"tags": [{"tag": {"properties": {"name": "certified"}}}]},
-        }
-        assert _is_certified(entity) is False
-
-    def test_is_certified_health_fail_override(self) -> None:
-        """Test that health failure overrides certification."""
-        entity = {
-            "health": {"status": "FAIL"},
-            "globalTags": {"tags": [{"tag": {"properties": {"name": "certified"}}}]},
-        }
-        assert _is_certified(entity) is False
-
-    def test_is_certified_no_indicators(self) -> None:
-        """Test certification with no indicators."""
-        entity = {
-            "globalTags": {"tags": [{"tag": {"properties": {"name": "unrelated_tag"}}}]}
-        }
-        assert _is_certified(entity) is False
-
-
 class TestEntityCardRendering:
     """Test complete entity card rendering scenarios."""
 
-    @patch("datahub_integrations.teams.render.render_entity.get_type_url")
+    @patch("datahub_integrations.teams.url_utils.get_type_url")
     def test_render_entity_card_minimal(self, mock_get_type_url: Any) -> None:
         """Test rendering with minimal entity data."""
         mock_get_type_url.return_value = "https://datahub.com/dataset/test"
@@ -505,7 +460,7 @@ class TestEntityCardRendering:
             card["content"]["actions"][0]["url"] == "https://datahub.com/dataset/test"
         )
 
-    @patch("datahub_integrations.teams.render.render_entity.get_type_url")
+    @patch("datahub_integrations.teams.url_utils.get_type_url")
     def test_render_entity_card_with_subtype(self, mock_get_type_url: Any) -> None:
         """Test rendering with entity subtype preference."""
         mock_get_type_url.return_value = "https://datahub.com/dataset/test"
@@ -523,7 +478,7 @@ class TestEntityCardRendering:
         # Should prefer subtype "Table" over entity type "Dataset"
         assert "Table" in card_str
 
-    @patch("datahub_integrations.teams.render.render_entity.get_type_url")
+    @patch("datahub_integrations.teams.url_utils.get_type_url")
     def test_render_entity_card_long_description(self, mock_get_type_url: Any) -> None:
         """Test rendering with long description that gets truncated."""
         mock_get_type_url.return_value = "https://datahub.com/dataset/test"
@@ -544,7 +499,7 @@ class TestEntityCardRendering:
         # Description should be truncated to 147 chars + "..."
         assert "A" * 147 + "..." in card_str
 
-    @patch("datahub_integrations.teams.render.render_entity.get_type_url")
+    @patch("datahub_integrations.teams.url_utils.get_type_url")
     def test_render_entity_card_missing_name_fallback(
         self, mock_get_type_url: Any
     ) -> None:
@@ -640,7 +595,6 @@ class TestErrorHandlingAndEdgeCases:
             _get_entity_tags,
             _get_entity_terms,
             _get_ownership_text,
-            _is_certified,
         ]
 
         for func in none_safe_functions:
@@ -657,7 +611,6 @@ class TestErrorHandlingAndEdgeCases:
             _get_entity_tags,
             _get_entity_terms,
             _get_ownership_text,
-            _is_certified,
         ]
 
         for func in empty_dict_safe_functions:
@@ -681,7 +634,6 @@ class TestErrorHandlingAndEdgeCases:
         assert _get_entity_tags(malformed_entity) == []
         assert _get_entity_terms(malformed_entity) == []
         assert _get_ownership_text(malformed_entity) == ""
-        assert _is_certified(malformed_entity) is False
 
     @patch("datahub_integrations.teams.render.render_entity.logger")
     def test_error_logging_in_render_entity_card(self, mock_logger: Any) -> None:

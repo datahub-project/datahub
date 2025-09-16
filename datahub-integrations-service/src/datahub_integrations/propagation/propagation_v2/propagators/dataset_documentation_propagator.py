@@ -32,12 +32,15 @@ logger = logging.getLogger(__name__)
 
 class DatasetDocumentationPropagator(
     AspectPropagator[
-        DatasetPropertiesClass, EditableDatasetPropertiesClass, DocumentationClass
+        DocumentationClass,
+        DatasetPropertiesClass,
+        EditableDatasetPropertiesClass,
+        DocumentationClass,
     ]
 ):
     # TODO: Support custom config, init, and create to customize propagator
 
-    def aspects(
+    def origin_aspects(
         self,
     ) -> tuple[
         type[DatasetPropertiesClass],
@@ -49,6 +52,9 @@ class DatasetDocumentationPropagator(
             EditableDatasetPropertiesClass,
             DocumentationClass,
         )
+
+    def target_aspect(self) -> type[DocumentationClass]:
+        return DocumentationClass
 
     def empty_aspects(
         self,
@@ -119,7 +125,7 @@ class DatasetDocumentationPropagator(
             )
 
         return compute_doc_diff_mcps(
-            entity_urn=origin.urn,
+            origin_urn=origin.urn,
             new_ingestion_description=new_ingestion_description,
             new_editable_description=new_editable_description,
             old_doc_aspect=target_doc,
@@ -136,11 +142,7 @@ class DatasetDocumentationPropagator(
             EditableDatasetPropertiesClass | None,
             DocumentationClass | None,
         ],
-        target_aspects: tuple[
-            DatasetPropertiesClass | None,
-            EditableDatasetPropertiesClass | None,
-            DocumentationClass | None,
-        ],
+        target_aspect: DocumentationClass | None,
     ) -> Iterator[EntityChangeEvent]:
         raise NotImplementedError(
             "Should not be called as `compute_diff_eces` is overridden."
@@ -260,7 +262,7 @@ class DatasetDocumentationPropagator(
 
 
 def compute_doc_diff_mcps(
-    entity_urn: str,
+    origin_urn: str,
     new_ingestion_description: str | None,
     new_editable_description: str | None,
     old_doc_aspect: DocumentationClass | None,
@@ -275,7 +277,7 @@ def compute_doc_diff_mcps(
     And based on the ECEs generated in DatasetPropertiesChangeEventGenerator and EditableDatasetPropertiesChangeEventGenerator.
 
     Args:
-        entity_urn: URN of the entity being changed
+        origin_urn: URN of the entity being changed
         new_ingestion_description: The new ingestion description (DatasetProperties or SchemaMetadata aspect)
         new_editable_description: The new editable description (EditableDatasetProperties or EditableSchemaMetadata aspect)
         old_doc_aspect: The original documentation aspect
@@ -317,8 +319,8 @@ def compute_doc_diff_mcps(
             context = new_docs.attribution
             new_docs = new_docs.documentation
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.DOCUMENTATION.value,
             operation=ChangeOperation.ADD.value,
             parameters={  # type: ignore
@@ -331,8 +333,8 @@ def compute_doc_diff_mcps(
         )
     elif not new_docs and old_docs:
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.DOCUMENTATION.value,
             operation=ChangeOperation.REMOVE.value,
             parameters={  # type: ignore
@@ -350,8 +352,8 @@ def compute_doc_diff_mcps(
             new_docs = new_docs.documentation
         if new_docs != old_docs.documentation:
             yield EntityChangeEvent(
-                entityUrn=entity_urn,
-                entityType=Urn.from_string(entity_urn).entity_type,
+                entityUrn=origin_urn,
+                entityType=Urn.from_string(origin_urn).entity_type,
                 category=ChangeCategory.DOCUMENTATION.value,
                 operation=ChangeOperation.MODIFY.value,
                 parameters={  # type: ignore

@@ -43,7 +43,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
             );
         }
 
-        return <GlobalOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return <GlobalOutlined style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }} />;
     };
 
     displayName = (data: BusinessAttribute) => {

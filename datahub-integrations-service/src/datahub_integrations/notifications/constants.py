@@ -64,3 +64,8 @@ RESOLVED_INCIDENT_COLOR = "#52C41A"  # GREEN
 STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED = os.environ.get(
     "STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED", "false"
 )
+
+# Whether we have enabled sharing and updating message ids for incidents on Teams
+STATEFUL_TEAMS_INCIDENT_MESSAGES_ENABLED = os.environ.get(
+    "STATEFUL_TEAMS_INCIDENT_MESSAGES_ENABLED", "false"
+)

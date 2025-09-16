@@ -7,6 +7,47 @@ from loguru import logger
 from datahub_integrations.chat.chat_history import HumanMessage
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
 from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.teams.teams_history import TeamsConversationHistory
+
+
+def _save_thinking_messages(
+    chat_session: ChatSession,
+    response_text: str,
+    message_ts: str,
+    conv_history: TeamsConversationHistory,
+    conversation_id: str,
+) -> None:
+    """
+    Save AI thinking messages (tool calls, reasoning, etc.) to conversation history.
+
+    Args:
+        chat_session: The chat session containing message history
+        response_text: The final response text to exclude from thinking messages
+        message_ts: Message timestamp for conversation history
+        conv_history: Conversation history cache
+        conversation_id: Conversation ID for logging
+    """
+    # Get the new messages that were added during this generation
+    original_message_count = (
+        len(chat_session.history.messages) if chat_session.history else 0
+    )
+    new_messages = chat_session.history.messages[original_message_count:]
+
+    if not new_messages:
+        return
+
+    # Save the thinking messages (everything except the final response)
+    thinking_messages = []
+    for msg in new_messages:
+        # Skip the final response message, keep the thinking/reasoning
+        if not (hasattr(msg, "text") and msg.text == response_text):
+            thinking_messages.append(msg)
+
+    if thinking_messages:
+        conv_history.add_thinking(message_ts, thinking_messages)
+        logger.info(
+            f"Saved {len(thinking_messages)} thinking messages to conversation history for {conversation_id}"
+        )
 
 
 async def handle_ask_command_teams(
@@ -33,7 +74,7 @@ async def handle_ask_command_teams(
         import asyncio
         import concurrent.futures
 
-        def run_chat_session() -> str:
+        def run_chat_session() -> tuple[NextMessage, ChatSession]:
             """Run chat session in a separate thread to avoid asyncio conflicts."""
             # Check if conversation history is enabled
             from datahub_integrations.teams.config import teams_config
@@ -79,12 +120,15 @@ async def handle_ask_command_teams(
 
             # Generate the AI response
             with chat_session.set_progress_callback(session_progress_callback):
-                return chat_session.generate_next_message()
+                response = chat_session.generate_next_message()
+                return response, chat_session
 
         # Run the chat session in a thread pool to avoid asyncio conflicts
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            response = await loop.run_in_executor(executor, run_chat_session)
+            response, chat_session = await loop.run_in_executor(
+                executor, run_chat_session
+            )
 
         assert isinstance(response, NextMessage)
 
@@ -94,20 +138,26 @@ async def handle_ask_command_teams(
         # Create the main text response (without suggestions in text)
         final_message = response_text
 
-        # Save the assistant's response to conversation history if enabled
+        # Save the assistant's response and thinking to conversation history if enabled
         from datahub_integrations.chat.chat_history import AssistantMessage
         from datahub_integrations.teams.config import teams_config
 
         config = teams_config.get_config()
         if config.enable_conversation_history and conversation_id and message_ts:
-            # For now, we'll use the same message_ts for the assistant response
-            # In a more sophisticated implementation, we'd get the actual response message_ts
             conv_history = teams_config.get_teams_history_cache().get_conversation(
                 conversation_id
             )
+
+            # Save the assistant's response message
             conv_history.add_message(
                 f"{message_ts}_response", AssistantMessage(text=response_text)
             )
+
+            # Save AI thinking messages (tool calls, reasoning, etc.)
+            _save_thinking_messages(
+                chat_session, response_text, message_ts, conv_history, conversation_id
+            )
+
             logger.info(
                 f"Saved assistant response to conversation history for {conversation_id}"
             )

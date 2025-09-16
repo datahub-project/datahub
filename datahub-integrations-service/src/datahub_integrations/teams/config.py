@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Optional
 
 import pydantic
@@ -35,74 +36,79 @@ class TeamsConnection(_FrozenConnectionModel):
     webhook_url: Optional[str] = None
     enable_conversation_history: bool = True  # Enable conversation history by default
 
+    def valid(self) -> bool:
+        """Check if the Teams configuration is complete and valid.
+
+        Returns:
+            True if the configuration has all required fields, False otherwise
+        """
+        # Check if app_details exists
+        if not self.app_details:
+            return False
+
+        # Check required app credentials (from environment variables)
+        if not self.app_details.app_id:
+            return False
+        if not self.app_details.app_password:
+            return False
+        if not self.app_details.app_tenant_id:
+            return False
+
+        # Check customer tenant_id (from DataHub) - this is critical for sending notifications
+        if not self.app_details.tenant_id:
+            return False
+
+        return True
+
 
 def _get_current_teams_config() -> TeamsConnection:
     """Gets the current Teams config from DataHub."""
 
+    # Some fields are directly sourced from environment variables
+    app_id = os.environ.get("DATAHUB_TEAMS_APP_ID")
+    app_password = os.environ.get("DATAHUB_TEAMS_APP_PASSWORD")
+    app_tenant_id = os.environ.get("DATAHUB_TEAMS_TENANT_ID")
+    webhook_url = os.environ.get("DATAHUB_TEAMS_WEBHOOK_URL")
+    enable_history = (
+        os.environ.get("DATAHUB_TEAMS_ENABLE_CONVERSATION_HISTORY", "true").lower()
+        == "true"
+    )
+
+    if not app_id or not app_password or not app_tenant_id:
+        logger.error("No Teams config found, returning an empty config")
+        return TeamsConnection()
+
     obj = get_connection_json(graph=graph, urn=_TEAMS_CONFIG_URN)
 
     if not obj:
-        logger.debug("No Teams config found in DataHub, checking environment variables")
-
-        # Fallback to environment variables
-        app_id = os.environ.get("DATAHUB_TEAMS_APP_ID")
-        app_password = os.environ.get("DATAHUB_TEAMS_APP_SECRET")
-        app_tenant_id = os.environ.get("DATAHUB_TEAMS_TENANT_ID")
-        tenant_id = os.environ.get("DATAHUB_TEAMS_TENANT_ID")
-        webhook_url = os.environ.get("DATAHUB_TEAMS_WEBHOOK_URL")
-        enable_history = (
-            os.environ.get("DATAHUB_TEAMS_ENABLE_CONVERSATION_HISTORY", "true").lower()
-            == "true"
-        )
-
-        if app_id and app_password and tenant_id and app_tenant_id:
-            logger.info("Using Teams configuration from environment variables")
-            return TeamsConnection(
-                app_details=TeamsAppDetails(
-                    app_id=app_id,
-                    app_password=app_password,
-                    app_tenant_id=app_tenant_id,
-                    tenant_id=tenant_id,
-                ),
-                webhook_url=webhook_url,
-                enable_conversation_history=enable_history,
-            )
-
-        logger.debug("No Teams config found, returning an empty config")
-        return TeamsConnection()
-
-    config = TeamsConnection.model_validate(obj)
-
-    # Merge with environment variables for missing values
-
-    app_id = config.app_details.app_id if config.app_details else None
-    app_password = config.app_details.app_password if config.app_details else None
-    tenant_id = config.app_details.tenant_id if config.app_details else None
-
-    # Fill in missing values from environment variables
-    app_id = app_id or os.environ.get("DATAHUB_TEAMS_APP_ID")
-    app_password = app_password or os.environ.get("DATAHUB_TEAMS_APP_PASSWORD")
-    app_tenant_id = os.environ.get("DATAHUB_TEAMS_TENANT_ID")
-    tenant_id = tenant_id or os.environ.get("DATAHUB_TEAMS_TENANT_ID")
-    webhook_url = config.webhook_url or os.environ.get("DATAHUB_TEAMS_WEBHOOK_URL")
-
-    # Create merged config with both database and environment values
-    if app_id and app_password and tenant_id and app_tenant_id:
-        logger.info(
-            "Using Teams configuration merged from database and environment variables"
-        )
+        logger.debug("No Teams config found in DataHub, using env vars only")
         return TeamsConnection(
             app_details=TeamsAppDetails(
                 app_id=app_id,
                 app_password=app_password,
                 app_tenant_id=app_tenant_id,
-                tenant_id=tenant_id,
+                tenant_id=None,  # No customer tenant yet
             ),
-            webhook_url=webhook_url,
-            enable_conversation_history=config.enable_conversation_history,
+            webhook_url=os.environ.get("DATAHUB_TEAMS_WEBHOOK_URL"),
+            enable_conversation_history=True,
         )
 
-    return config
+    # Parse DataHub config for customer-specific settings
+    config = TeamsConnection.model_validate(obj)
+
+    # Merge: env vars for app credentials, DataHub for customer settings
+    return TeamsConnection(
+        app_details=TeamsAppDetails(
+            app_id=app_id,  # Always from env
+            app_password=app_password,  # Always from env
+            app_tenant_id=app_tenant_id,  # Always from env
+            tenant_id=config.app_details.tenant_id
+            if config.app_details
+            else None,  # From DataHub
+        ),
+        webhook_url=webhook_url,
+        enable_conversation_history=enable_history,
+    )
 
 
 def _set_current_teams_config(config: TeamsConnection) -> None:
@@ -118,21 +124,52 @@ def _set_current_teams_config(config: TeamsConnection) -> None:
 
 @dataclass
 class _TeamsConfigManager:
-    """A caching wrapper around the Teams config."""
+    """A caching wrapper around the Teams config with time-based throttling."""
 
     _config: Optional[TeamsConnection] = None
     _teams_history_cache: Optional[TeamsHistoryCache] = None
+    _last_credentials_refresh_attempt: Optional[datetime] = None
 
     def get_config(self, force_refresh: bool = False) -> TeamsConnection:
-        if self._config is None or force_refresh:
-            logger.info("Getting Teams config")
+        """Get Teams configuration with time-based throttling.
+
+        Args:
+            force_refresh: If True, always reload from DataHub regardless of cache state
+        """
+        if force_refresh:
+            logger.info("Force reloading Teams configuration from DataHub")
             self._config = _get_current_teams_config()
+            self._last_credentials_refresh_attempt = datetime.now()
+            return self._config
+
+        # Time-based throttling: only reload if more than 5 minutes have passed
+        current_time = datetime.now()
+        should_reload = self._last_credentials_refresh_attempt is None or (
+            current_time - self._last_credentials_refresh_attempt
+        ) > timedelta(minutes=5)
+
+        # Also reload if current config is invalid (bypass cache for invalid configs)
+        config_is_invalid = self._config is not None and not self._config.valid()
+
+        if should_reload or config_is_invalid:
+            if config_is_invalid:
+                logger.info("Reloading Teams configuration (invalid config detected)")
+            else:
+                logger.info("Reloading Teams configuration (time-based refresh)")
+            self._config = _get_current_teams_config()
+            self._last_credentials_refresh_attempt = current_time
+        elif self._config is None:
+            # First time loading
+            logger.info("Loading Teams configuration for first time")
+            self._config = _get_current_teams_config()
+            self._last_credentials_refresh_attempt = current_time
 
         return self._config
 
     def reload(self) -> TeamsConnection:
         logger.info("Reloading Teams config")
         self._config = _get_current_teams_config()
+        self._last_credentials_refresh_attempt = datetime.now()
         if self._config.app_details:
             logger.info(
                 f"Teams config loaded - App ID: {self._config.app_details.app_id}"

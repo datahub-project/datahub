@@ -306,7 +306,7 @@ jobs:
         # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
         # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
+          ./gradlew :docker:buildImagessaasImages -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
 
       - name: Capture build Id
         id: capture-build-id
@@ -324,7 +324,7 @@ jobs:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: |
             ${{ github.workspace }}/build/build-metadata.json
-            ${{ github.workspace }}/build/bake-spec-allImages.json
+            ${{ github.workspace }}/build/bake-spec-saasImages.json
 
       - name: Login to ACRYLIO DockerHub
         uses: docker/login-action@v3
@@ -344,12 +344,12 @@ jobs:
       - name: Build Saas Images (Publish - ACRYLIO)
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesMinSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesminSaasImages -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
 
       - name: Build Saas Images (Publish - Cloudsmith)
         if: ${{ needs.setup.outputs.cloudsmith_publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesMinSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesminSaasImages -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
@@ -431,7 +431,7 @@ jobs:
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
             echo "cypress_batch_count=15" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=14" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=12" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -723,7 +723,8 @@ jobs:
       - name: Push images from depot builder
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
-          depot bake -f ${{ github.workspace }}/build/bake-spec-saaSImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
+          set -euo pipefail
+          depot bake -f ${{ github.workspace }}/build/bake-spec-saasImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
             TARGET=$(echo "$line" | jq -r '.target')
             TAG=$(echo "$line" | jq -r '.tags')
 

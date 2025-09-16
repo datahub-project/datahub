@@ -27,11 +27,14 @@ from datahub_integrations.propagation.propagation_v2.types.source_details import
 logger = logging.getLogger(__name__)
 
 
-class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
+class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass, GlossaryTermsClass]):
     # TODO: Support custom config, init, and create to customize propagator
 
-    def aspects(self) -> tuple[type[GlossaryTermsClass]]:
+    def origin_aspects(self) -> tuple[type[GlossaryTermsClass]]:
         return (GlossaryTermsClass,)
+
+    def target_aspect(self) -> type[GlossaryTermsClass]:
+        return GlossaryTermsClass
 
     def empty_aspects(self) -> tuple[GlossaryTermsClass]:
         return (
@@ -50,10 +53,9 @@ class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
         origin_urn: str,
         target_urn: str,
         origin_aspects: tuple[GlossaryTermsClass],
-        target_aspects: tuple[GlossaryTermsClass | None],
+        target_aspect: GlossaryTermsClass | None,
     ) -> Iterator[EntityChangeEvent]:
         origin_aspect = origin_aspects[0]
-        target_aspect = target_aspects[0]
         if target_aspect:
             # Filter to only terms attributed to this propagation action
             relevant_terms = []
@@ -77,7 +79,7 @@ class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
             target_aspect = GlossaryTermsClass(relevant_terms, target_aspect.auditStamp)
 
         return compute_term_diff_eces(
-            entity_urn=origin_urn,
+            origin_urn=origin_urn,
             old_aspect=target_aspect,
             new_aspect=origin_aspect,
             audit_stamp=self._propagation_audit_stamp(),
@@ -131,7 +133,7 @@ class GlossaryTermPropagator(AspectPropagator[GlossaryTermsClass]):
 
 
 def compute_term_diff_eces(
-    entity_urn: str,
+    origin_urn: str,
     old_aspect: GlossaryTermsClass | None,
     new_aspect: GlossaryTermsClass,
     audit_stamp: AuditStampClass,
@@ -143,7 +145,7 @@ def compute_term_diff_eces(
     although logic is significantly different, using Python's set operations for clarity.
 
     Args:
-        entity_urn: URN of the entity being changed
+        origin_urn: URN of the entity being changed
         old_aspect: The original glossary terms aspect
         new_aspect: The new glossary terms aspect
         audit_stamp: Audit stamp with information about how the ECEs were created
@@ -169,8 +171,8 @@ def compute_term_diff_eces(
     for term in terms_added:
         term_assoc = new_term_association_map[term]
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.GLOSSARY_TERM.value,
             operation=ChangeOperation.ADD.value,
             parameters={"context": term_assoc.context},  # type: ignore
@@ -181,8 +183,8 @@ def compute_term_diff_eces(
     for term in terms_removed:
         term_assoc = old_term_association_map[term]
         yield EntityChangeEvent(
-            entityUrn=entity_urn,
-            entityType=Urn.from_string(entity_urn).entity_type,
+            entityUrn=origin_urn,
+            entityType=Urn.from_string(origin_urn).entity_type,
             category=ChangeCategory.GLOSSARY_TERM.value,
             operation=ChangeOperation.REMOVE.value,
             parameters={"context": term_assoc.context},  # type: ignore

@@ -6,7 +6,7 @@ the manual HTTP-based Teams integration.
 """
 
 import queue
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 from botbuilder.core import (
     ActivityHandler,
@@ -18,6 +18,10 @@ from botbuilder.schema import (
     Attachment,
 )
 from loguru import logger
+
+from datahub_integrations.app import graph
+from datahub_integrations.identity.identity_provider import IdentityProvider
+from datahub_integrations.teams.event_handlers import TeamsIncidentEventHandler
 
 
 class DataHubTeamsBot(ActivityHandler):
@@ -32,16 +36,11 @@ class DataHubTeamsBot(ActivityHandler):
     def __init__(self) -> None:
         super().__init__()
         self._cached_bot_name: Optional[str] = None
-
-    def set_bot_name_from_config(self, app_id: Optional[str]) -> None:
-        """Set bot name from configuration during initialization."""
-        if app_id and not self._cached_bot_name:
-            # Use app_id as fallback bot name - this gets us a name immediately
-            # We can still update it later if we get a better name from activity.recipient
-            self._cached_bot_name = app_id
-            logger.info(f"🤖 DataHub Teams Bot initialized with app_id: {app_id}")
-        elif not app_id:
-            logger.warning("⚠️  No app_id available for bot name initialization")
+        # Initialize incident event handler
+        self.identity_provider = IdentityProvider(graph)
+        self.incident_event_handler = TeamsIncidentEventHandler(
+            graph, self.identity_provider
+        )
 
     def _get_cached_bot_name(self, turn_context: TurnContext) -> Optional[str]:
         """Get bot name, preferring display name from mention entities over other sources."""
@@ -66,18 +65,7 @@ class DataHubTeamsBot(ActivityHandler):
             logger.debug(f"Display name already cached: {self._cached_bot_name}")
             return self._cached_bot_name
 
-        # Fallback: try recipient name only if we couldn't get display name from mentions
-        if (
-            turn_context.activity.recipient
-            and turn_context.activity.recipient.name
-            and turn_context.activity.recipient.name != self._cached_bot_name
-        ):
-            old_name = self._cached_bot_name
-            self._cached_bot_name = turn_context.activity.recipient.name
-            logger.info(
-                f"🔄 Updated bot name from {old_name} to: @{self._cached_bot_name} (from recipient)"
-            )
-
+        # Fallback: return the cached bot name, which could be None
         return self._cached_bot_name
 
     def _extract_bot_display_name_from_mentions(
@@ -313,16 +301,13 @@ class DataHubTeamsBot(ActivityHandler):
 
             # Extract user URN from Teams activity
             user_urn = None
-            if (
-                turn_context.activity.from_property
-                and turn_context.activity.from_property.id
-            ):
+            if turn_context.activity.from_property:
                 from datahub_integrations.teams.utils.datahub_user import (
-                    get_datahub_user_teams,
+                    get_user_information_from_teams_activity,
                 )
 
-                user_urn = get_datahub_user_teams(
-                    turn_context.activity.from_property.id
+                email, user_urn, user_urns = get_user_information_from_teams_activity(
+                    turn_context.activity
                 )
 
             # Process search command
@@ -424,12 +409,12 @@ class DataHubTeamsBot(ActivityHandler):
             # Store the thinking message ID for updates
             thinking_message_id = thinking_activity.id if thinking_activity else None
 
-            # Get conversation ID for history tracking
-            conversation_id = (
-                turn_context.activity.conversation.id
-                if turn_context.activity.conversation
-                else None
+            # Get conversation ID for history tracking (thread-aware for channels)
+            from datahub_integrations.teams.conversation_utils import (
+                get_teams_conversation_id,
             )
+
+            conversation_id = get_teams_conversation_id(turn_context.activity)
             message_ts = turn_context.activity.id
 
             # Create thread-safe queue for progress updates
@@ -490,7 +475,7 @@ class DataHubTeamsBot(ActivityHandler):
             import asyncio
             import concurrent.futures
 
-            def run_chat_session() -> NextMessage:
+            def run_chat_session() -> tuple[NextMessage, ChatSession]:
                 """Run chat session in separate thread to avoid asyncio conflicts."""
                 chat_session = ChatSession(
                     tools=[mcp],
@@ -500,14 +485,38 @@ class DataHubTeamsBot(ActivityHandler):
 
                 # Generate response with progress updates
                 with chat_session.set_progress_callback(progress_callback):
-                    return chat_session.generate_next_message()
+                    response = chat_session.generate_next_message()
+                    return response, chat_session
 
             # Execute in thread pool to avoid "Already running asyncio" error
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                ai_response = await loop.run_in_executor(executor, run_chat_session)
+                ai_response, chat_session = await loop.run_in_executor(
+                    executor, run_chat_session
+                )
 
             assert isinstance(ai_response, NextMessage)
+
+            # Save AI thinking messages to conversation history if enabled
+            if config.enable_conversation_history and conversation_id and message_ts:
+                # Get the new messages that were added during this generation
+                # We need to find messages that weren't in the original history
+                original_message_count = len(history.messages) if history else 0
+                new_messages = chat_session.history.messages[original_message_count:]
+
+                if new_messages:
+                    # Save the thinking messages (everything except the final response)
+                    thinking_messages = []
+                    for msg in new_messages:
+                        # Skip the final response message, keep the thinking/reasoning
+                        if not (hasattr(msg, "text") and msg.text == ai_response.text):
+                            thinking_messages.append(msg)
+
+                    if thinking_messages:
+                        conv_history.add_thinking(message_ts, thinking_messages)
+                        logger.info(
+                            f"Saved {len(thinking_messages)} thinking messages to conversation history for {conversation_id}"
+                        )
 
             # Signal progress updates to stop
             progress_queue.put({"type": "stop"})
@@ -689,8 +698,11 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
         message += "\n\n*💬 Was this helpful? Let me know if you need clarification or have follow-up questions!*"
 
         # Add hint with dynamic bot name
-        bot_mention = f"@{bot_name}" if bot_name else "@DataHub"
-        message += f"\n\n*💡 Hint: Mention {bot_mention} for responses.*"
+        if bot_name:
+            bot_mention = f"@{bot_name}"
+            message += (
+                f"\n\n*💡 Hint: Mention {bot_mention} for responses on this thread.*"
+            )
 
         # Create main message activity without user mentions
         main_activity = MessageFactory.text(message)
@@ -761,6 +773,10 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
                     )
                 )
 
+            elif action_type in ["resolve_incident", "reopen_incident"]:
+                # Handle incident management actions
+                await self._handle_incident_action(turn_context, action_data)
+
             else:
                 logger.warning(f"Unknown action type received: {action_type}")
 
@@ -768,6 +784,73 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
             logger.error(f"Error handling action submission: {e}")
             error_message = MessageFactory.text(
                 "Sorry, I encountered an error processing that button click."
+            )
+            await turn_context.send_activity(error_message)
+
+    async def _handle_incident_action(
+        self, turn_context: TurnContext, action_data: dict
+    ) -> None:
+        """
+        Handle incident management actions (resolve/reopen).
+
+        Args:
+            turn_context: Bot Framework turn context
+            action_data: Data from the Teams Action.Submit
+        """
+        try:
+            # Send immediate acknowledgment to prevent Teams timeout
+            thinking_message = MessageFactory.text("🔄 Processing incident action...")
+            await turn_context.send_activity(thinking_message)
+
+            # Extract user information from Teams activity
+            email: Optional[str] = None
+            datahub_user_urn: Optional[str] = None
+            user_urns: List[str] = []
+            if turn_context.activity.from_property:
+                from datahub_integrations.teams.utils.datahub_user import (
+                    get_user_information_from_teams_activity,
+                )
+
+                email, datahub_user_urn, user_urns = (
+                    get_user_information_from_teams_activity(turn_context.activity)
+                )
+
+            if not datahub_user_urn:
+                teams_user_id = (
+                    turn_context.activity.from_property.id
+                    if turn_context.activity.from_property
+                    else "unknown"
+                )
+                logger.warning(
+                    f"Could not find corresponding DataHub user for Teams user {teams_user_id} (email: {email}). Using system user."
+                )
+            elif len(user_urns) > 1:
+                logger.warning(
+                    f"Found multiple DataHub users with email {email}. Using system user."
+                )
+                datahub_user_urn = None
+
+            # Process the incident action using the shared event handler with DataHub user URN
+            result = await self.incident_event_handler.handle_incident_action(
+                action_data, datahub_user_urn
+            )
+
+            # Send response based on result
+            if result.get("success"):
+                success_message = MessageFactory.text(
+                    f"✅ {result.get('message', 'Action completed successfully')}"
+                )
+                await turn_context.send_activity(success_message)
+            else:
+                error_message = MessageFactory.text(
+                    f"❌ {result.get('error', 'Action failed')}"
+                )
+                await turn_context.send_activity(error_message)
+
+        except Exception as e:
+            logger.error(f"Error handling incident action: {e}")
+            error_message = MessageFactory.text(
+                "❌ Sorry, I encountered an error processing the incident action."
             )
             await turn_context.send_activity(error_message)
 
@@ -788,12 +871,12 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
         try:
             logger.info(f"Asynchronously processing follow-up question: {question}")
 
-            # Get conversation ID for history tracking
-            conversation_id = (
-                turn_context.activity.conversation.id
-                if turn_context.activity.conversation
-                else None
+            # Get conversation ID for history tracking (thread-aware for channels)
+            from datahub_integrations.teams.conversation_utils import (
+                get_teams_conversation_id,
             )
+
+            conversation_id = get_teams_conversation_id(turn_context.activity)
             message_ts = turn_context.activity.id
 
             # Create thread-safe queue for progress updates
@@ -870,9 +953,32 @@ Need more help? Check out the [DataHub documentation](https://datahubproject.io/
             # Execute in thread pool to avoid "Already running asyncio" error
             loop = asyncio.get_event_loop()
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                ai_response = await loop.run_in_executor(executor, run_chat_session)
+                ai_response, chat_session = await loop.run_in_executor(
+                    executor, run_chat_session
+                )
 
             assert isinstance(ai_response, NextMessage)
+
+            # Save AI thinking messages to conversation history if enabled
+            if config.enable_conversation_history and conversation_id and message_ts:
+                # Get the new messages that were added during this generation
+                # We need to find messages that weren't in the original history
+                original_message_count = len(history.messages) if history else 0
+                new_messages = chat_session.history.messages[original_message_count:]
+
+                if new_messages:
+                    # Save the thinking messages (everything except the final response)
+                    thinking_messages = []
+                    for msg in new_messages:
+                        # Skip the final response message, keep the thinking/reasoning
+                        if not (hasattr(msg, "text") and msg.text == ai_response.text):
+                            thinking_messages.append(msg)
+
+                    if thinking_messages:
+                        conv_history.add_thinking(message_ts, thinking_messages)
+                        logger.info(
+                            f"Saved {len(thinking_messages)} thinking messages to conversation history for {conversation_id}"
+                        )
 
             # Signal progress updates to stop
             progress_queue.put({"type": "stop"})
