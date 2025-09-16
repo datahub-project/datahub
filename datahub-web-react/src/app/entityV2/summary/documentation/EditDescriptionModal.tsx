@@ -2,6 +2,8 @@ import { Editor, Modal } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+
 const StyledEditor = styled(Editor)`
     border: none;
     &&& {
@@ -37,6 +39,7 @@ export default function EditDescriptionModal({
     emptyDescriptionText,
     closeModal,
 }: Props) {
+    const canEditDescription = useDocumentationPermission();
     return (
         <Modal
             title="Edit Description"
@@ -55,6 +58,7 @@ export default function EditDescriptionModal({
                         handleDescriptionUpdate();
                         closeModal();
                     },
+                    disabled: !canEditDescription,
                 },
             ]}
         >
