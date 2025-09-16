@@ -212,6 +212,11 @@ module.exports = {
           ],
         },
         {
+          label: "Custom Asset Summaries",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-asset-summaries",
+        },
+        {
           label: "Custom Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
@@ -450,6 +455,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_0_3_14",
         "docs/managed-datahub/release-notes/v_0_3_13",
         "docs/managed-datahub/release-notes/v_0_3_12",
         "docs/managed-datahub/release-notes/v_0_3_11",
