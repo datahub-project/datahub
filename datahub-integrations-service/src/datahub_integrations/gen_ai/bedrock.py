@@ -1,5 +1,3 @@
-from datahub_integrations.gen_ai.mlflow_init import MLFLOW_INITIALIZED
-
 import enum
 import functools
 import json
@@ -19,7 +17,6 @@ from datahub_integrations.util.serialized import serialized
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
 
-assert MLFLOW_INITIALIZED
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
 # e.g. "us", "eu", or "apac"

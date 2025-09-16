@@ -1,7 +1,4 @@
-from datahub_integrations.gen_ai.mlflow_init import (  # noqa: F401
-    MLFLOW_ENABLED,
-    MLFLOW_INITIALIZED,
-)
+from datahub_integrations.gen_ai.mlflow_init import initialize_mlflow
 
 import json
 import os
@@ -35,6 +32,9 @@ from datahub_integrations.gen_ai.description_context import (
     transform_table_info_for_llm,
 )
 from datahub_integrations.gen_ai.linkify import auto_fix_entity_mention_links
+
+# Initialize MLflow for @mlflow.trace decorators in this module
+initialize_mlflow()
 
 _MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 3000))
 MAX_COLUMNS_PER_BATCH = int(
