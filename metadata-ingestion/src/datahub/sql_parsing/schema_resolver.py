@@ -1,5 +1,6 @@
 import contextlib
 import pathlib
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
@@ -20,6 +21,14 @@ from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_fie
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
+
+
+@dataclass
+class SchemaResolverReport:
+    """Report class for tracking SchemaResolver cache performance."""
+
+    num_schema_cache_hits: int = 0
+    num_schema_cache_misses: int = 0
 
 
 class GraphQLSchemaField(TypedDict):
@@ -53,6 +62,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         env: str = DEFAULT_ENV,
         graph: Optional[DataHubGraph] = None,
         _cache_filename: Optional[pathlib.Path] = None,
+        report: Optional[SchemaResolverReport] = None,
     ):
         # Also supports platform with an urn prefix.
         self._platform = DataPlatformUrn(platform).platform_name
@@ -60,6 +70,7 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         self.env = env
 
         self.graph = graph
+        self.report = report
 
         # Init cache, potentially restoring from a previous run.
         shared_conn = None
@@ -132,12 +143,14 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         schema_info = self._resolve_schema_info(urn)
         if schema_info:
+            self._track_cache_hit(urn)
             return urn, schema_info
 
         urn_lower = self.get_urn_for_table(table, lower=True)
         if urn_lower != urn:
             schema_info = self._resolve_schema_info(urn_lower)
             if schema_info:
+                self._track_cache_hit(urn_lower)
                 return urn_lower, schema_info
 
         # Our treatment of platform instances when lowercasing urns
@@ -152,7 +165,12 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         if urn_mixed not in {urn, urn_lower}:
             schema_info = self._resolve_schema_info(urn_mixed)
             if schema_info:
+                self._track_cache_hit(urn_mixed)
                 return urn_mixed, schema_info
+
+        # Track cache miss for the final attempt
+        final_urn = urn_lower if self._prefers_urn_lower() else urn
+        self._track_cache_miss(final_urn)
 
         if self._prefers_urn_lower():
             return urn_lower, None
@@ -164,6 +182,16 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None
+
+    def _track_cache_hit(self, urn: str) -> None:
+        """Track a cache hit if reporting is enabled."""
+        if self.report is not None:
+            self.report.num_schema_cache_hits += 1
+
+    def _track_cache_miss(self, urn: str) -> None:
+        """Track a cache miss if reporting is enabled."""
+        if self.report is not None:
+            self.report.num_schema_cache_misses += 1
 
     def _resolve_schema_info(self, urn: str) -> Optional[SchemaInfo]:
         if urn in self._schema_cache:
@@ -261,6 +289,8 @@ class _SchemaResolverWithExtras(SchemaResolverInterface):
             table, lower=self._base_resolver._prefers_urn_lower()
         )
         if urn in self._extra_schemas:
+            # Track cache hit for extra schemas
+            self._base_resolver._track_cache_hit(urn)
             return urn, self._extra_schemas[urn]
         return self._base_resolver.resolve_table(table)
 

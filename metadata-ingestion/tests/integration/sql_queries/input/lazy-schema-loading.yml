@@ -3,7 +3,6 @@ source:
   config:
     query_file: ./input/lazy-schema-loading.jsonl
     platform: snowflake
-    lazy_schema_resolver: true
     use_schema_resolver: true
 
 sink:

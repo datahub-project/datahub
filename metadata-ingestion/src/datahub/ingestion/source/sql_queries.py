@@ -47,7 +47,7 @@ from datahub.ingestion.source.aws.s3_util import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
     ObservedQuery,
@@ -56,33 +56,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class TrackingSchemaResolver:
-    """Wrapper around SchemaResolver that tracks cache hits and misses for performance monitoring."""
-
-    def __init__(
-        self, schema_resolver: SchemaResolver, report: "SqlQueriesSourceReport"
-    ):
-        self._schema_resolver = schema_resolver
-        self._report = report
-
-    def __getattr__(self, name):
-        """Delegate all other attributes to the wrapped schema resolver."""
-        return getattr(self._schema_resolver, name)
-
-    def resolve_table(self, table):
-        """Resolve table with cache hit/miss tracking."""
-        result = self._schema_resolver.resolve_table(table)
-
-        # Check if this was a cache hit or miss by looking at the cache
-        urn = self._schema_resolver.get_urn_for_table(table)
-        if urn in self._schema_resolver._schema_cache:
-            self._report.num_schema_cache_hits += 1
-        else:
-            self._report.num_schema_cache_misses += 1
-
-        return result
 
 
 class SqlQueriesSourceConfig(
@@ -104,13 +77,9 @@ class SqlQueriesSourceConfig(
         default=True,
         hidden_from_docs=True,
     )
-    lazy_schema_resolver: bool = Field(
-        description="Use lazy schema loading instead of bulk initialization. When enabled, schemas are fetched on-demand and cached for future lookups. This significantly improves performance for large platforms.",
-        default=True,
-    )
-    batch_size: int = Field(
+    reporting_batch_size: int = Field(
         default=100,
-        description="Number of queries to process in each batch for progress reporting. "
+        description="Number of queries to process before reporting progress. "
         "Smaller batches provide more granular progress updates. "
         "Recommended range: 50-1000 queries per batch.",
         ge=1,
@@ -164,8 +133,6 @@ class SqlQueriesSourceReport(SourceReport, IngestionStageReport):
     num_entries_processed: int = 0
     num_entries_failed: int = 0
     num_queries_aggregator_failures: int = 0
-    num_schema_cache_hits: int = 0
-    num_schema_cache_misses: int = 0
     num_queries_processed_parallel: int = 0
     num_queries_processed_sequential: int = 0
     num_temp_tables_detected: int = 0
@@ -174,6 +141,7 @@ class SqlQueriesSourceReport(SourceReport, IngestionStageReport):
     peak_memory_usage_mb: float = 0.0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
+    schema_resolver_report: Optional[SchemaResolverReport] = None
 
 
 @platform_name("SQL Queries")
@@ -201,27 +169,30 @@ class SqlQueriesSource(Source):
     ### Performance Optimizations
     This source includes several performance optimizations:
 
-    **Lazy Schema Loading** (`lazy_schema_resolver: true` by default):
+    **Lazy Schema Loading**:
     - Fetches schemas on-demand during query parsing instead of bulk loading all schemas upfront
     - Caches fetched schemas for future lookups to avoid repeated network requests
-    - Reduces initial startup time and memory usage
-    - For platforms with very few datasets, you may disable lazy loading (`lazy_schema_resolver: false`) to use
-      bulk initialization, which can be faster when all schemas can be loaded quickly.
+    - Reduces initial startup time and memory usage significantly
+    - Automatically handles large platforms efficiently without memory issues
 
-    **Optimized Query Processing**:
-    - Uses sequential processing to avoid threading issues with SqlParsingAggregator
-    - Queries are processed in configurable batches for progress reporting (`batch_size: 100` by default)
-    - Includes efficient schema caching and progress reporting
-    - Significantly faster than naive sequential processing due to lazy schema loading
-    - Uses `auto_workunit()` for proper metadata event batching, matching Snowflake's implementation
+    **Query Processing Modes**:
+
+    **Non-Streaming Processing** (`enable_streaming: false`):
+    - Loads the entire query file into memory at once
+    - Processes all queries sequentially before generating metadata work units
+    - Uses `reporting_batch_size` for progress reporting frequency (every 100 queries by default)
 
     **Streaming Processing** (`enable_streaming: true` by default):
-    - Processes queries in streaming batches instead of loading all into memory
+    - Reads and processes queries in batches without loading the entire file into memory
     - Dramatically reduces memory usage for large files (50-90% reduction)
     - Configurable streaming batch size (`streaming_batch_size: 1000` by default)
     - Ideal for files with 10,000+ queries or limited memory environments
-    - Preserves temp table mappings and lineage relationships across batches
-    - Note: Query deduplication is handled automatically by the SQL parsing aggregator
+    - Generates and yields metadata work units after each batch
+
+    **General Features**:
+    - Preserves temp table mappings and lineage relationships across all processing modes
+    - Query deduplication is handled automatically by the SQL parsing aggregator
+    - Uses sequential processing to avoid threading issues with SqlParsingAggregator
 
 
     ### Incremental Lineage
@@ -241,7 +212,7 @@ class SqlQueriesSource(Source):
     across temporary table operations.
     """
 
-    schema_resolver: Optional[Union[SchemaResolver, TrackingSchemaResolver]]
+    schema_resolver: Optional[SchemaResolver]
     aggregator: SqlParsingAggregator
 
     def __init__(self, ctx: PipelineContext, config: SqlQueriesSourceConfig):
@@ -255,39 +226,21 @@ class SqlQueriesSource(Source):
         self.config = config
         self.report = SqlQueriesSourceReport()
 
-        # Track temp table patterns for reporting
-        self.report.temp_table_patterns_used = self.config.temp_table_patterns.copy()
-
         if self.config.use_schema_resolver:
-            if self.config.lazy_schema_resolver:
-                # Use lazy loading - schemas will be fetched on-demand and cached
-                logger.info(
-                    "Using lazy schema loading - schemas will be fetched on-demand and cached"
-                )
-                base_schema_resolver = self.graph._make_schema_resolver(
-                    platform=self.config.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                    include_graph=True,
-                )
-                self.schema_resolver = TrackingSchemaResolver(
-                    base_schema_resolver, self.report
-                )
-            else:
-                # Use bulk initialization - fetch all schemas upfront
-                logger.info(
-                    "Using bulk schema initialization - fetching all schemas upfront"
-                )
-                base_schema_resolver = (
-                    self.graph.initialize_schema_resolver_from_datahub(
-                        platform=self.config.platform,
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
-                )
-                self.schema_resolver = TrackingSchemaResolver(
-                    base_schema_resolver, self.report
-                )
+            # Create schema resolver report for tracking
+            self.report.schema_resolver_report = SchemaResolverReport()
+
+            # Use lazy loading - schemas will be fetched on-demand and cached
+            logger.info(
+                "Using lazy schema loading - schemas will be fetched on-demand and cached"
+            )
+            self.schema_resolver = SchemaResolver(
+                platform=self.config.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.graph,
+                report=self.report.schema_resolver_report,
+            )
         else:
             self.schema_resolver = None
 
@@ -306,7 +259,9 @@ class SqlQueriesSource(Source):
             generate_usage_statistics=True,
             generate_operations=True,  # TODO: make this configurable
             usage_config=self.config.usage,
-            is_temp_table=self.is_temp_table,
+            is_temp_table=self.is_temp_table
+            if self.config.temp_table_patterns
+            else None,
             is_allowed_table=None,
             format_queries=False,
         )
@@ -372,9 +327,7 @@ class SqlQueriesSource(Source):
             logger.info(f"Collected {len(queries)} queries for processing")
 
         with self.report.new_stage("Processing queries through SQL parsing aggregator"):
-            logger.info(
-                "Using optimized sequential processing (following Snowflake pattern)"
-            )
+            logger.info("Using sequential processing")
             self._process_queries_sequential(queries)
 
         with self.report.new_stage("Generating metadata work units"):
@@ -422,17 +375,19 @@ class SqlQueriesSource(Source):
             )
 
         # Log schema cache statistics if using schema resolver
-        if self.schema_resolver and hasattr(self.schema_resolver, "_report"):
+        if self.report.schema_resolver_report:
             total_schema_lookups = (
-                self.report.num_schema_cache_hits + self.report.num_schema_cache_misses
+                self.report.schema_resolver_report.num_schema_cache_hits
+                + self.report.schema_resolver_report.num_schema_cache_misses
             )
             if total_schema_lookups > 0:
                 cache_hit_rate = (
-                    self.report.num_schema_cache_hits / total_schema_lookups
+                    self.report.schema_resolver_report.num_schema_cache_hits
+                    / total_schema_lookups
                 ) * 100
                 logger.info(
-                    f"Schema cache statistics: {self.report.num_schema_cache_hits} hits, "
-                    f"{self.report.num_schema_cache_misses} misses ({cache_hit_rate:.1f}% hit rate)"
+                    f"Schema cache statistics: {self.report.schema_resolver_report.num_schema_cache_hits} hits, "
+                    f"{self.report.schema_resolver_report.num_schema_cache_misses} misses ({cache_hit_rate:.1f}% hit rate)"
                 )
 
     def _is_s3_uri(self, path: str) -> bool:
@@ -517,16 +472,16 @@ class SqlQueriesSource(Source):
         """Process queries sequentially with optimized batching for better performance."""
         total_queries = len(queries)
         logger.info(
-            f"Processing {total_queries} queries sequentially with batching (batch_size={self.config.batch_size})"
+            f"Processing {total_queries} queries sequentially with batching (reporting_batch_size={self.config.reporting_batch_size})"
         )
 
         # Process queries in batches for progress reporting granularity
-        for i in range(0, total_queries, self.config.batch_size):
-            batch = queries[i : i + self.config.batch_size]
-            batch_num = i // self.config.batch_size + 1
+        for i in range(0, total_queries, self.config.reporting_batch_size):
+            batch = queries[i : i + self.config.reporting_batch_size]
+            batch_num = i // self.config.reporting_batch_size + 1
             total_batches = (
-                total_queries + self.config.batch_size - 1
-            ) // self.config.batch_size
+                total_queries + self.config.reporting_batch_size - 1
+            ) // self.config.reporting_batch_size
 
             logger.debug(
                 f"Processing batch {batch_num}/{total_batches} ({len(batch)} queries)"
@@ -538,8 +493,8 @@ class SqlQueriesSource(Source):
                 self.report.num_queries_processed_sequential += 1
 
             # Progress reporting every 10 batches or at the end
-            # Adjust reporting frequency based on batch size for better granularity
-            report_frequency = max(1, min(10, 1000 // self.config.batch_size))
+            # Adjust reporting frequency based on reporting batch size for better granularity
+            report_frequency = max(1, min(10, 1000 // self.config.reporting_batch_size))
             if batch_num % report_frequency == 0 or batch_num == total_batches:
                 progress_pct = (
                     self.report.num_queries_processed_sequential / total_queries

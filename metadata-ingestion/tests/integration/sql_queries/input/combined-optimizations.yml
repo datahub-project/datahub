@@ -3,7 +3,6 @@ source:
   config:
     query_file: ./input/combined-optimizations.jsonl
     platform: snowflake
-    lazy_schema_resolver: true
     enable_streaming: true
     streaming_batch_size: 100
     temp_table_patterns: ["^temp_.*", "^tmp_.*"]

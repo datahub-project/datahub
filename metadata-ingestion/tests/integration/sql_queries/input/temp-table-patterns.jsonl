@@ -7,4 +7,6 @@
 {"query": "DROP TABLE temp_user_summary", "timestamp": 1609459560, "user": "analyst", "operation_type": "DROP"}
 {"query": "DROP TABLE tmp_daily_stats", "timestamp": 1609459620, "user": "etl_job", "operation_type": "DROP"}
 {"query": "DROP TABLE user_activity_temp", "timestamp": 1609459680, "user": "analyst", "operation_type": "DROP"}
+{"query": "CREATE TEMPORARY TABLE staging_data AS SELECT * FROM snowflake.db.raw_events WHERE event_date >= '2021-01-01'", "timestamp": 1609459740, "user": "etl_job", "operation_type": "CREATE"}
+{"query": "SELECT * FROM temp_analytics_summary WHERE metric_value > 100", "timestamp": 1609459800, "user": "analyst", "operation_type": "SELECT"}
 
