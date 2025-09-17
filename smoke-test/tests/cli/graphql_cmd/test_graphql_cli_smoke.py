@@ -10,7 +10,6 @@ These tests validate the core GraphQL CLI features including:
 
 import json
 import os
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -18,7 +17,7 @@ from typing import Optional
 import pytest
 import requests
 
-from tests.utils import wait_for_healthcheck_util
+from tests.utils import run_datahub_cmd, wait_for_healthcheck_util
 
 
 class TestGraphQLCLIStandalone:
@@ -49,16 +48,8 @@ class TestGraphQLCLIStandalone:
         Returns:
             Tuple of (exit_code, stdout, stderr)
         """
-        cmd = ["datahub"] + args
-        process = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        stdout, stderr = process.communicate(input=input_data)
-        return process.returncode, stdout, stderr
+        result = run_datahub_cmd(args, input=input_data)
+        return result.exit_code, result.stdout, result.stderr
 
     def test_graphql_help(self):
         """Test that GraphQL CLI help is accessible."""
@@ -76,7 +67,7 @@ class TestGraphQLCLIStandalone:
             ["graphql", "--list-operations"]
         )
 
-        # Schema discovery might fail due to auth, but command should be recognized
+        # Command may exit with error (no DataHub connection) but should not crash
         assert exit_code in [0, 1], f"Unexpected exit code. stderr: {stderr}"
         assert "Traceback" not in stderr  # No Python crashes
         assert (
@@ -97,7 +88,7 @@ class TestGraphQLCLIStandalone:
                 ["graphql", "--query", temp_path, "--format", "json"]
             )
 
-            # Should recognize as file path (might fail due to auth/connection)
+            # Should recognize as file path (may fail due to missing DataHub connection)
             assert exit_code in [0, 1], (
                 f"Unexpected exit code with file path. stderr: {stderr}"
             )
@@ -125,7 +116,7 @@ class TestGraphQLCLIStandalone:
                     ["graphql", "--query", relative_path, "--format", "json"]
                 )
 
-                # Should recognize relative path (might fail due to auth/connection)
+                # Should recognize relative path (may fail due to missing DataHub connection)
                 assert exit_code in [0, 1], (
                     f"Relative path handling failed. stderr: {stderr}"
                 )
@@ -147,20 +138,14 @@ class TestGraphQLCLIIntegration:
 
     def _run_authenticated_graphql(self, args: list[str]) -> tuple[int, str, str]:
         """Run GraphQL CLI with proper authentication."""
-        env = os.environ.copy()
-        env["DATAHUB_GMS_HOST"] = self.auth_session.gms_url()
-        env["DATAHUB_GMS_TOKEN"] = self.auth_session.gms_token()
-
-        cmd = ["datahub"] + args
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
+        result = run_datahub_cmd(
+            args,
+            env={
+                "DATAHUB_GMS_URL": self.auth_session.gms_url(),
+                "DATAHUB_GMS_TOKEN": self.auth_session.gms_token(),
+            },
         )
-        stdout, stderr = process.communicate()
-        return process.returncode, stdout, stderr
+        return result.exit_code, result.stdout, result.stderr
 
     def test_graphql_schema_introspection(self):
         """Test GraphQL schema introspection with authentication."""
@@ -315,14 +300,8 @@ class TestGraphQLCLIFileHandling:
 
         try:
             # Should recognize .json extension
-            cmd = ["datahub", "graphql", "--query", temp_path]
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, stderr = process.communicate()
+            result = run_datahub_cmd(["graphql", "--query", temp_path])
+            stderr = result.stderr
 
             # Should not fail due to file detection issues
             assert "No such file or directory" not in stderr
@@ -345,14 +324,8 @@ class TestGraphQLCLIFileHandling:
                 os.chdir(temp_dir)
                 test_path = "./query.graphql"
 
-                cmd = ["datahub", "graphql", "--query", test_path]
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                )
-                stdout, stderr = process.communicate()
+                result = run_datahub_cmd(["graphql", "--query", test_path])
+                stderr = result.stderr
 
                 # File should be found and recognized
                 assert "No such file or directory" not in stderr

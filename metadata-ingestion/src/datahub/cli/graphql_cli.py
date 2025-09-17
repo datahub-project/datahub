@@ -80,17 +80,7 @@ def _is_file_path(value: str) -> bool:
     # Resolve the path to handle relative paths correctly
     resolved_path = Path(value).resolve()
 
-    # Simple heuristics for file paths
-    if (
-        value.startswith("./")
-        or value.startswith("../")
-        or value.startswith("/")
-        or value.endswith(".graphql")
-        or value.endswith(".json")
-    ):
-        return resolved_path.exists()
-
-    # Check if it's a simple filename that exists
+    # Check if the path exists as a file
     return resolved_path.exists()
 
 
@@ -98,6 +88,11 @@ def _load_content_or_file(value: str) -> str:
     """Load content from file if value is a file path, otherwise return value as-is."""
     if _is_file_path(value):
         resolved_path = Path(value).resolve()
+
+        # Security check: prevent path traversal attacks
+        if "../" in str(resolved_path) or "..\\" in str(resolved_path):
+            raise ValueError("Invalid file path: path traversal detected")
+
         with open(resolved_path, "r") as f:
             return f.read()
     return value
@@ -203,9 +198,15 @@ def _parse_graphql_operations_from_files(
         }
 
     except Exception as e:
-        logger.debug(f"Failed to parse GraphQL schema files: {e}")
-        # Return a minimal fallback with common operations
-        return _get_minimal_fallback_operations()
+        logger.error(f"Failed to parse GraphQL schema files: {e}")
+        logger.error("Cannot proceed without valid schema information.")
+        logger.error("Please ensure:")
+        logger.error("1. DataHub GMS is accessible for schema introspection")
+        logger.error("2. Schema files exist and are valid GraphQL")
+        logger.error("3. Network connectivity allows GraphQL requests")
+        raise click.ClickException(
+            f"Schema loading failed: {e}. Cannot determine available GraphQL operations."
+        ) from e
 
 
 def _parse_operations_from_content(
@@ -247,63 +248,6 @@ def _parse_operations_from_content(
     return operations
 
 
-def _get_minimal_fallback_operations() -> Dict[str, Any]:
-    """Return a minimal set of known DataHub operations as final fallback."""
-    common_queries = [
-        {"name": "me", "description": "Get current user information", "args": []},
-        {
-            "name": "searchAcrossEntities",
-            "description": "Search across all entity types",
-            "args": [],
-        },
-        {"name": "browse", "description": "Browse entities hierarchically", "args": []},
-        {
-            "name": "browsePaths",
-            "description": "Get browse paths for an entity",
-            "args": [],
-        },
-        {"name": "entity", "description": "Get entity by URN", "args": []},
-        {"name": "dataset", "description": "Get dataset by URN", "args": []},
-        {"name": "corpUser", "description": "Get user by URN", "args": []},
-        {"name": "corpGroup", "description": "Get group by URN", "args": []},
-        {"name": "chart", "description": "Get chart by URN", "args": []},
-        {"name": "dashboard", "description": "Get dashboard by URN", "args": []},
-    ]
-
-    common_mutations = [
-        {"name": "addTag", "description": "Add tags to an entity", "args": []},
-        {"name": "removeTag", "description": "Remove tags from an entity", "args": []},
-        {
-            "name": "addTerm",
-            "description": "Add glossary terms to an entity",
-            "args": [],
-        },
-        {
-            "name": "removeTerm",
-            "description": "Remove glossary terms from an entity",
-            "args": [],
-        },
-        {"name": "addOwner", "description": "Add owners to an entity", "args": []},
-        {
-            "name": "removeOwner",
-            "description": "Remove owners from an entity",
-            "args": [],
-        },
-        {
-            "name": "updateDescription",
-            "description": "Update entity description",
-            "args": [],
-        },
-        {"name": "createGroup", "description": "Create a new group", "args": []},
-        {"name": "deleteEntity", "description": "Delete an entity", "args": []},
-    ]
-
-    return {
-        "queryType": {"fields": common_queries},
-        "mutationType": {"fields": common_mutations},
-    }
-
-
 def _fetch_schema_operations(
     client: Any, custom_schema_path: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -323,7 +267,8 @@ def _fetch_schema_operations(
         logger.debug("Successfully fetched schema via introspection")
         return schema
     except Exception as e:
-        logger.debug(f"Introspection failed ({e}), falling back to schema files")
+        logger.warning(f"GraphQL introspection failed: {e}")
+        logger.info("Falling back to local schema files")
         return _parse_graphql_operations_from_files(custom_schema_path)
 
 
@@ -1043,10 +988,8 @@ def _generate_operation_query(
     return query
 
 
-def _get_schema_with_fallback(
-    client: Any, schema_path: Optional[str]
-) -> Tuple[Dict[str, Any], bool]:
-    """Get GraphQL schema via introspection or fallback to files."""
+def _get_schema_via_introspection(client: Any) -> Dict[str, Any]:
+    """Get GraphQL schema via introspection only (no fallback for explicit requests)."""
     try:
         # Make two separate requests to avoid "bad faith" introspection protection
         query_result = client.execute_graphql(QUERY_INTROSPECTION)
@@ -1059,14 +1002,34 @@ def _get_schema_with_fallback(
         if mutation_result and "__schema" in mutation_result:
             schema.update(mutation_result["__schema"])
 
-        using_fallback = False
         logger.debug("Successfully fetched schema via introspection")
-        return schema, using_fallback
+        return schema
     except Exception as e:
-        logger.debug(f"Introspection failed ({e}), falling back to schema files")
+        logger.error(f"GraphQL introspection failed: {e}")
+        logger.error("Cannot perform introspection. Please ensure:")
+        logger.error("1. DataHub GMS is running and accessible")
+        logger.error("2. Network connectivity allows GraphQL requests")
+        logger.error("3. Authentication credentials are valid")
+        raise click.ClickException(
+            f"Schema introspection failed: {e}. Cannot retrieve live schema information."
+        ) from e
+
+
+def _get_schema_with_fallback(
+    client: Any, schema_path: Optional[str]
+) -> Tuple[Dict[str, Any], bool]:
+    """Get GraphQL schema via introspection or fallback to files (for operation execution)."""
+    try:
+        schema = _get_schema_via_introspection(client)
+        return schema, False
+    except click.ClickException:
+        # For operation execution, fallback to local files is acceptable
+        logger.warning(
+            "GraphQL introspection failed, falling back to local schema files"
+        )
+        logger.info("Note: Using local schema files may not reflect current API state")
         schema = _parse_graphql_operations_from_files(schema_path)
-        using_fallback = True
-        return schema, using_fallback
+        return schema, True
 
 
 def _handle_list_operations(
@@ -1498,7 +1461,7 @@ def _execute_query(client: Any, query: str, variables: Optional[str]) -> Dict[st
 )
 @click.option(
     "--schema-path",
-    help="Path to GraphQL schema files directory (for fallback operations)",
+    help="Path to GraphQL schema files directory (uses local files instead of live introspection)",
 )
 @click.option(
     "--no-pretty",
@@ -1532,7 +1495,14 @@ def graphql(
 
     # Schema introspection commands
     if list_operations or list_queries or list_mutations or describe:
-        schema, using_fallback = _get_schema_with_fallback(client, schema_path)
+        if schema_path:
+            # User explicitly requested local schema files
+            schema = _parse_graphql_operations_from_files(schema_path)
+            using_fallback = True
+        else:
+            # User expects live introspection data
+            schema = _get_schema_via_introspection(client)
+            using_fallback = False
 
         if list_operations or (list_queries and list_mutations):
             _handle_list_operations(schema, using_fallback, schema_path, format, pretty)

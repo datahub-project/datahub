@@ -1,9 +1,11 @@
 import json
+import os
 import tempfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
+import click
 import pytest
 from click.testing import CliRunner
 
@@ -26,7 +28,6 @@ from datahub.cli.graphql_cli import (
     _format_recursive_types,
     _format_single_type_fields,
     _generate_operation_query,
-    _get_minimal_fallback_operations,
     _is_file_path,
     _load_content_or_file,
     _parse_graphql_operations_from_files,
@@ -835,38 +836,23 @@ class TestSchemaFileHandling:
 
     def test_parse_graphql_operations_from_files_nonexistent_custom_path(self):
         """Test parsing operations with non-existent custom schema path."""
-        # Looking at the logs, this function catches FileNotFoundError and falls back
-        # Let's test that it falls back gracefully instead
+        # With our improved error handling, this should raise ClickException
         nonexistent_path = "/this/path/definitely/does/not/exist/on/any/system"
-        result = _parse_graphql_operations_from_files(nonexistent_path)
 
-        # Should fall back to minimal operations
-        assert "queryType" in result
-        assert "mutationType" in result
-        query_names = [op["name"] for op in result["queryType"]["fields"]]
-        assert "me" in query_names  # Should contain fallback operations
+        with pytest.raises(click.ClickException) as exc_info:
+            _parse_graphql_operations_from_files(nonexistent_path)
+
+        assert "Custom schema path does not exist" in str(exc_info.value)
 
     def test_parse_graphql_operations_from_files_fallback_on_error(self):
-        """Test that parsing falls back to minimal operations on error."""
+        """Test that parsing raises clear error when schema files can't be found."""
         with patch("datahub.cli.graphql_cli._get_schema_files_path") as mock_get_path:
             mock_get_path.side_effect = Exception("Schema files not found")
 
-            result = _parse_graphql_operations_from_files()
+            with pytest.raises(click.ClickException) as exc_info:
+                _parse_graphql_operations_from_files()
 
-            # Should return minimal fallback operations
-            assert "queryType" in result
-            assert "mutationType" in result
-
-            # Check for known fallback operations
-            query_fields = result["queryType"]["fields"]
-            query_names = [op["name"] for op in query_fields]
-            assert "me" in query_names
-            assert "searchAcrossEntities" in query_names
-
-            mutation_fields = result["mutationType"]["fields"]
-            mutation_names = [op["name"] for op in mutation_fields]
-            assert "addTag" in mutation_names
-            assert "removeTag" in mutation_names
+            assert "Schema loading failed" in str(exc_info.value)
 
     def test_parse_operations_from_content(self):
         """Test parsing operations from GraphQL content string."""
@@ -922,37 +908,6 @@ class TestSchemaFileHandling:
         # Should only contain validField, keywords should be filtered
         assert len(operations) == 1
         assert operations[0]["name"] == "validField"
-
-    def test_get_minimal_fallback_operations(self):
-        """Test minimal fallback operations structure."""
-        result = _get_minimal_fallback_operations()
-
-        # Should have both query and mutation types
-        assert "queryType" in result
-        assert "mutationType" in result
-
-        # Check query operations
-        query_fields = result["queryType"]["fields"]
-        assert len(query_fields) > 5  # Should have several common queries
-        query_names = [op["name"] for op in query_fields]
-        assert "me" in query_names
-        assert "searchAcrossEntities" in query_names
-        assert "dataset" in query_names
-
-        # Check mutation operations
-        mutation_fields = result["mutationType"]["fields"]
-        assert len(mutation_fields) > 5  # Should have several common mutations
-        mutation_names = [op["name"] for op in mutation_fields]
-        assert "addTag" in mutation_names
-        assert "removeTag" in mutation_names
-        assert "createGroup" in mutation_names
-
-        # Each operation should have required fields
-        for op in query_fields + mutation_fields:
-            assert "name" in op
-            assert "description" in op
-            assert "args" in op
-            assert isinstance(op["args"], list)
 
 
 class TestOperationGenerationAndQueryBuilding:
@@ -1994,29 +1949,16 @@ class TestJSONOutputFormatting:
 class TestCoverageImprovementTargets:
     """Test specific uncovered code paths to improve coverage."""
 
-    def test_get_minimal_fallback_operations(self):
-        """Test minimal fallback operations generation."""
-        result = _get_minimal_fallback_operations()
-
-        # Should have basic structure
-        assert "queryType" in result
-        assert "mutationType" in result
-        assert "fields" in result["queryType"]
-        assert "fields" in result["mutationType"]
-        assert isinstance(result["queryType"]["fields"], list)
-        assert isinstance(result["mutationType"]["fields"], list)
-
-    def test_parse_graphql_operations_fallback_to_minimal(self):
-        """Test fallback to minimal operations when file parsing fails."""
+    def test_parse_graphql_operations_file_not_found_error(self):
+        """Test error when schema files cannot be found."""
         with patch(
             "datahub.cli.graphql_cli._get_schema_files_path",
             side_effect=FileNotFoundError,
         ):
-            result = _parse_graphql_operations_from_files("/nonexistent/path")
+            with pytest.raises(click.ClickException) as exc_info:
+                _parse_graphql_operations_from_files("/nonexistent/path")
 
-            # Should return minimal fallback operations
-            assert "queryType" in result
-            assert "mutationType" in result
+            assert "Schema loading failed" in str(exc_info.value)
 
     def test_fetch_schema_operations_exception_fallback(self):
         """Test exception handling in schema operations fetch."""
@@ -2171,3 +2113,352 @@ class TestAdvancedJSONOutputFormatting:
         result = _dict_to_graphql_input(nested)
         assert "outer" in result
         assert "inner" in result
+
+
+class TestMainCLIFunction:
+    """Test the main graphql() CLI function to improve coverage of CLI entry points."""
+
+    def test_graphql_list_operations_mode(self):
+        """Test --list-operations CLI mode."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch("datahub.cli.graphql_cli._handle_list_operations") as mock_handler,
+        ):
+            mock_schema.return_value = ({"test": "schema"}, False)
+
+            # Call CLI command with --list-operations
+            result = runner.invoke(graphql, ["--list-operations", "--format", "human"])
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify the correct handler was called
+            mock_handler.assert_called_once()
+
+    def test_graphql_list_queries_mode(self):
+        """Test --list-queries CLI mode."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch("datahub.cli.graphql_cli._handle_list_queries") as mock_handler,
+        ):
+            mock_schema.return_value = ({"test": "schema"}, False)
+
+            # Call CLI command with --list-queries
+            result = runner.invoke(graphql, ["--list-queries", "--format", "json"])
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify the correct handler was called
+            mock_handler.assert_called_once()
+
+    def test_graphql_list_mutations_mode(self):
+        """Test --list-mutations CLI mode."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch("datahub.cli.graphql_cli._handle_list_mutations") as mock_handler,
+        ):
+            mock_schema.return_value = ({"test": "schema"}, False)
+
+            # Call CLI command with --list-mutations and --no-pretty
+            result = runner.invoke(
+                graphql, ["--list-mutations", "--no-pretty", "--format", "human"]
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify the correct handler was called
+            mock_handler.assert_called_once()
+
+    def test_graphql_describe_mode(self):
+        """Test --describe CLI mode with schema introspection."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch(
+                "datahub.cli.graphql_cli._get_schema_via_introspection"
+            ) as mock_schema,
+            patch("datahub.cli.graphql_cli._handle_describe") as mock_handler,
+        ):
+            mock_schema.return_value = {"test": "schema"}
+
+            # Call CLI command with --describe and --recurse (no schema path)
+            result = runner.invoke(
+                graphql,
+                [
+                    "--describe",
+                    "TestType",
+                    "--recurse",
+                    "--format",
+                    "json",
+                ],
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify the correct handler was called
+            mock_handler.assert_called_once()
+
+    def test_graphql_query_execution_mode(self):
+        """Test query execution mode."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._execute_query") as mock_execute,
+        ):
+            mock_execute.return_value = {"data": {"test": "result"}}
+
+            # Call CLI command with --query
+            result = runner.invoke(
+                graphql, ["--query", "{ __typename }", "--format", "json"]
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify query execution was called
+            mock_execute.assert_called_once()
+
+    def test_graphql_operation_execution_mode(self):
+        """Test operation execution mode."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._execute_operation") as mock_execute,
+        ):
+            mock_execute.return_value = {"data": {"test": "result"}}
+
+            # Call CLI command with --operation and --variables
+            result = runner.invoke(
+                graphql,
+                [
+                    "--operation",
+                    "testOperation",
+                    "--variables",
+                    '{"var": "value"}',
+                    "--format",
+                    "json",
+                ],
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify operation execution was called
+            mock_execute.assert_called_once()
+
+    def test_graphql_both_queries_and_mutations_list(self):
+        """Test listing both queries and mutations together."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch("datahub.cli.graphql_cli._handle_list_operations") as mock_handler,
+        ):
+            mock_schema.return_value = (
+                {"test": "schema"},
+                True,
+            )  # Test using_fallback=True
+
+            # Call CLI command with both --list-queries and --list-mutations
+            result = runner.invoke(
+                graphql, ["--list-queries", "--list-mutations", "--format", "human"]
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Should call list_operations handler when both are true
+            mock_handler.assert_called_once()
+
+    def test_graphql_with_custom_schema_path(self):
+        """Test CLI with custom schema path."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch(
+                "datahub.cli.graphql_cli._parse_graphql_operations_from_files"
+            ) as mock_parse,
+            patch("datahub.cli.graphql_cli._handle_list_operations"),
+        ):
+            mock_parse.return_value = {"test": "schema"}
+
+            # Call CLI command with custom --schema-path
+            result = runner.invoke(
+                graphql,
+                [
+                    "--list-operations",
+                    "--schema-path",
+                    "/custom/schema/path",
+                    "--format",
+                    "json",
+                ],
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify schema was loaded with custom path
+            mock_parse.assert_called_once_with("/custom/schema/path")
+
+
+class TestCLIFilePathHandling:
+    """Test CLI file path handling and schema discovery to improve coverage."""
+
+    def test_graphql_query_with_file_path(self):
+        """Test CLI with query from file path."""
+        runner = CliRunner()
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".graphql", delete=False
+        ) as f:
+            f.write("{ __typename }")
+            temp_path = f.name
+
+        try:
+            with (
+                patch("datahub.cli.graphql_cli.get_default_graph"),
+                patch("datahub.cli.graphql_cli._execute_query") as mock_execute,
+            ):
+                mock_execute.return_value = {"data": {"test": "result"}}
+
+                # Call CLI command with file path as query
+                result = runner.invoke(
+                    graphql, ["--query", temp_path, "--format", "json"]
+                )
+
+                # Should execute successfully
+                assert result.exit_code == 0
+                # Should execute the query loaded from file
+                mock_execute.assert_called_once()
+
+        finally:
+            os.unlink(temp_path)
+
+    def test_graphql_variables_with_file_path(self):
+        """Test CLI with variables from file path."""
+        runner = CliRunner()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"testVar": "testValue"}, f)
+            temp_path = f.name
+
+        try:
+            with (
+                patch("datahub.cli.graphql_cli.get_default_graph"),
+                patch("datahub.cli.graphql_cli._execute_query") as mock_execute,
+            ):
+                mock_execute.return_value = {"data": {"test": "result"}}
+
+                # Call CLI command with file path as variables
+                result = runner.invoke(
+                    graphql,
+                    [
+                        "--query",
+                        "{ __typename }",
+                        "--variables",
+                        temp_path,
+                        "--format",
+                        "json",
+                    ],
+                )
+
+                # Should execute successfully
+                assert result.exit_code == 0
+                # Should execute with variables loaded from file
+                mock_execute.assert_called_once()
+
+        finally:
+            os.unlink(temp_path)
+
+    def test_schema_discovery_fallback_paths(self):
+        """Test schema file discovery fallback mechanism."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph") as mock_client,
+            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch("datahub.cli.graphql_cli._handle_list_operations"),
+        ):
+            mock_schema.return_value = ({"test": "schema"}, False)
+
+            # This should trigger schema discovery when no custom path is provided
+            result = runner.invoke(graphql, ["--list-operations", "--format", "json"])
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Verify schema discovery was called
+            mock_schema.assert_called_once_with(mock_client.return_value, None)
+
+
+class TestCLIOutputFormatting:
+    """Test CLI output formatting and pretty-printing to improve coverage."""
+
+    def test_json_output_format(self):
+        """Test JSON output format handling."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._execute_query") as mock_execute,
+        ):
+            mock_execute.return_value = {"data": {"test": "result"}}
+
+            # Call CLI command with JSON format
+            result = runner.invoke(
+                graphql, ["--query", "{ __typename }", "--format", "json"]
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Should have some output
+            assert len(result.output) > 0
+
+    def test_human_output_format(self):
+        """Test human-readable output format handling."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._execute_query") as mock_execute,
+        ):
+            mock_execute.return_value = {"data": {"test": "result"}}
+
+            # Call CLI command with human format
+            result = runner.invoke(
+                graphql, ["--query", "{ __typename }", "--format", "human"]
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Should have some output
+            assert len(result.output) > 0
+
+    def test_no_pretty_flag_handling(self):
+        """Test --no-pretty flag processing."""
+        runner = CliRunner()
+
+        with (
+            patch("datahub.cli.graphql_cli.get_default_graph"),
+            patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema,
+            patch("datahub.cli.graphql_cli._handle_list_operations") as mock_handler,
+        ):
+            mock_schema.return_value = ({"test": "schema"}, False)
+
+            # Call CLI command with --no-pretty flag
+            result = runner.invoke(
+                graphql, ["--list-operations", "--no-pretty", "--format", "json"]
+            )
+
+            # Should execute successfully
+            assert result.exit_code == 0
+            # Handler should be called
+            mock_handler.assert_called_once()
