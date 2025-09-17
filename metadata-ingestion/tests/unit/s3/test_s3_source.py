@@ -333,6 +333,7 @@ def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     path_spec = Mock(
         spec=PathSpec,
         include="s3://my-bucket/{table}/{partition0}/*.csv",
+        glob_include="s3://my-bucket/*/*/*.csv",
         table_name="{table}",
     )
     path_spec.allowed = Mock(return_value=False)
