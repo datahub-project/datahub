@@ -143,6 +143,7 @@ class LookerView:
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
         looker_client: Optional[LookerAPI] = None,
+        view_to_explore_map: Optional[Dict[str, str]] = None,
     ) -> Optional["LookerView"]:
         view_name = view_context.name()
 
@@ -162,6 +163,7 @@ class LookerView:
             ctx=ctx,
             reporter=reporter,
             looker_client=looker_client,
+            view_to_explore_map=view_to_explore_map,
         )
 
         field_type_vs_raw_fields = OrderedDict(
@@ -707,6 +709,11 @@ class LookMLSource(StatefulIngestionSourceBase):
         # Value: Tuple(model file name, connection name)
         view_connection_map: Dict[str, Tuple[str, str]] = {}
 
+        # Map of view name to explore name for API-based view lineage
+        # A view can be referenced by multiple explores, we only need one of the explores to use Looker Query API
+        # Key: view_name, Value: explore_name
+        view_to_explore_map: Dict[str, str] = {}
+
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(
@@ -784,6 +791,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                         if explore.upstream_views:
                             for view_name in explore.upstream_views:
                                 explore_reachable_views.add(view_name.include)
+                                # Build view to explore mapping for API-based view lineage
+                                view_to_explore_map[view_name.include] = explore.name
                     except Exception as e:
                         self.reporter.report_warning(
                             title="Failed to process explores",
@@ -881,6 +890,9 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 config=self.source_config,
                                 ctx=self.ctx,
                                 looker_client=self.looker_client,
+                                view_to_explore_map=view_to_explore_map
+                                if view_to_explore_map
+                                else None,
                             )
                         except Exception as e:
                             self.reporter.report_warning(

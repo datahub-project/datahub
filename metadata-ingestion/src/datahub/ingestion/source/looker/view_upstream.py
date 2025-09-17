@@ -299,15 +299,21 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
     Key Features:
     - Requires a Looker client (`looker_client`) to execute queries and retrieve SQL for the view.
+    - Requires a `view_to_explore_map` to map view names to their corresponding explore name
     - Field name translation is handled: Looker API field names are constructed as `<view_name>.<field_name>`, and helper
       methods are provided to convert between Looker API field names and raw field names.
     - SQL parsing is cached for efficiency, and the class is designed to gracefully fall back if the Looker Query API fails.
     - All lineage extraction is based on the SQL returned by the Looker API, ensuring accurate and up-to-date lineage.
 
+    Why view_to_explore_map is required:
+    The Looker Query API expects the explore name (not the view name) as the "view" parameter in the WriteQuery.
+    In Looker, a view can be referenced by multiple explores, but the API needs any one of the
+    explores to access the view's fiels
+
     Example WriteQuery request (see `_execute_query` for details):
         {
             "model": "test_model",
-            "view": "users",
+            "view": "users_explore",  # This is the explore name, not the view name
             "fields": [
                 "users.email", "users.lifetime_purchase_count"
             ],
@@ -334,9 +340,11 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         reporter: LookMLSourceReport,
         ctx: PipelineContext,
         looker_client: LookerAPI,
+        view_to_explore_map: Dict[str, str],
     ):
         super().__init__(view_context, looker_view_id_cache, config, reporter, ctx)
         self.looker_client = looker_client
+        self.view_to_explore_map = view_to_explore_map
         # Cache the SQL parsing results
         self._get_spr = lru_cache(maxsize=1)(self.__get_spr)
         self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
@@ -395,11 +403,17 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         We need to list all the fields for the view to get the SQL representation of the view - this fully resolved SQL for view dimensions and measures.
 
+        The method uses the view_to_explore_map to determine the correct explore name to use in the WriteQuery.
+        This is crucial because the Looker Query API expects the explore name (not the view name) as the "view" parameter.
+
         Ref: https://cloud.google.com/looker/docs/reference/param-field-sql#sql_for_dimensions
         Ref: https://linear.app/acryl-data/issue/ING-970/lookerml-column-lineage-not-handling-intra-view-references
 
         Returns:
-            Optional[WriteQuery]: The WriteQuery object if fields are found, otherwise None.
+            Optional[WriteQuery]: The WriteQuery object if fields are found and explore name is available, otherwise None.
+
+        Raises:
+            ValueError: If the explore name is not found in the view_to_explore_map for the current view.
         """
 
         # Collect all dimension and measure fields for the view.
@@ -434,9 +448,18 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         # Construct and return the WriteQuery object.
         # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
+        # Use explore name from view_to_explore_map if available
+        explore_name = self.view_to_explore_map.get(self.view_context.name())
+
+        # Raise exception if explore name is not found
+        if not explore_name:
+            raise ValueError(
+                f"Explore name mapping not found for view '{self.view_context.name()}'. Cannot proceed with Looker API for view lineage."
+            )
+
         return WriteQuery(
             model=self.looker_view_id_cache.model_name,
-            view=self.view_context.name(),
+            view=explore_name,
             fields=view_fields,
             filters={},
             limit="1",
@@ -1080,9 +1103,17 @@ def create_view_upstream(
     ctx: PipelineContext,
     reporter: LookMLSourceReport,
     looker_client: Optional["LookerAPI"] = None,
+    view_to_explore_map: Optional[Dict[str, str]] = None,
 ) -> AbstractViewUpstream:
     # Looker client is required for LookerQueryAPIBasedViewUpstream also enforced by config.use_api_for_view_lineage
-    if config.use_api_for_view_lineage and looker_client:
+    # Only use API if emit_reachable_views_only is enabled
+    # view_to_explore_map is required for Looker query API args
+    if (
+        config.use_api_for_view_lineage
+        and looker_client
+        and config.emit_reachable_views_only
+        and view_to_explore_map
+    ):
         try:
             return LookerQueryAPIBasedViewUpstream(
                 view_context=view_context,
@@ -1091,6 +1122,7 @@ def create_view_upstream(
                 ctx=ctx,
                 looker_view_id_cache=looker_view_id_cache,
                 looker_client=looker_client,
+                view_to_explore_map=view_to_explore_map,
             )
         except Exception as e:
             # Fallback to other implementations - best effort approach
