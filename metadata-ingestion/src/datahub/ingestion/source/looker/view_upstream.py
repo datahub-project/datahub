@@ -407,7 +407,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         This is crucial because the Looker Query API expects the explore name (not the view name) as the "view" parameter.
 
         Ref: https://cloud.google.com/looker/docs/reference/param-field-sql#sql_for_dimensions
-        Ref: https://linear.app/acryl-data/issue/ING-970/lookerml-column-lineage-not-handling-intra-view-references
 
         Returns:
             Optional[WriteQuery]: The WriteQuery object if fields are found and explore name is available, otherwise None.
@@ -469,7 +468,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         """
         Executes a Looker SQL query using the Looker API and returns the SQL string.
 
-        Ref: https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Query/run_query
+        Ref: https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Query/run_inline_query
 
         Example Request:
             WriteQuery:
