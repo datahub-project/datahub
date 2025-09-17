@@ -1,5 +1,3 @@
-import { PopoverProps } from 'antd';
-
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { AvatarSizeOptions } from '@src/alchemy-components/theme/config';
@@ -17,5 +15,4 @@ export interface AvatarProps {
     showName?: boolean;
     type?: AvatarType;
     extraRightContent?: React.ReactNode;
-    namePopover?: PopoverProps;
 }
