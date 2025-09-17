@@ -16,6 +16,7 @@ from datahub.cli.graphql_cli import (
     _convert_type_to_json,
     _dict_to_graphql_input,
     _extract_base_type_name,
+    _fetch_schema_operations,
     _fetch_type_recursive,
     _find_operation_by_name,
     _find_type_by_name,
@@ -1988,3 +1989,202 @@ class TestJSONOutputFormatting:
         assert options_arg["type"]["kind"] == "LIST"
         assert options_arg["type"]["ofType"]["kind"] == "ENUM"
         assert options_arg["type"]["ofType"]["name"] == "SearchOption"
+
+
+class TestCoverageImprovementTargets:
+    """Test specific uncovered code paths to improve coverage."""
+
+    def test_get_minimal_fallback_operations(self):
+        """Test minimal fallback operations generation."""
+        result = _get_minimal_fallback_operations()
+
+        # Should have basic structure
+        assert "queryType" in result
+        assert "mutationType" in result
+        assert "fields" in result["queryType"]
+        assert "fields" in result["mutationType"]
+        assert isinstance(result["queryType"]["fields"], list)
+        assert isinstance(result["mutationType"]["fields"], list)
+
+    def test_parse_graphql_operations_fallback_to_minimal(self):
+        """Test fallback to minimal operations when file parsing fails."""
+        with patch(
+            "datahub.cli.graphql_cli._get_schema_files_path",
+            side_effect=FileNotFoundError,
+        ):
+            result = _parse_graphql_operations_from_files("/nonexistent/path")
+
+            # Should return minimal fallback operations
+            assert "queryType" in result
+            assert "mutationType" in result
+
+    def test_fetch_schema_operations_exception_fallback(self):
+        """Test exception handling in schema operations fetch."""
+        mock_client = Mock()
+        mock_client.execute_graphql.side_effect = Exception("Connection failed")
+
+        with patch(
+            "datahub.cli.graphql_cli._parse_graphql_operations_from_files"
+        ) as mock_parse:
+            mock_parse.return_value = {"test": "fallback"}
+
+            result = _fetch_schema_operations(mock_client)
+            assert result == {"test": "fallback"}
+            mock_parse.assert_called_once_with(None)
+
+
+class TestCLIArgumentValidationAndEdgeCases:
+    """Test CLI argument validation and edge case handling."""
+
+    def test_invalid_operation_name_handling(self):
+        """Test handling of invalid operation names."""
+        mock_client = Mock()
+
+        with patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema:
+            mock_schema.return_value = {"queryType": {"name": "Query"}, "types": []}
+
+            # Test with completely invalid operation name
+            result = _format_operation_list(
+                mock_client, "nonExistentOperation", None, None
+            )
+            assert "No operations found" in result or result == ""
+
+    def test_parse_variables_malformed_json(self):
+        """Test handling of malformed variable JSON."""
+        # Test malformed JSON variables
+        from click.exceptions import ClickException
+
+        with pytest.raises(
+            ClickException
+        ):  # Should raise ClickException on JSON parse error
+            _parse_variables('{"malformed": json')
+
+    def test_parse_variables_empty_input(self):
+        """Test handling of empty variable input."""
+        result = _parse_variables("")
+        assert result is None
+
+        result = _parse_variables(None)
+        assert result is None
+
+    def test_output_format_validation_edge_cases(self):
+        """Test output format validation with edge cases."""
+        mock_client = Mock()
+
+        with patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema:
+            mock_schema.return_value = {"types": [], "queryType": {"name": "Query"}}
+
+            # Test with None operation name (should handle gracefully)
+            result = _format_operation_list(mock_client, None, None, None)
+            assert isinstance(result, str)
+
+
+class TestComplexTypeResolutionScenarios:
+    """Test complex type resolution scenarios for better coverage."""
+
+    def test_deeply_nested_type_resolution(self):
+        """Test deeply nested type structures."""
+        base_type = _extract_base_type_name(
+            {
+                "kind": "NON_NULL",
+                "ofType": {
+                    "kind": "LIST",
+                    "ofType": {
+                        "kind": "NON_NULL",
+                        "ofType": {"kind": "SCALAR", "name": "String"},
+                    },
+                },
+            }
+        )
+
+        assert base_type == "String"
+
+    def test_unknown_type_kind_handling(self):
+        """Test handling of unknown type kinds."""
+        # Test with unknown/unsupported type kind
+        result = _extract_base_type_name({"kind": "UNKNOWN_KIND", "name": "SomeType"})
+        assert result == "SomeType"  # Should fallback to name
+
+    def test_type_conversion_edge_cases(self):
+        """Test type conversion edge cases for JSON output."""
+        # Test type with missing fields
+        type_info = {
+            "kind": "OBJECT",
+            "name": "IncompleteType",
+            # Missing fields, description, etc.
+        }
+
+        result = _convert_type_to_json(type_info)
+        assert result["name"] == "IncompleteType"
+        assert result["kind"] == "OBJECT"
+        assert "fields" in result  # Should have empty fields list
+
+    def test_fetch_type_recursive_with_max_depth(self):
+        """Test recursive type fetching with depth limits."""
+        schema = {
+            "types": [
+                {
+                    "name": "TestType",
+                    "kind": "OBJECT",
+                    "fields": [
+                        {"name": "field1", "type": {"kind": "SCALAR", "name": "String"}}
+                    ],
+                }
+            ]
+        }
+
+        visited = set()
+        result = _fetch_type_recursive(schema, "TestType", visited, max_depth=1)
+
+        assert result is not None
+        assert result["name"] == "TestType"
+
+
+class TestAdvancedJSONOutputFormatting:
+    """Test advanced JSON output formatting edge cases."""
+
+    def test_convert_describe_to_json_with_mock_client(self):
+        """Test describe functionality with mock client."""
+        mock_client = Mock()
+
+        with patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema:
+            mock_schema.return_value = {
+                "types": [],  # Empty types list
+                "queryType": {"name": "Query"},
+            }
+
+            # This should handle the case where type is not found gracefully
+            result = _convert_describe_to_json(mock_client, "nonExistentType")
+            # Should return something (empty dict or error info)
+            assert isinstance(result, dict)
+
+    def test_operation_list_conversion_with_empty_schema(self):
+        """Test operation list conversion with minimal schema."""
+        operations = []  # Empty operations list
+
+        result = _convert_operations_list_to_json(operations)
+        assert result == []
+
+    def test_json_output_with_special_characters(self):
+        """Test JSON output handling of special characters."""
+        operation = {
+            "name": "test_with_ñéw_chars",
+            "description": "Test with special chars: <>&\"'",
+            "args": [],
+        }
+
+        result = _convert_operation_to_json(operation, "Query")
+        assert result["name"] == "test_with_ñéw_chars"
+        assert "<>&" in result["description"]
+
+    def test_dict_to_graphql_input_edge_cases(self):
+        """Test dictionary to GraphQL input conversion with edge cases."""
+        # Test empty dict
+        result = _dict_to_graphql_input({})
+        assert result == "{}"
+
+        # Test nested structure
+        nested = {"outer": {"inner": "value", "number": 42}}
+        result = _dict_to_graphql_input(nested)
+        assert "outer" in result
+        assert "inner" in result
