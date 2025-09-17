@@ -32,7 +32,7 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import { getFirstSubType } from '@app/entityV2/shared/utils';
 import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { useEntityRegistry, useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { EntityType } from '@types';
@@ -90,7 +90,6 @@ const EntityDropdown = (props: Props) => {
     const onEntityProfile = entityProfileUrn === urn;
 
     const me = useUserContext();
-    const entityRegistry = useEntityRegistry();
     const entityRegistryV2 = useEntityRegistryV2();
     const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
 
@@ -156,295 +155,291 @@ const EntityDropdown = (props: Props) => {
     const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
 
     // Build menu items for the new Menu component
-    const buildMenuItems = () => {
-        const items: any[] = [];
+    const menuItemsList: any[] = [];
 
-        if (menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard) {
-            items.push({
+    if (menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '0',
+            title: 'Copy Url',
+            icon: 'Link',
+            onClick: () => {
+                navigator.clipboard.writeText(pageUrl);
+                message.info('Copied URL!', 1.2);
+            },
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '1',
+            title: !entityData?.deprecation?.deprecated ? 'Mark as Deprecated' : 'Mark as un-deprecated',
+            render: () => (
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '8px',
+                        gap: '8px',
+                    }}
+                >
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexShrink: 0,
+                            width: '20px',
+                            height: '20px',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <DeprecatedIcon
+                            style={{
+                                width: '16px',
+                                height: '16px',
+                                color: '#8088A3',
+                            }}
+                        />
+                    </div>
+                    <div
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        <span
+                            style={{
+                                fontFamily: 'Mulish',
+                                fontWeight: 600,
+                                color: '#374066',
+                                fontSize: '14px',
+                            }}
+                        >
+                            {!entityData?.deprecation?.deprecated ? 'Mark as Deprecated' : 'Mark as un-deprecated'}
+                        </span>
+                    </div>
+                </div>
+            ),
+            onClick: () => {
+                if (!entityData?.deprecation?.deprecated) {
+                    setIsDeprecationModalVisible(true);
+                } else {
+                    handleUpdateDeprecation(false);
+                }
+            },
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.ANNOUNCE)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '1-1',
+            title: 'Add Note',
+            icon: 'MegaphoneSimple',
+            onClick: () => setIsEntityAnnouncementModalVisible(true),
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.ADD_TERM)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '2',
+            title: 'Add Term',
+            icon: 'Plus',
+            onClick: () => setIsCreateTermModalVisible(true),
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.ADD_TERM_GROUP)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '3',
+            title: 'Add Term Group',
+            icon: 'FolderPlus',
+            onClick: () => setIsCreateNodeModalVisible(true),
+        });
+    }
+
+    if (!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '4',
+            title: 'Move',
+            icon: 'FolderOpen',
+            disabled: isMoveDisabled(entityType, entityData, me.platformPrivileges),
+            onClick: () => setIsMoveModalVisible(true),
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.EDIT) && onEdit) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '9',
+            title: 'Edit',
+            icon: 'Pencil',
+            onClick: onEdit,
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.RAISE_INCIDENT)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '6',
+            title: 'Raise Incident',
+            icon: 'Warning',
+            onClick: () => setIsRaiseIncidentModalVisible(true),
+        });
+    }
+
+    if (
+        onEntityProfile &&
+        versioningEnabled &&
+        menuItems.has(EntityMenuItems.LINK_VERSION) &&
+        !entityData?.versionProperties
+    ) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'link',
+            title: 'Link a Newer Version',
+            icon: 'Link',
+            onClick: () => setIsLinkAssetVersionModalVisible(true),
+        });
+    }
+
+    if (onEntityProfile && entityData?.versionProperties?.isLatest) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'unlink',
+            title: 'Unlink from Previous Version',
+            icon: 'LinkBreak',
+            onClick: () => setIsUnlinkAssetVersionModalVisible(true),
+        });
+    }
+
+    if (onEntityProfile && entityData?.versionProperties && setDrawer) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'showVersions',
+            title: 'Show Versions',
+            icon: 'GitCommit',
+            onClick: () => {
+                analytics.event({
+                    type: EventType.ShowAllVersionsEvent,
+                    assetUrn: urn,
+                    versionSetUrn: entityData?.versionProperties?.versionSet?.urn,
+                    entityType,
+                    uiLocation: 'preview',
+                });
+                setDrawer(DrawerType.VERSIONS);
+            },
+        });
+    }
+
+    if (menuItems.has(EntityMenuItems.SHARE)) {
+        const shareChildren: any[] = [];
+
+        // Copy Link
+        if (navigator.clipboard) {
+            shareChildren.push({
                 type: 'item' as const,
-                key: '0',
-                title: 'Copy Url',
+                key: 'copy-link',
+                title: 'Copy Link',
                 icon: 'Link',
                 onClick: () => {
-                    navigator.clipboard.writeText(pageUrl);
-                    message.info('Copied URL!', 1.2);
+                    const { origin } = window.location;
+                    const copyUrl = `${origin}${entityRegistryV2.getEntityUrl(entityType, urn)}/`;
+                    navigator.clipboard.writeText(copyUrl);
                 },
             });
         }
 
-        if (menuItems.has(EntityMenuItems.UPDATE_DEPRECATION)) {
-            items.push({
+        // Copy URN
+        if (navigator.clipboard) {
+            shareChildren.push({
                 type: 'item' as const,
-                key: '1',
-                title: !entityData?.deprecation?.deprecated ? 'Mark as Deprecated' : 'Mark as un-deprecated',
-                render: () => (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '8px',
-                            gap: '8px',
-                        }}
-                    >
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexShrink: 0,
-                                width: '20px',
-                                height: '20px',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <DeprecatedIcon
-                                style={{
-                                    width: '16px',
-                                    height: '16px',
-                                    color: '#8088A3',
-                                }}
-                            />
-                        </div>
-                        <div
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            <span
-                                style={{
-                                    fontFamily: 'Mulish',
-                                    fontWeight: 600,
-                                    color: '#374066',
-                                    fontSize: '14px',
-                                }}
-                            >
-                                {!entityData?.deprecation?.deprecated ? 'Mark as Deprecated' : 'Mark as un-deprecated'}
-                            </span>
-                        </div>
-                    </div>
-                ),
+                key: 'copy-urn',
+                title: 'Copy URN',
+                icon: 'Copy',
                 onClick: () => {
-                    if (!entityData?.deprecation?.deprecated) {
-                        setIsDeprecationModalVisible(true);
+                    navigator.clipboard.writeText(urn);
+                },
+            });
+        }
+
+        // Copy Name
+        if (navigator.clipboard) {
+            const displayName = entityData?.name || urn;
+            shareChildren.push({
+                type: 'item' as const,
+                key: 'copy-name',
+                title: 'Copy Name',
+                icon: 'Copy',
+                onClick: () => {
+                    const qualifiedName = entityData?.properties?.qualifiedName;
+                    if (qualifiedName) {
+                        navigator.clipboard.writeText(qualifiedName);
                     } else {
-                        handleUpdateDeprecation(false);
+                        navigator.clipboard.writeText(displayName);
                     }
                 },
             });
         }
 
-        if (menuItems.has(EntityMenuItems.ANNOUNCE)) {
-            items.push({
-                type: 'item' as const,
-                key: '1-1',
-                title: 'Add Note',
-                icon: 'MegaphoneSimple',
-                onClick: () => setIsEntityAnnouncementModalVisible(true),
-            });
-        }
-
-        if (menuItems.has(EntityMenuItems.ADD_TERM)) {
-            items.push({
-                type: 'item' as const,
-                key: '2',
-                title: 'Add Term',
-                icon: 'Plus',
-                onClick: () => setIsCreateTermModalVisible(true),
-            });
-        }
-
-        if (menuItems.has(EntityMenuItems.ADD_TERM_GROUP)) {
-            items.push({
-                type: 'item' as const,
-                key: '3',
-                title: 'Add Term Group',
-                icon: 'FolderPlus',
-                onClick: () => setIsCreateNodeModalVisible(true),
-            });
-        }
-
-        if (!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE)) {
-            items.push({
-                type: 'item' as const,
-                key: '4',
-                title: 'Move',
-                icon: 'FolderOpen',
-                disabled: isMoveDisabled(entityType, entityData, me.platformPrivileges),
-                onClick: () => setIsMoveModalVisible(true),
-            });
-        }
-
-        if (menuItems.has(EntityMenuItems.EDIT) && onEdit) {
-            items.push({
-                type: 'item' as const,
-                key: '9',
-                title: 'Edit',
-                icon: 'Pencil',
-                onClick: onEdit,
-            });
-        }
-
-        if (menuItems.has(EntityMenuItems.RAISE_INCIDENT)) {
-            items.push({
-                type: 'item' as const,
-                key: '6',
-                title: 'Raise Incident',
-                icon: 'Warning',
-                onClick: () => setIsRaiseIncidentModalVisible(true),
-            });
-        }
-
-        if (
-            onEntityProfile &&
-            versioningEnabled &&
-            menuItems.has(EntityMenuItems.LINK_VERSION) &&
-            !entityData?.versionProperties
-        ) {
-            items.push({
-                type: 'item' as const,
-                key: 'link',
-                title: 'Link a Newer Version',
-                icon: 'Link',
-                onClick: () => setIsLinkAssetVersionModalVisible(true),
-            });
-        }
-
-        if (onEntityProfile && entityData?.versionProperties?.isLatest) {
-            items.push({
-                type: 'item' as const,
-                key: 'unlink',
-                title: 'Unlink from Previous Version',
-                icon: 'LinkBreak',
-                onClick: () => setIsUnlinkAssetVersionModalVisible(true),
-            });
-        }
-
-        if (onEntityProfile && entityData?.versionProperties && setDrawer) {
-            items.push({
-                type: 'item' as const,
-                key: 'showVersions',
-                title: 'Show Versions',
-                icon: 'GitCommit',
-                onClick: () => {
-                    analytics.event({
-                        type: EventType.ShowAllVersionsEvent,
-                        assetUrn: urn,
-                        versionSetUrn: entityData?.versionProperties?.versionSet?.urn,
-                        entityType,
-                        uiLocation: 'preview',
-                    });
-                    setDrawer(DrawerType.VERSIONS);
-                },
-            });
-        }
-
-        if (menuItems.has(EntityMenuItems.SHARE)) {
-            const shareChildren: any[] = [];
-
-            // Copy Link
-            if (navigator.clipboard) {
-                shareChildren.push({
-                    type: 'item' as const,
-                    key: 'copy-link',
-                    title: 'Copy Link',
-                    icon: 'Link',
-                    onClick: () => {
-                        const { origin } = window.location;
-                        const copyUrl = `${origin}${entityRegistryV2.getEntityUrl(entityType, urn)}/`;
-                        navigator.clipboard.writeText(copyUrl);
-                    },
-                });
-            }
-
-            // Copy URN
-            if (navigator.clipboard) {
-                shareChildren.push({
-                    type: 'item' as const,
-                    key: 'copy-urn',
-                    title: 'Copy URN',
-                    icon: 'Copy',
-                    onClick: () => {
-                        navigator.clipboard.writeText(urn);
-                    },
-                });
-            }
-
-            // Copy Name
-            if (navigator.clipboard) {
+        // Email
+        shareChildren.push({
+            type: 'item' as const,
+            key: 'email',
+            title: 'Email',
+            icon: 'Envelope',
+            onClick: () => {
                 const displayName = entityData?.name || urn;
-                shareChildren.push({
-                    type: 'item' as const,
-                    key: 'copy-name',
-                    title: 'Copy Name',
-                    icon: 'Copy',
-                    onClick: () => {
-                        const qualifiedName = entityData?.properties?.qualifiedName;
-                        if (qualifiedName) {
-                            navigator.clipboard.writeText(qualifiedName);
-                        } else {
-                            navigator.clipboard.writeText(displayName);
-                        }
+                const displayType =
+                    getFirstSubType(entityData) || entityRegistryV2.getEntityName(entityType) || entityType;
+                const linkText = window.location.href;
+                const link = qs.stringifyUrl({
+                    url: 'mailto:',
+                    query: {
+                        subject: `${displayName} | ${displayType}`,
+                        body: `Check out this ${displayType} on DataHub: ${linkText}. Urn: ${urn}`,
                     },
                 });
-            }
+                window.open(link, '_blank', 'noopener,noreferrer');
+            },
+        });
 
-            // Email
-            shareChildren.push({
-                type: 'item' as const,
-                key: 'email',
-                title: 'Email',
-                icon: 'Envelope',
-                onClick: () => {
-                    const displayName = entityData?.name || urn;
-                    const displayType =
-                        getFirstSubType(entityData) || entityRegistry.getEntityName(entityType) || entityType;
-                    const linkText = window.location.href;
-                    const link = qs.stringifyUrl({
-                        url: 'mailto:',
-                        query: {
-                            subject: `${displayName} | ${displayType}`,
-                            body: `Check out this ${displayType} on DataHub: ${linkText}. Urn: ${urn}`,
-                        },
-                    });
-                    window.open(link, '_blank', 'noopener,noreferrer');
-                },
-            });
+        menuItemsList.push({
+            type: 'item' as const,
+            key: '8',
+            title: 'Share',
+            icon: 'Share',
+            children: shareChildren,
+        });
+    }
 
-            items.push({
-                type: 'item' as const,
-                key: '8',
-                title: 'Share',
-                icon: 'Share',
-                children: shareChildren,
-            });
-        }
-
-        // Delete should always be last (destructive action)
-        if (menuItems.has(EntityMenuItems.DELETE)) {
-            items.push({
-                type: 'item' as const,
-                key: 'delete',
-                title: 'Delete',
-                icon: 'Trash',
-                danger: true,
-                disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
-                tooltip: shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
-                    ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
-                          isDomainEntity ? 'sub-domain' : 'child'
-                      } entities.`
-                    : undefined,
-                onClick: onDeleteEntity,
-            });
-        }
-
-        return items;
-    };
+    // Delete should always be last (destructive action)
+    if (menuItems.has(EntityMenuItems.DELETE)) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'delete',
+            title: 'Delete',
+            icon: 'Trash',
+            danger: true,
+            disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
+            tooltip: shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
+                ? `Can't delete ${entityRegistryV2.getEntityName(entityType)} with ${
+                      isDomainEntity ? 'sub-domain' : 'child'
+                  } entities.`
+                : undefined,
+            onClick: onDeleteEntity,
+        });
+    }
 
     return (
         <>
-            <Menu items={buildMenuItems()} trigger={triggerType} overlayStyle={{ minWidth: 150 }}>
+            <Menu items={menuItemsList} trigger={triggerType} overlayStyle={{ minWidth: 150 }}>
                 <StyledMoreIcon />
             </Menu>
             {isCreateTermModalVisible && (
@@ -503,7 +498,7 @@ const EntityDropdown = (props: Props) => {
                                 `${getEntityPath(
                                     entityType,
                                     urn,
-                                    entityRegistry,
+                                    entityRegistryV2,
                                     false,
                                     isHideSiblingMode,
                                     'Incidents',
