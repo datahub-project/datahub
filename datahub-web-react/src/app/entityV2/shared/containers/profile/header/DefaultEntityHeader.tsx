@@ -133,7 +133,7 @@ export const DefaultEntityHeader = ({
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
-    const contextPath = getParentEntities(entityData);
+    const contextPath = getParentEntities(entityData, entityType);
     return (
         <>
             <Row>

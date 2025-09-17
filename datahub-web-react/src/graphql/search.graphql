@@ -228,6 +228,18 @@ fragment autoCompleteFields on Entity {
         properties {
             name
         }
+        domain {
+            domain {
+                urn
+                type
+                properties {
+                    name
+                }
+                parentDomains {
+                    ...parentDomainsFields
+                }
+            }
+        }
     }
     ... on Application {
         properties {
