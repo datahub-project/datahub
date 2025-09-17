@@ -34,6 +34,11 @@ record AssertionStdParameter {
     SET
 
     /**
+     * A SQL expression
+     */
+    SQL
+
+    /**
      * A value of unknown type
      */
     UNKNOWN

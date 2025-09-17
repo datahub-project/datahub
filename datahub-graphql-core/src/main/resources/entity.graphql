@@ -9081,6 +9081,11 @@ enum AssertionStdParameterType {
   SET
 
   """
+  A SQL expression. When used, the expression should return a single column and row.
+  """
+  SQL
+
+  """
   A value of unknown type
   """
   UNKNOWN
