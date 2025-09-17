@@ -65,7 +65,7 @@ mutation UpsertSchemaFieldPropagationAutomation {
       name: "Schema Fields"
       category: "System"
       type: "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action"
-      description: "Propagation tags and terms on SchemaMetadata / EditableSchemaMetadata to aspects directly on schema fields"
+      description: "Propagate tags, terms, and documentation on SchemaMetadata / EditableSchemaMetadata to aspects directly on schema fields"
       config: {
         recipe: """
         {"name": "schema fields", "action": {"type": "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action", "config": {"enabled": true, "propagation_rule": {"metadata_propagated": {"tags": {"omit_attribution_is_propagated": true}, "terms": {"omit_attribution_is_propagated": true}, "documentation": {"omit_attribution_is_propagated": true}}, "origin_urn_resolution": {"lookup_type": "entity", "entity_type": "dataset", "query":"platform:logical"}, "target_urn_resolution": "schema_field"}}}}
