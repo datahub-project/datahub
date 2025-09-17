@@ -1,33 +1,22 @@
-import { Avatar, Icon, Text } from '@components';
-import { PopoverProps } from 'antd';
-import React, { useCallback, useMemo } from 'react';
+import { Avatar, Icon } from '@components';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { PartialExtendedOwner } from '@app/sharedV2/owners/types';
-import { getOwnershipTypeDescriptionFromOwner, getOwnershipTypeNameFromOwner } from '@app/sharedV2/owners/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-const NamePopoverTitleContainer = styled.div`
-    display: flex;
-    gap: 8px;
-    align-items: center;
-`;
-
-const NamePopoverDescriptionContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-`;
+const AvatarWrapper = styled.div``;
 
 interface Props {
     owner: PartialExtendedOwner;
     onRemove?: () => void;
     readonly?: boolean;
-    hideNamePopover?: boolean;
 }
 
-export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }: Props) {
+export default function OwnerPill({ owner, onRemove, readonly }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
     const avatarPhotoUrl = owner?.owner?.editableProperties?.pictureLink;
@@ -62,47 +51,18 @@ export default function OwnerPill({ owner, onRemove, readonly, hideNamePopover }
 
     const avatarType = mapEntityTypeToAvatarType(owner.owner.type);
 
-    const namePopoverProps: PopoverProps | undefined = useMemo(() => {
-        if (hideNamePopover) return undefined;
-
-        const ownerEntityTypeDisplayName = entityRegistry.getEntityName(owner.owner.type);
-        const ownershipTypeName = getOwnershipTypeNameFromOwner(owner);
-        const ownershipTypeDescription = getOwnershipTypeDescriptionFromOwner(owner);
-
-        // do not show the name popover if owner don't have ownership type
-        if (!ownershipTypeName) return undefined;
-
-        return {
-            overlayStyle: { maxWidth: 200 },
-            title: (
-                <NamePopoverTitleContainer>
-                    <Avatar name={userName} size="lg" imageUrl={avatarPhotoUrl} type={avatarType} />{' '}
-                    <Text weight="semiBold">{ownerEntityTypeDisplayName}</Text>{' '}
-                </NamePopoverTitleContainer>
-            ),
-            content: (
-                <NamePopoverDescriptionContainer>
-                    <Text weight="semiBold" size="sm">
-                        {userName}
-                    </Text>
-                    <Text weight="semiBold" size="xs">
-                        {ownershipTypeName}
-                    </Text>
-                    <Text size="xs">{ownershipTypeDescription}</Text>
-                </NamePopoverDescriptionContainer>
-            ),
-        };
-    }, [hideNamePopover, avatarType, userName, avatarPhotoUrl, owner, entityRegistry]);
-
     return (
-        <Avatar
-            name={userName}
-            size="xs"
-            imageUrl={avatarPhotoUrl}
-            showInPill
-            extraRightContent={renderButtons()}
-            type={avatarType}
-            namePopover={namePopoverProps}
-        />
+        <HoverEntityTooltip entity={owner.owner} showArrow={false}>
+            <AvatarWrapper>
+                <Avatar
+                    name={userName}
+                    size="xs"
+                    imageUrl={avatarPhotoUrl}
+                    showInPill
+                    extraRightContent={renderButtons()}
+                    type={avatarType}
+                />
+            </AvatarWrapper>
+        </HoverEntityTooltip>
     );
 }

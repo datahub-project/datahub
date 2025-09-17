@@ -5,7 +5,6 @@ import { AvatarProps } from '@components/components/Avatar/types';
 import getAvatarColor, { getNameInitials } from '@components/components/Avatar/utils';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
-import { Popover } from '@components/components/Popover';
 
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 
@@ -28,7 +27,6 @@ export const Avatar = ({
     isOutlined = avatarDefaults.isOutlined,
     extraRightContent,
     pillBorderType = avatarDefaults.pillBorderType,
-    namePopover,
 }: AvatarProps) => {
     const [hasError, setHasError] = useState(false);
 
@@ -53,11 +51,7 @@ export const Avatar = ({
                     {mapRoleIcon(name)}
                 </AvatarImageWrapper>
             )}
-            {showInPill && (
-                <Popover {...(namePopover ?? {})}>
-                    <AvatarText $size={size}>{name}</AvatarText>
-                </Popover>
-            )}
+            {showInPill && <AvatarText $size={size}>{name}</AvatarText>}
             {extraRightContent}
         </Container>
     );

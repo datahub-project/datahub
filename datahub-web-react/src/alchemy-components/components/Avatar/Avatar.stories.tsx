@@ -69,11 +69,8 @@ const meta = {
             control: 'boolean',
         },
 
-        namePopover: {
-            description: 'Props of the optional popover on the text with name',
-            table: {
-                defaultValue: { summary: 'undefined' },
-            },
+        extraRightContent: {
+            description: 'Additional content to render in the right side of the component',
         },
     },
 
@@ -154,9 +151,8 @@ export const withOnClick = () => (
     </GridList>
 );
 
-export const withNamePopover = () => (
+export const withExtraRightContent = () => (
     <GridList>
-        <Avatar name="John Doe" namePopover={{ content: 'Content of the popover' }} />
-        <Avatar name="John Doe" namePopover={{ content: 'Content of the popover' }} showInPill />
+        <Avatar name="John Doe" extraRightContent={<div>Extra content</div>} showInPill />
     </GridList>
 );
