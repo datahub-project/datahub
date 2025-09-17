@@ -1,5 +1,6 @@
 import { EditOutlined } from '@ant-design/icons';
-import { Button, Collapse, Form, Input, Modal, Typography, message } from 'antd';
+import { Modal } from '@components';
+import { Button, Collapse, Form, Input, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
@@ -148,20 +149,20 @@ function CreateGlossaryEntityModal(props: Props) {
             title={`Create ${entityRegistry.getEntityName(entityType)}`}
             open
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={createGlossaryEntity}
-                        disabled={createButtonDisabled}
-                        data-testid="glossary-entity-modal-create-button"
-                    >
-                        Create
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    variant: 'filled',
+                    disabled: createButtonDisabled,
+                    onClick: createGlossaryEntity,
+                    buttonDataTestId: 'glossary-entity-modal-create-button',
+                },
+            ]}
         >
             <Form
                 form={form}
