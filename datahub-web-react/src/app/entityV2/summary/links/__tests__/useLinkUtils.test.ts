@@ -146,7 +146,7 @@ describe('useLinkUtils', () => {
                 type: EventType.EntityActionEvent,
                 entityType,
                 entityUrn: mutationUrn,
-                actionType: EntityActionType.UpdateLinks,
+                actionType: EntityActionType.AddLink,
             });
             expect(refetch).toHaveBeenCalled();
         });

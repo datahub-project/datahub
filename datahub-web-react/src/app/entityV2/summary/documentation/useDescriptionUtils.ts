@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityUpdate } from '@app/entity/shared/types';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
@@ -8,7 +9,7 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 
 export function useDescriptionUtils() {
-    const { entityData, entityType } = useEntityData();
+    const { entityData, entityType, urn } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
     const mutationUrn = useMutationUrn();
     const refetch = useRefetch();
@@ -52,6 +53,12 @@ export function useDescriptionUtils() {
             await updateDescription();
         }
         refetch();
+        analytics.event({
+            type: EventType.EntityActionEvent,
+            actionType: EntityActionType.UpdateDescription,
+            entityType,
+            entityUrn: urn,
+        });
     };
 
     const emptyDescriptionText = `Write a description for this ${entityRegistry.getEntityName(entityType)?.toLowerCase()}`;
