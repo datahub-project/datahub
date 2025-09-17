@@ -7,6 +7,11 @@ import pytest
 
 from tests.utils import run_datahub_cmd, wait_for_writes_to_sync
 
+# Run this module last to prevent interference with other tests.
+# Golden file ingestion creates many entities that are only soft-deleted during cleanup,
+# which can cause relationship artifacts to persist as hidden and may potentially affect other tests.
+pytestmark = pytest.mark.order("last")
+
 
 @pytest.fixture(scope="module")
 def golden_files():
