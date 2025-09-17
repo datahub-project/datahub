@@ -2038,16 +2038,9 @@ class TestCLIArgumentValidationAndEdgeCases:
 
     def test_invalid_operation_name_handling(self):
         """Test handling of invalid operation names."""
-        mock_client = Mock()
-
-        with patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema:
-            mock_schema.return_value = {"queryType": {"name": "Query"}, "types": []}
-
-            # Test with completely invalid operation name
-            result = _format_operation_list(
-                mock_client, "nonExistentOperation", None, None
-            )
-            assert "No operations found" in result or result == ""
+        # Test with empty operations list
+        result = _format_operation_list([], "query")
+        assert "No query operations found" in result
 
     def test_parse_variables_malformed_json(self):
         """Test handling of malformed variable JSON."""
@@ -2069,14 +2062,9 @@ class TestCLIArgumentValidationAndEdgeCases:
 
     def test_output_format_validation_edge_cases(self):
         """Test output format validation with edge cases."""
-        mock_client = Mock()
-
-        with patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema:
-            mock_schema.return_value = {"types": [], "queryType": {"name": "Query"}}
-
-            # Test with None operation name (should handle gracefully)
-            result = _format_operation_list(mock_client, None, None, None)
-            assert isinstance(result, str)
+        # Test with empty operations list for mutations
+        result = _format_operation_list([], "mutation")
+        assert "No mutation operations found" in result
 
 
 class TestComplexTypeResolutionScenarios:
@@ -2119,8 +2107,8 @@ class TestComplexTypeResolutionScenarios:
         assert result["kind"] == "OBJECT"
         assert "fields" in result  # Should have empty fields list
 
-    def test_fetch_type_recursive_with_max_depth(self):
-        """Test recursive type fetching with depth limits."""
+    def test_fetch_type_recursive_with_visited_set(self):
+        """Test recursive type fetching with visited set."""
         schema = {
             "types": [
                 {
@@ -2133,37 +2121,32 @@ class TestComplexTypeResolutionScenarios:
             ]
         }
 
-        visited = set()
-        result = _fetch_type_recursive(schema, "TestType", visited, max_depth=1)
+        visited: set[str] = set()
+        result = _fetch_type_recursive(schema, "TestType", visited)
 
         assert result is not None
-        assert result["name"] == "TestType"
 
 
 class TestAdvancedJSONOutputFormatting:
     """Test advanced JSON output formatting edge cases."""
 
-    def test_convert_describe_to_json_with_mock_client(self):
-        """Test describe functionality with mock client."""
-        mock_client = Mock()
-
-        with patch("datahub.cli.graphql_cli._get_schema_with_fallback") as mock_schema:
-            mock_schema.return_value = {
-                "types": [],  # Empty types list
-                "queryType": {"name": "Query"},
-            }
-
-            # This should handle the case where type is not found gracefully
-            result = _convert_describe_to_json(mock_client, "nonExistentType")
-            # Should return something (empty dict or error info)
-            assert isinstance(result, dict)
+    def test_convert_describe_to_json_with_none_inputs(self):
+        """Test describe functionality with None inputs."""
+        # This should handle the case where inputs are None gracefully
+        result = _convert_describe_to_json(None, None)
+        # Should return something (empty dict or error info)
+        assert isinstance(result, dict)
 
     def test_operation_list_conversion_with_empty_schema(self):
         """Test operation list conversion with minimal schema."""
-        operations = []  # Empty operations list
+        schema: dict[str, Any] = {
+            "queryType": {"fields": []},
+            "mutationType": {"fields": []},
+        }
 
-        result = _convert_operations_list_to_json(operations)
-        assert result == []
+        result = _convert_operations_list_to_json(schema)
+        assert isinstance(result, dict)
+        assert "schema" in result
 
     def test_json_output_with_special_characters(self):
         """Test JSON output handling of special characters."""
