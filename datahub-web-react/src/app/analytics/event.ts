@@ -1299,6 +1299,8 @@ export type Event =
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
     | IngestionSourceConfigurationImpressionEvent
+    | IngestionViewAllClickEvent
+    | IngestionViewAllClickWarningEvent
     | AssetPageAddSummaryElementEvent
     | AssetPageRemoveSummaryElementEvent
     | AssetPageReplaceSummaryElementEvent;
