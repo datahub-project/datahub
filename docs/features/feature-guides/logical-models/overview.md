@@ -1,14 +1,14 @@
 # Logical Models
 
 :::note Supported Entity Types
-Currently we only support logical datasets and by extension logical schema fields. No other entity types are supported.
+Currently we only support datasets and by extension schema fields for logical models. No other entity types are supported.
 :::
 
 ## What is a Logical Model
 
 A logical model represents the concept and structure of a database table, without being tied to any single physical instantiation in some source system. Like any DataHub dataset entity, a logical model describes its columns, including data types and descriptions, and can be attributed with other metadata like tags, terms, owners, and custom properties. But unlike physical datasets, logical models do not represent a table in a source system that actually exists, in which data is stored and can be queried.
 
-Logical models are useful for those who have multiple tables that represent the same type and shape of data, or even are meant to store exactly the same data. This is especially common for multi-cloud data ecosystems, in which the same table may be replicated across several cloud providers, e.g. Snowflake, Redshift, and BigQuery. Logical models should be linked to each of its physical representation, so this relationship is exposed in DataHub. DataHub Cloud customers can take advantage further with [Centralized Management](./centralized-management.md), in which every physical child's metadata can be managed together at a single location: the logical model.
+Logical models are useful for those who have multiple tables that represent the same type or shap of data, or store the same data. This is common for multi-cloud data ecosystems, in which the same table may be replicated across several cloud providers, e.g. Snowflake, Redshift, and BigQuery. It is also useful in cases where multiple replicas exist in a single system, such as gold/silver/bronze layers. Logical models should be linked to each physical representation to expose this relationship DataHub. DataHub Cloud customers can take advantage further with [Centralized Management](./centralized-management.md), in which every physical child's metadata can be managed at the logical model level.
 
 ## How It Looks
 
