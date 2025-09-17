@@ -194,6 +194,9 @@ class PathSpec(ConfigModel):
         return True
 
     def dir_allowed(self, path: str) -> bool:
+        if not path.endswith("/"):
+            path += "/"
+
         if self.glob_include.endswith("**"):
             return self.allowed(path, ignore_ext=True)
 
