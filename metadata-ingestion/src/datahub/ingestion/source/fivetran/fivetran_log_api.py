@@ -174,6 +174,22 @@ class FivetranLogAPI(FivetranAccessInterface):
             ].append(table_lineage)
         return dict(connectors_table_lineage_metadata)
 
+    def _validate_log_table_lineage(self, table_lineage: Dict) -> bool:
+        """Validate lineage data from log tables."""
+        required_fields = [
+            Constant.SOURCE_SCHEMA_NAME,
+            Constant.SOURCE_TABLE_NAME,
+            Constant.DESTINATION_SCHEMA_NAME,
+            Constant.DESTINATION_TABLE_NAME,
+        ]
+
+        for field in required_fields:
+            if not table_lineage.get(field):
+                logger.debug(f"Missing required field '{field}' in table lineage data")
+                return False
+
+        return True
+
     def _extract_connector_lineage(
         self,
         table_lineage_result: Optional[List],
@@ -181,8 +197,20 @@ class FivetranLogAPI(FivetranAccessInterface):
     ) -> List[TableLineage]:
         table_lineage_list: List[TableLineage] = []
         if table_lineage_result is None:
+            logger.debug("No table lineage result provided")
             return table_lineage_list
+
+        valid_lineage_count = 0
+        invalid_lineage_count = 0
+
         for table_lineage in table_lineage_result:
+            # Validate lineage data
+            if not self._validate_log_table_lineage(table_lineage):
+                invalid_lineage_count += 1
+                logger.debug(f"Skipping invalid table lineage: {table_lineage}")
+                continue
+
+            valid_lineage_count += 1
             # Join the column lineage into the table lineage.
             column_lineage_result = column_lineage_metadata.get(
                 (
@@ -198,6 +226,11 @@ class FivetranLogAPI(FivetranAccessInterface):
                         destination_column=column_lineage[
                             Constant.DESTINATION_COLUMN_NAME
                         ],
+                        # Column metadata
+                        source_column_type=column_lineage.get("source_column_type"),
+                        destination_column_type=column_lineage.get(
+                            "destination_column_type"
+                        ),
                     )
                     for column_lineage in column_lineage_result
                 ]
@@ -207,7 +240,27 @@ class FivetranLogAPI(FivetranAccessInterface):
                     source_table=f"{table_lineage[Constant.SOURCE_SCHEMA_NAME]}.{table_lineage[Constant.SOURCE_TABLE_NAME]}",
                     destination_table=f"{table_lineage[Constant.DESTINATION_SCHEMA_NAME]}.{table_lineage[Constant.DESTINATION_TABLE_NAME]}",
                     column_lineage=column_lineage_list,
+                    # Table metadata from log tables
+                    source_schema=table_lineage.get("source_schema_name"),
+                    destination_schema=table_lineage.get("destination_schema_name"),
+                    source_database=table_lineage.get("source_database_name"),
+                    destination_database=table_lineage.get("destination_database_name"),
+                    source_platform=table_lineage.get("source_platform"),
+                    destination_platform=table_lineage.get("destination_platform"),
+                    source_env=table_lineage.get("source_env"),
+                    destination_env=table_lineage.get("destination_env"),
+                    connector_type_id=table_lineage.get("connector_type_id"),
+                    connector_name=table_lineage.get("connector_name"),
+                    destination_id=table_lineage.get("destination_id"),
                 )
+            )
+
+        # Log validation results
+        total_lineage = valid_lineage_count + invalid_lineage_count
+        if total_lineage > 0:
+            logger.info(
+                f"Processed {total_lineage} table lineage entries: "
+                f"{valid_lineage_count} valid, {invalid_lineage_count} invalid"
             )
 
         return table_lineage_list

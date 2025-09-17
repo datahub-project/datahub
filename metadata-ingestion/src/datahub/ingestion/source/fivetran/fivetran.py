@@ -199,6 +199,110 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         return destination_details
 
+    def _build_source_details(
+        self, connector: Connector, lineage: TableLineage
+    ) -> PlatformDetail:
+        """Build source details using metadata from TableLineage and connector."""
+        # Start with existing logic as fallback
+        source_details = self._get_source_details(connector)
+
+        # Enhance with TableLineage metadata if available
+        if lineage.source_platform:
+            source_details.platform = lineage.source_platform
+            logger.debug(
+                f"Using source platform from lineage metadata: {lineage.source_platform}"
+            )
+        elif not source_details.platform:
+            source_details.platform = self._detect_source_platform(connector)
+
+        if lineage.source_database:
+            source_details.database = lineage.source_database
+            logger.debug(
+                f"Using source database from lineage metadata: {lineage.source_database}"
+            )
+
+        if lineage.source_env:
+            source_details.env = lineage.source_env
+            logger.debug(
+                f"Using source env from lineage metadata: {lineage.source_env}"
+            )
+
+        # Use connector metadata if available
+        if lineage.connector_type_id and not source_details.platform:
+            detected_platform = self._detect_platform_from_connector_type(
+                lineage.connector_type_id
+            )
+            if detected_platform:
+                source_details.platform = detected_platform
+                logger.debug(
+                    f"Detected source platform from connector type: {detected_platform}"
+                )
+
+        return source_details
+
+    def _build_destination_details(
+        self, connector: Connector, lineage: TableLineage
+    ) -> PlatformDetail:
+        """Build destination details using metadata from TableLineage and connector."""
+        # Start with existing logic as fallback
+        destination_details = self._get_destination_details(connector)
+
+        # Enhance with TableLineage metadata if available
+        if lineage.destination_platform:
+            destination_details.platform = lineage.destination_platform
+            logger.debug(
+                f"Using destination platform from lineage metadata: {lineage.destination_platform}"
+            )
+        elif not destination_details.platform:
+            # Use fallback logic
+            default_dest = "snowflake"
+            if (
+                hasattr(self.config, "fivetran_log_config")
+                and self.config.fivetran_log_config
+            ):
+                default_dest = self.config.fivetran_log_config.destination_platform
+            destination_details.platform = default_dest
+
+        if lineage.destination_database:
+            destination_details.database = lineage.destination_database
+            logger.debug(
+                f"Using destination database from lineage metadata: {lineage.destination_database}"
+            )
+
+        if lineage.destination_env:
+            destination_details.env = lineage.destination_env
+            logger.debug(
+                f"Using destination env from lineage metadata: {lineage.destination_env}"
+            )
+
+        return destination_details
+
+    def _detect_platform_from_connector_type(
+        self, connector_type_id: str
+    ) -> Optional[str]:
+        """Detect source platform based on Fivetran connector type ID using existing mapping."""
+        if not connector_type_id:
+            return None
+
+        # Use the existing platform detection function
+        detected_platform = get_platform_from_fivetran_service(connector_type_id)
+
+        # Don't return 'unknown' or the raw service name if it's not a known DataHub platform
+        if (
+            detected_platform
+            and detected_platform != "unknown"
+            and detected_platform != connector_type_id.lower()
+        ):
+            logger.debug(
+                f"Detected platform '{detected_platform}' from connector type '{connector_type_id}'"
+            )
+            return detected_platform
+
+        logger.debug(
+            f"Could not detect platform for connector type: {connector_type_id}"
+        )
+        return None
+
     def _extend_lineage(
         self,
         connector: Connector,
@@ -632,6 +736,71 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         return datajob
 
+    def _validate_lineage_data(
+        self,
+        connector: Connector,
+        lineage: TableLineage,
+        source_details: PlatformDetail,
+        destination_details: PlatformDetail,
+    ) -> bool:
+        """Validate lineage data before creating DataHub entities."""
+        validation_errors = []
+
+        # Validate basic table information
+        if not lineage.source_table or not lineage.source_table.strip():
+            validation_errors.append("Missing or empty source table name")
+
+        if not lineage.destination_table or not lineage.destination_table.strip():
+            validation_errors.append("Missing or empty destination table name")
+
+        # Validate platform information
+        if not source_details.platform:
+            validation_errors.append("Missing source platform information")
+
+        if not destination_details.platform:
+            validation_errors.append("Missing destination platform information")
+
+        # Validate connector information
+        if not connector.connector_id:
+            validation_errors.append("Missing connector ID")
+
+        # Validate column lineage if present
+        if lineage.column_lineage:
+            for i, col_lineage in enumerate(lineage.column_lineage):
+                if (
+                    not col_lineage.source_column
+                    or not col_lineage.source_column.strip()
+                ):
+                    validation_errors.append(
+                        f"Column lineage {i}: Missing source column name"
+                    )
+
+                if (
+                    not col_lineage.destination_column
+                    or not col_lineage.destination_column.strip()
+                ):
+                    validation_errors.append(
+                        f"Column lineage {i}: Missing destination column name"
+                    )
+
+                # Skip Fivetran system columns
+                if col_lineage.destination_column.startswith("_fivetran"):
+                    continue
+
+        # Log validation results
+        if validation_errors:
+            logger.warning(
+                f"Lineage validation failed for connector {connector.connector_id}, "
+                f"table {lineage.source_table} -> {lineage.destination_table}. "
+                f"Errors: {'; '.join(validation_errors)}"
+            )
+            return False
+
+        logger.debug(
+            f"Lineage validation passed for {lineage.source_table} -> {lineage.destination_table}"
+        )
+        return True
+
     def _build_table_lineage(
         self,
         connector: Connector,
@@ -641,22 +810,21 @@ class FivetranSource(StatefulIngestionSourceBase):
         destination_details: Optional[PlatformDetail] = None,
     ) -> None:
         """Build lineage between source and destination tables and add to datajob."""
-        # Get platform details if not provided
+        # Use metadata from TableLineage object if available
         if source_details is None:
-            source_details = self._get_source_details(connector)
-            if not source_details.platform:
-                source_details.platform = self._detect_source_platform(connector)
+            source_details = self._build_source_details(connector, lineage)
 
         if destination_details is None:
-            destination_details = self._get_destination_details(connector)
-            if not destination_details.platform:
-                default_dest = "snowflake"
-                if (
-                    hasattr(self.config, "fivetran_log_config")
-                    and self.config.fivetran_log_config
-                ):
-                    default_dest = self.config.fivetran_log_config.destination_platform
-                destination_details.platform = default_dest
+            destination_details = self._build_destination_details(connector, lineage)
+
+        # Validate lineage data before processing
+        if not self._validate_lineage_data(
+            connector, lineage, source_details, destination_details
+        ):
+            logger.warning(
+                f"Skipping invalid lineage for {lineage.source_table} -> {lineage.destination_table}"
+            )
+            return
 
         # Extract source and destination information from the lineage object
         source_table = lineage.source_table
@@ -674,24 +842,40 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         try:
-            # Create source and destination URNs
-            source_urn = self._create_dataset_urn(
-                source_table,
-                source_details,
-                is_source=True,
-            )
+            # Create source and destination URNs with detailed error handling
+            source_urn = None
+            dest_urn = None
 
-            dest_urn = self._create_dataset_urn(
-                destination_table,
-                destination_details,
-                is_source=False,
-            )
+            try:
+                source_urn = self._create_dataset_urn(
+                    source_table,
+                    source_details,
+                    is_source=True,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to create source URN for {source_table}: {e}",
+                    exc_info=True,
+                )
+
+            try:
+                dest_urn = self._create_dataset_urn(
+                    destination_table,
+                    destination_details,
+                    is_source=False,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to create destination URN for {destination_table}: {e}",
+                    exc_info=True,
+                )
 
             # Skip if either URN creation failed
             if not source_urn or not dest_urn:
                 logger.warning(
                     f"Skipping lineage for {source_table} -> {destination_table}: "
-                    f"Failed to create URNs"
+                    f"Failed to create URNs (source_urn: {source_urn is not None}, "
+                    f"dest_urn: {dest_urn is not None})"
                 )
                 return
 

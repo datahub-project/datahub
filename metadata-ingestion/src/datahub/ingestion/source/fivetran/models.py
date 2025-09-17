@@ -6,12 +6,28 @@ from pydantic import BaseModel, Field
 class ColumnLineage(BaseModel):
     source_column: str
     destination_column: str
+    # Column type metadata for lineage
+    source_column_type: Optional[str] = None
+    destination_column_type: Optional[str] = None
 
 
 class TableLineage(BaseModel):
     source_table: str
     destination_table: str
     column_lineage: List[ColumnLineage]
+
+    # Comprehensive lineage metadata
+    source_schema: Optional[str] = None
+    destination_schema: Optional[str] = None
+    source_database: Optional[str] = None
+    destination_database: Optional[str] = None
+    source_platform: Optional[str] = None
+    destination_platform: Optional[str] = None
+    source_env: Optional[str] = None
+    destination_env: Optional[str] = None
+    connector_type_id: Optional[str] = None
+    connector_name: Optional[str] = None
+    destination_id: Optional[str] = None
 
 
 class Job(BaseModel):

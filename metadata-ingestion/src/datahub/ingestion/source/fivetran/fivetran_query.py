@@ -109,9 +109,20 @@ FROM (
         stm.id as source_table_id,
         stm.name as source_table_name,
         ssm.name as source_schema_name,
+        ssm.database_name as source_database_name,
         dtm.id as destination_table_id,
         dtm.name as destination_table_name,
         dsm.name as destination_schema_name,
+        dsm.database_name as destination_database_name,
+        -- Connector metadata for enhanced platform detection
+        c.connector_type_id as connector_type_id,
+        c.connector_name as connector_name,
+        c.destination_id as destination_id,
+        -- Additional metadata that might be available
+        ssm.platform as source_platform,
+        ssm.env as source_env,
+        dsm.platform as destination_platform,
+        dsm.env as destination_env,
         tl.created_at as created_at,
         ROW_NUMBER() OVER (PARTITION BY stm.connector_id, stm.id, dtm.id ORDER BY tl.created_at DESC) as table_combo_rn
     FROM {self.schema_clause}table_lineage as tl
@@ -119,7 +130,10 @@ FROM (
     JOIN {self.schema_clause}destination_table_metadata as dtm on tl.destination_table_id = dtm.id
     JOIN {self.schema_clause}source_schema_metadata as ssm on stm.schema_id = ssm.id
     JOIN {self.schema_clause}destination_schema_metadata as dsm on dtm.schema_id = dsm.id
+    -- Join connector table for additional metadata
+    JOIN {self.schema_clause}connector as c on stm.connector_id = c.connector_id
     WHERE stm.connector_id IN ({formatted_connector_ids})
+    AND c._fivetran_deleted = FALSE
 )
 -- Ensure that we only get back one entry per source and destination pair.
 WHERE table_combo_rn = 1
@@ -133,10 +147,26 @@ ORDER BY connector_id, created_at DESC
 
         return f"""\
 SELECT
+    connector_id,
     source_table_id,
     destination_table_id,
     source_column_name,
-    destination_column_name
+    destination_column_name,
+    source_table_name,
+    destination_table_name,
+    source_schema_name,
+    destination_schema_name,
+    source_database_name,
+    destination_database_name,
+    connector_type_id,
+    connector_name,
+    destination_id,
+    source_platform,
+    source_env,
+    destination_platform,
+    destination_env,
+    source_column_type,
+    destination_column_type
 FROM (
     SELECT
         stm.connector_id as connector_id,
@@ -144,6 +174,25 @@ FROM (
         dcm.table_id as destination_table_id,
         scm.name as source_column_name,
         dcm.name as destination_column_name,
+        -- Table and schema information
+        stm.name as source_table_name,
+        dtm.name as destination_table_name,
+        ssm.name as source_schema_name,
+        dsm.name as destination_schema_name,
+        ssm.database_name as source_database_name,
+        dsm.database_name as destination_database_name,
+        -- Connector metadata
+        c.connector_type_id as connector_type_id,
+        c.connector_name as connector_name,
+        c.destination_id as destination_id,
+        -- Platform and environment information
+        ssm.platform as source_platform,
+        ssm.env as source_env,
+        dsm.platform as destination_platform,
+        dsm.env as destination_env,
+        -- Column type information for better lineage
+        scm.type as source_column_type,
+        dcm.type as destination_column_type,
         cl.created_at as created_at,
         ROW_NUMBER() OVER (PARTITION BY stm.connector_id, cl.source_column_id, cl.destination_column_id ORDER BY cl.created_at DESC) as column_combo_rn
     FROM {self.schema_clause}column_lineage as cl
@@ -151,10 +200,20 @@ FROM (
       ON cl.source_column_id = scm.id
     JOIN {self.schema_clause}destination_column_metadata as dcm
       ON cl.destination_column_id = dcm.id
-    -- Only joining source_table_metadata to get the connector_id.
     JOIN {self.schema_clause}source_table_metadata as stm
       ON scm.table_id = stm.id
+    JOIN {self.schema_clause}destination_table_metadata as dtm
+      ON dcm.table_id = dtm.id
+    -- Join schema metadata for enhanced platform detection
+    JOIN {self.schema_clause}source_schema_metadata as ssm
+      ON stm.schema_id = ssm.id
+    JOIN {self.schema_clause}destination_schema_metadata as dsm
+      ON dtm.schema_id = dsm.id
+    -- Join connector for additional metadata
+    JOIN {self.schema_clause}connector as c
+      ON stm.connector_id = c.connector_id
     WHERE stm.connector_id IN ({formatted_connector_ids})
+    AND c._fivetran_deleted = FALSE
 )
 -- Ensure that we only get back one entry per (connector, source column, destination column) pair.
 WHERE column_combo_rn = 1

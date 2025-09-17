@@ -18,6 +18,7 @@ from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPICli
 from datahub.ingestion.source.fivetran.fivetran_constants import (
     FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM,
     MAX_JOBS_PER_CONNECTOR,
+    get_platform_from_fivetran_service,
     get_standardized_connector_name,
 )
 from datahub.ingestion.source.fivetran.models import (
@@ -817,6 +818,13 @@ class FivetranStandardAPI(FivetranAccessInterface):
             for table in schema.get("tables", []):
                 table_name = table.get("name", "")
                 if not table_name or not table.get("enabled", True):
+                    logger.debug(
+                        f"Skipping table: name='{table_name}', enabled={table.get('enabled', True)}"
+                    )
+                    continue
+
+                # Validate table has minimum required information
+                if not self._validate_api_table_data(schema_name, table_name, table):
                     continue
 
                 # Create source table name
@@ -843,12 +851,28 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     source_table_columns=source_table_columns,
                 )
 
-                # Add this table's lineage to the list
                 lineage_list.append(
                     TableLineage(
                         source_table=source_table,
                         destination_table=destination_table,
                         column_lineage=column_lineage,
+                        # Metadata from API schemas
+                        source_schema=schema_name,
+                        destination_schema=dest_schema,
+                        source_platform=self._detect_source_platform_from_connector(
+                            connector
+                        ),
+                        destination_platform=destination_platform,
+                        connector_type_id=connector.connector_type,
+                        connector_name=connector.connector_name,
+                        destination_id=connector.destination_id,
+                        # Database information if available
+                        source_database=self._get_source_database_from_connector(
+                            connector
+                        ),
+                        destination_database=self._get_destination_database_from_connector(
+                            connector
+                        ),
                     )
                 )
 
@@ -856,6 +880,83 @@ class FivetranStandardAPI(FivetranAccessInterface):
             f"Extracted {len(lineage_list)} table lineage entries with {sum(len(tl.column_lineage) for tl in lineage_list)} column mappings"
         )
         return lineage_list
+
+    def _validate_api_table_data(
+        self, schema_name: str, table_name: str, table: Dict
+    ) -> bool:
+        """Validate table data from API schemas."""
+        if not schema_name or not schema_name.strip():
+            logger.debug(f"Invalid schema name for table {table_name}")
+            return False
+
+        if not table_name or not table_name.strip():
+            logger.debug(f"Invalid table name in schema {schema_name}")
+            return False
+
+        # Check if table has column information (optional but preferred)
+        columns = table.get("columns", [])
+        if not columns:
+            logger.debug(f"Table {schema_name}.{table_name} has no column information")
+            # Don't fail validation, but log for awareness
+
+        return True
+
+    def _detect_source_platform_from_connector(
+        self, connector: Connector
+    ) -> Optional[str]:
+        """Detect source platform based on connector type and additional properties."""
+        # First check if we have platform info in additional properties
+        if "source_platform" in connector.additional_properties:
+            return connector.additional_properties["source_platform"]
+
+        # Use the existing platform detection function
+        detected_platform = get_platform_from_fivetran_service(connector.connector_type)
+
+        # Don't return 'unknown' or the raw service name if it's not a known DataHub platform
+        if (
+            detected_platform
+            and detected_platform != "unknown"
+            and detected_platform != connector.connector_type.lower()
+        ):
+            return detected_platform
+
+        return None
+
+    def _get_source_database_from_connector(
+        self, connector: Connector
+    ) -> Optional[str]:
+        """Get source database name from connector metadata."""
+        # Check additional properties first
+        if "source_database" in connector.additional_properties:
+            return connector.additional_properties["source_database"]
+
+        # Try to extract from connector name or other metadata
+        # This could be enhanced based on specific connector patterns
+        return None
+
+    def _get_destination_database_from_connector(
+        self, connector: Connector
+    ) -> Optional[str]:
+        """Get destination database name from connector metadata."""
+        # Check additional properties first
+        if "destination_database" in connector.additional_properties:
+            return connector.additional_properties["destination_database"]
+
+        # Try using the API client to get destination database
+        try:
+            if hasattr(self, "api_client") and self.api_client:
+                result = self.api_client.get_destination_database(
+                    connector.destination_id
+                )
+                # Ensure we return a valid string result
+                if result and isinstance(result, str):
+                    return result
+        except Exception as e:
+            logger.debug(
+                f"Could not get destination database for {connector.destination_id}: {e}"
+            )
+
+        return None
 
     def _extract_column_lineage(
         self,
@@ -928,10 +1029,19 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 )
                 logger.debug(f"Transformed column name: {col_name} -> {dest_col_name}")
 
+            # Column type information if available
+            source_col_type = None
+            dest_col_type = None
+            if isinstance(column, dict):
+                source_col_type = column.get("type")
+                dest_col_type = column.get("type_in_destination", source_col_type)
+
             column_lineage.append(
                 ColumnLineage(
                     source_column=col_name,
                     destination_column=dest_col_name,
+                    source_column_type=source_col_type,
+                    destination_column_type=dest_col_type,
                 )
             )
 
@@ -1454,7 +1564,11 @@ class FivetranStandardAPI(FivetranAccessInterface):
             destination_details = self.config.destination_to_platform_instance.get(
                 connector.destination_id
             )
-            if destination_details and destination_details.platform:
+            if (
+                destination_details
+                and destination_details.platform
+                and isinstance(destination_details.platform, str)
+            ):
                 logger.info(
                     f"Using platform '{destination_details.platform}' from destination_to_platform_instance for {connector.destination_id}"
                 )
@@ -1478,10 +1592,12 @@ class FivetranStandardAPI(FivetranAccessInterface):
             and self.config.fivetran_log_config
         ):
             destination_platform = self.config.fivetran_log_config.destination_platform
-            logger.info(
-                f"Falling back to platform '{destination_platform}' from fivetran_log_config"
-            )
-            return destination_platform
+            # Ensure we return a valid string result
+            if destination_platform and isinstance(destination_platform, str):
+                logger.info(
+                    f"Falling back to platform '{destination_platform}' from fivetran_log_config"
+                )
+                return destination_platform
 
         # Special handling for specific connector types
         if connector.connector_type.lower() in ["confluent_cloud", "kafka", "pubsub"]:
