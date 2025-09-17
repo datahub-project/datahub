@@ -3,6 +3,7 @@ Constants and mappings used across Fivetran source modules.
 """
 
 from enum import Enum
+from typing import Optional
 
 
 class FivetranMode(Enum):
@@ -64,6 +65,31 @@ FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM = {
     # Fivetran internal services
     "fivetran_log": "fivetran",  # Internal Fivetran logging tables
 }
+
+
+def get_standardized_connector_name(
+    display_name: Optional[str] = None,
+    name: Optional[str] = None,
+    connector_id: Optional[str] = None,
+) -> str:
+    """
+    Get standardized connector name with consistent logic across Standard API and Enterprise modes.
+
+    Order of precedence:
+    1. display_name (most user-friendly)
+    2. name (fallback)
+    3. Generated from connector_id (last resort)
+    """
+    if display_name and display_name.strip():
+        return display_name.strip()
+
+    if name and name.strip():
+        return name.strip()
+
+    if connector_id and connector_id.strip():
+        return connector_id.strip()
+
+    return "Unknown Connector"
 
 
 def get_platform_from_fivetran_service(service_name: str) -> str:

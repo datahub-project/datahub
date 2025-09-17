@@ -1,542 +1,542 @@
 [
-  {
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:fivetran"
-      }
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
-      "json": {
-        "customProperties": {
-          "destination_platform": "snowflake",
-          "api.created_by": "reapply_phone",
-          "connector_type": "postgres",
-          "sync_frequency": "1440",
-          "paused": "False",
-          "destination_id": "interval_unconstitutional"
-        },
-        "name": "postgres",
-        "description": "Fivetran connector for postgres to snowflake",
-        "env": "PROD"
-      }
+        "json": {
+            "customProperties": {
+                "destination_platform": "snowflake",
+                "api.created_by": "reapply_phone",
+                "connector_type": "postgres",
+                "sync_frequency": "1440",
+                "paused": "False",
+                "destination_id": "interval_unconstitutional"
+            },
+            "name": "postgres",
+            "description": "Fivetran connector for postgres to snowflake",
+            "env": "PROD"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:fivetran"
-      }
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
-      "json": {
-        "customProperties": {
-          "connector_id": "calendar_elected",
-          "connector_type": "postgres",
-          "paused": "False",
-          "sync_frequency": "1440",
-          "destination_id": "interval_unconstitutional",
-          "synthetic": "true",
-          "lineage_only": "true",
-          "source.platform": "postgres",
-          "source.env": "DEV",
-          "source.database": "postgres_db",
-          "source.column_naming_pattern": "auto",
-          "destination.platform": "snowflake",
-          "destination.env": "PROD",
-          "destination.database": "",
-          "destination.column_naming_pattern": "auto",
-          "connector.api.created_by": "reapply_phone"
-        },
-        "name": "postgres",
-        "description": "Fivetran data pipeline from postgres to snowflake",
-        "type": {
-          "string": "COMMAND"
-        },
-        "flowUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
-        "env": "PROD"
-      }
+        "json": {
+            "customProperties": {
+                "connector_id": "calendar_elected",
+                "connector_type": "postgres",
+                "paused": "False",
+                "sync_frequency": "1440",
+                "destination_id": "interval_unconstitutional",
+                "synthetic": "true",
+                "lineage_only": "true",
+                "source.platform": "postgres",
+                "source.env": "DEV",
+                "source.database": "postgres_db",
+                "source.column_naming_pattern": "auto",
+                "destination.platform": "snowflake",
+                "destination.env": "PROD",
+                "destination.database": "",
+                "destination.column_naming_pattern": "auto",
+                "connector.api.created_by": "reapply_phone"
+            },
+            "name": "postgres",
+            "description": "Data pipeline from postgres to snowflake",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
+            "env": "PROD"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-      "json": {
-        "owners": [
-          {
-            "owner": "urn:li:corpuser:abc.xyz@email.com",
-            "type": "TECHNICAL_OWNER"
-          }
-        ],
-        "ownerTypes": {},
-        "lastModified": {
-          "time": 0,
-          "actor": "urn:li:corpuser:unknown"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc.xyz@email.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
-      }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
-      "json": {
-        "inputDatasets": [
-          "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
-          "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)",
-          "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.confluent_cloud.my-source-topic,DEV)"
-        ],
-        "outputDatasets": [
-          "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD)",
-          "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD)",
-          "urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD)"
-        ],
-        "fineGrainedLineages": [
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),id)"
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.confluent_cloud.my-source-topic,DEV)"
             ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),ID)"
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD)"
             ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),name)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),NAME)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),id)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),ID)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),name)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),NAME)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.confluent_cloud.my-source-topic,DEV),id)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),ID)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.confluent_cloud.my-source-topic,DEV),name)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),NAME)"
-            ],
-            "confidenceScore": 1.0
-          }
-        ]
-      }
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.employee,DEV),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),NAME)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.public.company,DEV),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),NAME)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.confluent_cloud.my-source-topic,DEV),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,postgres_db.confluent_cloud.my-source-topic,DEV),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),NAME)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
-      "json": {
-        "path": [
-          {
-            "id": "calendar_elected",
-            "urn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)"
-          }
-        ]
-      }
+        "json": {
+            "path": [
+                {
+                    "id": "calendar_elected",
+                    "urn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)"
+                }
+            ]
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:fivetran"
-      }
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
-      "json": {
-        "customProperties": {
-          "destination_platform": "kafka",
-          "api.created_by": "reapply_phone",
-          "connector_type": "confluent_cloud",
-          "sync_frequency": "1440",
-          "paused": "False",
-          "destination_id": "my_confluent_cloud_connector_id"
-        },
-        "name": "confluent_cloud",
-        "description": "Fivetran connector for confluent_cloud to kafka",
-        "env": "PROD"
-      }
+        "json": {
+            "customProperties": {
+                "destination_platform": "kafka",
+                "api.created_by": "reapply_phone",
+                "connector_type": "confluent_cloud",
+                "sync_frequency": "1440",
+                "paused": "False",
+                "destination_id": "my_confluent_cloud_connector_id"
+            },
+            "name": "confluent_cloud",
+            "description": "Fivetran connector for confluent_cloud to kafka",
+            "env": "PROD"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "json": {
-        "platform": "urn:li:dataPlatform:fivetran"
-      }
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
-      "json": {
-        "customProperties": {
-          "connector_id": "my_confluent_cloud_connector_id",
-          "connector_type": "confluent_cloud",
-          "paused": "False",
-          "sync_frequency": "1440",
-          "destination_id": "my_confluent_cloud_connector_id",
-          "synthetic": "true",
-          "lineage_only": "true",
-          "source.platform": "kafka",
-          "source.env": "PROD",
-          "source.database": "kafka_prod",
-          "source.column_naming_pattern": "auto",
-          "destination.platform": "kafka",
-          "destination.env": "PROD",
-          "destination.database": "kafka_prod",
-          "destination.column_naming_pattern": "auto",
-          "connector.api.created_by": "reapply_phone"
-        },
-        "name": "confluent_cloud",
-        "description": "Fivetran data pipeline from confluent_cloud to kafka",
-        "type": {
-          "string": "COMMAND"
-        },
-        "flowUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
-        "env": "PROD"
-      }
+        "json": {
+            "customProperties": {
+                "connector_id": "my_confluent_cloud_connector_id",
+                "connector_type": "confluent_cloud",
+                "paused": "False",
+                "sync_frequency": "1440",
+                "destination_id": "my_confluent_cloud_connector_id",
+                "synthetic": "true",
+                "lineage_only": "true",
+                "source.platform": "kafka",
+                "source.env": "PROD",
+                "source.database": "kafka_prod",
+                "source.column_naming_pattern": "auto",
+                "destination.platform": "kafka",
+                "destination.env": "PROD",
+                "destination.database": "kafka_prod",
+                "destination.column_naming_pattern": "auto",
+                "connector.api.created_by": "reapply_phone"
+            },
+            "name": "confluent_cloud",
+            "description": "Data pipeline from confluent_cloud to kafka",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
+            "env": "PROD"
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-      "json": {
-        "owners": [
-          {
-            "owner": "urn:li:corpuser:abc.xyz@email.com",
-            "type": "TECHNICAL_OWNER"
-          }
-        ],
-        "ownerTypes": {},
-        "lastModified": {
-          "time": 0,
-          "actor": "urn:li:corpuser:unknown"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc.xyz@email.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
-      }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
-      "json": {
-        "inputDatasets": [
-          "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
-          "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
-          "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
-        ],
-        "outputDatasets": [
-          "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
-          "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
-          "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
-        ],
-        "fineGrainedLineages": [
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),id)"
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
             ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),ID)"
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD)"
             ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),name)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),NAME)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),id)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),ID)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),name)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),NAME)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),id)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),ID)"
-            ],
-            "confidenceScore": 1.0
-          },
-          {
-            "upstreamType": "FIELD_SET",
-            "upstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),name)"
-            ],
-            "downstreamType": "FIELD",
-            "downstreams": [
-              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),NAME)"
-            ],
-            "confidenceScore": 1.0
-          }
-        ]
-      }
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),NAME)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),NAME)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),ID)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),NAME)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
-      "json": {
-        "path": [
-          {
-            "id": "my_confluent_cloud_connector_id",
-            "urn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)"
-          }
-        ]
-      }
+        "json": {
+            "path": [
+                {
+                    "id": "my_confluent_cloud_connector_id",
+                    "urn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)"
+                }
+            ]
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-      "json": {
-        "removed": false
-      }
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-      "json": {
-        "removed": false
-      }
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-      "json": {
-        "removed": false
-      }
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  },
-  {
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-      "json": {
-        "removed": false
-      }
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
-      "lastObserved": 1654621200000,
-      "runId": "fivetran-standard-test",
-      "lastRunId": "no-run-id-provided"
+        "lastObserved": 1654621200000,
+        "runId": "fivetran-standard-test",
+        "lastRunId": "no-run-id-provided"
     }
-  }
+}
 ]

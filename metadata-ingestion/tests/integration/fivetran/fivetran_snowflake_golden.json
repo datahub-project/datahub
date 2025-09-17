@@ -79,7 +79,7 @@
                 "destination.column_naming_pattern": "auto"
             },
             "name": "postgres",
-            "description": "Fivetran data pipeline from postgres to snowflake",
+            "description": "Data pipeline from postgres to snowflake",
             "type": {
                 "string": "COMMAND"
             },
@@ -874,7 +874,7 @@
                 "destination.column_naming_pattern": "auto"
             },
             "name": "confluent_cloud",
-            "description": "Fivetran data pipeline from confluent_cloud to kafka",
+            "description": "Data pipeline from confluent_cloud to kafka",
             "type": {
                 "string": "COMMAND"
             },

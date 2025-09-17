@@ -18,6 +18,7 @@ from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPICli
 from datahub.ingestion.source.fivetran.fivetran_constants import (
     FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM,
     MAX_JOBS_PER_CONNECTOR,
+    get_standardized_connector_name,
 )
 from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
@@ -121,21 +122,28 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         f"Connector {connector_name} (ID: {connector_id}) explicitly included via sources_to_platform_instance"
                     )
 
-                if not explicitly_included and not connector_patterns.allowed(
-                    connector_name
+                # Check both connector_name and connector_id for maximum flexibility
+                if not explicitly_included and not (
+                    connector_patterns.allowed(connector_name)
+                    or connector_patterns.allowed(connector_id)
                 ):
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
 
-                # Get destination ID
+                # Get destination ID and name
                 destination_id = self._extract_destination_id(api_connector)
+                destination_name = self._extract_destination_name(api_connector)
 
-                # Apply destination filter
-                if not destination_patterns.allowed(destination_id):
+                # Apply destination filter - check both ID and name for maximum flexibility
+                destination_allowed = destination_patterns.allowed(destination_id)
+                if destination_name and not destination_allowed:
+                    destination_allowed = destination_patterns.allowed(destination_name)
+
+                if not destination_allowed:
                     report.report_connectors_dropped(
-                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
+                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id}, destination_name: {destination_name})"
                     )
                     continue
 
@@ -344,14 +352,15 @@ class FivetranStandardAPI(FivetranAccessInterface):
             logger.warning(f"Skipping connector with missing id: {api_connector}")
             return None
 
-        connector_name = api_connector.get(
-            "display_name", api_connector.get("name", "")
+        connector_name = get_standardized_connector_name(
+            display_name=api_connector.get("display_name"),
+            name=api_connector.get("name"),
+            connector_id=connector_id,
         )
-        if not connector_name:
-            connector_name = f"connector-{connector_id}"
 
-        # Extract destination ID
+        # Extract destination ID and name
         destination_id = self._extract_destination_id(api_connector)
+        destination_name = self._extract_destination_name(api_connector)
 
         # Check if this connector ID is explicitly specified in sources_to_platform_instance
         # If it is, we should include it regardless of connector_patterns
@@ -367,16 +376,24 @@ class FivetranStandardAPI(FivetranAccessInterface):
             )
 
         # Apply connector pattern filter only if not explicitly included
-        if not explicitly_included and not connector_patterns.allowed(connector_name):
+        # Check both connector_name and connector_id for maximum flexibility
+        if not explicitly_included and not (
+            connector_patterns.allowed(connector_name)
+            or connector_patterns.allowed(connector_id)
+        ):
             report.report_connectors_dropped(
                 f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
             )
             return None
 
-        # Apply destination filter
-        if not destination_patterns.allowed(destination_id):
+        # Apply destination filter - check both ID and name for maximum flexibility
+        destination_allowed = destination_patterns.allowed(destination_id)
+        if destination_name and not destination_allowed:
+            destination_allowed = destination_patterns.allowed(destination_name)
+
+        if not destination_allowed:
             report.report_connectors_dropped(
-                f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
+                f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id}, destination_name: {destination_name})"
             )
             return None
 
@@ -669,6 +686,20 @@ class FivetranStandardAPI(FivetranAccessInterface):
         destination_id = f"destination_for_{connector_id}"
         logger.warning(f"Using generated destination ID: {destination_id}")
         return destination_id
+
+    def _extract_destination_name(self, api_connector: Dict) -> Optional[str]:
+        """Extract destination name from connector data for filtering purposes."""
+        # Try to get destination name from the group field
+        group_field = api_connector.get("group", {})
+        if isinstance(group_field, dict):
+            destination_name = group_field.get("name", "")
+            if destination_name:
+                logger.debug(
+                    f"Found destination_name={destination_name} from group.name"
+                )
+                return destination_name
+
+        return None
 
     def _process_connector_jobs(
         self,

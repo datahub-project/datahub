@@ -12,6 +12,9 @@ from urllib3.util import Retry
 from datahub.ingestion.source.fivetran.config import (
     FivetranAPIConfig,
 )
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    get_standardized_connector_name,
+)
 from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
     Connector,
@@ -1783,8 +1786,10 @@ class FivetranAPIClient:
         if not connector_id:
             raise ValueError(f"Connector is missing required id field: {api_connector}")
 
-        connector_name = api_connector.get(
-            "display_name", api_connector.get("name", "")
+        connector_name = get_standardized_connector_name(
+            display_name=api_connector.get("display_name"),
+            name=api_connector.get("name"),
+            connector_id=connector_id,
         )
         connector_service = api_connector.get("service", "")
         paused = api_connector.get("paused", False)

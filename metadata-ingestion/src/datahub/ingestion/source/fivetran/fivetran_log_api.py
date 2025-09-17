@@ -16,6 +16,7 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceReport,
 )
 from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
+from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
 from datahub.ingestion.source.fivetran.fivetran_constants import (
     DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
 )
@@ -288,6 +289,128 @@ class FivetranLogAPI(FivetranAccessInterface):
                 column_lineage_metadata=column_lineage_metadata,
             )
 
+    def _enrich_connector_with_api_metadata(self, connector: Connector) -> None:
+        """
+        Enhance Enterprise mode connectors with API metadata for consistency with Standard mode.
+        This provides a hybrid approach: fast log table queries + rich API metadata.
+        """
+        try:
+            # Only attempt API enrichment if we have API config available
+            if (
+                self.config is not None
+                and hasattr(self.config, "api_config")
+                and self.config.api_config is not None
+            ):
+                api_client = FivetranAPIClient(self.config.api_config)
+
+                # Get enhanced connector metadata from API
+                try:
+                    api_connector_data = api_client.get_connector(
+                        connector.connector_id
+                    )
+
+                    # Enhance connector name with display_name if available
+                    display_name = api_connector_data.get("display_name")
+                    if display_name and display_name != connector.connector_name:
+                        logger.info(
+                            f"Enriching connector {connector.connector_id}: "
+                            f"'{connector.connector_name}' -> '{display_name}'"
+                        )
+                        connector.connector_name = display_name
+
+                    # Add service information for better platform detection
+                    service = api_connector_data.get("service", "")
+                    if service:
+                        connector.additional_properties["service"] = service
+                        logger.debug(
+                            f"Added service '{service}' for connector {connector.connector_id}"
+                        )
+
+                    # Add schedule information
+                    schedule = api_connector_data.get("schedule", {})
+                    if schedule:
+                        sync_freq = schedule.get("sync_frequency")
+                        if sync_freq and sync_freq != connector.sync_frequency:
+                            connector.sync_frequency = sync_freq
+                            logger.debug(
+                                f"Updated sync frequency to {sync_freq} minutes for connector {connector.connector_id}"
+                            )
+
+                    # Enhance destination platform detection
+                    try:
+                        destination_platform = api_client.detect_destination_platform(
+                            connector.destination_id
+                        )
+                        if destination_platform:
+                            connector.additional_properties["destination_platform"] = (
+                                destination_platform
+                            )
+                            logger.debug(
+                                f"Detected destination platform '{destination_platform}' for connector {connector.connector_id}"
+                            )
+                    except Exception as e:
+                        logger.debug(
+                            f"Could not detect destination platform for {connector.connector_id}: {e}"
+                        )
+
+                    logger.info(
+                        f"Successfully enriched connector {connector.connector_id} with API metadata"
+                    )
+
+                except Exception as e:
+                    logger.debug(
+                        f"Could not enrich connector {connector.connector_id} with API metadata: {e}"
+                    )
+
+        except Exception as e:
+            logger.debug(f"API enrichment not available for Enterprise mode: {e}")
+            # This is expected if no API config is provided - Enterprise mode works fine without it
+
+    def _validate_connector_accessibility(
+        self, connector: Connector, report: FivetranSourceReport
+    ) -> bool:
+        """
+        Validate connector accessibility with consistent error handling across modes.
+        Returns True if connector should be processed, False if it should be skipped.
+        """
+        try:
+            # If we have API access, validate like Standard mode
+            if (
+                self.config is not None
+                and hasattr(self.config, "api_config")
+                and self.config.api_config is not None
+            ):
+                api_client = FivetranAPIClient(self.config.api_config)
+                validation_result = api_client.validate_connector_accessibility(
+                    connector.connector_id
+                )
+
+                if not validation_result["is_accessible"]:
+                    error_msg = (
+                        f"Skipping connector {connector.connector_name} ({connector.connector_id}): "
+                        f"{validation_result['error_message']}"
+                    )
+                    logger.warning(error_msg)
+                    report.report_connectors_dropped(error_msg)
+                    return False
+
+                logger.info(
+                    f"Connector {connector.connector_name} is accessible and ready for processing"
+                )
+                return True
+            else:
+                # Without API access, assume connector is valid (Enterprise mode default)
+                logger.debug(
+                    f"No API validation available for connector {connector.connector_id}, proceeding"
+                )
+                return True
+
+        except Exception as e:
+            logger.warning(
+                f"Error validating connector {connector.connector_id}: {e}. Proceeding anyway."
+            )
+            return True  # Default to processing in Enterprise mode
+
     def _fill_connectors_jobs(
         self, connectors: List[Connector], syncs_interval: int
     ) -> None:
@@ -295,8 +418,116 @@ class FivetranLogAPI(FivetranAccessInterface):
         sync_logs = self._get_all_connector_sync_logs(
             syncs_interval, connector_ids=connector_ids
         )
+
         for connector in connectors:
             connector.jobs = self._get_jobs_list(sync_logs.get(connector.connector_id))
+
+            # Enhanced job history extraction with API fallback (like Standard mode)
+            self._enhance_job_history_with_api_fallback(connector, syncs_interval)
+
+            # Normalize job statuses for consistency with Standard mode
+            self._normalize_job_statuses(connector)
+
+    def _enhance_job_history_with_api_fallback(
+        self, connector: Connector, syncs_interval: int
+    ) -> None:
+        """
+        Enhance Enterprise mode job history with API fallback for maximum completeness.
+        This provides the same fallback strategy as Standard mode.
+        """
+        # If we already have enough jobs from log tables, we're good
+        if len(connector.jobs) >= 10:  # Reasonable threshold
+            logger.debug(
+                f"Connector {connector.connector_id} already has {len(connector.jobs)} jobs from log tables"
+            )
+            return
+
+        try:
+            # Only attempt API fallback if we have API config available
+            if (
+                self.config is not None
+                and hasattr(self.config, "api_config")
+                and self.config.api_config is not None
+            ):
+                api_client = FivetranAPIClient(self.config.api_config)
+
+                logger.info(
+                    f"Connector {connector.connector_id} has only {len(connector.jobs)} jobs from log tables. "
+                    f"Attempting API fallback for more complete history."
+                )
+
+                try:
+                    # Try extended lookback like Standard mode does
+                    extended_days = max(syncs_interval, 30)  # At least 30 days
+                    api_sync_history = api_client.list_connector_sync_history(
+                        connector_id=connector.connector_id, days=extended_days
+                    )
+
+                    if api_sync_history:
+                        # Extract jobs from API sync history
+                        api_jobs = api_client._extract_jobs_from_sync_history(
+                            api_sync_history
+                        )
+
+                        if api_jobs:
+                            # Merge API jobs with existing log table jobs (avoid duplicates)
+                            existing_job_ids = {job.job_id for job in connector.jobs}
+                            new_jobs = [
+                                job
+                                for job in api_jobs
+                                if job.job_id not in existing_job_ids
+                            ]
+
+                            if new_jobs:
+                                connector.jobs.extend(new_jobs)
+                                logger.info(
+                                    f"Enhanced connector {connector.connector_id} with {len(new_jobs)} additional jobs from API. "
+                                    f"Total jobs: {len(connector.jobs)}"
+                                )
+                            else:
+                                logger.debug(
+                                    f"No new jobs found via API for connector {connector.connector_id}"
+                                )
+
+                except Exception as e:
+                    logger.debug(
+                        f"API fallback failed for connector {connector.connector_id}: {e}"
+                    )
+
+        except Exception as e:
+            logger.debug(
+                f"Job history enhancement not available for Enterprise mode: {e}"
+            )
+            # This is expected if no API config is provided
+
+    def _normalize_job_statuses(self, connector: Connector) -> None:
+        """
+        Normalize job statuses for consistency between Enterprise and Standard modes.
+        Uses the same mapping as Standard API mode.
+        """
+        status_mapping = {
+            # Standard API -> Enterprise log format
+            "COMPLETED": "SUCCESSFUL",
+            "SUCCEEDED": "SUCCESSFUL",
+            "SUCCESS": "SUCCESSFUL",
+            "SUCCESSFUL": "SUCCESSFUL",  # Already correct
+            "FAILED": "FAILURE_WITH_TASK",
+            "FAILURE": "FAILURE_WITH_TASK",
+            "ERROR": "FAILURE_WITH_TASK",
+            "FAILURE_WITH_TASK": "FAILURE_WITH_TASK",  # Already correct
+            "CANCELLED": "CANCELED",
+            "CANCELED": "CANCELED",  # Already correct
+            "RESCHEDULED": "RESCHEDULED",  # Already correct
+        }
+
+        for job in connector.jobs:
+            original_status = job.status
+            if original_status in status_mapping:
+                job.status = status_mapping[original_status]
+                if original_status != job.status:
+                    logger.debug(
+                        f"Normalized job {job.job_id} status: {original_status} -> {job.status}"
+                    )
 
     def get_allowed_connectors_list(
         self,
@@ -328,33 +559,74 @@ class FivetranLogAPI(FivetranAccessInterface):
                     )
 
                 # Apply connector pattern filter only if not explicitly included
-                if not explicitly_included and not connector_patterns.allowed(
-                    connector_name
+                # Check both connector_name and connector_id for maximum flexibility
+                if not explicitly_included and not (
+                    connector_patterns.allowed(connector_name)
+                    or connector_patterns.allowed(connector_id)
                 ):
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
 
-                if not destination_patterns.allowed(destination_id):
+                # Apply destination filter - check both ID and name for maximum flexibility
+                destination_allowed = destination_patterns.allowed(destination_id)
+                destination_name = None
+
+                # If API config is available, try to get destination name for enhanced filtering
+                if (
+                    not destination_allowed
+                    and self.config is not None
+                    and self.config.api_config is not None
+                ):
+                    try:
+                        from datahub.ingestion.source.fivetran.fivetran_api_client import (
+                            FivetranAPIClient,
+                        )
+
+                        api_client = FivetranAPIClient(self.config.api_config)
+                        dest_details = api_client.get_destination_details(
+                            destination_id
+                        )
+                        destination_name = dest_details.get("name", "")
+
+                        if destination_name:
+                            destination_allowed = destination_patterns.allowed(
+                                destination_name
+                            )
+                            logger.debug(
+                                f"Enterprise mode: checking destination name '{destination_name}' for filtering"
+                            )
+                    except Exception as e:
+                        logger.debug(
+                            f"Could not fetch destination name for filtering: {e}"
+                        )
+
+                if not destination_allowed:
                     report.report_connectors_dropped(
-                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
+                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id}, destination_name: {destination_name})"
                     )
                     continue
 
-                connectors.append(
-                    Connector(
-                        connector_id=connector_id,
-                        connector_name=connector_name,
-                        connector_type=connector[Constant.CONNECTOR_TYPE_ID],
-                        paused=connector[Constant.PAUSED],
-                        sync_frequency=connector[Constant.SYNC_FREQUENCY],
-                        destination_id=destination_id,
-                        user_id=connector[Constant.CONNECTING_USER_ID],
-                        lineage=[],  # filled later
-                        jobs=[],  # filled later
-                    )
+                # Create base connector from log data
+                base_connector = Connector(
+                    connector_id=connector_id,
+                    connector_name=connector_name,
+                    connector_type=connector[Constant.CONNECTOR_TYPE_ID],
+                    paused=connector[Constant.PAUSED],
+                    sync_frequency=connector[Constant.SYNC_FREQUENCY],
+                    destination_id=destination_id,
+                    user_id=connector[Constant.CONNECTING_USER_ID],
+                    lineage=[],  # filled later
+                    jobs=[],  # filled later
                 )
+
+                # Enhance with API metadata if available (for hybrid enrichment)
+                self._enrich_connector_with_api_metadata(base_connector)
+
+                # Validate connector accessibility if API is available
+                if self._validate_connector_accessibility(base_connector, report):
+                    connectors.append(base_connector)
 
         if not connectors:
             # Some of our queries don't work well when there's no connectors, since

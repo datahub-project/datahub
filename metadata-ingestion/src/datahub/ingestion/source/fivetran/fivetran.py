@@ -505,9 +505,7 @@ class FivetranSource(StatefulIngestionSourceBase):
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
         """Generate a DataFlow entity from a connector."""
         # Extract connector-specific metadata to enrich the dataflow
-        connector_name = (
-            connector.connector_name or f"Fivetran-{connector.connector_id}"
-        )
+        connector_name = connector.connector_name or connector.connector_id
         description = f"Fivetran connector for {connector.connector_type}"
         properties = {}
 
@@ -578,9 +576,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Create job name and description
         job_name = f"{source_table} → {destination_table}"
-        job_description = (
-            f"Fivetran data pipeline from {source_table} to {destination_table}"
-        )
+        job_description = f"Data pipeline from {source_table} to {destination_table}"
 
         # Get owner information
         owner_email = (
@@ -610,8 +606,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Add connector properties to the job
         connector_properties: Dict[str, str] = {
             "connector_id": connector.connector_id,
-            "connector_name": connector.connector_name
-            or f"Fivetran-{connector.connector_id}",
+            "connector_name": connector.connector_name or connector.connector_id,
             "connector_type": connector.connector_type,
             "paused": str(connector.paused),
             "sync_frequency": str(connector.sync_frequency),
@@ -732,19 +727,20 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"Error creating lineage for table {source_table} -> {destination_table}: {e}"
             )
 
-    def _create_synthetic_datajob_from_connector(self, connector: Connector) -> DataJob:
+    def _create_synthetic_datajob_from_connector(
+        self, connector: Connector, dataflow_urn: Optional[DataFlowUrn] = None
+    ) -> DataJob:
         """Generate a synthetic DataJob entity for connectors with lineage but no job history."""
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=Constant.ORCHESTRATOR,
-            flow_id=connector.connector_id,
-            env=self.config.env or "PROD",
-            platform_instance=self.config.platform_instance,
-        )
+        if dataflow_urn is None:
+            dataflow_urn = DataFlowUrn.create_from_ids(
+                orchestrator=Constant.ORCHESTRATOR,
+                flow_id=connector.connector_id,
+                env=self.config.env or "PROD",
+                platform_instance=self.config.platform_instance,
+            )
 
         # Extract useful connector information
-        connector_name = (
-            connector.connector_name or f"Fivetran-{connector.connector_id}"
-        )
+        connector_name = connector.connector_name or connector.connector_id
 
         # Get source platform from connector type
         source_platform = self._detect_source_platform(connector)
@@ -753,7 +749,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         destination_platform = self._get_destination_platform(connector)
 
         # Create job description
-        description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform}"
+        description = (
+            f"Data pipeline from {connector.connector_type} to {destination_platform}"
+        )
 
         # Get owner information
         owner_email = (
@@ -914,12 +912,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         destination_details = self._get_destination_details(connector)
 
         # Get dataflow URN for creating datajobs
-        dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=Constant.ORCHESTRATOR,
-            flow_id=connector.connector_id,
-            env=self.config.env or "PROD",
-            platform_instance=self.config.platform_instance,
-        )
+        dataflow_urn = dataflow.urn
 
         # Create job instances for each table lineage
         processed_tables = set()
@@ -989,9 +982,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         # Extract useful connector information
-        connector_name = (
-            connector.connector_name or f"Fivetran-{connector.connector_id}"
-        )
+        connector_name = connector.connector_name or connector.connector_id
 
         # Get source platform from connector type
         source_platform = self._detect_source_platform(connector)
@@ -1024,7 +1015,9 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
 
         # Create job description
-        description = f"Fivetran data pipeline from {connector.connector_type} to {destination_platform}"
+        description = (
+            f"Data pipeline from {connector.connector_type} to {destination_platform}"
+        )
 
         # Get owner information
         owner_email = (
@@ -1104,27 +1097,11 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         datajob = DataJob(
             name=connector.connector_id,
-            flow_urn=DataFlowUrn.create_from_ids(
-                orchestrator=Constant.ORCHESTRATOR,
-                flow_id=connector.connector_id,
-                env=self.config.env or "PROD",
-                platform_instance=self.config.platform_instance,
-            ),
-            display_name=connector.connector_name
-            or f"Fivetran-{connector.connector_id}",
-            description=f"Fivetran data pipeline from {connector.connector_type} to {destination_details.platform}",
+            flow_urn=dataflow.urn,
+            display_name=connector.connector_name or connector.connector_id,
+            description=f"Data pipeline from {connector.connector_type} to {destination_details.platform}",
             owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
-
-        # Process each table lineage through the common function
-        for lineage in connector.lineage:
-            self._build_table_lineage(
-                connector=connector,
-                lineage=lineage,
-                datajob=datajob,
-                source_details=source_details,
-                destination_details=destination_details,
-            )
 
         # Add lineage to the datajob (inlets, outlets, fine-grained lineage)
         lineage_properties = self._extend_lineage(
@@ -1203,12 +1180,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
                 destination_details = self._get_destination_details(connector)
 
-                dataflow_urn = DataFlowUrn.create_from_ids(
-                    orchestrator=Constant.ORCHESTRATOR,
-                    flow_id=connector.connector_id,
-                    env=self.config.env or "PROD",
-                    platform_instance=self.config.platform_instance,
-                )
+                dataflow_urn = dataflow.urn
 
                 # Keep track of tables processed to avoid duplicates
                 processed_tables = set()
@@ -1241,7 +1213,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                 # Default: consolidated mode - one datajob per connector
                 # Create a single synthetic datajob with all lineage
                 synthetic_datajob = self._create_synthetic_datajob_from_connector(
-                    connector
+                    connector, dataflow.urn
                 )
 
                 # Emit the datajob
@@ -1295,9 +1267,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Create job name and description
         job_name = f"{source_table} → {destination_table}"
-        job_description = (
-            f"Fivetran data pipeline from {source_table} to {destination_table}"
-        )
+        job_description = f"Data pipeline from {source_table} to {destination_table}"
 
         # Get owner information
         owner_email = (
@@ -1327,8 +1297,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Add connector properties to the job
         connector_properties: Dict[str, str] = {
             "connector_id": connector.connector_id,
-            "connector_name": connector.connector_name
-            or f"Fivetran-{connector.connector_id}",
+            "connector_name": connector.connector_name or connector.connector_id,
             "connector_type": connector.connector_type,
             "paused": str(connector.paused),
             "sync_frequency": str(connector.sync_frequency),
