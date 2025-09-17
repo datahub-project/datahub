@@ -1,5 +1,7 @@
 import { Button, Editor, Text, Tooltip } from '@components';
-import React, { useState } from 'react';
+import queryString from 'query-string';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionViewer';
@@ -42,8 +44,12 @@ interface Props {
 }
 
 export default function AboutSection({ hideLinksButton }: Props) {
+    const history = useHistory();
+    const { search, pathname } = useLocation();
+    const isEditingDescription = !!queryString.parse(search, { parseBooleans: true }).editingDescription;
+
     const [showAddLinkModal, setShowAddLinkModal] = useState(false);
-    const [showAddDescriptionModal, setShowDescriptionModal] = useState(false);
+    const [showAddDescriptionModal, setShowDescriptionModal] = useState(isEditingDescription);
 
     const hasLinkPermissions = useLinkPermission();
     const canEditDescription = useDocumentationPermission();
@@ -54,6 +60,27 @@ export default function AboutSection({ hideLinksButton }: Props) {
         handleDescriptionUpdate,
         emptyDescriptionText,
     } = useDescriptionUtils();
+
+    useEffect(() => {
+        setShowDescriptionModal(isEditingDescription);
+    }, [isEditingDescription]);
+
+    const removeEditingParam = () => {
+        const params = queryString.parse(search);
+        delete params.editingDescription;
+
+        const newSearch = queryString.stringify(params);
+        history.replace({
+            pathname,
+            search: newSearch,
+        });
+    };
+
+    const cancelUpdate = () => {
+        setShowDescriptionModal(false);
+        setUpdatedDescription(displayedDescription);
+        removeEditingParam();
+    };
 
     return (
         <div>
@@ -101,10 +128,7 @@ export default function AboutSection({ hideLinksButton }: Props) {
                     setUpdatedDescription={setUpdatedDescription}
                     handleDescriptionUpdate={handleDescriptionUpdate}
                     emptyDescriptionText={emptyDescriptionText}
-                    closeModal={() => {
-                        setShowDescriptionModal(false);
-                        setUpdatedDescription(displayedDescription);
-                    }}
+                    closeModal={cancelUpdate}
                 />
             )}
         </div>
