@@ -363,8 +363,46 @@ class RedshiftDataDictionary:
             db_tables = cur.fetchall()
             logger.info(f"Fetched {len(db_tables)} tables/views from Redshift")
 
-            # If no tables found and database is local, check for shared tables in regular schemas
-            if not db_tables and not is_shared_database:
+            # Enhanced fallback logic - try multiple approaches if results are limited
+            if (
+                len(db_tables) < 100 and not is_shared_database
+            ):  # Threshold for "suspiciously low" table count
+                logger.info(
+                    f"Only found {len(db_tables)} tables with pg_catalog query, attempting fallback methods..."
+                )
+
+                # Try shared database query as fallback
+                try:
+                    logger.info("Attempting svv_redshift_tables query as fallback...")
+                    fallback_cur = RedshiftDataDictionary.get_query_result(
+                        conn,
+                        RedshiftCommonQuery.list_tables(
+                            database=database,
+                            skip_external_tables=skip_external_tables,
+                            is_shared_database=True,  # Force shared mode
+                        ),
+                    )
+                    fallback_field_names = [i[0] for i in fallback_cur.description]
+                    fallback_tables = fallback_cur.fetchall()
+
+                    if len(fallback_tables) > len(db_tables):
+                        logger.info(
+                            f"Fallback query found {len(fallback_tables)} tables (vs {len(db_tables)} from pg_catalog). Using fallback results."
+                        )
+                        field_names = fallback_field_names
+                        db_tables = fallback_tables
+                    else:
+                        logger.info(
+                            f"Fallback query found {len(fallback_tables)} tables. Keeping original pg_catalog results."
+                        )
+
+                except Exception as fallback_error:
+                    logger.warning(
+                        f"Fallback query failed: {fallback_error}. Using original results."
+                    )
+
+            # Original fallback for zero results
+            elif not db_tables and not is_shared_database:
                 logger.info(
                     "No tables found with pg_catalog query, checking for shared tables in regular schemas..."
                 )

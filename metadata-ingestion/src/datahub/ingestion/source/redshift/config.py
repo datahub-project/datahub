@@ -119,6 +119,12 @@ class RedshiftConfig(
         description="Whether target Redshift instance is serverless (alternative is provisioned cluster)",
     )
 
+    force_svv_table_discovery: bool = Field(
+        default=False,
+        description="Force using svv_redshift_tables for table discovery instead of pg_catalog.pg_class. "
+        "Useful when pg_catalog permissions are limited but svv_ views are accessible.",
+    )
+
     lineage_generate_queries: bool = Field(
         default=True,
         description="Whether to generate queries entities for the SQL-based lineage collector.",

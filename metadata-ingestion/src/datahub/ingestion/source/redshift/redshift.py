@@ -850,7 +850,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             conn=connection,
             database=database,
             skip_external_tables=self.config.skip_external_tables,
-            is_shared_database=self.report.is_shared_database,
+            is_shared_database=self.report.is_shared_database
+            or self.config.force_svv_table_discovery,
         )
         for schema in tables:
             if not is_schema_allowed(
