@@ -35,7 +35,6 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import (
     get_s3_tags,
-    list_folders,
     list_folders_path,
     list_objects_recursive,
     list_objects_recursive_path,
@@ -871,30 +870,29 @@ class S3Source(StatefulIngestionSourceBase):
 
     def get_dir_to_process(
         self,
-        bucket_name: str,
-        folder: str,
+        uri: str,
         path_spec: PathSpec,
-        protocol: str,
         min: bool = False,
     ) -> List[str]:
-        iterator = list_folders(
-            bucket_name=bucket_name,
-            prefix=folder,
+        if not uri.endswith("/"):
+            uri += "/"
+        iterator = list_folders_path(
+            s3_uri=uri,
             aws_config=self.source_config.aws_config,
         )
         sorted_dirs = sorted(
             iterator,
-            key=functools.cmp_to_key(partitioned_folder_comparator),
+            key=lambda dir: functools.cmp_to_key(partitioned_folder_comparator)(
+                dir.name
+            ),
             reverse=not min,
         )
         folders = []
         for dir in sorted_dirs:
-            if path_spec.dir_allowed(f"{protocol}{bucket_name}/{dir}/"):
+            if path_spec.dir_allowed(dir.path):
                 folders_list = self.get_dir_to_process(
-                    bucket_name=bucket_name,
-                    folder=dir + "/",
+                    uri=dir.path,
                     path_spec=path_spec,
-                    protocol=protocol,
                     min=min,
                 )
                 folders.extend(folders_list)
@@ -903,7 +901,7 @@ class S3Source(StatefulIngestionSourceBase):
         if folders:
             return folders
         else:
-            return [f"{protocol}{bucket_name}/{folder}"]
+            return [uri]
 
     def get_folder_info(
         self,
@@ -1127,7 +1125,6 @@ class S3Source(StatefulIngestionSourceBase):
                 # STEP 4: Process each table folder to create a table-level dataset
                 for folder in table_folders:
                     bucket_name = get_bucket_name(folder.path)
-                    table_folder = get_bucket_relative_path(folder.path)
                     bucket = s3.Bucket(bucket_name)
 
                     # Create the full S3 path for this table
@@ -1149,35 +1146,25 @@ class S3Source(StatefulIngestionSourceBase):
 
                     if path_spec.traversal_method == FolderTraversalMethod.ALL:
                         # Process ALL partitions (original behavior)
-                        dirs_to_process = [get_bucket_relative_path(folder.path)]
+                        dirs_to_process = [folder.path]
                         logger.debug(
                             f"Processing ALL partition folders under: {folder.path}"
                         )
 
                     else:
                         # Use the original get_dir_to_process logic for MIN/MAX
-                        protocol = "s3://"  # Default protocol for S3
-
                         if (
                             path_spec.traversal_method == FolderTraversalMethod.MIN_MAX
                             or path_spec.traversal_method == FolderTraversalMethod.MAX
                         ):
                             # Get MAX partition using original logic
                             dirs_to_process_max = self.get_dir_to_process(
-                                bucket_name=bucket_name,
-                                folder=table_folder + "/",
+                                uri=folder.path,
                                 path_spec=path_spec,
-                                protocol=protocol,
                                 min=False,
                             )
                             if dirs_to_process_max:
-                                # Convert full S3 paths back to relative paths for processing
-                                dirs_to_process.extend(
-                                    [
-                                        d.replace(f"{protocol}{bucket_name}/", "")
-                                        for d in dirs_to_process_max
-                                    ]
-                                )
+                                dirs_to_process.extend(dirs_to_process_max)
                                 logger.debug(
                                     f"Added MAX partition: {dirs_to_process_max}"
                                 )
@@ -1185,33 +1172,26 @@ class S3Source(StatefulIngestionSourceBase):
                         if path_spec.traversal_method == FolderTraversalMethod.MIN_MAX:
                             # Get MIN partition using original logic
                             dirs_to_process_min = self.get_dir_to_process(
-                                bucket_name=bucket_name,
-                                folder=table_folder + "/",
+                                uri=folder.path,
                                 path_spec=path_spec,
-                                protocol=protocol,
                                 min=True,
                             )
                             if dirs_to_process_min:
-                                # Convert full S3 paths back to relative paths for processing
-                                dirs_to_process.extend(
-                                    [
-                                        d.replace(f"{protocol}{bucket_name}/", "")
-                                        for d in dirs_to_process_min
-                                    ]
-                                )
+                                dirs_to_process.extend(dirs_to_process_min)
                                 logger.debug(
                                     f"Added MIN partition: {dirs_to_process_min}"
                                 )
 
                     # Process the selected partitions
                     all_folders = []
-                    for partition_folder in dirs_to_process:
-                        # Ensure we have a clean folder path
-                        clean_folder = partition_folder.rstrip("/")
-
-                        logger.info(f"Scanning files in partition: {clean_folder}")
+                    for partition_path in dirs_to_process:
+                        logger.info(f"Scanning files in partition: {partition_path}")
                         partition_files = list(
-                            self.get_folder_info(path_spec, bucket, clean_folder)
+                            self.get_folder_info(
+                                path_spec,
+                                bucket,
+                                get_bucket_relative_path(partition_path),
+                            )
                         )
                         all_folders.extend(partition_files)
 
