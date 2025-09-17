@@ -1,27 +1,25 @@
-import logging
+from datahub.metadata.urns import CorpUserUrn
+from datahub.sdk import DataHubClient, Tag
 
-from datahub.emitter.mce_builder import make_tag_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+client = DataHubClient.from_env()
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import TagPropertiesClass
+# Create a basic tag
+basic_tag = Tag(name="deprecated")
 
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
-tag_urn = make_tag_urn("deprecated")
-tag_properties_aspect = TagPropertiesClass(
-    name="Deprecated",
-    description="Having this tag means this column or table is deprecated.",
+# Create a more detailed tag with all properties
+detailed_tag = Tag(
+    name="data-quality",
+    display_name="Data Quality",
+    description="Tag used to mark datasets with quality issues or requirements",
+    color="#FF5733",
+    owners=[
+        CorpUserUrn("data-team@company.com"),
+    ],
 )
 
-event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-    entityUrn=tag_urn,
-    aspect=tag_properties_aspect,
-)
+# Upsert the tags
+client.entities.upsert(basic_tag)
+client.entities.upsert(detailed_tag)
 
-# Create rest emitter
-rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
-rest_emitter.emit(event)
-log.info(f"Created tag {tag_urn}")
+print(f"Created basic tag: {basic_tag.urn}")
+print(f"Created detailed tag: {detailed_tag.urn}")
