@@ -14,7 +14,6 @@ from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_boto_utils import (
     list_folders_path,
-    list_objects_recursive,
     list_objects_recursive_path,
 )
 from datahub.ingestion.source.s3.source import S3Source
@@ -397,9 +396,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 call.list_folders_path(
                     s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
-                call.list_objects_recursive(
-                    "my-test-bucket",
-                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
             ],
         ),
@@ -422,9 +420,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 call.list_folders_path(
                     s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
-                call.list_objects_recursive(
-                    "my-test-bucket",
-                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
             ],
         ),
@@ -447,9 +444,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 call.list_folders_path(
                     s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
-                call.list_objects_recursive(
-                    "my-test-bucket",
-                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/"
                 ),
             ],
         ),
@@ -464,9 +460,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 call.list_folders_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
                 ),
-                call.list_objects_recursive(
-                    "my-test-bucket",
-                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
                 ),
             ],
         ),
@@ -481,9 +476,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 call.list_folders_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
                 ),
-                call.list_objects_recursive(
-                    "my-test-bucket",
-                    "folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
                 ),
             ],
         ),
@@ -506,16 +500,11 @@ def test_data_lake_s3_calls(s3_populate, calls_test_tuple):
 
     m = Mock()
     m.list_folders_path.side_effect = list_folders_path
-    m.list_objects_recursive.side_effect = list_objects_recursive
     m.list_objects_recursive_path.side_effect = list_objects_recursive_path
 
     with (
         patch(
             "datahub.ingestion.source.s3.source.list_folders_path", m.list_folders_path
-        ),
-        patch(
-            "datahub.ingestion.source.s3.source.list_objects_recursive",
-            m.list_objects_recursive,
         ),
         patch(
             "datahub.ingestion.source.s3.source.list_objects_recursive_path",
