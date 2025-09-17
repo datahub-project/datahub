@@ -7,7 +7,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from pyspark.conf import SparkConf
@@ -36,7 +36,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import (
     get_s3_tags,
     list_folders_path,
-    list_objects_recursive,
     list_objects_recursive_path,
 )
 from datahub.ingestion.source.aws.s3_util import (
@@ -80,9 +79,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
-
-if TYPE_CHECKING:
-    from mypy_boto3_s3.service_resource import Bucket
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -904,12 +900,11 @@ class S3Source(StatefulIngestionSourceBase):
     def get_folder_info(
         self,
         path_spec: PathSpec,
-        bucket: "Bucket",
-        prefix: str,
+        uri: str,
     ) -> Iterable[Folder]:
         """
-        Retrieves all the folders in a path by listing all the files in the prefix.
-        If the prefix is a full path then only that folder will be extracted.
+        Retrieves all the folders in a path by recursively listing all the files under the
+        given URI.
 
         A folder has creation and modification times, size, and a sample file path.
         - Creation time is the earliest creation time of all files in the folder.
@@ -919,8 +914,7 @@ class S3Source(StatefulIngestionSourceBase):
 
         Parameters:
         path_spec (PathSpec): The path specification used to determine partitioning.
-        bucket (Bucket): The S3 bucket object.
-        prefix (str): The prefix path in the S3 bucket to list objects from.
+        uri (str): The path in the S3 bucket to list objects from.
 
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
@@ -940,8 +934,8 @@ class S3Source(StatefulIngestionSourceBase):
         # Instead of loading all objects into memory, we'll accumulate folder data incrementally
         folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
 
-        for obj in list_objects_recursive(
-            bucket.name, prefix, self.source_config.aws_config
+        for obj in list_objects_recursive_path(
+            uri, aws_config=self.source_config.aws_config
         ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
@@ -1122,7 +1116,6 @@ class S3Source(StatefulIngestionSourceBase):
                 for folder in table_folders:
                     bucket_name = get_bucket_name(folder.path)
                     table_folder = get_bucket_relative_path(folder.path)
-                    bucket = s3.Bucket(bucket_name)
 
                     # Create the full S3 path for this table
                     table_s3_path = self.create_s3_path(bucket_name, table_folder)
@@ -1187,11 +1180,7 @@ class S3Source(StatefulIngestionSourceBase):
                     for partition_path in dirs_to_process:
                         logger.info(f"Scanning files in partition: {partition_path}")
                         partition_files = list(
-                            self.get_folder_info(
-                                path_spec,
-                                bucket,
-                                get_bucket_relative_path(partition_path),
-                            )
+                            self.get_folder_info(path_spec, partition_path)
                         )
                         all_folders.extend(partition_files)
 
