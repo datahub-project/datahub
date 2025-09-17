@@ -2,12 +2,15 @@ import { Button, Dropdown, Icon, colors } from '@components';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 import { ModulePositionInput, RowSide } from '@app/homeV3/template/types';
 
 type AddModuleButtonOrientation = 'vertical' | 'horizontal';
 
-const Wrapper = styled.div``;
+const Wrapper = styled.div<{ $isHidden: boolean }>`
+    ${({ $isHidden }) => $isHidden && `visibility: hidden;`}
+`;
 
 const StyledDropdownContainer = styled.div`
     max-width: 335px;
@@ -59,6 +62,7 @@ interface Props {
 }
 
 export default function AddModuleButton({ orientation, className, rowIndex, rowSide }: Props) {
+    const { isTemplateEditable } = usePageTemplateContext();
     const [isOpened, setIsOpened] = useState<boolean>(false);
 
     const ButtonComponent = useMemo(() => (isOpened ? StyledButton : StyledVisibleOnHoverButton), [isOpened]);
@@ -88,7 +92,7 @@ export default function AddModuleButton({ orientation, className, rowIndex, rowS
     };
 
     return (
-        <Wrapper className={className} data-testid="add-button-container">
+        <Wrapper className={className} $isHidden={!isTemplateEditable} data-testid="add-button-container">
             <Dropdown
                 open={isOpened}
                 trigger={['click', 'contextMenu']}
