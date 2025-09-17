@@ -28,6 +28,7 @@ from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
 from datahub.sdk.search_filters import Filter, FilterDsl
+from datahub.sdk.tag import Tag
 
 # We want to print out the warning if people do `from datahub.sdk import X`.
 # But we don't want to print out warnings if they're doing a more direct
