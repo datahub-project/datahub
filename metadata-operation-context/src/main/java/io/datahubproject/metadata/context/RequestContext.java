@@ -268,13 +268,19 @@ public class RequestContext implements ContextInterface {
     }
 
     if (requestContext.getRequestAPI() != RequestAPI.TEST && metricUtils != null) {
+      String agentClass = requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", "");
+      String requestAPI = requestContext.getRequestAPI().toString().toLowerCase();
       metricUtils.increment(
-          String.format(
-              "requestContext_%s_%s_%s",
-              userCategory,
-              requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", ""),
-              requestContext.getRequestAPI().toString().toLowerCase()),
-          1);
+          String.format("requestContext_%s_%s_%s", userCategory, agentClass, requestAPI), 1);
+      metricUtils.incrementMicrometer(
+          MetricUtils.DATAHUB_REQUEST_COUNT,
+          1,
+          "user.category",
+          userCategory,
+          "agent.class",
+          agentClass,
+          "request.api",
+          requestAPI);
     }
   }
 

@@ -27,19 +27,29 @@ class InMemoryDatabase(Database):
         """Initialize in-memory database"""
         pass
 
-    def has_mapping(self, tenant_id: str) -> Optional[str]:
-        """Check if tenant has a mapping and return instance ID"""
-        for mapping in self.tenant_mappings.values():
-            if mapping.tenant_id == tenant_id:
-                return mapping.instance_id
+    def _get_latest_mapping(self, tenant_id: str) -> Optional[TenantMapping]:
+        """Get the latest tenant mapping for a given tenant ID"""
+        matching_mappings = [
+            mapping
+            for mapping in self.tenant_mappings.values()
+            if mapping.tenant_id == tenant_id
+        ]
+        if matching_mappings:
+            # Return the latest mapping by created_at
+            return max(
+                matching_mappings,
+                key=lambda m: m.created_at or datetime.min.replace(tzinfo=timezone.utc),
+            )
         return None
 
+    def has_mapping(self, tenant_id: str) -> Optional[str]:
+        """Check if tenant has a mapping and return instance ID (latest wins)"""
+        latest_mapping = self._get_latest_mapping(tenant_id)
+        return latest_mapping.instance_id if latest_mapping else None
+
     def get_mapping(self, tenant_id: str) -> Optional[TenantMapping]:
-        """Get the tenant mapping for a given tenant ID"""
-        for mapping in self.tenant_mappings.values():
-            if mapping.tenant_id == tenant_id:
-                return mapping
-        return None
+        """Get the tenant mapping for a given tenant ID (latest wins)"""
+        return self._get_latest_mapping(tenant_id)
 
     def create_mapping(
         self,
