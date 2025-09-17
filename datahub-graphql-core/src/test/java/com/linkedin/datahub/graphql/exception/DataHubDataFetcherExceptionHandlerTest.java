@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.exception;
 
 import static org.testng.Assert.*;
 
-import com.linkedin.metadata.entity.validation.ValidationException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
@@ -74,7 +73,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleDataHubGraphQLExceptionUnauthorized() throws ExecutionException, InterruptedException {
+  public void testHandleDataHubGraphQLExceptionUnauthorized()
+      throws ExecutionException, InterruptedException {
     DataHubGraphQLException exception =
         new DataHubGraphQLException("Unauthorized access", DataHubGraphQLErrorCode.UNAUTHORIZED);
     Mockito.when(mockParameters.getException()).thenReturn(exception);
@@ -89,7 +89,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleDataHubGraphQLExceptionConflict() throws ExecutionException, InterruptedException {
+  public void testHandleDataHubGraphQLExceptionConflict()
+      throws ExecutionException, InterruptedException {
     DataHubGraphQLException exception =
         new DataHubGraphQLException("Resource conflict", DataHubGraphQLErrorCode.CONFLICT);
     Mockito.when(mockParameters.getException()).thenReturn(exception);
@@ -132,7 +133,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleNestedIllegalArgumentException() throws ExecutionException, InterruptedException {
+  public void testHandleNestedIllegalArgumentException()
+      throws ExecutionException, InterruptedException {
     IllegalArgumentException cause = new IllegalArgumentException("Nested invalid argument");
     RuntimeException wrapper = new RuntimeException("Wrapper exception", cause);
     Mockito.when(mockParameters.getException()).thenReturn(wrapper);
@@ -147,7 +149,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleNestedIllegalStateException() throws ExecutionException, InterruptedException {
+  public void testHandleNestedIllegalStateException()
+      throws ExecutionException, InterruptedException {
     IllegalStateException cause = new IllegalStateException("Nested state error");
     RuntimeException wrapper = new RuntimeException("Wrapper exception", cause);
     Mockito.when(mockParameters.getException()).thenReturn(wrapper);
@@ -162,7 +165,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleNestedDataHubGraphQLException() throws ExecutionException, InterruptedException {
+  public void testHandleNestedDataHubGraphQLException()
+      throws ExecutionException, InterruptedException {
     DataHubGraphQLException cause =
         new DataHubGraphQLException("Nested GraphQL error", DataHubGraphQLErrorCode.UNAUTHORIZED);
     RuntimeException wrapper = new RuntimeException("Wrapper exception", cause);
@@ -178,7 +182,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleNestedValidationException() throws ExecutionException, InterruptedException {
+  public void testHandleNestedValidationException()
+      throws ExecutionException, InterruptedException {
     ValidationException cause = new ValidationException("Nested validation failed");
     RuntimeException wrapper = new RuntimeException("Wrapper exception", cause);
     Mockito.when(mockParameters.getException()).thenReturn(wrapper);
@@ -207,7 +212,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleRuntimeExceptionWithNullMessage() throws ExecutionException, InterruptedException {
+  public void testHandleRuntimeExceptionWithNullMessage()
+      throws ExecutionException, InterruptedException {
     RuntimeException exception = new RuntimeException((String) null);
     Mockito.when(mockParameters.getException()).thenReturn(exception);
 
@@ -221,7 +227,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testPriorityOrderOfExceptionHandling() throws ExecutionException, InterruptedException {
+  public void testPriorityOrderOfExceptionHandling()
+      throws ExecutionException, InterruptedException {
     // DataHubGraphQLException should take priority over IllegalArgumentException
     DataHubGraphQLException dataHubException =
         new DataHubGraphQLException("DataHub error", DataHubGraphQLErrorCode.CONFLICT);
@@ -239,16 +246,18 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testComplexNestedExceptionHierarchy() throws ExecutionException, InterruptedException {
+  public void testComplexNestedExceptionHierarchy()
+      throws ExecutionException, InterruptedException {
     // Create a complex nested exception hierarchy
     ValidationException validationCause = new ValidationException("Validation error");
-    IllegalStateException illegalStateCause = new IllegalStateException("State error", validationCause);
+    IllegalStateException illegalStateCause =
+        new IllegalStateException("State error", validationCause);
     DataHubGraphQLException graphQLCause =
         new DataHubGraphQLException("GraphQL error", DataHubGraphQLErrorCode.UNAUTHORIZED);
     IllegalArgumentException illegalArgCause =
         new IllegalArgumentException("Argument error", graphQLCause);
     RuntimeException topLevelException = new RuntimeException("Top level", illegalArgCause);
-    
+
     Mockito.when(mockParameters.getException()).thenReturn(topLevelException);
 
     DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
@@ -262,11 +271,14 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testMultipleValidationExceptionsInChain() throws ExecutionException, InterruptedException {
+  public void testMultipleValidationExceptionsInChain()
+      throws ExecutionException, InterruptedException {
     ValidationException deepValidation = new ValidationException("Deep validation error");
-    IllegalStateException middleException = new IllegalStateException("Middle error", deepValidation);
-    ValidationException topValidation = new ValidationException("Top validation error", middleException);
-    
+    IllegalStateException middleException =
+        new IllegalStateException("Middle error", deepValidation);
+    ValidationException topValidation =
+        new ValidationException("Top validation error", middleException);
+
     Mockito.when(mockParameters.getException()).thenReturn(topValidation);
 
     DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
@@ -295,7 +307,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleExceptionWithEmptyMessage() throws ExecutionException, InterruptedException {
+  public void testHandleExceptionWithEmptyMessage()
+      throws ExecutionException, InterruptedException {
     RuntimeException exception = new RuntimeException("");
     Mockito.when(mockParameters.getException()).thenReturn(exception);
 
@@ -309,7 +322,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testHandleExecutionExceptionWithNestedCause() throws ExecutionException, InterruptedException {
+  public void testHandleExecutionExceptionWithNestedCause()
+      throws ExecutionException, InterruptedException {
     IllegalArgumentException rootCause = new IllegalArgumentException("Root illegal argument");
     ExecutionException executionException = new ExecutionException("Execution failed", rootCause);
     Mockito.when(mockParameters.getException()).thenReturn(executionException);
