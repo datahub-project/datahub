@@ -611,15 +611,18 @@ LIMIT @max_results"""
                     chosen_result = partition_values_results[
                         0
                     ]  # Already sorted by date DESC
+                    logger.info(
+                        f"Found latest date for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (queried table directly for maximum date)"
+                    )
                 else:
                     chosen_result = max(
                         partition_values_results, key=lambda r: r.record_count
                     )
+                    logger.info(
+                        f"Found most populated partition for {col_name}: {chosen_result.val} with {chosen_result.record_count} records (queried table directly for partition statistics)"
+                    )
 
                 result_values[col_name] = chosen_result.val
-                logger.debug(
-                    f"Selected partition {col_name}={chosen_result.val} with {chosen_result.record_count} records"
-                )
                 self._log_partition_attempt(
                     "table query", table.name, [col_name], success=True
                 )
@@ -1410,9 +1413,11 @@ LIMIT 1"""
                 f"No data found in any strategic date candidates for table {table.name}"
             )
 
-        # Strategy 2: ALWAYS try to query the table for actual available partition values
-        # This works for both date and non-date columns and should be tried before generic fallbacks
-        logger.debug("Attempting to find actual partition values by querying the table")
+        # Fallback: Query the table directly to find actual partition values
+        # This finds the real maximum dates and most populated partitions by scanning the table data
+        logger.info(
+            f"Strategic date candidates failed for table {table.name}. Querying table directly to find actual maximum dates and most populated partitions"
+        )
         actual_partition_values = self._get_partition_info_from_table_query(
             table, project, schema, required_columns, execute_query_func
         )
@@ -1429,14 +1434,14 @@ LIMIT 1"""
                     continue
 
             logger.info(
-                f"Successfully discovered partition values for table {table.name}: {dict(actual_partition_values)}"
+                f"Successfully found actual partition values for table {table.name}: {dict(actual_partition_values)}"
             )
-            logger.debug(
-                f"Generated partition filters from table query: {actual_filters}"
+            logger.info(
+                f"Generated partition filters from direct table analysis: {actual_filters}"
             )
             return actual_filters
 
-        # Strategy 3: Only use generic fallbacks if we can't get actual values from the table
+        # Last resort: Use configured fallback values if direct table query also failed
         return self._get_fallback_partition_filters(
             table, project, schema, required_columns
         )
@@ -1551,11 +1556,13 @@ LIMIT 1"""
                 "AND total_rows > 0",
             ]
 
-            # Apply date windowing if configured
-            if self.config.profiling.partition_datetime_window_days:
-                query_parts.append(
-                    "AND last_modified_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @window_days DAY)"
-                )
+            # For partition discovery, we want to find the actual latest partitions
+            # Don't apply restrictive windowing here - the profiling stage will apply partition_datetime_window_days
+            # This ensures we find tables with latest data even if it's outside the configured window
+            logger.debug(
+                f"Discovering partitions for {table.name} without restrictive windowing to find actual latest data. "
+                f"Date windowing (partition_datetime_window_days) will be applied during profiling."
+            )
 
             # Order by recency and limit results
             query_parts.extend(
@@ -1572,14 +1579,7 @@ LIMIT 1"""
                 ),  # Get multiple partitions
             ]
 
-            if self.config.profiling.partition_datetime_window_days:
-                parameters.append(
-                    ScalarQueryParameter(
-                        "window_days",
-                        "INT64",
-                        self.config.profiling.partition_datetime_window_days,
-                    )
-                )
+            # No windowing parameters needed - we want to discover actual latest partitions
 
             job_config = QueryJobConfig(query_parameters=parameters)
 

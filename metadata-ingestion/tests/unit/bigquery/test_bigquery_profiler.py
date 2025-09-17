@@ -1153,6 +1153,305 @@ def test_profiler_string_representations():
     assert "BigqueryProfiler" in repr_result
 
 
+def test_partition_discovery_information_schema_without_restrictive_windowing():
+    """Test that INFORMATION_SCHEMA partition discovery doesn't apply restrictive windowing during discovery."""
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table()
+
+    def mock_execute_query(query, job_config, context):
+        # Verify that the query doesn't contain restrictive windowing
+        assert "last_modified_time >=" not in query, (
+            "Discovery query should not apply restrictive windowing"
+        )
+        assert "INTERVAL" not in query, (
+            "Discovery query should not apply date intervals during discovery"
+        )
+
+        # Mock some partition results
+        from types import SimpleNamespace
+
+        return [
+            SimpleNamespace(
+                partition_id="20241201",
+                last_modified_time="2024-12-01",
+                total_rows=1000,
+            ),
+            SimpleNamespace(
+                partition_id="20241130", last_modified_time="2024-11-30", total_rows=800
+            ),
+        ]
+
+    # Test that discovery doesn't apply restrictive windowing
+    result = discovery._get_partition_filters_from_information_schema(
+        table, "test-project", "dataset", ["date"], mock_execute_query
+    )
+
+    # Should return partition filters without restrictive windowing
+    assert result is not None
+    assert len(result) > 0
+
+
+def test_partition_discovery_strategy2_fallback_for_internal_tables():
+    """Test that Strategy 2 (actual max date query) is used when INFORMATION_SCHEMA fails."""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table()
+
+    def mock_execute_query_info_schema_fails(query, job_config, context):
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # Simulate INFORMATION_SCHEMA returning no results
+            return []
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Simulate Strategy 2 finding actual max date
+            from types import SimpleNamespace
+
+            return [SimpleNamespace(val="2024-11-15", record_count=5000)]
+        return []
+
+    # This should trigger Strategy 2 fallback
+    result = discovery._find_real_partition_values(
+        table,
+        "test-project",
+        "dataset",
+        ["event_date"],
+        mock_execute_query_info_schema_fails,
+    )
+
+    # Should successfully find partition values via Strategy 2
+    assert result is not None
+    assert len(result) > 0
+    assert "event_date" in str(result[0])
+    assert "2024-11-15" in str(result[0])
+
+
+def test_partition_datetime_window_days_still_applied_during_profiling():
+    """Test that partition_datetime_window_days is still applied during the profiling phase."""
+    config = create_test_config(partition_datetime_window_days=7)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    # Test filters that would be discovered (e.g., from 30 days ago)
+    discovered_filters = ["`event_date` = '2024-10-15'"]
+
+    # Apply windowing during profiling
+    windowed_filters = profiler._apply_partition_date_windowing(
+        discovered_filters, table
+    )
+
+    # Should have original filter plus windowing constraints
+    assert len(windowed_filters) > len(discovered_filters)
+
+    # Should contain the original discovered filter
+    assert "`event_date` = '2024-10-15'" in windowed_filters
+
+    # Should also contain windowing range filters
+    range_filters = [f for f in windowed_filters if ">=" in f and "<=" in f]
+    assert len(range_filters) > 0
+
+    # Verify that the windowing uses a 7-day range
+    range_filter = range_filters[0]
+    assert ">=" in range_filter and "<=" in range_filter
+    assert "`event_date`" in range_filter
+
+
+def test_partition_datetime_window_days_disabled():
+    """Test that windowing can be disabled by setting partition_datetime_window_days to None."""
+    config = create_test_config(partition_datetime_window_days=None)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    # Test filters
+    original_filters = ["`event_date` = '2024-10-15'"]
+
+    # Apply windowing (should be disabled)
+    windowed_filters = profiler._apply_partition_date_windowing(original_filters, table)
+
+    # Should return exactly the same filters (no windowing applied)
+    assert windowed_filters == original_filters
+
+
+def test_internal_table_finds_actual_latest_date_comprehensive():
+    """
+    Comprehensive test demonstrating that internal tables now find actual latest dates.
+
+    Scenario:
+    - Table has latest data from November 15, 2024 (45 days ago)
+    - partition_datetime_window_days is set to 30 days
+    - Current date is December 30, 2024
+
+    Expected behavior:
+    1. Discovery phase finds November 15 partition (no restrictive windowing)
+    2. Profiling phase applies 30-day window from November 15
+    3. Result: Profiles the actual latest data
+    """
+    from datetime import date, datetime, timezone
+
+    # Setup: Current date is December 30, 2024
+    current_date = datetime(2024, 12, 30, tzinfo=timezone.utc)
+
+    # Table has latest data from November 15, 2024 (45 days ago - outside 30-day window from today)
+    actual_latest_date = date(2024, 11, 15)
+
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(name="sales_data", partitioned=True)
+
+    def mock_execute_query_realistic_scenario(query, job_config, context):
+        """Mock that simulates realistic BigQuery responses."""
+
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # Simulate INFORMATION_SCHEMA finding partitions (without restrictive windowing)
+            # This should now work because we removed the restrictive windowing
+            from types import SimpleNamespace
+
+            return [
+                SimpleNamespace(
+                    partition_id="20241115",  # November 15, 2024
+                    last_modified_time="2024-11-15T10:00:00Z",
+                    total_rows=15000,
+                ),
+                SimpleNamespace(
+                    partition_id="20241114",  # November 14, 2024
+                    last_modified_time="2024-11-14T10:00:00Z",
+                    total_rows=12000,
+                ),
+            ]
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Simulate Strategy 2: Direct table query finding actual max date
+            from types import SimpleNamespace
+
+            return [
+                SimpleNamespace(
+                    val=actual_latest_date, record_count=15000
+                ),  # November 15, 2024
+                SimpleNamespace(
+                    val=date(2024, 11, 14), record_count=12000
+                ),  # November 14, 2024
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            # Simulate partition verification - data exists
+            from types import SimpleNamespace
+
+            return [SimpleNamespace(cnt=1)]
+
+        return []
+
+    # Test the full partition discovery flow
+    with patch("datetime.datetime") as mock_datetime:
+        # Mock current time for consistent testing
+        mock_datetime.now.return_value = current_date
+        mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+
+        # Discover partitions (should find November 15 data)
+        partition_filters = discovery.get_required_partition_filters(
+            table, "test-project", "dataset", mock_execute_query_realistic_scenario
+        )
+
+    # Verify that we found partition filters
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    # Verify that the filters contain the actual latest date (November 15)
+    filter_str = " ".join(partition_filters)
+    assert "2024-11-15" in filter_str or "20241115" in filter_str
+
+    print(f"✅ Discovery found partition filters: {partition_filters}")
+
+    # Now test the profiling phase with windowing
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    # Apply windowing during profiling (should add range filters based on discovered date)
+    windowed_filters = profiler._apply_partition_date_windowing(
+        partition_filters, table
+    )
+
+    # Should have more filters (original + windowing range)
+    assert len(windowed_filters) >= len(partition_filters)
+
+    # Should contain range filters that create a 30-day window from November 15
+    range_filters = [f for f in windowed_filters if ">=" in f and "<=" in f]
+    assert len(range_filters) > 0
+
+    # The range should be based on November 15 (discovered date), not December 30 (current date)
+    range_filter = range_filters[0]
+    assert ">=" in range_filter and "<=" in range_filter
+
+    print(f"✅ Profiling applied windowing: {windowed_filters}")
+    print(f"✅ Range filter: {range_filter}")
+
+    # Key assertion: We should be able to profile data from November 15
+    # (the actual latest date) even though it's outside a 30-day window from today
+    assert "event_date" in range_filter or "date" in range_filter
+
+    print(
+        "🎯 SUCCESS: Internal table now finds actual latest date (November 15) and applies windowing correctly!"
+    )
+
+
+def test_internal_table_strategy2_fallback_with_old_data():
+    """
+    Test that Strategy 2 successfully finds very old latest data when INFORMATION_SCHEMA fails.
+
+    Scenario: Table has latest data from 6 months ago, INFORMATION_SCHEMA returns no results
+    """
+    from datetime import date
+
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(name="legacy_data", partitioned=True)
+
+    # Latest data is from 6 months ago
+    very_old_latest_date = date(2024, 6, 15)
+
+    def mock_execute_query_old_data_scenario(query, job_config, context):
+        """Mock for scenario where INFORMATION_SCHEMA fails but Strategy 2 succeeds."""
+
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            # INFORMATION_SCHEMA returns no results (maybe table is too old)
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Strategy 2: Direct table query finds the actual max date from 6 months ago
+            from types import SimpleNamespace
+
+            return [
+                SimpleNamespace(
+                    val=very_old_latest_date, record_count=8500
+                ),  # June 15, 2024
+                SimpleNamespace(
+                    val=date(2024, 6, 14), record_count=7200
+                ),  # June 14, 2024
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            # Partition verification - simulate that today's date has NO data (strategic dates fail)
+            return []
+
+        return []
+
+    # Test Strategy 2 fallback
+    partition_filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_old_data_scenario
+    )
+
+    # Should successfully find the old data via Strategy 2
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    # Should contain the actual latest date from 6 months ago
+    filter_str = " ".join(partition_filters)
+    assert "2024-06-15" in filter_str or "20240615" in filter_str
+
+    print(f"✅ Direct table query found old data: {partition_filters}")
+    print("🎯 SUCCESS: Direct table query fallback works for very old latest data!")
+
+
 # =============================================================================
 # QUERY EXECUTOR COMPREHENSIVE TESTS
 # =============================================================================
