@@ -519,7 +519,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 conn=connection,
                 database=database,
                 schema=schema,
-                is_shared_database=self.report.is_shared_database,
+                is_shared_database=self.report.is_shared_database
+                or self.config.force_svv_table_discovery,
             )
 
             if self.config.include_tables:
