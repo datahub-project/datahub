@@ -3,6 +3,7 @@ import React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -58,7 +59,7 @@ export const Preview = ({
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
-            parentEntities={domain ? [domain] : []}
+            parentEntities={data ? getParentEntities(data, EntityType.DataProduct) : []}
             glossaryTerms={glossaryTerms || undefined}
             entityCount={entityCount}
             externalUrl={externalUrl}
