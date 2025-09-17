@@ -148,6 +148,10 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     )
                     continue
 
+                # Skip problematic connectors automatically
+                if not self._is_connector_accessible(api_connector, report):
+                    continue
+
                 # Get sync history
                 sync_history = self.api_client.list_connector_sync_history(
                     connector_id, syncs_interval
@@ -656,24 +660,9 @@ class FivetranStandardAPI(FivetranAccessInterface):
         connector_id = api_connector.get("id", "unknown")
 
         # Try different ways of getting the destination ID
-        group_field = api_connector.get("group", {})
         destination_id = None
 
-        if isinstance(group_field, dict):
-            destination_id = group_field.get("id", "")
-            if destination_id:
-                logger.debug(f"Found destination_id={destination_id} from group.id")
-                return destination_id
-
-        # Try alternate fields if group.id doesn't work
-        if "destination_id" in api_connector:
-            destination_id = api_connector.get("destination_id", "")
-            if destination_id:
-                logger.debug(
-                    f"Found destination_id={destination_id} from destination_id field"
-                )
-                return destination_id
-
+        # First try group_id (the most common field in Fivetran API)
         if "group_id" in api_connector:
             destination_id = api_connector.get("group_id", "")
             if destination_id:
@@ -682,11 +671,121 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 )
                 return destination_id
 
+        # Try nested group.id structure
+        group_field = api_connector.get("group", {})
+        if isinstance(group_field, dict):
+            destination_id = group_field.get("id", "")
+            if destination_id:
+                logger.debug(f"Found destination_id={destination_id} from group.id")
+                return destination_id
+
+        # Try alternate fields if group_id doesn't work
+        if "destination_id" in api_connector:
+            destination_id = api_connector.get("destination_id", "")
+            if destination_id:
+                logger.debug(
+                    f"Found destination_id={destination_id} from destination_id field"
+                )
+                return destination_id
+
         # Generate a fallback ID based on connector ID if all else fails
         logger.warning(f"Could not find destination ID for connector {connector_id}")
         destination_id = f"destination_for_{connector_id}"
         logger.warning(f"Using generated destination ID: {destination_id}")
         return destination_id
+
+    def _extract_connector_name(self, api_connector: Dict) -> str:
+        """Extract connector name from API response."""
+        return get_standardized_connector_name(
+            display_name=api_connector.get("display_name"),
+            name=api_connector.get("name"),
+        )
+
+    def _is_connector_accessible(
+        self, api_connector: Dict, report: FivetranSourceReport
+    ) -> bool:
+        """Check if a connector is accessible and should be processed."""
+        connector_id = api_connector.get("id", "unknown")
+        connector_name = self._extract_connector_name(api_connector)
+
+        # Check setup state
+        status = api_connector.get("status", {})
+        setup_state = status.get("setup_state", "unknown")
+
+        # Skip broken connectors
+        if setup_state == "broken":
+            logger.warning(
+                f"Skipping connector {connector_name} (ID: {connector_id}) - setup_state is 'broken'"
+            )
+            report.report_connectors_dropped(
+                f"{connector_name} (connector_id: {connector_id}) - setup_state: broken"
+            )
+            return False
+
+        # Skip incomplete connectors
+        if setup_state == "incomplete":
+            logger.warning(
+                f"Skipping connector {connector_name} (ID: {connector_id}) - setup_state is 'incomplete'"
+            )
+            report.report_connectors_dropped(
+                f"{connector_name} (connector_id: {connector_id}) - setup_state: incomplete"
+            )
+            return False
+
+        # Test basic API accessibility by trying to get connector metadata
+        try:
+            # Try to get connector metadata - this often fails for broken connectors
+            validation_result = self.api_client.validate_connector_accessibility(
+                connector_id
+            )
+            if not validation_result.get("accessible", True):
+                logger.warning(
+                    f"Skipping connector {connector_name} (ID: {connector_id}) - failed accessibility validation"
+                )
+                report.report_connectors_dropped(
+                    f"{connector_name} (connector_id: {connector_id}) - accessibility validation failed"
+                )
+                return False
+        except Exception as e:
+            error_str = str(e).lower()
+            if any(
+                keyword in error_str
+                for keyword in ["404", "not found", "bad request", "400"]
+            ):
+                logger.warning(
+                    f"Skipping connector {connector_name} (ID: {connector_id}) - not accessible: {e}"
+                )
+                report.report_connectors_dropped(
+                    f"{connector_name} (connector_id: {connector_id}) - accessibility check failed: {e}"
+                )
+                return False
+
+        # Additional test: try to get schemas
+        try:
+            schemas = self.api_client.list_connector_schemas(connector_id)
+            if not schemas:
+                logger.warning(
+                    f"Skipping connector {connector_name} (ID: {connector_id}) - no schemas available"
+                )
+                report.report_connectors_dropped(
+                    f"{connector_name} (connector_id: {connector_id}) - no schemas available"
+                )
+                return False
+        except Exception as e:
+            error_str = str(e).lower()
+            if any(
+                keyword in error_str
+                for keyword in ["404", "not found", "bad request", "400"]
+            ):
+                logger.warning(
+                    f"Skipping connector {connector_name} (ID: {connector_id}) - schemas not accessible: {e}"
+                )
+                report.report_connectors_dropped(
+                    f"{connector_name} (connector_id: {connector_id}) - schema access failed: {e}"
+                )
+                return False
+
+        return True
 
     def _extract_destination_name(self, api_connector: Dict) -> Optional[str]:
         """Extract destination name from connector data for filtering purposes."""
