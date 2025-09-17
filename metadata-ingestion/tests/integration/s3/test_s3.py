@@ -395,6 +395,7 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 ),
                 call.list_objects_recursive_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                    startswith="part",
                 ),
             ],
         ),
@@ -416,6 +417,7 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 ),
                 call.list_objects_recursive_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                    startswith="",
                 ),
             ],
         ),
@@ -439,7 +441,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                     s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
                 call.list_objects_recursive_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/"
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                    startswith="",
                 ),
             ],
         ),
@@ -456,6 +459,7 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 ),
                 call.list_objects_recursive_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                    startswith="year=",
                 ),
             ],
         ),
@@ -471,7 +475,8 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
                 ),
                 call.list_objects_recursive_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022",
+                    startswith="month=",
                 ),
             ],
         ),

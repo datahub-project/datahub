@@ -941,12 +941,25 @@ class S3Source(StatefulIngestionSourceBase):
                 self.report.report_file_dropped(s3_uri)
             return allowed
 
+        # Add any remaining parts of the path_spec before globs to the URI and prefix,
+        # so that we don't unnecessarily list too many objects.
+        if not uri.endswith("/"):
+            uri += "/"
+        path_slash = uri.count("/")
+        remaining_pattern = "/".join(path_spec.glob_include.split("/")[path_slash:])
+        prefix = remaining_pattern.split("*")[0]
+        if "/" in prefix:
+            uri += prefix.rsplit("/", 1)[0]
+            prefix = prefix.rsplit("/", 1)[1]
+
         # Process objects in a memory-efficient streaming fashion
         # Instead of loading all objects into memory, we'll accumulate folder data incrementally
         folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
 
+        logger.info(f"Listing objects under {repr(uri)} with {prefix=}")
+
         for obj in list_objects_recursive_path(
-            uri, aws_config=self.source_config.aws_config
+            uri, startswith=prefix, aws_config=self.source_config.aws_config
         ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
