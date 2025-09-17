@@ -426,6 +426,20 @@ module.exports = {
       ],
     },
     {
+      Teams: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-app",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-setup",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
       "Operator Guides": [
         {
           type: "doc",
@@ -958,6 +972,7 @@ module.exports = {
         },
         "docs/authentication/introducing-metadata-service-authentication",
         "docs/authentication/personal-access-tokens",
+        "docs/authentication/external-oauth-providers",
       ],
     },
     {
