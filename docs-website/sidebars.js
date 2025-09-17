@@ -277,6 +277,27 @@ module.exports = {
           ],
         },
         {
+          label: "Logical Models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/logical-models/overview",
+          },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/overview",
+            },
+            {
+              label: "Centralized Management",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/centralized-management",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Metadata Tests",
           type: "doc",
           id: "docs/tests/metadata-tests",
