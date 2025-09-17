@@ -1,6 +1,7 @@
 # Instructions to add additional entry
 # 1. Add new entry to this list
 # 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+# 3. Update the list in valueTypeCheck() in metadata/structuredproperties/validation/PropertyDefinitionValidator.java
 - entityUrn: urn:li:dataType:datahub.string
   entityType: dataType
   aspectName: dataTypeInfo

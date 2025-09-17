@@ -26,6 +26,8 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -42,7 +44,30 @@ public class PropertyDefinitionValidatorTest {
     AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     HashMap<Urn, Boolean> map = new HashMap<>();
-    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
+    // Mock valid dataType entities to exist
+    map.put(UrnUtils.getUrn("urn:li:dataType:datahub.string"), true);
+    map.put(UrnUtils.getUrn("urn:li:dataType:datahub.number"), true);
+    map.put(UrnUtils.getUrn("urn:li:dataType:datahub.urn"), true);
+    map.put(UrnUtils.getUrn("urn:li:dataType:datahub.rich_text"), true);
+    map.put(UrnUtils.getUrn("urn:li:dataType:datahub.date"), true);
+    // Support old test format for backward compatibility
+    map.put(UrnUtils.getUrn("urn:li:logicalType:STRING"), true);
+    map.put(UrnUtils.getUrn("urn:li:logicalType:NUMBER"), true);
+    // Mock valid entityType entities that allowedTypes validation uses
+    map.put(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"), true);
+    // Mock invalid dataType entities to not exist
+    map.put(UrnUtils.getUrn("urn:li:dataType:datahub.boolean"), false);
+    // More lenient mock setup - answer based on the map
+    when(mockAspectRetriever.entityExists(any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(0);
+              Map<Urn, Boolean> result = new HashMap<>();
+              for (Urn urn : urns) {
+                result.put(urn, map.getOrDefault(urn, false));
+              }
+              return result;
+            });
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     mockRetrieverContext = mock(RetrieverContext.class);
     when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
@@ -496,8 +521,20 @@ public class PropertyDefinitionValidatorTest {
     AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     HashMap<Urn, Boolean> map = new HashMap<>();
+    // Mock the valueType URN from createValidPropertyDefinition to exist
+    map.put(UrnUtils.getUrn("urn:li:dataType:datahub.urn"), true);
+    // Mock the fake entity type to not exist (this is what we're testing)
     map.put(UrnUtils.getUrn("urn:li:entityType:datahub.fakeEntity"), false);
-    when(mockAspectRetriever.entityExists(any())).thenReturn(map);
+    when(mockAspectRetriever.entityExists(any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(0);
+              Map<Urn, Boolean> result = new HashMap<>();
+              for (Urn urn : urns) {
+                result.put(urn, map.getOrDefault(urn, false));
+              }
+              return result;
+            });
     GraphRetriever mockGraphRetriever = mock(GraphRetriever.class);
     RetrieverContext retrieverContext = mock(RetrieverContext.class);
     when(retrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
@@ -544,5 +581,48 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setCardinality(PropertyCardinality.MULTIPLE);
     newProperty.setValueType(Urn.createFromString("urn:li:dataType:datahub.urn"));
     return newProperty;
+  }
+
+  @Test
+  public void testInvalidValueType() throws URISyntaxException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    // Set invalid valueType - not a dataType entity
+    newProperty.setValueType(Urn.createFromString("urn:li:dataType:datahub.boolean"));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testNonDataTypeValueType() throws URISyntaxException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    // Set valueType to a non-dataType entity
+    newProperty.setValueType(Urn.createFromString("urn:li:entityType:datahub.dataset"));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testValidValueType()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    // Valid dataType entity that should exist in bootstrap data
+    newProperty.setValueType(Urn.createFromString("urn:li:dataType:datahub.string"));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
   }
 }
