@@ -338,6 +338,12 @@ allprojects {
       if (project.configurations.getByName("testImplementation").getDependencies()
               .any { it.getName().contains("testng") }) {
         useTestNG()
+        // Configure TestNG to work better with test-logger
+        testLogging {
+          events "failed", "skipped"
+          exceptionFormat "full"
+          showStandardStreams = false
+        }
       }
     }
   }
@@ -396,7 +402,6 @@ allprojects {
       }
     }
   }
-
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
