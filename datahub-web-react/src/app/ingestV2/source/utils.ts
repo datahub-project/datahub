@@ -610,6 +610,7 @@ export const buildOwnerEntities = (urn: string, owners?: Entity[], defaultOwnerT
             associatedUrn: urn,
             type: owner.type,
             ownershipType: defaultOwnerType ?? null,
+            attribution: owner.attribution ?? null,
             __typename: 'Owner' as const,
         })) || []
     );
