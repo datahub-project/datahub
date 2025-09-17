@@ -3,7 +3,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { IdentitiesContent } from '@app/settingsV2/IdentitiesContent';
-import { useIsInviteUsersEnabled } from '@app/useAppConfig';
+import { useIsAppConfigContextLoaded, useIsInviteUsersEnabled } from '@app/useAppConfig';
 
 // Mock the components
 vi.mock('@app/identity/ManageIdentities', () => ({
@@ -19,13 +19,16 @@ vi.mock('@app/identity/ManageUsersAndGroups', () => ({
 // Mock the feature flag hook
 vi.mock('@app/useAppConfig', () => ({
     useIsInviteUsersEnabled: vi.fn(),
+    useIsAppConfigContextLoaded: vi.fn(),
 }));
 
 describe('IdentitiesContent', () => {
     const mockUseIsInviteUsersEnabled = vi.mocked(useIsInviteUsersEnabled);
+    const mockUseIsAppConfigContextLoaded = vi.mocked(useIsAppConfigContextLoaded);
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockUseIsAppConfigContextLoaded.mockReturnValue(true);
     });
 
     it('renders ManageUsersAndGroups when inviteUsersEnabled is true', () => {

@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
+import { useHistory } from 'react-router';
 
 import { useUserContext } from '@app/context/useUserContext';
 import {
     Content,
     ManageUsersAndGroupsHeader,
     PageContainer,
+    SsoWarningBanner,
     TabTitleWithCount,
 } from '@app/identity/ManageUsersAndGroups.components';
 import { GroupList } from '@app/identity/group/GroupList';
 import InviteUsersModal from '@app/identity/user/InviteUsersModal';
 import { UserAndGroupList } from '@app/identity/user/UserAndGroupList';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { checkIsSsoEnabled } from '@app/settingsV2/platform/sso/utils';
+import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
 
 import { useListGroupsQuery } from '@graphql/group.generated';
+import { useGetSsoSettingsQuery } from '@graphql/settings.generated';
 import { useListUsersQuery } from '@graphql/user.generated';
 
 enum TabType {
@@ -26,9 +30,14 @@ interface Props {
 }
 
 export const ManageUsersAndGroups = ({ version }: Props) => {
+    const history = useHistory();
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
     const authenticatedUser = useUserContext();
     const canManageUsers = authenticatedUser?.platformPrivileges?.manageIdentities || false;
+
+    // Check SSO configuration status
+    const { data: ssoSettings } = useGetSsoSettingsQuery();
+    const isSsoEnabled = checkIsSsoEnabled(ssoSettings?.globalSettings?.ssoSettings || {});
 
     // Get user count
     const { data: usersData } = useListUsersQuery({
@@ -60,7 +69,7 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
             {
                 name: TabType.Users,
                 path: TabType.Users.toLocaleLowerCase(),
-                content: <UserAndGroupList />,
+                content: <UserAndGroupList hasSsoBanner={!isSsoEnabled} />,
                 tabType: TabType.Users,
                 customTitle: <TabTitleWithCount name={TabType.Users} count={userCount} />,
                 display: {
@@ -83,15 +92,20 @@ export const ManageUsersAndGroups = ({ version }: Props) => {
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
 
+    const handleConfigureSso = () => {
+        history.push('/settings/sso');
+    };
+
     return (
         <PageContainer>
+            {!isSsoEnabled && <SsoWarningBanner onConfigureSso={handleConfigureSso} />}
             <ManageUsersAndGroupsHeader
                 version={version}
                 canManageUsers={canManageUsers}
                 onInviteUsers={() => setIsViewingInviteToken(true)}
             />
             <Content>
-                <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                <AlchemyRoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
             </Content>
             {canManageUsers && (
                 <InviteUsersModal open={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />

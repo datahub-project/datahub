@@ -7,7 +7,6 @@ import {
     HeaderSection,
     PaginationContainer,
     PlatformPills,
-    RecommendationPill,
     RecommendedNoteContainer,
     RecommendedTableContainer,
     RecommendedUsersContainer,
@@ -19,7 +18,7 @@ import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { useDismissUserSuggestionMutation } from '@app/identity/user/hooks/useDismissUserSuggestion';
 import { useUserRecommendations } from '@app/identity/user/useUserRecommendations';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
-import { Avatar, Button, Heading, Pagination, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
+import { Avatar, Button, Heading, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 
 import { CorpUser, DataHubRole, UserUsageSortField } from '@types';
@@ -28,6 +27,7 @@ type Props = {
     onInviteUser: (user: CorpUser, role?: DataHubRole, recommendedUsers?: CorpUser[]) => Promise<boolean>;
     onDismissUser?: (user: CorpUser) => Promise<boolean>;
     selectRoleOptions: DataHubRole[];
+    hasSsoBanner?: boolean;
 };
 
 // Helper function to get platform icon URL using DataHub's standard mapping
@@ -35,7 +35,7 @@ const getPlatformIconUrl = (platformUrn: string): string | null => {
     return PLATFORM_URN_TO_LOGO[platformUrn] || null;
 };
 
-export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleOptions }: Props) => {
+export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleOptions, hasSsoBanner }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
@@ -176,7 +176,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                         placement="bottom"
                         overlayStyle={{ minWidth: '320px' }}
                     >
-                        <RecommendationPill>Top User</RecommendationPill>
+                        <Pill variant="filled" color="blue" label="Top User" />
                     </Tooltip>
                 ) : null,
         },
@@ -286,11 +286,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                 <div>
                     <HeaderSection>
                         <Heading size="md">Recommended Users</Heading>
-                        <RecommendationPill>
-                            <Text size="sm" color="gray">
-                                {totalRecommendedUsers}
-                            </Text>
-                        </RecommendationPill>
+                        <Pill variant="filled" color="gray" label={totalRecommendedUsers.toString()} />
                     </HeaderSection>
                     <RecommendedNoteContainer>
                         <Text size="sm" color="gray">
@@ -322,7 +318,7 @@ export const RecommendedUsersTable = ({ onInviteUser, onDismissUser, selectRoleO
                     </SearchContainer>
                 </div>
             </FiltersHeader>
-            <RecommendedTableContainer>
+            <RecommendedTableContainer $hasSsoBanner={hasSsoBanner}>
                 {recommendedUsers.length === 0 && !loading ? (
                     <EmptyStateContainer>
                         <Text size="lg" weight="medium">

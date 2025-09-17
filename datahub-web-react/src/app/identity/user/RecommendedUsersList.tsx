@@ -1,5 +1,5 @@
 import { Avatar, Button, Text, colors } from '@components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 
 import { EventType } from '@app/analytics';
@@ -7,10 +7,8 @@ import analytics from '@app/analytics/analytics';
 import {
     EmptyMessage,
     PlatformIcon,
-    PlatformPill,
+    PlatformPillWrapper,
     RecommendedUsersContainer,
-    RecommendedUsersHeader,
-    TopUserPill,
     UserCard,
     UserDetails,
     UserEmail,
@@ -20,6 +18,7 @@ import {
 } from '@app/identity/user/RecommendedUsersList.components';
 import SimpleSelectRole from '@app/identity/user/SimpleSelectRole';
 import { PLATFORM_URN_TO_LOGO } from '@app/ingest/source/builder/constants';
+import { Pill } from '@src/alchemy-components';
 
 import { CorpUser, DataHubRole } from '@types';
 
@@ -69,8 +68,43 @@ export default function RecommendedUsersList({
     const history = useHistory();
     // State to track selected roles for each user
     const [userRoles, setUserRoles] = useState<Record<string, DataHubRole | undefined>>({});
+    // State for tracking users that are fading out
+    const [fadingUsers, setFadingUsers] = useState<Set<string>>(new Set());
 
-    // Filter users and apply gamification logic
+    // Monitor userStates for successful invitations to start fadeout
+    useEffect(() => {
+        const successfulUsers = Object.entries(userStates)
+            .filter(([, state]) => state.status === 'success')
+            .map(([urn]) => urn);
+
+        const timeoutIds: NodeJS.Timeout[] = [];
+
+        successfulUsers.forEach((userUrn) => {
+            if (!fadingUsers.has(userUrn)) {
+                // Start fadeout after a brief delay to show the success message
+                const timeoutId = setTimeout(() => {
+                    setFadingUsers((prev) => new Set([...prev, userUrn]));
+                }, 4700); // Start fadeout 4.7s after success, complete by 5s
+                timeoutIds.push(timeoutId);
+            }
+        });
+
+        // Cleanup function to clear all timeouts
+        return () => {
+            timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
+        };
+    }, [userStates, fadingUsers]);
+
+    // Clean up fadingUsers when users are hidden
+    useEffect(() => {
+        const updatedFadingUsers = new Set([...fadingUsers].filter((urn) => !hiddenUsers.has(urn)));
+
+        if (updatedFadingUsers.size !== fadingUsers.size) {
+            setFadingUsers(updatedFadingUsers);
+        }
+    }, [hiddenUsers, fadingUsers]);
+
+    // Filter recommended users
     const validUsers = recommendedUsers.filter((user) => {
         // Allow users with any usage percentile (including 0) or users without usage data
         const hasValidUsage =
@@ -177,16 +211,17 @@ export default function RecommendedUsersList({
 
     return (
         <RecommendedUsersContainer>
-            <RecommendedUsersHeader size="sm">{displayUsers.length} Recommended</RecommendedUsersHeader>
             {displayUsers.map((user) => {
                 return (
-                    <UserCard key={user.urn}>
+                    <UserCard key={user.urn} $fadeOut={fadingUsers.has(user.urn)}>
                         <UserInfo>
                             <Avatar name={user.username || user.urn} size="md" />
                             <UserDetails>
                                 <UserEmailRow>
-                                    <UserEmail size="sm">{user.username || user.urn}</UserEmail>
-                                    {shouldShowTopUserPill(user) && <TopUserPill>Top User</TopUserPill>}
+                                    <UserEmail size="md">{user.username || user.urn}</UserEmail>
+                                    {shouldShowTopUserPill(user) && (
+                                        <Pill size="xs" variant="filled" color="gray" label="Top User" />
+                                    )}
                                 </UserEmailRow>
                                 <UserTag>
                                     {/* Show platform pills for platforms user has usage on */}
@@ -195,15 +230,9 @@ export default function RecommendedUsersList({
                                         const iconUrl = getPlatformIconUrl(platformUsage.key);
 
                                         return (
-                                            <PlatformPill key={platformUsage.key}>
-                                                {iconUrl && (
-                                                    <PlatformIcon
-                                                        src={iconUrl}
-                                                        alt={platformName}
-                                                        title={platformName}
-                                                    />
-                                                )}
-                                            </PlatformPill>
+                                            <PlatformPillWrapper key={platformUsage.key}>
+                                                {iconUrl && <PlatformIcon src={iconUrl} alt={platformName} title="" />}
+                                            </PlatformPillWrapper>
                                         );
                                     })}
                                 </UserTag>
@@ -214,27 +243,28 @@ export default function RecommendedUsersList({
                 );
             })}
 
-            {/* Show "View more" button if there are more users than displayed */}
+            {/* Show "View All" button if there are more users than displayed */}
             {totalRecommendedUsers > maxDisplayUsers && (
-                <Button
-                    variant="text"
-                    size="md"
-                    onClick={() => {
-                        // Close the modal first
-                        onClose?.();
-                        // Then navigate to the recommended tab
-                        history.push('/settings/identities/users?tab=recommended');
-                    }}
-                    style={{
-                        marginTop: '8px',
-                        padding: '12px 16px',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: colors.gray[1700],
-                    }}
-                >
-                    View All {totalRecommendedUsers}
-                </Button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <Button
+                        variant="text"
+                        size="md"
+                        onClick={() => {
+                            // Close the modal first
+                            onClose?.();
+                            // Then navigate to the recommended tab
+                            history.push('/settings/identities/users?tab=recommended');
+                        }}
+                        style={{
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            color: colors.gray[1700],
+                            width: 'auto',
+                        }}
+                    >
+                        View All
+                    </Button>
+                </div>
             )}
         </RecommendedUsersContainer>
     );

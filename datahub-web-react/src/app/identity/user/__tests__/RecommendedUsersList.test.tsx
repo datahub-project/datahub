@@ -121,7 +121,6 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('2 Recommended')).toBeInTheDocument();
         expect(screen.getByText('testuser@company.com')).toBeInTheDocument();
         expect(screen.getByText('lowuser@company.com')).toBeInTheDocument();
     });
@@ -202,7 +201,6 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('1 Recommended')).toBeInTheDocument();
         expect(screen.queryByText('testuser@company.com')).not.toBeInTheDocument();
         expect(screen.getByText('lowuser@company.com')).toBeInTheDocument();
     });
@@ -226,7 +224,6 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('1 Recommended')).toBeInTheDocument();
         expect(screen.getByText('testuser@company.com')).toBeInTheDocument();
         expect(screen.queryByText('negativeuser@company.com')).not.toBeInTheDocument();
     });
@@ -247,6 +244,10 @@ describe('RecommendedUsersList', () => {
             />,
         );
 
-        expect(screen.getByText('6 Recommended')).toBeInTheDocument();
+        // Should display 6 users (the first 6 from the array)
+        expect(screen.getByText('user0@company.com')).toBeInTheDocument();
+        expect(screen.getByText('user5@company.com')).toBeInTheDocument();
+        // Should not display more than 6 users
+        expect(screen.queryByText('user6@company.com')).not.toBeInTheDocument();
     });
 });
