@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.AuthPluginConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.PluginConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,11 @@ public class AuthExtractionTestConfiguration {
   @Bean
   public EntityService<?> entityService() {
     return mock(EntityService.class);
+  }
+
+  @Bean("systemOperationContext")
+  public OperationContext systemOperationContext() {
+    return TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Bean("dataHubTokenService")
@@ -83,7 +89,12 @@ public class AuthExtractionTestConfiguration {
   }
 
   @Bean
-  @DependsOn({"configurationProvider", "dataHubTokenService", "entityService"})
+  @DependsOn({
+    "configurationProvider",
+    "dataHubTokenService",
+    "entityService",
+    "systemOperationContext"
+  })
   public AuthenticationExtractionFilter authenticationExtractionFilter() throws ServletException {
     return new AuthenticationExtractionFilter();
   }

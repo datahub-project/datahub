@@ -212,6 +212,11 @@ module.exports = {
           ],
         },
         {
+          label: "Custom Asset Summaries",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-asset-summaries",
+        },
+        {
           label: "Custom Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
@@ -268,6 +273,27 @@ module.exports = {
               label: "Managing Lineage via UI",
               type: "doc",
               id: "docs/features/feature-guides/ui-lineage",
+            },
+          ],
+        },
+        {
+          label: "Logical Models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/logical-models/overview",
+          },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/overview",
+            },
+            {
+              label: "Centralized Management",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/centralized-management",
+              className: "saasOnly",
             },
           ],
         },
@@ -416,6 +442,20 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      Teams: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-app",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-setup",
           className: "saasOnly",
         },
       ],
@@ -953,6 +993,7 @@ module.exports = {
         },
         "docs/authentication/introducing-metadata-service-authentication",
         "docs/authentication/personal-access-tokens",
+        "docs/authentication/external-oauth-providers",
       ],
     },
     {

@@ -68,6 +68,10 @@ When you upgrade to this version, your default home page will automatically incl
 
 When you begin customizing your home page, you'll "fork" from your organization's default to create your own personal version. This means your changes won't affect what other users see, and you can always return to the organization default if needed.
 
+:::note
+Customization is currently only supported in DataHub Cloud. DataHub Core will support a default home page with no way to customize.
+:::
+
 ### Add New Modules
 
 Click **"Add Module"** to browse and select from available module types. Custom module can be configured with specific settings:
