@@ -872,6 +872,12 @@ class S3Source(StatefulIngestionSourceBase):
     ) -> List[str]:
         if not uri.endswith("/"):
             uri += "/"
+        path_slash = uri.count("/")
+        glob_slash = path_spec.glob_include.count("/")
+        if path_slash == glob_slash and not path_spec.glob_include.endswith("**"):
+            # no need to list sub-folders, we're at the end of the include path
+            return [uri]
+
         iterator = list_folders_path(
             s3_uri=uri,
             aws_config=self.source_config.aws_config,

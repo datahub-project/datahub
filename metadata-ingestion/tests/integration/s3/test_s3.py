@@ -393,9 +393,6 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 call.list_folders_path(
                     s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
                 ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
-                ),
                 call.list_objects_recursive_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
@@ -416,9 +413,6 @@ def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
                 ),
                 call.list_folders_path(
                     s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
-                ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
                 ),
                 call.list_objects_recursive_path(
                     "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
