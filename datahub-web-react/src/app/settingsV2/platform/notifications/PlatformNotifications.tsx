@@ -32,7 +32,7 @@ export const PlatformNotifications = () => {
     // Fetch global notification settings. Ideally we should use a cache here to avoid a refetch from this specific component.
     const { data, loading, error, refetch } = useGetGlobalSettingsQuery();
     return (
-        <Container>
+        <Container data-testid="platform-notifications">
             <PageTitle title="Notifications" subTitle="Customize when and where you receive platform notifications" />
             <GlobalNotificationsBanner>
                 <InfoIcon />

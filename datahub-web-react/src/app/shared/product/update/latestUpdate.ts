@@ -1,4 +1,4 @@
-import SampleImage from '@images/slack-and-datahub.png';
+import SampleImage from '@images/slack-and-teams.png';
 
 export type ProductUpdate = {
     enabled: boolean;
@@ -15,10 +15,10 @@ export type ProductUpdate = {
 // TODO: Migrate this to be served via an aspect!
 export const latestUpdate: ProductUpdate = {
     enabled: true,
-    id: 'v0.3.13-1', // Very important, when changed it will trigger the announcement to be re-displayed for a user.
-    title: 'New: Slack AI Assistant',
-    description: 'Discover trustworthy data from Slack using natural language',
+    id: 'v0.3.14', // Very important, when changed it will trigger the announcement to be re-displayed for a user.
+    title: 'Ask DataHub in Teams',
+    description: 'Ask data questions & get notified in Microsoft Teams',
     image: SampleImage, // Import and use image.,
     ctaText: 'Read about it',
-    ctaLink: 'https://datahub.com/blog/datahub-cloud-v0-3-13/',
+    ctaLink: 'https://datahub.com/blog/datahub-cloud-v0-3-14/',
 };

@@ -60,9 +60,7 @@ describe("teams integration visibility test", () => {
     // Wait for page to fully load
     cy.wait(2000);
 
-    // Verify Teams integration option is NOT visible
-    cy.get("body").should("not.contain", "Microsoft Teams");
-    cy.get("body").should("not.contain", "Connect Microsoft Teams");
+    cy.get("body").should("not.contain", "Notify Teams channels");
 
     // Verify other integrations are still visible (Slack should be there)
     cy.contains("Slack").should("be.visible");
@@ -78,8 +76,7 @@ describe("teams integration visibility test", () => {
     cy.waitTextVisible("My Notifications");
 
     // Check that Teams column is not visible anywhere in the table
-    cy.contains("Teams").should("not.exist");
-    cy.contains("Microsoft Teams").should("not.exist");
+    cy.contains("Receive Teams notifications").should("not.exist");
 
     // Verify other notification options are still visible
     cy.contains("Email").should("be.visible");
@@ -96,7 +93,7 @@ describe("teams integration visibility test", () => {
     cy.waitTextVisible("Manage integrations with third party tools");
 
     // Verify Teams integration option IS visible
-    cy.contains("Teams").should("be.visible");
+    cy.contains("Notify Teams channels").should("be.visible");
 
     // Navigate to personal notification settings
     cy.visit("/settings/personal-notifications");
@@ -141,8 +138,10 @@ describe("teams integration visibility test", () => {
 
     // Navigate to platform notification settings (admin feature)
     cy.visit("/settings/notifications/scenarios");
-
-    cy.contains("Teams").should("not.exist");
+    cy.get('[data-testid="platform-notifications"]').should(
+      "not.contain",
+      "Teams",
+    );
   });
 
   it("should show Teams options from Platform Notification Scenarios Settings when Teams is enabled", () => {
@@ -153,6 +152,6 @@ describe("teams integration visibility test", () => {
     // Navigate to platform notification settings (admin feature)
     cy.visit("/settings/notifications/scenarios");
 
-    cy.contains("Teams").should("be.visible");
+    cy.get('[data-testid="platform-notifications"]').should("contain", "Teams");
   });
 });
