@@ -15,8 +15,8 @@ Centralized Management allows governance of all physical children at the logical
 <tr><td>Tags</td><td>✅ Tags are replicated on physical children.</td></tr>
 <tr><td>Glossary Terms</td><td>✅ Terms are replicated on physical children.</td></tr>
 <tr><td>Documentation</td><td>✅ The description shown on the logical parent is copied to physical children. If the child has its own description, that will be shown instead.</td></tr>
-<tr><td>Ownership</td><td>⚠️ Owners are replicated on physical children. If the same user is an owner for multiple ownership types, only one ownership type replicated.</td></tr>
-<tr><td>Structured Properties</td><td>⚠️ Structured properties are replicated on physical children. If the child has an existing value for the same property, it will be replaced, even if that property is multi-valued.</td></tr>
+<tr><td>Ownership</td><td>✅️ Owners are replicated on physical children. If the same user is an owner for multiple ownership types, only one ownership type replicated.</td></tr>
+<tr><td>Structured Properties</td><td>✅ Structured properties are replicated on physical children. If the child has an existing value for the same property, it will be replaced, even if that property is multi-valued.</td></tr>
 <tr><td>Domains</td><td>❌ Domains are not propagated.</td></tr>
 <tr><td>Data Products</td><td>❌ Data products are not propagated.</td></tr>
 <tr><td>Data Quality Assertions</td><td>❌ Assertions are not propagated.</td></tr>
