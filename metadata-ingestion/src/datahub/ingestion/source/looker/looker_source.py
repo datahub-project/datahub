@@ -868,7 +868,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         ):
             explore_dataset_entity, explore_id, start_time, end_time = future.result()
             self.reporter.explores_scanned += 1
-            yield explore_dataset_entity
+            if explore_dataset_entity:
+                yield explore_dataset_entity
             self.reporter.report_upstream_latency(start_time, end_time)
             logger.debug(
                 f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
@@ -888,13 +889,14 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def fetch_one_explore(
         self, model: str, explore: str
     ) -> Tuple[
-        Dataset,
+        Optional[Dataset],
         str,
         datetime.datetime,
         datetime.datetime,
     ]:
         start_time = datetime.datetime.now()
         looker_explore = self.explore_registry.get_explore(model, explore)
+        explore_dataset_entity: Optional[Dataset] = None
         if looker_explore is not None:
             explore_dataset_entity = looker_explore._to_metadata_events(
                 self.source_config,
