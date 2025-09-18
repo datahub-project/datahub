@@ -3,7 +3,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -2037,9 +2037,12 @@ class FivetranAPIClient:
             logger.warning(f"Error parsing timestamp {timestamp_value}: {e}")
             return None
 
-    def extract_table_lineage(self, connector_id: str) -> List[TableLineage]:
+    def extract_table_lineage_generator(
+        self, connector_id: str
+    ) -> Iterator[TableLineage]:
         """
-        Extract table and column lineage information for a connector.
+        Generate table and column lineage information for a connector.
+        This is the memory-efficient version that yields lineage items one at a time.
         """
         try:
             # Get schemas to extract tables and columns
@@ -2048,32 +2051,140 @@ class FivetranAPIClient:
                 logger.warning(
                     f"No schema information found for connector {connector_id}"
                 )
-                return []
+                return
 
             # Get destination platform information
             destination_platform = self._get_destination_platform_for_connector(
                 connector_id
             )
 
-            # Collect source columns information
-            source_table_columns = self._collect_source_columns(schemas)
+            # Stream lineage items one at a time
+            lineage_count = 0
+            for lineage_item in self._extract_table_lineage_generator(
+                schemas, destination_platform, connector_id
+            ):
+                lineage_count += 1
+                yield lineage_item
 
-            # Process schemas to extract lineage
-            lineage_list = self._process_schemas(
-                schemas, destination_platform, source_table_columns
+            logger.info(
+                f"Processed {lineage_count} table lineage entries for connector {connector_id}"
             )
-
-            # Log statistics about what we found
-            self._log_lineage_stats(lineage_list, connector_id)
-
-            return lineage_list
 
         except Exception as e:
             logger.error(
                 f"Failed to extract lineage for connector {connector_id}: {e}",
                 exc_info=True,
             )
-            return []
+            return
+
+    def _extract_table_lineage_generator(
+        self, schemas: List[Dict], destination_platform: str, connector_id: str
+    ) -> Iterator[TableLineage]:
+        """Process table lineage one at a time to minimize memory usage."""
+        for schema in schemas:
+            schema_name = schema.get("name", "")
+            if not schema_name:
+                continue
+
+            tables = schema.get("tables", [])
+            logger.debug(f"Processing schema {schema_name} with {len(tables)} tables")
+
+            for table in tables:
+                if not isinstance(table, dict):
+                    continue
+
+                table_name = table.get("name", "")
+                if not table_name or not table.get("enabled", True):
+                    continue
+
+                # Process this single table
+                try:
+                    # Pass schema destination name for proper lineage mapping
+                    schema_name_in_destination = schema.get(
+                        "name_in_destination", schema_name
+                    )
+                    lineage_item = self._process_single_table_lineage(
+                        schema_name,
+                        table,
+                        destination_platform,
+                        connector_id,
+                        schema_name_in_destination,
+                    )
+                    if lineage_item:
+                        yield lineage_item
+                except Exception as e:
+                    logger.warning(
+                        f"Error processing table {schema_name}.{table_name}: {e}"
+                    )
+                    continue
+
+    def _process_single_table_lineage(
+        self,
+        schema_name: str,
+        table: Dict,
+        destination_platform: str,
+        connector_id: str,
+        schema_name_in_destination: str,
+    ) -> TableLineage:
+        """Process lineage for a single table."""
+        table_name = table.get("name", "")
+
+        # Create source and destination table identifiers
+        source_table = f"{schema_name}.{table_name}"
+
+        # Get destination names using the existing logic
+        destination_schema = self._get_destination_schema_name(
+            schema_name, schema_name_in_destination, destination_platform
+        )
+        # Get table name in destination from table data
+        table_name_in_destination = table.get("name_in_destination", table_name)
+        destination_table_name = self._get_destination_table_name(
+            table_name, table_name_in_destination, destination_platform
+        )
+        destination_table = f"{destination_schema}.{destination_table_name}"
+
+        # Get column lineage for this table (process columns one at a time)
+        column_lineage = []
+        columns = table.get("columns", [])
+
+        for column in columns:
+            if not isinstance(column, dict):
+                continue
+
+            column_name = column.get("name", "")
+            if not column_name or not column.get("enabled", True):
+                continue
+
+            # Get column name in destination from column data
+            destination_column = column.get("name_in_destination", column_name)
+
+            column_lineage.append(
+                ColumnLineage(
+                    source_column=column_name,
+                    destination_column=destination_column,
+                    source_column_type=column.get("type"),
+                    destination_column_type=column.get("type"),  # Usually same type
+                )
+            )
+
+        # Create table lineage with comprehensive metadata
+        return TableLineage(
+            source_table=source_table,
+            destination_table=destination_table,
+            column_lineage=column_lineage,
+            # Add enhanced metadata fields
+            source_schema=schema_name,
+            destination_schema=destination_schema,
+            source_database=None,  # Will be filled by calling code if available
+            destination_database=None,  # Will be filled by calling code if available
+            source_platform=None,  # Will be filled by calling code if available
+            destination_platform=destination_platform,
+            source_env=None,  # Will be filled by calling code if available
+            destination_env=None,  # Will be filled by calling code if available
+            connector_type_id=None,  # Will be filled by calling code if available
+            connector_name=None,  # Will be filled by calling code if available
+            destination_id=None,  # Will be filled by calling code if available
+        )
 
     def _get_destination_platform_for_connector(self, connector_id: str) -> str:
         """Get destination platform for a connector."""

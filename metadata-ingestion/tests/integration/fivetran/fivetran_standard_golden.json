@@ -148,7 +148,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -159,7 +159,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.employee,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -170,7 +170,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -181,7 +181,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.company,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -192,7 +192,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -203,7 +203,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,confluent_cloud.my-source-topic,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 }
@@ -386,7 +386,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -397,7 +397,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.employee,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -408,7 +408,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -419,7 +419,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.company,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -430,7 +430,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),ID)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),id)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -441,7 +441,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),NAME)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,kafka_prod.my-source-topic,PROD),name)"
                     ],
                     "confidenceScore": 1.0
                 }

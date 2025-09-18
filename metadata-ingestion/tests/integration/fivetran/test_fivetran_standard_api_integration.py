@@ -145,6 +145,52 @@ class TestFivetranStandardAPIIntegration:
             status=200,
         )
 
+        # Mock individual connector details (needed for lineage extraction)
+        responses.add(
+            responses.GET,
+            "https://api.fivetran.com/v1/connectors/postgres_connector",
+            json={
+                "code": "Success",
+                "data": {
+                    "id": "postgres_connector",
+                    "group_id": "group_1",
+                    "service": "postgres",
+                    "schema": "public",
+                    "connected_by": "user_123",
+                    "display_name": "PostgreSQL Production",
+                    "sync_frequency": 1440,
+                    "status": {"setup_state": "connected"},
+                    "created_at": "2023-01-01T00:00:00Z",
+                    "succeeded_at": "2023-01-01T01:00:00Z",
+                    "failed_at": None,
+                },
+            },
+            status=200,
+        )
+
+        responses.add(
+            responses.GET,
+            "https://api.fivetran.com/v1/connectors/mysql_connector",
+            json={
+                "code": "Success",
+                "data": {
+                    "id": "mysql_connector",
+                    "group_id": "group_2",
+                    "service": "mysql",
+                    "schema": "main",
+                    "connected_by": "user_456",
+                    "display_name": "MySQL Staging",
+                    "sync_frequency": 720,
+                    "status": {"setup_state": "connected"},
+                    "created_at": "2023-01-02T00:00:00Z",
+                    "succeeded_at": "2023-01-02T01:00:00Z",
+                    "failed_at": None,
+                    "paused": True,
+                },
+            },
+            status=200,
+        )
+
         # Mock destination details for group_1
         responses.add(
             responses.GET,

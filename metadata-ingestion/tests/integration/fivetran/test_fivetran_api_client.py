@@ -571,7 +571,7 @@ class TestFivetranCoverageBoost:
             status=200,
         )
 
-        lineage = api_client.extract_table_lineage("lineage_connector")
+        lineage = list(api_client.extract_table_lineage_generator("lineage_connector"))
         assert len(lineage) >= 0  # Should not crash
 
     # Test metadata extraction

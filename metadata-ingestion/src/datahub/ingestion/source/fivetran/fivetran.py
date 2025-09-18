@@ -85,9 +85,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         # For backward compatibility with existing tests
         self.audit_log = self.fivetran_access
 
-        # Initialize field lineage workunits list
-        self.field_lineage_workunits: List[MetadataWorkUnit] = []
-
     def _get_source_details(self, connector: Connector) -> PlatformDetail:
         """Get source platform details for a connector."""
         # Look up source details in the configuration mapping
@@ -1534,6 +1531,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         Datahub Ingestion framework invoke this method
         """
         logger.info("Fivetran plugin execution is started")
+
+        # Process connectors one at a time, yielding work units immediately
+        logger.info("Processing connectors with memory-efficient lineage extraction")
         connectors = self.fivetran_access.get_allowed_connectors_list(
             self.config.connector_patterns,
             self.config.destination_patterns,
