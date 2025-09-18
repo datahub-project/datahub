@@ -823,6 +823,8 @@ describe('useTemplateOperations', () => {
                 },
             });
 
+            mockUpdateAssetSettings.mockResolvedValue(new Promise(() => {}));
+
             await act(async () => {
                 await result.current.upsertTemplate(mockTemplate, true, null);
             });

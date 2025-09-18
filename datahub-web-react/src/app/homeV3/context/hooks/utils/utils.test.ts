@@ -1,4 +1,12 @@
-import { getDefaultSummaryPageTemplate } from '@app/homeV3/context/hooks/utils/utils';
+import {
+    filterNonExistentStructuredProperties,
+    getDefaultSummaryPageTemplate,
+} from '@app/homeV3/context/hooks/utils/utils';
+import {
+    ASSETS_MODULE,
+    CHILD_HIERARCHY_MODULE,
+    DATA_PRODUCTS_MODULE,
+} from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
 
@@ -16,7 +24,7 @@ describe('getDefaultSummaryPageTemplate', () => {
                 surface: {
                     surfaceType: PageTemplateSurfaceType.AssetSummary,
                 },
-                rows: [{ modules: expect.any(Array) }],
+                rows: [{ modules: [ASSETS_MODULE, CHILD_HIERARCHY_MODULE] }, { modules: [DATA_PRODUCTS_MODULE] }],
                 assetSummary: {
                     summaryElements: [
                         { elementType: SummaryElementType.Created },
@@ -57,7 +65,7 @@ describe('getDefaultSummaryPageTemplate', () => {
         });
 
         // Verify modules array has content (but don't test specific content since it will change)
-        expect(result.properties.rows[0].modules).toHaveLength(2);
+        expect(result.properties.rows[0].modules).toHaveLength(1);
     });
 
     it('should return correct template for GlossaryTerm entity type', () => {
@@ -138,7 +146,6 @@ describe('getDefaultSummaryPageTemplate', () => {
 
     it('should always return consistent base template properties', () => {
         const entityTypes = [
-            EntityType.Domain,
             EntityType.DataProduct,
             EntityType.GlossaryTerm,
             EntityType.GlossaryNode,
@@ -153,7 +160,11 @@ describe('getDefaultSummaryPageTemplate', () => {
             expect(result.type).toBe(EntityType.DatahubPageTemplate);
             expect(result.properties.visibility.scope).toBe(PageTemplateScope.Personal);
             expect(result.properties.surface.surfaceType).toBe(PageTemplateSurfaceType.AssetSummary);
-            expect(result.properties.rows).toHaveLength(1);
+            if (entityType === EntityType.Domain) {
+                expect(result.properties.rows).toHaveLength(2);
+            } else {
+                expect(result.properties.rows).toHaveLength(1);
+            }
             expect(result.properties.rows[0]).toHaveProperty('modules');
             expect(result.properties.assetSummary).toHaveProperty('summaryElements');
         });
@@ -180,5 +191,179 @@ describe('getDefaultSummaryPageTemplate', () => {
         expect(domainResult?.properties?.assetSummary?.summaryElements).not.toEqual(
             glossaryTermResult?.properties?.assetSummary?.summaryElements,
         );
+    });
+});
+
+describe('filterNonExistentStructuredProperties', () => {
+    it('should return empty array for empty input', () => {
+        expect(filterNonExistentStructuredProperties([])).toEqual([]);
+    });
+
+    it('should keep all non-StructuredProperty elements', () => {
+        const input = [{ elementType: SummaryElementType.Created }, { elementType: SummaryElementType.Domain }];
+        expect(filterNonExistentStructuredProperties(input)).toEqual(input);
+    });
+
+    it('should keep StructuredProperty elements with exists=true', () => {
+        const input = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:1',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        expect(filterNonExistentStructuredProperties(input)).toEqual(input);
+    });
+
+    it('should remove StructuredProperty elements with exists=false', () => {
+        const input = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:1',
+                    exists: false,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        const expected = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        expect(filterNonExistentStructuredProperties(input)).toEqual(expected);
+    });
+
+    it('should remove StructuredProperty if structuredProperty is missing', () => {
+        const input = [
+            { elementType: SummaryElementType.StructuredProperty }, // no structuredProperty
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        const expected = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        expect(filterNonExistentStructuredProperties(input)).toEqual(expected);
+    });
+
+    it('should handle mixed elements keeping valid StructuredProperty and non-StructuredProperty', () => {
+        const input = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:1',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+            { elementType: SummaryElementType.Created },
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: false,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+            { elementType: SummaryElementType.Domain },
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:3',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        const expected = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:1',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+            { elementType: SummaryElementType.Created },
+            { elementType: SummaryElementType.Domain },
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:3',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        expect(filterNonExistentStructuredProperties(input)).toEqual(expected);
+    });
+
+    it('should remove StructuredProperty when structuredProperty.exists is undefined', () => {
+        const input = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:1',
+                    exists: undefined as any,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        const expected = [
+            {
+                elementType: SummaryElementType.StructuredProperty,
+                structuredProperty: {
+                    urn: 'urn:2',
+                    exists: true,
+                    type: EntityType.StructuredProperty,
+                },
+            },
+        ];
+        expect(filterNonExistentStructuredProperties(input)).toEqual(expected);
     });
 });

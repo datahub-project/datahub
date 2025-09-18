@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
+import { filterNonExistentStructuredProperties } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import useShowToast from '@app/homeV3/toast/useShowToast';
@@ -57,7 +58,7 @@ export function useTemplateOperations(
     personalTemplate: PageTemplateFragment | null,
     templateType: PageTemplateSurfaceType,
 ) {
-    const { urn } = useEntityContext();
+    const { urn, refetch } = useEntityContext();
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
     const [updateAssetSettings] = useUpdateAssetSettingsMutation();
@@ -118,7 +119,13 @@ export function useTemplateOperations(
                     }
 
                     // Insert module into the rows at given position
-                    newRows = insertModuleIntoRows(newRows, module, { ...position, moduleIndex }, rowIndex);
+                    newRows = insertModuleIntoRows(
+                        newRows,
+                        module,
+                        { ...position, moduleIndex },
+                        rowIndex,
+                        templateType,
+                    );
                 }
             }
 
@@ -129,7 +136,7 @@ export function useTemplateOperations(
 
             return newTemplate;
         },
-        [],
+        [templateType],
     );
 
     // Helper function to remove a module from template
@@ -205,7 +212,9 @@ export function useTemplateOperations(
                     templateToUpsert.properties.assetSummary?.summaryElements !== undefined
                         ? {
                               summaryElements:
-                                  templateToUpsert.properties.assetSummary?.summaryElements?.map((el) => ({
+                                  filterNonExistentStructuredProperties(
+                                      templateToUpsert.properties.assetSummary?.summaryElements || [],
+                                  ).map((el) => ({
                                       elementType: el.elementType,
                                       structuredPropertyUrn: el.structuredProperty?.urn,
                                   })) || [],
@@ -232,8 +241,10 @@ export function useTemplateOperations(
                         setPersonalTemplate(data.upsertPageTemplate);
                         updateAssetSettings({
                             variables: { input: { urn, summary: { template: data.upsertPageTemplate.urn } } },
-                        });
+                        }).then(() => refetch?.());
                     }
+                } else {
+                    refetch?.(); // updates entityData that gets cached on a profile page for summary tab
                 }
             });
         },
@@ -245,6 +256,7 @@ export function useTemplateOperations(
             templateType,
             updateAssetSettings,
             urn,
+            refetch,
         ],
     );
 

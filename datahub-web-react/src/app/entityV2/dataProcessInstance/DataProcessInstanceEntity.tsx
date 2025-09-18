@@ -134,7 +134,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
         };
     };
 
-    renderPreview = (_: PreviewType, data: DataProcessInstance) => {
+    renderPreview = (previewType: PreviewType, data: DataProcessInstance) => {
         const genericProperties = this.getGenericEntityProperties(data);
         const parentEntities = getParentEntities(data);
         return (
@@ -152,6 +152,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 externalUrl={data.properties?.externalUrl}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
+                previewType={previewType}
             />
         );
     };
