@@ -67,7 +67,7 @@ To invite users via email, you need the `Manage User Credentials` [Platform Priv
 2. Click the **Invite Users** button to open the invitation modal
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-cta.png"/>
+  <img width="85%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-cta.png"/>
 </p>
 
 3. Switch to the **Invite via Email** tab
