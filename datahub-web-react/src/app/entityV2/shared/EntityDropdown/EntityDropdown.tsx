@@ -177,6 +177,7 @@ const EntityDropdown = (props: Props) => {
             title: !entityData?.deprecation?.deprecated ? 'Mark as Deprecated' : 'Mark as un-deprecated',
             render: () => (
                 <div
+                    data-testid="entity-menu-deprecate-button"
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -250,6 +251,7 @@ const EntityDropdown = (props: Props) => {
             title: 'Add Term',
             icon: 'Plus',
             onClick: () => setIsCreateTermModalVisible(true),
+            'data-testid': 'entity-menu-add-term-button',
         });
     }
 
@@ -271,6 +273,7 @@ const EntityDropdown = (props: Props) => {
             icon: 'FolderOpen',
             disabled: isMoveDisabled(entityType, entityData, me.platformPrivileges),
             onClick: () => setIsMoveModalVisible(true),
+            'data-testid': 'entity-menu-move-button',
         });
     }
 
@@ -434,6 +437,7 @@ const EntityDropdown = (props: Props) => {
                   } entities.`
                 : undefined,
             onClick: onDeleteEntity,
+            'data-testid': 'entity-menu-delete-button',
         });
     }
 
