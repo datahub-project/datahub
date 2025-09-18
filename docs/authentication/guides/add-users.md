@@ -18,35 +18,33 @@ DataHub provides multiple approaches for onboarding users to your organization, 
 
 DataHub's user invitation system helps your organization scale data adoption efficiently by enabling you to:
 
-- **Streamline Onboarding**: Invite users directly via email with pre-assigned [roles](../../authorization/roles), eliminating complex manual setup steps
+- **Streamline Onboarding**: Invite users directly via email with pre-assigned [roles](../../authorization/roles.md), eliminating complex manual setup steps
 - **Discover Data Power Users**: Automatically identify and invite the most active users from your data platforms based on usage analytics
 - **Control Access**: Manage permissions through role-based access control while supporting flexible authentication options
 - **Scale Team Adoption**: Generate shareable invite links for bulk onboarding while maintaining governance standards
 
 Whether you're a data platform administrator rolling out DataHub organization-wide, or a team lead wanting to bring specific users into your data workflows, DataHub provides the right invitation method for your approach.
 
-## Available User Invitation Methods
+## How to Invite Users to DataHub
 
 DataHub offers the following methods for adding users, with availability depending on your deployment type:
 
-### DataHub Cloud Methods
+| Invitation Method           | Description                                                         | DataHub Cloud | DataHub Core |
+| --------------------------- | ------------------------------------------------------------------- | ------------- | ------------ |
+| Email Invitations           | Send personalized invitations directly to users with assigned roles | ✅            | ❌           |
+| User Invite Recommendations | Automatically discover and invite power users from usage analytics  | ✅            | ❌           |
+| Shared Invite Links         | Generate role-specific shareable links for bulk onboarding          | ✅            | ✅           |
+| Static Credential Files     | File-based user management for controlled environments (via JaaS)   | ❌            | ✅           |
 
-- **Email Invitations**: Send personalized invitations directly to users with assigned roles (Reader, Editor, Admin)
-- **User Invite Recommendations**: Discover and invite power users automatically identified from your data platform usage analytics
-- **Shared Invite Links**: Generate role-specific shareable links for bulk onboarding
+Read on to learn more about each of these approaches to bringing users into your DataHub deployment.
 
-### DataHub Core Methods
-
-- **Shared Invite Links**: Generate role-specific shareable links for user onboarding
-- **Static Credential Files**: File-based user management for controlled environments (via JaaS)
-
-#### How Users Log In
+### A Note on Authentication
 
 Understanding how DataHub handles user authentication will help you choose the right invitation approach. These authentication methods will be referenced throughout the guide:
 
-- **Single Sign-On (SSO)**: For enterprise deployments, DataHub integrates with identity providers like Azure AD, Okta, and Google via OpenID Connect. When SSO is configured, invited users will authenticate through your organization's existing identity system. See the [DataHub Cloud OIDC Integration](../../managed-datahub/integrations/oidc-sso-integration) or [Self-Hosted OIDC Configuration](sso/configure-oidc-react) guides for setup details.
+- **Single Sign-On (SSO)**: For enterprise deployments, DataHub integrates with identity providers like Azure AD, Okta, and Google via OpenID Connect. When SSO is configured, invited users will authenticate through your organization's existing identity system. See the [DataHub Cloud OIDC Integration](../../managed-datahub/integrations/oidc-sso-integration.md) or [Self-Hosted OIDC Configuration](sso/configure-oidc-react.md) guides for setup details.
 
-- **Native Authentication**: DataHub also supports direct username/password authentication for environments where SSO isn't available or for special access scenarios. For self-hosted deployments requiring file-based user management, see the [JaaS Authentication](jaas) guide.
+- **Native Authentication**: DataHub also supports direct username/password authentication for environments where SSO isn't available or for special access scenarios. For self-hosted deployments requiring file-based user management, see the [JaaS Authentication](jaas.md) guide.
 
 ## Email Invitations (DataHub Cloud)
 
@@ -63,7 +61,7 @@ When you invite users via email, DataHub automatically:
 
 ### Sending Email Invitations
 
-To invite users via email, you need the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide).
+To invite users via email, you need the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md).
 
 1. Navigate to **Settings** > **Users & Groups**
 2. Click the **Invite Users** button to open the invitation modal
@@ -113,7 +111,7 @@ DataHub's recommendation engine:
 - Calculates usage percentiles to surface top performers
 - Filters out users already invited or existing in your DataHub instance
 
-For more details on how usage data is collected and analyzed, see the [Dataset Usage & Query History](../features/dataset-usage-and-query-history) guide.
+For more details on how usage data is collected and analyzed, see the [Dataset Usage & Query History](../../features/dataset-usage-and-query-history.md) guide.
 
 ### Viewing Recommendations in the Invite Modal
 
@@ -163,7 +161,7 @@ Shared invite links provide a scalable way to onboard multiple users by generati
 
 ### Generating Invite Links
 
-If you have the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide), you can create invite links:
+If you have the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md), you can create invite links:
 
 1. Navigate to **Settings** > **Users & Groups**
 2. Click the **Invite Users** button
@@ -222,6 +220,6 @@ Now that you understand DataHub's user invitation capabilities:
 1. **Start with your core team**: Begin by inviting key stakeholders and power users who can help drive adoption
 2. **Leverage recommendations**: Use DataHub's analytics to discover and invite active data practitioners from your platforms
 3. **Scale gradually**: Use shared invite links for broader team onboarding once your core group is established
-4. **Learn about policies**: For teams wanting to implement more granular role-based access control, explore [DataHub Policies](../../authorization/policies) to create fine-tuned permissions for different user groups
+4. **Learn about policies**: For teams wanting to implement more granular role-based access control, explore [DataHub Policies](../../authorization/policies.md) to create fine-tuned permissions for different user groups
 
 DataHub's flexible user management system grows with your needs, providing both targeted invitation capabilities for strategic onboarding and scalable methods for organization-wide adoption.
