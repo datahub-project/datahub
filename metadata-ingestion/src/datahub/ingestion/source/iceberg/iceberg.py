@@ -12,7 +12,7 @@ from pyiceberg.exceptions import (
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
-    ServerError,
+    RESTError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
@@ -154,6 +154,10 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.report: IcebergSourceReport = IcebergSourceReport()
         self.config: IcebergSourceConfig = config
         self.ctx: PipelineContext = ctx
+        self.stamping_processor = AutoSystemMetadata(
+            self.ctx
+        )  # single instance used only when processing namespaces
+        self.namespaces: List[Tuple[Identifier, str]] = []
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
@@ -196,9 +200,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             auto_lowercase_dataset_urns,
             auto_materialize_referenced_tags_terms,
             partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
             ),
-            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
+            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
             EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
@@ -243,6 +247,13 @@ class IcebergSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="No such namespace",
                     message="Skipping the missing namespace.",
+                    context=str(namespace),
+                    exc=e,
+                )
+            except RESTError as e:
+                self.report.warning(
+                    title="Iceberg REST Server Error",
+                    message="Iceberg REST Server returned error status when trying to list tables for a namespace, skipping it.",
                     context=str(namespace),
                     exc=e,
                 )
@@ -322,10 +333,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                     context=dataset_name,
                     exc=e,
                 )
-            except ServerError as e:
+            except RESTError as e:
                 self.report.warning(
                     title="Iceberg REST Server Error",
-                    message="Iceberg returned 500 HTTP status when trying to process a table, skipping it.",
+                    message="Iceberg REST Server returned error status when trying to process a table, skipping it.",
                     context=dataset_name,
                     exc=e,
                 )
@@ -365,7 +376,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
 
         try:
-            catalog = self.config.get_catalog()
+            self.catalog = self.config.get_catalog()
         except Exception as e:
             self.report.report_failure(
                 title="Failed to initialize catalog object",
@@ -375,33 +386,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             return
 
         try:
-            stamping_processor = AutoSystemMetadata(self.ctx)
-            namespace_ids = self._get_namespaces(catalog)
-            namespaces: List[Tuple[Identifier, str]] = []
-            for namespace in namespace_ids:
-                namespace_repr = ".".join(namespace)
-                LOGGER.debug(f"Processing namespace {namespace_repr}")
-                namespace_urn = make_container_urn(
-                    NamespaceKey(
-                        namespace=namespace_repr,
-                        platform=self.platform,
-                        instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
-                )
-                namespace_properties: Properties = catalog.load_namespace_properties(
-                    namespace
-                )
-                namespaces.append((namespace, namespace_urn))
-                for aspect in self._create_iceberg_namespace_aspects(
-                    namespace, namespace_properties
-                ):
-                    yield stamping_processor.stamp_wu(
-                        MetadataChangeProposalWrapper(
-                            entityUrn=namespace_urn, aspect=aspect
-                        ).as_workunit()
-                    )
-            LOGGER.debug("Namespaces ingestion completed")
+            yield from self._process_namespaces()
         except Exception as e:
             self.report.report_failure(
                 title="Failed to list namespaces",
@@ -415,12 +400,69 @@ class IcebergSource(StatefulIngestionSourceBase):
             args_list=[
                 (dataset_path, namespace_urn)
                 for dataset_path, namespace_urn in self._get_datasets(
-                    catalog, namespaces
+                    self.catalog, self.namespaces
                 )
             ],
             max_workers=self.config.processing_threads,
         ):
             yield wu
+
+    def _try_processing_namespace(
+        self, namespace: Identifier
+    ) -> Iterable[MetadataWorkUnit]:
+        namespace_repr = ".".join(namespace)
+        try:
+            LOGGER.debug(f"Processing namespace {namespace_repr}")
+            namespace_urn = make_container_urn(
+                NamespaceKey(
+                    namespace=namespace_repr,
+                    platform=self.platform,
+                    instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+            )
+
+            namespace_properties: Properties = self.catalog.load_namespace_properties(
+                namespace
+            )
+            for aspect in self._create_iceberg_namespace_aspects(
+                namespace, namespace_properties
+            ):
+                yield self.stamping_processor.stamp_wu(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=namespace_urn, aspect=aspect
+                    ).as_workunit()
+                )
+            self.namespaces.append((namespace, namespace_urn))
+        except NoSuchNamespaceError as e:
+            self.report.report_warning(
+                title="Failed to retrieve namespace properties",
+                message="Couldn't find the namespace, was it deleted during the ingestion?",
+                context=namespace_repr,
+                exc=e,
+            )
+            return
+        except RESTError as e:
+            self.report.warning(
+                title="Iceberg REST Server Error",
+                message="Iceberg REST Server returned error status when trying to retrieve namespace properties, skipping it.",
+                context=str(namespace),
+                exc=e,
+            )
+        except Exception as e:
+            self.report.report_failure(
+                title="Failed to process namespace",
+                message="Unhandled exception happened during processing of the namespace",
+                context=namespace_repr,
+                exc=e,
+            )
+
+    def _process_namespaces(self) -> Iterable[MetadataWorkUnit]:
+        namespace_ids = self._get_namespaces(self.catalog)
+        for namespace in namespace_ids:
+            yield from self._try_processing_namespace(namespace)
+
+        LOGGER.debug("Namespaces ingestion completed")
 
     def _create_iceberg_table_aspects(
         self, dataset_name: str, table: Table, namespace_urn: str

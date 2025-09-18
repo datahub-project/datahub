@@ -1,11 +1,13 @@
 import { Dropdown, colors } from '@components';
 import React, { useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { StyledIcon } from '@app/homeV3/styledComponents';
+import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 const ButtonWrapper = styled.div`
@@ -20,6 +22,7 @@ const ButtonWrapper = styled.div`
     bottom: 32px;
     border-radius: 200px;
     box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+    z-index: ${ANT_NOTIFICATION_Z_INDEX + 1};
 `;
 
 const DropdownContainer = styled.div`
@@ -96,21 +99,24 @@ export default function EditHomePageSettingsButton() {
 
     return (
         <>
-            <ButtonWrapper>
-                <Dropdown
-                    menu={menu}
-                    trigger={['click']}
-                    dropdownRender={(menuNode) => <DropdownContainer>{menuNode}</DropdownContainer>}
-                >
-                    <StyledIcon
-                        icon="Gear"
-                        color="gray"
-                        source="phosphor"
-                        size="4xl"
-                        data-testid="edit-home-page-settings"
-                    />
-                </Dropdown>
-            </ButtonWrapper>
+            {createPortal(
+                <ButtonWrapper>
+                    <Dropdown
+                        menu={menu}
+                        trigger={['click']}
+                        dropdownRender={(menuNode) => <DropdownContainer>{menuNode}</DropdownContainer>}
+                    >
+                        <StyledIcon
+                            icon="Gear"
+                            color="gray"
+                            source="phosphor"
+                            size="4xl"
+                            data-testid="edit-home-page-settings"
+                        />
+                    </Dropdown>
+                </ButtonWrapper>,
+                document.body,
+            )}
             <ConfirmationModal
                 isOpen={!!showConfirmResetModal}
                 handleConfirm={handleResetToDefault}

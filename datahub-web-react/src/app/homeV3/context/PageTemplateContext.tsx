@@ -1,4 +1,4 @@
-import React, { ReactNode, createContext, useContext, useMemo, useState } from 'react';
+import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useAssetSummaryOperations } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
@@ -20,7 +20,10 @@ interface Props {
 export const PageTemplateProvider = ({ children, templateType }: Props) => {
     const { entityData } = useEntityData();
     const editable = !!entityData?.privileges?.canManageAssetSummary;
-    const isTemplateEditable = templateType === PageTemplateSurfaceType.AssetSummary ? editable : true;
+    const isTemplateEditable = useMemo(
+        () => (templateType === PageTemplateSurfaceType.AssetSummary ? editable : false),
+        [editable, templateType],
+    );
     // Template state management
     const {
         personalTemplate,
@@ -39,10 +42,10 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         useTemplateOperations(setPersonalTemplate, personalTemplate, templateType);
 
     // Modal state
-    const moduleModalState = useModuleModalState();
+    const moduleModalState = useModuleModalState(templateType);
 
     // Module operations
-    const { addModule, removeModule, upsertModule, moveModule } = useModuleOperations(
+    const { addModule, removeModule, upsertModule, moveModule, moduleContext } = useModuleOperations(
         isEditingGlobalTemplate,
         personalTemplate,
         globalTemplate,
@@ -66,9 +69,6 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         upsertTemplate,
     );
 
-    // If modules should be reloaded
-    const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
-
     const value = useMemo(
         () => ({
             isTemplateEditable,
@@ -87,8 +87,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
-            reloadHomepageModules,
-            setReloadHomepageModules,
+            moduleContext,
             // Asset summary operations
             summaryElements,
             addSummaryElement,
@@ -112,8 +111,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
-            reloadHomepageModules,
-            setReloadHomepageModules,
+            moduleContext,
             // Asset summary operations
             summaryElements,
             addSummaryElement,

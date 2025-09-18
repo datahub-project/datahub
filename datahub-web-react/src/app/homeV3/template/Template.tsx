@@ -2,6 +2,7 @@ import { spacing } from '@components';
 import React, { memo, useMemo } from 'react';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ModuleModalMapper from '@app/homeV3/moduleModals/ModuleModalMapper';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
@@ -27,7 +28,8 @@ interface Props {
 }
 
 function Template({ className }: Props) {
-    const { template, isTemplateEditable } = usePageTemplateContext();
+    const { urn } = useEntityData();
+    const { template, isTemplateEditable, moduleContext } = usePageTemplateContext();
     const rows = useMemo(
         () => (template?.properties?.rows ?? []) as DataHubPageTemplateRow[],
         [template?.properties?.rows],
@@ -36,7 +38,12 @@ function Template({ className }: Props) {
     const wrappedRows = useMemo(() => wrapRows(rows), [rows]);
 
     return (
-        <Wrapper className={className}>
+        // set data-testid once module context resolves to reduce cypress flakiness
+        <Wrapper
+            className={className}
+            key={urn}
+            data-testid={moduleContext.globalTemplate ? 'home-template-wrapper' : undefined}
+        >
             <DragAndDropProvider>
                 <TemplateGrid wrappedRows={wrappedRows} />
             </DragAndDropProvider>

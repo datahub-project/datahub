@@ -126,7 +126,7 @@ project.ext.externalDependency = [
     'avro': 'org.apache.avro:avro:1.11.4',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.23',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.0',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.2',
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.4',
@@ -338,6 +338,12 @@ allprojects {
       if (project.configurations.getByName("testImplementation").getDependencies()
               .any { it.getName().contains("testng") }) {
         useTestNG()
+        // Configure TestNG to work better with test-logger
+        testLogging {
+          events "failed", "skipped"
+          exceptionFormat "full"
+          showStandardStreams = false
+        }
       }
     }
   }
@@ -396,7 +402,6 @@ allprojects {
       }
     }
   }
-
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
