@@ -3,8 +3,11 @@
   <timestamp key="bySecond" datePattern="yyyy-MM-dd'_'HH-mm-ss"/>
   <timestamp key="byDate" datePattern="yyyy-MM-dd"/>
 
+  <!-- Console logs with sanitization -->
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <layout class="ch.qos.logback.classic.PatternLayout">
+    <!-- Sanitization layout implemented in:
+         src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+    <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
       <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </layout>
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -17,6 +20,7 @@
     </filter>
   </appender>
 
+  <!-- File logs with sanitization -->
   <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_DIR}/datahub-frontend.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -31,11 +35,14 @@
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
       <level>INFO</level>
     </filter>
-    <encoder>
+    <!-- Sanitization encoder implemented in:
+         src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+    <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
       <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
 
+  <!-- Debug file logs with sanitization -->
   <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_DIR}/datahub-frontend.debug.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
@@ -52,7 +59,9 @@
       <onMatch>ACCEPT</onMatch>
       <onMismatch>DENY</onMismatch>
     </filter>
-    <encoder>
+    <!-- Sanitization encoder implemented in:
+         src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+    <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
       <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
     </encoder>
   </appender>
