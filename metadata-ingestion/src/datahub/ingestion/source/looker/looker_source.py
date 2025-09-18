@@ -731,7 +731,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             if ownership is not None:
                 chart_ownership = [ownership]
 
-        chart_extra_aspects: List[Union[InputFieldsClass, EmbedClass, Status]] = []
+        chart_extra_aspects: List[Union[InputFieldsClass, EmbedClass]] = []
         # If extracting embeds is enabled, produce an MCP for embed URL.
         if (
             self.source_config.extract_embed_urls
@@ -748,7 +748,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 fields=self._input_fields_from_dashboard_element(dashboard_element)
             )
         )
-        chart_extra_aspects.append(Status(removed=False))
         return [
             Chart(
                 chart_type=self._get_chart_type(dashboard_element),
@@ -1543,7 +1542,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         """
         Note: Returns Entities from SDKv2 where possible else MCPs only.
 
-        Using SDKv2: Containers, Dashboards and Charts
+        Using SDKv2: Containers, Datasets, Dashboards and Charts
         Using MCPW: Tags, DashboardUsageStats and UserResourceMapping
 
         TODO: Convert MCPWs to use SDKv2 entities

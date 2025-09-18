@@ -95,7 +95,6 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     GlobalTagsClass,
     SchemaMetadataClass,
-    StatusClass,
     TagAssociationClass,
     TagPropertiesClass,
     TagSnapshotClass,
@@ -1385,9 +1384,7 @@ class LookerExplore:
                 reporter=reporter,
             )
 
-        extra_aspects: List[Union[StatusClass, GlobalTagsClass, EmbedClass]] = [
-            StatusClass(removed=False),
-        ]
+        extra_aspects: List[Union[GlobalTagsClass, EmbedClass]] = []
 
         # Add tags
         explore_tag_urns: List[TagAssociationClass] = [
