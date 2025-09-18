@@ -582,12 +582,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "paths": [
-                "/Explore/data"
-            ]
+            "platform": "urn:li:dataPlatform:looker"
         }
     },
     "systemMetadata": {

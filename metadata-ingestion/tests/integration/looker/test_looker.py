@@ -2,7 +2,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 from unittest import mock
 
 import pytest
@@ -46,8 +46,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
     UserViewField,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import GlobalTagsClass, MetadataChangeEventClass
+from datahub.metadata.schema_classes import GlobalTagsClass
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -1451,26 +1450,21 @@ def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         assert looker_explore.name == "my_explore_name"
         assert looker_explore.tags == tags
 
-        mcps: Optional[
-            List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
-        ] = looker_explore._to_metadata_events(
+        mcps: List[MetadataChangeProposalWrapper] = looker_explore._to_metadata_events(
             config=LookerCommonConfig(),
             reporter=SourceReport(),
             base_url="fake",
             extract_embed_urls=False,
-        )
+        ).as_mcps()
 
         expected_tag_urns: List[str] = ["urn:li:tag:metrics", "urn:li:tag:all"]
 
         actual_tag_urns: List[str] = []
-        if mcps:
-            for mcp in mcps:
-                if isinstance(mcp, MetadataChangeEventClass):
-                    for aspect in mcp.proposedSnapshot.aspects:
-                        if isinstance(aspect, GlobalTagsClass):
-                            actual_tag_urns = [
-                                tag_association.tag for tag_association in aspect.tags
-                            ]
+        for mcp in mcps:
+            if isinstance(mcp.aspect, GlobalTagsClass):
+                actual_tag_urns = [
+                    tag_association.tag for tag_association in mcp.aspect.tags
+                ]
 
         assert expected_tag_urns == actual_tag_urns
 

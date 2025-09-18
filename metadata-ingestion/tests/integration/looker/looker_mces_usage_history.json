@@ -499,24 +499,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
-    "aspect": {
-        "json": {
-            "paths": [
-                "/Explore/data"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -533,20 +515,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
+    "aspectName": "embed",
     "aspect": {
         "json": {
-            "customProperties": {
-                "project": "lkml_samples",
-                "model": "data",
-                "looker.explore.label": "My Explore View",
-                "looker.explore.name": "my_view",
-                "looker.explore.file": "test_source_file.lkml"
-            },
-            "externalUrl": "https://looker.company.com/explore/data/my_view",
-            "name": "My Explore View",
-            "description": "lorem ipsum",
-            "tags": []
+            "renderUrl": "https://looker.company.com/embed/explore/data/my_view"
         }
     },
     "systemMetadata": {
@@ -559,19 +531,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1586847600000,
-                        "actor": "urn:li:corpuser:datahub"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
-                    "type": "VIEW"
-                }
-            ]
+            "platform": "urn:li:dataPlatform:looker"
         }
     },
     "systemMetadata": {
@@ -640,11 +603,18 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Explore"
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
+                    "type": "VIEW"
+                }
             ]
         }
     },
@@ -658,10 +628,20 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "embed",
+    "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "renderUrl": "https://looker.company.com/embed/explore/data/my_view"
+            "customProperties": {
+                "project": "lkml_samples",
+                "model": "data",
+                "looker.explore.label": "My Explore View",
+                "looker.explore.name": "my_view",
+                "looker.explore.file": "test_source_file.lkml"
+            },
+            "externalUrl": "https://looker.company.com/explore/data/my_view",
+            "name": "My Explore View",
+            "description": "lorem ipsum",
+            "tags": []
         }
     },
     "systemMetadata": {
@@ -678,6 +658,24 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:59a5aa45397364e6882e793f1bc77b42"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Explore"
+            ]
         }
     },
     "systemMetadata": {
@@ -714,24 +712,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,look_data.explore.look_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "browsePaths",
-    "aspect": {
-        "json": {
-            "paths": [
-                "/Explore/look_data"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "looker-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,look_data.explore.look_view,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
@@ -748,20 +728,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,look_data.explore.look_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
+    "aspectName": "embed",
     "aspect": {
         "json": {
-            "customProperties": {
-                "project": "lkml_samples",
-                "model": "look_data",
-                "looker.explore.label": "My Explore View",
-                "looker.explore.name": "look_view",
-                "looker.explore.file": "test_source_file.lkml"
-            },
-            "externalUrl": "https://looker.company.com/explore/look_data/look_view",
-            "name": "My Explore View",
-            "description": "lorem ipsum",
-            "tags": []
+            "renderUrl": "https://looker.company.com/embed/explore/look_data/look_view"
         }
     },
     "systemMetadata": {
@@ -774,19 +744,10 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,look_data.explore.look_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1586847600000,
-                        "actor": "urn:li:corpuser:datahub"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
-                    "type": "VIEW"
-                }
-            ]
+            "platform": "urn:li:dataPlatform:looker"
         }
     },
     "systemMetadata": {
@@ -855,11 +816,18 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,look_data.explore.look_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Explore"
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:datahub"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
+                    "type": "VIEW"
+                }
             ]
         }
     },
@@ -873,10 +841,20 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,look_data.explore.look_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "embed",
+    "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "renderUrl": "https://looker.company.com/embed/explore/look_data/look_view"
+            "customProperties": {
+                "project": "lkml_samples",
+                "model": "look_data",
+                "looker.explore.label": "My Explore View",
+                "looker.explore.name": "look_view",
+                "looker.explore.file": "test_source_file.lkml"
+            },
+            "externalUrl": "https://looker.company.com/explore/look_data/look_view",
+            "name": "My Explore View",
+            "description": "lorem ipsum",
+            "tags": []
         }
     },
     "systemMetadata": {
@@ -893,6 +871,24 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:a2a7aa63752695f9a1705faed9d03ffb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,look_data.explore.look_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Explore"
+            ]
         }
     },
     "systemMetadata": {
