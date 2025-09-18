@@ -872,14 +872,22 @@ class S3Source(StatefulIngestionSourceBase):
     ) -> List[str]:
         if not uri.endswith("/"):
             uri += "/"
+
         path_slash = uri.count("/")
         glob_slash = path_spec.glob_include.count("/")
         if path_slash == glob_slash and not path_spec.glob_include.endswith("**"):
             # no need to list sub-folders, we're at the end of the include path
             return [uri]
 
+        # Add next part of path_spec (if it exists) before globs to the prefix, so
+        # that we don't unnecessarily list too many directories.
+        next_path_components = path_spec.glob_include.split("/")[path_slash:] or [""]
+        prefix = next_path_components[0].split("*")[0]
+
+        logger.debug(f"get_dir_to_process listing folders {uri=} {prefix=}")
         iterator = list_folders_path(
             s3_uri=uri,
+            startswith=prefix,
             aws_config=self.source_config.aws_config,
         )
         sorted_dirs = sorted(
