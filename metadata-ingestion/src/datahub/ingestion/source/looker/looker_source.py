@@ -81,12 +81,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    DataPlatformInstance,
     Status,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    BrowsePathEntryClass,
     ChartTypeClass,
     EmbedClass,
     InputFieldClass,
@@ -639,18 +636,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         return chart_type
 
-    def _get_folder_browse_path_v2_entries(
-        self, folder: LookerFolder, include_current_folder: bool = True
-    ) -> Iterable[BrowsePathEntryClass]:
-        for ancestor in self.looker_api.folder_ancestors(folder_id=folder.id):
-            assert ancestor.id
-            urn = self._gen_folder_key(ancestor.id).as_urn()
-            yield BrowsePathEntryClass(id=urn, urn=urn)
-
-        urn = self._gen_folder_key(folder.id).as_urn()
-        if include_current_folder:
-            yield BrowsePathEntryClass(id=urn, urn=urn)
-
     def _get_folder_ancestors_urn_entries(
         self, folder: LookerFolder, include_current_folder: bool = True
     ) -> Iterable[str]:
@@ -662,24 +647,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         urn = self._gen_folder_key(folder.id).as_urn()
         if include_current_folder:
             yield urn
-
-    def _create_platform_instance_aspect(
-        self,
-    ) -> DataPlatformInstance:
-        assert self.source_config.platform_name, (
-            "Platform name is not set in the configuration."
-        )
-        assert self.source_config.platform_instance, (
-            "Platform instance is not set in the configuration."
-        )
-
-        return DataPlatformInstance(
-            platform=builder.make_data_platform_urn(self.source_config.platform_name),
-            instance=builder.make_dataplatform_instance_urn(
-                platform=self.source_config.platform_name,
-                instance=self.source_config.platform_instance,
-            ),
-        )
 
     def _make_chart_urn(self, element_id: str) -> str:
         platform_instance: Optional[str] = None
@@ -943,14 +910,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             datetime.datetime.now(),
         )
 
-    def _extract_event_urn(
-        self, event: Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
-    ) -> Optional[str]:
-        if isinstance(event, MetadataChangeEvent):
-            return event.proposedSnapshot.urn
-        else:
-            return event.entityUrn
-
     def _emit_folder_as_container(self, folder: LookerFolder) -> Iterable[Container]:
         if folder.id not in self.processed_folders:
             if folder.parent_id is None:
@@ -1115,22 +1074,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 self.reporter.email_ids_missing += 1
 
         return user
-
-    def process_metrics_dimensions_and_fields_for_dashboard(
-        self, dashboard: LookerDashboard
-    ) -> List[MetadataWorkUnit]:
-        chart_mcps = [
-            self._make_metrics_dimensions_chart_mcp(element)
-            for element in dashboard.dashboard_elements
-        ]
-        dashboard_mcp = self._make_metrics_dimensions_dashboard_mcp(dashboard)
-
-        mcps = chart_mcps
-        mcps.append(dashboard_mcp)
-
-        workunits = [mcp.as_workunit() for mcp in mcps]
-
-        return workunits
 
     def _input_fields_from_dashboard_element(
         self, dashboard_element: LookerDashboardElement
