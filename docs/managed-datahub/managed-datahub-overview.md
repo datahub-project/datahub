@@ -1,5 +1,5 @@
 ---
-title: "How DataHub Cloud compares to DataHub OSS"
+title: "DataHub Cloud vs. DataHub OSS"
 ---
 
 # DataHub Cloud vs. DataHub OSS
