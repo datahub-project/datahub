@@ -357,4 +357,7 @@ fragment entityPreview on Entity {
             ...versionProperties
         }
     }
+    ... on DataProduct {
+        ...dataProductFields
+    }
 }

@@ -38,6 +38,12 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                 },
             });
             message.success({ content: 'Link Removed', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                entityType,
+                entityUrn: mutationUrn,
+                actionType: EntityActionType.DeleteLink,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -64,7 +70,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                 type: EventType.EntityActionEvent,
                 entityType,
                 entityUrn: mutationUrn,
-                actionType: EntityActionType.UpdateLinks,
+                actionType: EntityActionType.AddLink,
             });
             refetch?.();
         } catch (e: unknown) {
@@ -91,6 +97,12 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                 },
             });
             message.success({ content: 'Link Updated', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                entityType,
+                entityUrn: mutationUrn,
+                actionType: EntityActionType.UpdateLinks,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
