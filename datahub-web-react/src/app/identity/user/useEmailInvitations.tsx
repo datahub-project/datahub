@@ -19,6 +19,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function useEmailInvitations() {
     const [emailInput, setEmailInput] = useState<string>('');
+    const [parsedEmails, setParsedEmails] = useState<string[]>([]);
     const [invitedUsers, setInvitedUsers] = useState<Array<InvitedUser>>([]);
     const [emailValidationError, setEmailValidationError] = useState<string>('');
 
@@ -32,39 +33,29 @@ export function useEmailInvitations() {
             .filter((email) => email.length > 0);
     }, []);
 
-    const validateEmails = useCallback(
-        (input: string): string => {
-            if (!input.trim()) {
-                return 'Please enter email addresses';
-            }
+    const validateEmails = useCallback((emailList: string[]): string => {
+        if (emailList.length === 0) {
+            return 'Please enter email addresses';
+        }
 
-            // Parse email addresses (comma or whitespace separated)
-            const emailCandidates = parseEmails(input);
+        const validEmails = emailList.filter((email) => EMAIL_REGEX.test(email));
 
-            const validEmails = emailCandidates.filter((email) => EMAIL_REGEX.test(email));
+        if (validEmails.length === 0) {
+            return 'Enter a valid email';
+        }
 
-            if (emailCandidates.length === 0) {
-                return 'Please enter email addresses';
-            }
+        if (validEmails.length < emailList.length) {
+            const invalidEmails = emailList.filter((email) => !EMAIL_REGEX.test(email));
+            return `Invalid email format: ${invalidEmails.join(', ')}`;
+        }
 
-            if (validEmails.length === 0) {
-                return 'Enter a valid email';
-            }
-
-            if (validEmails.length < emailCandidates.length) {
-                const invalidEmails = emailCandidates.filter((email) => !EMAIL_REGEX.test(email));
-                return `Invalid email format: ${invalidEmails.join(', ')}`;
-            }
-
-            return '';
-        },
-        [parseEmails],
-    );
+        return '';
+    }, []);
 
     const handleSendInvitations = useCallback(
         async (emailInviteRole: DataHubRole | undefined) => {
-            // Parse email addresses first to track what user attempted
-            const emails = parseEmails(emailInput);
+            // Use parsed emails from the pill input component
+            const emails = parsedEmails.length > 0 ? parsedEmails : parseEmails(emailInput);
 
             // Check if any emails are invalid for tracking purposes
             const enteredInvalidEmail = emails.some((email) => !EMAIL_REGEX.test(email));
@@ -79,7 +70,7 @@ export function useEmailInvitations() {
             });
 
             // Now validate and potentially block the action
-            const validationError = validateEmails(emailInput);
+            const validationError = validateEmails(emails);
             setEmailValidationError(validationError);
 
             if (validationError) {
@@ -117,6 +108,7 @@ export function useEmailInvitations() {
                     }));
                     setInvitedUsers([...invitedUsers, ...newInvitedUsers]);
                     setEmailInput(''); // Clear input after successful send
+                    setParsedEmails([]); // Clear parsed emails after successful send
 
                     // Add to global invited users tracking
                     addToGlobalInvitedUsers(emails);
@@ -148,7 +140,7 @@ export function useEmailInvitations() {
                 console.error('Failed to send email invitations:', error);
             }
         },
-        [emailInput, invitedUsers, sendUserInvitationsMutation, validateEmails, parseEmails],
+        [parsedEmails, emailInput, invitedUsers, sendUserInvitationsMutation, validateEmails, parseEmails],
     );
 
     const handleEmailInputChange = useCallback(
@@ -181,8 +173,22 @@ export function useEmailInvitations() {
     const resetEmailInvitations = useCallback(() => {
         setInvitedUsers([]);
         setEmailInput('');
+        setParsedEmails([]);
         setEmailValidationError('');
     }, []);
+
+    const handleEmailsChange = useCallback(
+        (emails: string[]) => {
+            setParsedEmails(emails);
+            setEmailInput(emails.join(', ')); // Keep emailInput for backward compatibility
+
+            // Clear validation error when emails change
+            if (emailValidationError) {
+                setEmailValidationError('');
+            }
+        },
+        [emailValidationError],
+    );
 
     // Send invitation to a specific email without affecting the form state
     const sendInvitationToEmail = useCallback(
@@ -238,6 +244,7 @@ export function useEmailInvitations() {
     return {
         // State
         emailInput,
+        parsedEmails,
         invitedUsers,
         emailValidationError,
 
@@ -245,6 +252,7 @@ export function useEmailInvitations() {
         handleSendInvitations,
         handleEmailInputChange,
         handleEmailInputKeyPress,
+        handleEmailsChange,
         updateInvitedUsersRole,
         resetEmailInvitations,
         setEmailInput,
