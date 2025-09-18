@@ -11,10 +11,12 @@
     <appender-ref ref="STDOUT"/>
   </root>
   
-  <!-- Console appender for test output -->
+  <!-- Console appender for test output with sanitization -->
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder>
+    <!-- SanitizingPatternLayout will clean %msg before output -->
+    <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+    <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
       <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-    </encoder>
+    </layout>
   </appender>
 </configuration>
