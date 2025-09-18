@@ -7,7 +7,7 @@ from aws_msk_iam_sasl_signer_python.msk_iam_sasl_signer import MSKAuthTokenProvi
 logger = logging.getLogger(__name__)
 
 
-def oauth_cb(oauth_config):
+def oauth_cb(oauth_config: dict) -> tuple[str, float]:
     """
     OAuth callback function for AWS MSK IAM authentication.
 
@@ -15,7 +15,7 @@ def oauth_cb(oauth_config):
     for authentication with AWS MSK using IAM.
 
     Returns:
-        tuple: (auth_token, expiry_time_seconds)
+        tuple[str, float]: (auth_token, expiry_time_seconds)
     """
     try:
         auth_token, expiry_ms = MSKAuthTokenProvider.generate_auth_token()

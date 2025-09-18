@@ -18,7 +18,7 @@ connection:
     #ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-keystore_password}
     #ssl.truststore.password: ${KAFKA_PROPERTIES_SSL_TRUSTSTORE_PASSWORD:-truststore_password}
     # for AWS MSK IAM (SASL/OAUTHBEARER) Use Helm or env to set these when enabling IAM.
-    # set sasl.oauthbearer.method to default and oauth_cb to "datahub_actions.utils.kafka_msk_iam:oauth_cb"
+    # set sasl.oauthbearer.method to default and oauth_cb to "datahub_executor.common.kafka_msk_iam:oauth_cb"
     #sasl.oauthbearer.method: ${KAFKA_PROPERTIES_SASL_OAUTHBEARER_METHOD:-""}
     #oauth_cb: ${KAFKA_PROPERTIES_OAUTH_CB:-""}
     #security.protocol: SASL_SSL
