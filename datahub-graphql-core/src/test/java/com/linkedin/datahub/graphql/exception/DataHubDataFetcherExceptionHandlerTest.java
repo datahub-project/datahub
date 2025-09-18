@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.exception;
 
 import static org.testng.Assert.*;
 
-import com.linkedin.metadata.entity.validation.ValidationException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
@@ -45,6 +44,20 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
+  public void testHandleIllegalStateException() throws ExecutionException, InterruptedException {
+    IllegalStateException exception = new IllegalStateException("Invalid state");
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Invalid state");
+    assertEquals(error.getErrorCode(), 500);
+  }
+
+  @Test
   public void testHandleDataHubGraphQLException() throws ExecutionException, InterruptedException {
     DataHubGraphQLException exception =
         new DataHubGraphQLException("GraphQL error", DataHubGraphQLErrorCode.NOT_FOUND);
@@ -57,6 +70,38 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "GraphQL error");
     assertEquals(error.getErrorCode(), 404);
+  }
+
+  @Test
+  public void testHandleDataHubGraphQLExceptionUnauthorized()
+      throws ExecutionException, InterruptedException {
+    DataHubGraphQLException exception =
+        new DataHubGraphQLException("Unauthorized access", DataHubGraphQLErrorCode.UNAUTHORIZED);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Unauthorized access");
+    assertEquals(error.getErrorCode(), 403);
+  }
+
+  @Test
+  public void testHandleDataHubGraphQLExceptionConflict()
+      throws ExecutionException, InterruptedException {
+    DataHubGraphQLException exception =
+        new DataHubGraphQLException("Resource conflict", DataHubGraphQLErrorCode.CONFLICT);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Resource conflict");
+    assertEquals(error.getErrorCode(), 409);
   }
 
   @Test
@@ -101,6 +146,22 @@ public class DataHubDataFetcherExceptionHandlerTest {
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "Nested invalid argument");
     assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testHandleNestedIllegalStateException()
+      throws ExecutionException, InterruptedException {
+    IllegalStateException cause = new IllegalStateException("Nested state error");
+    RuntimeException wrapper = new RuntimeException("Wrapper exception", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Nested state error");
+    assertEquals(error.getErrorCode(), 500);
   }
 
   @Test
@@ -168,6 +229,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testPriorityOrderOfExceptionHandling()
       throws ExecutionException, InterruptedException {
+    // DataHubGraphQLException should take priority over IllegalArgumentException
     DataHubGraphQLException dataHubException =
         new DataHubGraphQLException("DataHub error", DataHubGraphQLErrorCode.CONFLICT);
     IllegalArgumentException illegalArgException =
@@ -184,49 +246,94 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testFindFirstThrowableCauseOfClass() {
-    IllegalArgumentException rootCause = new IllegalArgumentException("Root cause");
-    RuntimeException middleCause = new RuntimeException("Middle cause", rootCause);
-    Exception topException = new Exception("Top exception", middleCause);
+  public void testComplexNestedExceptionHierarchy()
+      throws ExecutionException, InterruptedException {
+    // Create a complex nested exception hierarchy
+    ValidationException validationCause = new ValidationException("Validation error");
+    IllegalStateException illegalStateCause =
+        new IllegalStateException("State error", validationCause);
+    DataHubGraphQLException graphQLCause =
+        new DataHubGraphQLException("GraphQL error", DataHubGraphQLErrorCode.UNAUTHORIZED);
+    IllegalArgumentException illegalArgCause =
+        new IllegalArgumentException("Argument error", graphQLCause);
+    RuntimeException topLevelException = new RuntimeException("Top level", illegalArgCause);
 
-    IllegalArgumentException found =
-        handler.findFirstThrowableCauseOfClass(topException, IllegalArgumentException.class);
-    assertNotNull(found);
-    assertEquals(found.getMessage(), "Root cause");
+    Mockito.when(mockParameters.getException()).thenReturn(topLevelException);
 
-    ValidationException notFound =
-        handler.findFirstThrowableCauseOfClass(topException, ValidationException.class);
-    assertNull(notFound);
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
 
-    RuntimeException runtimeFound =
-        handler.findFirstThrowableCauseOfClass(topException, RuntimeException.class);
-    assertNotNull(runtimeFound);
-    assertEquals(runtimeFound.getMessage(), "Middle cause");
-  }
-
-  @Test
-  public void testFindFirstThrowableCauseOfClassWithNullThrowable() {
-    IllegalArgumentException result =
-        handler.findFirstThrowableCauseOfClass(null, IllegalArgumentException.class);
-    assertNull(result);
-  }
-
-  @Test
-  public void testFindFirstThrowableCauseOfClassWithSameClass() {
-    IllegalArgumentException exception = new IllegalArgumentException("Direct match");
-
-    IllegalArgumentException result =
-        handler.findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
     assertNotNull(result);
-    assertEquals(result.getMessage(), "Direct match");
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // DataHubGraphQLException should be found and used
+    assertEquals(error.getMessage(), "GraphQL error");
+    assertEquals(error.getErrorCode(), 403);
   }
 
   @Test
-  public void testFindFirstThrowableCauseOfClassWithNoCause() {
-    RuntimeException exception = new RuntimeException("No cause");
+  public void testMultipleValidationExceptionsInChain()
+      throws ExecutionException, InterruptedException {
+    ValidationException deepValidation = new ValidationException("Deep validation error");
+    IllegalStateException middleException =
+        new IllegalStateException("Middle error", deepValidation);
+    ValidationException topValidation =
+        new ValidationException("Top validation error", middleException);
 
-    IllegalArgumentException result =
-        handler.findFirstThrowableCauseOfClass(exception, IllegalArgumentException.class);
-    assertNull(result);
+    Mockito.when(mockParameters.getException()).thenReturn(topValidation);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // Should use the first ValidationException found
+    assertEquals(error.getMessage(), "Top validation error");
+    assertEquals(error.getErrorCode(), 400);
+  }
+
+  @Test
+  public void testExceptionWithNoCause() throws ExecutionException, InterruptedException {
+    RuntimeException exception = new RuntimeException("No cause exception");
+    // No cause set, so getCause() will return null
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "No cause exception");
+    assertEquals(error.getErrorCode(), 500);
+  }
+
+  @Test
+  public void testHandleExceptionWithEmptyMessage()
+      throws ExecutionException, InterruptedException {
+    RuntimeException exception = new RuntimeException("");
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "");
+    assertEquals(error.getErrorCode(), 500);
+  }
+
+  @Test
+  public void testHandleExecutionExceptionWithNestedCause()
+      throws ExecutionException, InterruptedException {
+    IllegalArgumentException rootCause = new IllegalArgumentException("Root illegal argument");
+    ExecutionException executionException = new ExecutionException("Execution failed", rootCause);
+    Mockito.when(mockParameters.getException()).thenReturn(executionException);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "Root illegal argument");
+    assertEquals(error.getErrorCode(), 400);
   }
 }
