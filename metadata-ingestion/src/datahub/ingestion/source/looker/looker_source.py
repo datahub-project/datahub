@@ -654,7 +654,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, folder: LookerFolder, include_current_folder: bool = True
     ) -> Iterable[str]:
         for ancestor in self.looker_api.folder_ancestors(folder_id=folder.id):
-            assert ancestor.id
+            assert ancestor.id  # to make the linter happy as `Folder` has id field marked optional - which is always returned by the API
             urn = self._gen_folder_key(ancestor.id).as_urn()
             yield urn
 
@@ -1034,8 +1034,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     ) -> Optional[datetime.datetime]:
         if looker_dashboard is None:
             return None
-        if looker_dashboard.last_updated_at is None:
-            return None
         return looker_dashboard.last_updated_at
 
     def _get_looker_folder(self, folder: Union[Folder, FolderBase]) -> LookerFolder:
@@ -1265,7 +1263,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             logger.debug(
                 f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
             )
-            assert looker_dashboard.id is not None
             self.reporter.report_dashboards_dropped(looker_dashboard.id)
             return True
         return False
@@ -1511,7 +1508,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             query: Optional[Query] = None
             try:
                 look_with_query = self.looker_api.get_look(look.id, fields=["query"])
-                query_obj = getattr(look_with_query, "query", None)
+                query_obj = look_with_query.query
                 if query_obj:
                     query = Query(
                         **{
