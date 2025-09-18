@@ -1386,12 +1386,7 @@ class LookerExplore:
 
         extra_aspects: List[Union[GlobalTagsClass, EmbedClass]] = []
 
-        # Add tags
-        explore_tag_urns: List[TagAssociationClass] = [
-            TagAssociationClass(tag=TagUrn(tag).urn()) for tag in self.tags
-        ]
-        if explore_tag_urns:
-            extra_aspects.append(GlobalTagsClass(explore_tag_urns))
+        explore_tag_urns: List[TagUrn] = [TagUrn(tag) for tag in self.tags]
         if extract_embed_urls:
             extra_aspects.append(EmbedClass(renderUrl=self._get_embed_url(base_url)))
 
@@ -1414,9 +1409,7 @@ class LookerExplore:
             description=self.description,
             subtype=DatasetSubTypes.LOOKER_EXPLORE,
             env=config.env,
-            platform_instance=config.platform_instance
-            if config.platform_instance
-            else None,
+            platform_instance=config.platform_instance,
             custom_properties={
                 k: str(v) for k, v in custom_properties.items() if v is not None
             },
@@ -1427,6 +1420,7 @@ class LookerExplore:
                 "Explore",
                 gen_model_key(config, self.model_name).as_urn(),
             ],
+            tags=explore_tag_urns if explore_tag_urns else None,
             extra_aspects=extra_aspects,
         )
 
