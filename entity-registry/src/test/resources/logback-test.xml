@@ -1,8 +1,17 @@
 <configuration debug="false" scan="true">
   <appender name="STDOUT" target="System.out" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder>
-      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
-    </encoder>
+    <!-- SanitizingPatternLayout will clean %msg before output -->
+    <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+    <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
+      <pattern>
+        %date{ISO8601} [%thread] %-5level %logger{36}
+        urn=%X{entityUrn:-none}
+        aspect=%X{aspectName:-none}
+        entityType=%X{entityType:-none}
+        changeType=%X{changeType:-none}
+        - %msg%n
+      </pattern>
+    </layout>
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
       <level>INFO</level>
     </filter>
