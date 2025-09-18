@@ -851,6 +851,9 @@ class TableauSourceReport(
         default_factory=(lambda: defaultdict(int))
     )
 
+    # Owner extraction statistics
+    num_email_fallback_to_username: int = 0
+
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
     title: str = "Insufficient Permissions"
@@ -3626,6 +3629,7 @@ class TableauSiteSource:
             if email:
                 return email
             # Fall back to username if email is not available
+            self.report.num_email_fallback_to_username += 1
 
         return owner_dict.get(c.USERNAME)
 
@@ -3852,3 +3856,15 @@ class TableauSiteSource:
                     self.report.emit_upstream_tables_timer[self.site_content_url] = (
                         timer.elapsed_seconds(digits=2)
                     )
+
+            # Log owner extraction statistics if there were fallbacks
+            if (
+                self.config.use_email_as_username
+                and self.config.ingest_owner
+                and self.report.num_email_fallback_to_username > 0
+            ):
+                logger.info(
+                    f"Owner extraction summary for site '{self.site_content_url}': "
+                    f"{self.report.num_email_fallback_to_username} entities fell back from email to username "
+                    f"(email was not available)"
+                )

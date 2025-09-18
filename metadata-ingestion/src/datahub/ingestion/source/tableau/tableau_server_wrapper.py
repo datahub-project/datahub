@@ -36,5 +36,5 @@ class UserInfo:
             user_name=user.name,
             site_role=user.site_role,
             site_id=server.site_id,
-            email=getattr(user, "email", None),
+            email=user.email,
         )
