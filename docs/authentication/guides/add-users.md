@@ -1,18 +1,154 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Onboarding Users to DataHub
 
-New user accounts can be provisioned on DataHub in 3 ways:
+DataHub provides multiple approaches for adding users to your organization, with different methods available depending on whether you're using **DataHub Core** (self-hosted) or **DataHub Cloud**.
 
-1. Shared Invite Links
-2. Single Sign-On using [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8)
-3. Static Credential Configuration File (Self-Hosted Only)
+## DataHub Cloud
 
-The first option is the easiest to get started with. The second is recommended for deploying DataHub in production. The third should
-be reserved for special circumstances where access must be closely monitored and controlled, and is only relevant for Self-Hosted instances.
+DataHub Cloud offers streamlined user management with intelligent recommendations and email-based invitations:
 
-# Shared Invite Links
+1. **Email Invitations** - Send personalized invitations directly to users with assigned roles
+2. **Smart User Recommendations** - Discover and invite power users from your data platforms
+3. **Single Sign-On (SSO)** - Enterprise authentication via OpenID Connect
+4. **Shared Invite Links** - Generate shareable links for bulk onboarding
+   ]
+
+## DataHub Core (Self-Hosted)
+
+DataHub Core provides foundational user management capabilities:
+
+1. **Shared Invite Links** - Generate shareable links for user onboarding
+2. **Single Sign-On (SSO)** - Configure OpenID Connect for enterprise authentication
+3. **Static Credential Configuration** - File-based user management for controlled environments
+
+---
+
+## Email Invitations (DataHub Cloud)
+
+<FeatureAvailability SaaS/>
+
+DataHub Cloud's email invitation system allows administrators to directly invite users via email with pre-assigned roles, streamlining the onboarding process for your organization.
+
+### How Email Invitations Work
+
+When you invite users via email, DataHub automatically:
+
+- Sends personalized invitation emails with your organization's branding
+- Assigns the specified role (Reader, Editor, Admin) to users upon signup
+- Handles both SSO and non-SSO authentication scenarios
+- Tracks invitation status and provides resend/revoke capabilities
+
+### Inviting Users via Email
+
+To invite users via email, you need the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md).
+
+1. Navigate to **Settings** > **Users & Groups**
+2. Click the **Invite Users** button to open the invitation modal
+3. Switch to the **Invite via Email** tab
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-users-email-modal.png"/>
+</p>
+
+4. Enter one or more email address
+5. Select the appropriate role for the invited users
+6. Click **Invite**
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-users-email-form.png"/>
+</p>
+
+### Email Invitation Features
+
+- **Bulk Invitations**: Add multiple email addresses at once using various separators
+- **Input Validation**: Real-time validation prevents sending to invalid email addresses
+- **Role Assignment**: Assign Reader, Editor, or Admin roles to invited users
+- **SSO Integration**: Automatic handling when Single Sign-On is configured
+- **Invitation Management**: Resend or revoke invitations from the Users table
+
+#### Managing Pending Invitations
+
+Invited users appear in your Users & Groups table with a "Invited" status. You can:
+
+<p align="center">
+  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/pending-invitations-table.png"/>
+</p>
+
+- **Resend Invitation**: Send the invitation email again
+- **Delete Invitation**: Cancel the invitation and remove access for that email address
+- **View Details**: See invitation status and assigned role
+
+---
+
+## User Invite Recommendations (DataHub Cloud)
+
+<FeatureAvailability/>
+
+DataHub Cloud analyzes usage data from your ingested platforms to automatically identify and recommend power users for invitation, making it easy to onboard your organization's most active data practitioners.
+
+## How User Invite Recommendations Work
+
+DataHub's recommendation engine:
+
+- Analyzes usage patterns from your connected data platforms like Snowflake, BigQuery, Redshift, and more
+- Identifies users with high query volumes and frequent data access
+- Calculates usage percentiles to surface top performers
+- Filters out users already invited or existing in your DataHub instance
+
+For more details on how usage data is collected and analyzed, see the [Dataset Usage & Query History](../features/dataset-usage-and-query-history.md) guide.
+
+### Viewing User Invite Recommendations
+
+User recommendations appear in two locations:
+
+### 1. Top Recommendations in Invite Users Modal
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-users-recommendations-tab.png"/>
+</p>
+
+Access top recommendations when inviting users:
+
+1. Navigate to **Settings** > **Users & Groups**
+2. Click **Invite Users**
+3. Switch to the **Recommendations** tab
+4. View the recommended users with highest query volume and invite with 1 click
+
+### 2. All Recommended Users
+
+<p align="center">
+  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/user-recommendations-full-view.png"/>
+</p>
+
+View all recommendations in the Users page:
+
+1. Navigate to **Settings** > **Users & Groups**
+2. In the Users page, there's a "Recommended" section that lists all recent suggestions
+
+### Recommendation Features
+
+- **Platform-Specific Insights**: See which data platform each user is most active on
+- **Usage Metrics**: View query counts, data access frequency, and usage percentiles
+- **Smart Filtering**: Automatically excludes already invited or existing users
+- **Fresh Data**: Recommendations update based on the latest usage analytics
+
+### Inviting Recommended Users
+
+You can:
+
+- **Invite Individual Users**: Click the invite button next to any recommended user
+- **Customize Roles**: Assign different roles based on user expertise and needs
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-recommended-user.png"/>
+</p>
+
+---
+
+## Shared Invite Links
 
 ### Generating an Invite Link
 
@@ -49,7 +185,7 @@ To reset the password, simply share the password reset link with the user who ne
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/reset-user-password-popup.png"/>
 </p>
 
-# Configuring Single Sign-On with OpenID Connect
+## Configuring Single Sign-On with OpenID Connect
 
 Setting up Single Sign-On via OpenID Connect enables your organization's users to login to DataHub via a central Identity Provider such as
 
