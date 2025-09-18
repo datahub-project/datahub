@@ -97,6 +97,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
 from datahub.sdk.dashboard import Dashboard
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
 from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 from datahub.utilities.sentinels import Unset, unset
@@ -863,7 +864,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def _make_explore_containers(
         self,
-    ) -> Iterable[Union[Container, MetadataChangeProposalWrapper]]:
+    ) -> Iterable[Union[Container, Dataset]]:
         if not self.source_config.emit_used_explores_only:
             explores_to_fetch = list(self.list_all_explores())
         else:
@@ -899,15 +900,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             ((model, explore) for (_project, model, explore) in explores_to_fetch),
             max_workers=self.source_config.max_threads,
         ):
-            events, explore_id, start_time, end_time = future.result()
+            explore_dataset_entity, explore_id, start_time, end_time = future.result()
             self.reporter.explores_scanned += 1
-            # Converting MCEs to MCPs
-            # TODO: Update fetch_one_explore to use SDKv2 Dataset
-            for event in events:
-                if isinstance(event, MetadataChangeEvent):
-                    yield from mcps_from_mce(event)
-                elif isinstance(event, MetadataChangeProposalWrapper):
-                    yield event
+            yield explore_dataset_entity
             self.reporter.report_upstream_latency(start_time, end_time)
             logger.debug(
                 f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
@@ -927,26 +922,27 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def fetch_one_explore(
         self, model: str, explore: str
     ) -> Tuple[
-        List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
+        Dataset,
         str,
         datetime.datetime,
         datetime.datetime,
     ]:
         start_time = datetime.datetime.now()
-        events: List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]] = []
         looker_explore = self.explore_registry.get_explore(model, explore)
         if looker_explore is not None:
-            events = (
-                looker_explore._to_metadata_events(
-                    self.source_config,
-                    self.reporter,
-                    self.source_config.external_base_url or self.source_config.base_url,
-                    self.source_config.extract_embed_urls,
-                )
-                or events
+            explore_dataset_entity = looker_explore._to_metadata_events(
+                self.source_config,
+                self.reporter,
+                self.source_config.external_base_url or self.source_config.base_url,
+                self.source_config.extract_embed_urls,
             )
 
-        return events, f"{model}:{explore}", start_time, datetime.datetime.now()
+        return (
+            explore_dataset_entity,
+            f"{model}:{explore}",
+            start_time,
+            datetime.datetime.now(),
+        )
 
     def _extract_event_urn(
         self, event: Union[MetadataChangeEvent, MetadataChangeProposalWrapper]
@@ -1548,7 +1544,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         Note: Returns Entities from SDKv2 where possible else MCPs only.
 
         Using SDKv2: Containers, Dashboards and Charts
-        Using MCPW: Explores, Tags, DashboardUsageStats and UserResourceMapping
+        Using MCPW: Tags, DashboardUsageStats and UserResourceMapping
 
         TODO: Convert MCPWs to use SDKv2 entities
         """
@@ -1665,11 +1661,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # Process explore containers and yield them.
         with self.reporter.report_stage("explore_metadata"):
-            for container in self._make_explore_containers():
-                if isinstance(container, MetadataChangeProposalWrapper):
-                    yield container.as_workunit()
-                else:
-                    yield container
+            yield from self._make_explore_containers()
 
         if (
             self.source_config.tag_measures_and_dimensions
