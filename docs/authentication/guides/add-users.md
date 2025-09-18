@@ -11,10 +11,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 DataHub provides multiple approaches for onboarding users to your organization, with streamlined workflows that make it easy to invite the right people and get them productive quickly.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-users-overview.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-modal.png"/>
 </p>
 
-## Core Features for Growing Your DataHub User Base
+## Tools to Grow Your DataHub User Base
 
 DataHub's user invitation system helps your organization scale data adoption efficiently by enabling you to:
 
@@ -65,19 +65,15 @@ To invite users via email, you need the `Manage User Credentials` [Platform Priv
 
 1. Navigate to **Settings** > **Users & Groups**
 2. Click the **Invite Users** button to open the invitation modal
-3. Switch to the **Invite via Email** tab
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-users-email-modal.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-cta.png"/>
 </p>
 
+3. Switch to the **Invite via Email** tab
 4. Enter one or more email addresses (separated by commas, spaces, or new lines)
 5. Select the appropriate role for the invited users
 6. Click **Invite**
-
-<p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-users-email-form.png"/>
-</p>
 
 ### Email Invitation Features
 
@@ -86,6 +82,10 @@ To invite users via email, you need the `Manage User Credentials` [Platform Priv
 - **Role Assignment**: Assign Reader, Editor, or Admin roles to invited users
 - **SSO Integration**: Automatic handling when Single Sign-On is configured
 
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-email-validation.png"/>
+</p>
+
 ### Managing Pending Invitations
 
 Invited users appear in your Users & Groups table with an "Invited" status. From the table, you can:
@@ -93,10 +93,6 @@ Invited users appear in your Users & Groups table with an "Invited" status. From
 - **Resend Invitation**: Send the invitation email again to users who may not have received it
 - **Delete Invitation**: Cancel the invitation and remove access for that email address
 - **View Details**: See invitation status, assigned role, and invitation date
-
-<p align="center">
-  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/pending-invitations-table.png"/>
-</p>
 
 ## User Invite Recommendations (DataHub Cloud)
 
@@ -123,7 +119,7 @@ Access top recommendations when inviting users:
 4. View the recommended users with highest query volume and invite with 1 click
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-users-recommendations-tab.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-role-dropdown.png"/>
 </p>
 
 ### Viewing All Recommendations
@@ -132,10 +128,6 @@ View all recommendations in the Users page:
 
 1. Navigate to **Settings** > **Users & Groups**
 2. Look for the "Recommended" section that lists all recent suggestions
-
-<p align="center">
-  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/user-recommendations-full-view.png"/>
-</p>
 
 ### Recommendation Features
 
@@ -150,10 +142,6 @@ From any view, you can:
 
 - **Invite Individual Users**: Click the invite button next to any recommended user
 - **Customize Roles**: Assign different roles based on user expertise and needs
-
-<p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/cloud/invite-recommended-user.png"/>
-</p>
 
 ## Shared Invite Links
 
@@ -180,10 +168,6 @@ When users visit your invite link:
 - Their account is automatically assigned the role associated with the link
 - If SSO is configured, they'll authenticate through your organization's identity provider
 - If using native authentication, they'll create a username and password
-
-<p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/invite-users-signup.png"/>
-</p>
 
 ### Invite Link Best Practices
 
