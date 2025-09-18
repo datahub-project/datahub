@@ -7,6 +7,7 @@ import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRel
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
+import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -17,7 +18,13 @@ export default function RelatedTermsModule(props: ModuleProps) {
     const entityRegistry = useEntityRegistryV2();
     const history = useHistory();
     const { entityType, urn } = useEntityData();
-    const { data, loading } = useGetRelatedTermsQuery({ variables: { urn }, skip: !urn });
+    const { isReloading, onReloadingFinished } = useModuleContext();
+    const { data, loading } = useGetRelatedTermsQuery({
+        variables: { urn },
+        skip: !urn,
+        fetchPolicy: isReloading ? 'cache-and-network' : 'cache-first',
+        onCompleted: () => onReloadingFinished?.(),
+    });
 
     const navigateToRelatedTermsTab = () => {
         history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Related Terms`);

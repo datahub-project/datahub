@@ -277,6 +277,27 @@ module.exports = {
           ],
         },
         {
+          label: "Logical Models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/logical-models/overview",
+          },
+          items: [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/overview",
+            },
+            {
+              label: "Centralized Management",
+              type: "doc",
+              id: "docs/features/feature-guides/logical-models/centralized-management",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Metadata Tests",
           type: "doc",
           id: "docs/tests/metadata-tests",
@@ -421,6 +442,20 @@ module.exports = {
         {
           type: "doc",
           id: "docs/managed-datahub/slack/saas-slack-troubleshoot",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      Teams: [
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-app",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/teams/saas-teams-setup",
           className: "saasOnly",
         },
       ],
@@ -958,6 +993,7 @@ module.exports = {
         },
         "docs/authentication/introducing-metadata-service-authentication",
         "docs/authentication/personal-access-tokens",
+        "docs/authentication/external-oauth-providers",
       ],
     },
     {
