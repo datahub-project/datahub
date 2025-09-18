@@ -45,10 +45,9 @@ export function useGetAssetsYouSubscribeTo({
         [data?.listSubscriptions?.subscriptions],
     );
 
-    const entities =
-        originEntities.map((subscription) =>
-            entityRegistry.getGenericEntityProperties(subscription.type as EntityType, subscription),
-        ) || [];
+    const entities = originEntities.map((subscription) =>
+        entityRegistry.getGenericEntityProperties(subscription.type as EntityType, subscription),
+    );
     const total = data?.listSubscriptions?.total || 0;
 
     // For fetching paginated subscriptions based on start and count
