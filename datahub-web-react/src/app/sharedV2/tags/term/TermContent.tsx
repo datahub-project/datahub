@@ -1,4 +1,5 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import CloseIcon from '@mui/icons-material/Close';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
