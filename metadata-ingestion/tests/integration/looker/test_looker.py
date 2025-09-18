@@ -2,7 +2,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 from unittest import mock
 
 import pytest
@@ -46,8 +46,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
     UserViewField,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import GlobalTagsClass, MetadataChangeEventClass
+from datahub.metadata.schema_classes import GlobalTagsClass
 from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -394,7 +393,7 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
         dashboard_elements=[
             DashboardElement(
                 id="2",
-                type="",
+                type="vis",
                 subtitle_text="Some text",
                 query=Query(
                     model="data",
@@ -405,7 +404,7 @@ def setup_mock_dashboard_multiple_charts(mocked_client):
             ),
             DashboardElement(
                 id="10",
-                type="",
+                type="vis",
                 subtitle_text="Some other text",
                 query=Query(
                     model="bogus data",
@@ -433,7 +432,7 @@ def setup_mock_dashboard_with_usage(
         dashboard_elements=[
             DashboardElement(
                 id="2",
-                type="",
+                type="vis",
                 subtitle_text="Some text",
                 query=Query(
                     model="data",
@@ -924,6 +923,8 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multiple_charts(mocked_client)
         setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         pipeline_run1 = Pipeline.create(looker_source_config(output_file_name))
         pipeline_run1.run()
@@ -1137,6 +1138,8 @@ def test_file_path_in_view_naming_pattern(
         )
         setup_mock_look(mocked_client)
         setup_mock_external_project_view_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
 
@@ -1289,6 +1292,8 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multi_model_explores(mocked_client)
         setup_mock_multi_model_explores(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -1445,26 +1450,21 @@ def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         assert looker_explore.name == "my_explore_name"
         assert looker_explore.tags == tags
 
-        mcps: Optional[
-            List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]
-        ] = looker_explore._to_metadata_events(
+        mcps: List[MetadataChangeProposalWrapper] = looker_explore._to_metadata_events(
             config=LookerCommonConfig(),
             reporter=SourceReport(),
             base_url="fake",
             extract_embed_urls=False,
-        )
+        ).as_mcps()
 
         expected_tag_urns: List[str] = ["urn:li:tag:metrics", "urn:li:tag:all"]
 
         actual_tag_urns: List[str] = []
-        if mcps:
-            for mcp in mcps:
-                if isinstance(mcp, MetadataChangeEventClass):
-                    for aspect in mcp.proposedSnapshot.aspects:
-                        if isinstance(aspect, GlobalTagsClass):
-                            actual_tag_urns = [
-                                tag_association.tag for tag_association in aspect.tags
-                            ]
+        for mcp in mcps:
+            if isinstance(mcp.aspect, GlobalTagsClass):
+                actual_tag_urns = [
+                    tag_association.tag for tag_association in mcp.aspect.tags
+                ]
 
         assert expected_tag_urns == actual_tag_urns
 
@@ -1483,7 +1483,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1506,7 +1506,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1529,7 +1529,7 @@ def side_effect_function_for_dashboards(*args: Tuple[str], **kwargs: Any) -> Das
             dashboard_elements=[
                 DashboardElement(
                     id="2",
-                    type="",
+                    type="vis",
                     subtitle_text="Some text",
                     query=Query(
                         model="data",
@@ -1594,9 +1594,9 @@ def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_gra
         mock_sdk.return_value = mocked_client
 
         setup_mock_dashboard_with_folder(mocked_client)
-
         setup_mock_explore(mocked_client)
-
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         setup_mock_look(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -1668,7 +1668,8 @@ def test_group_label_tags(pytestconfig, tmp_path, mock_time):
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore_with_group_label(mocked_client)
-
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
         output_file = tmp_path / "looker_group_label_mces.json"
 
