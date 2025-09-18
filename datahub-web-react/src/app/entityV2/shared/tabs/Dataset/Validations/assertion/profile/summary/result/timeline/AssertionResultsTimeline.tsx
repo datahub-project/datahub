@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { AssertionResultsTimelineViz } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionResultsTimelineViz';
 import { AssertionTimelineSkeleton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/AssertionTimelineSkeleton';
-import { TimeSelect } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/TimeSelect';
+import {
+    CUSTOM_TIME_RANGE_WINDOW,
+    TimeSelect,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/TimeSelect';
 import { calculateInitialLookbackWindowFromRunEvents } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import { Message } from '@app/shared/Message';
 import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
@@ -13,7 +16,7 @@ import { useGetAssertionRunsLazyQuery } from '@graphql/assertion.generated';
 import { Assertion, AssertionType, Monitor } from '@types';
 
 const RESULT_CHART_WIDTH_PX = 560;
-const VIZ_CONTAINER_HEIGHT = 240;
+const VIZ_CONTAINER_HEIGHT = 260;
 const FRESHNESS_VIZ_CONTAINER_HEIGHT = 180;
 
 const Container = styled.div`
@@ -95,6 +98,20 @@ export const AssertionResultsTimeline = ({ assertion, monitor, openAssertionNote
     const results = data?.assertion?.runEvents;
     const isInitializing = !hasInitializedLookbackWindow;
 
+    // Handle time range selection from chart drag
+    const handleTimeRangeChange = useCallback(
+        (startTimeMs: number, endTimeMs: number) => {
+            setSelectedTimeWindow({
+                window: {
+                    startTime: startTimeMs,
+                    endTime: endTimeMs,
+                },
+                windowName: CUSTOM_TIME_RANGE_WINDOW.windowName,
+            });
+        },
+        [setSelectedTimeWindow],
+    );
+
     const vizHeight =
         assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT;
     return (
@@ -120,6 +137,7 @@ export const AssertionResultsTimeline = ({ assertion, monitor, openAssertionNote
                     results={results as any}
                     refreshData={refetch}
                     openAssertionNote={openAssertionNote}
+                    onTimeRangeChange={handleTimeRangeChange}
                 />
             )}
             <TimeSelect timeWindow={selectedTimeWindow} setTimeWindow={setSelectedTimeWindow} />

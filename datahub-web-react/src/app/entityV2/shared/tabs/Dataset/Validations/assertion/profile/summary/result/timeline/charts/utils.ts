@@ -1,4 +1,5 @@
 import _ from 'lodash';
+import React, { useCallback } from 'react';
 
 import { getPreviousScheduleEvaluationTimeMs } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import {
@@ -281,4 +282,114 @@ export const duplicateDataPointsAcrossBufferedTimeRange = (
         time: dataPoint.time + tsModifier,
     }));
     return points;
+};
+
+// Chart drag selection utilities
+export interface SelectionState {
+    isSelecting: boolean;
+    selectionStart: { x: number; y: number } | null;
+    selectionEnd: { x: number; y: number } | null;
+}
+
+export interface ChartDragHandlers {
+    handleMouseDown: (event: React.MouseEvent<HTMLDivElement>) => void;
+    handleMouseMove: (event: React.MouseEvent<HTMLDivElement>) => void;
+    handleMouseUp: (event: React.MouseEvent<HTMLDivElement>) => void;
+}
+
+/**
+ * Creates mouse event handlers for chart drag selection functionality
+ */
+export const useChartDragHandlers = (
+    selectionState: SelectionState,
+    setSelectionState: React.Dispatch<React.SetStateAction<SelectionState>>,
+    onTimeRangeChange: ((startTimeMs: number, endTimeMs: number) => void) | undefined,
+    xScale: any,
+    chartInnerWidth: number,
+    chartAxisLeftWidth: number,
+): ChartDragHandlers => {
+    const handleMouseDown = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            if (!onTimeRangeChange) return;
+
+            event.preventDefault();
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            setSelectionState({
+                isSelecting: true,
+                selectionStart: { x, y },
+                selectionEnd: { x, y },
+            });
+        },
+        [onTimeRangeChange, setSelectionState],
+    );
+
+    const handleMouseMove = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            if (!selectionState.isSelecting || !selectionState.selectionStart) return;
+
+            event.preventDefault();
+            const rect = event.currentTarget.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            setSelectionState((prev) => ({
+                ...prev,
+                selectionEnd: { x, y },
+            }));
+        },
+        [selectionState.isSelecting, selectionState.selectionStart, setSelectionState],
+    );
+
+    const handleMouseUp = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            if (
+                !selectionState.isSelecting ||
+                !selectionState.selectionStart ||
+                !selectionState.selectionEnd ||
+                !onTimeRangeChange
+            )
+                return;
+
+            event.preventDefault();
+            // Adjust coordinates to account for chart margins
+            const adjustedStartX = selectionState.selectionStart.x - chartAxisLeftWidth;
+            const adjustedEndX = selectionState.selectionEnd.x - chartAxisLeftWidth;
+
+            const minX = Math.min(adjustedStartX, adjustedEndX);
+            const maxX = Math.max(adjustedStartX, adjustedEndX);
+
+            // Only proceed if there's a meaningful selection (at least 10 pixels wide)
+            if (maxX - minX > 10 && minX >= 0 && maxX <= chartInnerWidth) {
+                const startTime = xScale.invert(minX);
+                const endTime = xScale.invert(maxX);
+
+                onTimeRangeChange(startTime.getTime(), endTime.getTime());
+            }
+
+            setSelectionState({
+                isSelecting: false,
+                selectionStart: null,
+                selectionEnd: null,
+            });
+        },
+        [
+            selectionState.isSelecting,
+            selectionState.selectionStart,
+            selectionState.selectionEnd,
+            onTimeRangeChange,
+            xScale,
+            chartInnerWidth,
+            chartAxisLeftWidth,
+            setSelectionState,
+        ],
+    );
+
+    return {
+        handleMouseDown,
+        handleMouseMove,
+        handleMouseUp,
+    };
 };

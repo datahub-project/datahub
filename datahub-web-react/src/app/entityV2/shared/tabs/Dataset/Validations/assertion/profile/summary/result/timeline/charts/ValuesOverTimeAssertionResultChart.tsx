@@ -7,7 +7,8 @@ import { scaleUtc } from '@visx/scale';
 import { AreaClosed, LinePath } from '@visx/shape';
 import { scaleLinear } from 'd3-scale';
 import _ from 'lodash';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import styled, { css } from 'styled-components';
 
 import {
     calculateOverlapBetweenTwoMarkers,
@@ -25,11 +26,13 @@ import {
 import {
     ACCENT_COLOR_HEX,
     EXPECTED_RANGE_SHADE_COLOR,
+    SelectionState,
     duplicateDataPointsAcrossBufferedTimeRange,
     generateTimeScaleTickValues,
     getCustomTimeScaleTickValue,
     getFillColor,
     tryGetUpperAndLowerYRangeFromAssertionRunEvent,
+    useChartDragHandlers,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
@@ -51,6 +54,7 @@ type Props = {
     renderHeader?: (title?: string) => JSX.Element;
     refreshData?: () => Promise<unknown>;
     openAssertionNote?: () => void;
+    onTimeRangeChange?: (startTimeMs: number, endTimeMs: number) => void;
 };
 
 const CHART_AXIS_LEFT_WIDTH = 32;
@@ -69,6 +73,39 @@ const formatYAxisValue = (value: number, skipRounding: boolean) => {
     return Math.round((value + Number.EPSILON) * 100) / 100;
 };
 
+const ChartInteractionContainer = styled.div<{ hasSelection: boolean }>`
+    position: relative;
+    ${(props) =>
+        props.hasSelection &&
+        css`
+            cursor: crosshair;
+            user-select: none;
+        `}
+
+    /* Override cursor for interactive elements */
+    .interactive-element {
+        cursor: pointer !important;
+    }
+`;
+
+const SelectionRectangle = styled.div<{
+    startX: number;
+    endX: number;
+    height: number;
+    marginTop: number;
+    marginBottom: number;
+}>`
+    position: absolute;
+    left: ${(props) => Math.min(props.startX, props.endX)}px;
+    top: ${(props) => props.marginTop}px;
+    width: ${(props) => Math.abs(props.endX - props.startX)}px;
+    height: ${(props) => props.height - props.marginTop - props.marginBottom}px;
+    background-color: ${colors.primary[200]};
+    opacity: 0.1;
+    border: 1px solid ${colors.violet[500]};
+    pointer-events: none;
+`;
+
 export const ValuesOverTimeAssertionResultChart = ({
     data,
     exclusionWindows,
@@ -77,12 +114,20 @@ export const ValuesOverTimeAssertionResultChart = ({
     renderHeader,
     refreshData,
     openAssertionNote,
+    onTimeRangeChange,
 }: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
     const rawDataPoints = data.dataPoints;
 
     const chartInnerWidth = chartDimensions.width - CHART_AXIS_LEFT_WIDTH - CHART_RIGHT_MARGIN;
     const chartInnerHeight = chartDimensions.height - CHART_AXIS_BOTTOM_HEIGHT - CHART_TOP_MARGIN;
+
+    // Selection state for drag functionality
+    const [selectionState, setSelectionState] = useState<SelectionState>({
+        isSelecting: false,
+        selectionStart: null,
+        selectionEnd: null,
+    });
 
     // Results line extractors
     const getY = (point: AssertionDataPoint, options: { fallback: number } = { fallback: 0 }): number =>
@@ -163,252 +208,285 @@ export const ValuesOverTimeAssertionResultChart = ({
     const distance = Math.max(...yScale.domain()) - Math.min(...yScale.domain());
     const skipRounding = distance <= 2;
 
+    // Mouse event handlers for drag selection
+    const { handleMouseDown, handleMouseMove, handleMouseUp } = useChartDragHandlers(
+        selectionState,
+        setSelectionState,
+        onTimeRangeChange,
+        xScale,
+        chartInnerWidth,
+        CHART_AXIS_LEFT_WIDTH,
+    );
+
     /* NOTE: the nodes in an svg that are first will have a lower z-index at paint-time */
     return (
         <>
             {renderHeader?.(data.yAxisLabel ? `${data.yAxisLabel} over time` : getTimeRangeDisplay(timeRange))}
-            <svg width={chartDimensions.width} height={chartDimensions.height}>
-                <Group left={CHART_AXIS_LEFT_WIDTH} top={CHART_TOP_MARGIN}>
-                    {/* ----- Axis ----- */}
-                    <AxisLeft
-                        scale={yScale}
-                        stroke={ANTD_GRAY[4]}
-                        tickStroke={ANTD_GRAY[9]}
-                        tickLength={4}
-                        numTicks={NUM_TICKS_AXIS_LEFT}
-                        tickFormat={(v) => formatYAxisValue(v.valueOf(), skipRounding).toString()}
-                        tickLabelProps={(value, _index) => {
-                            return {
-                                fill: ANTD_GRAY[9],
-                                fontSize: 11,
-                                textAnchor: 'start' as const, // Explicitly cast to allowed type
-                                dx: '-2.5em',
-                                dy:
-                                    formatYAxisValue(value.valueOf(), skipRounding).toString().length > 4
-                                        ? '-0.3em'
-                                        : '0.3em',
-                            };
-                        }}
-                    />
-                    <AxisBottom
-                        top={chartInnerHeight}
-                        scale={xScale}
-                        stroke={ANTD_GRAY[4]}
-                        tickStroke={ANTD_GRAY[9]}
-                        tickLength={4}
-                        tickValues={generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)}
-                        tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
-                    />
+            <ChartInteractionContainer
+                hasSelection={!!onTimeRangeChange}
+                onMouseDown={onTimeRangeChange ? handleMouseDown : undefined}
+                onMouseMove={onTimeRangeChange ? handleMouseMove : undefined}
+                onMouseUp={onTimeRangeChange ? handleMouseUp : undefined}
+            >
+                <svg width={chartDimensions.width} height={chartDimensions.height}>
+                    <Group left={CHART_AXIS_LEFT_WIDTH} top={CHART_TOP_MARGIN}>
+                        {/* ----- Axis ----- */}
+                        <AxisLeft
+                            scale={yScale}
+                            stroke={ANTD_GRAY[4]}
+                            tickStroke={ANTD_GRAY[9]}
+                            tickLength={4}
+                            numTicks={NUM_TICKS_AXIS_LEFT}
+                            tickFormat={(v) => formatYAxisValue(v.valueOf(), skipRounding).toString()}
+                            tickLabelProps={(value, _index) => {
+                                return {
+                                    fill: ANTD_GRAY[9],
+                                    fontSize: 11,
+                                    textAnchor: 'start' as const, // Explicitly cast to allowed type
+                                    dx: '-2.5em',
+                                    dy:
+                                        formatYAxisValue(value.valueOf(), skipRounding).toString().length > 4
+                                            ? '-0.3em'
+                                            : '0.3em',
+                                };
+                            }}
+                        />
+                        <AxisBottom
+                            top={chartInnerHeight}
+                            scale={xScale}
+                            stroke={ANTD_GRAY[4]}
+                            tickStroke={ANTD_GRAY[9]}
+                            tickLength={4}
+                            tickValues={generateTimeScaleTickValues(timeRange.startMs, timeRange.endMs)}
+                            tickFormat={(v) => getCustomTimeScaleTickValue(v, timeRange)}
+                        />
 
-                    {/* ----- Expected Results Lines ----- */}
-                    {/* Min */}
-                    <LinePath
-                        data={expectedRangeDataPoints}
-                        x={(d) => xScale(getX(d))}
-                        // NOTE nullish 'low's should never show because the `defined` prop below removes them
-                        y={(d) => yScale(getExpectedYs(d).low ?? 0)}
-                        defined={(d) => typeof getExpectedYs(d).low === 'number'}
-                        stroke={EXPECTED_RANGE_SHADE_COLOR}
-                        strokeDasharray="4 4"
-                        strokeWidth={1}
-                    />
-                    {/* Max */}
-                    <LinePath
-                        data={expectedRangeDataPoints}
-                        x={(d) => xScale(getX(d)) ?? 0}
-                        // NOTE nullish 'high's should never show because the `defined` prop below removes them
-                        y={(d) => yScale(getExpectedYs(d).high ?? 0)}
-                        defined={(d) => typeof getExpectedYs(d).high === 'number'}
-                        stroke={EXPECTED_RANGE_SHADE_COLOR}
-                        strokeDasharray="4 4"
-                        strokeWidth={1}
-                    />
-                    {/* Shade expected range */}
-                    <LinearGradient
-                        id="expected-area-gradient"
-                        from={EXPECTED_RANGE_SHADE_COLOR}
-                        to={EXPECTED_RANGE_SHADE_COLOR}
-                        fromOpacity={0.15}
-                        toOpacity={0.1}
-                    />
-                    <AreaClosed
-                        data={expectedRangeDataPoints}
-                        x={(d) => xScale(getX(d))}
-                        y0={(d) => yScale(getExpectedYs(d).low ?? yScale.domain()[0])} // first element of domain is the extent low
-                        y1={(d) => yScale(getExpectedYs(d).high ?? yScale.domain()[1])} // second element of the domain is the extent high
-                        defined={(d) => typeof (getExpectedYs(d).high ?? getExpectedYs(d).low) === 'number'}
-                        yScale={yScale}
-                        strokeWidth={1}
-                        fill="url(#expected-area-gradient)"
-                    />
+                        {/* ----- Expected Results Lines ----- */}
+                        {/* Min */}
+                        <LinePath
+                            data={expectedRangeDataPoints}
+                            x={(d) => xScale(getX(d))}
+                            // NOTE nullish 'low's should never show because the `defined` prop below removes them
+                            y={(d) => yScale(getExpectedYs(d).low ?? 0)}
+                            defined={(d) => typeof getExpectedYs(d).low === 'number'}
+                            stroke={EXPECTED_RANGE_SHADE_COLOR}
+                            strokeDasharray="4 4"
+                            strokeWidth={1}
+                        />
+                        {/* Max */}
+                        <LinePath
+                            data={expectedRangeDataPoints}
+                            x={(d) => xScale(getX(d)) ?? 0}
+                            // NOTE nullish 'high's should never show because the `defined` prop below removes them
+                            y={(d) => yScale(getExpectedYs(d).high ?? 0)}
+                            defined={(d) => typeof getExpectedYs(d).high === 'number'}
+                            stroke={EXPECTED_RANGE_SHADE_COLOR}
+                            strokeDasharray="4 4"
+                            strokeWidth={1}
+                        />
+                        {/* Shade expected range */}
+                        <LinearGradient
+                            id="expected-area-gradient"
+                            from={EXPECTED_RANGE_SHADE_COLOR}
+                            to={EXPECTED_RANGE_SHADE_COLOR}
+                            fromOpacity={0.15}
+                            toOpacity={0.1}
+                        />
+                        <AreaClosed
+                            data={expectedRangeDataPoints}
+                            x={(d) => xScale(getX(d))}
+                            y0={(d) => yScale(getExpectedYs(d).low ?? yScale.domain()[0])} // first element of domain is the extent low
+                            y1={(d) => yScale(getExpectedYs(d).high ?? yScale.domain()[1])} // second element of the domain is the extent high
+                            defined={(d) => typeof (getExpectedYs(d).high ?? getExpectedYs(d).low) === 'number'}
+                            yScale={yScale}
+                            strokeWidth={1}
+                            fill="url(#expected-area-gradient)"
+                        />
 
-                    {/* ----- Actual Results Line with gradient ----- */}
-                    <LinearGradient
-                        id="results-area-gradient"
-                        from={ACCENT_COLOR_HEX}
-                        to={ACCENT_COLOR_HEX}
-                        fromOpacity={0.2}
-                        toOpacity={0}
-                    />
-                    <AreaClosed
-                        data={dataPoints}
-                        x={(d) => xScale(getX(d))}
-                        y={(d) => yScale(getY(d))}
-                        yScale={yScale}
-                        strokeWidth={1}
-                        fill="url(#results-area-gradient)"
-                    />
-                    <LinePath
-                        data={dataPoints}
-                        x={(d) => xScale(getX(d))}
-                        y={(d) => yScale(getY(d))}
-                        stroke={ACCENT_COLOR_HEX}
-                        strokeWidth={2}
-                    />
+                        {/* ----- Actual Results Line with gradient ----- */}
+                        <LinearGradient
+                            id="results-area-gradient"
+                            from={ACCENT_COLOR_HEX}
+                            to={ACCENT_COLOR_HEX}
+                            fromOpacity={0.2}
+                            toOpacity={0}
+                        />
+                        <AreaClosed
+                            data={dataPoints}
+                            x={(d) => xScale(getX(d))}
+                            y={(d) => yScale(getY(d))}
+                            yScale={yScale}
+                            strokeWidth={1}
+                            fill="url(#results-area-gradient)"
+                        />
+                        <LinePath
+                            data={dataPoints}
+                            x={(d) => xScale(getX(d))}
+                            y={(d) => yScale(getY(d))}
+                            stroke={ACCENT_COLOR_HEX}
+                            strokeWidth={2}
+                        />
 
-                    {/* ----- Exclusion Windows ----- */}
-                    {exclusionWindows?.map((exclusionWindow) => {
-                        // Only render FIXED_RANGE windows for now
-                        if (
-                            exclusionWindow.type !== AssertionExclusionWindowType.FixedRange ||
-                            !exclusionWindow.fixedRange
-                        ) {
-                            return null;
-                        }
+                        {/* ----- Exclusion Windows ----- */}
+                        {exclusionWindows?.map((exclusionWindow) => {
+                            // Only render FIXED_RANGE windows for now
+                            if (
+                                exclusionWindow.type !== AssertionExclusionWindowType.FixedRange ||
+                                !exclusionWindow.fixedRange
+                            ) {
+                                return null;
+                            }
 
-                        const startTime = exclusionWindow.fixedRange.startTimeMillis;
-                        const endTime = exclusionWindow.fixedRange.endTimeMillis;
+                            const startTime = exclusionWindow.fixedRange.startTimeMillis;
+                            const endTime = exclusionWindow.fixedRange.endTimeMillis;
 
-                        // Calculate positions using the time scale
-                        const startX = xScale(new Date(startTime));
-                        const endX = xScale(new Date(endTime));
+                            // Calculate positions using the time scale
+                            const startX = xScale(new Date(startTime));
+                            const endX = xScale(new Date(endTime));
 
-                        // Clamp to chart boundaries
-                        const clampedStartX = Math.max(0, startX);
-                        const clampedEndX = Math.min(chartInnerWidth, endX);
-                        const width = clampedEndX - clampedStartX;
+                            // Clamp to chart boundaries
+                            const clampedStartX = Math.max(0, startX);
+                            const clampedEndX = Math.min(chartInnerWidth, endX);
+                            const width = clampedEndX - clampedStartX;
 
-                        // Skip if window is completely outside the visible range
-                        if (width <= 0) {
-                            return null;
-                        }
+                            // Skip if window is completely outside the visible range
+                            if (width <= 0) {
+                                return null;
+                            }
 
-                        return (
-                            <Tooltip
-                                title={
-                                    <Text>
-                                        <Text weight="bold" color="gray" colorLevel={600}>
-                                            Training Data Exclusion Window
+                            return (
+                                <Tooltip
+                                    title={
+                                        <Text>
+                                            <Text weight="bold" color="gray" colorLevel={600}>
+                                                Training Data Exclusion Window
+                                            </Text>
+                                            <Text size="sm" weight="semiBold">
+                                                &quot;
+                                                {exclusionWindow.displayName || 'AI Model will ignore this time range.'}
+                                                &quot;
+                                            </Text>
+                                            <Text size="sm">You can change this in the Settings tab.</Text>
                                         </Text>
-                                        <Text size="sm" weight="semiBold">
-                                            &quot;
-                                            {exclusionWindow.displayName || 'AI Model will ignore this time range.'}
-                                            &quot;
-                                        </Text>
-                                        <Text size="sm">You can change this in the Settings tab.</Text>
-                                    </Text>
-                                }
-                            >
-                                <Group>
-                                    <rect
-                                        x={clampedStartX}
-                                        y={0}
-                                        width={width}
-                                        height={chartInnerHeight}
-                                        fill={colors.red[700]}
-                                        fillOpacity={0.15}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-                                </Group>
-                            </Tooltip>
-                        );
-                    })}
-
-                    {/* ----- Circular datapoints ----- */}
-                    {dataPoints.map((dataPoint, i) => {
-                        const xOffset = xScale(new Date(dataPoint.time));
-                        const yOffset = yScale(getY(dataPoint, { fallback: defaultYValue }));
-
-                        // Check if this point overlaps with the last data point
-                        let markerOverlapPx: number | undefined;
-                        const maybePreviousDataPoint: AssertionDataPoint | undefined = dataPoints[i - 1];
-                        if (maybePreviousDataPoint) {
-                            const lastPointXOffset = xScale(new Date(maybePreviousDataPoint.time));
-                            markerOverlapPx = calculateOverlapBetweenTwoMarkers(
-                                {
-                                    xOffset,
-                                    width: PRIMARY_DATA_POINT_SIZE,
-                                },
-                                {
-                                    xOffset: lastPointXOffset,
-                                    width: PRIMARY_DATA_POINT_SIZE,
-                                },
-                            );
-                        }
-
-                        const fillColor = getFillColor(dataPoint.result.type);
-
-                        const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(
-                            data.context.assertion,
-                            dataPoint.relatedRunEvent,
-                            onlineSmartAssertionsEnabled,
-                        );
-
-                        return (
-                            <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
-                                <Popover
-                                    key={dataPoint.time}
-                                    title={undefined}
-                                    overlayStyle={{
-                                        maxWidth: 440,
-                                        wordWrap: 'break-word',
-                                    }}
-                                    content={
-                                        <AssertionResultPopoverContent
-                                            assertion={data.context.assertion}
-                                            monitor={data.context.monitor}
-                                            run={dataPoint.relatedRunEvent}
-                                            refetchResults={refreshData}
-                                            openAssertionNote={openAssertionNote}
-                                        />
                                     }
-                                    showArrow={false}
                                 >
-                                    <Group>
-                                        <GlyphCircle
-                                            left={xOffset}
-                                            top={yOffset}
-                                            fill={fillColor}
-                                            stroke="white"
-                                            strokeWidth={1}
-                                            size={PRIMARY_DATA_POINT_SIZE * 20}
-                                            filter={
-                                                markerOverlapPx
-                                                    ? undefined
-                                                    : 'drop-shadow(0px 1px 2px rgb(0 0 0 / 0.2))'
-                                            }
+                                    <Group className="interactive-element">
+                                        <rect
+                                            x={clampedStartX}
+                                            y={0}
+                                            width={width}
+                                            height={chartInnerHeight}
+                                            fill={colors.red[700]}
+                                            fillOpacity={0.15}
+                                            style={{ cursor: 'pointer' }}
                                         />
-                                        {/* For Smart Assertions: '!' icon overlaps if this has been marked as a false positive or false negative */}
-                                        {isFalseAlarm || isMissedAlarm ? (
-                                            // // Downloaded from phosphor icons
-                                            <svg
-                                                x={xOffset - PRIMARY_DATA_POINT_SIZE * 1}
-                                                y={yOffset - PRIMARY_DATA_POINT_SIZE * 1}
-                                                width={PRIMARY_DATA_POINT_SIZE * 2}
-                                                height={PRIMARY_DATA_POINT_SIZE * 2}
-                                                fill="white"
-                                                viewBox="0 0 256 256"
-                                            >
-                                                <path d="M144,200a16,16,0,1,1-16-16A16,16,0,0,1,144,200Zm-16-40a8,8,0,0,0,8-8V48a8,8,0,0,0-16,0V152A8,8,0,0,0,128,160Z" />
-                                            </svg>
-                                        ) : null}
                                     </Group>
-                                </Popover>
-                            </LinkWrapper>
-                        );
-                    })}
-                </Group>
-            </svg>
+                                </Tooltip>
+                            );
+                        })}
+
+                        {/* ----- Circular datapoints ----- */}
+                        {dataPoints.map((dataPoint, i) => {
+                            const xOffset = xScale(new Date(dataPoint.time));
+                            const yOffset = yScale(getY(dataPoint, { fallback: defaultYValue }));
+
+                            // Check if this point overlaps with the last data point
+                            let markerOverlapPx: number | undefined;
+                            const maybePreviousDataPoint: AssertionDataPoint | undefined = dataPoints[i - 1];
+                            if (maybePreviousDataPoint) {
+                                const lastPointXOffset = xScale(new Date(maybePreviousDataPoint.time));
+                                markerOverlapPx = calculateOverlapBetweenTwoMarkers(
+                                    {
+                                        xOffset,
+                                        width: PRIMARY_DATA_POINT_SIZE,
+                                    },
+                                    {
+                                        xOffset: lastPointXOffset,
+                                        width: PRIMARY_DATA_POINT_SIZE,
+                                    },
+                                );
+                            }
+
+                            const fillColor = getFillColor(dataPoint.result.type);
+
+                            const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(
+                                data.context.assertion,
+                                dataPoint.relatedRunEvent,
+                                onlineSmartAssertionsEnabled,
+                            );
+
+                            return (
+                                <LinkWrapper
+                                    key={dataPoint.time}
+                                    to={dataPoint.result.resultUrl}
+                                    target="_blank"
+                                    className="interactive-element"
+                                >
+                                    <Popover
+                                        key={dataPoint.time}
+                                        title={undefined}
+                                        overlayStyle={{
+                                            maxWidth: 440,
+                                            wordWrap: 'break-word',
+                                        }}
+                                        content={
+                                            <AssertionResultPopoverContent
+                                                assertion={data.context.assertion}
+                                                monitor={data.context.monitor}
+                                                run={dataPoint.relatedRunEvent}
+                                                refetchResults={refreshData}
+                                                openAssertionNote={openAssertionNote}
+                                            />
+                                        }
+                                        showArrow={false}
+                                    >
+                                        <Group>
+                                            <GlyphCircle
+                                                left={xOffset}
+                                                top={yOffset}
+                                                fill={fillColor}
+                                                stroke="white"
+                                                strokeWidth={1}
+                                                size={PRIMARY_DATA_POINT_SIZE * 20}
+                                                filter={
+                                                    markerOverlapPx
+                                                        ? undefined
+                                                        : 'drop-shadow(0px 1px 2px rgb(0 0 0 / 0.2))'
+                                                }
+                                            />
+                                            {/* For Smart Assertions: '!' icon overlaps if this has been marked as a false positive or false negative */}
+                                            {isFalseAlarm || isMissedAlarm ? (
+                                                // // Downloaded from phosphor icons
+                                                <svg
+                                                    x={xOffset - PRIMARY_DATA_POINT_SIZE * 1}
+                                                    y={yOffset - PRIMARY_DATA_POINT_SIZE * 1}
+                                                    width={PRIMARY_DATA_POINT_SIZE * 2}
+                                                    height={PRIMARY_DATA_POINT_SIZE * 2}
+                                                    fill="white"
+                                                    viewBox="0 0 256 256"
+                                                >
+                                                    <path d="M144,200a16,16,0,1,1-16-16A16,16,0,0,1,144,200Zm-16-40a8,8,0,0,0,8-8V48a8,8,0,0,0-16,0V152A8,8,0,0,0,128,160Z" />
+                                                </svg>
+                                            ) : null}
+                                        </Group>
+                                    </Popover>
+                                </LinkWrapper>
+                            );
+                        })}
+                    </Group>
+                </svg>
+
+                {/* Selection rectangle during drag */}
+                {selectionState.selectionStart && selectionState.selectionEnd && (
+                    <SelectionRectangle
+                        startX={selectionState.selectionStart.x}
+                        endX={selectionState.selectionEnd.x}
+                        height={chartDimensions.height}
+                        marginTop={CHART_TOP_MARGIN}
+                        marginBottom={CHART_AXIS_BOTTOM_HEIGHT}
+                    />
+                )}
+            </ChartInteractionContainer>
         </>
     );
 };

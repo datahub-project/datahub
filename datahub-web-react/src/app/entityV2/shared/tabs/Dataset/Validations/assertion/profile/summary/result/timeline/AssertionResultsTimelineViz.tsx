@@ -57,6 +57,7 @@ type Props = {
     parentDimensions: { width: number; height: number };
     refreshData?: () => Promise<unknown>;
     openAssertionNote?: () => void;
+    onTimeRangeChange?: (startTimeMs: number, endTimeMs: number) => void;
 };
 
 export const AssertionResultsTimelineViz = ({
@@ -68,6 +69,7 @@ export const AssertionResultsTimelineViz = ({
     isInitializing,
     refreshData,
     openAssertionNote,
+    onTimeRangeChange,
 }: Props) => {
     const [isTunePredictionsModalOpen, setIsTunePredictionsModalOpen] = useState(false);
 
@@ -87,7 +89,7 @@ export const AssertionResultsTimelineViz = ({
 
     // render
     const chartDimensions = {
-        height: parentDimensions.height - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
+        height: parentDimensions.height - VIZ_CONTAINER_TITLE_HEIGHT - 28, // margin below (flex-start)
         width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
     };
 
@@ -127,6 +129,7 @@ export const AssertionResultsTimelineViz = ({
                         renderHeader={renderChartTitle}
                         refreshData={refreshData}
                         openAssertionNote={openAssertionNote}
+                        onTimeRangeChange={onTimeRangeChange}
                     />
                 );
             case AssertionChartType.Freshness:
