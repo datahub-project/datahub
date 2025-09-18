@@ -1,10 +1,13 @@
 <configuration scan="true" scanPeriod="120 seconds">
     <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/gms}"/>
 
+    <!-- STDOUT logs with sanitization -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
+        <!-- SanitizingPatternLayout will clean %msg before output -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+        <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
-        </encoder>
+        </layout>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
@@ -14,21 +17,21 @@
         </filter>
     </appender>
 
+    <!-- FILE logs with sanitization -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/gms.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
-            <!-- each archived file, size max 10MB -->
             <maxFileSize>100MB</maxFileSize>
-            <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
             <totalSizeCap>10GB</totalSizeCap>
-            <!-- 30 days to keep -->
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder will clean %msg before writing to file -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
@@ -37,15 +40,13 @@
         </filter>
     </appender>
 
+    <!-- DEBUG_FILE logs with sanitization -->
     <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/gms.debug.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
-            <!-- each archived file, size max 10MB -->
             <maxFileSize>100MB</maxFileSize>
-            <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
             <totalSizeCap>2GB</totalSizeCap>
-            <!-- 1 days to keep -->
             <maxHistory>1</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
@@ -53,20 +54,19 @@
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder for debug logs -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
+    <!-- GRAPHQL_DEBUG_FILE logs with sanitization -->
     <appender name="GRAPHQL_DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/gms.graphql.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.graphql.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
-            <!-- each archived file, size max 10MB -->
             <maxFileSize>100MB</maxFileSize>
-            <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
             <totalSizeCap>2GB</totalSizeCap>
-            <!-- 1 days to keep -->
             <maxHistory>1</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
@@ -74,7 +74,8 @@
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder for GraphQL debug logs -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
@@ -83,7 +84,7 @@
         <appender-ref ref="GRAPHQL_DEBUG_FILE" />
     </appender>
 
-    <!-- Remove this to disable logging debug -->
+    <!-- Debug loggers -->
     <logger name="com.linkedin" level="DEBUG">
         <appender-ref ref="DEBUG_FILE"/>
     </logger>
