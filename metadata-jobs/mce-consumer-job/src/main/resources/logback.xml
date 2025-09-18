@@ -1,20 +1,33 @@
 <configuration>
     <property name="LOG_DIR" value="${LOG_DIR:- /tmp/datahub/logs}"/>
 
+    <!-- STDOUT logs with sanitization -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
-        </encoder>
+        <!-- SanitizingPatternLayout will clean %msg before output -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
+        <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
+            <pattern>
+                %date{ISO8601} [%thread] %-5level %logger{36}
+                urn=%X{entityUrn:-none}
+                aspect=%X{aspectName:-none}
+                entityType=%X{entityType:-none}
+                changeType=%X{changeType:-none}
+                - %msg%n
+            </pattern>
+        </layout>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
             <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
         </filter>
     </appender>
 
+    <!-- FILE logs with sanitization -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/mce-consumer-job.log</file>
         <append>true</append>
-        <encoder>
+        <!-- SanitizingPatternLayoutEncoder will clean %msg before writing to file -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
+        <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
