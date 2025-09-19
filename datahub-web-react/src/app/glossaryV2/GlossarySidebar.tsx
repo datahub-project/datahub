@@ -79,6 +79,7 @@ export default function GlossarySidebar({ isEntityProfile }: Props) {
                             isCircle
                             icon={{ icon: 'Plus', source: 'phosphor' }}
                             onClick={() => setIsCreateNodeModalVisible(true)}
+                            data-testid="create-glossary-button"
                         />
                     </Tooltip>
                 </SidebarTitleWrapper>
