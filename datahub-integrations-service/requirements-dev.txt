@@ -121,6 +121,7 @@ bleach==6.2.0
     # via nbconvert
 blinker==1.9.0
     # via
+    #   -r requirements.txt
     #   flask
     #   streamlit
 botbuilder-core==4.17.0
@@ -153,6 +154,7 @@ boto3==1.38.23
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
     #   aws-msk-iam-sasl-signer-python
+    #   sagemaker-mlflow
 botocore==1.38.23
     # via
     #   -r requirements.txt
@@ -251,14 +253,18 @@ confluent-kafka==2.3.0
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
-contourpy==1.3.2
-    # via matplotlib
+contourpy==1.3.3
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 coverage==7.5.0
     # via pytest-cov
 cryptography==42.0.5
     # via
     #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub
+    #   acryl-datahub-integrations
     #   authlib
     #   azure-identity
     #   msal
@@ -266,7 +272,9 @@ cryptography==42.0.5
     #   pyopenssl
     #   snowflake-connector-python
 cycler==0.12.1
-    # via matplotlib
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 cyclopts==3.22.2
     # via
     #   -r requirements.txt
@@ -381,10 +389,14 @@ filelock==3.14.0
     #   huggingface-hub
     #   pygitops
     #   snowflake-connector-python
-flask==3.1.0
-    # via mlflow
-fonttools==4.57.0
-    # via matplotlib
+flask==3.1.2
+    # via
+    #   -r requirements.txt
+    #   mlflow
+fonttools==4.60.0
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 freezegun==1.5.1
     # via acryl-datahub-integrations (pyproject.toml)
 frozenlist==1.4.0
@@ -408,7 +420,7 @@ gitpython==3.1.43
     #   mlflow-skinny
     #   pygitops
     #   streamlit
-google-api-core==2.20.0
+google-api-core==2.25.1
     # via
     #   -r requirements.txt
     #   google-cloud-appengine-logging
@@ -423,17 +435,16 @@ google-auth==2.35.0
     #   -r requirements.txt
     #   databricks-sdk
     #   google-api-core
-    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-datacatalog
     #   google-cloud-resource-manager
     #   sqlalchemy-bigquery
-google-cloud-appengine-logging==1.4.5
+google-cloud-appengine-logging==0.2.0
     # via
     #   -r requirements.txt
     #   google-cloud-logging
-google-cloud-audit-log==0.3.0
+google-cloud-audit-log==0.3.2
     # via
     #   -r requirements.txt
     #   google-cloud-logging
@@ -447,15 +458,15 @@ google-cloud-core==2.4.1
     #   -r requirements.txt
     #   google-cloud-bigquery
     #   google-cloud-logging
-google-cloud-datacatalog==3.20.1
+google-cloud-datacatalog==3.27.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
-google-cloud-logging==3.5.0
+google-cloud-logging==2.6.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-google-cloud-resource-manager==1.12.5
+google-cloud-resource-manager==1.14.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -467,7 +478,7 @@ google-resumable-media==2.7.2
     # via
     #   -r requirements.txt
     #   google-cloud-bigquery
-googleapis-common-protos==1.65.0
+googleapis-common-protos==1.70.0
     # via
     #   -r requirements.txt
     #   google-api-core
@@ -475,22 +486,26 @@ googleapis-common-protos==1.65.0
     #   grpc-google-iam-v1
     #   grpcio-status
 graphene==3.4.3
-    # via mlflow
+    # via
+    #   -r requirements.txt
+    #   mlflow
 graphql-core==3.2.6
     # via
+    #   -r requirements.txt
     #   graphene
     #   graphql-relay
 graphql-relay==3.2.0
-    # via graphene
+    # via
+    #   -r requirements.txt
+    #   graphene
 greenlet==3.0.3 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via
     #   -r requirements.txt
     #   sqlalchemy
-grpc-google-iam-v1==0.13.1
+grpc-google-iam-v1==0.14.2
     # via
     #   -r requirements.txt
     #   google-cloud-datacatalog
-    #   google-cloud-logging
     #   google-cloud-resource-manager
 grpcio==1.66.2
     # via
@@ -504,7 +519,9 @@ grpcio-status==1.62.3
     #   -r requirements.txt
     #   google-api-core
 gunicorn==23.0.0 ; sys_platform != 'win32'
-    # via mlflow
+    # via
+    #   -r requirements.txt
+    #   mlflow
 h11==0.16.0
     # via
     #   -r requirements.txt
@@ -585,7 +602,9 @@ isodate==0.7.2
     #   -r requirements.txt
     #   msrest
 itsdangerous==2.2.0
-    # via flask
+    # via
+    #   -r requirements.txt
+    #   flask
 jedi==0.19.2
     # via ipython
 jinja2==3.1.3
@@ -608,8 +627,10 @@ jmespath==1.0.1
     #   -r requirements.txt
     #   boto3
     #   botocore
-joblib==1.4.2
-    # via scikit-learn
+joblib==1.5.2
+    # via
+    #   -r requirements.txt
+    #   scikit-learn
 json5==0.9.25
     # via acryl-datahub-integrations (pyproject.toml)
 jsonpatch==1.33
@@ -652,8 +673,10 @@ jupyter-core==4.12.0
     #   nbformat
 jupyterlab-pygments==0.3.0
     # via nbconvert
-kiwisolver==1.4.8
-    # via matplotlib
+kiwisolver==1.4.9
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 litellm==1.75.9
     # via
     #   -r requirements.txt
@@ -677,8 +700,10 @@ mako==1.3.10
     # via
     #   -r requirements.txt
     #   alembic
-markdown==3.7
-    # via mlflow
+markdown==3.9
+    # via
+    #   -r requirements.txt
+    #   mlflow
 markdown-it-py==3.0.0
     # via
     #   -r requirements.txt
@@ -691,12 +716,14 @@ markdown-to-mrkdwn==0.2.0
 markupsafe==2.1.5
     # via
     #   -r requirements.txt
+    #   flask
     #   jinja2
     #   mako
     #   nbconvert
     #   werkzeug
-matplotlib==3.10.1
+matplotlib==3.10.6
     # via
+    #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   mlflow
     #   seaborn
@@ -719,7 +746,10 @@ mixpanel==4.10.1
     #   -r requirements.txt
     #   acryl-datahub
 mlflow==2.22.0
-    # via acryl-datahub-integrations (pyproject.toml)
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   sagemaker-mlflow
 mlflow-skinny==2.22.0
     # via
     #   -r requirements.txt
@@ -836,7 +866,9 @@ packaging==24.0
     #   acryl-datahub
     #   build
     #   docker
+    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
+    #   google-cloud-logging
     #   gunicorn
     #   huggingface-hub
     #   ipykernel
@@ -875,8 +907,9 @@ patchy==2.8.0
     #   acryl-datahub
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
-pillow==11.1.0
+pillow==11.3.0
     # via
+    #   -r requirements.txt
     #   matplotlib
     #   streamlit
 platformdirs==4.2.1
@@ -901,7 +934,7 @@ propcache==0.3.2
     #   -r requirements.txt
     #   aiohttp
     #   yarl
-proto-plus==1.24.0
+proto-plus==1.26.1
     # via
     #   -r requirements.txt
     #   google-api-core
@@ -909,14 +942,12 @@ proto-plus==1.24.0
     #   google-cloud-datacatalog
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.5
+protobuf==6.32.1
     # via
     #   -r requirements.txt
     #   google-api-core
-    #   google-cloud-appengine-logging
     #   google-cloud-audit-log
     #   google-cloud-datacatalog
-    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -1017,9 +1048,13 @@ pynacl==1.5.0
 pyopenssl==24.1.0
     # via
     #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
     #   snowflake-connector-python
-pyparsing==3.1.2
-    # via matplotlib
+pyparsing==3.2.4
+    # via
+    #   -r requirements.txt
+    #   matplotlib
 pyperclip==1.9.0
     # via
     #   -r requirements.txt
@@ -1147,11 +1182,17 @@ requests==2.31.0
     #   papermill
     #   pygithub
     #   reactpy
+    #   requests-auth-aws-sigv4
     #   requests-file
     #   requests-oauthlib
     #   snowflake-connector-python
     #   streamlit
     #   tiktoken
+requests-auth-aws-sigv4==0.7
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 requests-file==2.0.0
     # via
     #   -r requirements.txt
@@ -1189,10 +1230,18 @@ s3transfer==0.13.0
     # via
     #   -r requirements.txt
     #   boto3
-scikit-learn==1.6.1
-    # via mlflow
-scipy==1.13.0
+sagemaker-mlflow==0.1.0
     # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+scikit-learn==1.7.2
+    # via
+    #   -r requirements.txt
+    #   mlflow
+scipy==1.16.2
+    # via
+    #   -r requirements.txt
     #   mlflow
     #   scikit-learn
 seaborn==0.13.2
@@ -1295,7 +1344,7 @@ starlette==0.46.2
     #   -r requirements.txt
     #   fastapi
     #   mcp
-streamlit==1.44.1
+streamlit==1.49.1
     # via
     #   acryl-datahub-integrations (pyproject.toml)
     #   streamlit-aggrid
@@ -1314,7 +1363,9 @@ tenacity==9.0.0
     #   papermill
     #   streamlit
 threadpoolctl==3.6.0
-    # via scikit-learn
+    # via
+    #   -r requirements.txt
+    #   scikit-learn
 thrift==0.16.0
     # via
     #   -r requirements.txt
@@ -1451,7 +1502,9 @@ uvloop==0.19.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'c
     #   -r requirements.txt
     #   uvicorn
 waitress==3.0.2 ; sys_platform == 'win32'
-    # via mlflow
+    # via
+    #   -r requirements.txt
+    #   mlflow
 watchdog==6.0.0 ; sys_platform != 'darwin'
     # via streamlit
 watchfiles==0.21.0
@@ -1473,7 +1526,9 @@ websockets==12.0
     #   -r requirements.txt
     #   uvicorn
 werkzeug==3.1.3
-    # via flask
+    # via
+    #   -r requirements.txt
+    #   flask
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via
     #   -r requirements.txt
