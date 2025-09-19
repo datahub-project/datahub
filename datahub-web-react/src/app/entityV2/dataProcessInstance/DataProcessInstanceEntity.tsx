@@ -75,12 +75,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             // useUpdateQuery={useUpdateDataProcessInstanceMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={
-                new Set([
-                    EntityMenuItems.UPDATE_DEPRECATION,
-                    EntityMenuItems.RAISE_INCIDENT,
-                    EntityMenuItems.SHARE,
-                    EntityMenuItems.EXTERNAL_URL,
-                ])
+                new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT, EntityMenuItems.SHARE])
             }
             tabs={[
                 {
