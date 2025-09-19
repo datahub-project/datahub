@@ -51,7 +51,6 @@ class KafkaEmitterConfig(ConfigModel):
 
     @pydantic.validator("topic_routes")
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
-        assert MCE_KEY in v, f"topic_routes must contain a route for {MCE_KEY}"
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
         return v
 
