@@ -160,6 +160,9 @@ def list_folders(
 ) -> Iterable[str]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
+    if prefix.startswith("/"):
+        # prefixes shouldn't start with "/"
+        prefix.removeprefix("/")
     s3_client = aws_config.get_s3_client()
     paginator = s3_client.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=bucket_name, Prefix=prefix, Delimiter="/"):
