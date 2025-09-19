@@ -61,6 +61,7 @@ DataPlatformInstanceUrnOrStr: TypeAlias = Union[str, DataPlatformInstanceUrn]
 DataPlatformUrnOrStr: TypeAlias = Union[str, DataPlatformUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
+ActorUrnOrStr: TypeAlias = Union[str, ActorUrn]
 StructuredPropertyUrnOrStr: TypeAlias = Union[str, StructuredPropertyUrn]
 StructuredPropertyValueType: TypeAlias = Union[str, float, int]
 StructuredPropertyInputType: TypeAlias = Dict[

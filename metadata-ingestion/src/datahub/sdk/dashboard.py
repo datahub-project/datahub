@@ -7,8 +7,10 @@ from deprecated.sphinx import deprecated
 from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
+from datahub.emitter.mce_builder import UNKNOWN_USER, make_ts_millis, make_user_urn
 from datahub.metadata.urns import ChartUrn, DashboardUrn, DatasetUrn, Urn
 from datahub.sdk._shared import (
+    ActorUrnOrStr,
     ChartUrnOrStr,
     DashboardUrnOrStr,
     DataPlatformInstanceUrnOrStr,
@@ -72,6 +74,11 @@ class Dashboard(
         dashboard_url: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
         last_modified: Optional[datetime] = None,
+        last_modified_by: Optional[ActorUrnOrStr] = None,
+        created_at: Optional[datetime] = None,
+        created_by: Optional[ActorUrnOrStr] = None,
+        deleted_on: Optional[datetime] = None,
+        deleted_by: Optional[ActorUrnOrStr] = None,
         last_refreshed: Optional[datetime] = None,
         input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]] = None,
         charts: Optional[Sequence[Union[ChartUrnOrStr, Chart]]] = None,
@@ -96,17 +103,46 @@ class Dashboard(
         self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(platform, platform_instance)
+        self._init_dashboard_properties(
+            description,
+            display_name,
+            external_url,
+            dashboard_url,
+            custom_properties,
+            last_modified,
+            last_modified_by,
+            created_at,
+            created_by,
+            last_refreshed,
+            deleted_on,
+            deleted_by,
+            input_datasets,
+            charts,
+            dashboards,
+        )
+        self._init_standard_aspects(
+            parent_container, subtype, owners, links, tags, terms, domain
+        )
 
-        # Initialize DashboardInfoClass with default values
-        dashboard_info = self._ensure_dashboard_props(display_name=display_name)
-        if last_modified:
-            dashboard_info.lastModified = models.ChangeAuditStampsClass(
-                lastModified=models.AuditStampClass(
-                    time=int(last_modified.timestamp()),
-                    actor="urn:li:corpuser:datahub",
-                ),
-            )
-
+    def _init_dashboard_properties(
+        self,
+        description: Optional[str],
+        display_name: Optional[str],
+        external_url: Optional[str],
+        dashboard_url: Optional[str],
+        custom_properties: Optional[Dict[str, str]],
+        last_modified: Optional[datetime],
+        last_modified_by: Optional[ActorUrnOrStr],
+        created_at: Optional[datetime],
+        created_by: Optional[ActorUrnOrStr],
+        last_refreshed: Optional[datetime],
+        deleted_on: Optional[datetime],
+        deleted_by: Optional[ActorUrnOrStr],
+        input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]],
+        charts: Optional[Sequence[Union[ChartUrnOrStr, Chart]]],
+        dashboards: Optional[Sequence[Union[DashboardUrnOrStr, Dashboard]]],
+    ) -> None:
+        """Initialize dashboard-specific properties."""
         if description is not None:
             self.set_description(description)
         if display_name is not None:
@@ -119,6 +155,16 @@ class Dashboard(
             self.set_custom_properties(custom_properties)
         if last_modified is not None:
             self.set_last_modified(last_modified)
+        if last_modified_by is not None:
+            self.set_last_modified_by(last_modified_by)
+        if created_at is not None:
+            self.set_created_at(created_at)
+        if created_by is not None:
+            self.set_created_by(created_by)
+        if deleted_on is not None:
+            self.set_deleted_on(deleted_on)
+        if deleted_by is not None:
+            self.set_deleted_by(deleted_by)
         if last_refreshed is not None:
             self.set_last_refreshed(last_refreshed)
         if input_datasets is not None:
@@ -128,6 +174,17 @@ class Dashboard(
         if dashboards is not None:
             self.set_dashboards(dashboards)
 
+    def _init_standard_aspects(
+        self,
+        parent_container: ParentContainerInputType | Unset,
+        subtype: Optional[str],
+        owners: Optional[OwnersInputType],
+        links: Optional[LinksInputType],
+        tags: Optional[TagsInputType],
+        terms: Optional[TermsInputType],
+        domain: Optional[DomainInputType],
+    ) -> None:
+        """Initialize standard aspects."""
         if parent_container is not unset:
             self._set_container(parent_container)
         if subtype is not None:
@@ -165,11 +222,7 @@ class Dashboard(
             models.DashboardInfoClass(
                 title=display_name or self.urn.dashboard_id,
                 description="",
-                lastModified=models.ChangeAuditStampsClass(
-                    lastModified=models.AuditStampClass(
-                        time=0, actor="urn:li:corpuser:unknown"
-                    )
-                ),
+                lastModified=models.ChangeAuditStampsClass(),
                 customProperties={},
                 dashboards=[],
             )
@@ -248,12 +301,96 @@ class Dashboard(
 
     def set_last_modified(self, last_modified: datetime) -> None:
         """Set the last modification timestamp of the dashboard."""
-        self._ensure_dashboard_props().lastModified = models.ChangeAuditStampsClass(
-            lastModified=models.AuditStampClass(
-                time=int(last_modified.timestamp()),
-                actor="urn:li:corpuser:datahub",
-            ),
+        self._ensure_dashboard_props().lastModified.lastModified.time = make_ts_millis(
+            last_modified
         )
+
+    @property
+    def last_modified_by(self) -> Optional[str]:
+        """Get the last modification actor of the dashboard."""
+        props = self._ensure_dashboard_props()
+        if props.lastModified.lastModified.actor == UNKNOWN_USER:
+            return None
+        return props.lastModified.lastModified.actor
+
+    def set_last_modified_by(self, last_modified_by: Optional[ActorUrnOrStr]) -> None:
+        """Set the last modification actor of the dashboard."""
+        if isinstance(last_modified_by, str):
+            last_modified_by = make_user_urn(last_modified_by)
+
+        self._ensure_dashboard_props().lastModified.lastModified.actor = str(
+            last_modified_by
+        )
+
+    @property
+    def created_at(self) -> Optional[datetime]:
+        """Get the creation timestamp of the dashboard."""
+        props = self._ensure_dashboard_props()
+        if props.lastModified.created.time == 0:
+            return None
+        return datetime.fromtimestamp(props.lastModified.created.time)
+
+    def set_created_at(self, created_at: datetime) -> None:
+        """Set the creation timestamp of the dashboard."""
+        self._ensure_dashboard_props().lastModified.created.time = make_ts_millis(
+            created_at
+        )
+
+    @property
+    def created_by(self) -> Optional[ActorUrnOrStr]:
+        """Get the creation actor of the dashboard."""
+        props = self._ensure_dashboard_props()
+        if props.lastModified.created.actor == UNKNOWN_USER:
+            return None
+        return props.lastModified.created.actor
+
+    def set_created_by(self, created_by: Optional[ActorUrnOrStr]) -> None:
+        """Set the creation actor of the dashboard."""
+        if isinstance(created_by, str):
+            created_by = make_user_urn(created_by)
+
+        self._ensure_dashboard_props().lastModified.created.actor = str(created_by)
+
+    @property
+    def deleted_on(self) -> Optional[datetime]:
+        """Get the deletion timestamp of the dashboard."""
+        props = self._ensure_dashboard_props()
+        if props.lastModified.deleted is None or props.lastModified.deleted.time == 0:
+            return None
+        return datetime.fromtimestamp(props.lastModified.deleted.time)
+
+    def set_deleted_on(self, deleted_on: datetime) -> None:
+        """Set the deletion timestamp of the dashboard."""
+        props = self._ensure_dashboard_props()
+        # Default constructor sets lastModified.deleted to None
+        if props.lastModified.deleted is None:
+            props.lastModified.deleted = models.AuditStampClass(
+                time=0, actor=UNKNOWN_USER
+            )
+        props.lastModified.deleted.time = make_ts_millis(deleted_on)
+
+    @property
+    def deleted_by(self) -> Optional[ActorUrnOrStr]:
+        """Get the deletion actor of the dashboard."""
+        props = self._ensure_dashboard_props()
+        if (
+            props.lastModified.deleted is None
+            or props.lastModified.deleted.actor == UNKNOWN_USER
+        ):
+            return None
+        return props.lastModified.deleted.actor
+
+    def set_deleted_by(self, deleted_by: Optional[ActorUrnOrStr]) -> None:
+        """Set the deletion actor of the dashboard."""
+        if isinstance(deleted_by, str):
+            deleted_by = make_user_urn(deleted_by)
+
+        props = self._ensure_dashboard_props()
+        if props.lastModified.deleted is None:
+            props.lastModified.deleted = models.AuditStampClass(
+                time=0, actor=UNKNOWN_USER
+            )
+        props.lastModified.deleted.actor = str(deleted_by)
 
     @property
     def last_refreshed(self) -> Optional[datetime]:
