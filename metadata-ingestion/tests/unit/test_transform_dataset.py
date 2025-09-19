@@ -4294,6 +4294,10 @@ def test_replace_external_url_word_replace(
         output[0].record.aspect.externalUrl
         == "https://github.com/starhub/looker-demo/blob/master/foo.view.lkml"
     )
+    assert (
+        output[0].record.aspect.baseExternalUrl
+        == "https://github.com/datahub/looker-demo/blob/master/foo.view.lkml"
+    )
 
 
 def test_replace_external_regex_replace_1(
@@ -4321,6 +4325,10 @@ def test_replace_external_regex_replace_1(
         output[0].record.aspect.externalUrl
         == "https://github.com/starhub/test/foo.view.lkml"
     )
+    assert (
+        output[0].record.aspect.baseExternalUrl
+        == "https://github.com/datahub/looker-demo/blob/master/foo.view.lkml"
+    )
 
 
 def test_replace_external_regex_replace_2(
@@ -4347,6 +4355,10 @@ def test_replace_external_regex_replace_2(
     assert (
         output[0].record.aspect.externalUrl
         == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
+    )
+    assert (
+        output[0].record.aspect.baseExternalUrl
+        == "https://github.com/datahub/looker-demo/blob/master/foo.view.lkml"
     )
 
 
@@ -4942,6 +4954,10 @@ def test_replace_external_url_container_word_replace(
         output[0].record.aspect.externalUrl
         == "https://github.com/starhub/looker-demo/blob/master/foo.view.lkml"
     )
+    assert (
+        output[0].record.aspect.baseExternalUrl
+        == "https://github.com/datahub/looker-demo/blob/master/foo.view.lkml"
+    )
 
 
 def test_replace_external_regex_container_replace_1(
@@ -4970,6 +4986,10 @@ def test_replace_external_regex_container_replace_1(
         output[0].record.aspect.externalUrl
         == "https://github.com/starhub/test/foo.view.lkml"
     )
+    assert (
+        output[0].record.aspect.baseExternalUrl
+        == "https://github.com/datahub/looker-demo/blob/master/foo.view.lkml"
+    )
 
 
 def test_replace_external_regex_container_replace_2(
@@ -4997,4 +5017,8 @@ def test_replace_external_regex_container_replace_2(
     assert (
         output[0].record.aspect.externalUrl
         == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
+    )
+    assert (
+        output[0].record.aspect.baseExternalUrl
+        == "https://github.com/datahub/looker-demo/blob/master/foo.view.lkml"
     )
