@@ -16,6 +16,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     StringTypeClass,
 )
 from tests.unit.test_schema_util import assert_field_paths_match
+from datahub.ingestion.source.schema_inference.parquet import get_column_metadata
 
 expected_field_paths = [
     "integer_field",
@@ -39,6 +40,31 @@ test_table = pd.DataFrame(
     }
 )
 
+# Add descriptions to columns
+test_table["integer_field"].attrs["description"] = "A column containing integer values"
+test_table["boolean_field"].attrs["description"] = "A column containing boolean values"
+test_table["string_field"].attrs["description"] = "A column containing string values"
+
+
+expected_field_descriptions = [
+    "A column containing integer values",
+    "A column containing boolean values",
+    "A column containing string values",
+]
+
+
+test_column_metadata = [
+    {"name": "integer_field", "metadata": { "integer_field" : "A column containing integer values"}},
+    {"name": "boolean_field", "metadata": { "boolean_field" : "A column containing boolean values"}},
+    {"name": "string_field", "metadata": { "string_field": "A column containing string values"}},
+]
+
+
+def test_get_column_metadata():
+    assert "A column containing integer values" == get_column_metadata(test_column_metadata, "integer_field")
+    assert "A column containing boolean values" == get_column_metadata(test_column_metadata, "boolean_field")
+    assert "A column containing string values" == get_column_metadata(test_column_metadata, "string_field")
+
 
 def assert_field_types_match(
     fields: List[SchemaField], expected_field_types: List[Type]
@@ -46,6 +72,14 @@ def assert_field_types_match(
     assert len(fields) == len(expected_field_types)
     for field, expected_type in zip(fields, expected_field_types):
         assert isinstance(field.type.type, expected_type)
+
+
+def assert_field_descriptions_match(
+    fields: List[SchemaField], expected_field_descriptions: List[str]
+) -> None:
+    assert len(fields) == len(expected_field_descriptions)
+    for field, expected_description in zip(fields, expected_field_descriptions):
+        assert field.description == expected_description
 
 
 def test_infer_schema_csv():
@@ -106,6 +140,7 @@ def test_infer_schema_parquet():
 
         assert_field_paths_match(fields, expected_field_paths)
         assert_field_types_match(fields, expected_field_types)
+        assert_field_descriptions_match(fields, expected_field_descriptions)
 
 
 def test_infer_schema_avro():
