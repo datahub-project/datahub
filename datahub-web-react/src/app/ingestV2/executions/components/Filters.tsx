@@ -80,7 +80,6 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
                 },
                 { arrayFormat: 'comma' },
             );
-            console.log('>>> onUpdate', search);
 
             history.push({
                 pathname: location.pathname,
