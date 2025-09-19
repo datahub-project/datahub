@@ -11,7 +11,7 @@ const HomePageContent = () => {
         <ContentContainer>
             <CenteredContainer>
                 <ContentDiv>
-                    {/* <EditHomePageSettingsButton /> */}
+                    {/* <EditHomePageSettingsButton /> Editing templates is not enabled in OSS */}
                     <Announcements />
                     <Template />
                     <EditDefaultTemplateBar />
