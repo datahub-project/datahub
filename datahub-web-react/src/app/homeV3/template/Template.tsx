@@ -51,7 +51,7 @@ function Template({ className }: Props) {
         <Wrapper
             className={className}
             key={urn}
-            data-testid={moduleContext.globalTemplate ? 'home-template-wrapper' : undefined}
+            data-testid={moduleContext.globalTemplate ? 'template-wrapper' : undefined}
         >
             <DragAndDropProvider>
                 <TemplateGrid wrappedRows={wrappedRows} />

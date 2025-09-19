@@ -14,4 +14,5 @@ export type DropdownProps = Pick<
     | 'overlayStyle'
 > & {
     resetDefaultMenuStyles?: boolean;
+    dataTestId?: string;
 };
