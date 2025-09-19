@@ -303,9 +303,10 @@ services:
           memory: '1073741824'
     environment:
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
-      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
+      OPENSEARCH_JAVA_OPTS: -Xms768m -Xmx1024m -Dlog4j2.formatMsgNoLookups=true
       discovery.type: single-node
       plugins.security.disabled: 'true'
+      DISABLE_SECURITY_PLUGIN: 'true'
     hostname: search
     healthcheck:
       test:
