@@ -3,26 +3,37 @@
 ## Prerequisites
 
 1. Run `../gradlew installDev` to install dependencies + setup the venv
-2. Start local mlflow server using `python3 -m mlflow server --host 127.0.0.1 --port 9090` (should run in the background)
-3. Create `.env` file in `datahub-integrations-service` folder containing bedrock credentials
+1. Create `.env` file in `datahub-integrations-service` folder containing bedrock credentials
+
    ```bash
-   # .env
-   BEDROCK_AWS_ACCESS_KEY_ID=
-   BEDROCK_AWS_SECRET_ACCESS_KEY=
-   BEDROCK_AWS_REGION=
+   AWS_PROFILE=<profile corresponding to your Acryl_Developer_Prod role>
+   DATAHUB_TELEMETRY_ENABLED=false
+   MLFLOW_TRACKING_URI=arn:aws:sagemaker:us-west-2:795586375822:mlflow-tracking-server/prod-mlflow-tracking-server-01
+   MLFLOW_TRACKING_AWS_SIGV4=true
+   MLFLOW_S3_UPLOAD_EXTRA_ARGS={"ServerSideEncryption": "AES256"}
+   DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
+   ```
+
+   > **Note:** If you would like to use a local MLFlow server:
+   > Start local mlflow server using `python3 -m mlflow server --host 127.0.0.1 --port 9090`
+   > Use the following .env file:
+
+   ```bash
+   AWS_PROFILE=<profile corresponding to your Acryl_Developer_Prod role>
    DATAHUB_TELEMETRY_ENABLED=false
    MLFLOW_TRACKING_URI="http://localhost:9090"
    DATAHUB_INTEGRATIONS_SEND_TELEMETRY_EVENTS=false
    ```
-4. Tip: Use `direnv` to automatically load the `.env` file when working in the `datahub-integrations-service` folder
+
+1. Tip: Use `direnv` to automatically load the `.env` file when working in the `datahub-integrations-service` folder
    ```bash
    # .envrc
    source venv/bin/activate
    unset PS1
    dotenv
    ```
-5. Download `prompts.yaml` (stored in Notion) into `datahub-integrations-service/experiments/chatbot` folder
-6. Generate `graph_credentials.json` file using [this script](https://github.com/acryldata/experimental/blob/main/hsheth/graph_credentials/generate_many_graph_credentials.py) and copy to `datahub-integrations-service/experiments` folder
+1. Download `prompts.yaml` (stored in Notion) into `datahub-integrations-service/experiments/chatbot` folder
+1. Generate `graph_credentials.json` file using [this script](https://github.com/acryldata/experimental/blob/main/hsheth/graph_credentials/generate_many_graph_credentials.py) and copy to `datahub-integrations-service/experiments` folder
    ```bash
    cd experimental/hsheth/graph_credentials
    python3 generate_many_graph_credentials.py  # you might need to adjust `DATAHUB_APPS_DIR`
@@ -38,6 +49,12 @@ To run the bot + evals:
 1. `run.py` runs the chatbot on a set of prompts and saves the results to mlflow / local files.
 2. `run_ai_eval.py` runs AI evaluation on a completed chatbot experiment using MLflow evaluate.
 3. `chat_review.py` allows you to review the results of the chatbot + runs LLM judge evals.
+
+Evals logged to our shared MLFlow instance can be viewed via the MLFlow web UI. It requires a pre-signed URL so use the following convenience script to open a browser window:
+
+```
+./open_mlflow.sh
+```
 
 ### Eval test case format
 
