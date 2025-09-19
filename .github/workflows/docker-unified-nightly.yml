@@ -22,6 +22,7 @@ env:
 permissions:
   contents: read
   id-token: write
+  actions: read
 
 jobs:
   setup:
