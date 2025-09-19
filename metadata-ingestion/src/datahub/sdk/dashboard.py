@@ -7,7 +7,6 @@ from deprecated.sphinx import deprecated
 from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mce_builder import UNKNOWN_USER, make_ts_millis, make_user_urn
 from datahub.metadata.urns import ChartUrn, DashboardUrn, DatasetUrn, Urn
 from datahub.sdk._shared import (
     ActorUrnOrStr,
@@ -17,6 +16,7 @@ from datahub.sdk._shared import (
     DataPlatformUrnOrStr,
     DatasetUrnOrStr,
     DomainInputType,
+    HasAuditStamps,
     HasContainer,
     HasDomain,
     HasInstitutionalMemory,
@@ -46,6 +46,7 @@ class Dashboard(
     HasTags,
     HasTerms,
     HasDomain,
+    HasAuditStamps,
     Entity,
 ):
     """Represents a dashboard in DataHub."""
@@ -103,6 +104,8 @@ class Dashboard(
         self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(platform, platform_instance)
+        self._ensure_dashboard_props(display_name=display_name)
+
         self._init_dashboard_properties(
             description,
             display_name,
@@ -228,6 +231,14 @@ class Dashboard(
             )
         )
 
+    def _get_audit_stamps(self) -> models.ChangeAuditStampsClass:
+        """Get the audit stamps from the dashboard properties."""
+        return self._ensure_dashboard_props().lastModified
+
+    def _set_audit_stamps(self, audit_stamps: models.ChangeAuditStampsClass) -> None:
+        """Set the audit stamps on the dashboard properties."""
+        self._ensure_dashboard_props().lastModified = audit_stamps
+
     @property
     def name(self) -> str:
         """Get the name of the dashboard."""
@@ -290,107 +301,6 @@ class Dashboard(
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:
         """Set the custom properties of the dashboard."""
         self._ensure_dashboard_props().customProperties = custom_properties
-
-    @property
-    def last_modified(self) -> Optional[datetime]:
-        """Get the last modification timestamp of the dashboard."""
-        props = self._ensure_dashboard_props()
-        if props.lastModified.lastModified.time == 0:
-            return None
-        return datetime.fromtimestamp(props.lastModified.lastModified.time)
-
-    def set_last_modified(self, last_modified: datetime) -> None:
-        """Set the last modification timestamp of the dashboard."""
-        self._ensure_dashboard_props().lastModified.lastModified.time = make_ts_millis(
-            last_modified
-        )
-
-    @property
-    def last_modified_by(self) -> Optional[str]:
-        """Get the last modification actor of the dashboard."""
-        props = self._ensure_dashboard_props()
-        if props.lastModified.lastModified.actor == UNKNOWN_USER:
-            return None
-        return props.lastModified.lastModified.actor
-
-    def set_last_modified_by(self, last_modified_by: Optional[ActorUrnOrStr]) -> None:
-        """Set the last modification actor of the dashboard."""
-        if isinstance(last_modified_by, str):
-            last_modified_by = make_user_urn(last_modified_by)
-
-        self._ensure_dashboard_props().lastModified.lastModified.actor = str(
-            last_modified_by
-        )
-
-    @property
-    def created_at(self) -> Optional[datetime]:
-        """Get the creation timestamp of the dashboard."""
-        props = self._ensure_dashboard_props()
-        if props.lastModified.created.time == 0:
-            return None
-        return datetime.fromtimestamp(props.lastModified.created.time)
-
-    def set_created_at(self, created_at: datetime) -> None:
-        """Set the creation timestamp of the dashboard."""
-        self._ensure_dashboard_props().lastModified.created.time = make_ts_millis(
-            created_at
-        )
-
-    @property
-    def created_by(self) -> Optional[ActorUrnOrStr]:
-        """Get the creation actor of the dashboard."""
-        props = self._ensure_dashboard_props()
-        if props.lastModified.created.actor == UNKNOWN_USER:
-            return None
-        return props.lastModified.created.actor
-
-    def set_created_by(self, created_by: Optional[ActorUrnOrStr]) -> None:
-        """Set the creation actor of the dashboard."""
-        if isinstance(created_by, str):
-            created_by = make_user_urn(created_by)
-
-        self._ensure_dashboard_props().lastModified.created.actor = str(created_by)
-
-    @property
-    def deleted_on(self) -> Optional[datetime]:
-        """Get the deletion timestamp of the dashboard."""
-        props = self._ensure_dashboard_props()
-        if props.lastModified.deleted is None or props.lastModified.deleted.time == 0:
-            return None
-        return datetime.fromtimestamp(props.lastModified.deleted.time)
-
-    def set_deleted_on(self, deleted_on: datetime) -> None:
-        """Set the deletion timestamp of the dashboard."""
-        props = self._ensure_dashboard_props()
-        # Default constructor sets lastModified.deleted to None
-        if props.lastModified.deleted is None:
-            props.lastModified.deleted = models.AuditStampClass(
-                time=0, actor=UNKNOWN_USER
-            )
-        props.lastModified.deleted.time = make_ts_millis(deleted_on)
-
-    @property
-    def deleted_by(self) -> Optional[ActorUrnOrStr]:
-        """Get the deletion actor of the dashboard."""
-        props = self._ensure_dashboard_props()
-        if (
-            props.lastModified.deleted is None
-            or props.lastModified.deleted.actor == UNKNOWN_USER
-        ):
-            return None
-        return props.lastModified.deleted.actor
-
-    def set_deleted_by(self, deleted_by: Optional[ActorUrnOrStr]) -> None:
-        """Set the deletion actor of the dashboard."""
-        if isinstance(deleted_by, str):
-            deleted_by = make_user_urn(deleted_by)
-
-        props = self._ensure_dashboard_props()
-        if props.lastModified.deleted is None:
-            props.lastModified.deleted = models.AuditStampClass(
-                time=0, actor=UNKNOWN_USER
-            )
-        props.lastModified.deleted.actor = str(deleted_by)
 
     @property
     def last_refreshed(self) -> Optional[datetime]:
