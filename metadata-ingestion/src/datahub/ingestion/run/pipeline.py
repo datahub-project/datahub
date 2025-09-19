@@ -558,7 +558,9 @@ class Pipeline:
 
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED
+
             except (SystemExit, KeyboardInterrupt):
+
                 self.final_status = PipelineStatus.CANCELLED
                 logger.error("Caught error", exc_info=True)
                 raise
