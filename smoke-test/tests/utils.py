@@ -154,7 +154,7 @@ def delete_urns(graph_client, urns: List[str]) -> None:
 
 
 def delete_urns_from_file(
-    graph_client, filename: str, shared_data: bool = False
+    graph_client, filename: str, shared_data: bool = False, wait: bool = True
 ) -> None:
     if not env_utils.get_boolean_env_variable("CLEANUP_DATA", True):
         print("Not cleaning data to save time")
@@ -176,7 +176,8 @@ def delete_urns_from_file(
         d = json.load(f)
         Parallel(n_jobs=10)(delayed(delete)(entry) for entry in d)
 
-    wait_for_writes_to_sync()
+    if wait:
+        wait_for_writes_to_sync()
 
 
 # Fixed now value
