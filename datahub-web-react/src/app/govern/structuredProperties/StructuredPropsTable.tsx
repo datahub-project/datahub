@@ -319,6 +319,7 @@ const StructuredPropsTable = ({
                 isLoading={loading}
                 isScrollable
                 data-testid="structured-props-table"
+                rowDataTestId={(row) => row.entity.urn}
             />
             <ConfirmationModal
                 isOpen={showConfirmDelete}
