@@ -2,13 +2,13 @@ import { Button, Text } from '@components';
 import React from 'react';
 
 import {
-    MetricBadge,
     UserRecommendationCard as StyledCard,
     UserInfo,
     UserMetrics,
     UserName,
 } from '@app/identity/user/ViewInviteTokenModal.components';
 import { formatNumber } from '@app/shared/formatNumber';
+import { Pill } from '@src/alchemy-components';
 
 import { CorpUser } from '@types';
 
@@ -37,8 +37,8 @@ export default function UserRecommendationCard({ user, onSendInvitation }: Props
                     </Text>
                 )}
                 <UserMetrics>
-                    <MetricBadge>{formatNumber(queryCount)} queries</MetricBadge>
-                    <MetricBadge>{platformCount} platforms</MetricBadge>
+                    <Pill variant="filled" color="blue" label={`${formatNumber(queryCount)} queries`} />
+                    <Pill variant="filled" color="blue" label={`${platformCount} platforms`} />
                 </UserMetrics>
             </UserInfo>
             <Button size="sm" onClick={() => onSendInvitation(user)}>

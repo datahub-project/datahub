@@ -36,6 +36,7 @@ import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.datatype.DataTypeInfo;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -2170,6 +2171,57 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String urnStr = "urn:li:dataset:(urn:li:dataPlatform:looker,sample_dataset_unique,PROD)";
     Urn entityUrn = UrnUtils.getUrn(urnStr);
 
+    // First, create the required data types that the structured property validation expects
+    // Only create them if they don't already exist to avoid duplicate key violations
+    Urn stringDataTypeUrn = UrnUtils.getUrn("urn:li:dataType:datahub.string");
+    Urn numberDataTypeUrn = UrnUtils.getUrn("urn:li:dataType:datahub.number");
+
+    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+
+    // Check if string data type exists, create if it doesn't
+    if (!_entityServiceImpl.exists(opContext, stringDataTypeUrn, true)) {
+      DataTypeInfo stringDataTypeInfo =
+          new DataTypeInfo()
+              .setQualifiedName("datahub.string")
+              .setDisplayName("String")
+              .setDescription("A string of characters.");
+
+      MetadataChangeProposal stringDataTypeMcp = new MetadataChangeProposal();
+      stringDataTypeMcp.setEntityUrn(stringDataTypeUrn);
+      stringDataTypeMcp.setChangeType(ChangeType.UPSERT);
+      stringDataTypeMcp.setEntityType("dataType");
+      stringDataTypeMcp.setAspectName("dataTypeInfo");
+
+      byte[] stringDataTypeSerialized = dataTemplateCodec.dataTemplateToBytes(stringDataTypeInfo);
+      GenericAspect stringGenericAspect = new GenericAspect();
+      stringGenericAspect.setValue(ByteString.unsafeWrap(stringDataTypeSerialized));
+      stringGenericAspect.setContentType("application/json");
+      stringDataTypeMcp.setAspect(stringGenericAspect);
+      _entityServiceImpl.ingestProposal(opContext, stringDataTypeMcp, TEST_AUDIT_STAMP, false);
+    }
+
+    // Check if number data type exists, create if it doesn't
+    if (!_entityServiceImpl.exists(opContext, numberDataTypeUrn, true)) {
+      DataTypeInfo numberDataTypeInfo =
+          new DataTypeInfo()
+              .setQualifiedName("datahub.number")
+              .setDisplayName("Number")
+              .setDescription("An integer or decimal number.");
+
+      MetadataChangeProposal numberDataTypeMcp = new MetadataChangeProposal();
+      numberDataTypeMcp.setEntityUrn(numberDataTypeUrn);
+      numberDataTypeMcp.setChangeType(ChangeType.UPSERT);
+      numberDataTypeMcp.setEntityType("dataType");
+      numberDataTypeMcp.setAspectName("dataTypeInfo");
+
+      byte[] numberDataTypeSerialized = dataTemplateCodec.dataTemplateToBytes(numberDataTypeInfo);
+      GenericAspect numberGenericAspect = new GenericAspect();
+      numberGenericAspect.setValue(ByteString.unsafeWrap(numberDataTypeSerialized));
+      numberGenericAspect.setContentType("application/json");
+      numberDataTypeMcp.setAspect(numberGenericAspect);
+      _entityServiceImpl.ingestProposal(opContext, numberDataTypeMcp, TEST_AUDIT_STAMP, false);
+    }
+
     // Ingest one structured property definition
     String definitionAspectName = "propertyDefinition";
     Urn firstPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:firstStructuredProperty");
@@ -2181,9 +2233,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     StructuredPropertyDefinition structuredPropertyDefinition =
         new StructuredPropertyDefinition()
             .setQualifiedName("firstStructuredProperty")
-            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"))
             .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")));
-    JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
     byte[] definitionSerialized =
         dataTemplateCodec.dataTemplateToBytes(structuredPropertyDefinition);
     GenericAspect genericAspect = new GenericAspect();
@@ -2270,7 +2321,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     StructuredPropertyDefinition secondDefinition =
         new StructuredPropertyDefinition()
             .setQualifiedName("secondStructuredProperty")
-            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "number"))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.number"))
             .setEntityTypes(new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")));
     JacksonDataTemplateCodec secondDataTemplate = new JacksonDataTemplateCodec();
     byte[] secondDefinitionSerialized = secondDataTemplate.dataTemplateToBytes(secondDefinition);

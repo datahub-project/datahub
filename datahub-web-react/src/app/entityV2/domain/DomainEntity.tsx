@@ -66,7 +66,7 @@ export class DomainEntity implements Entity<Domain> {
             );
         }
 
-        return <DomainIcon style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return <DomainIcon style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }} />;
     };
 
     isSearchEnabled = () => true;
@@ -243,6 +243,6 @@ export class DomainEntity implements Entity<Domain> {
 
     supportedCapabilities = () => {
         // TODO.. Determine whether SOFT_DELETE should go into here.
-        return new Set([EntityCapabilityType.OWNERS]);
+        return new Set([EntityCapabilityType.OWNERS, EntityCapabilityType.TEST]);
     };
 }

@@ -272,7 +272,8 @@ public class EntityController
             entityAspectsBody.getAspects(),
             withSystemMetadata,
             result.getScrollId(),
-            entityAspectsBody.getAspects() != null));
+            entityAspectsBody.getAspects() != null,
+            result.getNumEntities()));
   }
 
   @Tag(name = "EntityVersioning")
@@ -711,13 +712,15 @@ public class EntityController
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
-      boolean expandEmpty)
+      boolean expandEmpty,
+      int totalCount)
       throws URISyntaxException {
     return GenericEntityScrollResultV3.builder()
         .entities(
             toRecordTemplates(
                 opContext, searchEntities, aspectNames, withSystemMetadata, expandEmpty))
         .scrollId(scrollId)
+        .totalCount(totalCount)
         .build();
   }
 

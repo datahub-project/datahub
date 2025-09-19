@@ -41,7 +41,7 @@ export const UserCard = styled.div<{ $fadeOut?: boolean }>`
 export const UserInfo = styled.div`
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex: 1;
 `;
 
@@ -51,7 +51,11 @@ export const UserDetails = styled.div`
 `;
 
 export const UserEmail = styled(Text)`
-    font-weight: 500;
+    max-width: 320px;
+    font-weight: 620;
+    color: ${colors.gray[600]};
+    line-height: normal;
+    text-overflow: ellipsis;
 `;
 
 export const UserEmailRow = styled.div`
@@ -77,12 +81,7 @@ export const EmptyMessage = styled(Text)`
     color: ${colors.gray[1700]};
 `;
 
-export const RecommendedUsersHeader = styled(Text)`
-    font-weight: 500;
-    color: ${colors.gray[600]};
-`;
-
-export const PlatformPill = styled.div`
+export const PlatformPillWrapper = styled.div`
     display: inline-flex;
     align-items: center;
     background: ${colors.gray[1500]};
@@ -104,17 +103,6 @@ export const PlatformIcon = styled.img`
 export const PlatformName = styled.span`
     font-size: 11px;
     color: ${colors.gray[1700]};
-`;
-
-export const TopUserPill = styled.div`
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px;
-    background: ${colors.gray[1500]};
-    border-radius: 12px;
-    font-size: 11px;
-    color: ${colors.gray[1700]};
-    margin-right: 4px;
 `;
 
 export const InviteStatus = styled.div<{ $failed?: boolean }>`

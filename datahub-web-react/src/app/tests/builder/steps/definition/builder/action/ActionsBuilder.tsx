@@ -110,6 +110,7 @@ export const ActionsBuilder = ({
                     <ActionBuilder
                         selectedAction={action}
                         actionTypes={filteredActionTypes}
+                        entityTypes={entityTypes}
                         onChangeAction={(newAction) => onChangeAction(newAction, index)}
                     />
                     <DeleteButton type="text">

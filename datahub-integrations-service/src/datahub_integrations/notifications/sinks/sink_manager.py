@@ -46,9 +46,58 @@ class NotificationSinkManager:
         # Dispatch the notification to eligible sinks.
         await self.dispatch_notifications(request)
 
+    def _get_eligible_sinks(
+        self, request: NotificationRequestClass
+    ) -> List[NotificationSink]:
+        """
+        Filter sinks based on the recipient types in the notification request.
+        Only return sinks that can handle at least one recipient type in the request.
+        """
+        if not request.recipients:
+            logger.warning("No recipients in notification request")
+            return []
+
+        # Get all recipient types in the request
+        request_recipient_types = {recipient.type for recipient in request.recipients}
+
+        eligible_sinks = []
+        for sink in self.sink_registry:
+            # Get the recipient types this sink supports
+            sink_supported_types = set(sink.supported_notification_recipient_types())
+
+            # Check if this sink can handle any of the recipient types in the request
+            if request_recipient_types.intersection(sink_supported_types):
+                eligible_sinks.append(sink)
+                logger.debug(
+                    f"Sink {sink.type()} is eligible - supports {sink_supported_types}, "
+                    f"request has {request_recipient_types}"
+                )
+            else:
+                logger.debug(
+                    f"Sink {sink.type()} is not eligible - supports {sink_supported_types}, "
+                    f"request has {request_recipient_types}"
+                )
+
+        return eligible_sinks
+
     async def dispatch_notifications(self, request: NotificationRequestClass) -> None:
+        # Filter sinks based on recipient types in the request
+        eligible_sinks = self._get_eligible_sinks(request)
+
+        if not eligible_sinks:
+            logger.warning(
+                f"No eligible sinks found for notification request with recipient types: "
+                f"{[r.type for r in request.recipients]}"
+            )
+            return
+
+        logger.info(
+            f"Dispatching notification to {len(eligible_sinks)} eligible sinks: "
+            f"{[sink.type() for sink in eligible_sinks]}"
+        )
+
         async with anyio.create_task_group() as task_group:
-            for sink in self.sink_registry:
+            for sink in eligible_sinks:
                 task_group.start_soon(self.send_notification, sink, request)
 
     async def send_notification(

@@ -179,7 +179,7 @@ export const PlatformAiSettings = () => {
 
                 <StyledCard>
                     <TextContainer>
-                        <SettingText>Enable @DataHub AI in Slack</SettingText>
+                        <SettingText>Enable Ask DataHub in Slack</SettingText>
                         <DescriptionText>
                             When enabled, users can mention @DataHub in Slack to ask questions about your metadata. The{' '}
                             <Link to="/settings/integrations/slack" style={{ color: colors.violet['600'] }}>
@@ -192,7 +192,7 @@ export const PlatformAiSettings = () => {
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            Learn more about DataHub AI in Slack.
+                            Learn more about DataHub in Slack.
                         </DocsLink>
                     </TextContainer>
                     <Switch

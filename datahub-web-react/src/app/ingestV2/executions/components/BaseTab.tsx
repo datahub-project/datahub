@@ -1,10 +1,14 @@
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
+import { TextProps } from '@components/components/Text/types';
+
+import { Heading, Text } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 export const SectionBase = styled.div`
-    padding: 16px 30px 0;
+    padding: 8px 24px 0;
 `;
 
 export const SectionHeader = styled(Typography.Title)`
@@ -44,3 +48,25 @@ export const ScrollableDetailsContainer = styled(DetailsContainer)`
         border-radius: 10px;
     }
 `;
+
+type SectionHeadingProps = {
+    title: string;
+};
+
+export const SectionHeading: React.FC<SectionHeadingProps> = ({ title }) => (
+    <Heading type="h4" size="lg" weight="bold">
+        {title}
+    </Heading>
+);
+
+type SectionSecondaryTextProps = {
+    title: string;
+    color: TextProps['color'];
+    colorLevel: TextProps['colorLevel'];
+};
+
+export const SectionSecondaryText: React.FC<SectionSecondaryTextProps> = ({ title, color, colorLevel }) => (
+    <Text color={color} colorLevel={colorLevel}>
+        {title}
+    </Text>
+);

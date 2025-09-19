@@ -118,6 +118,7 @@ jobs:
           ENABLE_ACRYLIO_PUBLISH: >-
             ${{
                github.event_name == 'release'
+               && !github.event.release.prerelease
                && ( secrets.ACRYLIO_DOCKER_USERNAME != '' && secrets.ACRYLIO_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -136,6 +137,7 @@ jobs:
           ENABLE_CLOUDSMITH_PUBLISH: >-
             ${{
                github.event_name == 'release'
+               && !github.event.release.prerelease
                && ( secrets.CLOUDSMITH_USERNAME != '' && secrets.CLOUDSMITH_PASSWORD != '' )
             }}
         run: |
@@ -304,7 +306,7 @@ jobs:
         # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
         # for pr-publish, publish images without waiting for tests to pass.
         run: |
-          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
+          ./gradlew :docker:buildImagessaasImages -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
 
       - name: Capture build Id
         id: capture-build-id
@@ -313,7 +315,7 @@ jobs:
           DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
 
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
-          echo "matrix=$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '{"target":.target | keys}')" >> $GITHUB_OUTPUT
+          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
 
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -322,7 +324,7 @@ jobs:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: |
             ${{ github.workspace }}/build/build-metadata.json
-            ${{ github.workspace }}/build/bake-spec-allImages.json
+            ${{ github.workspace }}/build/bake-spec-saasImages.json
 
       - name: Login to ACRYLIO DockerHub
         uses: docker/login-action@v3
@@ -342,12 +344,12 @@ jobs:
       - name: Build Saas Images (Publish - ACRYLIO)
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesMinSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesminSaasImages -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
 
       - name: Build Saas Images (Publish - Cloudsmith)
         if: ${{ needs.setup.outputs.cloudsmith_publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesMinSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesminSaasImages -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
@@ -403,6 +405,7 @@ jobs:
           severity: "CRITICAL,HIGH"
           ignore-unfixed: true
           vuln-type: "os,library"
+          trivy-config: "./trivy.yaml"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: ${{ false }} # Saas only - we can't upload results
@@ -428,7 +431,7 @@ jobs:
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           else
             echo "cypress_batch_count=15" >> "$GITHUB_OUTPUT"
-            echo "python_batch_count=8" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=12" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -630,6 +633,7 @@ jobs:
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
+            **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
           retention-days: 5
@@ -701,12 +705,13 @@ jobs:
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@v1
 
-      - name: Login to DockerHub
+      - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -718,7 +723,8 @@ jobs:
       - name: Push images from depot builder
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
-          depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
+          set -euo pipefail
+          depot bake -f ${{ github.workspace }}/build/bake-spec-saasImages.json --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
             TARGET=$(echo "$line" | jq -r '.target')
             TAG=$(echo "$line" | jq -r '.tags')
 

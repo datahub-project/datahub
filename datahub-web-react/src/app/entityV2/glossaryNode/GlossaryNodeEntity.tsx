@@ -61,7 +61,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         return (
             <BookmarksSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }}
             />
         );
     };
@@ -219,6 +219,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.TEST,
         ]);
     };
 

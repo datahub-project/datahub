@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Action } from '@app/tests/builder/steps/actions/types';
+import { StructuredPropertyActionBuilder } from '@app/tests/builder/steps/definition/builder/action/StructuredPropertyActionBuilder';
 import { ActionTypeSelect } from '@app/tests/builder/steps/definition/builder/action/select/ActionTypeSelect';
 import {
     getActionType,
@@ -8,18 +9,21 @@ import {
     getValueOptions,
 } from '@app/tests/builder/steps/definition/builder/action/utils';
 import { ValueSelect } from '@app/tests/builder/steps/definition/builder/property/select/ValueSelect';
-import { ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
+import { ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
+
+import { EntityType } from '@types';
 
 type Props = {
     selectedAction: Action;
     onChangeAction: (newAction: Action) => void;
     actionTypes: ActionType[];
+    entityTypes?: EntityType[];
 };
 
 /**
  * This component allows you to construct an Action to use in Metadata Tests.
  */
-export const ActionBuilder = ({ selectedAction, onChangeAction, actionTypes }: Props) => {
+export const ActionBuilder = ({ selectedAction, onChangeAction, actionTypes, entityTypes = [] }: Props) => {
     const onChangeActionType = (newActionType: string) => {
         onChangeAction({
             type: newActionType,
@@ -41,6 +45,11 @@ export const ActionBuilder = ({ selectedAction, onChangeAction, actionTypes }: P
      */
     const valueOptions = getValueOptions(getActionType(selectedAction, actionTypes));
 
+    // Check if this is a structured property action that needs custom handling
+    const isStructuredPropertyAction =
+        selectedAction.type === ActionId.SET_STRUCTURED_PROPERTY ||
+        selectedAction.type === ActionId.UNSET_STRUCTURED_PROPERTY;
+
     return (
         <div>
             <ActionTypeSelect
@@ -48,12 +57,20 @@ export const ActionBuilder = ({ selectedAction, onChangeAction, actionTypes }: P
                 actionTypes={actionTypes}
                 onChangeActionType={onChangeActionType}
             />
-            {valueOptions && (
-                <ValueSelect
-                    selectedValues={selectedAction?.values}
-                    options={valueOptions}
-                    onChangeValues={onChangeValues}
+            {isStructuredPropertyAction ? (
+                <StructuredPropertyActionBuilder
+                    selectedAction={selectedAction}
+                    onChangeAction={onChangeAction}
+                    entityTypes={entityTypes}
                 />
+            ) : (
+                valueOptions && (
+                    <ValueSelect
+                        selectedValues={selectedAction?.values}
+                        options={valueOptions}
+                        onChangeValues={onChangeValues}
+                    />
+                )
             )}
         </div>
     );

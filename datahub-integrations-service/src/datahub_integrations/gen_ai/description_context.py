@@ -3,6 +3,7 @@ import html
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from urllib.parse import unquote
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -776,7 +777,9 @@ def transform_table_info_for_llm(
     # NOTE: Presence of clause "or None" with list type values is deliberate,
     # to exclude such keys when serializing using model_dump
     for column in column_urns:
-        column_name = SchemaFieldUrn.from_string(column).field_path
+        # URL-decode the field_path to handle encoded characters like %28 (parentheses)
+        # This fixes the issue where field names with special characters would fail validation
+        column_name = unquote(SchemaFieldUrn.from_string(column).field_path)
         column_info[column_name] = ColumnMetadataInfo(
             column_name=column_name,
             metadata=extracted_table_info.column_metadata.get(column),

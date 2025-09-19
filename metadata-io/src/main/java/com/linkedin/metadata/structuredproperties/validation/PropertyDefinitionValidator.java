@@ -100,6 +100,8 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       allowedTypesCheck(
               item, newDefinition.getTypeQualifier(), retrieverContext.getAspectRetriever())
           .ifPresent(exceptions::addException);
+      valueTypeCheck(item, newDefinition.getValueType(), retrieverContext.getAspectRetriever())
+          .ifPresent(exceptions::addException);
 
       if (item.getPreviousSystemAspect() != null) {
 
@@ -258,6 +260,42 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
               String.format(
                   "Issue resolving allowedTypes inside of typeQualifier. These must be entity type urns. List of allowedTypes: %s",
                   allowedTypes)));
+    }
+
+    return Optional.empty();
+  }
+
+  private static Optional<AspectValidationException> valueTypeCheck(
+      MCPItem item, @Nonnull Urn valueTypeUrn, AspectRetriever aspectRetriever) {
+    try {
+      // Accept both dataType and logicalType entities for backward compatibility
+      if (!valueTypeUrn.getEntityType().equals(DATA_TYPE_ENTITY_NAME)
+          && !valueTypeUrn.getEntityType().equals("logicalType")) {
+        return Optional.of(
+            AspectValidationException.forItem(
+                item,
+                String.format(
+                    "Provided valueType '%s' is not a valid type entity. Expected URN format: urn:li:dataType:* or urn:li:logicalType:*",
+                    valueTypeUrn)));
+      }
+
+      // Ensure the type entity exists
+      Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(Set.of(valueTypeUrn));
+      if (existsMap.getOrDefault(valueTypeUrn, false) == false) {
+        return Optional.of(
+            AspectValidationException.forItem(
+                item,
+                String.format(
+                    "Provided valueType '%s' does not exist. Valid data types include: urn:li:dataType:datahub.string, urn:li:dataType:datahub.number, urn:li:dataType:datahub.urn, urn:li:dataType:datahub.rich_text, urn:li:dataType:datahub.date",
+                    valueTypeUrn)));
+      }
+    } catch (Exception e) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Issue resolving valueType '%s'. Expected a valid dataType URN like 'urn:li:dataType:datahub.string'",
+                  valueTypeUrn)));
     }
 
     return Optional.empty();

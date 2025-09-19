@@ -1975,7 +1975,6 @@ export type Event =
     | IngestionViewAllClickEvent
     | IngestionViewAllClickWarningEvent
     | SetDeprecationEvent
-    | SetDeprecationEvent
     | ClickInviteUsersCTAEvent
     | ClickCopyInviteLinkEvent
     | ClickInviteViaEmailEvent

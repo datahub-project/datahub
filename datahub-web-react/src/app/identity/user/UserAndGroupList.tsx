@@ -46,7 +46,11 @@ enum SubTabType {
     Recommended = 'recommended',
 }
 
-export const UserAndGroupList = () => {
+interface Props {
+    hasSsoBanner?: boolean;
+}
+
+export const UserAndGroupList = ({ hasSsoBanner }: Props) => {
     const client = useApolloClient();
     const history = useHistory();
     const location = useLocation();
@@ -141,8 +145,41 @@ export const UserAndGroupList = () => {
         handleDelete,
     );
 
+    // Utility function to update user role in list
+    const updateUserRole = (userUrn: string, roleUrn: string) => {
+        setUsersList((prevUsers) =>
+            prevUsers.map((user) => {
+                if (user.urn === userUrn) {
+                    const updatedUser = { ...user };
+                    if (roleUrn === NO_ROLE_URN) {
+                        // Remove role
+                        updatedUser.roles = null;
+                    } else {
+                        // Update role
+                        const role = selectRoleOptions.find((r) => r.urn === roleUrn);
+                        if (role) {
+                            updatedUser.roles = {
+                                ...updatedUser.roles,
+                                relationships: [
+                                    {
+                                        entity: role,
+                                    },
+                                ],
+                            };
+                        }
+                    }
+                    return updatedUser;
+                }
+                return user;
+            }),
+        );
+    };
+
     // Role assignment handlers
     const onSelectRole = (userUrn: string, username: string, currentRoleUrn: string, newRoleUrn: string) => {
+        // Optimistically update the UI immediately
+        updateUserRole(userUrn, newRoleUrn);
+
         setRoleAssignmentState({
             isViewingAssignRole: true,
             userUrn,
@@ -153,6 +190,10 @@ export const UserAndGroupList = () => {
     };
 
     const onCancelRoleAssignment = () => {
+        if (!roleAssignmentState) return;
+
+        // Revert optimistic update by restoring original role
+        updateUserRole(roleAssignmentState.userUrn, roleAssignmentState.originalRoleUrn);
         setRoleAssignmentState(null);
     };
 
@@ -194,6 +235,9 @@ export const UserAndGroupList = () => {
                 }
             })
             .catch((e) => {
+                // Revert optimistic update on API failure
+                updateUserRole(roleAssignmentState.userUrn, roleAssignmentState.originalRoleUrn);
+
                 message.destroy();
                 message.error({
                     content:
@@ -275,7 +319,7 @@ export const UserAndGroupList = () => {
                 properties: {
                     ...user.properties,
                     email: userEmail,
-                    displayName: user.info?.displayName || user.properties?.displayName || user.username,
+                    displayName: user.properties?.displayName || user.username,
                     active: true,
                 },
             };
@@ -305,11 +349,6 @@ export const UserAndGroupList = () => {
             return false;
         }
     };
-
-    // TODO: Implement dismiss user functionality
-    // const handleDismissRecommendedUser = (user: CorpUser) => {
-    //     console.log('Dismissing recommended user:', user);
-    // };
 
     const columns = [
         {
@@ -412,11 +451,16 @@ export const UserAndGroupList = () => {
             pageSize={pageSize}
             totalUsers={totalUsers}
             onChangePage={onChangePage}
+            hasSsoBanner={hasSsoBanner}
         />
     );
 
     const renderRecommendedUsersTab = () => (
-        <RecommendedUsersTab onInviteUser={handleInviteRecommendedUser} selectRoleOptions={selectRoleOptions} />
+        <RecommendedUsersTab
+            onInviteUser={handleInviteRecommendedUser}
+            selectRoleOptions={selectRoleOptions}
+            hasSsoBanner={hasSsoBanner}
+        />
     );
 
     return (

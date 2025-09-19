@@ -1,8 +1,54 @@
+"""
+URL utilities for Teams integration.
+
+This module provides URL generation functions that are independent of other teams modules
+to avoid circular import dependencies.
+"""
+
 import re
 from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 from datahub_integrations.app import DATAHUB_FRONTEND_URL
+
+
+def get_type_url(entity_type: Optional[str], urn: Optional[str]) -> Optional[str]:
+    """
+    Generate a DataHub frontend URL for an entity.
+
+    Args:
+        entity_type: The type of entity (e.g., 'DATASET', 'CHART')
+        urn: The entity URN
+
+    Returns:
+        The frontend URL for the entity
+    """
+
+    if not entity_type or not urn:
+        return None
+
+    # Map entity types to frontend paths
+    type_to_path = {
+        "DATASET": "dataset",
+        "CHART": "chart",
+        "DASHBOARD": "dashboard",
+        "DATA_JOB": "dataJob",
+        "DATA_FLOW": "dataFlow",
+        "CONTAINER": "container",
+        "DOMAIN": "domain",
+        "DATA_PRODUCT": "dataProduct",
+        "GLOSSARY_TERM": "glossaryTerm",
+        "GLOSSARY_NODE": "glossaryNode",
+        "TAG": "tag",
+        "CORP_USER": "user",
+        "CORP_GROUP": "group",
+    }
+
+    path = type_to_path.get(entity_type)
+    if not path:
+        return None
+
+    return f"{DATAHUB_FRONTEND_URL}/{path}/{urn}?is_lineage_mode=false"
 
 
 def extract_urn_from_url(url: str) -> Optional[str]:

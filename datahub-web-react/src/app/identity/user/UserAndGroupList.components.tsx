@@ -74,12 +74,12 @@ export const UserContainer = styled.div`
     margin-top: 16px;
 `;
 
-export const TableContainer = styled.div`
+export const TableContainer = styled.div<{ $hasSsoBanner?: boolean }>`
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 350px); /* Constrain to page height minus header/filters space */
+    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '400px' : '320px')});
     overflow: auto;
 
     /* Make table header sticky */
@@ -408,6 +408,7 @@ type AllUsersTabProps = {
     pageSize: number;
     totalUsers: number;
     onChangePage: (page: number) => void;
+    hasSsoBanner?: boolean;
 };
 
 export const AllUsersTab = ({
@@ -424,6 +425,7 @@ export const AllUsersTab = ({
     pageSize,
     totalUsers,
     onChangePage,
+    hasSsoBanner,
 }: AllUsersTabProps) => (
     <>
         <UserContainer>
@@ -464,7 +466,7 @@ export const AllUsersTab = ({
             </FiltersHeader>
         </UserContainer>
 
-        <TableContainer>
+        <TableContainer $hasSsoBanner={hasSsoBanner}>
             {sortedFilteredUsers.length > 0 ? (
                 <>
                     <Table
@@ -495,8 +497,13 @@ export const AllUsersTab = ({
 type RecommendedUsersTabProps = {
     onInviteUser: (user: CorpUser, role?: DataHubRole) => Promise<boolean>;
     selectRoleOptions: DataHubRole[];
+    hasSsoBanner?: boolean;
 };
 
-export const RecommendedUsersTab = ({ onInviteUser, selectRoleOptions }: RecommendedUsersTabProps) => (
-    <RecommendedUsersTable onInviteUser={onInviteUser} selectRoleOptions={selectRoleOptions} />
+export const RecommendedUsersTab = ({ onInviteUser, selectRoleOptions, hasSsoBanner }: RecommendedUsersTabProps) => (
+    <RecommendedUsersTable
+        onInviteUser={onInviteUser}
+        selectRoleOptions={selectRoleOptions}
+        hasSsoBanner={hasSsoBanner}
+    />
 );

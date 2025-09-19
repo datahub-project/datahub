@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List
 
 from datahub.metadata.schema_classes import NotificationRequestClass
 
@@ -36,5 +37,12 @@ class NotificationSink(ABC):
     ) -> None:
         """
         Sends a notification to one or more recipients based on a NotificationRequest.
+        """
+        pass
+
+    @abstractmethod
+    def supported_notification_recipient_types(self) -> List[str]:
+        """
+        Returns the list of recipient types that this sink can handle.
         """
         pass

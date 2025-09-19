@@ -11,17 +11,15 @@ import com.linkedin.metadata.service.DomainServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 public class UnsetDomainActionTest {
-
-  private static final Urn TEST_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:test");
 
   private static final List<Urn> DATASET_URNS =
       ImmutableList.of(
@@ -33,8 +31,8 @@ public class UnsetDomainActionTest {
           UrnUtils.getUrn("urn:li:dashboard:(looker,1)"),
           UrnUtils.getUrn("urn:li:dashboard:(looker,2)"));
 
-  private static final Map<String, List<String>> VALID_PARAMS =
-      ImmutableMap.of("values", ImmutableList.of(TEST_DOMAIN_URN.toString()));
+  // UnsetDomainAction doesn't require parameters since it removes ALL domains
+  private static final Map<String, List<String>> EMPTY_PARAMS = Collections.emptyMap();
 
   private static final List<Urn> ALL_URNS = new ArrayList<>();
 
@@ -43,44 +41,83 @@ public class UnsetDomainActionTest {
     ALL_URNS.addAll(DASHBOARD_URNS);
   }
 
-  private static final List<ResourceReference> DATASET_REFERENCES =
-      DATASET_URNS.stream()
-          .map(urn -> new ResourceReference(urn, null, null))
-          .collect(Collectors.toList());
-
-  private static final List<ResourceReference> DASHBOARD_REFERENCES =
-      DASHBOARD_URNS.stream()
+  private static final List<ResourceReference> ALL_REFERENCES =
+      ALL_URNS.stream()
           .map(urn -> new ResourceReference(urn, null, null))
           .collect(Collectors.toList());
 
   @Test
-  private void testApply() throws Exception {
+  public void testApply() throws Exception {
     DomainServiceAsync service = mock(DomainServiceAsync.class);
 
     UnsetDomainAction action = new UnsetDomainAction(service);
-    ActionParameters params = new ActionParameters(VALID_PARAMS);
+    ActionParameters params = new ActionParameters(EMPTY_PARAMS);
     action.apply(mock(OperationContext.class), ALL_URNS, params);
 
-    Mockito.verify(service, Mockito.atLeastOnce())
-        .batchRemoveDomains(
+    // Verify that batchUnsetDomain is called once with all URNs (removes ALL domains)
+    Mockito.verify(service, Mockito.times(1))
+        .batchUnsetDomain(
             any(OperationContext.class),
-            Mockito.eq(ImmutableList.of(TEST_DOMAIN_URN)),
-            Mockito.eq(DASHBOARD_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
-    Mockito.verify(service, Mockito.atLeastOnce())
-        .batchRemoveDomains(
-            any(OperationContext.class),
-            Mockito.eq(ImmutableList.of(TEST_DOMAIN_URN)),
-            Mockito.eq(DATASET_REFERENCES),
+            Mockito.eq(ALL_REFERENCES),
             Mockito.eq(METADATA_TESTS_SOURCE));
 
     Mockito.verifyNoMoreInteractions(service);
   }
 
   @Test
-  private void testValidateValidParams() {
+  public void testApplyEmptyUrns() throws Exception {
+    DomainServiceAsync service = mock(DomainServiceAsync.class);
+    UnsetDomainAction action = new UnsetDomainAction(service);
+    ActionParameters params = new ActionParameters(EMPTY_PARAMS);
+
+    // Apply with empty URN list should not call service
+    action.apply(mock(OperationContext.class), Collections.emptyList(), params);
+
+    Mockito.verifyNoInteractions(service);
+  }
+
+  @Test
+  public void testValidateNoValidation() {
     UnsetDomainAction action = new UnsetDomainAction(mock(DomainServiceAsync.class));
-    ActionParameters params = new ActionParameters(VALID_PARAMS);
+    ActionParameters params = new ActionParameters(EMPTY_PARAMS);
+
+    // UnsetDomainAction extends NoValidationAction, so validation should pass
     action.validate(params);
+  }
+
+  @Test
+  public void testValidateWithParams() {
+    UnsetDomainAction action = new UnsetDomainAction(mock(DomainServiceAsync.class));
+    Map<String, List<String>> paramsWithValues =
+        Collections.singletonMap("values", ImmutableList.of("urn:li:domain:test"));
+    ActionParameters params = new ActionParameters(paramsWithValues);
+
+    // Should still pass validation even with parameters since NoValidationAction doesn't validate
+    action.validate(params);
+  }
+
+  @Test
+  public void testBackwardCompatibilityWithDomainUrns() throws Exception {
+    DomainServiceAsync service = mock(DomainServiceAsync.class);
+    UnsetDomainAction action = new UnsetDomainAction(service);
+
+    // Test backward compatibility: in the old version, users would specify domain URNs to remove
+    // In the new version, we ignore these parameters and remove ALL domains
+    Map<String, List<String>> oldStyleParams =
+        Collections.singletonMap(
+            "values", ImmutableList.of("urn:li:domain:engineering", "urn:li:domain:marketing"));
+    ActionParameters params = new ActionParameters(oldStyleParams);
+
+    action.apply(mock(OperationContext.class), ALL_URNS, params);
+
+    // Verify that batchUnsetDomain is called (removes ALL domains, ignoring the specific domain
+    // URNs)
+    Mockito.verify(service, Mockito.times(1))
+        .batchUnsetDomain(
+            any(OperationContext.class),
+            Mockito.eq(ALL_REFERENCES),
+            Mockito.eq(METADATA_TESTS_SOURCE));
+
+    Mockito.verifyNoMoreInteractions(service);
   }
 }

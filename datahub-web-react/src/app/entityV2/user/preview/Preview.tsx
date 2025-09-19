@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
@@ -56,10 +56,12 @@ const PlatformText = styled(Typography.Text)`
 
 export const Preview = ({
     urn,
+    previewType,
     name,
     title,
 }: {
     urn: string;
+    previewType: PreviewType;
     name: string;
     title?: string | undefined;
 }): JSX.Element => {
@@ -86,7 +88,9 @@ export const Preview = ({
                         <SearchTextHighlighter field="title" text={title} />
                     </TitleContainer>
                 )}
-                <HoverCardAttributionDetails propagationDetails={propagationDetails} />
+                {previewType === PreviewType.HOVER_CARD && (
+                    <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
+                )}
             </div>
         </PreviewContainer>
     );

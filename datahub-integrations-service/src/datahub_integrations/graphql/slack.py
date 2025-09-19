@@ -1,23 +1,5 @@
-import pathlib
+from .common import GET_ENTITY_QUERY, SEARCH_QUERY
 
-ENTITY_FRAGMENT = (pathlib.Path(__file__).parent / "entity.graphql").read_text()
-SEARCH_FRAGMENT = (pathlib.Path(__file__).parent / "search.graphql").read_text()
-
-SLACK_SEARCH_QUERY = f"""
-    {ENTITY_FRAGMENT}
-    {SEARCH_FRAGMENT}
-    query getSearchResultsForMultiple($input: SearchAcrossEntitiesInput!) {{
-      searchAcrossEntities(input: $input) {{
-        ...searchResults
-      }}
-    }}
-"""
-
-SLACK_GET_ENTITY_QUERY = f"""
-    {ENTITY_FRAGMENT}
-    query getEntity($urn: String!) {{
-      entity(urn: $urn) {{
-        ...entityFields
-      }}
-    }}
-"""
+# Re-export common queries with Slack-specific names for backward compatibility
+SLACK_SEARCH_QUERY = SEARCH_QUERY
+SLACK_GET_ENTITY_QUERY = GET_ENTITY_QUERY

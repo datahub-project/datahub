@@ -58,8 +58,25 @@ export default function SimpleSelectRole({
             icon: mapRoleToPhosphorIcon(role.name),
         }));
 
+        // Sort roles in desired order: Reader, Edit, Admin
+        const roleOrder = ['Reader', 'Edit', 'Admin'];
+        const sortedRoleOptions = roleOptions.sort((a, b) => {
+            const indexA = roleOrder.indexOf(a.label);
+            const indexB = roleOrder.indexOf(b.label);
+
+            // If both roles are in the order array, sort by their position
+            if (indexA !== -1 && indexB !== -1) {
+                return indexA - indexB;
+            }
+            // If only one is in the order array, prioritize it
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            // If neither is in the order array, maintain original order
+            return 0;
+        });
+
         // Add "No Role" option at the end
-        return [...roleOptions, { value: '', label: placeholder, icon: mapRoleToPhosphorIcon('') }];
+        return [...sortedRoleOptions, { value: '', label: placeholder, icon: mapRoleToPhosphorIcon('') }];
     }, [roles, placeholder]);
 
     const handleRoleSelect = (roleUrn: string) => {

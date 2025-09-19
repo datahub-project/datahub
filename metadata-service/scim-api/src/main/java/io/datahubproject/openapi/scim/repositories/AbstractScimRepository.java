@@ -6,6 +6,7 @@ import static org.apache.directory.scim.core.repository.DefaultPatchHandler.*;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -262,7 +263,9 @@ abstract class AbstractScimRepository<
   private Origin ingestOrigin(T resource, U urn, AuditStamp auditStamp) {
     Origin origin = new Origin();
     origin.setType(OriginType.EXTERNAL);
-    origin.setExternalType(SCIM_CLIENT_PREFIX + resource.getExternalId());
+    if (resource.getExternalId() != null) {
+      origin.setExternalType(SCIM_CLIENT_PREFIX + resource.getExternalId());
+    }
     ingest(urn, ORIGIN_ASPECT_NAME, origin, auditStamp);
     return origin;
   }
@@ -653,9 +656,15 @@ abstract class AbstractScimRepository<
       return result;
     }
 
-    private String getExternalId() {
+    @VisibleForTesting
+    String getExternalId() {
       Origin origin = (Origin) aspects.get(Origin.class);
-      if (origin == null) {
+      // Native groups created via datahub ui have a type set as NATIVE and no external ID.
+      // ExternalID may be set if passed the SCIM resource was created from an external IDP
+      if (origin == null || !origin.hasType() || !origin.getType().equals(OriginType.EXTERNAL)) {
+        return null;
+      }
+      if (origin.getExternalType() == null) {
         return null;
       }
       String externalId = origin.getExternalType().substring(SCIM_CLIENT_PREFIX.length());

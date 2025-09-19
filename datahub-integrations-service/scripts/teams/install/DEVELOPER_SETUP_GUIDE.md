@@ -82,7 +82,7 @@ source &lt;your-username&gt;_updated_env.env
 
 ```bash
 DATAHUB_TEAMS_APP_ID=12345678-1234-1234-1234-123456789abc
-DATAHUB_TEAMS_APP_SECRET=fake~secret~value~for~documentation~purposes
+DATAHUB_TEAMS_APP_PASSWORD=fake~secret~value~for~documentation~purposes
 DATAHUB_TEAMS_WEBHOOK_URL=https://&lt;your-username&gt;.ngrok-free.app/public/teams/webhook
 AZURE_BOT_NAME=datahub-teams-bot-&lt;your-username&gt;
 AZURE_RESOURCE_GROUP=datahub-teams-&lt;your-username&gt;
@@ -184,7 +184,7 @@ Create an environment file for the integration service:
 # In the datahub-integrations-service directory
 cat > .env << EOF
 DATAHUB_TEAMS_APP_ID=${DATAHUB_TEAMS_APP_ID}
-DATAHUB_TEAMS_APP_SECRET=${DATAHUB_TEAMS_APP_SECRET}
+DATAHUB_TEAMS_APP_PASSWORD=${DATAHUB_TEAMS_APP_PASSWORD}
 EOF
 ```
 
@@ -218,7 +218,7 @@ The router requires Teams credentials for webhook validation. Export the environ
 ```bash
 source &lt;your-username&gt;_updated_env.env
 export DATAHUB_TEAMS_APP_ID=${DATAHUB_TEAMS_APP_ID}
-export DATAHUB_TEAMS_APP_PASSWORD=${DATAHUB_TEAMS_APP_SECRET}
+export DATAHUB_TEAMS_APP_PASSWORD=${DATAHUB_TEAMS_APP_PASSWORD}
 datahub-router
 ```
 
@@ -480,7 +480,7 @@ The `setup_teams_tunnel.sh` script automatically detects if the router is runnin
 cd datahub-cloud-router/
 source ~/.datahub/local.env
 export DATAHUB_TEAMS_APP_ID=${DATAHUB_TEAMS_APP_ID}
-export DATAHUB_TEAMS_APP_PASSWORD=${DATAHUB_TEAMS_APP_SECRET}
+export DATAHUB_TEAMS_APP_PASSWORD=${DATAHUB_TEAMS_APP_PASSWORD}
 datahub-router  # Should show "Uvicorn running on http://0.0.0.0:9005"
 ```
 

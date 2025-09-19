@@ -25,31 +25,15 @@ class TestBotNameCaching:
         """Create a DataHubTeamsBot instance for testing."""
         return DataHubTeamsBot()
 
-    def test_set_bot_name_from_config_with_app_id(self, bot: DataHubTeamsBot) -> None:
-        """Test setting bot name from app_id during initialization."""
-        app_id = "fcfde16d-63d4-49f4-9e4a-60140562e2cb"
-
-        bot.set_bot_name_from_config(app_id)
-
-        assert bot._cached_bot_name == app_id
-
-    def test_set_bot_name_from_config_no_app_id(self, bot: DataHubTeamsBot) -> None:
-        """Test handling of missing app_id."""
-        bot.set_bot_name_from_config(None)
-
+    def test_initial_cached_bot_name_is_none(self, bot: DataHubTeamsBot) -> None:
+        """Test that initial cached bot name is None."""
         assert bot._cached_bot_name is None
 
-    def test_set_bot_name_from_config_already_cached(
-        self, bot: DataHubTeamsBot
-    ) -> None:
-        """Test that cached name is not overwritten if already set."""
-        initial_name = "Initial Bot Name"
-        bot._cached_bot_name = initial_name
-
-        bot.set_bot_name_from_config("new-app-id")
-
-        # Should not overwrite existing cached name
-        assert bot._cached_bot_name == initial_name
+    def test_cached_bot_name_can_be_set_directly(self, bot: DataHubTeamsBot) -> None:
+        """Test that cached bot name can be set directly."""
+        app_id = "fcfde16d-63d4-49f4-9e4a-60140562e2cb"
+        bot._cached_bot_name = app_id
+        assert bot._cached_bot_name == app_id
 
 
 class TestMentionDetection:
@@ -359,24 +343,24 @@ class TestBotNameCacheIntegration:
         assert result == cached_name
         assert bot._cached_bot_name == cached_name
 
-    def test_get_cached_bot_name_fallback_to_recipient(
+    def test_get_cached_bot_name_fallback_to_cached_name(
         self, bot: DataHubTeamsBot, turn_context: MagicMock
     ) -> None:
-        """Test fallback to recipient name when no mention entities."""
-        recipient_name = "datahub-teams-bot-internal"
+        """Test fallback to cached name when no mention entities."""
         initial_name = "app-id"
 
         bot._cached_bot_name = initial_name
 
         turn_context.activity = Activity(
-            recipient=ChannelAccount(id="28:bot-id", name=recipient_name),
+            recipient=ChannelAccount(id="28:bot-id", name="datahub-teams-bot-internal"),
             entities=[],  # No mention entities
         )
 
         result = bot._get_cached_bot_name(turn_context)
 
-        assert result == recipient_name
-        assert bot._cached_bot_name == recipient_name
+        # Should return the cached name, not update it
+        assert result == initial_name
+        assert bot._cached_bot_name == initial_name
 
 
 class TestFinalResponseBuilding:
@@ -401,19 +385,20 @@ class TestFinalResponseBuilding:
 
         # Check main message content
         assert main_message.text.startswith(response_text)
-        assert f"Mention @{bot_name} for responses" in main_message.text
+        assert f"Mention @{bot_name} for responses on this thread" in main_message.text
         assert "Was this helpful?" in main_message.text
 
     def test_build_teams_final_response_no_bot_name(self, bot: DataHubTeamsBot) -> None:
-        """Test building response with fallback bot name."""
+        """Test building response with no bot name."""
         response_text = "Here's your answer!"
 
         main_message, suggestions_message = bot._build_teams_final_response(
             response_text, [], None
         )
 
-        # Should use fallback @DataHub
-        assert "Mention @DataHub for responses" in main_message.text
+        # Should not include hint when no bot name is provided
+        assert "Mention @" not in main_message.text
+        assert "Was this helpful?" in main_message.text
 
     def test_build_teams_final_response_no_user_mention(
         self, bot: DataHubTeamsBot

@@ -2,7 +2,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { dataPlatform } from '@src/Mocks';
 
-import { EntityType } from '@types';
+import { DataProduct, EntityType } from '@types';
 
 const PARENT_CONTAINERS: GenericEntityProperties['parentContainers'] = {
     containers: [
@@ -43,6 +43,20 @@ const PARENT: GenericEntityProperties = {
     urn: 'urn:li:dataset:(urn:li:dataPlatform:snowflake,name,PROD)',
     type: EntityType.Dataset,
     platform: dataPlatform,
+};
+
+const dataProduct: DataProduct = {
+    urn: 'urn:li:dataProduct:test',
+    type: EntityType.DataProduct,
+    domain: {
+        associatedUrn: '',
+        domain: {
+            urn: 'urn:li:domain:bebdad41-c523-469f-9b62-de94f938f603',
+            id: 'bebdad41-c523-469f-9b62-de94f938f603',
+            type: EntityType.Domain,
+            parentDomains: PARENT_DOMAINS,
+        },
+    },
 };
 
 describe('getContextPath', () => {
@@ -99,5 +113,15 @@ describe('getContextPath', () => {
 
         const contextPath = getParentEntities(entityData);
         expect(contextPath).toEqual([PARENT]);
+    });
+
+    it('returns correct context path for data products', () => {
+        const entityData = dataProduct;
+
+        const contextPath = getParentEntities(entityData, EntityType.DataProduct);
+        expect(contextPath).toEqual([
+            dataProduct.domain?.domain,
+            ...(dataProduct.domain?.domain?.parentDomains?.domains || []),
+        ]);
     });
 });

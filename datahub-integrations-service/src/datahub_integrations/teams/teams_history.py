@@ -1,4 +1,5 @@
 import threading
+from collections import OrderedDict
 from typing import Dict, List, Sequence
 
 import cachetools
@@ -22,6 +23,10 @@ from datahub_integrations.chat.chat_history import (
 # and degrade gracefully. However, it significantly improves the common case UX.
 # Eventually it might make sense to persist this info back to GMS.
 
+# Maximum number of messages to keep per conversation
+# This prevents memory from growing indefinitely for long conversations
+_MAX_MESSAGES_PER_CONVERSATION = 50
+
 
 class TeamsConversationHistory:
     def __init__(self, conversation_id: str) -> None:
@@ -29,8 +34,9 @@ class TeamsConversationHistory:
 
         self._is_full_history = False
 
+        # Use OrderedDict to maintain message order and enable efficient removal of oldest messages
         # (message_ts) -> teams message
-        self._teams_messages: Dict[str, Message] = {}
+        self._teams_messages: OrderedDict[str, Message] = OrderedDict()
         # (message_ts) -> incremental chat history associated with this output message
         self._thinking: Dict[str, List[Message]] = {}
 
@@ -40,16 +46,50 @@ class TeamsConversationHistory:
         # We assume that messages are added in order. This should be the case, since
         # messages on a single conversation should come in from Teams in order.
         self._teams_messages[message_ts] = message
+
+        # Enforce message limit by removing oldest messages if we exceed the limit
+        while len(self._teams_messages) > _MAX_MESSAGES_PER_CONVERSATION:
+            oldest_ts, oldest_message = self._teams_messages.popitem(last=False)
+            # Also remove associated thinking messages
+            if oldest_ts in self._thinking:
+                del self._thinking[oldest_ts]
+            logger.debug(
+                f"Removed oldest message {oldest_ts} from conversation {self.conversation_id} "
+                f"to maintain limit of {_MAX_MESSAGES_PER_CONVERSATION} messages"
+            )
+
         if is_latest_message:
             # For simplicity, we'll assume we have full history when we add the first message
             # In a more sophisticated implementation, we could try to fetch conversation history
             self._is_full_history = True
 
     def add_thinking(self, message_ts: str, thinking: Sequence[Message]) -> None:
-        self._thinking[message_ts] = list(thinking)
+        # Only add thinking if the associated message still exists
+        if message_ts in self._teams_messages:
+            self._thinking[message_ts] = list(thinking)
+        else:
+            logger.debug(
+                f"Skipping thinking for message {message_ts} because the message was removed "
+                f"due to conversation history limit"
+            )
 
     def set_full_history(self, messages: Dict[str, Message]) -> None:
-        self._teams_messages = messages
+        # Convert to OrderedDict and enforce message limit
+        ordered_messages = OrderedDict(messages)
+
+        # If we have more messages than the limit, keep only the most recent ones
+        if len(ordered_messages) > _MAX_MESSAGES_PER_CONVERSATION:
+            # Convert to list of items, take the last N items, then convert back to OrderedDict
+            items = list(ordered_messages.items())
+            recent_items = items[-_MAX_MESSAGES_PER_CONVERSATION:]
+            ordered_messages = OrderedDict(recent_items)
+
+            logger.info(
+                f"Truncated conversation {self.conversation_id} history from {len(messages)} "
+                f"to {_MAX_MESSAGES_PER_CONVERSATION} messages (kept most recent)"
+            )
+
+        self._teams_messages = ordered_messages
         self._is_full_history = True
 
     def message_count(self) -> int:
@@ -59,7 +99,7 @@ class TeamsConversationHistory:
         return not self._is_full_history
 
     def get_chat_history(self) -> ChatHistory:
-        # We're relying on dicts being ordered for correctness here.
+        # We're relying on OrderedDict being ordered for correctness here.
         messages: Dict[str, Message | List[Message]] = {
             message_ts: message for message_ts, message in self._teams_messages.items()
         }
@@ -86,6 +126,8 @@ class TeamsConversationHistory:
             extra_properties=dict(
                 conversation_id=self.conversation_id,
                 is_limited_history=self.is_limited_history(),
+                max_messages_per_conversation=_MAX_MESSAGES_PER_CONVERSATION,
+                current_message_count=self.message_count(),
             ),
         )
 

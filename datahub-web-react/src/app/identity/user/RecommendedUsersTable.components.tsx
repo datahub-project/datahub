@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { pluralize } from '@app/shared/textUtil';
 import { Avatar, Pill, Text, Tooltip } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+import { pluralize } from '@src/app/shared/textUtil';
 
 import { CorpUser } from '@types';
 
@@ -32,11 +32,12 @@ export const SearchContainer = styled.div`
     flex-direction: column;
 `;
 
-export const TableContainer = styled.div`
+export const TableContainer = styled.div<{ $hasSsoBanner?: boolean }>`
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '550px' : '300px')});
     overflow: auto;
 
     /* Make table header sticky */
@@ -54,8 +55,8 @@ export const TableContainer = styled.div`
     }
 `;
 
-export const RecommendedTableContainer = styled(TableContainer)`
-    max-height: calc(100vh - 470px);
+export const RecommendedTableContainer = styled(TableContainer)<{ $hasSsoBanner?: boolean }>`
+    max-height: calc(100vh - ${(props) => (props.$hasSsoBanner ? '520px' : '435px')});
 `;
 
 export const ActionsContainer = styled.div`
@@ -65,7 +66,7 @@ export const ActionsContainer = styled.div`
     justify-content: flex-end;
 `;
 
-export const PlatformPill = styled.div`
+export const PlatformPillWrapper = styled.div`
     display: inline-flex;
     align-items: center;
     background: ${colors.gray[1500]};
@@ -82,17 +83,6 @@ export const PlatformIcon = styled.img`
     width: 16px;
     height: 16px;
     object-fit: contain;
-`;
-
-export const RecommendationPill = styled.div`
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 8px;
-    background: ${colors.gray[1500]};
-    border-radius: 12px;
-    font-size: 11px;
-    color: ${colors.gray[1700]};
-    font-weight: 500;
 `;
 
 export const PlatformPillsContainer = styled.div`
@@ -279,12 +269,12 @@ export const PlatformPills = ({ user, getPlatformIconUrl }: PlatformPillsProps) 
                         placement="bottom"
                         overlayStyle={{ borderRadius: '24px', minWidth: '320px' }}
                     >
-                        <PlatformPill>
+                        <PlatformPillWrapper>
                             {iconUrl && <PlatformIcon src={iconUrl} alt={platformName} title={platformName} />}
                             <Text size="sm" weight="medium">
                                 &nbsp;{platformName}
                             </Text>
-                        </PlatformPill>
+                        </PlatformPillWrapper>
                     </Tooltip>
                 );
             })}

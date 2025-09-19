@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import StrEnum
 from functools import cached_property
-from typing import Callable, Literal, cast
+from typing import Callable, Literal, Self, cast
 
 from datahub.configuration import ConfigModel
 from datahub.emitter.mce_builder import Aspect
@@ -156,22 +156,42 @@ class EntityWithData:
 
     # relationship name -> list[urns]
     # relationships stored on this entity
-    relationships_as_source: dict[str, list[str]] = field(
-        default_factory=dict, kw_only=True, compare=False
+    relationships_as_source: dict[str, set[str]] = field(
+        default_factory=lambda: defaultdict(set), kw_only=True, compare=False
     )
     # relationships stored on other entities
-    relationships_as_destination: dict[str, list[str]] = field(
-        default_factory=dict, kw_only=True, compare=False
+    relationships_as_destination: dict[str, set[str]] = field(
+        default_factory=lambda: defaultdict(set), kw_only=True, compare=False
     )
 
     def get_aspect(self, aspect: type[Aspect]) -> Aspect | None:
         return cast(Aspect | None, self.aspects.get(aspect.ASPECT_NAME))
 
-    def get_relationships(self, is_source: bool) -> dict[str, list[str]]:
+    def get_relationships(self, is_source: bool) -> dict[str, set[str]]:
         if is_source:
             return self.relationships_as_source
         else:
             return self.relationships_as_destination
+
+    def merge_in_place(self, other: Self) -> None:
+        if self.urn != other.urn or self.field_path != other.field_path:
+            logger.warning(
+                "Tried to merge entities with different urns or field paths: "
+                f"{self.urn} != {other.urn} or {self.field_path} != {other.field_path}"
+            )
+
+        self.aspects.update(other.aspects)
+
+        for rel, urns in other.relationships_as_source.items():
+            self.relationships_as_source[rel].update(urns)
+        for rel, urns in other.relationships_as_destination.items():
+            self.relationships_as_destination[rel].update(urns)
+
+        if not self.ingestion_description and other.ingestion_description:
+            self.ingestion_description = other.ingestion_description
+
+        if not self.editable_description and other.editable_description:
+            self.editable_description = other.editable_description
 
 
 class BulkBootstrapAction(ReportingAction, ABC):
@@ -391,14 +411,14 @@ class BulkBootstrapAction(ReportingAction, ABC):
                     entities.append(
                         EntityWithData(
                             source,
-                            relationships_as_source={relationship_type: [destination]},
+                            relationships_as_source={relationship_type: {destination}},
                         )
                     )
                 else:
                     entities.append(
                         EntityWithData(
                             destination,
-                            relationships_as_destination={relationship_type: [source]},
+                            relationships_as_destination={relationship_type: {source}},
                         )
                     )
 
@@ -454,9 +474,9 @@ class BulkBootstrapAction(ReportingAction, ABC):
             return
 
         for related_entity in related_entities:
-            entity.get_relationships(is_source).setdefault(
-                relationship_to_fetch, []
-            ).append(related_entity.urn)
+            entity.get_relationships(is_source)[relationship_to_fetch].add(
+                related_entity.urn
+            )
 
     # TODO: Handle exceptions on making requests
     def _execute_batch_get(

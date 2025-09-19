@@ -3,10 +3,12 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -65,17 +67,20 @@ const MemberCountContainer = styled.span`
 
 export const Preview = ({
     urn,
+    previewType,
     name,
     description,
     membersCount,
 }: {
     urn: string;
+    previewType: PreviewType;
     name: string;
     description?: string | null;
     membersCount?: number;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
+    const { propagationDetails } = usePreviewData();
 
     return (
         <PreviewContainer>
@@ -103,6 +108,9 @@ export const Preview = ({
                             {description}
                         </NoMarkdownViewer>
                     </DescriptionContainer>
+                )}
+                {previewType === PreviewType.HOVER_CARD && (
+                    <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                 )}
             </div>
         </PreviewContainer>

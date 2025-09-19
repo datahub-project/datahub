@@ -75,7 +75,7 @@ export class DataProductEntity implements Entity<DataProduct> {
         return (
             <FileDoneOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }}
             />
         );
     };
@@ -282,6 +282,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.TEST,
         ]);
     };
 

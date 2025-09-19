@@ -20,13 +20,15 @@ from datahub_actions.pipeline.pipeline_context import PipelineContext
 from loguru import logger
 from typing_extensions import Self, assert_never
 
+from datahub_integrations.gen_ai.description_context import ShellEntityError
 from datahub_integrations.gen_ai.router import (
     SuggestedTerm,
     SuggestedTerms,
-    suggest_terms_batch,
+    _suggest_terms_batch,
 )
 from datahub_integrations.gen_ai.term_suggestion_v2_context import (
     GlossaryUniverseConfig,
+    fetch_glossary_info,
 )
 
 _APPLY_TO_TOP_N_DATASETS = 10000
@@ -279,17 +281,37 @@ class BulkTermSuggester:
             glossary_nodes=self.config.glossary_node_urns,
         )
 
-        try:
-            suggestions = suggest_terms_batch(
-                graph=self.graph, entity_urns=urns, universe_config=glossary_universe
-            )
-            # TODO add plumbing to include confidence scores
+        # Fetch glossary info once per batch for efficiency
+        glossary_info = fetch_glossary_info(
+            graph_client=self.graph, universe=glossary_universe
+        )
 
-            for urn, suggestion in suggestions.items():
-                self.update_entity(urn, suggestion)
+        # Process URNs individually to avoid batch failures affecting all entities
+        for urn in urns:
+            try:
+                suggestions = _suggest_terms_batch(
+                    graph=self.graph,
+                    entity_urns=[urn],
+                    glossary_info=glossary_info,
+                )
+                # TODO add plumbing to include confidence scores
 
-        except Exception as e:
-            logger.exception(f"Failed to process urns {urns}: {e}")
+                if urn in suggestions:
+                    self.update_entity(urn, suggestions[urn])
+                else:
+                    # URN was processed but no suggestions returned
+                    # Still mark as processed to prevent infinite retry
+                    self._mark_entity_as_processed(urn)
+
+            except ShellEntityError as e:
+                logger.info(f"Skipping shell entity {urn}: {e}")
+                # CRITICAL: Mark shell entities as processed to prevent infinite retry
+                self._mark_entity_as_processed(urn)
+
+            except Exception as e:
+                # For other exceptions, don't mark as processed to allow retry
+                # This preserves retry behavior for network issues, temporary failures, etc.
+                logger.exception(f"Failed to process urn {urn}: {e}")
 
     def update_entity(self, urn: str, suggestion: SuggestedTerms) -> None:
         # Apply the cardinality config.
@@ -321,6 +343,26 @@ class BulkTermSuggester:
         if self.config.is_schema_field_enabled():
             for column_name, column_terms in all_column_terms.items():
                 self.apply_or_propose_terms(urn, column_name, column_terms)
+
+    def _mark_entity_as_processed(self, urn: str) -> None:
+        """Mark entity as processed by updating glossaryTermsVersion to prevent infinite retries.
+
+        This should be called for entities that cannot be processed (e.g., shell entities)
+        to prevent them from being selected again in future processing cycles.
+        """
+        self.graph.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=models.EntityInferenceMetadataClass(
+                    # TODO: Replace this with a patch.
+                    glossaryTermsInference=models.InferenceGroupMetadataClass(
+                        lastInferredAt=get_sys_time(),
+                        version=_TERMS_ALGO_VERSION,
+                    ),
+                ),
+            ),
+            async_flag=False,
+        )
 
     def apply_cardinality(
         self, terms: list[SuggestedTerm] | None

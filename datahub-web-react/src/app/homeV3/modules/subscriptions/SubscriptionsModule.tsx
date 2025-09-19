@@ -1,3 +1,4 @@
+import { InfiniteScrollList } from '@components';
 import React from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -9,11 +10,16 @@ import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
 import useNavigateFromSubscriptions from '@app/homeV3/modules/subscriptions/useNavigateFromSubscriptions';
 
+import { Entity } from '@types';
+
+const DEFAULT_PAGE_SIZE = 10;
+
 export default function SubscriptionsModule(props: ModuleProps) {
     const { user } = useUserContext();
     const { isReloading, onReloadingFinished } = useModuleContext();
-    const { originEntities, loading } = useGetAssetsYouSubscribeTo({
+    const { loading, total, fetchSubscriptions } = useGetAssetsYouSubscribeTo({
         user,
+        initialCount: DEFAULT_PAGE_SIZE,
         fetchPolicy: isReloading ? 'cache-and-network' : 'cache-first',
         onCompleted: () => onReloadingFinished(),
     });
@@ -21,19 +27,23 @@ export default function SubscriptionsModule(props: ModuleProps) {
 
     return (
         <LargeModule {...props} loading={loading} onClickViewAll={navigateToSubscriptions}>
-            {originEntities.length === 0 ? (
-                <EmptyContent
-                    icon="Bell"
-                    title="No Active Subscriptions"
-                    description="Subscribe to data assets to get notified about important changes and updates"
-                    linkText="Discover assets to subscribe to"
-                    onLinkClick={navigateToSearch}
-                />
-            ) : (
-                originEntities.map((entity) => (
+            <InfiniteScrollList<Entity>
+                fetchData={fetchSubscriptions}
+                renderItem={(entity) => (
                     <EntityItem entity={entity} key={entity.urn} moduleType={props.module.properties.type} />
-                ))
-            )}
+                )}
+                pageSize={DEFAULT_PAGE_SIZE}
+                emptyState={
+                    <EmptyContent
+                        icon="Bell"
+                        title="No Active Subscriptions"
+                        description="Subscribe to data assets to get notified about important changes and updates"
+                        linkText="Discover assets to subscribe to"
+                        onLinkClick={navigateToSearch}
+                    />
+                }
+                totalItemCount={total}
+            />
         </LargeModule>
     );
 }

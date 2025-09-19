@@ -70,11 +70,13 @@ export function useInviteUsersModal(options?: UseInviteUsersModalOptions) {
         // Email invitations
         emailInput: emailInvitations.emailInput,
         setEmailInput: emailInvitations.setEmailInput,
+        parsedEmails: emailInvitations.parsedEmails,
         invitedUsers: emailInvitations.invitedUsers,
         emailValidationError: emailInvitations.emailValidationError,
         handleSendInvitations,
         handleEmailInputChange: emailInvitations.handleEmailInputChange,
         handleEmailInputKeyPress,
+        handleEmailsChange: emailInvitations.handleEmailsChange,
 
         // Expose the raw email invitations object for direct access
         emailInvitations,

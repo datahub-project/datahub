@@ -65,6 +65,7 @@ export default function InviteUsersModal({ open, onClose }: Props) {
         selectedRole,
         emailInviteRole,
         emailInput,
+        parsedEmails,
         invitedUsers,
         inviteLink,
         emailValidationError,
@@ -75,8 +76,8 @@ export default function InviteUsersModal({ open, onClose }: Props) {
         onSelectEmailInviteRole,
         createInviteToken,
         handleSendInvitations,
-        handleEmailInputChange,
         handleEmailInputKeyPress,
+        handleEmailsChange,
         resetModalState,
         emailInvitations,
         refetchRecommendations,
@@ -204,13 +205,14 @@ export default function InviteUsersModal({ open, onClose }: Props) {
                 <>
                     <EmailInviteSection
                         emailInput={emailInput}
+                        parsedEmails={parsedEmails}
                         emailInviteRole={emailInviteRole}
                         noRoleText={noRoleText}
                         emailValidationError={emailValidationError}
                         onSelectEmailInviteRole={onSelectEmailInviteRole}
-                        handleEmailInputChange={handleEmailInputChange}
                         handleEmailInputKeyPress={handleEmailInputKeyPress}
                         handleSendInvitations={handleSendInvitations}
+                        onEmailsChange={handleEmailsChange}
                     />
 
                     {invitedUsers.length > 0 && (

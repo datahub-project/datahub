@@ -600,6 +600,69 @@ class GraphApiClient:
             logger.error(f"Error listing all channels: {e}")
             return []
 
+    async def get_user_by_email(self, email: str) -> Optional[GraphApiUser]:
+        """
+        Get a user by their email address.
+
+        Args:
+            email: User's email address
+
+        Returns:
+            GraphApiUser object if found, None otherwise
+        """
+        try:
+            # Use the $filter parameter to search by email
+            params: Dict[str, Union[str, int]] = {
+                "$filter": f"mail eq '{email}' or userPrincipalName eq '{email}'",
+                "$select": "id,displayName,mail,userPrincipalName",
+                "$top": 1,
+            }
+
+            data = await self._make_graph_request("/users", params)
+            users = data.get("value", [])
+
+            if users:
+                user_data = users[0]
+                logger.debug(
+                    f"Found user by email {email}: {user_data.get('displayName')}"
+                )
+                return GraphApiUser(**user_data)
+            else:
+                logger.debug(f"No user found with email: {email}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error looking up user by email {email}: {e}")
+            return None
+
+    async def get_user_by_id(self, user_id: str) -> Optional[GraphApiUser]:
+        """
+        Look up a user by Azure AD user ID using Microsoft Graph API.
+
+        Args:
+            user_id: Azure AD user ID
+
+        Returns:
+            GraphApiUser object if found, None otherwise
+        """
+        try:
+            # Use Graph API to get user by ID
+            data = await self._make_graph_request(
+                f"/users/{user_id}",
+                {"$select": "id,displayName,mail,userPrincipalName"},
+            )
+
+            if data:
+                logger.debug(f"Found user by ID {user_id}: {data.get('displayName')}")
+                return GraphApiUser(**data)
+            else:
+                logger.debug(f"No user found with ID: {user_id}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error looking up user by ID {user_id}: {e}")
+            return None
+
     async def send_activity_feed_notification(
         self,
         user_id: str,

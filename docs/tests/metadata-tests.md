@@ -5,8 +5,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 DataHub includes a highly configurable, no-code framework that allows you to configure broad-spanning monitors & continuous actions
-for the data assets - datasets, dashboards, charts, pipelines - that make up your enterprise Metadata Graph.
+for the data assets - datasets, dashboards, charts, pipelines, domains, data products, and governance entities - that make up your enterprise Metadata Graph.
 At the center of this framework is the concept of a Metadata Test.
+
+The framework now supports comprehensive governance capabilities including schema-level properties for datasets, data contract monitoring, lineage-based metrics, and domain-level governance tracking.
 
 There are two powerful use cases that are uniquely enabled by the Metadata Tests framework:
 
@@ -56,15 +58,18 @@ given to those users who will be serving as metadata Admins of the platform. The
 
 > Note that the Metadata Tests feature currently supports the following DataHub Asset Types:
 >
-> - Dataset
-> - Dashboard
-> - Chart
-> - Data Flow (e.g. Pipeline)
-> - Data Job (e.g. Task)
-> - Container (Database, Schema, Project)
-> - Glossary Term
+> - **Dataset** - Tables, views, and other data sources with comprehensive schema-level properties
+> - **Dashboard** - Business intelligence dashboards and reports
+> - **Chart** - Individual visualizations and charts
+> - **Data Flow** (e.g. Pipeline) - Data processing workflows and ETL pipelines
+> - **Data Job** (e.g. Task) - Individual tasks within data processing workflows
+> - **Container** - Database, Schema, Project, and other organizational containers
+> - **Glossary Term** - Business glossary definitions and terminology
+> - **Domain** - Organizational data domains with governance metrics
+> - **Data Product** - Curated data products with quality and usage metrics
+> - **Glossary Node** - Hierarchical groupings within business glossaries
 >
-> If you'd like to see Metadata Tests for other asset types, please let your DataHub Cloud CustomerSuccess partner know!
+> Each asset type supports a rich set of properties including metadata attributes, usage metrics, lineage information, data contracts, and governance features.
 
 ## Using Metadata Tests
 
@@ -98,8 +103,7 @@ or once every day).
 
 ##### Selecting Asset Types
 
-You must select at least one asset _type_ from a set that includes Datasets, Dashboards, Charts, Data Flows (Pipelines), Data Jobs (Tasks),
-and Containers.
+You must select at least one asset _type_ from a comprehensive set that includes Datasets, Dashboards, Charts, Data Flows (Pipelines), Data Jobs (Tasks), Containers, Glossary Terms, Domains, Data Products, and Glossary Nodes.
 
 <p align="center">
   <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-select-type.png"/>
@@ -113,9 +117,15 @@ thus omitted from evaluation of the test.
 **Property** conditions are the basic unit of comparison used for selecting data assets. Each **Property** condition consists of a target _property_,
 an _operator_, and an optional _value_.
 
-A _property_ is an attribute of a data asset. It can either be a technical signal (e.g. **metric** such as usage, storage size) or a  
-metadata signal (e.g. owners, domain, glossary terms, tags, and more), depending on the asset type and applicability of the signal.
-The full set of supported _properties_ can be found in the table below.
+A _property_ is an attribute of a data asset. Properties can be:
+
+- **Technical signals** - Metrics such as usage statistics, storage size, query counts
+- **Metadata signals** - Owners, domains, glossary terms, tags, descriptions, and governance information
+- **Schema-level properties** (for Datasets) - Column-level tags, glossary terms, descriptions, field names, and data types
+- **Governance metrics** - Data contract compliance, ownership coverage, documentation completeness
+- **Lineage information** - Upstream lineage relationships, column-level lineage availability
+
+The available properties vary by asset type, with Datasets offering the most comprehensive set including both dataset-level and individual column-level properties.
 
 An _operator_ is the type of predicate that will be applied to the selected _property_ when evaluating the test for an asset. The types
 of operators that are applicable depend on the selected property. Some examples of operators include `Equals`, `Exists`, `Matches Regex`,
@@ -133,6 +143,13 @@ selecting a data asset to be tested. For example, we can build property conditio
 - All assets in the "Marketing" Domain
 - All assets without owners
 - All assets without a description
+- All datasets that have upstream lineage information
+- All datasets that have column-level lineage information
+- All datasets with active data contracts
+- All domains with low ownership coverage
+- All datasets with high usage but no quality assertions
+- All dashboards with high view counts but no owners
+- All data products without descriptions
 
 To create a **Property** condition, simply click **Add Condition** then select **Property** condition.
 
@@ -152,6 +169,9 @@ Logical conditions allow us to accommodate complex real-world selection requirem
 
 - All Snowflake Tables that are in the Top 25% of most queried AND do not have a Domain
 - All Looker Dashboards that do not have a description authored in Looker OR in DataHub
+- All datasets with active data contracts AND upstream lineage information
+- All domains with low ownership coverage OR missing documentation
+- All data products in the "Marketing" domain AND high usage but no quality score
 
 #### Step 2: Defining Rules
 
@@ -171,6 +191,10 @@ When combined with the selection criteria, Rules allow us to define complex, hig
 - All assets in the "Marketing" Domain **must have a description**
 - All Snowflake Tables that are in the Top 25% of most queried AND do not have a Domain **must have
   a Glossary Term from the Classification Term Group**
+- All datasets with active data contracts **must maintain contract compliance above 95%**
+- All domains **must have ownership coverage above 80%**
+- All data products with high usage **must have documented SLA compliance metrics**
+- All critical datasets **must have column-level glossary terms for sensitive fields**
 
 ##### Validating Test Conditions
 
@@ -195,10 +219,12 @@ This allows us to automatically control classifications of data assets as they m
 
 A few of the supported Action types include:
 
-- Adding or removing specific Tags
-- Adding or removing specific Glossary Terms
-- Adding or removing specific Owners
-- Adding or removing to a specific Domain
+- **Adding or removing specific Tags** - Available for all asset types
+- **Adding or removing specific Glossary Terms** - Available for datasets, dashboards, charts, and other data assets
+- **Adding or removing specific Owners** - Available for all asset types
+- **Adding or removing to a specific Domain** - Available for datasets, dashboards, charts, and containers
+
+The available actions vary by asset type, with comprehensive support across all supported entity types including the newly added Domains, Data Products, and Glossary Nodes.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-test-define-actions.png"/>

@@ -22,7 +22,6 @@ from datahub_integrations.chat.chat_session import (
     ChatSessionMaxTokensExceededError,
     NextMessage,
 )
-from datahub_integrations.chat.slackify import slackify_markdown
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.command.mention_helpers import (
     DATAHUB_FEEDBACK_PROMPT,
@@ -32,6 +31,7 @@ from datahub_integrations.slack.command.mention_helpers import (
 )
 from datahub_integrations.slack.config import slack_config
 from datahub_integrations.slack.constants import DATAHUB_SLACK_ICON_URL
+from datahub_integrations.slack.utils.slackify import slackify_markdown
 from datahub_integrations.slack.utils.string import truncate
 from datahub_integrations.telemetry.chat_events import (
     ChatbotInteractionEvent,

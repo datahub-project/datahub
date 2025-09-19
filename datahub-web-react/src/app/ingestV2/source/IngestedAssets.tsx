@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import analytics from '@app/analytics';
 import { EventType } from '@app/analytics/event';
 import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
+import { SectionHeading, SectionSecondaryText } from '@app/ingestV2/executions/components/BaseTab';
 import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByTypeOrSubtype,
@@ -244,12 +245,8 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
     return (
         <>
             {error && <Message type="error" content="" />}
-            <Heading type="h4" size="lg" weight="bold">
-                Assets
-            </Heading>
-            <Text color="gray" colorLevel={600}>
-                Types and counts for this ingestion run.
-            </Text>
+            <SectionHeading title="Assets" />
+            <SectionSecondaryText title="Types and counts for this ingestion run." color="gray" colorLevel={600} />
             {loading && (
                 <Text color="gray" colorLevel={600}>
                     Loading...

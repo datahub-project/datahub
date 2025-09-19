@@ -9,7 +9,7 @@ export const checkIsSsoEnabled = (ssoSettings: SsoSettings) => {
 };
 
 export const checkIsOidcConfigured = (oidcSettings?: Maybe<OidcSettings>) => {
-    return oidcSettings?.clientId && oidcSettings?.clientSecret && oidcSettings?.discoveryUri;
+    return !!(oidcSettings?.clientId && oidcSettings?.clientSecret && oidcSettings?.discoveryUri);
 };
 
 export const checkIsSsoConfigured = (ssoSettings?: Maybe<SsoSettings>) => {

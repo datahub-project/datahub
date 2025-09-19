@@ -30,7 +30,7 @@ const LOOKBACK_WINDOWS_FOR_ASSERTION_VIZ = Object.values(LOOKBACK_WINDOWS).filte
     (window) => window.windowSize.interval !== DateInterval.Year,
 );
 
-const CUSTOM_TIME_RANGE_WINDOW = {
+export const CUSTOM_TIME_RANGE_WINDOW = {
     windowName: 'Custom',
 };
 

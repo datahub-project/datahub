@@ -28,7 +28,7 @@ export class GroupEntity implements Entity<CorpGroup> {
         return (
             <TeamOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{ fontSize: fontSize || 'inherit', color: color || '#BFBFBF' }}
             />
         );
     };
@@ -51,9 +51,10 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     renderProfile = (urn: string) => <GroupProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: CorpGroup) => (
+    renderPreview = (previewType: PreviewType, data: CorpGroup) => (
         <Preview
             urn={data.urn}
+            previewType={previewType}
             name={this.displayName(data)}
             description={data.info?.description}
             membersCount={(data as any)?.memberCount?.total || (data as any)?.relationships?.total || 0}

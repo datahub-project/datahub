@@ -14,8 +14,7 @@ env:
   # Docker registry configuration
   # DOCKER_REGISTRY: Set to 'docker.io' for DockerHub, or your custom registry domain
   # DOCKER_REPOSITORY: Set to your organization/username (e.g., 'acryldata' for DockerHub)
-  DOCKER_REGISTRY: "docker.io"
-  DOCKER_REPOSITORY: "acryldata"
+  DOCKER_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
@@ -23,6 +22,7 @@ env:
 permissions:
   contents: read
   id-token: write
+  actions: read
 
 jobs:
   setup:
@@ -112,9 +112,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch acryl-main --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p ${{ github.workspace }}/build
-          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
+          gh api repos/acryldata/datahub-fork/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/acryldata/datahub-fork/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
           unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
           ls -l ${{ github.workspace }}/build/
 
@@ -122,7 +122,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-saasImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
           echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
 
@@ -258,20 +258,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
-      - name: Login to registry
+      - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ needs.setup.outputs.docker-login == 'true' && env.DOCKER_REGISTRY == 'docker.io' }}
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
       - name: Download build Metadata for latest head build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch acryl-main --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p ${{ github.workspace }}/build
-          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
+          gh api repos/acryldata/datahub-fork/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/acryldata/datahub-fork/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
           unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
           ls -l ${{ github.workspace }}/build/
 
@@ -279,7 +280,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-saasImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
           echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
 
@@ -317,10 +318,18 @@ jobs:
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_REPO: ${{ env.DOCKER_REGISTRY }}
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DOCKER_REPOSITORY }}/datahub-actions:head
+          DATAHUB_EXECUTOR_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_CLOUD_ROUTER_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_REMOTE_EXECUTOR_VERSION: ${{ needs.setup.outputs.tag }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          DATAHUB_INTEGRATIONS_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
+          AWS_REGION: us-west-2
         run: |
           ./smoke-test/run-quickstart.sh
 
@@ -347,15 +356,28 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
 
+      - name: Load secrets
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          BIGQUERY_PROJECT_ID: op://Engineering/SmokeTest - Bigquery/project_id
+          BIGQUERY_CLIENT_EMAIL: op://Engineering/SmokeTest - Bigquery/client_email
+          BIGQUERY_PRIVATE_KEY: op://Engineering/SmokeTest - Bigquery/private_key
+          BIGQUERY_PRIVATE_KEY_ID: op://Engineering/SmokeTest - Bigquery/private_key_id
+          BIGQUERY_CLIENT_ID: op://Engineering/SmokeTest - Bigquery/client_id
+
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CYPRESS_RECORD_KEY: ${{ secrets.ACRYL_CYPRESS_RECORD_KEY }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: ${{ matrix.test_strategy }}
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
         run: |
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
@@ -390,6 +412,7 @@ jobs:
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
+            **/smoke-test-results/cypress-test-*.xml
             **/junit.*.xml
             !**/binary/**
       - name: Upload test results to Codecov
@@ -439,8 +462,8 @@ jobs:
 
       - name: Validate registry configuration
         run: |
-          if [[ -z "${{ env.DOCKER_REGISTRY }}" || -z "${{ env.DOCKER_REPOSITORY }}" ]]; then
-            echo "Error: DOCKER_REGISTRY and DOCKER_REPOSITORY must be set"
+          if [[ -z "${{ env.DOCKER_REGISTRY }}" ]]; then
+            echo "Error: DOCKER_REGISTRY must be set"
             exit 1
           fi
 
@@ -450,25 +473,30 @@ jobs:
               echo "Error: DockerHub credentials required but not provided"
               exit 1
             fi
+          elif [[ "${{ env.DOCKER_REGISTRY }}" == "795586375822.dkr.ecr.us-west-2.amazonaws.com" ]]; then
+            if [[ -z "${{ secrets.AWS_ECR_ACCESS_KEY_ID }}" || -z "${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}" ]]; then
+              echo "Error: ECR credentials required but not provided"
+              exit 1
+            fi
           fi
 
           echo "Using registry: ${{ env.DOCKER_REGISTRY }}"
-          echo "Using repository: ${{ env.DOCKER_REPOSITORY }}"
 
-      - name: Login to registry
+      - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ env.DOCKER_REGISTRY == 'docker.io' }}
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
       - name: Download build Metadata for latest head build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
+          run_id=$(gh run list  --workflow="docker-unified.yml" --branch acryl-main --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p ${{ github.workspace }}/build
-          gh api repos/datahub-project/datahub/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
+          gh api repos/acryldata/datahub-fork/actions/runs/$run_id/artifacts --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/acryldata/datahub-fork/actions/artifacts/{}/zip >${{ github.workspace }}/build/build-metadata.zip
           unzip ${{ github.workspace }}/build/build-metadata.zip -d ${{ github.workspace }}/build/ 
           ls -l ${{ github.workspace }}/build/
 
@@ -476,7 +504,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-allImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f ${{ github.workspace }}/build/bake-spec-saasImages.json --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
 
           echo "datahub_images=$(echo $images)" >> "$GITHUB_OUTPUT"
 
@@ -545,4 +573,4 @@ jobs:
       - name: Show pushed images
         run: |
           echo "Successfully tagged and pushed images:"
-          docker images | grep ${{ env.DOCKER_REPOSITORY }}
+          docker images | grep ${{ env.DOCKER_REGISTRY }}
