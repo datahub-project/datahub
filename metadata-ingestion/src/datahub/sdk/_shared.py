@@ -861,7 +861,9 @@ class HasAuditStamps(Entity):
         audit_stamps = self._get_audit_stamps()
         if audit_stamps.lastModified.time == 0:
             return None
-        return datetime.fromtimestamp(audit_stamps.lastModified.time)
+        return datetime.fromtimestamp(
+            audit_stamps.lastModified.time / 1000
+        )  # supports only seconds precision
 
     def set_last_modified(self, last_modified: datetime) -> None:
         """Set the last modification timestamp."""
@@ -877,7 +879,7 @@ class HasAuditStamps(Entity):
             return None
         return audit_stamps.lastModified.actor
 
-    def set_last_modified_by(self, last_modified_by: Optional[ActorUrnOrStr]) -> None:
+    def set_last_modified_by(self, last_modified_by: ActorUrnOrStr) -> None:
         """Set the last modification actor."""
         if isinstance(last_modified_by, str):
             last_modified_by = make_user_urn(last_modified_by)
@@ -892,7 +894,9 @@ class HasAuditStamps(Entity):
         audit_stamps = self._get_audit_stamps()
         if audit_stamps.created.time == 0:
             return None
-        return datetime.fromtimestamp(audit_stamps.created.time)
+        return datetime.fromtimestamp(
+            audit_stamps.created.time / 1000
+        )  # supports only seconds precision
 
     def set_created_at(self, created_at: datetime) -> None:
         """Set the creation timestamp."""
@@ -908,7 +912,7 @@ class HasAuditStamps(Entity):
             return None
         return audit_stamps.created.actor
 
-    def set_created_by(self, created_by: Optional[ActorUrnOrStr]) -> None:
+    def set_created_by(self, created_by: ActorUrnOrStr) -> None:
         """Set the creation actor."""
         if isinstance(created_by, str):
             created_by = make_user_urn(created_by)
@@ -923,7 +927,9 @@ class HasAuditStamps(Entity):
         audit_stamps = self._get_audit_stamps()
         if audit_stamps.deleted is None or audit_stamps.deleted.time == 0:
             return None
-        return datetime.fromtimestamp(audit_stamps.deleted.time)
+        return datetime.fromtimestamp(
+            audit_stamps.deleted.time / 1000
+        )  # supports only seconds precision
 
     def set_deleted_on(self, deleted_on: datetime) -> None:
         """Set the deletion timestamp."""
@@ -947,7 +953,7 @@ class HasAuditStamps(Entity):
             return None
         return audit_stamps.deleted.actor
 
-    def set_deleted_by(self, deleted_by: Optional[ActorUrnOrStr]) -> None:
+    def set_deleted_by(self, deleted_by: ActorUrnOrStr) -> None:
         """Set the deletion actor."""
         if isinstance(deleted_by, str):
             deleted_by = make_user_urn(deleted_by)
