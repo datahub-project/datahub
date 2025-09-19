@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -35,6 +34,7 @@ import play.mvc.Http.Cookie;
 import play.mvc.ResponseHeader;
 import play.mvc.Result;
 import play.mvc.Security;
+import utils.BasePathUtils;
 import utils.ConfigUtil;
 
 public class Application extends Controller {
@@ -54,19 +54,38 @@ public class Application extends Controller {
   }
 
   /**
-   * Serves the build output index.html for any given path
+   * Gets the configured base path for DataHub.
+   *
+   * @return the normalized base path
+   */
+  @Nonnull
+  private String getBasePath() {
+    return BasePathUtils.normalizeBasePath(config.getString("datahub.basePath"));
+  }
+
+  /**
+   * Serves the build output index.html for any given path using Play template
    *
    * @param path takes a path string, which essentially is ignored routing is managed client side
-   * @return {Result} build output index.html resource
+   * @return {Result} rendered index template with dynamic base path and version
    */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
     try {
-      InputStream indexHtml = environment.resourceAsStream("public/index.html");
-      return ok(indexHtml).withHeader("Cache-Control", "no-cache").as("text/html");
+      String basePath = getBasePath();
+      String datahubVersion = config.getString("app.version");
+
+      // Ensure base path ends with / for HTML base tag
+      if (!basePath.endsWith("/")) {
+        basePath += "/";
+      }
+      return ok(views.html.index.render(basePath, datahubVersion))
+          .withHeader("Cache-Control", "no-cache");
     } catch (Exception e) {
-      logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
-      return notFound().withHeader("Cache-Control", "no-cache").as("text/html");
+      logger.warn("Cannot render index template", e);
+      return internalServerError("Template rendering failed")
+          .withHeader("Cache-Control", "no-cache")
+          .as("text/html");
     }
   }
 
@@ -78,12 +97,23 @@ public class Application extends Controller {
   /**
    * index Action proxies to serveAsset
    *
-   * @param path takes a path string which is either index.html or the path segment after /
    * @return {Result} response from serveAsset method
    */
   @Nonnull
   public Result index(@Nullable String path) {
-    return serveAsset("");
+    return serveAsset(path);
+  }
+
+  /**
+   * Moves permanently the get into version without trailing slash
+   *
+   * @param path String
+   * @return Result
+   */
+  @Nonnull
+  public Result redirectTrailingSlash(@Nullable String path) {
+
+    return movedPermanently("/" + path);
   }
 
   /**
@@ -106,6 +136,11 @@ public class Application extends Controller {
             config,
             ConfigUtil.METADATA_SERVICE_PORT_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_PORT);
+    final String metadataServiceBasePath =
+        ConfigUtil.getString(
+            config,
+            ConfigUtil.METADATA_SERVICE_BASE_PATH_CONFIG_PATH,
+            ConfigUtil.DEFAULT_METADATA_SERVICE_BASE_PATH);
     final boolean metadataServiceUseSsl =
         ConfigUtil.getBoolean(
             config,
@@ -114,7 +149,12 @@ public class Application extends Controller {
     final String protocol = metadataServiceUseSsl ? "https" : "http";
     final String targetUrl =
         String.format(
-            "%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri);
+            "%s://%s:%s%s%s",
+            protocol,
+            metadataServiceHost,
+            metadataServicePort,
+            metadataServiceBasePath.equals("/") ? "" : metadataServiceBasePath,
+            resolvedUri);
     HttpRequest.Builder httpRequestBuilder =
         HttpRequest.newBuilder().uri(URI.create(targetUrl)).timeout(Duration.ofSeconds(120));
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
@@ -237,6 +277,9 @@ public class Application extends Controller {
     // Insert properties for user profile operations
     config.set("userEntityProps", userEntityProps());
 
+    // Add base path configuration for frontend
+    config.put("basePath", getBasePath());
+
     final ObjectNode response = Json.newObject();
     response.put("status", "ok");
     response.set("config", config);
@@ -342,23 +385,26 @@ public class Application extends Controller {
   }
 
   private String mapPath(@Nonnull final String path) {
+    // First, strip the base path if present
+    String strippedPath = BasePathUtils.stripBasePath(path, getBasePath());
+
     // Case 1: Map legacy GraphQL path to GMS GraphQL API (for compatibility)
-    if (path.equals("/api/v2/graphql")) {
+    if (strippedPath.equals("/api/v2/graphql")) {
       return "/api/graphql";
     }
 
     // Case 2: Map requests to /gms to / (Rest.li API)
     final String gmsApiPath = "/api/gms";
-    if (path.startsWith(gmsApiPath)) {
-      String newPath = path.substring(gmsApiPath.length());
+    if (strippedPath.startsWith(gmsApiPath)) {
+      String newPath = strippedPath.substring(gmsApiPath.length());
       if (!newPath.startsWith("/")) {
         newPath = "/" + newPath;
       }
       return newPath;
     }
 
-    // Otherwise, return original path
-    return path;
+    // Otherwise, return the stripped path
+    return strippedPath;
   }
 
   /**

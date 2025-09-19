@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { Entity, EntityType } from '@types';
 
@@ -15,7 +16,7 @@ export function getEntityNameAndLogo(entity: Entity, entityType: EntityType, ent
     const platform = genericProps?.platform;
     const logoUrl = platform?.properties?.logoUrl || '';
     const label = entityRegistry.getDisplayName(EntityType.DataPlatform, platform);
-    const icon: JSX.Element | null = <StyledIcon alt="icon" src={logoUrl} />;
+    const icon: JSX.Element | null = <StyledIcon alt="icon" src={logoUrl ? resolveRuntimePath(logoUrl) : logoUrl} />;
 
     return { label, icon };
 }

@@ -12,6 +12,7 @@ import useGetResetTokenFromUrlParams from '@app/auth/useGetResetTokenFromUrlPara
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 type FormValues = {
     email: string;
@@ -72,7 +73,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                     resetToken,
                 }),
             };
-            fetch('/resetNativeUserCredentials', requestOptions)
+            fetch(resolveRuntimePath('/resetNativeUserCredentials'), requestOptions)
                 .then(async (response) => {
                     if (!response.ok) {
                         const data = await response.json();
@@ -100,7 +101,11 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
         <div className={styles.login_page}>
             <div className={styles.login_box}>
                 <div className={styles.login_logo_box}>
-                    <Image wrapperClassName={styles.logo_image} src={themeConfig.assets?.logoUrl} preview={false} />
+                    <Image
+                        wrapperClassName={styles.logo_image}
+                        src={themeConfig.assets?.logoUrl ? resolveRuntimePath(themeConfig.assets.logoUrl) : undefined}
+                        preview={false}
+                    />
                 </div>
                 <div className={styles.login_form_box}>
                     {loading && <Message type="loading" content="Resetting credentials..." />}

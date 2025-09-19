@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import defaultAvatar from '@images/default_avatar.png';
 
@@ -58,10 +59,20 @@ export default function CustomAvatar({
             {name.charAt(0).toUpperCase()}
         </AvatarStyled>
     ) : (
-        <AvatarStyled src={defaultAvatar} style={style} size={size} $backgroundColor={getAvatarColor(name)} />
+        <AvatarStyled
+            src={resolveRuntimePath(defaultAvatar)}
+            style={style}
+            size={size}
+            $backgroundColor={getAvatarColor(name)}
+        />
     );
     const avatarWithDefault = useDefaultAvatar ? (
-        <AvatarStyled src={defaultAvatar} style={style} size={size} $backgroundColor={getAvatarColor(name)} />
+        <AvatarStyled
+            src={resolveRuntimePath(defaultAvatar)}
+            style={style}
+            size={size}
+            $backgroundColor={getAvatarColor(name)}
+        />
     ) : (
         avatarWithInitial
     );

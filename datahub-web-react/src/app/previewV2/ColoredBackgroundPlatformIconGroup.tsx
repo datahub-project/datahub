@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ImageWithColoredBackground, { Icon } from '@app/previewV2/ImageWIthColoredBackground';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -66,7 +67,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                         {!platformLogoUrl && !showSiblingPlatformLogos && entityLogoComponent}
                         {!!platformLogoUrl && !showSiblingPlatformLogos && (
                             <ImageWithColoredBackground
-                                src={platformLogoUrl}
+                                src={platformLogoUrl ? resolveRuntimePath(platformLogoUrl) : undefined}
                                 alt={platformName || ''}
                                 borderRadius={10}
                                 backgroundSize={backgroundSize}
@@ -82,7 +83,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                                         borderRadius={10}
                                         backgroundSize={backgroundSize}
                                         imgSize={imgSize}
-                                        src={url || ''}
+                                        src={url ? resolveRuntimePath(url) : ''}
                                         alt={platformNames?.[idx] || ''}
                                     />
                                 ))}

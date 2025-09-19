@@ -2,6 +2,8 @@ import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
+
 import datahubPlatforms from '@images/datahub-platforms.svg';
 import dataHubIcon from '@images/datahublogo.png';
 
@@ -11,7 +13,7 @@ const Container = styled.div`
     justify-content: space-between;
     max-width: 470px;
     padding: 52px 65px 65px 52px;
-    background: #191d2e url(${datahubPlatforms}) no-repeat bottom left;
+    background: #191d2e url(${() => resolveRuntimePath(datahubPlatforms)}) no-repeat bottom left;
 `;
 
 const Title = styled.div`
@@ -40,7 +42,7 @@ export const IntroduceYourselfLeftSidebar = () => {
     return (
         <Container>
             <AcrylTitle>
-                <Image src={dataHubIcon} preview={false} style={{ width: 36 }} />
+                <Image src={resolveRuntimePath(dataHubIcon)} preview={false} style={{ width: 36 }} />
             </AcrylTitle>
             <div>
                 <Title>Start your data journey</Title>

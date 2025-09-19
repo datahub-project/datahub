@@ -1,9 +1,10 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import hiveLogo from '@images/hivelogo.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: hive
     config:
         # Coordinates
@@ -25,7 +26,7 @@ const hiveConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Hive',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/hive/',
-    logoUrl: hiveLogo,
+    logoUrl: resolveRuntimePath(hiveLogo),
 };
 
 export default hiveConfig;

@@ -3,6 +3,8 @@ spring.application.name: ${APPLICATION_NAME:datahub-gms}
 
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
+# The base path for the URL where DataHub will be deployed
+basePath: ${DATAHUB_BASE_PATH:}
 
 # App Layer
 authentication:
@@ -226,8 +228,8 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
-    faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
+    logoUrl: ${REACT_APP_LOGO_URL:${basePath}/assets/platforms/datahublogo.png}
+    faviconUrl: ${REACT_APP_FAVICON_URL:${basePath}/assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
   showFullTitleInLineage: ${REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE:false}
@@ -574,12 +576,16 @@ management:
       application: ${spring.application.name}
 
 # Useful to debug low-level Spring errors such as class version mismatches
-server:
-  server-header: false
 #  error:
 #    include-message: always
 #    include-binding-errors: always
 #    include-stacktrace: always
+
+# GMS needs to have its context path, / when undefined, DATAHUB_GMS_BASE_PATH if different to DATAHUB_BASE_PATH
+server:
+  server-header: false
+  servlet:
+    context-path: ${DATAHUB_GMS_BASE_PATH:${basePath}}
 
 springdoc:
   cache:

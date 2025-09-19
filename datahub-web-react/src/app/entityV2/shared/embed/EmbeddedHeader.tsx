@@ -13,6 +13,7 @@ import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const HeaderWrapper = styled.div`
     display: flex;
@@ -78,7 +79,7 @@ export default function EmbeddedHeader() {
     const entityTypePathName = entityRegistry.getPathName(entityType);
     const logoUrl =
         appConfig.config !== DEFAULT_APP_CONFIG
-            ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
+            ? resolveRuntimePath(appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl)
             : undefined;
 
     return (

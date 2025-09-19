@@ -23,6 +23,7 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button, colors } from '@src/alchemy-components';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const PageContainer = styled.div`
     display: flex;
@@ -247,7 +248,7 @@ export const SettingsPage = () => {
                         <NavBarSubTitle>Manage your settings</NavBarSubTitle>
                     </div>
                     {isThemeV2 && !isShowNavBarRedesign && (
-                        <a href="/logOut">
+                        <a href={resolveRuntimePath('/logOut')}>
                             <Button
                                 variant="outline"
                                 color="red"

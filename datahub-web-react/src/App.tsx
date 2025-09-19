@@ -4,7 +4,7 @@ import '@src/AppV2.less';
 import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
 
@@ -16,11 +16,14 @@ import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import possibleTypesResult from '@src/possibleTypes.generated';
+import { fixCSSFontPaths, getRuntimeBasePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
 /*
     Construct Apollo Client
 */
-const httpLink = createHttpLink({ uri: '/api/v2/graphql' });
+const httpLink = createHttpLink({
+    uri: resolveRuntimePath(`/api/v2/graphql`),
+});
 
 const errorLink = onError((error) => {
     const { networkError } = error;
@@ -30,7 +33,8 @@ const errorLink = onError((error) => {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
             const currentPath = window.location.pathname + window.location.search;
-            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
+            const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
+            window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }
     }
     // Disabled behavior for now -> Components are expected to handle their errors.
@@ -78,13 +82,23 @@ const client = new ApolloClient({
 });
 
 export const InnerApp: React.VFC = () => {
+    // Fix CSS font paths after component mounts to ensure stylesheets are loaded
+    useEffect(() => {
+        // Use a small delay to ensure CSS is fully parsed and accessible
+        const timer = setTimeout(() => {
+            fixCSSFontPaths();
+        }, 100);
+
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
         <HelmetProvider>
             <CustomThemeProvider>
                 <Helmet>
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
-                <Router>
+                <Router basename={getRuntimeBasePath()}>
                     <Routes />
                 </Router>
             </CustomThemeProvider>

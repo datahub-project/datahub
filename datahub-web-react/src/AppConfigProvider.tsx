@@ -5,6 +5,7 @@ import React, { useEffect } from 'react';
 import { SERVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
 import { checkAuthStatus } from '@app/auth/checkAuthStatus';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useAppConfigQuery } from '@graphql/app.generated';
 
@@ -15,9 +16,13 @@ function changeFavicon(src) {
         link.rel = 'icon';
         document.getElementsByTagName('head')[0].appendChild(link);
     }
+
+    // Resolve the favicon URL with the runtime base path
+    const resolvedSrc = resolveRuntimePath(src);
+
     links.forEach((link) => {
         // eslint-disable-next-line no-param-reassign
-        link.href = src;
+        link.href = resolvedSrc;
     });
 }
 

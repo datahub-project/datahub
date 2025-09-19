@@ -11,6 +11,7 @@ import { SignUp } from '@app/auth/SignUp';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const ProtectedRoute = ({
     isLoggedIn,
@@ -20,7 +21,8 @@ const ProtectedRoute = ({
 } & RouteProps) => {
     const currentPath = window.location.pathname + window.location.search;
     if (!isLoggedIn) {
-        window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
+        const authUrl = resolveRuntimePath(PageRoutes.AUTHENTICATE);
+        window.location.replace(`${authUrl}?redirect_uri=${encodeURIComponent(currentPath)}`);
         return null;
     }
     return <Route {...props} />;
@@ -38,6 +40,7 @@ export const Routes = (): JSX.Element => {
             <Route path={PageRoutes.LOG_IN} component={LogIn} />
             <Route path={PageRoutes.SIGN_UP} component={SignUp} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
+            <Route path={PageRoutes.AUTHENTICATE} component={LogIn} />
             <ProtectedRoute
                 isLoggedIn={isLoggedIn}
                 render={() => (

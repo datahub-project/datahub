@@ -1,0 +1,31 @@
+@(basePath: String, error: String)
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <base href="@basePath" />
+        <link rel="icon" href="assets/icons/favicon.ico" id="favicon-link" />
+        <link rel="mask-icon" href="assets/icons/favicon.ico" id="mask-icon-link" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="description" content="Server Error - DataHub" />
+        <title>500 - Server Error | DataHub</title>
+        <link rel="stylesheet" href="@{basePath}datahub-error-pages.css">
+    </head>
+    <body class="error-500">
+        <div class="container">
+            <h1 class="error-code">500</h1>
+            <h2 class="error-message">Internal Server Error</h2>
+            <p class="error-description">
+                Something went wrong on our servers. Please try again later.
+            </p>
+            @if(error != null && !error.isEmpty) {
+                <div class="error-details">
+                    @error
+                </div>
+            }
+            <a href="@basePath" class="home-link">Return to DataHub Home</a>
+            <div class="datahub-logo">DataHub</div>
+        </div>
+    </body>
+</html>

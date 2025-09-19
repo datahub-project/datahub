@@ -43,6 +43,7 @@ import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateE
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import AcrylIcon from '@images/acryl-light-mark.svg?react';
 
@@ -76,7 +77,7 @@ const Spacer = styled.div`
     flex: 1;
 `;
 
-const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
@@ -288,7 +289,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'GraphQL',
                         description: 'Explore the GraphQL API',
-                        link: HelpLinkRoutes.GRAPHIQL || null,
+                        link: HelpLinkRoutes.GRAPHIQL ? resolveRuntimePath(HelpLinkRoutes.GRAPHIQL) : null,
                         isExternalLink: true,
                         key: 'helpGraphQL',
                     },
@@ -296,7 +297,7 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'OpenAPI',
                         description: 'Explore the OpenAPI endpoints',
-                        link: HelpLinkRoutes.OPENAPI,
+                        link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
                         isExternalLink: true,
                         key: 'helpOpenAPI',
                     },
@@ -317,7 +318,7 @@ export const NavSidebar = () => {
                 icon: <SignOut data-testid="log-out-menu-item" />,
                 key: 'signOut',
                 onClick: logout,
-                href: '/logOut',
+                href: resolveRuntimePath('/logOut'),
                 dataTestId: 'nav-sidebar-sign-out',
             },
         ],

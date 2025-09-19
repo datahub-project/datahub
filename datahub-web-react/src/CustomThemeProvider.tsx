@@ -5,6 +5,7 @@ import { loadThemeIdFromLocalStorage } from '@app/useSetAppTheme';
 import defaultThemeConfig from '@conf/theme/theme_light.config.json';
 import { Theme } from '@conf/theme/types';
 import { CustomThemeContext } from '@src/customThemeContext';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 interface Props {
     children: React.ReactNode;
@@ -25,7 +26,7 @@ const CustomThemeProvider = ({ children, skipSetTheme }: Props) => {
             });
         } else if (!skipSetTheme) {
             // Send a request to the server to get the theme config.
-            fetch(`/assets/conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`)
+            fetch(resolveRuntimePath(`/assets/conf/theme/${import.meta.env.REACT_APP_THEME_CONFIG}`))
                 .then((response) => response.json())
                 .then((theme) => {
                     setTheme(theme);

@@ -1,4 +1,5 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import bigqueryLogo from '@images/bigquerylogo.png';
 
@@ -15,14 +16,14 @@ source:
             private_key: "\${BQ_PRIVATE_KEY}"
             client_email: # Your BQ client email, e.g. "test@suppproject-id-1234567.iam.gserviceaccount.com"
             client_id: # Your BQ client id, e.g. "123456678890"
-            
+
         include_table_lineage: true
         include_view_lineage: true
         profiling:
             enabled: true
         stateful_ingestion:
             enabled: true
-                
+
 `;
 
 export const BIGQUERY = 'bigquery';
@@ -32,7 +33,7 @@ const bigqueryConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'BigQuery',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/bigquery/',
-    logoUrl: bigqueryLogo,
+    logoUrl: resolveRuntimePath(bigqueryLogo),
 };
 
 export default bigqueryConfig;

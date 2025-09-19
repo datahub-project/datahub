@@ -4,6 +4,7 @@ import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { DataPlatform, Entity, EntityType } from '@types';
@@ -68,7 +69,9 @@ export const SelectPlatformModal = ({ onCloseModal, defaultValues, onOk, titleOv
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
-                {!!entity.properties?.logoUrl && <PreviewImage src={entity?.properties?.logoUrl} alt={entity?.name} />}
+                {!!entity.properties?.logoUrl && (
+                    <PreviewImage src={resolveRuntimePath(entity.properties.logoUrl)} alt={entity?.name} />
+                )}
                 <span>{truncatedDisplayName}</span>
             </Tooltip>
         );

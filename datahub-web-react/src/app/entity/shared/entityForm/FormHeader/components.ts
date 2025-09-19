@@ -2,6 +2,7 @@ import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import BackgroundDots from '@images/background_dots.svg';
 
@@ -13,7 +14,7 @@ export const BulkNavigationWrapper = styled.div<{ $hideBackground?: boolean }>`
     ${(props) =>
         !props.$hideBackground &&
         `
-        background-image: url(${BackgroundDots});
+        background-image: url(${resolveRuntimePath(BackgroundDots)});
         background-position: right;
         background-repeat: no-repeat;
     `}

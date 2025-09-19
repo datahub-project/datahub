@@ -1,4 +1,5 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import mongodbLogo from '@images/mongodblogo.png';
 
@@ -25,7 +26,7 @@ const mongoConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'MongoDB',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/mongodb/',
-    logoUrl: mongodbLogo,
+    logoUrl: resolveRuntimePath(mongodbLogo),
 };
 
 export default mongoConfig;

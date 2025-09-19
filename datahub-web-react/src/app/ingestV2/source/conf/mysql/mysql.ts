@@ -1,15 +1,16 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import mysqlLogo from '@images/mysqllogo-2.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: mysql
-    config: 
+    config:
         # Coordinates
         host_port: # Your MySQL host and post, e.g. mysql:3306
         database: # Your MySQL database name, e.g. datahub
-    
+
         # Credentials
         # Add secret in Secrets Tab with relevant names for each variable
         username: "\${MYSQL_USERNAME}" # Your MySQL username, e.g. admin
@@ -29,7 +30,7 @@ const mysqlConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'MySQL',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/mysql/',
-    logoUrl: mysqlLogo,
+    logoUrl: resolveRuntimePath(mysqlLogo),
 };
 
 export default mysqlConfig;

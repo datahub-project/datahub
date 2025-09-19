@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType, QuickFilter } from '@types';
 
@@ -24,7 +25,7 @@ export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: 
         const genericProps = entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, quickFilter.entity);
         const logoUrl = genericProps?.platform?.properties?.logoUrl || '';
         if (logoUrl) {
-            icon = <StyledIcon alt="icon" src={logoUrl} />;
+            icon = <StyledIcon alt="icon" src={resolveRuntimePath(logoUrl)} />;
         } else {
             icon = entityRegistry.getIcon(EntityType.DataPlatform, 14, IconStyleType.ACCENT, 'black');
         }

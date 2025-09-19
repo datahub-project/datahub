@@ -1,9 +1,10 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import snowflakeLogo from '@images/snowflakelogo.png';
 
 const placeholderRecipe = `\
-source: 
+source:
     type: snowflake
     config:
         account_id: "example_id"
@@ -24,7 +25,7 @@ const snowflakeConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Snowflake',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/snowflake/',
-    logoUrl: snowflakeLogo,
+    logoUrl: resolveRuntimePath(snowflakeLogo),
 };
 
 export default snowflakeConfig;

@@ -25,6 +25,7 @@ import { isAssertionPartOfContract } from '@app/entity/shared/tabs/Dataset/Valid
 import CopyUrnMenuItem from '@app/shared/share/items/CopyUrnMenuItem';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { Assertion, AssertionRunStatus, DataContract, EntityType } from '@types';
@@ -245,7 +246,11 @@ export const DatasetAssertionsList = ({
                                             preview={false}
                                             height={20}
                                             width={20}
-                                            src={record.platform.properties?.logoUrl}
+                                            src={
+                                                record.platform.properties?.logoUrl
+                                                    ? resolveRuntimePath(record.platform.properties.logoUrl)
+                                                    : undefined
+                                            }
                                         />
                                     )) || (
                                         <Typography.Text>

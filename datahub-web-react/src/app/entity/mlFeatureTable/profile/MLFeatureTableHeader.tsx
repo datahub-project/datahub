@@ -7,6 +7,7 @@ import CompactContext from '@app/shared/CompactContext';
 import { AvatarsGroup } from '@app/shared/avatar';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { MlFeatureTable } from '@types';
 
@@ -52,7 +53,11 @@ export default function MLFeatureTableHeader({ mlFeatureTable: { platform, descr
                                 {platform.properties?.logoUrl ? (
                                     <PreviewImage
                                         preview={false}
-                                        src={platform.properties?.logoUrl}
+                                        src={
+                                            platform.properties?.logoUrl
+                                                ? resolveRuntimePath(platform.properties.logoUrl)
+                                                : undefined
+                                        }
                                         placeholder
                                         alt={platformName}
                                     />

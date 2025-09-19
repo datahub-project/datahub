@@ -6,6 +6,7 @@ import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { Container, Entity, EntityType } from '@types';
@@ -83,7 +84,14 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
                         <ParentEntities parentEntities={parentEntities} />
                     </ParentWrapper>
                 )}
-                <PreviewImage src={entity.platform?.properties?.logoUrl || undefined} alt={entity.properties?.name} />
+                <PreviewImage
+                    src={
+                        entity.platform?.properties?.logoUrl
+                            ? resolveRuntimePath(entity.platform.properties.logoUrl)
+                            : undefined
+                    }
+                    alt={entity.properties?.name}
+                />
                 <span>{truncatedDisplayName}</span>
             </Tooltip>
         );

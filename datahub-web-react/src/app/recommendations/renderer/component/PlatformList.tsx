@@ -6,6 +6,7 @@ import { urlEncodeUrn } from '@app/entity/shared/utils';
 import { LogoCountCard } from '@app/shared/LogoCountCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { PageRoutes } from '@conf/Global';
+import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { DataPlatform, RecommendationContent } from '@types';
 
@@ -44,7 +45,11 @@ export const PlatformList = ({ content, onClick }: Props) => {
                             capitalizeFirstLetterOnly(platform.platform.name) ||
                             ''
                         }
-                        logoUrl={platform.platform.properties?.logoUrl || ''}
+                        logoUrl={
+                            platform.platform.properties?.logoUrl
+                                ? resolveRuntimePath(platform.platform.properties.logoUrl)
+                                : ''
+                        }
                         count={platform.count}
                     />
                 </Link>

@@ -27,8 +27,43 @@ const injectMeticulous = () => {
     };
 };
 
+// Replacing at build time, TODO: use Mustache
+const injectDatahubEnv = () => {
+    // List of environment variables to inject into index.html
+    // Format: template placeholder → environment variable name
+    const envVariables = [
+        { placeholder: '{{__DATAHUB_BASE_PATH__}}', envVar: 'DATAHUB_BASE_PATH' },
+        { placeholder: '{{__DATAHUB_APP_VERSION__}}', envVar: 'DATAHUB_APP_VERSION' },
+    ];
+
+    return {
+        name: 'inject-env',
+        transformIndexHtml: {
+            order: 'pre', // Run after Vite generates assets
+            handler(html) {
+                let transformedHtml = html;
+
+                // Iterate through all environment variables and replace placeholders
+                envVariables.forEach(({ placeholder, envVar }) => {
+                    // Provide sensible defaults for missing env vars
+                    const value = process.env[envVar];
+                    transformedHtml = transformedHtml.replaceAll(placeholder, value);
+                });
+
+                return transformedHtml;
+            },
+        },
+    };
+}
+
+
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
+    // Get DataHub version from environment variable set by gradle
+    const datahubVersion = process.env.DATAHUB_APP_VERSION || '0.0.0';
+    // Make sure the env var is set for the plugin FIXME
+    process.env.DATAHUB_APP_VERSION = datahubVersion;
+
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
 
     // Via https://stackoverflow.com/a/66389044.
@@ -40,23 +75,43 @@ export default defineConfig(async ({ mode }) => {
     const themeConfig = require(themeConfigFile);
 
     // Setup proxy to the datahub-frontend service.
+    const frontendProxyTarget = process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002';
+
     const frontendProxy = {
-        target: process.env.REACT_APP_PROXY_TARGET || 'http://localhost:9002',
+        target: frontendProxyTarget,
         changeOrigin: true,
-    };
-    const proxyOptions = {
-        '/logIn': frontendProxy,
-        '/authenticate': frontendProxy,
-        '/api/v2/graphql': frontendProxy,
-        '/openapi/v1/tracking/track': frontendProxy,
+        // No path rewriting - let the backend handle base path routing
     };
 
+    // Standard API endpoints that need proxying
+    const apiEndpoints = [
+        '/logIn',
+        '/signUp',
+        '/resetNativeUserCredentials',
+        '/authenticate',
+        '/sso',
+        '/logOut',
+        '/api/v2/graphql',
+        '/openapi/v1/tracking/track',
+        '/config',  // Add config endpoint for base path detection
+    ];
+
+    const proxyOptions = {};
+
+    // Add proxy rules for each endpoint
+    apiEndpoints.forEach(endpoint => {
+        proxyOptions[endpoint] = frontendProxy;
+    });
+
     const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
+    const envs = [injectDatahubEnv()];
 
     return {
         appType: 'spa',
+        base: '/',  // Always use root - runtime base path detection handles deployment paths
         plugins: [
             ...devPlugins,
+            ...envs,
             react(),
             svgr(),
             macrosPlugin(),
@@ -107,6 +162,22 @@ export default defineConfig(async ({ mode }) => {
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
             workers: 3, // default is number of CPU cores
+            cssCodeSplit: 'true',
+            rollupOptions: {
+                output: {
+                    assetFileNames: (assetInfo) => {
+                        if (/\.(css)$/.test(assetInfo.name)) {
+                            return `assets/v${datahubVersion}/css/[name].[ext]`;
+                        }
+                        if (/\.(png|jpe?g|svg|gif|webp|ico)$/.test(assetInfo.name)) {
+                            return `assets/v${datahubVersion}/img/[name].[ext]`;
+                        }
+                        return `assets/v${datahubVersion}/[name].[ext]`;
+                    },
+                    chunkFileNames: `assets/v${datahubVersion}/js/[name].js`,
+                    entryFileNames: `assets/v${datahubVersion}/js/[name].js`,
+                },
+            },
         },
         server: {
             open: false,
