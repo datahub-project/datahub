@@ -36,6 +36,7 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
                 rules={[{ min: 1, max: 500 }]}
                 hasFeedback
                 label={<Typography.Text strong>Name</Typography.Text>}
+                data-testid="name-input"
                 required
             >
                 <Input
