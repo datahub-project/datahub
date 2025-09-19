@@ -17,7 +17,7 @@ const EntityTag = styled(Tag)<{ $showMargin?: boolean; $isProposed?: boolean }>`
     ${(props) =>
         props.$isProposed &&
         `
-            border: 1px dashed ${colors.gray[200]};
+            border: 1px dashed ${colors.gray[100]};
         `}
 `;
 
