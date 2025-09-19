@@ -262,6 +262,7 @@ function EntityActions(props: Props) {
                             variant="outline"
                             onClick={() => setIsBatchAddGlossaryTermModalVisible(true)}
                             data-testid="glossary-batch-add"
+                            size="sm"
                         >
                             <LinkOutlined /> Add to Assets
                         </Button>
@@ -273,6 +274,7 @@ function EntityActions(props: Props) {
                             variant="outline"
                             onClick={() => setIsBatchSetDomainModalVisible(true)}
                             data-testid="domain-batch-add"
+                            size="sm"
                         >
                             <LinkOutlined /> Add to Assets
                         </Button>
@@ -285,7 +287,7 @@ function EntityActions(props: Props) {
                         placement="bottom"
                         data-testid="data-product-batch-add"
                     >
-                        <Button variant="outline" onClick={() => setIsBatchSetDataProductModalVisible(true)}>
+                        <Button variant="outline" onClick={() => setIsBatchSetDataProductModalVisible(true)} size="sm">
                             <LinkOutlined />
                             Add Assets
                         </Button>
