@@ -736,7 +736,16 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 display_name=dashboard_element.title,  # title is (deprecated) using display_name
                 extra_aspects=chart_extra_aspects,
                 input_datasets=dashboard_element.get_view_urns(self.source_config),
-                last_modified=self._get_last_modified_time(dashboard),
+                last_modified=self._get_last_modified_time(
+                    dashboard
+                ),  # Inherited from Dashboard
+                last_modified_by=self._get_last_modified_by(
+                    dashboard
+                ),  # Inherited from Dashboard
+                created_at=self._get_created_at(dashboard),  # Inherited from Dashboard
+                created_by=self._get_created_by(dashboard),  # Inherited from Dashboard
+                deleted_on=self._get_deleted_on(dashboard),  # Inherited from Dashboard
+                deleted_by=self._get_deleted_by(dashboard),  # Inherited from Dashboard
                 name=dashboard_element.get_urn_element_id(),
                 owners=chart_ownership,
                 parent_container=chart_parent_container,
@@ -1048,7 +1057,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             looker_dashboard.deleted_by.get_urn(
                 self.source_config.strip_user_ids_from_email
             )
-            if looker_dashboard.last_updated_by
+            if looker_dashboard.deleted_by
             else None
         )
 
