@@ -2373,6 +2373,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -2678,7 +2684,7 @@
         },
         {
           "capability": "USAGE_STATS",
-          "description": "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+          "description": "Optionally enabled via `include_usage_statistics`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3171,6 +3177,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by `domain` config to assign domain_key",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Supported by default",
           "subtype_modifier": null,
           "supported": true
         },

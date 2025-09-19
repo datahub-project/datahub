@@ -22,7 +22,7 @@ base_requirements = {
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
-    "mixpanel>=4.9.0",
+    "mixpanel>=4.9.0,<=4.10.1",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
 }
@@ -101,7 +101,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==26.26.0",
+    "sqlglot[rs]==27.12.0",
     "patchy==2.8.0",
 }
 
@@ -292,7 +292,7 @@ microsoft_common = {
 iceberg_common = {
     # Iceberg Python SDK
     # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
-    "pyiceberg>=0.4.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.4.0",
     *cachetools_lib,
 }
 

@@ -7,6 +7,7 @@ import { UnionType } from '@app/search/utils/constants';
 
 const UserAssetsWrapper = styled.div`
     height: 100%;
+    overflow: auto;
 `;
 
 type Props = {

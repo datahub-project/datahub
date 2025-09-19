@@ -43,7 +43,7 @@ export default function DataProductsModule(props: ModuleProps) {
                         icon="FileText"
                         title="No Data Products"
                         description="Create a data product underneath this domain to see it in this list"
-                        linkText="Create some data products for this domain"
+                        linkText="Create data products for this domain"
                         onLinkClick={navigateToDataProductsTab}
                     />
                 }

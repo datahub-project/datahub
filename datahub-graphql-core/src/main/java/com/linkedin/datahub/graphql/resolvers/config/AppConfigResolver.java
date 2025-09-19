@@ -259,6 +259,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
+            .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
