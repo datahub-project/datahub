@@ -120,6 +120,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
@@ -898,16 +899,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
 
     // Produce MCLs & run side effects
-    // List<UpdateAspectResult> mclResults =
-    //    emitMCL(opContext, ingestResults.getUpdateAspectResults(), emitMCL);
-    // processPostCommitMCLSideEffects(
-    //    opContext,
-    // mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
+    List<UpdateAspectResult> mclResults =
+        emitMCL(opContext, ingestResults.getUpdateAspectResults(), emitMCL);
+    processPostCommitMCLSideEffects(
+        opContext, mclResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList()));
 
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
 
-    return ingestResults.getUpdateAspectResults();
+    return mclResults;
   }
 
   /**
@@ -1269,11 +1269,45 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return opContext.withSpan(
         "emitMCL",
         () -> {
-          List<UpdateAspectResult> withEmitMCL =
+          List<MetadataChangeLog> mcls =
+              sqlResults.stream().map(UpdateAspectResult::toMCL).collect(Collectors.toList());
+
+          List<UpdateAspectResult> withEmitMCL;
+          if (emitMCL) {
+            List<Optional<Pair<Future<?>, Boolean>>> mclResults =
+                conditionallyProduceMCLAsync(opContext, mcls);
+
+            // Update MCL Emission status in updateAspectResult based on each reuslt.
+            List<Pair<UpdateAspectResult, Optional<Pair<Future<?>, Boolean>>>> pairs =
+                IntStream.range(0, sqlResults.size())
+                    .mapToObj(i -> new Pair<>(sqlResults.get(i), mclResults.get(i)))
+                    .collect(Collectors.toList());
+
+            withEmitMCL =
+                pairs.stream()
+                    .map(
+                        pair -> {
+                          UpdateAspectResult result = pair.getFirst();
+                          Optional<Pair<Future<?>, Boolean>> emissionStatus = pair.getSecond();
+                          if (emissionStatus.isPresent()) {
+                            return result.toBuilder()
+                                .mclFuture(emissionStatus.get().getFirst())
+                                .processedMCL(emissionStatus.get().getSecond())
+                                .build();
+                          } else {
+                            return result;
+                          }
+                        })
+                    .collect(Collectors.toList());
+          } else {
+            withEmitMCL = sqlResults;
+          }
+
+          /*List<UpdateAspectResult> withEmitMCL =
               sqlResults.stream()
                   .map(result -> emitMCL ? conditionallyProduceMCLAsync(opContext, result) : result)
                   .collect(Collectors.toList());
-
+          */
           // join futures messages, capture error state
           List<Pair<Boolean, UpdateAspectResult>> statusPairs =
               withEmitMCL.stream()
@@ -1618,8 +1652,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         .collect(Collectors.toSet()));
           }
 
+          // TODO: check based on CDC config. Emit MCLs as part of ingestProposal only if not in CDC
+          // mode.
+          boolean cdcMode = false;
           List<UpdateAspectResult> upsertResults =
-              ingestAspects(opContext, nonTimeseries, true, true);
+              ingestAspects(opContext, nonTimeseries, !cdcMode, true);
 
           return upsertResults.stream()
               .map(
@@ -2047,6 +2084,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           boolean preprocessed = preprocessEvent(opContext, metadataChangeLog);
           Future<?> future =
               producer.produceMetadataChangeLog(opContext, urn, aspectSpec, metadataChangeLog);
+          // TODO Is this trace event ID correct when called in CDC mode?
           Span.current()
               .addEvent(UPDATE_ASPECT_EVENT, mapEventAttributes(metadataChangeLog, opContext));
           return Pair.of(future, preprocessed);
@@ -2162,6 +2200,62 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         || ChangeType.UPDATE.equals(changeType);
   }
 
+  public List<Optional<Pair<Future<?>, Boolean>>> conditionallyProduceMCLAsync(
+      @Nonnull OperationContext opContext, List<MetadataChangeLog> mcls) {
+    return mcls.stream()
+        .map(
+            mcl -> {
+              Urn entityUrn = mcl.getEntityUrn();
+              AspectSpec aspectSpec =
+                  opContext
+                      .getEntityRegistry()
+                      .getEntitySpec(mcl.getEntityType())
+                      .getAspectSpec(mcl.getAspectName());
+              return conditionallyProduceMCLAsync(opContext, aspectSpec, mcl);
+            })
+        .collect(Collectors.toList());
+  }
+
+  public Optional<Pair<Future<?>, Boolean>> conditionallyProduceMCLAsync(
+      @Nonnull OperationContext opContext,
+      AspectSpec aspectSpec,
+      MetadataChangeLog metadataChangeLog) {
+    SystemMetadata newSystemMetadata = metadataChangeLog.getSystemMetadata();
+    Urn entityUrn = metadataChangeLog.getEntityUrn();
+
+    boolean isNoOp =
+        SystemMetadataUtils.isNoOp(newSystemMetadata)
+            || Objects.equals(
+                metadataChangeLog.getAspect(), metadataChangeLog.getPreviousAspectValue());
+    if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
+      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
+
+      log.debug("Serialized MCL event: {}", metadataChangeLog);
+      Pair<Future<?>, Boolean> emissionStatus =
+          alwaysProduceMCLAsync(opContext, entityUrn, aspectSpec, metadataChangeLog);
+
+      // for tracing propagate properties to system meta
+      if (newSystemMetadata != null && metadataChangeLog.getSystemMetadata().hasProperties()) {
+        if (!newSystemMetadata.hasProperties()) {
+          newSystemMetadata.setProperties(
+              metadataChangeLog.getSystemMetadata().getProperties(), SetMode.IGNORE_NULL);
+        } else {
+          newSystemMetadata
+              .getProperties()
+              .putAll(metadataChangeLog.getSystemMetadata().getProperties());
+        }
+      }
+
+      return emissionStatus.getFirst() != null ? Optional.of(emissionStatus) : Optional.empty();
+    } else {
+      log.info(
+          "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
+          aspectSpec.getName(),
+          entityUrn);
+      return Optional.empty();
+    }
+  }
+
   @Override
   public Optional<Pair<Future<?>, Boolean>> conditionallyProduceMCLAsync(
       @Nonnull OperationContext opContext,
@@ -2222,7 +2316,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     ChangeMCP request = result.getRequest();
     Optional<Pair<Future<?>, Boolean>> emissionStatus =
         conditionallyProduceMCLAsync(
-            opContext,
+            opContext, request.getAspectSpec(), result.toMCL()
+            /*opContext,
             result.getOldValue(),
             result.getOldSystemMetadata(),
             result.getNewValue(),
@@ -2230,7 +2325,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             request.getMetadataChangeProposal(),
             result.getUrn(),
             result.getAuditStamp(),
-            request.getAspectSpec());
+            request.getAspectSpec()*/ );
 
     return emissionStatus
         .map(
