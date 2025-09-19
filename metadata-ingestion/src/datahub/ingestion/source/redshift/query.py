@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 redshift_datetime_format = "%Y-%m-%d %H:%M:%S"
 
@@ -17,15 +17,24 @@ class RedshiftCommonQuery:
     CREATE_TEMPORARY_TABLE_CLAUSE = "create temporary table"
     CREATE_TABLE_CLAUSE = "create table"
 
-    @staticmethod
-    def get_temp_table_clause(table_name: str) -> List[str]:
+    def __init__(self, alternative_system_tables_schema: Optional[str] = None):
+        self.alternative_system_tables_schema = alternative_system_tables_schema
+
+    def _get_system_table_name(self, table_name: str) -> str:
+        """Get the system table name with alternative schema prefix if configured."""
+        if self.alternative_system_tables_schema:
+            return f"{self.alternative_system_tables_schema}.{table_name}"
+        return table_name
+
+    def get_temp_table_clause(self, table_name: str) -> List[str]:
         return [
             f"{RedshiftCommonQuery.CREATE_TABLE_CLAUSE} {table_name}",
             f"{RedshiftCommonQuery.CREATE_TEMP_TABLE_CLAUSE} {table_name}",
             f"{RedshiftCommonQuery.CREATE_TEMPORARY_TABLE_CLAUSE} {table_name}",
         ]
 
-    list_databases: str = """SELECT datname FROM pg_database
+    def list_databases(self) -> str:
+        return """SELECT datname FROM pg_database
         WHERE (datname <> ('padb_harvest')::name)
         AND (datname <> ('template0')::name)
         AND (datname <> ('template1')::name)
@@ -38,8 +47,7 @@ class RedshiftCommonQuery:
     # external platform related lineage
     # NOTE: Using database_name filter for svv_redshift_schemas, as  otherwise
     # schemas from other shared databases also show up.
-    @staticmethod
-    def list_schemas(database: str) -> str:
+    def list_schemas(self, database: str) -> str:
         return f"""
         SELECT 
             schema_name,
@@ -47,7 +55,7 @@ class RedshiftCommonQuery:
             cast(null as varchar(1024)) as schema_option,
             cast(null as varchar(256)) as external_platform,
             cast(null as varchar(256)) as external_database
-        FROM svv_redshift_schemas
+        FROM {self._get_system_table_name("svv_redshift_schemas")}
         WHERE database_name = '{database}'
           AND schema_name != 'pg_catalog' and schema_name != 'information_schema'
     UNION ALL
@@ -63,26 +71,25 @@ class RedshiftCommonQuery:
                 ELSE 'OTHER'
             END as external_platform,
             databasename as external_database
-        FROM SVV_EXTERNAL_SCHEMAS as s
+        FROM {self._get_system_table_name("SVV_EXTERNAL_SCHEMAS")} as s
         ORDER BY SCHEMA_NAME;
         """
 
-    @staticmethod
-    def get_database_details(database):
+    def get_database_details(self, database):
         return f"""\
             select 
                 database_name,
                 database_type, 
                 database_options 
-            from svv_redshift_databases 
+            from {self._get_system_table_name("svv_redshift_databases")} 
             where database_name='{database}';"""
 
     # NOTE: although table owner id is available in tables, we do not use it
     # as getting username from id requires access to pg_catalog.pg_user_info
     # which is available only to superusers.
     # NOTE: Tables from shared database are not available in pg_catalog.pg_class
-    @staticmethod
     def list_tables(
+        self,
         database: str,
         skip_external_tables: bool = False,
         is_shared_database: bool = False,
@@ -143,7 +150,7 @@ class RedshiftCommonQuery:
             output_format,
             serde_parameters,
             NULL as table_description
-        FROM pg_catalog.svv_external_tables
+        FROM {self._get_system_table_name("svv_external_tables")}
         WHERE redshift_database_name='{database}'
         ORDER BY "schema",
                 "relname"
@@ -166,7 +173,7 @@ class RedshiftCommonQuery:
             NULL As output_format,
             NULL as serde_parameters,
             NULL as table_description
-        FROM svv_redshift_tables
+        FROM {self._get_system_table_name("svv_redshift_tables")}
         WHERE database_name='{database}'
         ORDER BY "schema",
                 "relname"
@@ -178,9 +185,8 @@ class RedshiftCommonQuery:
         else:
             return f"{tables_query} UNION {external_tables_query}"
 
-    @staticmethod
     def list_columns(
-        database_name: str, schema_name: str, is_shared_database: bool = False
+        self, database_name: str, schema_name: str, is_shared_database: bool = False
     ) -> str:
         if is_shared_database:
             return f"""
@@ -202,7 +208,7 @@ class RedshiftCommonQuery:
               column_default as "default",
               null as "schema_oid",
               null as "table_oid"
-            FROM SVV_REDSHIFT_COLUMNS
+            FROM {self._get_system_table_name("SVV_REDSHIFT_COLUMNS")}
             WHERE 1 and schema = '{schema_name}'
             AND database_name = '{database_name}'
             ORDER BY "schema", "table_name", "attnum"
@@ -280,14 +286,13 @@ class RedshiftCommonQuery:
               null as "default",
               null as "schema_oid",
               null as "table_oid"
-            FROM SVV_EXTERNAL_COLUMNS
+            FROM {self._get_system_table_name("SVV_EXTERNAL_COLUMNS")}
             WHERE 1 and schema = '{schema_name}'
             AND redshift_database_name = '{database_name}'
             ORDER BY "schema", "table_name", "attnum"
 """
 
-    @staticmethod
-    def view_lineage_query() -> str:
+    def view_lineage_query(self) -> str:
         return """
                         select
                             distinct
@@ -330,8 +335,7 @@ class RedshiftCommonQuery:
                             order by target_schema, target_table asc
                     """
 
-    @staticmethod
-    def list_late_view_ddls_query() -> str:
+    def list_late_view_ddls_query(self) -> str:
         return """
                 SELECT
                     n.nspname AS target_schema
@@ -347,9 +351,8 @@ class RedshiftCommonQuery:
                 n.nspname not in ('pg_catalog', 'information_schema')
                 """
 
-    @staticmethod
     def alter_table_rename_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         start_time_str: str = start_time.strftime(redshift_datetime_format)
         end_time_str: str = end_time.strftime(redshift_datetime_format)
@@ -368,9 +371,8 @@ class RedshiftCommonQuery:
             AND        SYS.query_text ILIKE '%alter table % rename to %'
         """
 
-    @staticmethod
     def list_copy_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """\
 SELECT DISTINCT
@@ -405,67 +407,60 @@ ORDER BY target_schema, target_table, filename
             _MAX_COPY_ENTRIES_PER_TABLE=_MAX_COPY_ENTRIES_PER_TABLE,
         )
 
-    @staticmethod
-    def additional_table_metadata_query() -> str:
+    def additional_table_metadata_query(self) -> str:
         raise NotImplementedError
 
-    @staticmethod
-    def usage_query(start_time: str, end_time: str, database: str) -> str:
+    def usage_query(self, start_time: str, end_time: str, database: str) -> str:
         raise NotImplementedError
 
-    @staticmethod
-    def operation_aspect_query(start_time: str, end_time: str) -> str:
+    def operation_aspect_query(self, start_time: str, end_time: str) -> str:
         raise NotImplementedError
 
-    @staticmethod
     def stl_scan_based_lineage_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         raise NotImplementedError
 
-    @staticmethod
     def list_unload_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         raise NotImplementedError
 
-    @staticmethod
-    def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
+    def temp_table_ddl_query(self, start_time: datetime, end_time: datetime) -> str:
         raise NotImplementedError
 
-    @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         raise NotImplementedError
 
-    @staticmethod
-    def list_outbound_datashares() -> str:
-        return """SELECT \
+    def list_outbound_datashares(self) -> str:
+        return f"""SELECT \
             share_type, \
             share_name, \
             trim(producer_namespace) as producer_namespace, \
             source_database \
-        FROM svv_datashares
+        FROM {self._get_system_table_name("svv_datashares")}
         WHERE share_type='OUTBOUND'\
         """
 
-    @staticmethod
-    def get_inbound_datashare(database: str) -> str:
+    def get_inbound_datashare(self, database: str) -> str:
         return f"""SELECT \
             share_type, \
             share_name, \
             trim(producer_namespace) as producer_namespace, \
             consumer_database \
-        FROM svv_datashares
+        FROM {self._get_system_table_name("svv_datashares")}
         WHERE share_type='INBOUND'
         AND consumer_database= '{database}'\
         """
 
 
 class RedshiftProvisionedQuery(RedshiftCommonQuery):
-    @staticmethod
-    def additional_table_metadata_query() -> str:
+    def __init__(self, alternative_system_tables_schema: Optional[str] = None):
+        super().__init__(alternative_system_tables_schema)
+
+    def additional_table_metadata_query(self) -> str:
         return """
             select
                 ti.database,
@@ -498,9 +493,8 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                 ;
         """
 
-    @staticmethod
     def stl_scan_based_lineage_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
                         select
@@ -568,9 +562,8 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
             end_time=end_time.strftime(redshift_datetime_format),
         )
 
-    @staticmethod
     def list_unload_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
             select
@@ -600,9 +593,8 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
             end_time=end_time.strftime(redshift_datetime_format),
         )
 
-    @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """\
 with query_txt as (
@@ -674,8 +666,7 @@ group by
             end_time=end_time.strftime(redshift_datetime_format),
         )
 
-    @staticmethod
-    def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
+    def temp_table_ddl_query(self, start_time: datetime, end_time: datetime) -> str:
         start_time_str: str = start_time.strftime(redshift_datetime_format)
 
         end_time_str: str = end_time.strftime(redshift_datetime_format)
@@ -765,8 +756,7 @@ where
     # querytext, and user info to get usage stats
     # using non-LEFT joins here to limit the results to
     # queries run by the user on user-defined tables.
-    @staticmethod
-    def usage_query(start_time: str, end_time: str, database: str) -> str:
+    def usage_query(self, start_time: str, end_time: str, database: str) -> str:
         return f"""
             SELECT DISTINCT ss.userid as userid,
                    ss.query as query,
@@ -794,8 +784,7 @@ where
             ORDER BY ss.endtime DESC;
         """.strip()
 
-    @staticmethod
-    def operation_aspect_query(start_time: str, end_time: str) -> str:
+    def operation_aspect_query(self, start_time: str, end_time: str) -> str:
         return f"""
           (SELECT
               DISTINCT si.userid AS userid,
@@ -856,10 +845,12 @@ where
 
 
 class RedshiftServerlessQuery(RedshiftCommonQuery):
+    def __init__(self, alternative_system_tables_schema: Optional[str] = None):
+        super().__init__(alternative_system_tables_schema)
+
     # stl_insert -> SYS_QUERY_DETAIL - showing less accesses
     # stv_mv_info -> SVV_MV_INFO - not tested, seems to be fine
-    @staticmethod
-    def additional_table_metadata_query() -> str:
+    def additional_table_metadata_query(self) -> str:
         return """
             select
                 ti.database,
@@ -892,9 +883,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 ;
         """
 
-    @staticmethod
     def stl_scan_based_lineage_query(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
             WITH queries AS (
@@ -989,9 +979,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             end_time=end_time.strftime(redshift_datetime_format),
         )
 
-    @staticmethod
     def list_unload_commands_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
             SELECT
@@ -1021,9 +1010,8 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
     # the differences vs old query are:
     # * we additionally get queries like "insert into <table> values (...)" (to be confirmed it is not a problem)
     # * querytxt do not contain newlines (to be confirmed it is not a problem)
-    @staticmethod
     def list_insert_create_queries_sql(
-        db_name: str, start_time: datetime, end_time: datetime
+        self, db_name: str, start_time: datetime, end_time: datetime
     ) -> str:
         return """
             SELECT
@@ -1085,8 +1073,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
     # of complicated queries in this file
     # However, note that we can't really use this query fully everywhere, despite it being simpler, because
     # the SYS_QUERY_TEXT.text field is truncated to 4000 characters and strips out linebreaks.
-    @staticmethod
-    def temp_table_ddl_query(start_time: datetime, end_time: datetime) -> str:
+    def temp_table_ddl_query(self, start_time: datetime, end_time: datetime) -> str:
         start_time_str: str = start_time.strftime(redshift_datetime_format)
 
         end_time_str: str = end_time.strftime(redshift_datetime_format)
@@ -1144,8 +1131,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             """
 
     # new approach does not include "COPY" commands
-    @staticmethod
-    def usage_query(start_time: str, end_time: str, database: str) -> str:
+    def usage_query(self, start_time: str, end_time: str, database: str) -> str:
         return f"""
             SELECT
                 DISTINCT
@@ -1174,8 +1160,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
             ;
         """.strip()
 
-    @staticmethod
-    def operation_aspect_query(start_time: str, end_time: str) -> str:
+    def operation_aspect_query(self, start_time: str, end_time: str) -> str:
         return f"""
             SELECT
                 DISTINCT
