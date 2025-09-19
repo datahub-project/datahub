@@ -1177,6 +1177,7 @@ describe('buildOwnerEntities', () => {
                 associatedUrn: entityUrn,
                 type: 'CORP_USER',
                 ownershipType: defaultOwnerType,
+                attribution: null,
                 __typename: 'Owner',
             },
         ]);
