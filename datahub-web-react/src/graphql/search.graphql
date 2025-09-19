@@ -493,6 +493,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     health {
         ...entityHealth
     }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
     ...datasetStatsFields
 }
 
@@ -548,6 +551,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataPlatformInstance {
         ...dataPlatformInstanceFields
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Role {
         id
@@ -671,6 +677,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Chart {
         chartId
@@ -748,6 +757,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -800,6 +812,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         subTypes {
             typeNames
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on DataJob {
@@ -861,6 +876,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on GlossaryTerm {
         name
@@ -894,6 +912,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
@@ -904,6 +925,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on Domain {
@@ -925,6 +949,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on Container {
@@ -968,6 +995,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on MLFeatureTable {
         name
@@ -997,6 +1027,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
         }
     }
     ... on MLFeature {
@@ -1039,6 +1072,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         properties {
             propertiesName: name
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on MLModelGroup {
         name
@@ -1064,6 +1100,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         properties {
             propertiesName: name
         }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Tag {
         name
@@ -1078,6 +1117,14 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on DataProduct {
         ...dataProductSearchFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        institutionalMemory {
+            ...institutionalMemoryFields
+        }
     }
     ... on Application {
         ...applicationSearchFields

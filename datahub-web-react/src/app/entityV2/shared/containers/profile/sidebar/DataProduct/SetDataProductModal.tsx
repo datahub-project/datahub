@@ -8,6 +8,7 @@ import styled from 'styled-components';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import ContextPath from '@app/previewV2/ContextPath';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -19,7 +20,7 @@ import { getModalDomContainer } from '@src/utils/focus';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
-import { DataProduct, Entity, EntityType } from '@types';
+import { DataHubPageModuleType, DataProduct, Entity, EntityType } from '@types';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -47,6 +48,7 @@ export default function SetDataProductModal({
     refetch,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { reloadModules } = useModulesContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [selectedDataProduct, setSelectedDataProduct] = useState<DataProduct | null>(currentDataProduct);
     const inputEl = useRef(null);
@@ -124,6 +126,9 @@ export default function SetDataProductModal({
                 // refetch is for search results, need to set a timeout
                 setTimeout(() => {
                     refetch?.();
+                    // Reload modules
+                    // Assets - as assets module on data product summary tab could be updated
+                    reloadModules([DataHubPageModuleType.Assets]);
                 }, 2000);
             })
             .catch((e) => {

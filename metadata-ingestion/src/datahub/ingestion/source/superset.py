@@ -12,6 +12,8 @@ import sqlglot
 from pydantic import BaseModel
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -108,6 +110,12 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
+
+# Retry configuration constants
+RETRY_MAX_TIMES = 3
+RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
+RETRY_BACKOFF_FACTOR = 1
+RETRY_ALLOWED_METHODS = ["GET"]
 
 
 chart_type_from_viz_type = {
@@ -282,6 +290,7 @@ def get_filter_name(filter_obj):
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.TAGS, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -327,6 +336,19 @@ class SupersetSource(StatefulIngestionSourceBase):
         logger.debug("Got access token from superset")
 
         requests_session = requests.Session()
+
+        # Configure retry strategy for transient failures
+        retry_strategy = Retry(
+            total=RETRY_MAX_TIMES,
+            status_forcelist=RETRY_STATUS_CODES,
+            backoff_factor=RETRY_BACKOFF_FACTOR,
+            allowed_methods=RETRY_ALLOWED_METHODS,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        requests_session.mount("http://", adapter)
+        requests_session.mount("https://", adapter)
+
         requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
@@ -359,8 +381,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
 
             if response.status_code != 200:
-                logger.warning(f"Failed to get {entity_type} data: {response.text}")
-                continue
+                self.report.warning(
+                    title="Failed to fetch data from Superset API",
+                    message="Incomplete metadata extraction due to Superset API failure",
+                    context=f"Entity Type: {entity_type}, HTTP Status Code: {response.status_code}, Page: {current_page}. Response: {response.text}",
+                )
+                # we stop pagination for this entity type and we continue the overall ingestion
+                break
 
             payload = response.json()
             # Update total_items with the actual count from the response
@@ -520,6 +547,11 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         dashboard_snapshot.aspects.append(owners_info)
+
+        superset_tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
+        tags = self._merge_tags_with_existing(dashboard_urn, superset_tags)
+        if tags:
+            dashboard_snapshot.aspects.append(tags)
 
         return dashboard_snapshot
 
@@ -919,6 +951,12 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
+
+        superset_tags = self._extract_and_map_tags(chart_data.get("tags", []))
+        tags = self._merge_tags_with_existing(chart_urn, superset_tags)
+        if tags:
+            chart_snapshot.aspects.append(tags)
+
         yield MetadataWorkUnit(
             id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         )
@@ -1288,17 +1326,18 @@ class SupersetSource(StatefulIngestionSourceBase):
             externalUrl=dataset_url,
             lastModified=TimeStamp(time=modified_ts),
         )
-        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
-        aspects_items: List[Any] = []
-        aspects_items.extend(
-            [
-                self.gen_schema_metadata(dataset_response),
-                dataset_info,
-                upstream_lineage,
-                global_tags,
-            ]
-        )
+        dataset_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+        tags = self._merge_tags_with_existing(datasource_urn, dataset_tags)
+
+        aspects_items: List[Any] = [
+            self.gen_schema_metadata(dataset_response),
+            dataset_info,
+            upstream_lineage,
+        ]
+
+        if tags:
+            aspects_items.append(tags)
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
@@ -1319,6 +1358,75 @@ class SupersetSource(StatefulIngestionSourceBase):
         aspects_items.append(owners_info)
 
         return dataset_snapshot
+
+    def _extract_and_map_tags(
+        self, raw_tags: List[Dict[str, Any]]
+    ) -> Optional[GlobalTagsClass]:
+        """Extract and map Superset tags to DataHub GlobalTagsClass.
+
+        Filters out system-generated tags (type != 1) and only processes user-defined tags
+        from the Superset API response.
+
+        Args:
+            raw_tags: List of tag dictionaries from Superset API
+
+        Returns:
+            GlobalTagsClass with user-defined tags, or None if no tags found
+        """
+        user_tags = [
+            tag.get("name", "")
+            for tag in raw_tags
+            if tag.get("type") == 1 and tag.get("name")
+        ]
+
+        if not user_tags:
+            return None
+
+        tag_urns = [builder.make_tag_urn(tag) for tag in user_tags]
+        return GlobalTagsClass(
+            tags=[TagAssociationClass(tag=tag_urn) for tag_urn in tag_urns]
+        )
+
+    def _merge_tags_with_existing(
+        self, entity_urn: str, new_tags: Optional[GlobalTagsClass]
+    ) -> Optional[GlobalTagsClass]:
+        """Merge new tags with existing ones from DataHub to preserve manually added tags.
+
+        This method ensures that tags manually added via DataHub UI are not overwritten
+        during ingestion. It fetches existing tags from the graph and merges them with
+        new tags from the source system, avoiding duplicates.
+
+        Args:
+            entity_urn: URN of the entity to check for existing tags
+            new_tags: New tags to add as GlobalTagsClass object
+
+        Returns:
+            GlobalTagsClass with merged tags preserving existing ones, or None if no tags
+        """
+        if not new_tags or not new_tags.tags:
+            return None
+
+        # Fetch existing tags from DataHub
+        existing_global_tags = None
+        if self.ctx.graph:
+            existing_global_tags = self.ctx.graph.get_aspect(
+                entity_urn=entity_urn, aspect_type=GlobalTagsClass
+            )
+
+        # Merge existing tags with new ones, avoiding duplicates
+        all_tags = []
+        existing_tag_urns = set()
+
+        if existing_global_tags and existing_global_tags.tags:
+            all_tags.extend(existing_global_tags.tags)
+            existing_tag_urns = {tag.tag for tag in existing_global_tags.tags}
+
+        # Add new tags that don't already exist
+        for new_tag in new_tags.tags:
+            if new_tag.tag not in existing_tag_urns:
+                all_tags.append(new_tag)
+
+        return GlobalTagsClass(tags=all_tags) if all_tags else None
 
     def _process_dataset(self, dataset_data: Any) -> Iterable[MetadataWorkUnit]:
         dataset_name = ""

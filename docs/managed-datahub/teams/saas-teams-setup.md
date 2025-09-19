@@ -13,7 +13,7 @@ The following steps should be performed by a Teams or Azure Administrator:
 
 ### Creating the DataHub App in Teams
 
-1. Download **Teams App zip** file [here](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/datahub-teams.zip)
+1. Contact your DataHub Customer Success Rep for access to the Teams Private Beta.
 
 2. Open [Teams Admin UI](https://admin.teams.microsoft.com/) in your web browser, and in the sidebar click **Teams Apps** > **Manage Apps**
    <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-1.png" /></p>
