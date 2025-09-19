@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 
+from datahub.emitter import mce_builder
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     ChartUrn,
@@ -314,23 +315,34 @@ def test_dashboard_audit_stamps_setters() -> None:
 
 
 def test_dashboard_audit_stamps_edge_cases() -> None:
-    """Test edge cases for audit stamps."""
+    """Test edge cases for audit stamps - setting None values"""
     d = Dashboard(
         platform="looker",
         name="audit_edge_case_dashboard",
     )
 
-    # Test setting None values
-    d.set_created_by(None)
-    d.set_last_modified_by(None)
-    d.set_deleted_by(None)
-
     # These should not raise errors and should set to None or default values
-    assert d.created_by == "None" or d.created_by == "urn:li:corpuser:unknown"
+    assert d.created_by is None
+    assert d.last_modified_by is None
+    assert d.deleted_by is None
+
+    # Internally it should have the default values
+    assert d._get_audit_stamps().created.actor == mce_builder.UNKNOWN_USER
+    assert d._get_audit_stamps().lastModified.actor == mce_builder.UNKNOWN_USER
     assert (
-        d.last_modified_by == "None" or d.last_modified_by == "urn:li:corpuser:unknown"
-    )
-    assert d.deleted_by == "None" or d.deleted_by == "urn:li:corpuser:unknown"
+        d._get_audit_stamps().deleted is None
+    )  # deleted has no default value as per the pdl
+
+    assert d.created_at is None
+    assert d.last_modified is None
+    assert d.deleted_on is None
+
+    # Internally it should have the default values
+    assert d._get_audit_stamps().created.time == 0
+    assert d._get_audit_stamps().lastModified.time == 0
+    assert (
+        d._get_audit_stamps().deleted is None
+    )  # deleted has no default value as per the pdl
 
     # Test that timestamps are properly converted
     test_time = datetime(2023, 1, 1, 12, 0, 0)
@@ -342,6 +354,15 @@ def test_dashboard_audit_stamps_edge_cases() -> None:
     assert d.created_at == test_time
     assert d.last_modified == test_time
     assert d.deleted_on == test_time
+
+    assert d._get_audit_stamps().created.time == mce_builder.make_ts_millis(test_time)
+    assert d._get_audit_stamps().lastModified.time == mce_builder.make_ts_millis(
+        test_time
+    )
+    # deleted should not be None after setting deleted_on
+    deleted_stamp = d._get_audit_stamps().deleted
+    assert deleted_stamp is not None
+    assert deleted_stamp.time == mce_builder.make_ts_millis(test_time)
 
 
 def test_dashboard_audit_stamps_integration() -> None:
