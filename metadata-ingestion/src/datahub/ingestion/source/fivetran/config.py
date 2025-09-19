@@ -3,7 +3,6 @@ import logging
 import warnings
 from typing import Dict, Optional
 
-import pydantic
 from pydantic import Field, root_validator
 from typing_extensions import Literal
 
@@ -12,12 +11,19 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationWarning,
 )
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+)
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
+)
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
+    DataJobMode,
+    FivetranMode,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -31,6 +37,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
@@ -69,13 +76,6 @@ class Constant:
     CANCELED = "CANCELED"
 
 
-KNOWN_DATA_PLATFORM_MAPPING = {
-    "google_cloud_postgresql": "postgres",
-    "postgres": "postgres",
-    "snowflake": "snowflake",
-}
-
-
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
     database: str = Field(description="The fivetran connector log database.")
     log_schema: str = Field(description="The fivetran connector log schema.")
@@ -86,15 +86,15 @@ class BigQueryDestinationConfig(BigQueryConnectionConfig):
 
 
 class FivetranLogConfig(ConfigModel):
-    destination_platform: Literal["snowflake", "bigquery"] = pydantic.Field(
+    destination_platform: Literal["snowflake", "bigquery"] = Field(
         default="snowflake",
         description="The destination platform where fivetran connector log tables are dumped.",
     )
-    snowflake_destination_config: Optional[SnowflakeDestinationConfig] = pydantic.Field(
+    snowflake_destination_config: Optional[SnowflakeDestinationConfig] = Field(
         default=None,
         description="If destination platform is 'snowflake', provide snowflake configuration.",
     )
-    bigquery_destination_config: Optional[BigQueryDestinationConfig] = pydantic.Field(
+    bigquery_destination_config: Optional[BigQueryDestinationConfig] = Field(
         default=None,
         description="If destination platform is 'bigquery', provide bigquery configuration.",
     )
@@ -120,6 +120,22 @@ class FivetranLogConfig(ConfigModel):
                 f"Destination platform '{destination_platform}' is not yet supported."
             )
         return values
+
+
+class FivetranAPIConfig(ConfigModel):
+    """Configuration for the Fivetran API client."""
+
+    api_key: str = Field(description="Fivetran API key")
+    api_secret: str = Field(description="Fivetran API secret")
+    base_url: str = Field(
+        default="https://api.fivetran.com", description="Fivetran API base URL"
+    )
+    request_timeout_sec: int = Field(
+        default=30, description="Request timeout in seconds"
+    )
+    max_workers: int = Field(
+        default=5, description="Maximum number of parallel workers for API requests"
+    )
 
 
 @dataclasses.dataclass
@@ -150,43 +166,77 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
         self.filtered_connectors.append(connector)
 
 
+class ColumnNamingPattern(StrEnum):
+    SNAKE_CASE = "snake_case"  # e.g., first_name
+    CAMEL_CASE = "camelCase"  # e.g., firstName
+    PASCAL_CASE = "PascalCase"  # e.g., FirstName
+    UPPER_CASE = "UPPER_CASE"  # e.g., FIRST_NAME
+    LOWER_CASE = "lower_case"  # e.g., firstname
+    AUTO = "auto"  # Auto-detect (default)
+
+
 class PlatformDetail(ConfigModel):
-    platform: Optional[str] = pydantic.Field(
+    platform: Optional[str] = Field(
         default=None,
         description="Override the platform type detection.",
     )
-    platform_instance: Optional[str] = pydantic.Field(
+    platform_instance: Optional[str] = Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
     )
-    env: str = pydantic.Field(
+    env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that all assets produced by DataHub platform ingestion source belong to",
     )
-    database: Optional[str] = pydantic.Field(
+    database: Optional[str] = Field(
         default=None,
         description="The database that all assets produced by this connector belong to. "
         "For destinations, this defaults to the fivetran log config's database.",
     )
-    include_schema_in_urn: bool = pydantic.Field(
+    include_schema_in_urn: bool = Field(
         default=True,
         description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
+    )
+    column_naming_pattern: ColumnNamingPattern = Field(
+        default=ColumnNamingPattern.AUTO,
+        description="The casing pattern used for column names in this platform. "
+        "If set to 'auto', the system will attempt to detect the pattern.",
     )
 
 
 class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
-    fivetran_log_config: FivetranLogConfig = pydantic.Field(
-        description="Fivetran log connector destination server configurations.",
+    fivetran_mode: FivetranMode = Field(
+        default=FivetranMode.AUTO,
+        description="Mode of operation: 'enterprise' for log tables access, 'standard' for REST API, or 'auto' to detect.",
     )
+
+    datajob_mode: DataJobMode = Field(
+        default=DataJobMode.CONSOLIDATED,
+        description="DataJob generation mode: 'consolidated' to create one job per connector, 'per_table' to create one job per table.",
+    )
+
+    # Enterprise version configuration
+    fivetran_log_config: Optional[FivetranLogConfig] = Field(
+        default=None,
+        description="Fivetran log connector destination server configurations for enterprise version.",
+    )
+
+    # Standard version configuration
+    api_config: Optional[FivetranAPIConfig] = Field(
+        default=None,
+        description="Fivetran REST API configuration for standard version.",
+    )
+
     connector_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filtering regex patterns for connector names.",
+        description="Filtering regex patterns for connector names or connector IDs. Supports filtering by either the connector display name or the connector ID for maximum flexibility.",
     )
     destination_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for destination ids to filter in ingestion. "
-        "Fivetran destination IDs are usually two word identifiers e.g. canyon_tolerable, and are not the same as the destination database name. "
-        "They're visible in the Fivetran UI under Destinations -> Overview -> Destination Group ID.",
+        description="Regex patterns for destination IDs or destination names to filter in ingestion. "
+        "Supports filtering by either the destination ID (e.g. canyon_tolerable) or the destination name for maximum flexibility. "
+        "Destination IDs are visible in the Fivetran UI under Destinations -> Overview -> Destination Group ID. "
+        "Note: Destination name filtering in Enterprise mode requires api_config to be provided for hybrid functionality.",
     )
     include_column_lineage: bool = Field(
         default=True,
@@ -194,22 +244,58 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     )
 
     # Configuration for stateful ingestion
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Fivetran Stateful Ingestion Config."
     )
 
     # Fivetran connector all sources to platform instance mapping
-    sources_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    sources_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping from connector id to its platform/instance/env/database details.",
     )
     # Fivetran destination to platform instance mapping
-    destination_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    destination_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
         description="A mapping of destination id to its platform/instance/env details.",
     )
 
-    @pydantic.root_validator(pre=True)
+    history_sync_lookback_period: int = Field(
+        7,
+        description="The number of days to look back when extracting connectors' sync history.",
+    )
+
+    max_table_lineage_per_connector: int = Field(
+        default=DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
+        description="Maximum number of table lineage entries to extract per connector. "
+        "Increase this value if you have connectors with many table lineage entries and want to capture all of them. "
+        "Set to -1 to disable the limit entirely (not recommended for very large connectors).",
+    )
+
+    @root_validator
+    def validate_config_based_on_mode(cls, values: Dict) -> Dict:
+        """Validate configuration based on the selected mode."""
+        mode = values.get("fivetran_mode", FivetranMode.AUTO)
+        log_config = values.get("fivetran_log_config")
+        api_config = values.get("api_config")
+
+        if mode == FivetranMode.ENTERPRISE:
+            if not log_config:
+                raise ValueError(
+                    "Enterprise mode requires 'fivetran_log_config' to be specified."
+                )
+        elif mode == FivetranMode.STANDARD:
+            if not api_config:
+                raise ValueError("Standard mode requires 'api_config' to be specified.")
+        elif mode == FivetranMode.AUTO:
+            # For AUTO mode, we'll validate this at runtime, allowing either config to be provided
+            if not log_config and not api_config:
+                raise ValueError(
+                    "Either 'fivetran_log_config' (for enterprise) or 'api_config' (for standard) must be specified."
+                )
+
+        return values
+
+    @root_validator(pre=True)
     def compat_sources_to_database(cls, values: Dict) -> Dict:
         if "sources_to_database" in values:
             warnings.warn(
@@ -227,8 +313,3 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
                 )
 
         return values
-
-    history_sync_lookback_period: int = pydantic.Field(
-        7,
-        description="The number of days to look back when extracting connectors' sync history.",
-    )
