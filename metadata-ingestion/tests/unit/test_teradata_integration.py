@@ -125,7 +125,7 @@ class TestEndToEndWorkflow:
                     mock_aggregator.gen_metadata.return_value = []
 
                     # Execute the lineage extraction
-                    list(source._get_audit_log_mcps_with_aggregator())
+                    source._populate_aggregator_from_audit_logs()
 
                     # Verify both entries were processed
                     assert mock_aggregator.add.call_count == 2
@@ -511,7 +511,10 @@ class TestComplexQueryScenarios:
             assert "(NOT CASESPECIFIC)" not in observed_query.query
             assert "tëst_tæblé" in observed_query.query
             assert observed_query.user == CorpUserUrn("tëst_üser")
-            assert observed_query.default_db == "tëst_db"
+            assert (
+                observed_query.default_db is None
+            )  # Fixed for Teradata two-tier architecture
+            assert observed_query.default_schema == "tëst_db"
 
     def test_multi_line_query_processing(self):
         """Test processing of multi-line queries."""

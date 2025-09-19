@@ -691,6 +691,13 @@ def _column_level_lineage(
             select_statement=select_statement,
         )
 
+    # Handle VALUES expressions separately - they have no upstream tables and no column lineage
+    if isinstance(select_statement, sqlglot.exp.Values):
+        return _ColumnLineageWithDebugInfo(
+            column_lineage=[],
+            select_statement=select_statement,
+        )
+
     assert isinstance(select_statement, _SupportedColumnLineageTypesTuple)
     try:
         root_scope = sqlglot.optimizer.build_scope(select_statement)
