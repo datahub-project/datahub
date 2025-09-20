@@ -1,19 +1,12 @@
 <configuration>
-    <property name="LOG_DIR" value="${LOG_DIR:- /tmp/datahub/logs}"/>
+    <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs}"/>
 
     <!-- STDOUT logs with sanitization -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <!-- SanitizingPatternLayout will clean %msg before output -->
         <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
         <layout class="com.linkedin.metadata.utils.log.SanitizingPatternLayout">
-            <pattern>
-                %date{ISO8601} [%thread] %-5level %logger{36}
-                urn=%X{entityUrn:-none}
-                aspect=%X{aspectName:-none}
-                entityType=%X{entityType:-none}
-                changeType=%X{changeType:-none}
-                - %msg%n
-            </pattern>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
         </layout>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
