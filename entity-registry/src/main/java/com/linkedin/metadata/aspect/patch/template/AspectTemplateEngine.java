@@ -31,6 +31,7 @@ public class AspectTemplateEngine {
               GLOSSARY_RELATED_TERM_ASPECT_NAME,
               DOMAINS_ASPECT_NAME,
               OWNERSHIP_ASPECT_NAME,
+              STATUS_ASPECT_NAME,
               UPSTREAM_LINEAGE_ASPECT_NAME,
               DATA_FLOW_INFO_ASPECT_NAME,
               DATA_JOB_INFO_ASPECT_NAME,

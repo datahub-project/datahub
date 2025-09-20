@@ -240,9 +240,10 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
     mcp.setChangeType(com.linkedin.events.metadata.ChangeType.PATCH);
     mcp.setAspect(patchAspect);
 
-    // Set system metadata if provided
+    // Set system metadata - create default if not provided (matching OpenAPI behavior)
+    SystemMetadata systemMetadata;
     if (systemMetadataInput != null) {
-      final SystemMetadata systemMetadata = new SystemMetadata();
+      systemMetadata = new SystemMetadata();
       if (systemMetadataInput.getLastObserved() != null) {
         systemMetadata.setLastObserved(systemMetadataInput.getLastObserved());
       }
@@ -256,8 +257,11 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
         }
         systemMetadata.setProperties(new StringMap(properties));
       }
-      mcp.setSystemMetadata(systemMetadata);
+    } else {
+      // Create default system metadata like OpenAPI does
+      systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
     }
+    mcp.setSystemMetadata(systemMetadata);
 
     // Set headers if provided
     if (headers != null) {
