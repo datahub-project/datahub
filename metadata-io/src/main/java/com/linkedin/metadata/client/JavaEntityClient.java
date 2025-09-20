@@ -33,7 +33,6 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -880,30 +879,6 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext, @Nonnull String runId, @Nonnull Authorizer authorizer)
       throws Exception {
     rollbackService.rollbackIngestion(opContext, runId, false, true, authorizer);
-  }
-
-  @Override
-  public boolean produceMCL(
-      @Nonnull OperationContext opContext,
-      @Nullable RecordTemplate oldAspect,
-      @Nullable SystemMetadata oldSystemMetadata,
-      RecordTemplate newAspect,
-      SystemMetadata newSystemMetadata,
-      @Nullable MetadataChangeProposal mcp,
-      Urn entityUrn,
-      AuditStamp auditStamp,
-      AspectSpec aspectSpec) {
-    entityService.conditionallyProduceMCLAsync(
-        opContext,
-        oldAspect,
-        oldSystemMetadata,
-        newAspect,
-        newSystemMetadata,
-        mcp,
-        entityUrn,
-        auditStamp,
-        aspectSpec);
-    return true; // TODO
   }
 
   private void tryIndexRunId(

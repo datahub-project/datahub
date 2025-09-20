@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -8,21 +9,21 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
-import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.Optional;
 import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +51,8 @@ import org.springframework.stereotype.Component;
 public class CDCProcessor {
   private final OperationContext systemOperationContext;
 
-  private final SystemEntityClient entityClient;
+  // private final SystemEntityClient entityClient;
+  private final EntityService entityService;
 
   @Qualifier("kafkaThrottle")
   private final ThrottleSensor kafkaThrottle;
@@ -122,15 +124,6 @@ public class CDCProcessor {
 
       // if (log.isDebugEnabled()) {
       log.info("CDC Record {}", record);
-      /*JsonNode node = systemOperationContext.getObjectMapper().readTree(record);
-      log.info(
-          systemOperationContext
-              .getObjectMapper()
-              .writerWithDefaultPrettyPrinter()
-              .writeValueAsString(node));
-
-      // }
-      */
       processCDCRecord(consumerRecord);
 
     } catch (Exception e) {
@@ -204,118 +197,106 @@ public class CDCProcessor {
       // Step 1: Parse JSON using Jackson ObjectMapper
       JsonNode cdcRecord = systemOperationContext.getObjectMapper().readTree(record);
 
-      JsonNode payload = cdcRecord.get("payload");
-
-      // Step 2: Extract "before" and "after" fields as JsonNode objects
-      JsonNode beforeRecord = payload.get("before");
-      JsonNode afterRecord = payload.get("after");
-
-      // Step 3: Check if we should process this record (only latest versions)
-      if (!shouldProcessCDCRecord(afterRecord)) {
-        return;
+      Optional<MetadataChangeLog> mcl = mclFromCDCRecord(cdcRecord);
+      if (mcl.isPresent()) {
+        entityService.produceMCLAsync(this.systemOperationContext, mcl.get());
+        log.debug(
+            "Successfully processed CDC record for urn: {}, aspect: {}",
+            mcl.get().getEntityUrn(),
+            mcl.get().getAspectName());
       }
-
-      // Step 4: Extract urn, aspect, metadata, systemmetadata fields from both before/after CDC
-      // records
-      String urn = afterRecord.get("urn").asText();
-      String aspectName = afterRecord.get("aspect").asText();
-
-      String beforeMetadata =
-          beforeRecord != null && beforeRecord.has("metadata")
-              ? beforeRecord.get("metadata").asText()
-              : null;
-      String afterMetadata = afterRecord.get("metadata").asText();
-
-      String beforeSystemMetadata =
-          beforeRecord != null && beforeRecord.has("systemmetadata")
-              ? beforeRecord.get("systemmetadata").asText()
-              : null;
-      String afterSystemMetadata =
-          afterRecord.has("systemmetadata") ? afterRecord.get("systemmetadata").asText() : null;
-
-      String createdOn = afterRecord.get("createdon").asText();
-      String createdBy = afterRecord.get("createdby").asText();
-      String createdFor =
-          afterRecord.has("createdfor") && !afterRecord.get("createdfor").isNull()
-              ? afterRecord.get("createdfor").asText()
-              : null;
-
-      // Step 5: Deserialize the "metadata" JSON strings to RecordTemplate objects
-      Urn entityUrn = Urn.createFromString(urn);
-      String entityType = entityUrn.getEntityType();
-      AspectSpec aspectSpec =
-          systemOperationContext
-              .getEntityRegistry()
-              .getEntitySpec(entityType)
-              .getAspectSpec(aspectName);
-
-      RecordTemplate oldValue = null;
-      if (beforeMetadata != null) {
-        DataMap beforeDataMap = RecordUtils.toDataMap(beforeMetadata);
-        oldValue = RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), beforeDataMap);
-      }
-
-      DataMap afterDataMap = RecordUtils.toDataMap(afterMetadata);
-      RecordTemplate newValue =
-          RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), afterDataMap);
-
-      // Step 6: Parse systemmetadata JSON strings to SystemMetadata objects
-      SystemMetadata oldSystemMetadata = null;
-      if (beforeSystemMetadata != null) {
-        oldSystemMetadata =
-            RecordUtils.toRecordTemplate(SystemMetadata.class, beforeSystemMetadata);
-      }
-
-      SystemMetadata newSystemMetadata = null;
-      if (afterSystemMetadata != null) {
-        newSystemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, afterSystemMetadata);
-      }
-
-      // Step 7: Create ChangeMCP using "after" record data
-      AuditStamp auditStamp = new AuditStamp();
-      auditStamp.setTime(Long.parseLong(createdOn + 100));
-      auditStamp.setActor(Urn.createFromString(createdBy));
-      if (createdFor != null) {
-        auditStamp.setImpersonator(Urn.createFromString(createdFor));
-      }
-
-      ChangeMCP changeMCP =
-          ChangeItemImpl.builder()
-              .urn(entityUrn)
-              .aspectName(aspectName)
-              .changeType(ChangeType.UPSERT)
-              .recordTemplate(newValue)
-              .systemMetadata(newSystemMetadata)
-              .auditStamp(auditStamp)
-              .build(systemOperationContext.getRetrieverContext().getAspectRetriever());
-
-      entityClient.produceMCL(
-          this.systemOperationContext,
-          oldValue,
-          oldSystemMetadata,
-          newValue,
-          newSystemMetadata,
-          null,
-          entityUrn,
-          auditStamp,
-          aspectSpec);
-
-      // Step 8: Construct UpdateAspectResult with all parsed values
-      /*UpdateAspectResult updateResult = new UpdateAspectResult(
-          entityUrn,
-          changeMCP,
-          oldValue,
-          newValue,
-          oldSystemMetadata,
-          newSystemMetadata,
-          auditStamp);
-      */
-      // TODO: Process the UpdateAspectResult (e.g., generate MCL for downstream processing)
-      log.debug("Successfully processed CDC record for urn: {}, aspect: {}", entityUrn, aspectName);
-
     } catch (Exception e) {
       log.error("Error processing CDC record", e);
     }
+  }
+
+  private Optional<MetadataChangeLog> mclFromCDCRecord(JsonNode cdcRecord)
+      throws URISyntaxException {
+    JsonNode payload = cdcRecord.get("payload");
+    // Step 2: Extract "before" and "after" fields as JsonNode objects
+    JsonNode beforeRecord = payload.get("before");
+    JsonNode afterRecord = payload.get("after");
+
+    // Step 3: Check if we should process this record (only latest versions)
+    if (!shouldProcessCDCRecord(afterRecord)) {
+      return Optional.empty();
+    }
+
+    // Step 4: Extract urn, aspect, metadata, systemmetadata fields from both before/after CDC
+    // records
+    String urn = afterRecord.get("urn").asText();
+    String aspectName = afterRecord.get("aspect").asText();
+
+    String beforeMetadata =
+        beforeRecord != null && beforeRecord.has("metadata")
+            ? beforeRecord.get("metadata").asText()
+            : null;
+    String afterMetadata = afterRecord.get("metadata").asText();
+
+    String beforeSystemMetadata =
+        beforeRecord != null && beforeRecord.has("systemmetadata")
+            ? beforeRecord.get("systemmetadata").asText()
+            : null;
+    String afterSystemMetadata =
+        afterRecord.has("systemmetadata") ? afterRecord.get("systemmetadata").asText() : null;
+
+    String createdOn = afterRecord.get("createdon").asText();
+    String createdBy = afterRecord.get("createdby").asText();
+    String createdFor =
+        afterRecord.has("createdfor") && !afterRecord.get("createdfor").isNull()
+            ? afterRecord.get("createdfor").asText()
+            : null;
+
+    // Step 5: Deserialize the "metadata" JSON strings to RecordTemplate objects
+    Urn entityUrn = Urn.createFromString(urn);
+    String entityType = entityUrn.getEntityType();
+    AspectSpec aspectSpec =
+        systemOperationContext
+            .getEntityRegistry()
+            .getEntitySpec(entityType)
+            .getAspectSpec(aspectName);
+
+    RecordTemplate oldValue = null;
+    if (beforeMetadata != null) {
+      DataMap beforeDataMap = RecordUtils.toDataMap(beforeMetadata);
+      oldValue = RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), beforeDataMap);
+    }
+
+    DataMap afterDataMap = RecordUtils.toDataMap(afterMetadata);
+    RecordTemplate newValue =
+        RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), afterDataMap);
+
+    // Step 6: Parse systemmetadata JSON strings to SystemMetadata objects
+    SystemMetadata oldSystemMetadata = null;
+    if (beforeSystemMetadata != null) {
+      oldSystemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, beforeSystemMetadata);
+    }
+
+    SystemMetadata newSystemMetadata = null;
+    if (afterSystemMetadata != null) {
+      newSystemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, afterSystemMetadata);
+    }
+
+    // Step 7: Create ChangeMCP using "after" record data
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(Long.parseLong(createdOn + 100));
+    auditStamp.setActor(Urn.createFromString(createdBy));
+    if (createdFor != null) {
+      auditStamp.setImpersonator(Urn.createFromString(createdFor));
+    }
+
+    MetadataChangeLog mcl =
+        constructMCL(
+            null,
+            urnToEntityName(entityUrn),
+            entityUrn,
+            aspectName,
+            auditStamp,
+            newValue,
+            newSystemMetadata,
+            oldValue,
+            oldSystemMetadata);
+    return Optional.of(mcl);
   }
 
   private boolean shouldProcessCDCRecord(JsonNode afterRecord) {
