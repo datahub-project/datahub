@@ -1,7 +1,6 @@
 <configuration scan="true" scanPeriod="120 seconds">
     <property name="LOG_DIR" value="${LOG_DIR:-/tmp/datahub/logs/gms}"/>
 
-    <!-- STDOUT logs with sanitization -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <!-- SanitizingPatternLayout will clean %msg before output -->
         <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayout.java -->
@@ -17,13 +16,15 @@
         </filter>
     </appender>
 
-    <!-- FILE logs with sanitization -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/gms.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
             <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
             <totalSizeCap>10GB</totalSizeCap>
+            <!-- 30 days to keep -->
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -40,13 +41,15 @@
         </filter>
     </appender>
 
-    <!-- DEBUG_FILE logs with sanitization -->
     <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/gms.debug.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
             <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
             <totalSizeCap>2GB</totalSizeCap>
+            <!-- 1 days to keep -->
             <maxHistory>1</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
@@ -55,18 +58,21 @@
             <onMismatch>DENY</onMismatch>
         </filter>
         <!-- SanitizingPatternLayoutEncoder for debug logs -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
         <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- GRAPHQL_DEBUG_FILE logs with sanitization -->
     <appender name="GRAPHQL_DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/gms.graphql.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.graphql.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
+            <!-- each archived file, size max 10MB -->
             <maxFileSize>100MB</maxFileSize>
+            <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
             <totalSizeCap>2GB</totalSizeCap>
+            <!-- 1 days to keep -->
             <maxHistory>1</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
@@ -75,6 +81,7 @@
             <onMismatch>DENY</onMismatch>
         </filter>
         <!-- SanitizingPatternLayoutEncoder for GraphQL debug logs -->
+        <!-- Java class: src/main/java/com/linkedin/metadata/utils/log/SanitizingPatternLayoutEncoder.java -->
         <encoder class="com.linkedin.metadata.utils.log.SanitizingPatternLayoutEncoder">
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
@@ -84,7 +91,7 @@
         <appender-ref ref="GRAPHQL_DEBUG_FILE" />
     </appender>
 
-    <!-- Debug loggers -->
+    <!-- Remove this to disable logging debug -->
     <logger name="com.linkedin" level="DEBUG">
         <appender-ref ref="DEBUG_FILE"/>
     </logger>
