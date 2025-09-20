@@ -134,10 +134,6 @@ function CreateGlossaryEntityModal(props: Props) {
                     // Reload modules
                     // ChildHierarchy - to update contents module as new term/node could change it
                     reloadModules([DataHubPageModuleType.ChildHierarchy]);
-                    // RelatedTerms - to update related terms module as new term could change it
-                    if (entityType === EntityType.GlossaryTerm) {
-                        reloadModules([DataHubPageModuleType.RelatedTerms]);
-                    }
                 }, 2000);
             })
             .catch((e) => {
