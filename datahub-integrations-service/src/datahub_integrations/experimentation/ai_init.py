@@ -1,4 +1,4 @@
-from datahub_integrations.gen_ai.mlflow_init import MLFLOW_ENABLED
+from datahub_integrations.gen_ai.mlflow_init import initialize_mlflow, is_mlflow_enabled
 
 import os
 
@@ -13,6 +13,7 @@ os.environ["DEV_MODE_OVERRIDE_DATAHUB_FRONTEND_URL"] = "http://localhost:3000"
 
 assert evaluator_registry is not None
 
-assert MLFLOW_ENABLED, "mlflow tracking should be enabled"
+initialize_mlflow()
+assert is_mlflow_enabled(), "mlflow tracking should be enabled"
 
 AI_EXPERIMENTATION_INITIALIZED = True

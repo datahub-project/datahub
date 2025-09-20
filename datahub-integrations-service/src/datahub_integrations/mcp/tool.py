@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datahub_integrations.gen_ai.mlflow_init import MLFLOW_INITIALIZED
-
 import dataclasses
 from typing import Any, Callable, List, Optional
 
@@ -11,8 +9,6 @@ import mlflow
 import mlflow.entities
 from fastmcp import FastMCP
 from mcp.types import TextContent
-
-assert MLFLOW_INITIALIZED
 
 
 class ToolRunError(Exception):
