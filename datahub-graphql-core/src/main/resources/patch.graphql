@@ -1,0 +1,49 @@
+extend type Mutation {
+  patchEntity(input: PatchEntityInput!): PatchEntityResult!
+  patchEntities(input: [PatchEntityInput!]!): [PatchEntityResult!]!
+  patchGlossaryTerm(input: PatchGlossaryTermInput!): PatchEntityResult!
+}
+
+input PatchEntityInput {
+  urn: String!
+  aspectName: String!
+  patch: [PatchOperationInput!]!
+  systemMetadata: SystemMetadataInput
+  headers: [StringMapEntryInput!]
+}
+
+input PatchGlossaryTermInput {
+  urn: String!
+  aspectName: String!
+  patch: [PatchOperationInput!]!
+  systemMetadata: SystemMetadataInput
+  headers: [StringMapEntryInput!]
+}
+
+input PatchOperationInput {
+  op: PatchOperationType!
+  path: String!
+  value: String
+  from: String
+}
+
+enum PatchOperationType {
+  ADD
+  REMOVE
+  REPLACE
+  MOVE
+  COPY
+  TEST
+}
+
+input SystemMetadataInput {
+  lastObserved: Long
+  runId: String
+  properties: [StringMapEntryInput!]
+}
+
+type PatchEntityResult {
+  urn: String!
+  success: Boolean!
+  error: String
+}
