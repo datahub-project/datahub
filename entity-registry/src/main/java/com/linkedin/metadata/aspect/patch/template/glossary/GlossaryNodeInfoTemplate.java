@@ -9,8 +9,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Template for patching GlossaryNodeInfo aspects.
- * 
- * Handles: name, description (definition), parent_nodes, custom_properties
+ *
+ * <p>Handles: name, description (definition), parent_nodes, custom_properties
  */
 public class GlossaryNodeInfoTemplate implements Template<GlossaryNodeInfo> {
 
@@ -34,7 +34,7 @@ public class GlossaryNodeInfoTemplate implements Template<GlossaryNodeInfo> {
     // Set required fields with defaults
     glossaryNodeInfo.setDefinition(""); // Required field
     glossaryNodeInfo.setCustomProperties(new StringMap());
-    
+
     return glossaryNodeInfo;
   }
 

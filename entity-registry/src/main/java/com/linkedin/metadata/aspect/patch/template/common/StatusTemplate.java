@@ -8,8 +8,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Template for patching Status aspects.
- * 
- * Handles: removed (boolean field for soft deletion)
+ *
+ * <p>Handles: removed (boolean field for soft deletion)
  */
 public class StatusTemplate implements Template<Status> {
 

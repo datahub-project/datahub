@@ -10,8 +10,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Template for patching Domains aspects.
- * 
- * Handles: domains array
+ *
+ * <p>Handles: domains array
  */
 public class DomainsTemplate implements ArrayMergingTemplate<Domains> {
 

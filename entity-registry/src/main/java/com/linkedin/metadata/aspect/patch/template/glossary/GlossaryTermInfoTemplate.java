@@ -9,9 +9,9 @@ import javax.annotation.Nonnull;
 
 /**
  * Template for patching GlossaryTermInfo aspects.
- * 
- * Handles: name, description (definition), term_source, source_ref, source_url, 
- * parent_nodes, custom_properties
+ *
+ * <p>Handles: name, description (definition), term_source, source_ref, source_url, parent_nodes,
+ * custom_properties
  */
 public class GlossaryTermInfoTemplate implements Template<GlossaryTermInfo> {
 
@@ -36,7 +36,7 @@ public class GlossaryTermInfoTemplate implements Template<GlossaryTermInfo> {
     glossaryTermInfo.setDefinition(""); // Required field
     glossaryTermInfo.setTermSource("INTERNAL"); // Default value as per schema
     glossaryTermInfo.setCustomProperties(new StringMap());
-    
+
     return glossaryTermInfo;
   }
 

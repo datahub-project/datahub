@@ -111,7 +111,8 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsTemplate());
     aspectSpecTemplateMap.put(GLOSSARY_TERM_INFO_ASPECT_NAME, new GlossaryTermInfoTemplate());
     aspectSpecTemplateMap.put(GLOSSARY_NODE_INFO_ASPECT_NAME, new GlossaryNodeInfoTemplate());
-    aspectSpecTemplateMap.put(GLOSSARY_RELATED_TERM_ASPECT_NAME, new GlossaryRelatedTermsTemplate());
+    aspectSpecTemplateMap.put(
+        GLOSSARY_RELATED_TERM_ASPECT_NAME, new GlossaryRelatedTermsTemplate());
     aspectSpecTemplateMap.put(DOMAINS_ASPECT_NAME, new DomainsTemplate());
     aspectSpecTemplateMap.put(DATA_FLOW_INFO_ASPECT_NAME, new DataFlowInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());

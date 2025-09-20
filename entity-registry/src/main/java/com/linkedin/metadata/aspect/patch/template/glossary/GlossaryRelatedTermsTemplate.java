@@ -9,8 +9,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Template for patching GlossaryRelatedTerms aspects.
- * 
- * Handles: isRelatedTerms, hasRelatedTerms, values, relatedTerms arrays
+ *
+ * <p>Handles: isRelatedTerms, hasRelatedTerms, values, relatedTerms arrays
  */
 public class GlossaryRelatedTermsTemplate implements ArrayMergingTemplate<GlossaryRelatedTerms> {
 
@@ -44,13 +44,13 @@ public class GlossaryRelatedTermsTemplate implements ArrayMergingTemplate<Glossa
   @Override
   public JsonNode transformFields(JsonNode baseNode) {
     JsonNode transformed = baseNode;
-    
+
     // Transform array fields to maps for patching
     transformed = arrayFieldToMap(transformed, IS_RELATED_TERMS_FIELD, Collections.emptyList());
     transformed = arrayFieldToMap(transformed, HAS_RELATED_TERMS_FIELD, Collections.emptyList());
     transformed = arrayFieldToMap(transformed, VALUES_FIELD, Collections.emptyList());
     transformed = arrayFieldToMap(transformed, RELATED_TERMS_FIELD, Collections.emptyList());
-    
+
     return transformed;
   }
 
@@ -58,13 +58,15 @@ public class GlossaryRelatedTermsTemplate implements ArrayMergingTemplate<Glossa
   @Override
   public JsonNode rebaseFields(JsonNode patched) {
     JsonNode transformed = patched;
-    
+
     // Rebase maps back to arrays
-    transformed = transformedMapToArray(transformed, IS_RELATED_TERMS_FIELD, Collections.emptyList());
-    transformed = transformedMapToArray(transformed, HAS_RELATED_TERMS_FIELD, Collections.emptyList());
+    transformed =
+        transformedMapToArray(transformed, IS_RELATED_TERMS_FIELD, Collections.emptyList());
+    transformed =
+        transformedMapToArray(transformed, HAS_RELATED_TERMS_FIELD, Collections.emptyList());
     transformed = transformedMapToArray(transformed, VALUES_FIELD, Collections.emptyList());
     transformed = transformedMapToArray(transformed, RELATED_TERMS_FIELD, Collections.emptyList());
-    
+
     return transformed;
   }
 }
