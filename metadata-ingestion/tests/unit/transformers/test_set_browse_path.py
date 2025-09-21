@@ -45,7 +45,11 @@ def records_to_aspects_map(
 ) -> Dict[str, Dict[str, List]]:
     aspects_map: Dict[str, Dict[str, List]] = defaultdict(lambda: defaultdict(list))
     for record in records:
-        if isinstance(record.record, MetadataChangeProposalWrapper):
+        if (
+            isinstance(record.record, MetadataChangeProposalWrapper)
+            and record.record.entityUrn
+            and record.record.aspectName
+        ):
             aspects_map[record.record.entityUrn][record.record.aspectName].append(
                 record.record.aspect
             )
@@ -191,7 +195,7 @@ def records_to_aspects_map(
 )
 def test_set_browse_paths_against_existing(
     config: Dict, input: List[str], output: List[str]
-):
+) -> None:
     dataset = make_generic_dataset(
         aspects=[StatusClass(removed=False), make_browse_paths_aspect(*input)]
     )
@@ -243,7 +247,7 @@ def test_set_browse_paths_against_existing(
         ),
     ],
 )
-def test_set_browse_paths_against_non_existing(config: Dict, output: List[str]):
+def test_set_browse_paths_against_non_existing(config: Dict, output: List[str]) -> None:
     dataset = make_generic_dataset(aspects=[StatusClass(removed=False)])
 
     transformer = SetBrowsePathTransformer.create(
