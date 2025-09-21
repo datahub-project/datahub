@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -47,6 +49,16 @@ public class PatchEntitiesResolver
     implements DataFetcher<CompletableFuture<List<PatchEntityResult>>> {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  
+  // Entity types that support auto-generated URNs (simple string URNs)
+  private static final Set<String> AUTO_GENERATE_ALLOWED_ENTITY_TYPES = Set.of(
+      "glossaryTerm",
+      "glossaryNode", 
+      "container",
+      "notebook",
+      "domain",
+      "dataProduct"
+  );
 
   private final EntityService _entityService;
   private final EntityClient _entityClient;
@@ -66,7 +78,10 @@ public class PatchEntitiesResolver
           } catch (Exception e) {
             log.error("Failed to patch entities: {}", e.getMessage(), e);
             return inputs.stream()
-                .map(input -> new PatchEntityResult(input.getUrn(), false, e.getMessage()))
+                .map(input -> {
+                  String urn = input.getUrn() != null ? input.getUrn() : "urn:li:unknown:error";
+                  return new PatchEntityResult(urn, false, e.getMessage(), null);
+                })
                 .collect(Collectors.toList());
           }
         },
@@ -78,8 +93,13 @@ public class PatchEntitiesResolver
       @Nonnull List<PatchEntityInput> inputs, @Nonnull QueryContext context) throws Exception {
 
     final Authentication authentication = context.getAuthentication();
-    final List<Urn> entityUrns =
-        inputs.stream().map(input -> UrnUtils.getUrn(input.getUrn())).collect(Collectors.toList());
+    
+    // Resolve URNs for all inputs (either provided or auto-generated)
+    final List<Urn> entityUrns = new ArrayList<>();
+    for (PatchEntityInput input : inputs) {
+      Urn entityUrn = resolveEntityUrn(input);
+      entityUrns.add(entityUrn);
+    }
 
     // Check authorization for all entities
     if (!AuthUtil.isAPIAuthorizedEntityUrns(context.getOperationContext(), UPDATE, entityUrns)) {
@@ -90,8 +110,9 @@ public class PatchEntitiesResolver
     // Create batch of MetadataChangeProposals
     final List<com.linkedin.mxe.MetadataChangeProposal> mcps = new ArrayList<>();
 
-    for (PatchEntityInput input : inputs) {
-      final Urn entityUrn = UrnUtils.getUrn(input.getUrn());
+    for (int i = 0; i < inputs.size(); i++) {
+      final PatchEntityInput input = inputs.get(i);
+      final Urn entityUrn = entityUrns.get(i);
 
       // Validate aspect exists
       final var aspectSpec =
@@ -144,10 +165,13 @@ public class PatchEntitiesResolver
     for (int i = 0; i < inputs.size(); i++) {
       final PatchEntityInput input = inputs.get(i);
       final IngestResult result = i < results.size() ? results.get(i) : null;
+      
+      // Extract entity name from the patch operations
+      String entityName = extractEntityName(input.getPatch());
 
       patchResults.add(
           new PatchEntityResult(
-              input.getUrn(), result != null, result == null ? "Failed to apply patch" : null));
+              input.getUrn(), result != null, result == null ? "Failed to apply patch" : null, entityName));
     }
 
     return patchResults;
@@ -299,5 +323,49 @@ public class PatchEntitiesResolver
     }
 
     return mcp;
+  }
+
+  @Nonnull
+  private Urn resolveEntityUrn(@Nonnull PatchEntityInput input) throws Exception {
+    if (input.getUrn() != null && !input.getUrn().isEmpty()) {
+      // Use provided URN
+      return UrnUtils.getUrn(input.getUrn());
+    } else if (input.getEntityType() != null && !input.getEntityType().isEmpty()) {
+      // Auto-generate URN for the specified entity type
+      String entityType = input.getEntityType();
+      
+      // Only allow auto-generation for safe entity types
+      if (!AUTO_GENERATE_ALLOWED_ENTITY_TYPES.contains(entityType)) {
+        throw new IllegalArgumentException(
+            "Auto-generated URNs are only supported for entity types: " + 
+            AUTO_GENERATE_ALLOWED_ENTITY_TYPES + 
+            ". Entity type '" + entityType + "' requires a structured URN. " +
+            "Please provide a specific URN for this entity type.");
+      }
+      
+      // Generate GUID for the entity
+      String guid = UUID.randomUUID().toString();
+      String newUrn = String.format("urn:li:%s:%s", entityType, guid);
+      
+      // Update the input URN for the response
+      input.setUrn(newUrn);
+      
+      return UrnUtils.getUrn(newUrn);
+    } else {
+      throw new IllegalArgumentException(
+          "Either 'urn' or 'entityType' must be provided. " +
+          "Use 'urn' for existing entities or 'entityType' to auto-generate a URN for new entities.");
+    }
+  }
+
+  @Nullable
+  private String extractEntityName(@Nonnull List<com.linkedin.datahub.graphql.generated.PatchOperationInput> patchOperations) {
+    // Look for name field in patch operations
+    for (com.linkedin.datahub.graphql.generated.PatchOperationInput operation : patchOperations) {
+      if ("/name".equals(operation.getPath()) && operation.getValue() != null) {
+        return operation.getValue();
+      }
+    }
+    return null;
   }
 }

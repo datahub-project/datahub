@@ -5,7 +5,8 @@ extend type Mutation {
 }
 
 input PatchEntityInput {
-  urn: String!
+  urn: String
+  entityType: String
   aspectName: String!
   patch: [PatchOperationInput!]!
   systemMetadata: SystemMetadataInput
@@ -13,7 +14,8 @@ input PatchEntityInput {
 }
 
 input PatchGlossaryTermInput {
-  urn: String!
+  urn: String
+  entityType: String
   aspectName: String!
   patch: [PatchOperationInput!]!
   systemMetadata: SystemMetadataInput
@@ -44,6 +46,7 @@ input SystemMetadataInput {
 
 type PatchEntityResult {
   urn: String!
+  name: String
   success: Boolean!
   error: String
 }

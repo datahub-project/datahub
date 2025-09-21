@@ -33,6 +33,8 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -46,6 +48,16 @@ public class PatchGlossaryTermResolver
     implements DataFetcher<CompletableFuture<PatchEntityResult>> {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  
+  // Entity types that support auto-generated URNs (simple string URNs)
+  private static final Set<String> AUTO_GENERATE_ALLOWED_ENTITY_TYPES = Set.of(
+      "glossaryTerm",
+      "glossaryNode", 
+      "container",
+      "notebook",
+      "domain",
+      "dataProduct"
+  );
 
   private final EntityService _entityService;
   private final EntityClient _entityClient;
@@ -64,7 +76,9 @@ public class PatchGlossaryTermResolver
             return patchGlossaryTerm(input, context);
           } catch (Exception e) {
             log.error("Failed to patch glossary term: {}", e.getMessage(), e);
-            return new PatchEntityResult(input.getUrn(), false, e.getMessage());
+            // Use a placeholder URN if none was provided
+            String urn = input.getUrn() != null ? input.getUrn() : "urn:li:unknown:error";
+            return new PatchEntityResult(urn, false, e.getMessage(), null);
           }
         },
         this.getClass().getSimpleName(),
@@ -73,7 +87,9 @@ public class PatchGlossaryTermResolver
 
   private PatchEntityResult patchGlossaryTerm(
       @Nonnull PatchGlossaryTermInput input, @Nonnull QueryContext context) throws Exception {
-    final Urn entityUrn = UrnUtils.getUrn(input.getUrn());
+    
+    // Handle URN resolution - either provided or auto-generated
+    final Urn entityUrn = resolveEntityUrn(input);
     final Authentication authentication = context.getAuthentication();
 
     // Validate that this is a glossary term
@@ -118,10 +134,13 @@ public class PatchGlossaryTermResolver
           AuditStampUtils.createAuditStamp(actor.toString()),
           false); // synchronous for GraphQL
 
-      return new PatchEntityResult(input.getUrn(), true, null);
+      // Extract entity name from the patch operations
+      String entityName = extractEntityName(input.getPatch());
+      
+      return new PatchEntityResult(input.getUrn(), true, null, entityName);
     } catch (Exception e) {
       return new PatchEntityResult(
-          input.getUrn(), false, "Failed to apply patch to glossary term: " + e.getMessage());
+          input.getUrn(), false, "Failed to apply patch to glossary term: " + e.getMessage(), null);
     }
   }
 
@@ -271,5 +290,49 @@ public class PatchGlossaryTermResolver
     }
 
     return mcp;
+  }
+
+  @Nonnull
+  private Urn resolveEntityUrn(@Nonnull PatchGlossaryTermInput input) throws Exception {
+    if (input.getUrn() != null && !input.getUrn().isEmpty()) {
+      // Use provided URN
+      return UrnUtils.getUrn(input.getUrn());
+    } else if (input.getEntityType() != null && !input.getEntityType().isEmpty()) {
+      // Auto-generate URN for the specified entity type
+      String entityType = input.getEntityType();
+      
+      // Only allow auto-generation for safe entity types
+      if (!AUTO_GENERATE_ALLOWED_ENTITY_TYPES.contains(entityType)) {
+        throw new IllegalArgumentException(
+            "Auto-generated URNs are only supported for entity types: " + 
+            AUTO_GENERATE_ALLOWED_ENTITY_TYPES + 
+            ". Entity type '" + entityType + "' requires a structured URN. " +
+            "Please provide a specific URN for this entity type.");
+      }
+      
+      // Generate GUID for the entity
+      String guid = UUID.randomUUID().toString();
+      String newUrn = String.format("urn:li:%s:%s", entityType, guid);
+      
+      // Update the input URN for the response
+      input.setUrn(newUrn);
+      
+      return UrnUtils.getUrn(newUrn);
+    } else {
+      throw new IllegalArgumentException(
+          "Either 'urn' or 'entityType' must be provided. " +
+          "Use 'urn' for existing entities or 'entityType' to auto-generate a URN for new entities.");
+    }
+  }
+
+  @Nullable
+  private String extractEntityName(@Nonnull List<com.linkedin.datahub.graphql.generated.PatchOperationInput> patchOperations) {
+    // Look for name field in patch operations
+    for (com.linkedin.datahub.graphql.generated.PatchOperationInput operation : patchOperations) {
+      if ("/name".equals(operation.getPath()) && operation.getValue() != null) {
+        return operation.getValue();
+      }
+    }
+    return null;
   }
 }
