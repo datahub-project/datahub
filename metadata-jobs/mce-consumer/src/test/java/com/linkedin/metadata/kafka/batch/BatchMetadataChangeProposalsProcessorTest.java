@@ -557,6 +557,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
   public void testConsumeWithTelemetryMetrics() throws Exception {
     // Mock the metric utils
     MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    when(mockMetricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
 
     // Create a mock operation context
     OperationContext opContextWithMetrics = spy(opContext);
@@ -856,12 +857,12 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   @Test
   public void testMicrometerMetricsAbsentWhenRegistryNotPresent() throws Exception {
-    // Create MetricUtils without a registry
-    MetricUtils metricUtilsNoRegistry = MetricUtils.builder().registry(null).build();
+    // With the new non-null contract, we can't create MetricUtils with null registry
+    // Instead, test the case where MetricUtils is absent from OperationContext
 
-    // Create operation context with metric utils that has no registry
+    // Create operation context without metric utils
     OperationContext opContextNoRegistry = mock(OperationContext.class);
-    when(opContextNoRegistry.getMetricUtils()).thenReturn(Optional.of(metricUtilsNoRegistry));
+    when(opContextNoRegistry.getMetricUtils()).thenReturn(Optional.empty());
 
     // Mock withQueueSpan
     doAnswer(

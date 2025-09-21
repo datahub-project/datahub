@@ -93,17 +93,13 @@ public class MetadataChangeProposalsProcessor {
                 // TODO: include priority level when available
                 metricUtils
                     .getRegistry()
-                    .ifPresent(
-                        meterRegistry -> {
-                          meterRegistry
-                              .timer(
-                                  MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                                  "topic",
-                                  consumerRecord.topic(),
-                                  "consumer.group",
-                                  mceConsumerGroupId)
-                              .record(Duration.ofMillis(queueTimeMs));
-                        });
+                    .timer(
+                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                        "topic",
+                        consumerRecord.topic(),
+                        "consumer.group",
+                        mceConsumerGroupId)
+                    .record(Duration.ofMillis(queueTimeMs));
               });
       final GenericRecord record = consumerRecord.value();
 

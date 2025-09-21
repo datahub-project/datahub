@@ -1428,11 +1428,11 @@ sqlalchemy-stubs==0.4
     # via
     #   -r requirements.txt
     #   acryl-executor
-sqlglot==26.26.0
+sqlglot==27.12.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-sqlglotrs==0.6.1
+sqlglotrs==0.6.2
     # via
     #   -r requirements.txt
     #   sqlglot

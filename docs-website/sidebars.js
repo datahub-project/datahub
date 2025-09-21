@@ -1179,6 +1179,7 @@ module.exports = {
     // "metadata-integration/java/datahub-schematron/README"
     // "smoke-test/tests/cypress/README"
     // "datahub-integrations-service/experiments/term_suggestion_v2/term_suggestion_analysis_documentation"
+    // docs/how/merge-log-saas
     // ],
   ],
 };

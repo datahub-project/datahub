@@ -12,6 +12,7 @@ import copy
 import json
 import math
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -124,6 +125,7 @@ class Rule:
     pattern: List[str]
     change_type: Optional[ChangeType]
     limits: DiffLimit
+    ignored_line_patterns: Optional[List[str]] = None
 
 
 def load_rules(rules_file: Path) -> List[Rule]:
@@ -140,7 +142,7 @@ def load_rules(rules_file: Path) -> List[Rule]:
         # TODO: Move to pydantic.
         limits_dict = {}
         for key, value in rule_dict.items():
-            if key in ("pattern", "change_type"):
+            if key in ("pattern", "change_type", "ignored_line_patterns"):
                 continue
             if key == "max_removals":
                 limits_dict["max_deletions"] = value
@@ -156,7 +158,12 @@ def load_rules(rules_file: Path) -> List[Rule]:
         pattern = rule_dict["pattern"]
         if isinstance(pattern, str):
             pattern = [pattern]
-        rules.append(Rule(pattern=pattern, change_type=change_type, limits=limits))
+
+        ignored_line_patterns = rule_dict.get("ignored_line_patterns")
+        if ignored_line_patterns and isinstance(ignored_line_patterns, str):
+            ignored_line_patterns = [ignored_line_patterns]
+
+        rules.append(Rule(pattern=pattern, change_type=change_type, limits=limits, ignored_line_patterns=ignored_line_patterns))
 
     return rules
 
@@ -226,6 +233,36 @@ class DiffValidator:
         # TODO: This has some bugs, which I need to come back to.
         return filepath
 
+    def _get_filtered_diff_stats(self, filepath: str, rule: Rule) -> Tuple[int, int]:
+        """Get diff stats with ignored line patterns filtered out."""
+        if not rule or not rule.ignored_line_patterns:
+            return None, None
+
+        # Get the actual diff for this file
+        diff_result = subprocess.run(
+            ["git", "diff", self._change_specifier, "--", filepath],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        additions = 0
+        deletions = 0
+
+        for line in diff_result.stdout.splitlines():
+            if line.startswith('+') and not line.startswith('+++'):
+                # This is an addition
+                content = line[1:]  # Remove the '+' prefix
+                if not any(re.search(pattern, content) for pattern in rule.ignored_line_patterns):
+                    additions += 1
+            elif line.startswith('-') and not line.startswith('---'):
+                # This is a deletion
+                content = line[1:]  # Remove the '-' prefix
+                if not any(re.search(pattern, content) for pattern in rule.ignored_line_patterns):
+                    deletions += 1
+
+        return additions, deletions
+
     def get_file_changes(self) -> List[FileChange]:
         """Get list of file changes with their types and sizes."""
         # Get file status changes
@@ -290,6 +327,24 @@ class DiffValidator:
                 continue
 
             additions, deletions = stats[filepath]
+
+            # Check if there's an applicable rule with ignored line patterns
+            # We need a temporary FileChange to find the applicable rule
+            temp_change = FileChange(
+                type=change_type,
+                filepath=filepath,
+                additions=additions,
+                deletions=deletions,
+            )
+            applicable_rule = self._get_applicable_rule(temp_change)
+
+            # Use filtered stats if rule has ignored_line_patterns
+            if applicable_rule and applicable_rule.ignored_line_patterns:
+                filtered_additions, filtered_deletions = self._get_filtered_diff_stats(filepath, applicable_rule)
+                if filtered_additions is not None and filtered_deletions is not None:
+                    additions, deletions = filtered_additions, filtered_deletions
+                    logger.debug(f"Applied line filtering to {filepath}: {stats[filepath]} -> ({additions}, {deletions})")
+
             changes.append(
                 FileChange(
                     type=change_type,

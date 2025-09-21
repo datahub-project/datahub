@@ -109,7 +109,7 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
 
       if (config.isStatsEnabled() && metricUtils != null) {
         MicrometerMetricsRegistry.registerCacheMetrics(
-            config.getName(), cache, metricUtils.getRegistry().orElse(null));
+            config.getName(), cache, metricUtils.getRegistry());
       }
 
       return new ClientCache<>(config, cache, loadFunction, weigher, ttlSecondsFunction);
