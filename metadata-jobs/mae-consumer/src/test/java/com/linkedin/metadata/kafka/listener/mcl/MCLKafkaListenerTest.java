@@ -64,7 +64,7 @@ public class MCLKafkaListenerTest {
 
     mockSystemMetadata = spy(SystemMetadataUtils.createDefaultSystemMetadata());
     meterRegistry = new SimpleMeterRegistry();
-    when(metricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(metricUtils.getRegistry()).thenReturn(meterRegistry);
 
     systemOperationContext =
         TestOperationContexts.Builder.builder()

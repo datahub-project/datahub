@@ -201,17 +201,19 @@ class AthenaPropertiesExtractor:
 
             # Handle comment quoting and escaping
             if comment_part.startswith("'") and comment_part.endswith("'"):
-                # Already properly single quoted - keep as is
-                formatted_comment = comment_part
+                # Already properly single quoted - but check for proper escaping
+                inner_content = comment_part[1:-1]
+                # Re-escape any single quotes that aren't properly escaped
+                escaped_content = inner_content.replace("'", "''")
+                formatted_comment = f"'{escaped_content}'"
             elif comment_part.startswith('"') and comment_part.endswith('"'):
                 # Double quoted - convert to single quotes and escape internal single quotes
                 inner_content = comment_part[1:-1]
                 escaped_content = inner_content.replace("'", "''")
                 formatted_comment = f"'{escaped_content}'"
             else:
-                # Not quoted - add quotes and escape any single quotes
-                escaped_content = comment_part.replace("'", "''")
-                formatted_comment = f"'{escaped_content}'"
+                # Not quoted - use double quotes to avoid escaping issues with single quotes
+                formatted_comment = f'"{comment_part}"'
 
             result_parts.extend(["COMMENT", formatted_comment])
 
@@ -240,19 +242,39 @@ class AthenaPropertiesExtractor:
                 formatted_lines.append(line)
                 continue
 
-            # Check if we're exiting column definitions (closing parenthesis before PARTITIONED BY or end)
-            if in_column_definition and ")" in line:
-                in_column_definition = False
+            # Skip processing PARTITIONED BY clauses as column definitions
+            if in_column_definition and "PARTITIONED BY" in line.upper():
                 formatted_lines.append(line)
                 continue
 
-            # Process only column definitions (not PARTITIONED BY or other sections)
+            # Process column definitions first, then check for exit condition
             if in_column_definition and stripped_line:
-                # Match column definition pattern and format it
-                formatted_line = AthenaPropertiesExtractor.format_column_definition(
-                    line
-                )
-                formatted_lines.append(formatted_line)
+                # Check if this line contains a column definition (before the closing paren)
+                if ")" in line:
+                    # Split the line at the closing parenthesis
+                    paren_index = line.find(")")
+                    column_part = line[:paren_index].strip()
+                    closing_part = line[paren_index:]
+
+                    if column_part:
+                        # Format the column part
+                        formatted_column = (
+                            AthenaPropertiesExtractor.format_column_definition(
+                                column_part
+                            )
+                        )
+                        # Reconstruct the line
+                        formatted_line = formatted_column.rstrip() + closing_part
+                        formatted_lines.append(formatted_line)
+                    else:
+                        formatted_lines.append(line)
+                    in_column_definition = False
+                else:
+                    # Regular column definition line
+                    formatted_line = AthenaPropertiesExtractor.format_column_definition(
+                        line
+                    )
+                    formatted_lines.append(formatted_line)
             else:
                 # For all other lines, keep as-is
                 formatted_lines.append(line)
