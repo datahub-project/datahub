@@ -317,6 +317,7 @@ services:
     environment:
       <<: *datahub-system-update-dev-env
       CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
@@ -412,6 +413,7 @@ services:
     environment:
       <<: *datahub-gms-quickstart-consumers-env
       CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
     depends_on:
       system-update-quickstart-cdc:
         condition: service_completed_successfully
@@ -477,6 +479,7 @@ services:
     environment:
       <<: *datahub-gms-debug-consumers-env
       CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
     depends_on:
       system-update-debug-consumers-cdc:
         condition: service_completed_successfully
@@ -531,6 +534,7 @@ services:
     environment:
       <<: *datahub-mce-consumer-env
       CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
     profiles:
       - quickstart-consumers-cdc
     depends_on:
@@ -550,6 +554,7 @@ services:
     environment:
       <<: *datahub-mce-consumer-env-dev
       CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
     depends_on:
       datahub-gms-debug-consumers-cdc:
         condition: service_healthy

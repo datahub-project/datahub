@@ -491,6 +491,9 @@ public interface EntityService<U extends ChangeMCP> {
     return alwaysProduceMCLAsync(opContext, urn, aspectSpec, metadataChangeLog);
   }
 
+  // Conditionally produce MCL Async based on whether MCL should be generated for this aspect and
+  // also execute
+  // sideEffects if relevant for the MCL.
   MCLEmitResult produceMCLAsync(@Nonnull OperationContext opContext, MetadataChangeLog mcl);
 
   @Deprecated

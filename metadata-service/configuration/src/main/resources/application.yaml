@@ -222,27 +222,38 @@ mclProcessing:
   cdcSource:
     enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
     converter: com.datahub.cdc.MySQLToMCLConverter
-    configureSource: true # Set to false if externally configured. 
+    configureSource: ${CDC_CONFIGURE_SOURCE:false} # Set to false if externally configured.
     type: debezium-kafka-connector  # Only supported type for now.
     debeziumConfig: # Debezium-specific configuration
       name: ${DATAHUB_CDC_CONNECTOR_NAME:datahub-cdc-connector}
       url: ${KAFKA_CONNECT_URL:http://kafka-connect:8083}
       config:
         connector.class: io.debezium.connector.mysql.MySqlConnector
-        # Below are defaults injected by DebeziumCDCSetupStep.
-        # any additional configs can be added here and are applied on top of the defaults.
-        #database.include.list: datahub
-        #tables.include.list: "*.metadata_aspects_v2"
+        tasks.max: 1
+        topic.prefix: datahub
+        tables.include.list: datahub.metadata_aspects_v2
+        database.server.id: 184001 # unique db ID per connector instance
+        # Transforms to use urn as partitioning key
+        transforms: setKey
+        transforms.setKey.type: org.apache.kafka.connect.transforms.ValueToKey
+        transforms.setKey.fields: urn
+        transforms.setKey.predicate: aspectsTablePredicate
+        predicates: aspectsTablePredicate
+        predicates.aspectsTablePredicate.type: org.apache.kafka.connect.transforms.predicates.TopicNameMatches
+        predicates.aspectsTablePredicate.pattern: datahub.metadata_aspects_v2
+        schema.history.internal.kafka.topic: datahub.schema-changes
+        # Default configs injected by System Update. Any additional configs are applied on top of these.
+
+        # Below are inferred from db connection config and injected by DebeziumCDCSetupStep.
+        #datahub.hostname
+        #database.port
+        #database.user: $CDC_USER
+        #database.password: $CDC_PASSWORD
+        #database.include.list: ${DATAHUB_DB_NAME:datahub}
+
+        # Below are inferred from available kafka configs
         #schema.history.internal.kafka.bootstrap.servers: broker:29092
-        #topic.prefix: datahub
-        #transforms: unwrap,setKey
-        #transforms.unwrap.type: io.debezium.transforms.ExtractNewRecordState
-        #transforms.setKey.type: org.apache.kafka.connect.transforms.ValueToKey
-        #transforms.setKey.fields: urn
-        #transforms.setKey.predicate: aspectsTablePredicate
-        #predicates: aspectsTablePredicate
-        #predicates.aspectsTablePredicate.type: org.apache.kafka.connect.transforms.predicates.TopicNameMatches
-        #predicates.aspectsTablePredicate.pattern: "*.metadata_aspects_v2"
+        #schema.history.internal.internal.kafka.topic: datahub.schema-changes
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
@@ -457,7 +468,7 @@ kafka:
 
     cdcTopic:
       name: ${CDC_TOPIC_NAME:datahub.datahub.metadata_aspect_v2}
-      enabled: ${CDC_MCL_PROCESSING_ENABLED:true}
+      enabled: ${CDC_MCL_PROCESSING_ENABLED:false}
 
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}

@@ -99,10 +99,8 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
   protected Map<String, Object> buildConnectorConfiguration() {
     Map<String, Object> config = new HashMap<>();
 
-    injectDebeziumDefaults(config);
     injectDatabaseConnection(config);
     injectKafkaConnection(config);
-    injectTransformsAndPredicates(config);
 
     if (_debeziumConfig.getConfig() != null) {
       config.putAll(_debeziumConfig.getConfig());
@@ -117,24 +115,6 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
     }
 
     return config;
-  }
-
-  /** Injects default Debezium connector properties based on the sample configuration. */
-  private void injectDebeziumDefaults(Map<String, Object> config) {
-    config.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
-    config.put("tasks.max", "1");
-
-    String dbName = System.getenv("DATAHUB_DB_NAME");
-    config.put("topic.prefix", dbName != null && !dbName.isEmpty() ? dbName : "datahub");
-
-    String tableList =
-        (dbName != null && !dbName.isEmpty())
-            ? dbName + ".metadata_aspects_v2"
-            : "datahub.metadata_aspects_v2";
-    config.put("tables.include.list", tableList);
-
-    // Should be unique per connector instance
-    config.put("database.server.id", "184054");
   }
 
   /** Extracts database connection from environment variables and EbeanConfiguration. */
@@ -237,6 +217,7 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
 
   /** Configures Avro serialization for CDC messages instead of JSON. */
   private void injectAvroSerialization(Map<String, Object> config) {
+    // TODO: Use avro serialization
     // Configure key converter to use String and value converter to use Avro
     config.put("key.converter", "org.apache.kafka.connect.storage.StringConverter");
     config.put("value.converter", "org.apache.kafka.connect.json.JsonConverter");
@@ -259,25 +240,6 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
       log.error("Missing schema registry configuration");
       throw new IllegalStateException("Missing Schema registry config");
     }*/
-  }
-
-  /** Configures Debezium transforms and predicates for proper message processing. */
-  private void injectTransformsAndPredicates(Map<String, Object> config) {
-    config.put("transforms", "setKey");
-
-    config.put("transforms.setKey.type", "org.apache.kafka.connect.transforms.ValueToKey");
-    config.put("transforms.setKey.fields", "urn");
-    config.put("transforms.setKey.predicate", "aspectsTablePredicate");
-
-    config.put("predicates", "aspectsTablePredicate");
-    config.put(
-        "predicates.aspectsTablePredicate.type",
-        "org.apache.kafka.connect.transforms.predicates.TopicNameMatches");
-
-    String topicPrefix = (String) config.get("topic.prefix");
-    if (topicPrefix != null) {
-      config.put("predicates.aspectsTablePredicate.pattern", topicPrefix + ".metadata_aspects_v2");
-    }
   }
 
   /** Checks connector existence via Kafka Connect REST API. */

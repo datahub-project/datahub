@@ -40,7 +40,8 @@ public class CDCSetupConfig {
     // Check if CDC processing configuration exists at all
     if (configurationProvider.getMclProcessing() == null
         || configurationProvider.getMclProcessing().getCdcSource() == null
-        || !configurationProvider.getMclProcessing().getCdcSource().isEnabled()) {
+        || !configurationProvider.getMclProcessing().getCdcSource().isEnabled()
+        || !configurationProvider.getMclProcessing().getCdcSource().isConfigureSource()) {
       log.info("CDC processing is not configured - skipping CDC setup");
       return null;
     }

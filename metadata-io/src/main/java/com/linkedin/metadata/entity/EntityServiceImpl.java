@@ -1307,16 +1307,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           // join futures messages, capture error state
           List<MCLEmitResult> failedMCLs =
               mclResults.stream()
-                  .filter(result -> result.getMclFuture() != null)
-                  .filter(
-                      mclResult -> {
-                        try {
-                          mclResult.getMclFuture().get();
-                        } catch (InterruptedException | ExecutionException e) {
-                          return true; // Filtering for failed MCLs
-                        }
-                        return false;
-                      })
+                  .filter(result -> result.isEmitted() && !result.isProduced())
                   .collect(Collectors.toList());
 
           if (!failedMCLs.isEmpty()) {
@@ -1329,7 +1320,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             throw new RuntimeException("Failed to produce MCLs");
           }
 
-          // return mcls;
           return mclResults;
         },
         BATCH_SIZE_ATTR,
