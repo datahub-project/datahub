@@ -35,7 +35,7 @@ class SetBrowsePathTransformer(BaseTransformer, SingleAspectTransformer):
         return "browsePathsV2"
 
     def entity_types(self) -> List[str]:
-        # this is arbitrary list, might be expanded if it makes sense
+        # this is an arbitrary list, might be expanded if it makes sense
         return ["dataset", "dataJob", "dataFlow", "chart", "dashboard", "container"]
 
     @classmethod
@@ -62,7 +62,9 @@ class SetBrowsePathTransformer(BaseTransformer, SingleAspectTransformer):
         return template_vars
 
     @classmethod
-    def _expand_nodes(cls, templates, template_vars) -> BrowsePathsV2Class:
+    def _expand_nodes(
+        cls, templates: List[str], template_vars: Dict[str, List[str]]
+    ) -> BrowsePathsV2Class:
         expanded_nodes: List[str] = []
         for node in templates:
             resolved_nodes = cls._resolve_template_to_nodes(node, template_vars)
@@ -82,8 +84,10 @@ class SetBrowsePathTransformer(BaseTransformer, SingleAspectTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-        assert aspect is None or isinstance(aspect, BrowsePathsV2Class)
-        template_vars: Dict[str, List[str]] = self._build_model(aspect)
+        template_vars: Dict[str, List[str]] = {}
+        if aspect is not None:
+            assert isinstance(aspect, BrowsePathsV2Class)
+            template_vars = self._build_model(aspect)
         new_browse_paths: BrowsePathsV2Class = self._expand_nodes(
             self.config.path, template_vars
         )
@@ -99,34 +103,10 @@ class SetBrowsePathTransformer(BaseTransformer, SingleAspectTransformer):
     ) -> List[str]:
         # This mechanism can be made simpler (match against known variables only) or more complex (e.g. by using a
         # proper templating engine, like jinja).
-        var_pattern = re.findall(r"\$([a-zA-Z_][a-zA-Z0-9\[\]*]*)", template_str)
-        expansions = [template_vars.get(var, [""]) for var in var_pattern]
+        template_str = template_str.strip()
+        var_pattern = re.findall(r"^\$([a-zA-Z]+\[[0-9*]+]$)", template_str)
 
         if not var_pattern:
             return [template_str]
 
-        max_expansion = max(len(exp) for exp in expansions) if expansions else 1
-
-        if max_expansion <= 1:
-            result = template_str
-            for var in var_pattern:
-                values = template_vars.get(var, [""])
-                value = values[0] if values else ""
-                result = result.replace(f"${var}", value)
-            return [result] if result else []
-
-        results = []
-        for var in var_pattern:
-            if var in template_vars and len(template_vars[var]) > 1:
-                for value in template_vars[var]:
-                    result = template_str
-                    result = result.replace(f"${var}", value)
-                    for other_var in var_pattern:
-                        if other_var != var:
-                            other_values = template_vars.get(other_var, [""])
-                            other_value = other_values[0] if other_values else ""
-                            result = result.replace(f"${other_var}", other_value)
-                    results.append(result)
-                return [r for r in results if r]
-
-        return []
+        return template_vars.get(var_pattern[0], [])

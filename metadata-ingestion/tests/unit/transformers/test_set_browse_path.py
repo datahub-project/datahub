@@ -43,7 +43,7 @@ def make_browse_paths_aspect(*nodes: str) -> BrowsePathsV2Class:
 def records_to_aspects_map(
     records: Iterable[RecordEnvelope],
 ) -> Dict[str, Dict[str, List]]:
-    aspects_map = defaultdict(lambda: defaultdict(list))
+    aspects_map: Dict[str, Dict[str, List]] = defaultdict(lambda: defaultdict(list))
     for record in records:
         if isinstance(record.record, MetadataChangeProposalWrapper):
             aspects_map[record.record.entityUrn][record.record.aspectName].append(
@@ -85,6 +85,108 @@ def records_to_aspects_map(
             ["abc"],
             id="simple_overwrite",
         ),
+        pytest.param(
+            {"path": ["$container[*]"], "replace_existing": True},
+            ["abc", "urn:li:container:a", "def", "urn:li:container:b"],
+            ["urn:li:container:a", "urn:li:container:b"],
+            id="expansion_overwrite",
+        ),
+        pytest.param(
+            {"path": ["$dataPlatformInstance[*]"], "replace_existing": True},
+            [
+                "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)",
+                "urn:li:container:a",
+                "urn:li:container:b",
+            ],
+            ["urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)"],
+            id="expansion_instance_overwrite",
+        ),
+        pytest.param(
+            {"path": ["$container[*]"], "replace_existing": True},
+            [
+                "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)",
+                "urn:li:container:a",
+                "urn:li:container:b",
+            ],
+            ["urn:li:container:a", "urn:li:container:b"],
+            id="expansion_containers_overwrite",
+        ),
+        pytest.param(
+            {
+                "path": ["static1", "static2", "static3", "$container[*]"],
+                "replace_existing": True,
+            },
+            [
+                "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)",
+                "urn:li:container:a",
+                "urn:li:container:b",
+            ],
+            [
+                "static1",
+                "static2",
+                "static3",
+                "urn:li:container:a",
+                "urn:li:container:b",
+            ],
+            id="overwrite_platform_instance",
+        ),
+        pytest.param(
+            {
+                "path": [
+                    "static1",
+                    "static2",
+                    "$dataPlatformInstance[1]",
+                    "static3",
+                    "$container[*]",
+                ],
+                "replace_existing": True,
+            },
+            ["urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)"],
+            ["static1", "static2", "static3"],
+            id="expand_non_existent_variables",
+        ),
+        pytest.param(
+            {
+                "path": [
+                    "static1",
+                    "static2",
+                    "$dataPlatformInstance[1]",
+                    "static3",
+                    "$container[*]",
+                ],
+                "replace_existing": True,
+            },
+            [],
+            ["static1", "static2", "static3"],
+            id="empty_initial_path",
+        ),
+        pytest.param(
+            {"path": [], "replace_existing": True},
+            [
+                "static",
+                "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)",
+                "urn:li:container:a",
+                "urn:li:container:b",
+            ],
+            [],
+            id="set_empty_path",
+        ),
+        pytest.param(
+            {"path": []},
+            [
+                "static",
+                "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)",
+                "urn:li:container:a",
+                "urn:li:container:b",
+            ],
+            [
+                "static",
+                "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,my_instance)",
+                "urn:li:container:a",
+                "urn:li:container:b",
+            ],
+            id="set_empty_path_noop",
+        ),
     ],
 )
 def test_set_browse_paths_against_existing(
@@ -93,6 +195,56 @@ def test_set_browse_paths_against_existing(
     dataset = make_generic_dataset(
         aspects=[StatusClass(removed=False), make_browse_paths_aspect(*input)]
     )
+
+    transformer = SetBrowsePathTransformer.create(
+        config,
+        PipelineContext(run_id="test"),
+    )
+    transformed = list(
+        transformer.transform(
+            [
+                *dataset,
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
+    )
+    aspects_map = records_to_aspects_map(transformed)
+    assert len(aspects_map[SAMPLE_URN]["browsePathsV2"]) == 1
+    assert (
+        aspects_map[SAMPLE_URN]["browsePathsV2"][0].path
+        == make_browse_paths_aspect(*output).path
+    )
+
+
+@pytest.mark.parametrize(
+    "config,output",
+    [
+        pytest.param(
+            {"path": ["bcdef", "$container[0]"]},
+            ["bcdef"],
+            id="simple",
+        ),
+        pytest.param(
+            {"path": ["$container[1]", "def", "$container[1]"]},
+            [
+                "def",
+            ],
+            id="simple2",
+        ),
+        pytest.param(
+            {"path": ["abc"], "replace_existing": True},
+            ["abc"],
+            id="simple_overwrite",
+        ),
+        pytest.param(
+            {"path": ["$container[*]"], "replace_existing": True},
+            [],
+            id="expansion_overwrite",
+        ),
+    ],
+)
+def test_set_browse_paths_against_non_existing(config: Dict, output: List[str]):
+    dataset = make_generic_dataset(aspects=[StatusClass(removed=False)])
 
     transformer = SetBrowsePathTransformer.create(
         config,
