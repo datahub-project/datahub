@@ -97,6 +97,12 @@ rules:
     max_total: 10
   - pattern: "docs/**"
     max_total: 0 # docs should be public, so no changes are valid in SaaS.
+  # Allow commented lines in sidebars.js
+  - pattern: "docs-website/sidebars.js"
+    max_removals: 0
+    max_total: 10
+    ignored_line_patterns:
+      - "^\\s*//.*$"  # JavaScript comment lines
   - pattern: "docs-website/**"
     max_removals: 0
     max_total: 10
