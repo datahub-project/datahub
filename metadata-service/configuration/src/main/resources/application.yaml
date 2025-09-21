@@ -220,7 +220,7 @@ platformAnalytics:
 
 mclProcessing:
   cdcSource:
-    enabled: ${CDC_MCL_PROCESSING_ENABLED:true} # Enable CDC Processing.
+    enabled: ${CDC_MCL_PROCESSING_ENABLED:false} # Enable CDC Processing.
     converter: com.datahub.cdc.MySQLToMCLConverter
     configureSource: true # Set to false if externally configured. 
     type: debezium-kafka-connector  # Only supported type for now.
@@ -750,7 +750,7 @@ featureFlags:
   lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true} # Enables in-memory cache for searchAcrossLineage query
   graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
   alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
-  cdcModeChangeLog: ${CDC_MCL_PROCESSING_ENABLED:true} # Enables CDCs to be used to generate MCLs. When false, GMS generates MCLs based on MCPs
+  cdcModeChangeLog: ${CDC_MCL_PROCESSING_ENABLED:false} # Enables CDCs to be used to generate MCLs. When false, GMS generates MCLs based on MCPs
   searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
   readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
   showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.

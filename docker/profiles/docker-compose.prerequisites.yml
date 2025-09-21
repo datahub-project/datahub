@@ -12,7 +12,6 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
-  - quickstart-consumers-cdc
 x-mysql-profiles-dev: &mysql-profiles-dev
   - debug
   - debug-min
@@ -23,7 +22,6 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
-  - debug-cdc
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -37,11 +35,14 @@ x-mysql-profiles: &mysql-profiles
   - debug-frontend
   - debug-backend
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
-  - debug-cdc
+x-mysql-profiles-cdc: &mysql-profiles-cdc
+  - quickstart-consumers-cdc
+  - debug-consumers-cdc
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
 x-postgres-profiles-dev: &postgres-profiles-dev
@@ -82,10 +83,10 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug-postgres
   - debug-cassandra
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
-  - debug-cdc
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -104,10 +105,10 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-postgres
   - debug-cassandra
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
-  - debug-cdc
 
 # AWS Infra profiles
 x-profiles-aws: &aws-profiles
@@ -134,11 +135,21 @@ x-profiles-dev: &profiles-dev
   - debug-postgres
   - debug-cassandra
   - debug-consumers
+  - debug-consumers-cdc
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
-  - debug-cdc
+x-mysql-setup-common: &mysql-setup-common
+  hostname: mysql-setup
+  image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
+  env_file:
+    - mysql-setup/env/docker.env
+  depends_on:
+    mysql:
+      condition: service_healthy
+  labels:
+    datahub_setup_job: true
 
 services:
   mysql:
@@ -158,23 +169,26 @@ services:
       retries: 5
     volumes:
       - mysqldata:/var/lib/mysql
-  mysql-setup: &mysql-setup
+  mysql-setup:
+    <<: *mysql-setup-common
     profiles: *mysql-profiles-quickstart
-    hostname: mysql-setup
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
-    env_file:
-      - mysql-setup/env/docker.env
-    environment:
-      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}  # TODO: Change to env_file
-    depends_on:
-      mysql:
-        condition: service_healthy
-    labels:
-      datahub_setup_job: true
+  mysql-setup-cdc:
+    <<: *mysql-setup-common
+    environment: &mysql-setup-env-cdc
+      CDC_MCL_PROCESSING_ENABLED: ${CDC_MCL_PROCESSING_ENABLED:-true}
+    profiles:
+      - quickstart-consumers-cdc
   mysql-setup-dev:
-    <<: *mysql-setup
+    <<: *mysql-setup-common
     profiles: *mysql-profiles-dev
     image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
+  mysql-setup-dev-cdc:
+    <<: *mysql-setup-common
+    profiles:
+      - debug-consumers-cdc
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
+    environment:
+      <<: *mysql-setup-env-cdc
   postgres:
     profiles: *postgres-profiles
     hostname: postgres
@@ -297,8 +311,8 @@ services:
     image: debezium/connect:2.7.3.Final
     #image: quay.io/debezium/connect:3.2
     profiles:
-      - debug-consumers
-      - quickstart-consumers
+      - debug-consumers-cdc
+      - quickstart-consumers-cdc
     ports:
       - '8083:8083'
     depends_on:
@@ -306,7 +320,6 @@ services:
         condition: service_healthy
     environment:
       - ENABLE_APICURIO_CONVERTERS=true
-      #- LOG_LEVEL=DEBUG
       - BOOTSTRAP_SERVERS=broker:29092
       - GROUP_ID=datahub_connect
       - CONFIG_STORAGE_TOPIC=${CDC_CONFIG_STORAGE_TOPIC:-datahub_cdc_configs}

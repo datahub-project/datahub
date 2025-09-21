@@ -212,7 +212,7 @@ x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
     - 5009:5009
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
-  environment:
+  environment: &datahub-mce-consumer-env-dev
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
@@ -235,6 +235,19 @@ services:
       - quickstart-backend
     depends_on:
       mysql-setup:
+        condition: service_completed_successfully
+      opensearch-setup:
+        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+  system-update-quickstart-cdc:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      mysql-setup-cdc:
         condition: service_completed_successfully
       opensearch-setup:
         condition: service_completed_successfully
@@ -290,14 +303,23 @@ services:
         condition: service_completed_successfully
   system-update-debug-consumers: # for consistent naming based on profile
     <<: *system-update-debug
+    profiles:
+      - debug-consumers
+  system-update-debug-consumers-cdc:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      mysql-setup-dev-cdc:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
+        condition: service_completed_successfully
     environment:
       <<: *datahub-system-update-dev-env
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_USER: ${CDC_USER:-datahub_cdc}
       CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
       DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
-    profiles:
-      - debug-consumers
   system-update-debug-elasticsearch:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -376,12 +398,22 @@ services:
     <<: *datahub-gms-service
     profiles:
       - quickstart-consumers
-    environment:
+    environment: &datahub-gms-quickstart-consumers-env
       <<: *datahub-gms-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
     depends_on:
       system-update-quickstart:
+        condition: service_completed_successfully
+  datahub-gms-quickstart-consumers-cdc:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-consumers-cdc
+    environment:
+      <<: *datahub-gms-quickstart-consumers-env
+      CDC_MCL_PROCESSING_ENABLED: true
+    depends_on:
+      system-update-quickstart-cdc:
         condition: service_completed_successfully
   datahub-gms-debug:
     <<: *datahub-gms-service-dev
@@ -431,12 +463,22 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug-consumers
-    environment:
+    environment: &datahub-gms-debug-consumers-env
       <<: *datahub-gms-dev-env
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
     depends_on:
       system-update-debug-consumers:
+        condition: service_completed_successfully
+  datahub-gms-debug-consumers-cdc:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-consumers-cdc
+    environment:
+      <<: *datahub-gms-debug-consumers-env
+      CDC_MCL_PROCESSING_ENABLED: true
+    depends_on:
+      system-update-debug-consumers-cdc:
         condition: service_completed_successfully
   datahub-gms-debug-neo4j:
     <<: *datahub-gms-service-dev
@@ -484,10 +526,30 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
+  datahub-mce-consumer-quickstart-consumers-cdc:
+    <<: *datahub-mce-consumer-service
+    environment:
+      <<: *datahub-mce-consumer-env
+      CDC_MCL_PROCESSING_ENABLED: true
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
   datahub-mce-consumer-debug-consumers:
     <<: *datahub-mce-consumer-service-dev
     profiles:
       - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-mce-consumer-debug-consumers-cdc:
+    <<: *datahub-mce-consumer-service-dev
+    profiles:
+      - debug-consumers-cdc
+    environment:
+      <<: *datahub-mce-consumer-env-dev
+      CDC_MCL_PROCESSING_ENABLED: true
+    depends_on:
+      datahub-gms-debug-consumers-cdc:
         condition: service_healthy

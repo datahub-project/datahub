@@ -14,7 +14,7 @@ import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
+import com.linkedin.metadata.kafka.config.CDCProcessorCondition;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -41,7 +41,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @EnableKafka
-@Conditional(MetadataChangeProposalProcessorCondition.class)
+@Conditional(CDCProcessorCondition.class)
 @Import({
   RestliEntityClientFactory.class,
   SimpleKafkaConsumerFactory.class,
@@ -60,7 +60,7 @@ public class CDCProcessor {
   private final KafkaListenerEndpointRegistry registry;
   private final ConfigurationProvider provider;
 
-  @Value("${mclProcessing.cdcSource.enabled:true}")
+  @Value("${mclProcessing.cdcSource.enabled:false}")
   private boolean cdcMclProcessingEnabled;
 
   @Value("${kafka.topic.cdcTopic.name:datahub.datahub.metadata_aspect_v2}")

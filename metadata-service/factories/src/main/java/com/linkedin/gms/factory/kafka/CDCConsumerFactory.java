@@ -10,6 +10,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,10 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @Slf4j
 @Configuration
 @DependsOn("configurationProvider")
+@ConditionalOnProperty(
+    name = "mclProcessing.cdcSource.enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class CDCConsumerFactory {
 
   @Bean(name = "cdcKafkaConsumer")
