@@ -120,6 +120,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
@@ -183,6 +184,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
       final boolean alwaysEmitChangeLog,
+      final PreProcessHooks preProcessHooks,
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        false,
+        preProcessHooks,
+        DEFAULT_MAX_TRANSACTION_RETRY,
+        enableBrowsePathV2);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
       final boolean cdcModeChangeLog,
       final PreProcessHooks preProcessHooks,
       final boolean enableBrowsePathV2) {
@@ -191,6 +208,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         producer,
         alwaysEmitChangeLog,
         cdcModeChangeLog,
+        preProcessHooks,
+        DEFAULT_MAX_TRANSACTION_RETRY,
+        enableBrowsePathV2);
+  }
+
+  public EntityServiceImpl(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      final boolean alwaysEmitChangeLog,
+      final PreProcessHooks preProcessHooks,
+      @Nullable final Integer retry,
+      final boolean enableBrowsePathV2) {
+    this(
+        aspectDao,
+        producer,
+        alwaysEmitChangeLog,
+        false,
         preProcessHooks,
         DEFAULT_MAX_TRANSACTION_RETRY,
         enableBrowsePathV2);
@@ -906,14 +940,32 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(UpdateAspectResult::toMCL)
             .collect(Collectors.toList());
 
+    List<UpdateAspectResult> updateAspectResults;
     if (emitMCL) {
-      produceMCLAsync(opContext, mcls);
+      List<MCLEmitResult> mclEmitResults = produceMCLAsync(opContext, mcls);
+
+      updateAspectResults =
+          IntStream.range(0, ingestResults.getUpdateAspectResults().size())
+              .mapToObj(
+                  i -> {
+                    UpdateAspectResult updateAspectResult =
+                        ingestResults.getUpdateAspectResults().get(i);
+                    MCLEmitResult mclEmitResult = mclEmitResults.get(i);
+                    return updateAspectResult.toBuilder()
+                        .mclFuture(mclEmitResult.getMclFuture())
+                        .processedMCL(mclEmitResult.isProcessedMCL())
+                        .build();
+                  })
+              .collect(Collectors.toList());
+    } else {
+      // TOOD. With CDC mode, this is not available here.
+      updateAspectResults = ingestResults.getUpdateAspectResults();
     }
 
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
 
-    return ingestResults.getUpdateAspectResults();
+    return updateAspectResults;
   }
 
   /**
@@ -1287,6 +1339,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           // This is now a common function and called from timeseries MCLs as well as versioned
           // MCLs.
           // postCommitSideEffects are not applicable for timeseries MCLs.
+          // Calling this here also enables  side effects to be executed for messages that were
+          // published even if a failure interrupts the flow.
           processPostCommitMCLSideEffects(
               opContext,
               mclResults.stream()
@@ -1303,7 +1357,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       })
                   .map(MCLEmitResult::getMetadataChangeLog)
                   .collect(Collectors.toList()));
-
           // join futures messages, capture error state
           List<MCLEmitResult> failedMCLs =
               mclResults.stream()
@@ -1512,9 +1565,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   item.getMetadataChangeProposal(),
                                   urnToEntityName(item.getUrn()),
                                   item.getUrn(),
-                                  SystemMetadataUtils.isNoOp(item.getSystemMetadata())
-                                      ? ChangeType.RESTATE
-                                      : ChangeType.UPSERT,
                                   item.getAspectSpec().getName(),
                                   item.getAuditStamp(),
                                   item.getRecordTemplate(),
@@ -2206,10 +2256,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     SystemMetadata newSystemMetadata = metadataChangeLog.getSystemMetadata();
     Urn entityUrn = metadataChangeLog.getEntityUrn();
 
-    boolean isNoOp =
-        SystemMetadataUtils.isNoOp(newSystemMetadata)
-            || Objects.equals(
-                metadataChangeLog.getAspect(), metadataChangeLog.getPreviousAspectValue());
+    boolean isNoOp = isNoOp(aspectSpec, metadataChangeLog);
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
       log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
@@ -2234,6 +2281,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           .metadataChangeLog(metadataChangeLog)
           .mclFuture(emissionStatus.getFirst())
           .processedMCL(emissionStatus.getSecond())
+          .emitted(emissionStatus.getFirst() != null)
           .build();
     } else {
       log.info(
@@ -2242,6 +2290,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           entityUrn);
       return MCLEmitResult.builder().metadataChangeLog(metadataChangeLog).emitted(false).build();
     }
+  }
+
+  private static boolean isNoOp(AspectSpec aspectSpec, MetadataChangeLog mcl) {
+
+    RecordTemplate oldAspect =
+        mcl.getPreviousAspectValue() != null
+            ? GenericRecordUtils.deserializeAspect(
+                mcl.getPreviousAspectValue().getValue(),
+                mcl.getPreviousAspectValue().getContentType(),
+                aspectSpec)
+            : null;
+    RecordTemplate newAspect =
+        mcl.getAspect() != null
+            ? GenericRecordUtils.deserializeAspect(
+                mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
+            : null;
+    return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
+        || Objects.equals(newAspect, oldAspect);
   }
 
   // TODO Drop this
