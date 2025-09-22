@@ -16,7 +16,7 @@ export class StatsTabHelper {
   static changesCard = new HighlightCardHelper("changes");
 
   // charts
-  static rowsCoutChart = new ChartHelper("row-count");
+  static rowsCountChart = new ChartHelper("row-count");
 
   static queryCountChart = new ChartHelper("query-count");
 
@@ -52,7 +52,7 @@ export class StatsTabHelper {
   }
 
   static ensureTabIsEnabled() {
-    StatsTabHelper.getTab().should("not.have.attr", "aria-disabled");
+    StatsTabHelper.getTab().should("have.attr", "aria-disabled", "false");
   }
 
   static ensureTabIsDisabled() {

@@ -55,7 +55,7 @@ describe("Charts", () => {
   };
 
   const forEachChart = (callback) => {
-    callback(StatsTabHelper.rowsCoutChart);
+    callback(StatsTabHelper.rowsCountChart);
     callback(StatsTabHelper.storageSizeChart);
     callback(StatsTabHelper.queryCountChart);
   };
@@ -106,7 +106,7 @@ describe("Charts", () => {
 
     forEachChart((chart) => {
       chart.ensureChartVisible();
-      chart.ensureTineRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
+      chart.ensureTimeRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
       chart.ensureTimeRangeSelectHasOptions([
         chart.TIME_RANGE_WEEK,
         chart.TIME_RANGE_MONTH,
@@ -130,7 +130,7 @@ describe("Charts", () => {
 
     forEachChart((chart) => {
       chart.ensureChartVisible();
-      chart.ensureTineRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
+      chart.ensureTimeRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
       chart.ensureTimeRangeSelectHasOptions([
         chart.TIME_RANGE_WEEK,
         chart.TIME_RANGE_MONTH,
@@ -154,7 +154,7 @@ describe("Charts", () => {
 
     forEachChart((chart) => {
       chart.ensureChartVisible();
-      chart.ensureTineRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
+      chart.ensureTimeRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
       chart.ensureTimeRangeSelectHasOptions([
         chart.TIME_RANGE_WEEK,
         chart.TIME_RANGE_MONTH,
@@ -178,7 +178,7 @@ describe("Charts", () => {
 
     forEachChart((chart) => {
       chart.ensureChartVisible();
-      chart.ensureTineRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
+      chart.ensureTimeRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
       chart.ensureTimeRangeSelectHasOptions([
         chart.TIME_RANGE_WEEK,
         chart.TIME_RANGE_MONTH,
@@ -204,7 +204,7 @@ describe("Charts", () => {
 
     forEachChart((chart) => {
       chart.ensureChartVisible();
-      chart.ensureTineRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
+      chart.ensureTimeRangeSelectHasSelectedValue(chart.TIME_RANGE_MONTH);
       chart.ensureTimeRangeSelectHasOptions([
         chart.TIME_RANGE_WEEK,
         chart.TIME_RANGE_MONTH,
