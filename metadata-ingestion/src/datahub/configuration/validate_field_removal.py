@@ -22,7 +22,7 @@ def pydantic_removed_field(
         return values
 
     # Mark the function as handling a removed field for doc generation
-    _validate_field_removal._doc_removed_field = field
+    _validate_field_removal._doc_removed_field = field  # type: ignore[attr-defined]
 
     # Hack: Pydantic maintains unique list of validators by referring its __name__.
     # https://github.com/pydantic/pydantic/blob/v1.10.9/pydantic/main.py#L264

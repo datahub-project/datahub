@@ -348,10 +348,11 @@ def _get_removed_fields_from_model(model_class: Type[BaseModel]) -> set:
     removed_fields = set()
 
     # Check pre-root validators for removal markers
-    if hasattr(model_class, '__pre_root_validators__'):
+    if hasattr(model_class, "__pre_root_validators__"):
         for validator in model_class.__pre_root_validators__:
-            if hasattr(validator, '_doc_removed_field'):
-                removed_fields.add(validator._doc_removed_field)
+            removed_field = getattr(validator, "_doc_removed_field", None)
+            if removed_field is not None:
+                removed_fields.add(removed_field)
 
     return removed_fields
 
@@ -362,9 +363,15 @@ def _is_removed_field(field_name: str, removed_fields: set) -> bool:
 
 
 def should_hide_field(
-    schema_field, current_source: str, schema_dict: Dict[str, Any], removed_fields: set = set()
+    schema_field,
+    current_source: str,
+    schema_dict: Dict[str, Any],
+    removed_fields: Optional[set] = None,
 ) -> bool:
     """Check if field should be hidden for the current source"""
+    if removed_fields is None:
+        removed_fields = set()
+
     # Extract field name from the path
     field_name = schema_field.fieldPath.split(".")[-1]
 
@@ -401,9 +408,14 @@ def should_hide_field(
 
 
 def gen_md_table_from_json_schema(
-    schema_dict: Dict[str, Any], current_source: Optional[str] = None, removed_fields: set = set()
+    schema_dict: Dict[str, Any],
+    current_source: Optional[str] = None,
+    removed_fields: Optional[set] = None,
 ) -> str:
     # we don't want default field values to be injected into the description of the field
+    if removed_fields is None:
+        removed_fields = set()
+
     JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = False
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
     result: List[str] = [FieldHeader().to_md_line()]
@@ -411,7 +423,9 @@ def gen_md_table_from_json_schema(
     field_tree = FieldTree(field=None)
     for field in schema_fields:
         row: FieldRow = FieldRow.from_schema_field(field)
-        if current_source and should_hide_field(field, current_source, schema_dict, removed_fields):
+        if current_source and should_hide_field(
+            field, current_source, schema_dict, removed_fields
+        ):
             continue
         field_tree.add_field(row)
 
