@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
-from pydantic.class_validators import validator
+from pydantic import validator
 from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
@@ -14,6 +14,7 @@ from pyhive import hive  # noqa: F401
 from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration.common import HiddenFromDocs
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -651,10 +652,10 @@ HiveDialect.get_view_definition = get_view_definition_patched
 
 class HiveConfig(TwoTierSQLAlchemyConfig):
     # defaults
-    scheme: str = Field(default="hive", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="hive")
 
     # Overriding as table location lineage is richer implementation here than with include_table_location_lineage
-    include_table_location_lineage: bool = Field(default=False, hidden_from_docs=True)
+    include_table_location_lineage: HiddenFromDocs[bool] = Field(default=False)
 
     emit_storage_lineage: bool = Field(
         default=False,

@@ -9,9 +9,10 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import dateutil.parser as dp
 import requests
 import sqlglot
-from pydantic import BaseModel
-from pydantic.class_validators import root_validator, validator
+from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -108,6 +109,12 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
+
+# Retry configuration constants
+RETRY_MAX_TIMES = 3
+RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
+RETRY_BACKOFF_FACTOR = 1
+RETRY_ALLOWED_METHODS = ["GET"]
 
 
 chart_type_from_viz_type = {
@@ -328,6 +335,19 @@ class SupersetSource(StatefulIngestionSourceBase):
         logger.debug("Got access token from superset")
 
         requests_session = requests.Session()
+
+        # Configure retry strategy for transient failures
+        retry_strategy = Retry(
+            total=RETRY_MAX_TIMES,
+            status_forcelist=RETRY_STATUS_CODES,
+            backoff_factor=RETRY_BACKOFF_FACTOR,
+            allowed_methods=RETRY_ALLOWED_METHODS,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        requests_session.mount("http://", adapter)
+        requests_session.mount("https://", adapter)
+
         requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
@@ -360,8 +380,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
 
             if response.status_code != 200:
-                logger.warning(f"Failed to get {entity_type} data: {response.text}")
-                continue
+                self.report.warning(
+                    title="Failed to fetch data from Superset API",
+                    message="Incomplete metadata extraction due to Superset API failure",
+                    context=f"Entity Type: {entity_type}, HTTP Status Code: {response.status_code}, Page: {current_page}. Response: {response.text}",
+                )
+                # we stop pagination for this entity type and we continue the overall ingestion
+                break
 
             payload = response.json()
             # Update total_items with the actual count from the response
