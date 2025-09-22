@@ -32,7 +32,7 @@ _ENABLE_BEDROCK_PROMPT_CACHING = get_boolean_env_variable(
     "ENABLE_BEDROCK_PROMPT_CACHING", False
 )
 
-_MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "4"))
+_MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "10"))
 
 
 class BedrockModel(enum.Enum):
@@ -102,7 +102,7 @@ def get_bedrock_client(
         read_timeout=read_timeout,
         connect_timeout=connect_timeout,
         max_pool_connections=100,
-        retries={"max_attempts": _MAX_ATTEMPTS},
+        retries={"max_attempts": _MAX_ATTEMPTS, "mode": "standard"},
     )
 
     if "BEDROCK_AWS_ROLE" in os.environ:
