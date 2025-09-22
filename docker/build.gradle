@@ -36,7 +36,7 @@ ext {
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
-                            //':datahub-actions',
+                            ':datahub-actions',
                     ]
             ],
             'quickstartCLI': [
@@ -89,7 +89,7 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                           ':metadata-jobs:mce-consumer-job',
                                                                           ':metadata-jobs:mae-consumer-job',
-                                                                          //':datahub-actions'
+                                                                          ':datahub-actions'
                     ],
                     isDebug: true,
                     additionalEnv: [

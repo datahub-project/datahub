@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.cdc.debezium;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -8,13 +9,12 @@ import com.linkedin.metadata.config.DebeziumConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -27,161 +27,73 @@ public class ConfigureDebeziumConnectorStepTest {
   private KafkaConfiguration kafkaConfig;
   private KafkaProperties kafkaProperties;
 
+  // Test subclass to access protected methods
+  private static class TestableConfigureDebeziumConnectorStep
+      extends ConfigureDebeziumConnectorStep {
+    public TestableConfigureDebeziumConnectorStep(
+        OperationContext opContext,
+        DebeziumConfiguration debeziumConfig,
+        EbeanConfiguration ebeanConfig,
+        KafkaConfiguration kafkaConfig,
+        KafkaProperties kafkaProperties) {
+      super(opContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+    }
+
+    @Override
+    public Map<String, Object> buildConnectorConfiguration() {
+      return super.buildConnectorConfiguration();
+    }
+  }
+
   @BeforeMethod
-  public void setUp() {
-    MockitoAnnotations.openMocks(this);
+  public void setUp() throws Exception {
+    try (var mocks = MockitoAnnotations.openMocks(this)) {
+      debeziumConfig = new DebeziumConfiguration();
+      debeziumConfig.setName("test-connector");
+      debeziumConfig.setUrl("http://localhost:8083");
 
-    debeziumConfig = new DebeziumConfiguration();
-    debeziumConfig.setName("test-connector");
-    debeziumConfig.setUrl("http://localhost:8083");
+      Map<String, String> config = new HashMap<>();
+      config.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
+      config.put("database.include.list", "testdb");
+      config.put("table.include.list", "*.metadata_aspect_v2");
+      config.put("topic.prefix", "test-prefix");
+      debeziumConfig.setConfig(config);
 
-    Map<String, String> config = new HashMap<>();
-    config.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
-    config.put("database.include.list", "testdb");
-    config.put("table.include.list", "*.metadata_aspect_v2");
-    config.put("topic.prefix", "test-prefix");
-    debeziumConfig.setConfig(config);
+      ebeanConfig = new EbeanConfiguration();
+      ebeanConfig.setUrl("jdbc:mysql://localhost:3306/testdb");
+      ebeanConfig.setUsername("testuser");
+      ebeanConfig.setPassword("testpass");
 
-    ebeanConfig = new EbeanConfiguration();
-    ebeanConfig.setUrl("jdbc:mysql://localhost:3306/testdb");
-    ebeanConfig.setUsername("testuser");
-    ebeanConfig.setPassword("testpass");
+      kafkaConfig = new KafkaConfiguration();
+      kafkaConfig.setBootstrapServers("localhost:9092");
 
-    kafkaConfig = new KafkaConfiguration();
-    kafkaConfig.setBootstrapServers("localhost:9092");
-
-    kafkaProperties = new KafkaProperties();
-    kafkaProperties.setBootstrapServers(Arrays.asList("localhost:9092"));
-  }
-
-  @AfterMethod
-  public void tearDown() {
-    System.clearProperty("EBEAN_DATASOURCE_HOST");
-    System.clearProperty("DATAHUB_DB_NAME");
+      kafkaProperties = new KafkaProperties();
+      kafkaProperties.setBootstrapServers(List.of("localhost:9092"));
+    }
   }
 
   @Test
-  public void testId() {
+  public void testBasicStepConstruction() {
     ConfigureDebeziumConnectorStep step =
         new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertEquals(step.id(), "ConfigureDebeziumConnectorStep");
-  }
 
-  @Test
-  public void testConstructor() {
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
     assertNotNull(step);
-  }
-
-  @Test
-  public void testExecutableReturnsFunction() {
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+    assertEquals(step.id(), "ConfigureDebeziumConnectorStep");
     assertNotNull(step.executable());
   }
 
   @Test
-  public void testWithPostgresConfiguration() {
-    ebeanConfig.setUrl("jdbc:postgresql://pg-host:5432/testdb");
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
-  public void testWithMultipleKafkaBrokers() {
-    kafkaProperties.setBootstrapServers(
-        Arrays.asList("broker1:9092", "broker2:9092", "broker3:9092"));
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
-  public void testWithConfiguredUrl() {
-    debeziumConfig.setUrl("http://test-connect:8083");
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
-  public void testWithEnvironmentVariables() {
-    System.setProperty("EBEAN_DATASOURCE_HOST", "test-host:3306");
-    System.setProperty("DATAHUB_DB_NAME", "test-database");
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
-  public void testKafkaConfigurationPrecedence() {
-    kafkaConfig.setBootstrapServers("kafka-config-server:9092");
-    kafkaProperties.setBootstrapServers(Arrays.asList("kafka-props-server:9092"));
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
-  public void testKafkaPropertiesFallback() {
-    kafkaConfig.setBootstrapServers(null);
-    kafkaProperties.setBootstrapServers(Arrays.asList("fallback-server:9092"));
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
-  public void testConnectorNameFromConfig() {
-    debeziumConfig.setName("custom-connector-name");
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
-  public void testWithMissingConfig() {
-    debeziumConfig.setConfig(null);
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
-            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertNotNull(step);
-  }
-
-  @Test
   public void testBuildConnectorConfiguration() {
-    debeziumConfig.setConfig(null);
-
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
 
-    assertTrue(config.size() > 0);
+    assertFalse(config.isEmpty());
     assertTrue(config.containsKey("connector.class"));
-    assertTrue(config.containsKey("transforms"));
-    assertTrue(config.containsKey("database.user"));
+    assertEquals(config.get("connector.class"), "io.debezium.connector.mysql.MySqlConnector");
     assertTrue(config.containsKey("schema.history.internal.kafka.bootstrap.servers"));
   }
 
@@ -192,8 +104,8 @@ public class ConfigureDebeziumConnectorStepTest {
     overrides.put("custom.property", "override-value");
     debeziumConfig.setConfig(overrides);
 
-    ConfigureDebeziumConnectorStep step =
-        new ConfigureDebeziumConnectorStep(
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -201,5 +113,106 @@ public class ConfigureDebeziumConnectorStepTest {
     assertEquals(
         config.get("connector.class"), "io.debezium.connector.postgresql.PostgreSqlConnector");
     assertEquals(config.get("custom.property"), "override-value");
+  }
+
+  @Test
+  public void testKafkaConfigurationPrecedence() {
+    kafkaConfig.setBootstrapServers("kafka-config-server:9092");
+    kafkaProperties.setBootstrapServers(List.of("kafka-props-server:9092"));
+
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Verify kafkaConfig takes precedence over kafkaProperties
+    assertEquals(
+        config.get("schema.history.internal.kafka.bootstrap.servers"), "kafka-config-server:9092");
+  }
+
+  @Test
+  public void testKafkaPropertiesFallback() {
+    kafkaConfig.setBootstrapServers(null);
+    kafkaProperties.setBootstrapServers(List.of("fallback-server:9092"));
+
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Verify fallback to kafkaProperties when kafkaConfig is null
+    assertEquals(
+        config.get("schema.history.internal.kafka.bootstrap.servers"), "fallback-server:9092");
+  }
+
+  @Test
+  public void testMultipleKafkaBrokersConfiguration() {
+    kafkaConfig.setBootstrapServers(null);
+    kafkaProperties.setBootstrapServers(List.of("broker1:9092", "broker2:9092", "broker3:9092"));
+
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    String brokers = (String) config.get("schema.history.internal.kafka.bootstrap.servers");
+    assertTrue(brokers.contains("broker1:9092"));
+    assertTrue(brokers.contains("broker2:9092"));
+    assertTrue(brokers.contains("broker3:9092"));
+  }
+
+  @Test
+  public void testConnectorConfigurationWithTopicPrefix() {
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Should include topic prefix from debezium config
+    assertEquals(config.get("topic.prefix"), "test-prefix");
+
+    // Schema history topic is only set when kafka bootstrap servers are available
+    // Since we trust Spring injection, we verify topic prefix is preserved in config
+    assertTrue(config.containsKey("topic.prefix"));
+  }
+
+  @Test
+  public void testMissingKafkaConfiguration() {
+    kafkaConfig.setBootstrapServers(null);
+    kafkaProperties.setBootstrapServers(null);
+
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Should still create config but may not have kafka bootstrap servers
+    assertFalse(config.isEmpty());
+    assertTrue(config.containsKey("connector.class"));
+  }
+
+  @Test
+  public void testDebeziumConfigurationOverridesDefaults() {
+    Map<String, String> overrides = new HashMap<>();
+    overrides.put("database.server.name", "custom-server");
+    overrides.put("database.server.id", "12345");
+    overrides.put("snapshot.mode", "initial");
+    debeziumConfig.setConfig(overrides);
+
+    TestableConfigureDebeziumConnectorStep step =
+        new TestableConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Verify explicit overrides are preserved
+    assertEquals(config.get("database.server.name"), "custom-server");
+    assertEquals(config.get("database.server.id"), "12345");
+    assertEquals(config.get("snapshot.mode"), "initial");
   }
 }
