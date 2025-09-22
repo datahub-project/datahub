@@ -83,8 +83,8 @@ public class DataHubAppConfigurationTest extends AbstractTestNGSpringContextTest
         cdcSource.getConverter(),
         "com.datahub.cdc.MySQLToMCLConverter",
         "CDC converter should match application.yaml configuration");
-    assertTrue(
-        cdcSource.isConfigureSource(), "CDC configureSource should be true from application.yaml");
+    assertFalse(
+        cdcSource.isConfigureSource(), "CDC configureSource should be false from application.yaml");
     assertEquals(
         cdcSource.getType(),
         "debezium-kafka-connector",

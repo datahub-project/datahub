@@ -51,14 +51,14 @@ services:
   datahub-actions-quickstart-consumers:
     <<: *datahub-actions-service
     profiles:
-      - quickstart-consumers-disabled
+      - quickstart-consumers
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
   datahub-actions-quickstart-consumers-cdc:
     <<: *datahub-actions-service
     profiles:
-      - quickstart-consumers-cdc-disabled
+      - quickstart-consumers-cdc
     depends_on:
       datahub-gms-quickstart-consumers-cdc:
         condition: service_healthy
@@ -94,14 +94,14 @@ services:
   datahub-actions-debug-consumers:
     <<: *datahub-actions-service-dev
     profiles:
-      - debug-consumers-disabled
+      - debug-consumers
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
   datahub-actions-debug-consumers-cdc:
     <<: *datahub-actions-service-dev
     profiles:
-      - debug-consumers-cdc-disabled
+      - debug-consumers-cdc
     depends_on:
       datahub-gms-debug-consumers-cdc:
         condition: service_healthy
