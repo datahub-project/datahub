@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import SchemaHeader from '@app/entityV2/dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '@app/entityV2/dataset/profile/schema/components/SchemaRawView';
 import { SEMANTIC_VERSION_PARAM } from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
@@ -15,6 +15,7 @@ import CompactSchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/Compact
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
+import { useAggregatedUsageStats } from '@app/entityV2/shared/tabs/Dataset/Schema/useAggregatedUsageStats';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import useSchemaVersioning from '@app/entityV2/shared/tabs/Dataset/Schema/useSchemaVersioning';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
@@ -29,8 +30,6 @@ import { TabRenderType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};
@@ -60,14 +59,13 @@ const DEFAULT_SCHEMA_FILTER_TYPES = [
 export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderType; properties?: any }) => {
     const entityRegistry = useEntityRegistry();
     const { urn, entityData } = useEntityData();
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
     // Dynamically load the schema + editable schema information.
     const { entityWithSchema, loading, refetch } = useGetEntityWithSchema();
     let schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
     let editableSchemaMetadata: any = entityWithSchema?.editableSchemaMetadata || undefined;
     const separateSiblings = useIsSeparateSiblingsMode();
     const siblingUrn = entityData?.siblingsSearch?.searchResults?.[0]?.entity?.urn;
-    const usageStats = baseEntity?.dataset?.usageStats;
+    const usageStats = useAggregatedUsageStats();
     const [showRaw, setShowRaw] = useState(false);
     const location = useLocation();
     const schemaFilter = getSchemaFilterFromQueryString(location);
