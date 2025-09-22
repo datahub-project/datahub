@@ -1,7 +1,7 @@
 import html
 import json
 import re
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Set, Type
 
 from pydantic import BaseModel, Field
 
@@ -357,20 +357,18 @@ def _get_removed_fields_from_model(model_class: Type[BaseModel]) -> set:
     return removed_fields
 
 
-def _is_removed_field(field_name: str, removed_fields: set) -> bool:
+def _is_removed_field(field_name: str, removed_fields: Optional[Set[str]]) -> bool:
     """Check if a field is marked as removed"""
-    return field_name in removed_fields
+    return field_name in removed_fields if removed_fields else False
 
 
 def should_hide_field(
     schema_field,
     current_source: str,
     schema_dict: Dict[str, Any],
-    removed_fields: Optional[set] = None,
+    removed_fields: Optional[Set[str]] = None,
 ) -> bool:
     """Check if field should be hidden for the current source"""
-    if removed_fields is None:
-        removed_fields = set()
 
     # Extract field name from the path
     field_name = schema_field.fieldPath.split(".")[-1]
@@ -410,11 +408,9 @@ def should_hide_field(
 def gen_md_table_from_json_schema(
     schema_dict: Dict[str, Any],
     current_source: Optional[str] = None,
-    removed_fields: Optional[set] = None,
+    removed_fields: Optional[Set[str]] = None,
 ) -> str:
     # we don't want default field values to be injected into the description of the field
-    if removed_fields is None:
-        removed_fields = set()
 
     JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = False
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
