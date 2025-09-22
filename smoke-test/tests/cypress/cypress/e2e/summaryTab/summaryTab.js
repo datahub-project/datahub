@@ -181,9 +181,11 @@ describe("summary tab", () => {
     const structuredPropertyValue = `value_${testId}`;
     const defaultModules = [
       {
-        type: "assets",
-        name: "Assets",
-        value: TEST_ASSET_NAME,
+        type: "hierarchy",
+        // FYI: Contents module has different type in add module menu
+        addType: "child-hierarchy",
+        name: "Contents",
+        value: termName,
       },
     ];
     const modulesAvailableToAdd = [
@@ -216,6 +218,8 @@ describe("summary tab", () => {
 
     // Clean up
     utils.deleteOpenedGlossaryNode();
+    utils.openGlossaryTerm(termName);
+    utils.deleteOpenedGLossaryTerm();
     utils.deleteStructuredProperty(structuredPropertyName);
   });
 
@@ -245,7 +249,6 @@ describe("summary tab", () => {
     ];
 
     utils.createStructuredProperty(structuredPropertyName);
-    utils.createDomain(domainName);
     utils.createGlossaryNode(nodeName);
     utils.createGlossaryTerm(nodeName, termName);
     utils.openGlossaryTerm(termName);
