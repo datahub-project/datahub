@@ -319,6 +319,7 @@ export function replaceProperty(propertyTypeToReplace, targetPropertyType) {
   cy.getWithTestId("menu-item-replace").filter(":visible").trigger("mouseover");
   cy.getWithTestId(`menu-item-${targetPropertyType}`)
     .filter(":visible")
+    .trigger("mouseover")
     .click();
   // wait for closing of the menu
   cy.wait(300);
