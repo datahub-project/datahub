@@ -105,8 +105,6 @@ export function addAsset(entityType, assetName, assetUrn) {
       cy.clickOptionWithTestId(`checkbox-${assetUrn}`);
       cy.get('[id="continueButton"]').click();
     });
-
-    cy.wait(3000);
   }
 }
 
@@ -126,7 +124,6 @@ export function createDomainFromLeftSidebar(domainName, parentDomainName) {
 
   cy.clickOptionWithTestId("create-domain-button");
   cy.waitTextVisible("Created domain!");
-  cy.wait(5000);
 }
 
 export function createDomain(name) {
@@ -146,7 +143,6 @@ export function openDomain(name) {
       cy.clickOptionWithText(name);
     });
   });
-  cy.wait(1000);
 }
 
 export function deleteOpenedDomain() {
@@ -180,7 +176,7 @@ export function createGlossaryNode(name) {
   cy.waitTextVisible("Create Glossary");
   cy.enterTextInTestId("create-glossary-entity-modal-name", name);
   cy.clickOptionWithTestId("glossary-entity-modal-create-button");
-  cy.wait(3000);
+  cy.waitTextVisible(name);
 }
 
 export function openGlossaryNode(name) {
@@ -290,8 +286,6 @@ export function removeProperty(propertyType) {
   });
   cy.getWithTestId("menu-item-remove").should("be.visible");
   cy.getWithTestId("menu-item-remove").filter(":visible").click();
-  // wait for closing of the menu
-  cy.wait(300);
 }
 
 export function ensurePropertiesAvailableToAdd(propertyTypes) {
@@ -301,15 +295,11 @@ export function ensurePropertiesAvailableToAdd(propertyTypes) {
   });
   // close the menu
   cy.get("body").type("{esc}");
-  // wait for closing of the menu
-  cy.wait(300);
 }
 
 export function addProperty(propertyType) {
   cy.clickOptionWithTestId("add-property-button");
   cy.clickOptionWithTestId(`menu-item-${propertyType}`);
-  // wait for closing of the menu
-  cy.wait(300);
 }
 
 export function replaceProperty(propertyTypeToReplace, targetPropertyType) {
@@ -323,8 +313,6 @@ export function replaceProperty(propertyTypeToReplace, targetPropertyType) {
     .filter(":visible")
     .trigger("mouseover")
     .click();
-  // wait for closing of the menu
-  cy.wait(300);
 }
 
 // Structured properties
@@ -376,12 +364,9 @@ export function addStructuredPropertyToProperties(structuredPropertyName) {
   cy.getWithTestId("structured-property-search").within(() => {
     cy.getWithTestId("search-bar-input").type(structuredPropertyName);
   });
-  cy.wait(300);
   cy.get('[data-testid^="menu-item-urn:li:structuredProperty"]')
     .contains(structuredPropertyName)
     .click({ force: true });
-  // wait for closing of the menu
-  cy.wait(300);
 }
 
 export function ensureStructuredPropertyExists(structuredPropertyName, value) {
