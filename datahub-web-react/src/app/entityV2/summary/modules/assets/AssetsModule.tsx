@@ -23,28 +23,26 @@ export default function AssetsModule(props: ModuleProps) {
 
     return (
         <LargeModule {...props} loading={loading} onClickViewAll={navigateToAssetsTab} dataTestId="assets-module">
-            <div data-testid="entity-assets">
-                <InfiniteScrollList<Entity>
-                    fetchData={fetchAssets}
-                    renderItem={(entity) => (
-                        <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.Assets} />
-                    )}
-                    pageSize={DEFAULT_PAGE_SIZE}
-                    emptyState={
-                        canAddToAssets ? (
-                            <EmptyContent
-                                icon="Database"
-                                title="No Assets"
-                                description="Add assets to the parent entity to view them"
-                                linkText="Add assets"
-                                onLinkClick={() => setShowAddAssetsModal(true)}
-                            />
-                        ) : null
-                    }
-                    totalItemCount={total}
-                />
-                {showAddAssetsModal && <AddAssetsModal setShowAddAssetsModal={setShowAddAssetsModal} />}
-            </div>
+            <InfiniteScrollList<Entity>
+                fetchData={fetchAssets}
+                renderItem={(entity) => (
+                    <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.Assets} />
+                )}
+                pageSize={DEFAULT_PAGE_SIZE}
+                emptyState={
+                    canAddToAssets ? (
+                        <EmptyContent
+                            icon="Database"
+                            title="No Assets"
+                            description="Add assets to the parent entity to view them"
+                            linkText="Add assets"
+                            onLinkClick={() => setShowAddAssetsModal(true)}
+                        />
+                    ) : null
+                }
+                totalItemCount={total}
+            />
+            {showAddAssetsModal && <AddAssetsModal setShowAddAssetsModal={setShowAddAssetsModal} />}
         </LargeModule>
     );
 }
