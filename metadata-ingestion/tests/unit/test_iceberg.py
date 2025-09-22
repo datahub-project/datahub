@@ -636,7 +636,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
     mock_catalog = MockCatalogExceptionRetrievingNamespaceProperties(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -646,13 +646,13 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "no_such_namespace": {},
             "rest_error": {},
             "namespaceB": {
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceB", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -662,9 +662,9 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceB", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -674,11 +674,11 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespaceC": {
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceC", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -688,11 +688,11 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "namespaceD": {
-                "table5": lambda: Table(
+                "table5": lambda catalog: Table(
                     identifier=("namespaceD", "table5"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -702,7 +702,7 @@ def test_known_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
         }
@@ -744,7 +744,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
     mock_catalog = MockCatalogExceptionRetrievingNamespaceProperties(
         {
             "namespaceA": {
-                "table1": lambda: Table(
+                "table1": lambda catalog: Table(
                     identifier=("namespaceA", "table1"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -754,12 +754,12 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table1",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "generic_exception": {},
             "namespaceB": {
-                "table2": lambda: Table(
+                "table2": lambda catalog: Table(
                     identifier=("namespaceB", "table2"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -769,9 +769,9 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table2",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
-                "table3": lambda: Table(
+                "table3": lambda catalog: Table(
                     identifier=("namespaceB", "table3"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -781,11 +781,11 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceB/table3",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 ),
             },
             "namespaceC": {
-                "table4": lambda: Table(
+                "table4": lambda catalog: Table(
                     identifier=("namespaceC", "table4"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -795,11 +795,11 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceC/table4",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
             "namespaceD": {
-                "table5": lambda: Table(
+                "table5": lambda catalog: Table(
                     identifier=("namespaceD", "table5"),
                     metadata=TableMetadataV2(
                         partition_specs=[PartitionSpec(spec_id=0)],
@@ -809,7 +809,7 @@ def test_unknown_exception_while_retrieving_namespace_properties() -> None:
                     ),
                     metadata_location="s3://abcdefg/namespaceA/table5",
                     io=PyArrowFileIO(),
-                    catalog=None,
+                    catalog=catalog,
                 )
             },
         }
