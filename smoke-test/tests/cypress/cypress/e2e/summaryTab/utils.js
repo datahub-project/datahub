@@ -316,10 +316,10 @@ export function replaceProperty(propertyTypeToReplace, targetPropertyType) {
     cy.clickOptionWithTestId("property-title");
   });
 
-  cy.getWithTestId("menu-item-replace").trigger("mouseover");
+  cy.getWithTestId("menu-item-replace").filter(":visible").trigger("mouseover");
   cy.getWithTestId(`menu-item-${targetPropertyType}`)
     .filter(":visible")
-    .click({ force: true });
+    .click();
   // wait for closing of the menu
   cy.wait(300);
 }
@@ -476,6 +476,7 @@ export function ensureModulesAreVisible(modules) {
 export function ensureModuleExist(module) {
   cy.getWithTestId(`${module.type}-module`)
     .filter(`:contains("${module.name}")`)
+    .scrollIntoView({ block: "center" })
     .within(() => {
       cy.getWithTestId("large-module-drag-handle").contains(module.name);
       if (module.value !== undefined) {
