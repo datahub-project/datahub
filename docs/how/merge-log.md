@@ -48,3 +48,28 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **6ec6f0150d** - refactor(metrics): Make MetricUtils.registry non-nullable
   _by Abe on 2025-09-09_
+
+## Upstream Merge Session - 2025-09-22 03:45:16
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-09-20-2025-stack1`
+- **Merge Base**: `6ec6f0150d3eb8dae9f80ad199c400eb0cf4b855`
+- **End Commit**: `a82d4e0`
+- **Total Commits**: 3
+- **Strategy**: stacked
+- **Started**: Mon Sep 22 03:45:16 UTC 2025
+
+### Commits Included in This Merge
+
+- **c731e725ff** - docs(metrics): Add a best practices guide for micrometer metrics library (#14711)
+  _by Abe on 2025-09-09_
+
+- **c7ad3f45ea** - feat(ui): Add option to remove asset from an Application (#14679)
+  _by Saketh Varma on 2025-09-09_
+
+- **a82d4e0647** - fix(ingest/athena): Fix Athena partition extraction and CONCAT function type issues (#14712)
+  _by Tamas Nemeth on 2025-09-10_
