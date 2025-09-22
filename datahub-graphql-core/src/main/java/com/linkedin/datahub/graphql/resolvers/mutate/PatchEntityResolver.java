@@ -82,7 +82,7 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
             log.error("Failed to patch entity: {}", e.getMessage(), e);
             // Use a placeholder URN if none was provided
             String urn = input.getUrn() != null ? input.getUrn() : "urn:li:unknown:error";
-            return new PatchEntityResult(urn, false, e.getMessage(), null);
+            return new PatchEntityResult(urn, null, false, e.getMessage());
           }
         },
         this.getClass().getSimpleName(),
@@ -140,10 +140,10 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
       // Extract entity name from the patch operations
       String entityName = extractEntityName(input.getPatch());
       
-      return new PatchEntityResult(input.getUrn(), true, null, entityName);
+      return new PatchEntityResult(input.getUrn(), entityName, true, null);
     } catch (Exception e) {
       return new PatchEntityResult(
-          input.getUrn(), false, "Failed to apply patch: " + e.getMessage(), null);
+          input.getUrn(), null, false, "Failed to apply patch: " + e.getMessage());
     }
   }
 
