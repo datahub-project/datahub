@@ -8,21 +8,13 @@ const SAMPLE_ENTITY_URN =
 describe("searchBarV2", () => {
   const helper = new SearchV2Helper();
 
-  const setupTest = (searchBarApi = "AUTOCOMPLETE_FOR_MULTIPLE") => {
-    cy.on(
-      "uncaught:exception",
-      (err) =>
-        !err.message.includes(
-          "ResizeObserver loop completed with undelivered notifications",
-        ),
-    );
-
+  const setupTest = (searchBarApi = "SEARCH_ACROSS_ENTITIES") => {
     applyGraphqlInterceptors([
       getThemeV2Interceptor(true),
       helper.getSearchBarInterceptor(true, searchBarApi),
     ]);
 
-    cy.loginWithCredentials();
+    cy.login();
     cy.skipIntroducePage();
   };
 
@@ -31,7 +23,6 @@ describe("searchBarV2", () => {
     helper.goToHomePage();
 
     helper.searchBarV2.type("*{enter}");
-    helper.waitForSearchPageLoading();
 
     helper.ensureHasResults();
   });
@@ -41,7 +32,6 @@ describe("searchBarV2", () => {
     helper.goToHomePage();
 
     helper.searchBarV2.type("zzzzzzzzzzzzzqqqqqqqqqqqqqzzzzzzqzqzqzqzq{enter}");
-    helper.waitForSearchPageLoading();
 
     helper.ensureHasNoResults();
   });
@@ -71,7 +61,7 @@ describe("searchBarV2", () => {
     helper.searchBarV2.type(SAMPLE_ENTITY_NAME);
     helper.searchBarV2.clickOnViewAllSection();
 
-    helper.ensureItIsSeachPage();
+    helper.ensureItIsSearchPage();
     helper.ensureUrlIncludesText(SAMPLE_ENTITY_NAME);
   });
 
@@ -90,7 +80,7 @@ describe("searchBarV2", () => {
     helper.searchBarV2.ensureTextInSearchBar(SAMPLE_ENTITY_NAME);
 
     helper.searchBarV2.clear();
-    helper.searchBarV2.type(SAMPLE_ENTITY_NAME + "zzzzzzzzzzzzzzzz");
+    helper.searchBarV2.type(`${SAMPLE_ENTITY_NAME}zzzzzzzzzzzzzzzz`);
     helper.searchBarV2.ensureInNoResultsFoundState();
     // without filters there are no clear button
     helper.searchBarV2.ensureNoResultsFoundStateHasNoClearButton();
@@ -135,6 +125,19 @@ describe("searchBarV2", () => {
     helper.searchBarV2.filters.ensureValuesSelected("domain", ["Marketing"]);
   });
 
+  it("should initialize filters from search bar filter on search page", () => {
+    setupTest();
+
+    helper.goToHomePage();
+    helper.searchBarV2.type(SAMPLE_ENTITY_NAME);
+    helper.searchBarV2.filters.apply("platform", ["Kafka"]);
+    helper.searchBarV2.clickOnViewAllSection();
+
+    helper.ensureItIsSearchPage();
+
+    helper.ensureFilterAppliedOnSearchPage("Platform", "Kafka");
+  });
+
   it("should handle keyboard", () => {
     setupTest();
     helper.goToHomePage();
@@ -166,7 +169,7 @@ describe("searchBarV2", () => {
     helper.searchBarV2.filters.ensureValuesNotSelected("platform", ["Kafka"]);
   });
 
-  it.only("should apply filters correctly", () => {
+  it("should apply filters correctly", () => {
     setupTest();
     helper.goToHomePage();
 

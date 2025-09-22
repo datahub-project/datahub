@@ -12,8 +12,7 @@ export const aliasQuery = (req, operationName) => {
   }
 };
 
-export const getThemeV2Interceptor = (isEnabled) => {
-  return (req, res) => {
+export const getThemeV2Interceptor = (isEnabled) => (req, res) => {
     if (hasOperationName(req, "appConfig")) {
       res.body.data.appConfig.featureFlags.themeV2Enabled = isEnabled;
       res.body.data.appConfig.featureFlags.themeV2Default = isEnabled;
@@ -24,7 +23,6 @@ export const getThemeV2Interceptor = (isEnabled) => {
       res.body.data.me.corpUser.settings.appearance.showThemeV2 = isEnabled;
     }
   };
-};
 
 export const applyGraphqlInterceptors = (interceptors) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {

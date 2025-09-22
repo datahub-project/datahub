@@ -4,18 +4,36 @@ export class SearchBarV2Helper {
   filters = new SearchBarV2FiltersHelper();
 
   searchBarTestId = "search-bar";
+
+  searchBarWrapperTestId = "v2-search-bar-wrapper";
+
   searchBarDropdownTestId = "search-bar-dropdown";
+
   autocompleteItemTestIdPrefix = "autocomplete-item";
+
   viewAllSectionTestId = "view-all-results";
+
   filterBaseButtonClearTestId = "button-clear";
+
   filterSearchInputTestId = "dropdown-search-bar";
+
   filterUpdateButtonTestId = "footer-button-update";
-  filterCancellButtonTestId = "footer-button-cancel";
+
+  filterCancelButtonTestId = "footer-button-cancel";
+
   noResultsFoundTestId = "no-results-found";
+
   noResultsFoundClearButtonTestId = "no-results-found-button-clear";
 
+  waitForSearchBar() {
+    cy.getWithTestId(this.searchBarWrapperTestId).should("be.visible");
+  }
+
   click() {
-    cy.clickOptionWithTestId(this.searchBarTestId);
+    this.waitForSearchBar();
+    cy.get('[id="v2-search-bar"]').within(() => {
+      cy.clickOptionWithTestId(this.searchBarTestId);
+    });
   }
 
   get() {
@@ -67,16 +85,16 @@ export class SearchBarV2Helper {
     this.get().get("input").should("have.value", text);
   }
 
-  getEntitiResponseItem(entityUrn) {
+  getEntityResponseItem(entityUrn) {
     return cy.getWithTestId(this.getTestIdForEntityResponseItem(entityUrn));
   }
 
   ensureEntityInResponse(entityUrn) {
-    this.getEntitiResponseItem(entityUrn).should("be.visible");
+    this.getEntityResponseItem(entityUrn).should("be.visible");
   }
 
   ensureEntityNotInResponse(entityUrn) {
-    this.getEntitiResponseItem(entityUrn).should("not.exist");
+    this.getEntityResponseItem(entityUrn).should("not.exist");
   }
 
   ensureTextInViewAllSection(text) {
@@ -95,7 +113,6 @@ export class SearchBarV2Helper {
 
   clearFiltersInNoResultsFoundState() {
     cy.clickOptionWithTestId(this.noResultsFoundClearButtonTestId);
-    this.waitForApiResponse(); // wait for search bar's response after clearing filters
   }
 
   ensureNoResultsFoundStateHasClearButton() {
@@ -107,7 +124,7 @@ export class SearchBarV2Helper {
   }
 
   ensureMatchedFieldHasText(entityUrn, field, value) {
-    this.getEntitiResponseItem(entityUrn).within(() => {
+    this.getEntityResponseItem(entityUrn).within(() => {
       cy.getWithTestId(`matched-field-container-${field}`)
         .first()
         .within(() => {
@@ -120,9 +137,5 @@ export class SearchBarV2Helper {
 
   getTestIdForEntityResponseItem(entityUrn) {
     return `${this.autocompleteItemTestIdPrefix}-${entityUrn}`;
-  }
-
-  waitForApiResponse() {
-    cy.wait(2000);
   }
 }

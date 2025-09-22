@@ -4,7 +4,7 @@ import { SearchBarV2Helper } from "./searchBarV2Helper";
 export class SearchV2Helper {
   searchBarV2 = new SearchBarV2Helper();
 
-  ensureItIsSeachPage() {
+  ensureItIsSearchPage() {
     cy.url().should("include", "/search");
   }
 
@@ -14,10 +14,6 @@ export class SearchV2Helper {
 
   ensureIsOnEntityProfilePage(entityUrn) {
     cy.url().should("include", `dataset/${entityUrn}`);
-  }
-
-  waitForSearchPageLoading() {
-    cy.wait(5000);
   }
 
   ensureHasNoResults() {
@@ -33,13 +29,11 @@ export class SearchV2Helper {
     const urlParams = new URLSearchParams(queryParams);
     const url = `/search?${urlParams.toString()}`;
     cy.visit(url);
-
-    this.waitForSearchPageLoading();
   }
 
   goToHomePage() {
     cy.visit("/");
-    cy.wait(1000);
+    this.searchBarV2.waitForSearchBar();
   }
 
   getSearchBarInterceptor(showSearchBarAutocompleteRedesign, searchBarApi) {
@@ -50,5 +44,10 @@ export class SearchV2Helper {
         res.body.data.appConfig.searchBarConfig.apiVariant = searchBarApi;
       }
     };
+  }
+
+  ensureFilterAppliedOnSearchPage(name, value) {
+    cy.clickOptionWithTestId(`filter-dropdown-${name}`);
+    cy.getWithTestId(`filter-option-${value}`).should("be.checked");
   }
 }
