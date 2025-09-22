@@ -11,6 +11,7 @@ from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.urns import ChartUrn, DatasetUrn, Urn
 from datahub.sdk._shared import (
     ActorUrnOrStr,
+    ChangeAuditStampsHelper,
     DataPlatformInstanceUrnOrStr,
     DataPlatformUrnOrStr,
     DatasetUrnOrStr,
@@ -28,18 +29,6 @@ from datahub.sdk._shared import (
     ParentContainerInputType,
     TagsInputType,
     TermsInputType,
-    _get_created_at_from_audit_stamps,
-    _get_created_by_from_audit_stamps,
-    _get_deleted_by_from_audit_stamps,
-    _get_deleted_on_from_audit_stamps,
-    _get_last_modified_by_from_audit_stamps,
-    _get_last_modified_from_audit_stamps,
-    _set_created_at_in_audit_stamps,
-    _set_created_by_in_audit_stamps,
-    _set_deleted_by_in_audit_stamps,
-    _set_deleted_on_in_audit_stamps,
-    _set_last_modified_by_in_audit_stamps,
-    _set_last_modified_in_audit_stamps,
 )
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity, ExtraAspectsType
@@ -248,72 +237,72 @@ class Chart(
     def last_modified(self) -> Optional[datetime]:
         """Get the last modification timestamp."""
         audit_stamps = self._get_audit_stamps()
-        return _get_last_modified_from_audit_stamps(audit_stamps)
+        return ChangeAuditStampsHelper.get_last_modified(audit_stamps)
 
     def set_last_modified(self, last_modified: datetime) -> None:
         """Set the last modification timestamp."""
         audit_stamps = self._get_audit_stamps()
-        _set_last_modified_in_audit_stamps(audit_stamps, last_modified)
+        ChangeAuditStampsHelper.set_last_modified(audit_stamps, last_modified)
         self._set_audit_stamps(audit_stamps)
 
     @property
     def last_modified_by(self) -> Optional[str]:
         """Get the last modification actor."""
         audit_stamps = self._get_audit_stamps()
-        return _get_last_modified_by_from_audit_stamps(audit_stamps)
+        return ChangeAuditStampsHelper.get_last_modified_by(audit_stamps)
 
     def set_last_modified_by(self, last_modified_by: ActorUrnOrStr) -> None:
         """Set the last modification actor."""
         audit_stamps = self._get_audit_stamps()
-        _set_last_modified_by_in_audit_stamps(audit_stamps, last_modified_by)
+        ChangeAuditStampsHelper.set_last_modified_by(audit_stamps, last_modified_by)
         self._set_audit_stamps(audit_stamps)
 
     @property
     def created_at(self) -> Optional[datetime]:
         """Get the creation timestamp."""
         audit_stamps = self._get_audit_stamps()
-        return _get_created_at_from_audit_stamps(audit_stamps)
+        return ChangeAuditStampsHelper.get_created_at(audit_stamps)
 
     def set_created_at(self, created_at: datetime) -> None:
         """Set the creation timestamp."""
         audit_stamps = self._get_audit_stamps()
-        _set_created_at_in_audit_stamps(audit_stamps, created_at)
+        ChangeAuditStampsHelper.set_created_at(audit_stamps, created_at)
         self._set_audit_stamps(audit_stamps)
 
     @property
     def created_by(self) -> Optional[ActorUrnOrStr]:
         """Get the creation actor."""
         audit_stamps = self._get_audit_stamps()
-        return _get_created_by_from_audit_stamps(audit_stamps)
+        return ChangeAuditStampsHelper.get_created_by(audit_stamps)
 
     def set_created_by(self, created_by: ActorUrnOrStr) -> None:
         """Set the creation actor."""
         audit_stamps = self._get_audit_stamps()
-        _set_created_by_in_audit_stamps(audit_stamps, created_by)
+        ChangeAuditStampsHelper.set_created_by(audit_stamps, created_by)
         self._set_audit_stamps(audit_stamps)
 
     @property
     def deleted_on(self) -> Optional[datetime]:
         """Get the deletion timestamp."""
         audit_stamps = self._get_audit_stamps()
-        return _get_deleted_on_from_audit_stamps(audit_stamps)
+        return ChangeAuditStampsHelper.get_deleted_on(audit_stamps)
 
     def set_deleted_on(self, deleted_on: datetime) -> None:
         """Set the deletion timestamp."""
         audit_stamps = self._get_audit_stamps()
-        _set_deleted_on_in_audit_stamps(audit_stamps, deleted_on)
+        ChangeAuditStampsHelper.set_deleted_on(audit_stamps, deleted_on)
         self._set_audit_stamps(audit_stamps)
 
     @property
     def deleted_by(self) -> Optional[ActorUrnOrStr]:
         """Get the deletion actor."""
         audit_stamps = self._get_audit_stamps()
-        return _get_deleted_by_from_audit_stamps(audit_stamps)
+        return ChangeAuditStampsHelper.get_deleted_by(audit_stamps)
 
     def set_deleted_by(self, deleted_by: ActorUrnOrStr) -> None:
         """Set the deletion actor."""
         audit_stamps = self._get_audit_stamps()
-        _set_deleted_by_in_audit_stamps(audit_stamps, deleted_by)
+        ChangeAuditStampsHelper.set_deleted_by(audit_stamps, deleted_by)
         self._set_audit_stamps(audit_stamps)
 
     @property

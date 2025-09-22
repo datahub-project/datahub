@@ -111,125 +111,128 @@ def parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]:
     return parse_ts_millis(ts.time)
 
 
-# Audit stamp helper functions
-def _get_last_modified_from_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass,
-) -> Optional[datetime]:
-    """Get the last modification timestamp from audit stamps."""
-    if audit_stamps.lastModified.time == 0:
-        return None
-    return datetime.fromtimestamp(
-        audit_stamps.lastModified.time / 1000
-    )  # supports only seconds precision
+class ChangeAuditStampsHelper:
+    """Helper class for managing audit stamps on entities."""
 
+    @staticmethod
+    def get_last_modified(
+        audit_stamps: models.ChangeAuditStampsClass,
+    ) -> Optional[datetime]:
+        """Get the last modification timestamp from audit stamps."""
+        if audit_stamps.lastModified.time == 0:
+            return None
+        return datetime.fromtimestamp(
+            audit_stamps.lastModified.time / 1000
+        )  # supports only seconds precision
 
-def _set_last_modified_in_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass, last_modified: datetime
-) -> None:
-    """Set the last modification timestamp in audit stamps."""
-    audit_stamps.lastModified.time = make_ts_millis(last_modified)
+    @staticmethod
+    def set_last_modified(
+        audit_stamps: models.ChangeAuditStampsClass, last_modified: datetime
+    ) -> None:
+        """Set the last modification timestamp in audit stamps."""
+        audit_stamps.lastModified.time = make_ts_millis(last_modified)
 
+    @staticmethod
+    def get_last_modified_by(
+        audit_stamps: models.ChangeAuditStampsClass,
+    ) -> Optional[str]:
+        """Get the last modification actor from audit stamps."""
+        if audit_stamps.lastModified.actor == builder.UNKNOWN_USER:
+            return None
+        return audit_stamps.lastModified.actor
 
-def _get_last_modified_by_from_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass,
-) -> Optional[str]:
-    """Get the last modification actor from audit stamps."""
-    if audit_stamps.lastModified.actor == builder.UNKNOWN_USER:
-        return None
-    return audit_stamps.lastModified.actor
+    @staticmethod
+    def set_last_modified_by(
+        audit_stamps: models.ChangeAuditStampsClass, last_modified_by: ActorUrnOrStr
+    ) -> None:
+        """Set the last modification actor in audit stamps."""
+        if isinstance(last_modified_by, str):
+            last_modified_by = make_user_urn(last_modified_by)
+        audit_stamps.lastModified.actor = str(last_modified_by)
 
+    @staticmethod
+    def get_created_at(
+        audit_stamps: models.ChangeAuditStampsClass,
+    ) -> Optional[datetime]:
+        """Get the creation timestamp from audit stamps."""
+        if audit_stamps.created.time == 0:
+            return None
+        return datetime.fromtimestamp(
+            audit_stamps.created.time / 1000
+        )  # supports only seconds precision
 
-def _set_last_modified_by_in_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass, last_modified_by: ActorUrnOrStr
-) -> None:
-    """Set the last modification actor in audit stamps."""
-    if isinstance(last_modified_by, str):
-        last_modified_by = make_user_urn(last_modified_by)
-    audit_stamps.lastModified.actor = str(last_modified_by)
+    @staticmethod
+    def set_created_at(
+        audit_stamps: models.ChangeAuditStampsClass, created_at: datetime
+    ) -> None:
+        """Set the creation timestamp in audit stamps."""
+        audit_stamps.created.time = make_ts_millis(created_at)
 
+    @staticmethod
+    def get_created_by(
+        audit_stamps: models.ChangeAuditStampsClass,
+    ) -> Optional[ActorUrnOrStr]:
+        """Get the creation actor from audit stamps."""
+        if audit_stamps.created.actor == builder.UNKNOWN_USER:
+            return None
+        return audit_stamps.created.actor
 
-def _get_created_at_from_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass,
-) -> Optional[datetime]:
-    """Get the creation timestamp from audit stamps."""
-    if audit_stamps.created.time == 0:
-        return None
-    return datetime.fromtimestamp(
-        audit_stamps.created.time / 1000
-    )  # supports only seconds precision
+    @staticmethod
+    def set_created_by(
+        audit_stamps: models.ChangeAuditStampsClass, created_by: ActorUrnOrStr
+    ) -> None:
+        """Set the creation actor in audit stamps."""
+        if isinstance(created_by, str):
+            created_by = make_user_urn(created_by)
+        audit_stamps.created.actor = str(created_by)
 
+    @staticmethod
+    def get_deleted_on(
+        audit_stamps: models.ChangeAuditStampsClass,
+    ) -> Optional[datetime]:
+        """Get the deletion timestamp from audit stamps."""
+        if audit_stamps.deleted is None or audit_stamps.deleted.time == 0:
+            return None
+        return datetime.fromtimestamp(
+            audit_stamps.deleted.time / 1000
+        )  # supports only seconds precision
 
-def _set_created_at_in_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass, created_at: datetime
-) -> None:
-    """Set the creation timestamp in audit stamps."""
-    audit_stamps.created.time = make_ts_millis(created_at)
+    @staticmethod
+    def set_deleted_on(
+        audit_stamps: models.ChangeAuditStampsClass, deleted_on: datetime
+    ) -> None:
+        """Set the deletion timestamp in audit stamps."""
+        # Default constructor sets deleted to None
+        if audit_stamps.deleted is None:
+            audit_stamps.deleted = models.AuditStampClass(
+                time=0, actor=builder.UNKNOWN_USER
+            )
+        audit_stamps.deleted.time = make_ts_millis(deleted_on)
 
+    @staticmethod
+    def get_deleted_by(
+        audit_stamps: models.ChangeAuditStampsClass,
+    ) -> Optional[ActorUrnOrStr]:
+        """Get the deletion actor from audit stamps."""
+        if (
+            audit_stamps.deleted is None
+            or audit_stamps.deleted.actor == builder.UNKNOWN_USER
+        ):
+            return None
+        return audit_stamps.deleted.actor
 
-def _get_created_by_from_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass,
-) -> Optional[ActorUrnOrStr]:
-    """Get the creation actor from audit stamps."""
-    if audit_stamps.created.actor == builder.UNKNOWN_USER:
-        return None
-    return audit_stamps.created.actor
-
-
-def _set_created_by_in_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass, created_by: ActorUrnOrStr
-) -> None:
-    """Set the creation actor in audit stamps."""
-    if isinstance(created_by, str):
-        created_by = make_user_urn(created_by)
-    audit_stamps.created.actor = str(created_by)
-
-
-def _get_deleted_on_from_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass,
-) -> Optional[datetime]:
-    """Get the deletion timestamp from audit stamps."""
-    if audit_stamps.deleted is None or audit_stamps.deleted.time == 0:
-        return None
-    return datetime.fromtimestamp(
-        audit_stamps.deleted.time / 1000
-    )  # supports only seconds precision
-
-
-def _set_deleted_on_in_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass, deleted_on: datetime
-) -> None:
-    """Set the deletion timestamp in audit stamps."""
-    # Default constructor sets deleted to None
-    if audit_stamps.deleted is None:
-        audit_stamps.deleted = models.AuditStampClass(
-            time=0, actor=builder.UNKNOWN_USER
-        )
-    audit_stamps.deleted.time = make_ts_millis(deleted_on)
-
-
-def _get_deleted_by_from_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass,
-) -> Optional[ActorUrnOrStr]:
-    """Get the deletion actor from audit stamps."""
-    if (
-        audit_stamps.deleted is None
-        or audit_stamps.deleted.actor == builder.UNKNOWN_USER
-    ):
-        return None
-    return audit_stamps.deleted.actor
-
-
-def _set_deleted_by_in_audit_stamps(
-    audit_stamps: models.ChangeAuditStampsClass, deleted_by: ActorUrnOrStr
-) -> None:
-    """Set the deletion actor in audit stamps."""
-    if isinstance(deleted_by, str):
-        deleted_by = make_user_urn(deleted_by)
-    if audit_stamps.deleted is None:
-        audit_stamps.deleted = models.AuditStampClass(
-            time=0, actor=builder.UNKNOWN_USER
-        )
-    audit_stamps.deleted.actor = str(deleted_by)
+    @staticmethod
+    def set_deleted_by(
+        audit_stamps: models.ChangeAuditStampsClass, deleted_by: ActorUrnOrStr
+    ) -> None:
+        """Set the deletion actor in audit stamps."""
+        if isinstance(deleted_by, str):
+            deleted_by = make_user_urn(deleted_by)
+        if audit_stamps.deleted is None:
+            audit_stamps.deleted = models.AuditStampClass(
+                time=0, actor=builder.UNKNOWN_USER
+            )
+        audit_stamps.deleted.actor = str(deleted_by)
 
 
 class HasPlatformInstance(Entity):
