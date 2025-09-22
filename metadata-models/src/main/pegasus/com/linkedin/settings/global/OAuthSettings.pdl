@@ -1,0 +1,11 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Trust oauth providers to use for authentication.
+ */
+record OAuthSettings {
+  /**
+   * Trusted OAuth Providers
+   */
+  providers: array[OAuthProvider]
+}

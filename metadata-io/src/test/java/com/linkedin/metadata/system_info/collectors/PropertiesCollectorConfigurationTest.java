@@ -133,7 +133,23 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // IAM authentication flags
           "*.postgresUseIamAuth",
-          "*.opensearchUseAwsIamAuth");
+          "*.opensearchUseAwsIamAuth",
+
+          // Bulk rules
+          "featureFlags.*",
+          "*.*nabled",
+          "*.*.*nabled",
+          "*.*.*.*nabled",
+          "*.*.*.*.*nabled",
+          "*.consumerGroupSuffix",
+          "*.*.consumerGroupSuffix",
+          "*.*.*.consumerGroupSuffix",
+          "authentication.authenticators[*].configs.trustedIssuers",
+          "authentication.authenticators[*].configs.allowedAudiences",
+          "authentication.authenticators[*].configs.jwksUri",
+          "authentication.authenticators[*].configs.userIdClaim",
+          "authentication.authenticators[*].configs.algorithm",
+          "authentication.authenticators[*].configs.discoveryUri");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -453,7 +469,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.logicalModelsEnabled",
           "featureFlags.nestedDomainsEnabled",
           "featureFlags.platformBrowseV2",
-          "featureFlags.pointInTimeCreationEnabled",
+          "elasticsearch.search.pointInTimeCreationEnabled",
           "featureFlags.preProcessHooks.reprocessEnabled",
           "featureFlags.preProcessHooks.uiEnabled",
           "featureFlags.readOnlyModeEnabled",
@@ -565,9 +581,13 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.boostViaNodes",
           "elasticsearch.search.graph.enableMultiPathSearch",
           "elasticsearch.search.graph.graphStatusEnabled",
-          "elasticsearch.search.graph.impactMaxHops",
+          "elasticsearch.search.graph.impact.keepAlive",
+          "elasticsearch.search.graph.impact.maxHops",
+          "elasticsearch.search.graph.impact.maxRelations",
+          "elasticsearch.search.graph.impact.slices",
           "elasticsearch.search.graph.lineageMaxHops",
           "elasticsearch.search.graph.maxThreads",
+          "elasticsearch.search.graph.pointInTimeCreationEnabled",
           "elasticsearch.search.graph.queryOptimization",
           "elasticsearch.search.graph.timeoutSeconds",
           "elasticsearch.search.maxTermBucketSize",

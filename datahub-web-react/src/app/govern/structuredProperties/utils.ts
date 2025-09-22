@@ -283,3 +283,27 @@ export const getDisplayNameFilter = (displayNameQuery: string) => {
 export function isStructuredProperty(entity?: Entity | null | undefined): entity is StructuredPropertyEntity {
     return !!entity && entity.type === EntityType.StructuredProperty;
 }
+
+export function getStructuredPropertiesSearchInputs(
+    entityRegistry: EntityRegistry,
+    entityType: EntityType,
+    fieldUrn?: string,
+    nameQuery?: string,
+) {
+    return {
+        types: [EntityType.StructuredProperty],
+        query: '*',
+        start: 0,
+        count: 100,
+        searchFlags: { skipCache: true },
+        orFilters: [
+            {
+                and: [
+                    getEntityTypesPropertyFilter(entityRegistry, !!fieldUrn, entityType),
+                    getNotHiddenPropertyFilter(),
+                    ...(nameQuery ? [getDisplayNameFilter(nameQuery)] : []),
+                ],
+            },
+        ],
+    };
+}

@@ -184,3 +184,34 @@ def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
     assert allowed_projects == [
         project.name for project in site_source.tableau_project_registry.values()
     ]
+
+
+def test_use_email_as_username_requires_ingest_owner():
+    """Test that use_email_as_username requires ingest_owner to be enabled."""
+    config_dict = default_config.copy()
+    config_dict["ingest_owner"] = False
+    config_dict["use_email_as_username"] = True
+
+    with pytest.raises(
+        ValidationError,
+        match=r".*use_email_as_username requires ingest_owner to be enabled.*",
+    ):
+        TableauConfig.parse_obj(config_dict)
+
+
+def test_use_email_as_username_valid_config():
+    """Test that use_email_as_username works when ingest_owner is enabled."""
+    config_dict = default_config.copy()
+    config_dict["ingest_owner"] = True
+    config_dict["use_email_as_username"] = True
+
+    config = TableauConfig.parse_obj(config_dict)
+    assert config.ingest_owner is True
+    assert config.use_email_as_username is True
+
+
+def test_use_email_as_username_default_false():
+    """Test that use_email_as_username defaults to False."""
+    config_dict = default_config.copy()
+    config = TableauConfig.parse_obj(config_dict)
+    assert config.use_email_as_username is False

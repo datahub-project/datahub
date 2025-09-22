@@ -128,6 +128,10 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         description="Timeout for each query in seconds. ",
     )
 
+    preserve_system_metadata: bool = Field(
+        default=True, description="Copy system metadata from the source system"
+    )
+
     @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):
         if (
