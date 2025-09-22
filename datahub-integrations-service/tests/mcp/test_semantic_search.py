@@ -222,7 +222,8 @@ class TestSearchImplementation:
         )
 
         # Verify filters were processed
-        mock_load_filters.assert_called_once_with(filters)
+        expected_dict = {"platform": ["snowflake"]}
+        mock_load_filters.assert_called_once_with(expected_dict)
         mock_compile_filters.assert_called_once()
 
         call_args = mock_execute_graphql.call_args

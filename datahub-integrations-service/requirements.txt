@@ -20,7 +20,9 @@ aiohttp==3.12.15
 aiosignal==1.4.0
     # via aiohttp
 alembic==1.16.1
-    # via databricks-sql-connector
+    # via
+    #   databricks-sql-connector
+    #   mlflow
 annotated-types==0.7.0
     # via pydantic
 anyio==4.9.0
@@ -67,6 +69,8 @@ azure-identity==1.21.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+blinker==1.9.0
+    # via flask
 botbuilder-core==4.17.0
     # via acryl-datahub-integrations
 botbuilder-schema==4.17.0
@@ -86,6 +90,7 @@ boto3==1.38.23
     # via
     #   acryl-datahub-integrations
     #   aws-msk-iam-sasl-signer-python
+    #   sagemaker-mlflow
 botocore==1.38.23
     # via
     #   aws-msk-iam-sasl-signer-python
@@ -126,6 +131,7 @@ click==8.1.7
     #   acryl-datahub-actions
     #   aws-msk-iam-sasl-signer-python
     #   click-default-group
+    #   flask
     #   litellm
     #   mlflow-skinny
     #   uvicorn
@@ -151,15 +157,20 @@ confluent-kafka==2.3.0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+contourpy==1.3.3
+    # via matplotlib
 cryptography==42.0.5
     # via
     #   acryl-datahub
+    #   acryl-datahub-integrations
     #   authlib
     #   azure-identity
     #   msal
     #   pyjwt
     #   pyopenssl
     #   snowflake-connector-python
+cycler==0.12.1
+    # via matplotlib
 cyclopts==3.22.2
     # via fastmcp
 databricks-sdk==0.50.0
@@ -179,7 +190,9 @@ distro==1.9.0
 dnspython==2.7.0
     # via email-validator
 docker==7.0.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   mlflow
 docstring-parser==0.16 ; python_full_version < '4'
     # via cyclopts
 docutils==0.21.2
@@ -213,6 +226,10 @@ filelock==3.14.0
     #   huggingface-hub
     #   pygitops
     #   snowflake-connector-python
+flask==3.1.2
+    # via mlflow
+fonttools==4.60.0
+    # via matplotlib
 frozenlist==1.4.0
     # via
     #   aiohttp
@@ -226,7 +243,7 @@ gitpython==3.1.43
     #   acryl-datahub-integrations
     #   mlflow-skinny
     #   pygitops
-google-api-core==2.20.0
+google-api-core==2.25.1
     # via
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -239,15 +256,14 @@ google-auth==2.35.0
     # via
     #   databricks-sdk
     #   google-api-core
-    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-datacatalog
     #   google-cloud-resource-manager
     #   sqlalchemy-bigquery
-google-cloud-appengine-logging==1.4.5
+google-cloud-appengine-logging==0.2.0
     # via google-cloud-logging
-google-cloud-audit-log==0.3.0
+google-cloud-audit-log==0.3.2
     # via google-cloud-logging
 google-cloud-bigquery==3.26.0
     # via
@@ -257,28 +273,35 @@ google-cloud-core==2.4.1
     # via
     #   google-cloud-bigquery
     #   google-cloud-logging
-google-cloud-datacatalog==3.20.1
+google-cloud-datacatalog==3.27.1
     # via acryl-datahub
-google-cloud-logging==3.5.0
+google-cloud-logging==2.6.0
     # via acryl-datahub
-google-cloud-resource-manager==1.12.5
+google-cloud-resource-manager==1.14.2
     # via acryl-datahub
 google-crc32c==1.6.0
     # via google-resumable-media
 google-resumable-media==2.7.2
     # via google-cloud-bigquery
-googleapis-common-protos==1.65.0
+googleapis-common-protos==1.70.0
     # via
     #   google-api-core
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
+graphene==3.4.3
+    # via mlflow
+graphql-core==3.2.6
+    # via
+    #   graphene
+    #   graphql-relay
+graphql-relay==3.2.0
+    # via graphene
 greenlet==3.0.3 ; platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'
     # via sqlalchemy
-grpc-google-iam-v1==0.13.1
+grpc-google-iam-v1==0.14.2
     # via
     #   google-cloud-datacatalog
-    #   google-cloud-logging
     #   google-cloud-resource-manager
 grpcio==1.66.2
     # via
@@ -288,6 +311,8 @@ grpcio==1.66.2
     #   grpcio-status
 grpcio-status==1.62.3
     # via google-api-core
+gunicorn==23.0.0 ; sys_platform != 'win32'
+    # via mlflow
 h11==0.16.0
     # via
     #   acryl-datahub-actions
@@ -334,16 +359,22 @@ inflect==7.2.1
     # via acryl-datahub-integrations
 isodate==0.7.2
     # via msrest
+itsdangerous==2.2.0
+    # via flask
 jinja2==3.1.3
     # via
     #   acryl-datahub-integrations
+    #   flask
     #   litellm
+    #   mlflow
 jiter==0.10.0
     # via openai
 jmespath==1.0.1
     # via
     #   boto3
     #   botocore
+joblib==1.5.2
+    # via scikit-learn
 jsonpatch==1.33
     # via reactpy
 jsonpickle==1.4.2
@@ -359,6 +390,8 @@ jsonschema==4.25.1
     #   mcp
 jsonschema-specifications==2023.12.1
     # via jsonschema
+kiwisolver==1.4.9
+    # via matplotlib
 litellm==1.75.9
     # via acryl-datahub-integrations
 loguru==0.7.3
@@ -371,22 +404,32 @@ lz4==4.4.4
     # via databricks-sql-connector
 mako==1.3.10
     # via alembic
+markdown==3.9
+    # via mlflow
 markdown-it-py==3.0.0
     # via rich
 markdown-to-mrkdwn==0.2.0
     # via acryl-datahub-integrations
 markupsafe==2.1.5
     # via
+    #   flask
     #   jinja2
     #   mako
+    #   werkzeug
+matplotlib==3.10.6
+    # via mlflow
 mcp==1.10.1
     # via fastmcp
 mdurl==0.1.2
     # via markdown-it-py
 mixpanel==4.10.1
     # via acryl-datahub
+mlflow==2.22.0
+    # via sagemaker-mlflow
 mlflow-skinny==2.22.0
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-integrations
+    #   mlflow
 more-itertools==10.2.0
     # via
     #   acryl-datahub
@@ -414,9 +457,14 @@ mypy-extensions==1.0.0
     #   typing-inspect
 numpy==1.26.4
     # via
+    #   contourpy
     #   databricks-sql-connector
+    #   matplotlib
+    #   mlflow
     #   pandas
     #   pyarrow
+    #   scikit-learn
+    #   scipy
 oauthlib==3.2.2
     # via
     #   databricks-sql-connector
@@ -441,8 +489,12 @@ packaging==24.0
     #   acryl-datahub
     #   build
     #   docker
+    #   google-cloud-appengine-logging
     #   google-cloud-bigquery
+    #   google-cloud-logging
+    #   gunicorn
     #   huggingface-hub
+    #   matplotlib
     #   mlflow-skinny
     #   snowflake-connector-python
     #   sqlalchemy-bigquery
@@ -451,10 +503,13 @@ pandas==2.2.3
     #   acryl-datahub
     #   acryl-datahub-integrations
     #   databricks-sql-connector
+    #   mlflow
 parse==1.20.2
     # via acryl-datahub
 patchy==2.8.0
     # via acryl-datahub
+pillow==11.3.0
+    # via matplotlib
 platformdirs==4.2.1
     # via snowflake-connector-python
 progressbar2==4.4.2
@@ -467,20 +522,18 @@ propcache==0.3.2
     # via
     #   aiohttp
     #   yarl
-proto-plus==1.24.0
+proto-plus==1.26.1
     # via
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-datacatalog
     #   google-cloud-logging
     #   google-cloud-resource-manager
-protobuf==4.25.5
+protobuf==6.32.1
     # via
     #   google-api-core
-    #   google-cloud-appengine-logging
     #   google-cloud-audit-log
     #   google-cloud-datacatalog
-    #   google-cloud-logging
     #   google-cloud-resource-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
@@ -495,6 +548,7 @@ pyarrow==16.0.0
     # via
     #   acryl-datahub-integrations
     #   databricks-sql-connector
+    #   mlflow
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
@@ -535,7 +589,11 @@ pyjwt==2.8.0
 pynacl==1.5.0
     # via pygithub
 pyopenssl==24.1.0
-    # via snowflake-connector-python
+    # via
+    #   acryl-datahub-integrations
+    #   snowflake-connector-python
+pyparsing==3.2.4
+    # via matplotlib
 pyperclip==1.9.0
     # via fastmcp
 pyproject-hooks==1.1.0
@@ -548,6 +606,8 @@ python-dateutil==2.8.2
     #   acryl-datahub-actions
     #   botocore
     #   google-cloud-bigquery
+    #   graphene
+    #   matplotlib
     #   pandas
 python-dotenv==1.1.1
     # via
@@ -604,10 +664,13 @@ requests==2.31.0
     #   msrest
     #   pygithub
     #   reactpy
+    #   requests-auth-aws-sigv4
     #   requests-file
     #   requests-oauthlib
     #   snowflake-connector-python
     #   tiktoken
+requests-auth-aws-sigv4==0.7
+    # via acryl-datahub-integrations
 requests-file==2.0.0
     # via acryl-datahub
 requests-oauthlib==2.0.0
@@ -629,6 +692,14 @@ ruamel-yaml==0.17.17
     # via acryl-datahub
 s3transfer==0.13.0
     # via boto3
+sagemaker-mlflow==0.1.0
+    # via acryl-datahub-integrations
+scikit-learn==1.7.2
+    # via mlflow
+scipy==1.16.2
+    # via
+    #   mlflow
+    #   scikit-learn
 sendgrid==6.11.0
     # via acryl-datahub-integrations
 sentry-sdk==2.33.0
@@ -664,13 +735,14 @@ sqlalchemy==1.4.52
     # via
     #   alembic
     #   databricks-sql-connector
+    #   mlflow
     #   snowflake-sqlalchemy
     #   sqlalchemy-bigquery
 sqlalchemy-bigquery==1.11.0
     # via acryl-datahub
-sqlglot==26.26.0
+sqlglot==27.12.0
     # via acryl-datahub
-sqlglotrs==0.6.1
+sqlglotrs==0.6.2
     # via sqlglot
 sqlparse==0.5.0
     # via mlflow-skinny
@@ -690,6 +762,8 @@ tenacity==9.0.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+threadpoolctl==3.6.0
+    # via scikit-learn
 thrift==0.16.0
     # via databricks-sql-connector
 tiktoken==0.11.0
@@ -718,6 +792,7 @@ typing-extensions==4.13.2
     #   azure-identity
     #   exceptiongroup
     #   fastapi
+    #   graphene
     #   huggingface-hub
     #   inflect
     #   mlflow-skinny
@@ -760,12 +835,16 @@ uvicorn==0.35.0
     #   mlflow-skinny
 uvloop==0.19.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
+waitress==3.0.2 ; sys_platform == 'win32'
+    # via mlflow
 watchfiles==0.21.0
     # via uvicorn
 wcmatch==10.0
     # via acryl-datahub
 websockets==12.0
     # via uvicorn
+werkzeug==3.1.3
+    # via flask
 win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
 wrapt==1.16.0

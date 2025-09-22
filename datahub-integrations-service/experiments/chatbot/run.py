@@ -9,6 +9,7 @@ from typing import Annotated, List, Optional
 
 import asyncer
 import mlflow
+import more_itertools
 import pandas as pd
 import typer
 from anyio import to_thread
@@ -39,43 +40,64 @@ assert AI_EXPERIMENTATION_INITIALIZED
 
 experiments_dir = pathlib.Path(__file__).parent
 
+# Control parallelism by batching prompt execution rather than limiting threads
+BATCH_SIZE = 15  # Number of prompts to run concurrently per batch
+
 
 @mlflow.trace
 async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
-    mlflow.update_current_trace(tags={"prompt_id": case.id})
-    # span = mlflow.get_current_active_span()
-    # assert span is not None
-    # span.set_attribute("prompt_id", case.id)
+    # Add experiment context to all logs within this function
+    with logger.contextualize(prompt_id=case.id, instance=case.instance):
+        logger.info(f"Starting experiment for prompt: {case.id}")
+        logger.debug(f"Prompt message: {case.message}")
+        logger.debug(f"Using instance: {case.instance}")
+        
+        mlflow.update_current_trace(tags={"prompt_id": case.id})
+        # span = mlflow.get_current_active_span()
+        # assert span is not None
+        # span.set_attribute("prompt_id", case.id)
 
-    graph = create_uncached_datahub_graph(key=case.instance)
-    client = DataHubClient(graph=graph)
-    try:
-        history = ChatHistory(messages=[HumanMessage(text=case.message)])
-        session = ChatSession(tools=[mcp], client=client, history=history)
-        output_file = local_results_dir / f"{case.id}.json"
+        logger.debug("Creating DataHub graph connection")
+        graph = create_uncached_datahub_graph(key=case.instance)
+        client = DataHubClient(graph=graph)
+        
+        try:
+            logger.debug("Setting up chat session")
+            history = ChatHistory(messages=[HumanMessage(text=case.message)])
+            session = ChatSession(tools=[mcp], client=client, history=history)
+            output_file = local_results_dir / f"{case.id}.json"
 
-        next_message: NextMessage = await asyncer.asyncify(
-            session.generate_next_message
-        )()
+            logger.debug("Generating chatbot response")
+            next_message: NextMessage = await asyncer.asyncify(
+                session.generate_next_message
+            )()
 
-        return {
-            "response": next_message.text,
-            "follow_up_suggestions": next_message.suggestions,
-            "next_message": next_message.model_dump_json(),
-            "history": history.model_dump_json(),
-            "error": None,
-        }
-    except Exception as e:
-        return {
-            "response": None,
-            "follow_up_suggestions": None,
-            "next_message": None,
-            "history": None,
-            "error": str(e),
-        }
-    finally:
-        history.save_file(output_file)
-        mlflow.log_artifact(str(output_file), artifact_path="history")
+            logger.info(f"Successfully generated response for prompt: {case.id}")
+            logger.debug(f"Response length: {len(next_message.text) if next_message.text else 0} chars")
+            logger.debug(f"Number of suggestions: {len(next_message.suggestions)}")
+            
+            return {
+                "response": next_message.text,
+                "follow_up_suggestions": next_message.suggestions,
+                "next_message": next_message.model_dump_json(),
+                "history": history.model_dump_json(),
+                "error": None,
+            }
+        except Exception as e:
+            logger.error(f"Error in prompt {case.id}: {str(e)}")
+            logger.debug(f"Exception details for {case.id}: {type(e).__name__}: {e}")
+            return {
+                "response": None,
+                "follow_up_suggestions": None,
+                "next_message": None,
+                "history": None,
+                "error": str(e),
+            }
+        finally:
+            logger.debug(f"Saving history file for {case.id}")
+            history.save_file(output_file)
+            mlflow.log_artifact(str(output_file), artifact_path="history")
+            logger.debug(f"Completed experiment for prompt: {case.id}")
 
 
 def _has_response_metric_fn(predictions: pd.Series, targets: pd.Series, metrics: dict):
@@ -93,9 +115,101 @@ def _has_response_metric_fn(predictions: pd.Series, targets: pd.Series, metrics:
     )
 
 
+async def process_batch(
+    batch: List[Prompt],
+    batch_idx: int,
+    total_batches: int,
+    experiment_results_dir: pathlib.Path,
+) -> List[tuple[Prompt, dict]]:
+    """Process a single batch of prompts concurrently."""
+    logger.info(f"Processing batch {batch_idx + 1}/{total_batches} ({len(batch)} prompts)")
+    
+    tasks: List[tuple[Prompt, asyncer.SoonValue[dict]]] = []
+    
+    async with asyncer.create_task_group() as tg:
+        for prompt in batch:
+            logger.debug(f"Queuing experiment task for prompt: {prompt.id}")
+            tasks.append(
+                (
+                    prompt,
+                    tg.soonify(run_prompt)(
+                        prompt, local_results_dir=experiment_results_dir
+                    ),
+                )
+            )
+    
+    # Collect results from this batch
+    batch_results = []
+    for prompt, task in tasks:
+        batch_results.append((prompt, task.value))
+    
+    logger.info(f"Completed batch {batch_idx + 1}/{total_batches}")
+    return batch_results
+
+
+async def process_all_batches(
+    filtered_prompts: List[Prompt],
+    experiment_results_dir: pathlib.Path,
+) -> List[tuple[Prompt, dict]]:
+    """Process all prompts in batches and return results."""
+    logger.info(f"Starting batched execution of {len(filtered_prompts)} experiments (batch size: {BATCH_SIZE})")
+    
+    # Split prompts into batches to control parallelism
+    prompt_batches = list(more_itertools.chunked(filtered_prompts, BATCH_SIZE))
+    logger.info(f"Split {len(filtered_prompts)} prompts into {len(prompt_batches)} batches")
+    
+    all_results = []
+    
+    for batch_idx, batch in enumerate(prompt_batches):
+        batch_results = await process_batch(
+            batch, batch_idx, len(prompt_batches), experiment_results_dir
+        )
+        all_results.extend(batch_results)
+    
+    logger.info(f"All {len(all_results)} tasks have been completed across {len(prompt_batches)} batches")
+    return all_results
+
+
 async def main(
     prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = None,
 ) -> None:
+    # Configure file logging with DEBUG level
+    log_file = experiments_dir / "logs" / f"chatbot_eval_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    log_file.parent.mkdir(exist_ok=True)
+    
+    # Remove the default loguru handler (which goes to stderr) 
+    # and replace with our own console handler at INFO level
+    logger.remove()
+    
+    # Add console handler with INFO level (clean output)
+    logger.add(
+        sink=lambda msg: print(msg, end=""),
+        level="INFO",
+        format="{time:HH:mm:ss} | {level: <8} | {message}",
+        colorize=True,
+    )
+    
+    # Filter function to add default context values when missing for file logs
+    def add_default_context(record):
+        if "prompt_id" not in record["extra"]:
+            record["extra"]["prompt_id"] = "MAIN"
+        if "instance" not in record["extra"]:
+            record["extra"]["instance"] = "N/A"
+        return True
+
+    # Add file handler with DEBUG level and detailed format including experiment context
+    logger.add(
+        log_file,
+        level="DEBUG", 
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[prompt_id]:<15} | {extra[instance]:<10} | {name}:{function}:{line} - {message}",
+        filter=add_default_context,
+        rotation="10 MB",
+        retention="7 days",
+    )
+    
+    logger.info(f"Starting chatbot evaluation - detailed logs will be written to: {log_file}")
+    logger.debug("Debug logging enabled for detailed troubleshooting")
+    
     filtered_prompts = all_prompts
     if prompt_ids:
         filtered_prompts = [
@@ -107,6 +221,7 @@ async def main(
             logger.error(f"No prompts found for {prompt_ids}")
             return
         logger.info(f"Running {len(filtered_prompts)} prompts")
+        logger.debug(f"Filtered prompts: {[p.id for p in filtered_prompts]}")
 
     to_thread.current_default_thread_limiter().total_tokens = ANYIO_THREAD_COUNT
     with mlflow.start_run() as run:
@@ -121,35 +236,40 @@ async def main(
             {
                 "model": CHATBOT_MODEL,
                 "anyio_thread_count": ANYIO_THREAD_COUNT,
+                "batch_size": BATCH_SIZE,
             }
         )
 
-        tasks: list[tuple[Prompt, asyncer.SoonValue[dict]]] = []
-        async with asyncer.create_task_group() as tg:
-            for prompt in filtered_prompts:
-                tasks.append(
-                    (
-                        prompt,
-                        tg.soonify(run_prompt)(
-                            prompt, local_results_dir=experiment_results_dir
-                        ),
-                    )
-                )
-
-        logger.info("All tasks finished")
-
+        # Process all prompts in batches
+        task_results = await process_all_batches(filtered_prompts, experiment_results_dir)
+        
+        logger.debug(f"Processing results for {len(task_results)} completed tasks")
         results = []
-        for prompt, task in tasks:
+        successful_tasks = 0
+        failed_tasks = 0
+        
+        for prompt, task_result in task_results:
             results.append(
                 {
                     "prompt_id": prompt.id,
                     **prompt.model_dump(exclude={"id"}),
-                    **task.value,
+                    **task_result,
                 }
             )
+            
+            # Track success/failure
+            if task_result.get("error") is None:
+                successful_tasks += 1
+                logger.debug(f"Task {prompt.id}: SUCCESS")
+            else:
+                failed_tasks += 1
+                logger.debug(f"Task {prompt.id}: FAILED - {task_result.get('error')}")
+        
+        logger.info(f"Task completion summary: {successful_tasks} successful, {failed_tasks} failed")
         results_df = pd.DataFrame(results)
 
         logger.info("Evaluating results")
+        logger.debug(f"Results dataframe shape: {results_df.shape}")
         eval_result = mlflow.evaluate(
             data=results_df,
             predictions="response",
@@ -164,7 +284,10 @@ async def main(
                 # mlflow.metrics.token_count(),
             ],
         )
-        logger.debug(eval_result)
+        logger.info("Evaluation completed successfully")
+        logger.debug(f"Evaluation results: {eval_result}")
+        
+        logger.debug("Generating analysis notebook")
         try:
             html_path = execute_notebook_save_as_html(
                 experiments_dir / "analyze_run.ipynb",
@@ -172,8 +295,13 @@ async def main(
                 {"RUN_NAME": run.info.run_name},
             )
             mlflow.log_artifact(html_path)
+            logger.info(f"Analysis notebook generated: {html_path}")
         except Exception as e:
             logger.error(f"Error executing notebook: {e}")
+        
+        logger.info(f"Experiment run completed: {run.info.run_name}")
+        logger.info(f"Results saved to: {experiment_results_dir}")
+        logger.info(f"Detailed logs saved to: {log_file}")
 
 
 if __name__ == "__main__":

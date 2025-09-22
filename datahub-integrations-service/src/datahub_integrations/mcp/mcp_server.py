@@ -3,6 +3,7 @@ import contextvars
 import functools
 import html
 import inspect
+import json
 import pathlib
 import re
 from typing import (
@@ -167,12 +168,25 @@ def _execute_graphql(
     operation_name: Optional[str] = None,
     variables: Optional[Dict[str, Any]] = None,
 ) -> Any:
-    if _is_datahub_cloud(graph):
-        query = _enable_cloud_fields(query)
+    try:
+        # Enable cloud fields if needed
+        if _is_datahub_cloud(graph):
+            query = _enable_cloud_fields(query)
 
-    return graph.execute_graphql(
-        query=query, variables=variables, operation_name=operation_name
-    )
+        # Execute the GraphQL query
+        result = graph.execute_graphql(
+            query=query, variables=variables, operation_name=operation_name
+        )
+        return result
+
+    except Exception as e:
+        # Keep essential error logging for troubleshooting with full stack trace
+        logger.exception(
+            f"GraphQL {operation_name or 'query'} failed: {e}\n"
+            f"Query: {query}\n"
+            f"Variables: {variables}"
+        )
+        raise
 
 
 def inject_urls_for_urns(
@@ -274,7 +288,9 @@ def clean_get_entity_response(raw_response: dict) -> dict:
 def get_entity(urn: str) -> dict:
     client = get_datahub_client()
 
+    # Check if entity exists first
     if not client._graph.exists(urn):
+        logger.warning(f"Entity not found during existence check: {urn}")
         # TODO: Ideally we use the `exists` field to check this, and also deal with soft-deleted entities.
         raise ItemNotFoundError(f"Entity {urn} not found")
 
@@ -291,6 +307,45 @@ def get_entity(urn: str) -> dict:
     truncate_descriptions(result)
 
     return clean_get_entity_response(result)
+
+
+def _convert_custom_filter_format(filters_obj: Any) -> Any:
+    """
+    Convert chatbot's intuitive {"custom": {...}} format to the format expected by _CustomCondition.
+
+    Transforms:
+    {"custom": {"field": "urn", "condition": "EQUAL", "values": [...]}}
+
+    Into:
+    {"field": "urn", "condition": "EQUAL", "values": [...]}
+
+    This allows the discriminator to correctly identify it as _custom.
+    """
+    if isinstance(filters_obj, dict):
+        # Check if this is a "custom" or "custom_condition" wrapper that needs unwrapping
+        if len(filters_obj) == 1 and (
+            "custom" in filters_obj or "custom_condition" in filters_obj
+        ):
+            wrapper_key = "custom" if "custom" in filters_obj else "custom_condition"
+            custom_content = filters_obj[wrapper_key]
+            # Ensure it has the expected structure for _CustomCondition
+            if isinstance(custom_content, dict) and "field" in custom_content:
+                return custom_content
+
+        # Recursively process nested filters (for "and", "or", etc.)
+        result = {}
+        for key, value in filters_obj.items():
+            if isinstance(value, (list, dict)):
+                result[key] = _convert_custom_filter_format(value)
+            else:
+                result[key] = value
+        return result
+    elif isinstance(filters_obj, list):
+        # Process list of filters
+        return [_convert_custom_filter_format(item) for item in filters_obj]
+    else:
+        # Return primitive values unchanged
+        return filters_obj
 
 
 def _search_implementation(
@@ -315,8 +370,16 @@ def _search_implementation(
     # handling this, but removed it in
     # https://github.com/jlowin/fastmcp/commit/7b9696405b1427f4dc5430891166286744b3dab5
     if isinstance(filters, str):
-        filters = load_filters(filters)
+        # Parse JSON first to allow preprocessing
+        filters_dict = json.loads(filters)
+
+        # Convert "custom" wrapper to direct _custom format for compatibility
+        filters_dict = _convert_custom_filter_format(filters_dict)
+
+        filters = load_filters(filters_dict)
+
     types, compiled_filters = compile_filters(filters)
+
     variables = {
         "query": query,
         "types": types,
@@ -371,20 +434,21 @@ def enhanced_search(
     - Will match: tables named "user_behavior", "client_metrics", "consumer_data" for "customer analytics"
 
     KEYWORD SEARCH (search_strategy="keyword" or default):
-    - Structured full-text search - **always start queries with "/q "**
+    - Structured full-text search - **always start queries with /q**
     - Supports full boolean logic: AND (default), OR, NOT, parentheses, field searches
     - Examples:
-      • "/q user_transactions" → exact terms (AND is default)
-      • "/q wizard OR pet" → entities containing either term
-      • "/q revenue_*" → wildcard matching (revenue_2023, revenue_2024, revenue_monthly, etc.)
-      • "/q \"user data table\"" → exact phrase matching
-      • "/q (sales OR revenue) AND quarterly" → complex boolean combinations
+      • /q user_transactions → exact terms (AND is default)
+      • /q wizard OR pet → entities containing either term
+      • /q revenue_* → wildcard matching (revenue_2023, revenue_2024, revenue_monthly, etc.)
+      • /q tag:PII → search by tag name
+      • /q "user data table" → exact phrase matching
+      • /q (sales OR revenue) AND quarterly → complex boolean combinations
     - Fast and precise for exact matching, technical terms, and complex queries
     - Best for: entity names, identifiers, column names, or any search needing boolean logic
 
     WHEN TO USE EACH:
     - Use semantic when: user asks conceptual questions ("show me sales data", "find customer information")
-    - Use keyword when: user provides specific names ("/q user_events", "/q revenue_jan_2024")
+    - Use keyword when: user provides specific names (/q user_events, /q revenue_jan_2024)
     - Use keyword when: searching for technical terms, boolean logic, or exact identifiers
 
     Returns both a truncated list of results and facets/aggregations that can be used to iteratively refine the search filters.
@@ -422,11 +486,11 @@ def enhanced_search(
 
     SEARCH STRATEGY EXAMPLES:
     - Semantic: "customer behavior data" → finds user_analytics, client_metrics, consumer_tracking
-    - Keyword: "/q customer_behavior" → finds tables with exact name "customer_behavior"
-    - Keyword: "/q customer OR user" → finds tables with either term
+    - Keyword: /q customer_behavior → finds tables with exact name "customer_behavior"
+    - Keyword: /q customer OR user → finds tables with either term
     - Semantic: "financial performance metrics" → finds revenue_kpis, profit_analysis, financial_dashboards
-    - Keyword: "/q financial_performance_metrics" → finds exact table name matches
-    - Keyword: "/q (financial OR revenue) AND metrics" → complex boolean logic
+    - Keyword: /q financial_performance_metrics → finds exact table name matches
+    - Keyword: /q (financial OR revenue) AND metrics → complex boolean logic
     """
     return _search_implementation(query, filters, num_results, search_strategy)
 
@@ -437,10 +501,27 @@ def search(
     filters: Optional[Filter | str] = None,
     num_results: int = 10,
 ) -> dict:
-    """Search across DataHub entities.
+    """Search across DataHub entities using structured full-text search.
+
+    SEARCH SYNTAX:
+    - Structured full-text search - **always start queries with /q**
+    - **Recommended: Use + operator for AND** (handles punctuation better than quotes)
+    - Supports full boolean logic: AND (default), OR, NOT, parentheses, field searches
+    - Examples:
+      • /q user+transaction → requires both terms (better for field names with _ or punctuation)
+      • /q point+sale+app → requires all terms (works with point_of_sale_app_usage)
+      • /q wizard OR pet → entities containing either term
+      • /q revenue* → wildcard matching (revenue_2023, revenue_2024, revenue_monthly, etc.)
+      • /q tag:PII → search by tag name
+      • /q "exact table name" → exact phrase matching (use sparingly)
+      • /q (sales OR revenue) AND quarterly → complex boolean combinations
+    - Fast and precise for exact matching, technical terms, and complex queries
+    - Best for: entity names, identifiers, column names, or any search needing boolean logic
 
     Returns both a truncated list of results and facets/aggregations that can be used to iteratively refine the search filters.
-    To search for all entities, use the wildcard '*' as the query and set `filters: null`.
+    To explore the data catalog and get aggregate statistics, use the wildcard '*' as the query and set `filters: null`. This provides
+    facets showing platform distribution, entity types, and other aggregate insights across the entire catalog, plus a representative
+    sample of entities.
 
     A typical workflow will involve multiple calls to this search tool, with each call refining the filters based on the facets/aggregations returned in the previous call.
     After the final search is performed, you'll want to use the other tools to get more details about the relevant entities.
@@ -459,16 +540,36 @@ def search(
       ]
     }
     ```
-    - All non-Snowflake tables
+    - Filter by domain (MUST use full URN format)
     ```
-    {
-      "and":[
-        {"entity_type": ["DATASET"]},
-        {"entity_subtype": ["Table"]},
-        {"not": {"platform": ["snowflake"]}}
-      ]
-    }
+    {"domain": ["urn:li:domain:marketing"]}
+    {"domain": ["urn:li:domain:9f8e7d6c-5b4a-3928-1765-432109876543", "urn:li:domain:7c6b5a49-3827-1654-9032-8f7e6d5c4b3a"]}
     ```
+    IMPORTANT: Domain filters require full URN format starting with "urn:li:domain:",
+    NOT short names like "marketing" or "customer". Domain URNs can be readable names
+    or GUIDs. Always search with {"entity_type": ["domain"]}
+    to find valid domain URNs first, then use the exact URN from the results.
+
+    SUPPORTED FILTER TYPES (only these will work):
+    - entity_type: ["dataset"], ["dashboard", "chart"], ["corp_user"], ["corp_group"]
+    - entity_subtype: ["Table"], ["View", "Model"]
+    - platform: ["snowflake"], ["looker", "tableau"]
+    - env: ["PROD"], ["DEV", "STAGING"]
+    - status: ["NOT_SOFT_DELETED"] (for non-deleted entities)
+    - domain: ["urn:li:domain:marketing"] (full URN required)
+    - container: ["urn:li:container:..."] (full URN required)
+    - custom: {"field": "fieldName", "condition": "EQUAL", "values": [...]}
+    - and: [filter1, filter2] (combines multiple filters)
+    - or: [filter1, filter2] (matches any filter)
+    - not: {"entity_type": ["dataset"]} (excludes matches)
+
+    CRITICAL: Use only ONE discriminator key per filter object. Never mix
+    entity_type with custom, domain, etc. at the same level. Use "and" or "or" to combine.
+
+    SEARCH STRATEGY EXAMPLES:
+    - /q customer+behavior → finds tables with both terms (works with customer_behavior fields)
+    - /q customer OR user → finds tables with either term
+    - /q (financial OR revenue) AND metrics → complex boolean logic
     """
     return _search_implementation(query, filters, num_results, "keyword")
 

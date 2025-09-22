@@ -1,5 +1,3 @@
-from datahub_integrations.gen_ai.mlflow_init import MLFLOW_INITIALIZED
-
 import enum
 import functools
 import json
@@ -19,7 +17,6 @@ from datahub_integrations.util.serialized import serialized
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
 
-assert MLFLOW_INITIALIZED
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
 # e.g. "us", "eu", or "apac"
@@ -35,7 +32,7 @@ _ENABLE_BEDROCK_PROMPT_CACHING = get_boolean_env_variable(
     "ENABLE_BEDROCK_PROMPT_CACHING", False
 )
 
-_MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "4"))
+_MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "10"))
 
 
 class BedrockModel(enum.Enum):
@@ -105,7 +102,7 @@ def get_bedrock_client(
         read_timeout=read_timeout,
         connect_timeout=connect_timeout,
         max_pool_connections=100,
-        retries={"max_attempts": _MAX_ATTEMPTS},
+        retries={"max_attempts": _MAX_ATTEMPTS, "mode": "standard"},
     )
 
     if "BEDROCK_AWS_ROLE" in os.environ:

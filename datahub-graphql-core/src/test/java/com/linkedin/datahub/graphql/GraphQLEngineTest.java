@@ -284,7 +284,7 @@ public class GraphQLEngineTest {
   public void testMetricsEnabled() {
     // Setup metrics
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     // Enable metrics in configuration
     GraphQLConfiguration metricsEnabledConfig = createDefaultConfiguration();
@@ -405,7 +405,7 @@ public class GraphQLEngineTest {
     metrics.setTrivialDataFetchersEnabled(true);
 
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.of(meterRegistry));
+    when(mockMetricUtils.getRegistry()).thenReturn(meterRegistry);
 
     graphQLEngine =
         GraphQLEngine.builder()
@@ -457,7 +457,7 @@ public class GraphQLEngineTest {
   @Test
   public void testMetricsWithEmptyRegistry() {
     // Setup metrics with empty registry
-    when(mockMetricUtils.getRegistry()).thenReturn(Optional.empty());
+    when(mockMetricUtils.getRegistry()).thenReturn(new SimpleMeterRegistry());
 
     GraphQLConfiguration metricsEnabledConfig = createDefaultConfiguration();
     metricsEnabledConfig.getMetrics().setEnabled(true);

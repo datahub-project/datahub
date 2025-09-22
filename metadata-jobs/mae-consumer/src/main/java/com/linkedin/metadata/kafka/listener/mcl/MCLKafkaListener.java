@@ -118,12 +118,8 @@ public class MCLKafkaListener
                 // request
                 metricUtils
                     .getRegistry()
-                    .ifPresent(
-                        meterRegistry -> {
-                          meterRegistry
-                              .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
-                              .record(Duration.ofMillis(queueTimeMs));
-                        });
+                    .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
+                    .record(Duration.ofMillis(queueTimeMs));
               }
             });
   }

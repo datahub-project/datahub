@@ -15,6 +15,7 @@ import {
 } from '@app/workflows/hooks/useListActionWorkflows';
 
 import { ActionWorkflowFragment } from '@graphql/actionWorkflow.generated';
+import { ActionWorkflowCategory } from '@types';
 
 const WorkflowItem = styled.div`
     display: flex;
@@ -87,6 +88,38 @@ export default function WorkflowsModule(props: ModuleProps) {
     const displayedWorkflows = showAllWorkflows ? workflows : workflows.slice(0, DEFAULT_MAX_WORKFLOWS_TO_SHOW);
     const hasMoreWorkflows = workflows.length > DEFAULT_MAX_WORKFLOWS_TO_SHOW && !showAllWorkflows;
 
+    const renderWorkflow = (workflow: ActionWorkflowFragment) => {
+        return (
+            <WorkflowItem
+                key={workflow.urn}
+                onClick={() => handleWorkflowClick(workflow)}
+                data-testid={`workflow-item-${workflow.urn.split(':').pop()}`}
+            >
+                <WorkflowName data-testid={`workflow-name-${workflow.urn.split(':').pop()}`}>
+                    {getEntryPointLabel(workflow, context)}
+                    <ArrowRight size={16} />
+                </WorkflowName>
+            </WorkflowItem>
+        );
+    };
+
+    const renderSingleWorkflow = (workflow: ActionWorkflowFragment) => {
+        if (workflow.category === ActionWorkflowCategory.Access) {
+            return (
+                <EmptyContent
+                    dataTestId={`workflow-item-${workflow.urn.split(':').pop()}`}
+                    key={workflow.urn}
+                    icon="LockSimpleOpen"
+                    title="Access Request"
+                    description="Looking for access to a certain asset?"
+                    linkText={getEntryPointLabel(workflow, context)}
+                    onLinkClick={() => handleWorkflowClick(workflow)}
+                />
+            );
+        }
+        return renderWorkflow(workflow);
+    };
+
     return (
         <>
             <LargeModule {...props} loading={loading}>
@@ -102,18 +135,9 @@ export default function WorkflowsModule(props: ModuleProps) {
 
                 {!loading && workflows.length > 0 && (
                     <>
-                        {displayedWorkflows.map((workflow) => (
-                            <WorkflowItem
-                                key={workflow.urn}
-                                onClick={() => handleWorkflowClick(workflow)}
-                                data-testid={`workflow-item-${workflow.urn.split(':').pop()}`}
-                            >
-                                <WorkflowName data-testid={`workflow-name-${workflow.urn.split(':').pop()}`}>
-                                    {getEntryPointLabel(workflow, context)}
-                                    <ArrowRight size={16} />
-                                </WorkflowName>
-                            </WorkflowItem>
-                        ))}
+                        {displayedWorkflows.length === 1 && displayedWorkflows.map(renderSingleWorkflow)}
+
+                        {displayedWorkflows.length > 1 && displayedWorkflows.map(renderWorkflow)}
 
                         {hasMoreWorkflows && (
                             <ShowMoreButton

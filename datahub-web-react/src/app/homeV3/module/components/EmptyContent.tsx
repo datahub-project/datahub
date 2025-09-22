@@ -9,6 +9,7 @@ interface Props {
     linkText?: string;
     linkIcon?: string;
     onLinkClick?: () => void;
+    dataTestId?: string;
 }
 
 const Container = styled.div`
@@ -37,9 +38,9 @@ const IconWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-export default function EmptyContent({ icon, title, description, linkText, linkIcon, onLinkClick }: Props) {
+export default function EmptyContent({ icon, title, description, linkText, linkIcon, onLinkClick, dataTestId }: Props) {
     return (
-        <Container>
+        <Container data-testid={dataTestId}>
             <IconWrapper>
                 {/* TODO: adjust color of icon */}
                 <Icon icon={icon} source="phosphor" color="gray" />

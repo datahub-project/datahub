@@ -1,4 +1,4 @@
-from datahub_integrations.gen_ai.mlflow_init import MLFLOW_ENABLED, MLFLOW_INITIALIZED
+from datahub_integrations.gen_ai.mlflow_init import initialize_mlflow, is_mlflow_enabled
 
 import contextlib
 import re
@@ -51,7 +51,10 @@ from datahub_integrations.telemetry.telemetry import track_saas_event
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime.type_defs import ContentBlockOutputTypeDef
-assert MLFLOW_INITIALIZED
+
+# Initialize MLflow for @mlflow.trace decorators in this module
+initialize_mlflow()
+
 MAX_TOOL_CALLS = 30
 
 # The soft limit is passed to the LLM's prompt, in an effort
@@ -442,7 +445,7 @@ class ChatSession:
 
     @mlflow.trace
     def generate_next_message(self) -> NextMessage:
-        if MLFLOW_ENABLED:
+        if is_mlflow_enabled():
             mlflow.update_current_trace(tags={"session_id": self.session_id})
 
         logger.info(

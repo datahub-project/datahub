@@ -82,6 +82,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE #temp2 AS\nSELECT\n  b,\n  c\nFROM upstream2;\n\nCREATE TABLE #temp1 AS\nSELECT\n  a,\n  2 * b AS b\nFROM upstream1;\n\nCREATE TEMPORARY TABLE staging_foo AS\nSELECT\n  up1.a,\n  up1.b,\n  up2.c\nFROM #temp1 AS up1\nLEFT JOIN #temp2 AS up2\n  ON up1.b = up2.b\nWHERE\n  up1.b > 0;\n\nINSERT INTO prod_foo\nSELECT\n  *\nFROM staging_foo",
                 "language": "SQL"

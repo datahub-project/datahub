@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { CustomAvatar } from '@app/shared/avatar';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { useReloadModuleOnProposalApprove } from '@app/taskCenterV2/proposalsV2/useReloadModulesOnProposalApprove';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entity/shared/constants';
@@ -81,6 +82,8 @@ export default function MetadataAssociationRequestItem({
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
 
+    const reloadModulesOnApprove = useReloadModuleOnProposalApprove();
+
     const acceptRequest = () => {
         Modal.confirm({
             title: 'Accept Proposal',
@@ -100,6 +103,7 @@ export default function MetadataAssociationRequestItem({
                         }
                         message.success('Successfully accepted the proposal!');
                         onUpdate();
+                        reloadModulesOnApprove([actionRequest]);
                     })
                     .catch((err) => {
                         console.log(err);

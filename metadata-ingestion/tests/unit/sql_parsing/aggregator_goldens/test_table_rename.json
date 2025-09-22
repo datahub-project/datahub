@@ -189,7 +189,7 @@
         "json": {
             "customProperties": {},
             "statement": {
-                "value": "ALTER TABLE dev.public.foo_staging RENAME TO foo /* Datahub generated query text-- */",
+                "value": "ALTER TABLE dev.public.foo_staging\nRENAME TO foo /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",
