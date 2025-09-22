@@ -174,20 +174,16 @@ class AthenaPropertiesExtractor:
     def format_column_definition(line):
         # Use regex to parse the line more accurately
         # Pattern: column_name data_type [COMMENT comment_text] [,]
-        # Use greedy match for comment to capture everything until trailing comma
-        pattern = r"^\s*(.+?)\s+([\s,\w<>\[\]]+)((\s+COMMENT\s+(.+?)(,?))|(,?)\s*)?$"
-        match = re.match(pattern, line, re.IGNORECASE)
+        # Improved pattern to better separate column name, data type, and comment
+        pattern = r"^\s*([`\w']+)\s+([\w<>\[\](),\s]+?)(\s+COMMENT\s+(.+?))?(,?)\s*$"
+        match = re.match(pattern, line.strip(), re.IGNORECASE)
 
         if not match:
             return line
-        column_name = match.group(1)
-        data_type = match.group(2)
-        comment_part = match.group(5)  # COMMENT part
-        # there are different number of match groups depending on whether comment exists
-        if comment_part:
-            trailing_comma = match.group(6) if match.group(6) else ""
-        else:
-            trailing_comma = match.group(7) if match.group(7) else ""
+        column_name = match.group(1).strip()
+        data_type = match.group(2).strip()
+        comment_part = match.group(4)  # COMMENT part
+        trailing_comma = match.group(5) if match.group(5) else ""
 
         # Add backticks to column name if not already present
         if not (column_name.startswith("`") and column_name.endswith("`")):
@@ -201,7 +197,7 @@ class AthenaPropertiesExtractor:
 
             # Handle comment quoting and escaping
             if comment_part.startswith("'") and comment_part.endswith("'"):
-                # Already properly single quoted - but check for proper escaping
+                # Already single quoted - but check for proper escaping
                 inner_content = comment_part[1:-1]
                 # Re-escape any single quotes that aren't properly escaped
                 escaped_content = inner_content.replace("'", "''")
