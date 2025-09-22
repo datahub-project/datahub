@@ -198,15 +198,6 @@ fragment incidentResultFields on EntityIncidentsResult {
 fragment datasetSiblingIncidents on Dataset {
     siblings {
         isPrimary
-        siblings {
-            urn
-            type
-            ... on Dataset {
-                incidents(start: $start, count: $count, state: $state) {
-                    ...incidentResultFields
-                }
-            }
-        }
     }
     siblingsSearch(input: { query: "*", count: 5 }) {
         count
@@ -261,6 +252,22 @@ query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: Inci
             }
         }
         ... on Chart {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeature {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLModel {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentResultFields
             }
