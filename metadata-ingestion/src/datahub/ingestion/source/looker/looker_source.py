@@ -1002,63 +1002,43 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _get_last_modified_time(
         self, looker_dashboard: Optional[LookerDashboard]
     ) -> Optional[datetime.datetime]:
-        return (
-            getattr(looker_dashboard, "last_updated_at", None)
-            if looker_dashboard
-            else None
-        )
+        return looker_dashboard.last_updated_at if looker_dashboard else None
 
     def _get_last_modified_by(
         self, looker_dashboard: Optional[LookerDashboard]
     ) -> Optional[str]:
-        if not looker_dashboard or not getattr(
-            looker_dashboard, "last_updated_by", None
-        ):
+        if not looker_dashboard or not looker_dashboard.last_updated_by:
             return None
-        return (
-            looker_dashboard.last_updated_by.get_urn(
-                self.source_config.strip_user_ids_from_email
-            )
-            if looker_dashboard.last_updated_by
-            else None
+        return looker_dashboard.last_updated_by.get_urn(
+            self.source_config.strip_user_ids_from_email
         )
 
     def _get_created_at(
         self, looker_dashboard: Optional[LookerDashboard]
     ) -> Optional[datetime.datetime]:
-        return (
-            getattr(looker_dashboard, "created_at", None) if looker_dashboard else None
-        )
+        return looker_dashboard.created_at if looker_dashboard else None
 
     def _get_created_by(
         self, looker_dashboard: Optional[LookerDashboard]
     ) -> Optional[str]:
-        if not looker_dashboard or not getattr(looker_dashboard, "owner", None):
+        if not looker_dashboard or not looker_dashboard.owner:
             return None
-        return (
-            looker_dashboard.owner.get_urn(self.source_config.strip_user_ids_from_email)
-            if looker_dashboard.owner
-            else None
+        return looker_dashboard.owner.get_urn(
+            self.source_config.strip_user_ids_from_email
         )
 
     def _get_deleted_on(
         self, looker_dashboard: Optional[LookerDashboard]
     ) -> Optional[datetime.datetime]:
-        return (
-            getattr(looker_dashboard, "deleted_at", None) if looker_dashboard else None
-        )
+        return looker_dashboard.deleted_at if looker_dashboard else None
 
     def _get_deleted_by(
         self, looker_dashboard: Optional[LookerDashboard]
     ) -> Optional[str]:
-        if not looker_dashboard or not getattr(looker_dashboard, "deleted_by", None):
+        if not looker_dashboard or not looker_dashboard.deleted_by:
             return None
-        return (
-            looker_dashboard.deleted_by.get_urn(
-                self.source_config.strip_user_ids_from_email
-            )
-            if looker_dashboard.deleted_by
-            else None
+        return looker_dashboard.deleted_by.get_urn(
+            self.source_config.strip_user_ids_from_email
         )
 
     def _get_looker_folder(self, folder: Union[Folder, FolderBase]) -> LookerFolder:
