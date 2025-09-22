@@ -3,7 +3,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -18,6 +18,9 @@ from datahub.ingestion.source.fivetran.fivetran_constants import (
 from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
     Connector,
+    FivetranConnectorResponse,
+    FivetranDestinationResponse,
+    FivetranJobResponse,
     Job,
     TableLineage,
 )
@@ -1386,7 +1389,12 @@ class FivetranAPIClient:
                 )
                 config_data = config_response.get("data", {})
                 logger.debug(f"Destination config for {group_id}: {config_data}")
-                destination_data["config"] = config_data
+
+                # Flatten the config structure for Pydantic model compatibility
+                if "service" in config_data:
+                    destination_data["service"] = config_data["service"]
+                if "config" in config_data:
+                    destination_data["config"] = config_data["config"]
             except Exception as config_e:
                 logger.debug(
                     f"Could not get destination config for {group_id}: {config_e}"
@@ -1536,24 +1544,105 @@ class FivetranAPIClient:
             )
             group_id = real_group_id
 
-        destination = self.get_destination_details(group_id)
+        destination_data = self.get_destination_details(group_id)
+
+        # Parse destination response
+        destination = FivetranDestinationResponse(**destination_data)
 
         # Check config for database information
-        config_data = destination.get("config", {})
-        # Handle nested config structure from API
-        config = config_data.get("config", config_data)
+        config_data = destination_data.get("config", {})
 
-        # Try different fields based on destination type
-        service = destination.get("service", "").lower()
-        if "snowflake" in service:
-            return config.get("database", "")
-        elif "bigquery" in service:
-            return config.get("dataset", "")
-        elif "redshift" in service or "postgres" in service or "mysql" in service:
-            return config.get("database", "")
+        # Handle the actual API response structure with 'items'
+        if "items" in config_data:
+            items = config_data.get("items", [])
+            logger.debug(f"Found {len(items)} config items for destination {group_id}")
 
-        # Fall back to generic field
-        return config.get("database", "")
+            # Look through config items for database-related fields
+            for item in items:
+                if isinstance(item, dict):
+                    # Check for common database field names
+                    for db_field in ["database", "dataset", "db", "schema"]:
+                        if db_field in item:
+                            db_value = item[db_field]
+                            if db_value and isinstance(db_value, str):
+                                logger.info(
+                                    f"Found database '{db_value}' in {db_field} field for {group_id}"
+                                )
+                                return db_value
+
+        # Try service-specific field lookup
+        if destination.config:
+            config_model = destination.config
+            service = destination.service or ""
+
+            # Access fields directly with null coalescing
+            if "snowflake" in service.lower():
+                database = config_model.database or ""
+            elif "bigquery" in service.lower():
+                database = config_model.dataset or config_model.data_set_location or ""
+            elif any(
+                db_type in service.lower()
+                for db_type in ["redshift", "postgres", "mysql"]
+            ):
+                database = config_model.database or ""
+            else:
+                # Fall back to generic field
+                database = config_model.database or ""
+        else:
+            database = ""
+
+        if database:
+            logger.info(
+                f"Found database '{database}' via service-specific lookup for {group_id}"
+            )
+            return database
+
+        # If still no database found, try alternative API endpoint
+        try:
+            # Try the /destinations/{id} endpoint instead of /groups/{id}/config
+            dest_response = self._make_request("GET", f"/destinations/{group_id}")
+            dest_config = dest_response.get("data", {}).get("config", {})
+
+            # Try different field names based on service type and available fields
+            service = destination.service or ""
+
+            # For Snowflake
+            if "database" in dest_config:
+                database = dest_config["database"]
+                logger.info(
+                    f"Found database '{database}' via destinations endpoint for {group_id}"
+                )
+                return database
+
+            # For BigQuery - try different field names
+            if "bigquery" in service or any(
+                "bigquery" in str(v).lower() for v in dest_config.values()
+            ):
+                # Try BigQuery-specific fields
+                for bq_field in ["data_set_location", "dataset", "project_id"]:
+                    if bq_field in dest_config and dest_config[bq_field]:
+                        database = dest_config[bq_field]
+                        logger.info(
+                            f"Found BigQuery database '{database}' from {bq_field} field for {group_id}"
+                        )
+                        return database
+
+            # Try other common database field names
+            for db_field in ["db", "schema", "dataset_id"]:
+                if db_field in dest_config and dest_config[db_field]:
+                    database = dest_config[db_field]
+                    logger.info(
+                        f"Found database '{database}' from {db_field} field for {group_id}"
+                    )
+                    return database
+
+        except Exception as e:
+            logger.debug(
+                f"Failed to get database from destinations endpoint for {group_id}: {e}"
+            )
+
+        logger.warning(f"No database information found for destination {group_id}")
+        return ""
 
     def get_user(self, user_id: str) -> Dict:
         """Get details for a specific user."""
@@ -1786,32 +1875,30 @@ class FivetranAPIClient:
         if not connector_id:
             raise ValueError(f"Connector is missing required id field: {api_connector}")
 
-        connector_name = get_standardized_connector_name(
-            display_name=api_connector.get("display_name"),
-            name=api_connector.get("name"),
-            connector_id=connector_id,
-        )
-        connector_service = api_connector.get("service", "")
-        paused = api_connector.get("paused", False)
+        # Parse connector response
+        connector_response = FivetranConnectorResponse(**api_connector)
 
-        # Get sync frequency in minutes
-        schedule = api_connector.get("schedule", {})
-        sync_frequency = schedule.get("sync_frequency", 360)  # Default to 6 hours
+        connector_name = get_standardized_connector_name(
+            display_name=getattr(connector_response, "display_name", None),
+            name=connector_response.connector_name,
+            connector_id=connector_response.id,
+        )
+        connector_service = connector_response.service
+        paused = connector_response.paused
+        sync_frequency = connector_response.sync_frequency
 
         # Extract additional properties to include in the connector
-        additional_properties = {}
+        additional_properties: Dict[str, Union[str, bool, int, float, None]] = {}
 
         # Extract jobs from sync history
         jobs = self._extract_jobs_from_sync_history(sync_history)
 
-        # Enhanced destination ID detection
-        destination_id = ""
-
-        # Try different ways to get the destination ID
-        group_field = api_connector.get("group", {})
-        if isinstance(group_field, dict) and "id" in group_field:
-            destination_id = group_field.get("id", "")
-            logger.debug(f"Found destination_id={destination_id} from group.id")
+        # Get destination ID from connector response
+        destination_id = connector_response.group_id
+        if destination_id:
+            logger.debug(
+                f"Found destination_id={destination_id} from connector response"
+            )
 
         # Alternative fields if group.id doesn't exist
         if not destination_id:
@@ -1883,7 +1970,7 @@ class FivetranAPIClient:
             paused=paused,
             sync_frequency=sync_frequency,
             destination_id=destination_id,
-            user_id=api_connector.get("created_by", ""),
+            user_id=getattr(connector_response, "created_by", None),
             lineage=[],  # Will be filled later by extract_table_lineage
             jobs=jobs,
             additional_properties=additional_properties,
@@ -1898,41 +1985,41 @@ class FivetranAPIClient:
 
         for job in sync_history:
             try:
-                # Try different possible field names for start and end times
+                # Parse job response
+                job_response = FivetranJobResponse(**job)
+
+                # Extract timestamps depending on available fields
                 started_at = None
                 completed_at = None
 
-                # Extract timestamps depending on available fields
-                if "started_at" in job:
-                    started_at = self._parse_api_timestamp(job.get("started_at"))
-                elif "start_time" in job:
+                if job_response.started_at:
+                    started_at = self._parse_api_timestamp(job_response.started_at)
+                elif job_response.start_time:
                     # Handle datetime object from enterprise mode
-                    start_time = job.get("start_time")
-                    if start_time is not None and hasattr(start_time, "timestamp"):
-                        started_at = int(start_time.timestamp())
+                    if hasattr(job_response.start_time, "timestamp"):
+                        started_at = int(job_response.start_time.timestamp())
                     else:
-                        started_at = self._parse_api_timestamp(start_time)
+                        started_at = self._parse_api_timestamp(job_response.start_time)
 
-                if "completed_at" in job:
-                    completed_at = self._parse_api_timestamp(job.get("completed_at"))
-                elif "end_time" in job:
+                if job_response.completed_at:
+                    completed_at = self._parse_api_timestamp(job_response.completed_at)
+                elif job_response.end_time:
                     # Handle datetime object from enterprise mode
-                    end_time = job.get("end_time")
-                    if end_time is not None and hasattr(end_time, "timestamp"):
-                        completed_at = int(end_time.timestamp())
+                    if hasattr(job_response.end_time, "timestamp"):
+                        completed_at = int(job_response.end_time.timestamp())
                     else:
-                        completed_at = self._parse_api_timestamp(end_time)
+                        completed_at = self._parse_api_timestamp(job_response.end_time)
 
                 # Get status from appropriate field
                 status = self._map_job_status(
-                    job.get("status"), job.get("end_message_data")
+                    job_response.status, job_response.end_message_data
                 )
 
                 # Only include jobs with valid timestamps
                 if started_at and completed_at:
                     jobs.append(
                         Job(
-                            job_id=job.get("id", str(hash(str(job)))),
+                            job_id=job_response.id or str(hash(str(job))),
                             start_time=started_at,
                             end_time=completed_at,
                             status=status,

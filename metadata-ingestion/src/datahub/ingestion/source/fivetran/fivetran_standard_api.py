@@ -24,6 +24,10 @@ from datahub.ingestion.source.fivetran.fivetran_constants import (
 from datahub.ingestion.source.fivetran.models import (
     ColumnLineage,
     Connector,
+    FivetranConnectorResponse,
+    FivetranSchema,
+    FivetranTable,
+    FivetranTableColumn,
     TableLineage,
 )
 
@@ -104,80 +108,96 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
             # Process each connector
             for api_connector in connector_list:
-                connector_id = api_connector.get("id", "")
-                if not connector_id:
-                    continue
-
-                connector_name = api_connector.get(
-                    "display_name", api_connector.get("name", "")
-                )
-
-                # Apply connector pattern filter (skip explicitly included connectors)
-                explicitly_included = False
-                if (
-                    self.config
-                    and hasattr(self.config, "sources_to_platform_instance")
-                    and connector_id in self.config.sources_to_platform_instance
-                ):
-                    explicitly_included = True
-                    logger.info(
-                        f"Connector {connector_name} (ID: {connector_id}) explicitly included via sources_to_platform_instance"
-                    )
-
-                # Check both connector_name and connector_id for maximum flexibility
-                if not explicitly_included and not (
-                    connector_patterns.allowed(connector_name)
-                    or connector_patterns.allowed(connector_id)
-                ):
-                    report.report_connectors_dropped(
-                        f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
-                    )
-                    continue
-
-                # Get destination ID and name
-                destination_id = self._extract_destination_id(api_connector)
-                destination_name = self._extract_destination_name(api_connector)
-
-                # Apply destination filter - check both ID and name for maximum flexibility
-                destination_allowed = destination_patterns.allowed(destination_id)
-                if destination_name and not destination_allowed:
-                    destination_allowed = destination_patterns.allowed(destination_name)
-
-                if not destination_allowed:
-                    report.report_connectors_dropped(
-                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id}, destination_name: {destination_name})"
-                    )
-                    continue
-
-                # Skip problematic connectors automatically
-                if not self._is_connector_accessible(api_connector, report):
-                    continue
-
-                # Get sync history
-                sync_history = self.api_client.list_connector_sync_history(
-                    connector_id, syncs_interval
-                )
-
-                # Create connector object
                 try:
-                    connector = self.api_client.extract_connector_metadata(
-                        api_connector, sync_history
+                    # Parse connector response
+                    connector_response = FivetranConnectorResponse(**api_connector)
+
+                    if not connector_response.id:
+                        continue
+
+                    connector_name = get_standardized_connector_name(
+                        display_name=getattr(connector_response, "display_name", None),
+                        name=connector_response.connector_name,
+                        connector_id=connector_response.id,
                     )
-                    connectors.append(connector)
 
-                    # Cache for later use
-                    self._connector_cache[connector_id] = connector
+                    # Apply connector pattern filter (skip explicitly included connectors)
+                    explicitly_included = False
+                    if (
+                        self.config
+                        and hasattr(self.config, "sources_to_platform_instance")
+                        and connector_response.id
+                        in self.config.sources_to_platform_instance
+                    ):
+                        explicitly_included = True
+                        logger.info(
+                            f"Connector {connector_name} (ID: {connector_response.id}) explicitly included via sources_to_platform_instance"
+                        )
 
-                    # Report scanned connector
-                    report.report_connectors_scanned()
+                    # Check both connector_name and connector_id for maximum flexibility
+                    if not explicitly_included and not (
+                        connector_patterns.allowed(connector_name)
+                        or connector_patterns.allowed(connector_response.id)
+                    ):
+                        report.report_connectors_dropped(
+                            f"{connector_name} (connector_id: {connector_response.id}, dropped due to filter pattern)"
+                        )
+                        continue
+
+                    # Get destination ID from the parsed response
+                    destination_id = connector_response.group_id
+                    destination_name = self._extract_destination_name(api_connector)
+
+                    # Apply destination filter - check both ID and name for maximum flexibility
+                    destination_allowed = (
+                        destination_patterns.allowed(destination_id)
+                        if destination_id
+                        else False
+                    )
+                    if destination_name and not destination_allowed:
+                        destination_allowed = destination_patterns.allowed(
+                            destination_name
+                        )
+
+                    if not destination_allowed:
+                        report.report_connectors_dropped(
+                            f"{connector_name} (connector_id: {connector_response.id}, destination_id: {destination_id}, destination_name: {destination_name})"
+                        )
+                        continue
+
+                    # Skip problematic connectors automatically
+                    if not self._is_connector_accessible(api_connector, report):
+                        continue
+
+                    # Get sync history
+                    sync_history = self.api_client.list_connector_sync_history(
+                        connector_response.id, syncs_interval
+                    )
+
+                    # Create connector object
+                    try:
+                        connector = self.api_client.extract_connector_metadata(
+                            api_connector, sync_history
+                        )
+                        connectors.append(connector)
+
+                        # Cache for later use
+                        self._connector_cache[connector_response.id] = connector
+
+                        # Report scanned connector
+                        report.report_connectors_scanned()
+
+                    except Exception as e:
+                        logger.error(
+                            f"Error extracting metadata for connector {connector_response.id}: {e}"
+                        )
+                        report.report_failure(
+                            f"Error extracting metadata for connector {connector_response.id}: {e}"
+                        )
 
                 except Exception as e:
-                    logger.error(
-                        f"Error extracting metadata for connector {connector_id}: {e}"
-                    )
-                    report.report_failure(
-                        f"Error extracting metadata for connector {connector_id}: {e}"
-                    )
+                    logger.error(f"Error processing connector response: {e}")
+                    continue
 
         if not connectors:
             logger.info("No allowed connectors found")
@@ -200,37 +220,28 @@ class FivetranStandardAPI(FivetranAccessInterface):
                 """Extract lineage for a single connector using memory-efficient approach."""
                 try:
                     # Extract lineage using memory-efficient generator approach
-                    # We collect into a list for compatibility with existing _get_connector_workunits flow
                     lineage = list(
                         self.api_client.extract_table_lineage_generator(
                             connector.connector_id
                         )
                     )
 
-                    # Log statistics
                     if lineage:
-                        total_column_mappings = sum(
-                            len(table.column_lineage)
-                            for table in lineage
-                            if table.column_lineage
-                        )
-                        logger.info(
-                            f"Extracted {len(lineage)} table lineage entries for connector {connector.connector_id}"
-                        )
-                        logger.info(
-                            f"Extracted {total_column_mappings} column mappings across {len(lineage)} tables"
-                        )
+                        self._log_lineage_statistics(lineage, connector.connector_id)
+                        connector.lineage = lineage
                     else:
-                        logger.warning(
-                            f"No lineage extracted for connector {connector.connector_id}"
-                        )
+                        self._create_synthetic_lineage_fallback(connector)
 
-                    connector.lineage = lineage
                     return connector, None
 
                 except Exception as e:
                     error_msg = f"Error extracting lineage for connector {connector.connector_id}: {e}"
                     logger.error(error_msg)
+
+                    # Try synthetic lineage as fallback for failed extractions
+                    if self._create_synthetic_lineage_fallback(connector):
+                        return connector, None
+
                     connector.lineage = []
                     return connector, error_msg
 
@@ -277,72 +288,206 @@ class FivetranStandardAPI(FivetranAccessInterface):
 
         return connectors
 
+    def _log_lineage_statistics(
+        self, lineage: List[TableLineage], connector_id: str
+    ) -> None:
+        """Log statistics about extracted lineage."""
+        total_column_mappings = sum(
+            len(table.column_lineage) for table in lineage if table.column_lineage
+        )
+        logger.info(
+            f"Extracted {len(lineage)} table lineage entries for connector {connector_id}"
+        )
+        logger.info(
+            f"Extracted {total_column_mappings} column mappings across {len(lineage)} tables"
+        )
+
+    def _create_synthetic_lineage_fallback(self, connector: Connector) -> bool:
+        """Create synthetic lineage as fallback when real lineage is unavailable."""
+        logger.info(
+            f"No real lineage extracted for connector {connector.connector_id}, creating synthetic lineage"
+        )
+        try:
+            schemas = self.api_client.list_connector_schemas(connector.connector_id)
+            destination_platform = (
+                self.api_client._get_destination_platform_for_connector(
+                    connector.connector_id
+                )
+            )
+            if schemas and destination_platform:
+                self._create_synthetic_lineage(connector, schemas, destination_platform)
+                if connector.lineage:
+                    logger.info(
+                        f"Successfully created {len(connector.lineage)} synthetic lineage entries for connector {connector.connector_id}"
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        f"Synthetic lineage creation returned no results for connector {connector.connector_id}"
+                    )
+            else:
+                logger.warning(
+                    f"Cannot create synthetic lineage for connector {connector.connector_id}: schemas={bool(schemas)}, platform={destination_platform}"
+                )
+        except Exception as synthetic_error:
+            logger.warning(
+                f"Synthetic lineage creation failed for connector {connector.connector_id}: {synthetic_error}"
+            )
+
+        connector.lineage = connector.lineage or []
+        return False
+
     def _create_synthetic_lineage(
         self, connector: Connector, schemas: List[dict], destination_platform: str
     ) -> None:
-        """Create synthetic lineage for a connector based just on schema and table information."""
+        """Create synthetic lineage for a connector using all available metadata."""
         lineage_list = []
 
-        for schema in schemas:
-            schema_name = schema.get("name", "")
-            if not schema_name:
-                continue
+        # Extract platform and environment information from connector properties
+        source_platform = None
+        source_env = None
+        source_database = None
+        destination_env = None
+        destination_database = None
 
-            for table in schema.get("tables", []):
-                if not isinstance(table, dict):
-                    continue
+        if (
+            hasattr(connector, "additional_properties")
+            and connector.additional_properties
+        ):
+            source_platform = connector.additional_properties.get("source.platform")
+            source_env = connector.additional_properties.get("source.env")
+            source_database = connector.additional_properties.get("source.database")
+            destination_env = connector.additional_properties.get("destination.env")
+            destination_database = connector.additional_properties.get(
+                "destination.database"
+            )
 
-                table_name = table.get("name", "")
-                if not table_name or not table.get("enabled", True):
-                    continue
-
-                # Create source table identifier
-                source_table = f"{schema_name}.{table_name}"
-
-                # Get destination names
-                dest_schema = self._get_destination_schema_name(
-                    schema_name, destination_platform
-                )
-                dest_table = self._get_destination_table_name(
-                    table_name, destination_platform
-                )
-                destination_table = f"{dest_schema}.{dest_table}"
-
-                # Create synthetic column lineage if we have column info
-                column_lineage = []
-                columns = table.get("columns", [])
-
-                if isinstance(columns, list):
-                    for column in columns:
-                        col_name = None
-                        if isinstance(column, dict):
-                            col_name = column.get("name")
-                        elif isinstance(column, str):
-                            col_name = column
-
-                        if col_name and not col_name.startswith("_fivetran"):
-                            is_bigquery = destination_platform.lower() == "bigquery"
-                            dest_col = self._transform_column_name_for_platform(
-                                col_name, is_bigquery
-                            )
-                            column_lineage.append(
-                                ColumnLineage(
-                                    source_column=col_name, destination_column=dest_col
-                                )
-                            )
-
-                # Add this table's lineage
-                lineage_list.append(
-                    TableLineage(
-                        source_table=source_table,
-                        destination_table=destination_table,
-                        column_lineage=column_lineage,
+            # If destination database is empty, try to get it from the API
+            if not destination_database and hasattr(self, "api_client"):
+                try:
+                    destination_database = self.api_client.get_destination_database(
+                        connector.destination_id
                     )
-                )
+                    if destination_database:
+                        logger.info(
+                            f"Retrieved destination database '{destination_database}' from API for connector {connector.connector_id}"
+                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Could not retrieve destination database from API: {e}"
+                    )
+
+        # Fallback to detecting source platform from connector type if not available
+        if not source_platform:
+            source_platform = self._detect_source_platform_from_connector_type(
+                connector.connector_type
+            )
+
+        logger.info(
+            f"Creating synthetic lineage with: source_platform={source_platform}, dest_platform={destination_platform}, source_env={source_env}, dest_env={destination_env}"
+        )
+
+        for schema_data in schemas:
+            try:
+                # Parse schema response
+                schema = FivetranSchema(**schema_data)
+                if not schema.name:
+                    continue
+
+                for table_name, table_data in (schema.tables or {}).items():
+                    try:
+                        # Parse table data
+                        if isinstance(table_data, dict):
+                            table = FivetranTable(**table_data)  # type: ignore[arg-type]
+                        else:
+                            table = table_data  # Already a FivetranTable instance
+
+                        if not table.name or not table.enabled:
+                            continue
+
+                        # Create source table identifier with proper schema handling
+                        source_table = f"{schema.name}.{table.name}"
+
+                        # Get destination names with proper case handling
+                        dest_schema = self._get_destination_schema_name(
+                            schema.name, destination_platform
+                        )
+                        dest_table = self._get_destination_table_name(
+                            table.name, destination_platform
+                        )
+                        destination_table = f"{dest_schema}.{dest_table}"
+
+                        # Create synthetic column lineage if we have column info
+                        column_lineage = []
+
+                        for col_name, col_data in (table.columns or {}).items():
+                            try:
+                                # Parse column data
+                                if isinstance(col_data, dict):
+                                    column = FivetranTableColumn(**col_data)  # type: ignore[arg-type]
+                                else:
+                                    column = col_data  # Already a FivetranTableColumn instance
+
+                                if column.name and not column.name.startswith(
+                                    "_fivetran"
+                                ):
+                                    is_bigquery = (
+                                        destination_platform.lower() == "bigquery"
+                                    )
+                                    dest_col = self._transform_column_name_for_platform(
+                                        column.name, is_bigquery
+                                    )
+                                    column_lineage.append(
+                                        ColumnLineage(
+                                            source_column=column.name,
+                                            destination_column=dest_col,
+                                        )
+                                    )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Error processing column {col_name}: {e}"
+                                )
+                                continue
+
+                        # Create comprehensive TableLineage with all available metadata
+                        lineage_entry = TableLineage(
+                            source_table=source_table,
+                            destination_table=destination_table,
+                            column_lineage=column_lineage,
+                            source_platform=str(source_platform)
+                            if source_platform is not None
+                            else None,
+                            destination_platform=destination_platform,
+                            source_env=str(source_env)
+                            if source_env is not None
+                            else None,
+                            destination_env=str(destination_env)
+                            if destination_env is not None
+                            else None,
+                            source_database=str(source_database)
+                            if source_database is not None
+                            else None,
+                            destination_database=str(destination_database)
+                            if destination_database is not None
+                            else None,
+                            connector_type_id=connector.connector_type,
+                            connector_name=connector.connector_name,
+                            destination_id=connector.destination_id,
+                        )
+
+                        lineage_list.append(lineage_entry)
+
+                    except Exception as e:
+                        logger.warning(f"Error processing table {table_name}: {e}")
+                        continue
+
+            except Exception as e:
+                logger.warning(f"Error processing schema: {e}")
+                continue
 
         if lineage_list:
             logger.info(
-                f"Created {len(lineage_list)} synthetic table lineage entries for connector {connector.connector_id}"
+                f"Created {len(lineage_list)} synthetic table lineage entries for connector {connector.connector_id} with enhanced metadata"
             )
             # Set the lineage directly on the connector instead of using _lineage_cache
             connector.lineage = lineage_list
@@ -1001,7 +1146,8 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """Detect source platform based on connector type and additional properties."""
         # First check if we have platform info in additional properties
         if "source_platform" in connector.additional_properties:
-            return connector.additional_properties["source_platform"]
+            platform = connector.additional_properties["source_platform"]
+            return str(platform) if platform is not None else None
 
         # Use the existing platform detection function
         detected_platform = get_platform_from_fivetran_service(connector.connector_type)
@@ -1022,7 +1168,8 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """Get source database name from connector metadata."""
         # Check additional properties first
         if "source_database" in connector.additional_properties:
-            return connector.additional_properties["source_database"]
+            database = connector.additional_properties["source_database"]
+            return str(database) if database is not None else None
 
         # Try to extract from connector name or other metadata
         # This could be enhanced based on specific connector patterns
@@ -1034,7 +1181,8 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """Get destination database name from connector metadata."""
         # Check additional properties first
         if "destination_database" in connector.additional_properties:
-            return connector.additional_properties["destination_database"]
+            database = connector.additional_properties["destination_database"]
+            return str(database) if database is not None else None
 
         # Try using the API client to get destination database
         try:
@@ -1703,6 +1851,26 @@ class FivetranStandardAPI(FivetranAccessInterface):
         # Default to snowflake if no platform information is available
         logger.info("No destination platform specified, defaulting to 'snowflake'")
         return "snowflake"
+
+    def _detect_source_platform_from_connector_type(
+        self, connector_type: str
+    ) -> Optional[str]:
+        """Detect source platform from Fivetran connector type."""
+        if not connector_type:
+            return None
+
+        # Map connector type to DataHub platform
+        platform = FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM.get(connector_type)
+        if platform:
+            logger.debug(
+                f"Detected source platform '{platform}' from connector type '{connector_type}'"
+            )
+            return platform
+
+        logger.debug(
+            f"Could not detect source platform from connector type '{connector_type}'"
+        )
+        return None
 
     def _get_destination_schema_name(
         self, schema_name: str, destination_platform: str

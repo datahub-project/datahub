@@ -82,7 +82,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Create the appropriate access implementation using the factory
         self.fivetran_access = create_fivetran_access(config)
 
-        # For backward compatibility with existing tests
+        # Alias for consistency with existing interface
         self.audit_log = self.fivetran_access
 
     def _get_source_details(self, connector: Connector) -> PlatformDetail:
@@ -123,8 +123,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         if destination_details.platform is None:
             # First check if there's a destination platform in additional properties
             if "destination_platform" in connector.additional_properties:
-                destination_details.platform = connector.additional_properties.get(
-                    "destination_platform"
+                platform = connector.additional_properties.get("destination_platform")
+                destination_details.platform = (
+                    str(platform) if platform is not None else None
                 )
             # Then try to get from fivetran_log_config
             elif (
@@ -154,8 +155,9 @@ class FivetranSource(StatefulIngestionSourceBase):
         if destination_details.database is None:
             # First check if there's a destination database in additional properties
             if "destination_database" in connector.additional_properties:
-                destination_details.database = connector.additional_properties.get(
-                    "destination_database"
+                database = connector.additional_properties.get("destination_database")
+                destination_details.database = (
+                    str(database) if database is not None else None
                 )
             # For BigQuery, use the dataset from the config
             elif (
@@ -1012,10 +1014,12 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Next check additional properties from API
         if "destination_platform" in connector.additional_properties:
             platform = connector.additional_properties["destination_platform"]
-            logger.info(
-                f"Using destination platform '{platform}' from connector properties for {connector.connector_id}"
-            )
-            return platform
+            if platform is not None:
+                platform_str = str(platform)
+                logger.info(
+                    f"Using destination platform '{platform_str}' from connector properties for {connector.connector_id}"
+                )
+                return platform_str
 
         # Use _get_destination_details which has its own logic for detecting platforms
         destination_details = self._get_destination_details(connector)
@@ -1169,6 +1173,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         source_platform = self._detect_source_platform(connector)
 
         # Get destination platform - with special handling for streaming sources
+        destination_platform: str
         if (
             connector.connector_type.lower() in ["confluent_cloud", "kafka", "pubsub"]
             and hasattr(self.config, "fivetran_log_config")
@@ -1180,20 +1185,15 @@ class FivetranSource(StatefulIngestionSourceBase):
                 f"Special handling for {connector.connector_type}: Using destination platform {destination_platform} from config"
             )
         else:
-            # Normal path for non-streaming sources
-            default_destination = (
-                "bigquery"
-                if (
-                    hasattr(self.config, "fivetran_log_config")
-                    and self.config.fivetran_log_config
-                    and self.config.fivetran_log_config.destination_platform
-                    == "bigquery"
-                )
-                else "snowflake"
-            )
-            destination_platform = connector.additional_properties.get(
-                "destination_platform", default_destination
-            )
+            # For API-based approach, we can support any destination platform
+            # Get from connector properties first, then fall back to detecting from destination
+            platform = connector.additional_properties.get("destination_platform")
+            if platform is not None:
+                destination_platform = str(platform)
+            else:
+                # Try to detect from the destination details
+                destination_details = self._get_destination_details(connector)
+                destination_platform = destination_details.platform or "unknown"
 
         # Create job description
         description = (

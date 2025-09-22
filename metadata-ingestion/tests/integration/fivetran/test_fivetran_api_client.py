@@ -274,6 +274,21 @@ class TestFivetranCoverageBoost:
             status=200,
         )
 
+        # Add mock for the destinations endpoint fallback
+        responses.add(
+            responses.GET,
+            "https://api.fivetran.com/v1/destinations/test_group",
+            json={
+                "code": "Success",
+                "data": {
+                    "id": "test_group",
+                    "service": "snowflake",
+                    "config": {"database": "ANALYTICS", "schema": "PUBLIC"},
+                },
+            },
+            status=200,
+        )
+
         database = api_client.get_destination_database("test_group")
         assert database == "ANALYTICS"
 
