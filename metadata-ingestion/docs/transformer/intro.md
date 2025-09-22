@@ -47,4 +47,4 @@ DataHub provided transformers for dataset are:
 - [Simple Add Dataset dataProduct ](./dataset_transformer.md#simple-add-dataset-dataproduct)
 - [Pattern Add Dataset dataProduct](./dataset_transformer.md#pattern-add-dataset-dataproduct)
 - [Add Dataset dataProduct](./dataset_transformer.md#add-dataset-dataproduct)
-- [Set browsePaths](./universal_transformers.md#se)
+- [Set browsePaths](./universal_transformers.md#set-browsepaths)
