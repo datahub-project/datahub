@@ -245,6 +245,16 @@ def test_set_browse_paths_against_existing(
             [],
             id="expansion_overwrite",
         ),
+        pytest.param(
+            {"path": ["  \t", "abcd"], "replace_existing": True},
+            ["abcd"],
+            id="white_spaces_reduction",
+        ),
+        pytest.param(
+            {"path": ["", "abcd"], "replace_existing": True},
+            ["abcd"],
+            id="empty_node_reduction",
+        ),
     ],
 )
 def test_set_browse_paths_against_non_existing(config: Dict, output: List[str]) -> None:
