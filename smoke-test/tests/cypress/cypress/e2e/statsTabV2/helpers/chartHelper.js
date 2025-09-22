@@ -13,7 +13,7 @@ export class ChartHelper extends BaseChartHelper {
 
   timeRangeSelectTestId = "timerange-select";
 
-  ensureTineRangeSelectHasSelectedValue(value) {
+  ensureTimeRangeSelectHasSelectedValue(value) {
     this.getChartCard()
       .scrollIntoView()
       .within(() => {
@@ -32,7 +32,7 @@ export class ChartHelper extends BaseChartHelper {
 
   ensureTimeRangeSelectExists() {
     this.getChartCard().within(() => {
-      ChartHelper.getTimeRangeSelect().should("exist");
+      this.getTimeRangeSelect().should("exist");
     });
   }
 
@@ -40,13 +40,13 @@ export class ChartHelper extends BaseChartHelper {
     this.getChartCard()
       .scrollIntoView()
       .within(() => {
-        ChartHelper.getTimeRangeSelect().should("not.exist");
+        this.getTimeRangeSelect().should("not.exist");
       });
   }
 
   toggleTimeRangeSelect() {
     this.getChartCard().within(() => {
-      ChartHelper.getTimeRangeSelect().click();
+      this.getTimeRangeSelect().click();
     });
   }
 
