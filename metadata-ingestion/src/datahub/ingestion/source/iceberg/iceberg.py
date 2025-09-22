@@ -889,26 +889,3 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             "type": "bytes",
             "native_data_type": str(binary_type),
         }
-
-    # Added in pyiceberg 0.10.0: https://github.com/apache/iceberg-python/pull/1632
-    def visit_timestamp_ns(self, timestamp_type: Any) -> Dict[str, Any]:
-        return {
-            "type": "long",
-            "logicalType": "timestamp-nanos",
-            "native_data_type": str(timestamp_type),
-        }
-
-    # Added in pyiceberg 0.10.0: https://github.com/apache/iceberg-python/pull/1632
-    def visit_timestamptz_ns(self, timestamptz_type: Any) -> Dict[str, Any]:
-        return {
-            "type": "long",
-            "logicalType": "timestamp-nanos",
-            "native_data_type": str(timestamptz_type),
-        }
-
-    # Added in pyiceberg 0.10.0: https://github.com/apache/iceberg-python/pull/1681
-    def visit_unknown(self, unknown_type: Any) -> Dict[str, Any]:
-        return {
-            "type": "string",
-            "native_data_type": str(unknown_type),
-        }

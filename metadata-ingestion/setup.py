@@ -281,10 +281,15 @@ microsoft_common = {
 }
 
 iceberg_common = {
-    # The v0.4.0 release of pyiceberg requires pydantic>2. When we upgraded,
-    # we defensively added a lower bound of v0.8.0 but there's no strong reason
-    # that it needs to be that specific version (can be lowered or raised).
-    "pyiceberg>=0.8.0",
+    # PyIceberg dependency restrictions history:
+    # - From v0.4.0, pydantic v2 is required.
+    # - From v0.8.0, there have been changes to the catalog connection configuration details -
+    # especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`,
+    # `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version
+    # 0.8.0.
+    # - From v0.10.0, new signatures: `visit_timestamp_ns`, `visit_timestampz_ns` and `visit_unknown`
+    # need to be implemented (still to be done).
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.8.0,<0.10.0",
     *cachetools_lib,
 }
 
