@@ -33,12 +33,12 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
   private static final long REQUEST_TIMEOUT_MS = 30000;
 
   @SuppressWarnings("unused")
-  private final OperationContext _opContext;
+  private final OperationContext opContext;
 
-  private final DebeziumConfiguration _debeziumConfig;
-  private final EbeanConfiguration _ebeanConfig;
-  private final KafkaConfiguration _kafkaConfig;
-  private final KafkaProperties _kafkaProperties;
+  private final DebeziumConfiguration debeziumConfig;
+  private final EbeanConfiguration ebeanConfig;
+  private final KafkaConfiguration kafkaConfig;
+  private final KafkaProperties kafkaProperties;
 
   public ConfigureDebeziumConnectorStep(
       OperationContext opContext,
@@ -46,11 +46,11 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
       EbeanConfiguration ebeanConfig,
       KafkaConfiguration kafkaConfig,
       KafkaProperties kafkaProperties) {
-    this._opContext = opContext;
-    this._debeziumConfig = debeziumConfig;
-    this._ebeanConfig = ebeanConfig;
-    this._kafkaConfig = kafkaConfig;
-    this._kafkaProperties = kafkaProperties;
+    this.opContext = opContext;
+    this.debeziumConfig = debeziumConfig;
+    this.ebeanConfig = ebeanConfig;
+    this.kafkaConfig = kafkaConfig;
+    this.kafkaProperties = kafkaProperties;
   }
 
   @Override
@@ -64,7 +64,7 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
       log.info("Configuring Debezium connector for CDC processing...");
 
       try {
-        String connectUrl = _debeziumConfig.getUrl();
+        String connectUrl = debeziumConfig.getUrl();
         if (connectUrl == null || connectUrl.isEmpty()) {
           log.error(
               "Kafka Connect URL not configured in CDC configuration - cannot configure connector");
@@ -78,7 +78,7 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
         }
         HttpClient httpClient = createHttpClient();
 
-        String connectorName = _debeziumConfig.getName();
+        String connectorName = debeziumConfig.getName();
         if (connectorExists(httpClient, connectUrl, connectorName)) {
           return updateConnector(httpClient, connectUrl, connectorName, connectorConfig);
         } else {
@@ -102,8 +102,8 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
     injectDatabaseConnection(config);
     injectKafkaConnection(config);
 
-    if (_debeziumConfig.getConfig() != null) {
-      config.putAll(_debeziumConfig.getConfig());
+    if (debeziumConfig.getConfig() != null) {
+      config.putAll(debeziumConfig.getConfig());
     }
 
     try {
@@ -140,9 +140,9 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
             log.warn("Invalid port number in EBEAN_DATASOURCE_HOST: {}", hostPortParts[1]);
           }
         } else {
-          if (_ebeanConfig.getUrl() != null && _ebeanConfig.getUrl().contains("postgresql")) {
+          if (ebeanConfig.getUrl() != null && ebeanConfig.getUrl().contains("postgresql")) {
             config.put("database.port", "5432");
-          } else if (_ebeanConfig.getUrl() != null && _ebeanConfig.getUrl().contains("mysql")) {
+          } else if (ebeanConfig.getUrl() != null && ebeanConfig.getUrl().contains("mysql")) {
             config.put("database.port", "3306");
           }
         }
@@ -162,21 +162,19 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
 
       if (cdcUser != null && !cdcUser.trim().isEmpty()) {
         config.put("database.user", cdcUser);
-      } else if (_ebeanConfig.getUsername() != null
-          && !_ebeanConfig.getUsername().trim().isEmpty()) {
+      } else if (ebeanConfig.getUsername() != null && !ebeanConfig.getUsername().trim().isEmpty()) {
         log.warn(
             "CDC_USER not set, falling back to regular database user - this may lack CDC privileges");
-        config.put("database.user", _ebeanConfig.getUsername());
+        config.put("database.user", ebeanConfig.getUsername());
       } else {
         log.warn("Neither CDC_USER nor database username configured - authentication may fail");
       }
 
       if (cdcPassword != null && !cdcPassword.trim().isEmpty()) {
         config.put("database.password", cdcPassword);
-      } else if (_ebeanConfig.getPassword() != null
-          && !_ebeanConfig.getPassword().trim().isEmpty()) {
+      } else if (ebeanConfig.getPassword() != null && !ebeanConfig.getPassword().trim().isEmpty()) {
         log.warn("CDC_PASSWORD not set, falling back to regular database password - this may fail");
-        config.put("database.password", _ebeanConfig.getPassword());
+        config.put("database.password", ebeanConfig.getPassword());
       } else {
         log.warn("Neither CDC_PASSWORD nor database password configured - authentication may fail");
       }
@@ -190,10 +188,10 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
 
   /** Configures Kafka connection, prioritizing kafkaConfiguration over kafkaProperties. */
   private void injectKafkaConnection(Map<String, Object> config) {
-    String bootstrapServers = _kafkaConfig.getBootstrapServers();
+    String bootstrapServers = kafkaConfig.getBootstrapServers();
 
     if (bootstrapServers == null || bootstrapServers.trim().isEmpty()) {
-      var serversList = _kafkaProperties.getBootstrapServers();
+      var serversList = kafkaProperties.getBootstrapServers();
       if (serversList != null && !serversList.isEmpty()) {
         bootstrapServers = String.join(",", serversList);
       }
@@ -231,7 +229,7 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
     config.put("converter.apicurio.registry.headers.enabled", "false");
 
     // Configure schema registry URL if available
-    String schemaRegistryUrl = _kafkaConfig.getSchemaRegistry().getUrl();
+    String schemaRegistryUrl = kafkaConfig.getSchemaRegistry().getUrl();
     if (schemaRegistryUrl != null && !schemaRegistryUrl.trim().isEmpty()) {
       // Only value converter needs schema registry (key is String)
       config.put("value.converter.schema.registry.url", schemaRegistryUrl);

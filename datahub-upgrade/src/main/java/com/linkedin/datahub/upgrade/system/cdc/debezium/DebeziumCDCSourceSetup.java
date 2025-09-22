@@ -22,8 +22,8 @@ public class DebeziumCDCSourceSetup extends CDCSourceSetup {
   /** The CDC type identifier for Debezium implementations. */
   public static final String DEBEZIUM_TYPE = "debezium";
 
-  private final DebeziumConfiguration _debeziumConfig;
-  private final List<UpgradeStep> _steps;
+  private final DebeziumConfiguration debeziumConfig;
+  private final List<UpgradeStep> steps;
 
   public DebeziumCDCSourceSetup(
       OperationContext opContext,
@@ -33,33 +33,33 @@ public class DebeziumCDCSourceSetup extends CDCSourceSetup {
       KafkaProperties kafkaProperties) {
     super(opContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
-    this._debeziumConfig = (DebeziumConfiguration) cdcSourceConfig.getCdcImplConfig();
+    this.debeziumConfig = (DebeziumConfiguration) cdcSourceConfig.getCdcImplConfig();
 
-    if (_debeziumConfig == null) {
+    if (debeziumConfig == null) {
       throw new IllegalArgumentException("Debezium configuration is required");
     }
 
-    _steps =
+    steps =
         ImmutableList.of(
-            new WaitForDebeziumReadyStep(opContext, _debeziumConfig, kafkaConfig, kafkaProperties),
+            new WaitForDebeziumReadyStep(opContext, debeziumConfig, kafkaConfig, kafkaProperties),
             new ConfigureDebeziumConnectorStep(
-                opContext, _debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties));
+                opContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties));
 
     log.info(
         "Created DebeziumCDCSetup with {} steps for connector '{}'",
-        _steps.size(),
-        _debeziumConfig.getName());
+        steps.size(),
+        debeziumConfig.getName());
   }
 
   @Override
   public String id() {
     return "DebeziumCDCSetup-"
-        + (_debeziumConfig.getName() != null ? _debeziumConfig.getName() : "default");
+        + (debeziumConfig.getName() != null ? debeziumConfig.getName() : "default");
   }
 
   @Override
   protected List<UpgradeStep> createSteps() {
-    return _steps;
+    return steps;
   }
 
   @Override
@@ -70,8 +70,8 @@ public class DebeziumCDCSourceSetup extends CDCSourceSetup {
 
     // Verify required Debezium connector.class property is present
     Object connectorClass =
-        _debeziumConfig.getConfig() != null
-            ? _debeziumConfig.getConfig().get("connector.class")
+        debeziumConfig.getConfig() != null
+            ? debeziumConfig.getConfig().get("connector.class")
             : null;
     if (connectorClass == null) {
       log.warn("Debezium configuration missing required 'connector.class' property");

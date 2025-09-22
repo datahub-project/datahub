@@ -21,14 +21,14 @@ public abstract class CDCSourceSetup implements BlockingSystemUpgrade {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  protected final OperationContext _opContext;
-  protected final CDCSourceConfiguration _cdcSourceConfig;
+  protected final OperationContext opContext;
+  protected final CDCSourceConfiguration cdcSourceConfig;
 
   // TODO: EbeanConfiguration is not available if using cassandra - need alternative for
   // non-relational stores
-  protected final EbeanConfiguration _ebeanConfig;
-  protected final KafkaConfiguration _kafkaConfig;
-  protected final KafkaProperties _kafkaProperties;
+  protected final EbeanConfiguration ebeanConfig;
+  protected final KafkaConfiguration kafkaConfig;
+  protected final KafkaProperties kafkaProperties;
 
   protected CDCSourceSetup(
       OperationContext opContext,
@@ -36,11 +36,11 @@ public abstract class CDCSourceSetup implements BlockingSystemUpgrade {
       EbeanConfiguration ebeanConfig,
       KafkaConfiguration kafkaConfig,
       KafkaProperties kafkaProperties) {
-    this._opContext = opContext;
-    this._cdcSourceConfig = cdcSourceConfig;
-    this._ebeanConfig = ebeanConfig;
-    this._kafkaConfig = kafkaConfig;
-    this._kafkaProperties = kafkaProperties;
+    this.opContext = opContext;
+    this.cdcSourceConfig = cdcSourceConfig;
+    this.ebeanConfig = ebeanConfig;
+    this.kafkaConfig = kafkaConfig;
+    this.kafkaProperties = kafkaProperties;
 
     // Log configuration for debugging CDC setup issues
     try {
@@ -76,30 +76,30 @@ public abstract class CDCSourceSetup implements BlockingSystemUpgrade {
    * this for type-specific validation.
    */
   public boolean canRun() {
-    if (_cdcSourceConfig == null) {
+    if (cdcSourceConfig == null) {
       log.warn("CDC source configuration is null");
       return false;
     }
 
-    if (!_cdcSourceConfig.isEnabled()) {
+    if (!cdcSourceConfig.isEnabled()) {
       log.info("CDC processing is disabled");
       return false;
     }
 
-    if (!_cdcSourceConfig.isConfigureSource()) {
+    if (!cdcSourceConfig.isConfigureSource()) {
       log.info("CDC source configuration is disabled");
       return false;
     }
-    String cdcType = _cdcSourceConfig.getType();
+    String cdcType = cdcSourceConfig.getType();
     if (cdcType == null || cdcType.trim().isEmpty()) {
       log.warn("CDC type not specified");
       return false;
     }
-    if (_cdcSourceConfig.getCdcImplConfig() == null) {
+    if (cdcSourceConfig.getCdcImplConfig() == null) {
       log.warn("CDC implementation configuration is null");
       return false;
     }
-    if (_ebeanConfig == null) {
+    if (ebeanConfig == null) {
       log.warn("Ebean configuration is null");
       return false;
     }
@@ -109,6 +109,6 @@ public abstract class CDCSourceSetup implements BlockingSystemUpgrade {
 
   /** Gets the CDC type for this setup (e.g., "debezium", "maxwell"). */
   public String getCdcType() {
-    return _cdcSourceConfig != null ? _cdcSourceConfig.getType() : null;
+    return cdcSourceConfig != null ? cdcSourceConfig.getType() : null;
   }
 }

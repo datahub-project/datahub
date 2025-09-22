@@ -30,27 +30,27 @@ public class WaitForDebeziumReadyStep implements UpgradeStep {
   private static final long REQUEST_TIMEOUT_MS = 10000; // 10 seconds
 
   @SuppressWarnings("unused")
-  private final OperationContext _opContext; // Reserved for future audit logging
+  private final OperationContext opContext; // Reserved for future audit logging
 
-  private final DebeziumConfiguration _debeziumConfig;
+  private final DebeziumConfiguration debeziumConfig;
 
   @SuppressWarnings("unused")
   private final KafkaConfiguration
-      _kafkaConfiguration; // May be used for advanced Kafka connectivity checks
+      kafkaConfiguration; // May be used for advanced Kafka connectivity checks
 
   @SuppressWarnings("unused")
   private final KafkaProperties
-      _kafkaProperties; // May be used for advanced Kafka connectivity checks
+      kafkaProperties; // May be used for advanced Kafka connectivity checks
 
   public WaitForDebeziumReadyStep(
       OperationContext opContext,
       DebeziumConfiguration debeziumConfig,
       KafkaConfiguration kafkaConfiguration,
       KafkaProperties kafkaProperties) {
-    this._opContext = opContext;
-    this._debeziumConfig = debeziumConfig;
-    this._kafkaConfiguration = kafkaConfiguration;
-    this._kafkaProperties = kafkaProperties;
+    this.opContext = opContext;
+    this.debeziumConfig = debeziumConfig;
+    this.kafkaConfiguration = kafkaConfiguration;
+    this.kafkaProperties = kafkaProperties;
   }
 
   @Override
@@ -127,7 +127,7 @@ public class WaitForDebeziumReadyStep implements UpgradeStep {
 
   /** Retrieves Kafka Connect REST endpoint from configuration. */
   private String getKafkaConnectUrl() {
-    return _debeziumConfig.getUrl();
+    return debeziumConfig.getUrl();
   }
 
   @Override
