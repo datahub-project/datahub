@@ -288,7 +288,8 @@ export function removeProperty(propertyType) {
   cy.getWithTestId(`property-${propertyType}`).within(() => {
     cy.clickOptionWithTestId("property-title");
   });
-  cy.clickOptionWithTestId("menu-item-remove");
+  cy.getWithTestId("menu-item-remove").should("be.visible");
+  cy.getWithTestId("menu-item-remove").filter(":visible").click();
   // wait for closing of the menu
   cy.wait(300);
 }
@@ -317,6 +318,7 @@ export function replaceProperty(propertyTypeToReplace, targetPropertyType) {
   });
 
   cy.getWithTestId("menu-item-replace").filter(":visible").trigger("mouseover");
+  cy.getWithTestId(`menu-item-${targetPropertyType}`).should("be.visible");
   cy.getWithTestId(`menu-item-${targetPropertyType}`)
     .filter(":visible")
     .trigger("mouseover")
@@ -391,7 +393,9 @@ export function ensureStructuredPropertyExists(structuredPropertyName, value) {
 
 export function deleteStructuredProperty(structuredPropertyName) {
   cy.visit("/structured-properties");
-  cy.getWithTestId("search-bar-input").type(structuredPropertyName);
+  cy.getWithTestId("search-bar-input")
+    .scrollIntoView()
+    .type(structuredPropertyName);
   cy.getWithTestId("structured-props-table").within(() => {
     cy.get('[data-testid^="urn:li:structuredProperty"]')
       .contains(structuredPropertyName)
