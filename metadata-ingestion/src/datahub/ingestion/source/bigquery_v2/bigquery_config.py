@@ -436,7 +436,7 @@ class BigQueryV2Config(
 
     upstream_lineage_in_report: bool = Field(
         default=False,
-        description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
+        description="Useful for debugging lineage information. Set to True to see the raw lineage created internally. Only works with legacy approach (`use_queries_v2: False`).",
     )
 
     run_optimized_column_query: bool = Field(
@@ -511,6 +511,16 @@ class BigQueryV2Config(
         if values.get("use_exported_bigquery_audit_metadata"):
             assert v and len(v) > 0, (
                 "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+            )
+
+        return v
+
+    @validator("upstream_lineage_in_report")
+    def validate_upstream_lineage_in_report(cls, v: bool, values: Dict) -> bool:
+        if v and values.get("use_queries_v2", True):
+            logging.warning(
+                "`upstream_lineage_in_report` is enabled but will be ignored because `use_queries_v2` is enabled."
+                "This debugging feature only works with the legacy lineage approach (`use_queries_v2: false`)."
             )
 
         return v
