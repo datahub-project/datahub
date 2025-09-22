@@ -1074,13 +1074,13 @@ def create_view_upstream(
     view_to_explore_map: Optional[Dict[str, str]] = None,
 ) -> AbstractViewUpstream:
     # Looker client is required for LookerQueryAPIBasedViewUpstream also enforced by config.use_api_for_view_lineage
-    # Only use API if emit_reachable_views_only is enabled
     # view_to_explore_map is required for Looker query API args
+    # Only process if view exists in view_to_explore_map, because we cannot query views which are not reachable from an explore
     if (
         config.use_api_for_view_lineage
         and looker_client
-        and config.emit_reachable_views_only
         and view_to_explore_map
+        and view_context.name() in view_to_explore_map
     ):
         try:
             return LookerQueryAPIBasedViewUpstream(
@@ -1098,6 +1098,14 @@ def create_view_upstream(
                 title="Failed to create upstream lineage for view using Looker Query API, falling back to other implementations",
                 message=f"Failed to create upstream lineage for view: {view_context.name()} using Looker Query API: {e}",
             )
+    else:
+        logger.debug(
+            f"Skipping Looker Query API for view: {view_context.name()} because one or more conditions are not met: "
+            f"use_api_for_view_lineage={config.use_api_for_view_lineage}, "
+            f"looker_client={'set' if looker_client else 'not set'}, "
+            f"view_to_explore_map={'set' if view_to_explore_map else 'not set'}, "
+            f"view_in_view_to_explore_map={view_context.name() in view_to_explore_map if view_to_explore_map else False}"
+        )
 
     if view_context.is_regular_case():
         return RegularViewUpstream(
