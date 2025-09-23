@@ -35,7 +35,7 @@ class SetBrowsePathTransformer(BaseTransformer, SingleAspectTransformer):
         return "browsePathsV2"
 
     def entity_types(self) -> List[str]:
-        # this is an arbitrary list, might be expanded if it makes sense
+        # This is an arbitrary list, might be adjusted if it makes sense. It might be reasonable to make it configurable
         return ["dataset", "dataJob", "dataFlow", "chart", "dashboard", "container"]
 
     @classmethod

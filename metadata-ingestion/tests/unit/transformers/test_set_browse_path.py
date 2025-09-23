@@ -191,6 +191,20 @@ def records_to_aspects_map(
             ],
             id="set_empty_path_noop",
         ),
+        pytest.param(
+            {
+                "path": ["$container[*]", "$dataFlow[*]", "my_suffix"],
+                "replace_existing": True,
+            },
+            [
+                "urn:li:dataFlow:(airflow,MyFlow,prod)",
+            ],
+            [
+                "urn:li:dataFlow:(airflow,MyFlow,prod)",
+                "my_suffix",
+            ],
+            id="airflow_case",
+        ),
     ],
 )
 def test_set_browse_paths_against_existing(
