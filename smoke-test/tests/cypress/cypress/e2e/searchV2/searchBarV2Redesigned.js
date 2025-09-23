@@ -152,7 +152,6 @@ describe("searchBarV2", () => {
     helper.searchBarV2.ensureTextInSearchBar(SAMPLE_ENTITY_NAME);
     helper.searchBarV2.ensureOpened();
     helper.searchBarV2.filters.apply("platform", ["Kafka"]);
-    helper.searchBarV2.focus();
 
     // The first Esc just closes the search bars dropdown
     helper.searchBarV2.pressEscape();
@@ -165,6 +164,7 @@ describe("searchBarV2", () => {
     helper.searchBarV2.ensureClosed();
 
     // check if platform filter is empty
+    helper.searchBarV2.openByShortcut();
     helper.searchBarV2.type(SAMPLE_ENTITY_NAME);
     helper.searchBarV2.filters.ensureValuesNotSelected("platform", ["Kafka"]);
   });
