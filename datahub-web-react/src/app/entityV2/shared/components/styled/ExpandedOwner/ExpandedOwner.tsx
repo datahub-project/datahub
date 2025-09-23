@@ -7,7 +7,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
-import ActorPill from '@app/sharedV2/owners/ActorPill';
+import OwnerPill from '@app/sharedV2/owners/components/OwnerPill';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
@@ -20,9 +20,10 @@ type Props = {
     owner: Owner;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
+    hidePopOver?: boolean;
 };
 
-export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly, hidePopOver }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
@@ -96,10 +97,11 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
     return (
         <>
             <OwnerWrapper>
-                <ActorPill
-                    actor={owner.owner}
-                    onClose={!readOnly ? onClose : undefined}
+                <OwnerPill
+                    owner={owner.owner}
+                    onRemove={!readOnly ? onClose : undefined}
                     hideLink={readOnly}
+                    hidePopOver={hidePopOver}
                     propagationDetails={propagationDetails}
                 />
             </OwnerWrapper>

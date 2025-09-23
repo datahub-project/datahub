@@ -1,4 +1,5 @@
 import {
+    convertOwnerToPendingOwner,
     getOwnershipTypeDescriptionFromOwner,
     getOwnershipTypeNameFromOwner,
     isCorpUserOrCorpGroup,
@@ -161,5 +162,54 @@ describe('getOwnershipTypeDescriptionFromOwner', () => {
         const owner: Partial<Owner> = {};
 
         expect(getOwnershipTypeDescriptionFromOwner(owner)).toBeUndefined();
+    });
+});
+
+describe('convertOwnerToPendingOwner', () => {
+    it('should convert a CorpUser owner to a PendingOwner', () => {
+        const owner = {
+            urn: 'urn:li:corpuser:testuser',
+            type: EntityType.CorpUser,
+        };
+        const ownershipTypeUrn = 'urn:li:ownershipType:__system__Developer';
+
+        const pendingOwner = convertOwnerToPendingOwner(owner, ownershipTypeUrn);
+
+        expect(pendingOwner).toEqual({
+            ownerUrn: 'urn:li:corpuser:testuser',
+            ownerEntityType: OwnerEntityType.CorpUser,
+            ownershipTypeUrn: 'urn:li:ownershipType:__system__Developer',
+        });
+    });
+
+    it('should convert a CorpGroup owner to a PendingOwner', () => {
+        const owner = {
+            urn: 'urn:li:corpGroup:testgroup',
+            type: EntityType.CorpGroup,
+        };
+        const ownershipTypeUrn = 'urn:li:ownershipType:__system__DATA_STEWARD';
+
+        const pendingOwner = convertOwnerToPendingOwner(owner, ownershipTypeUrn);
+
+        expect(pendingOwner).toEqual({
+            ownerUrn: 'urn:li:corpGroup:testgroup',
+            ownerEntityType: OwnerEntityType.CorpGroup,
+            ownershipTypeUrn: 'urn:li:ownershipType:__system__DATA_STEWARD',
+        });
+    });
+
+    it('should handle undefined ownershipTypeUrn', () => {
+        const owner = {
+            urn: 'urn:li:corpuser:testuser',
+            type: EntityType.CorpUser,
+        };
+
+        const pendingOwner = convertOwnerToPendingOwner(owner, undefined);
+
+        expect(pendingOwner).toEqual({
+            ownerUrn: 'urn:li:corpuser:testuser',
+            ownerEntityType: OwnerEntityType.CorpUser,
+            ownershipTypeUrn: undefined,
+        });
     });
 });

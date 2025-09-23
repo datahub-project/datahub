@@ -1,33 +1,45 @@
 import { Avatar, Icon } from '@components';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
 import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { PartialExtendedOwner } from '@app/sharedV2/owners/types';
+import { LinkWrapper } from '@app/sharedV2/owners/components/LinkWrapper';
+import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { OwnerType } from '@types';
 
 const AvatarWrapper = styled.div``;
 
 interface Props {
-    owner: PartialExtendedOwner;
-    onRemove?: () => void;
+    owner: OwnerType | undefined;
+    onRemove?: (e: React.MouseEvent<HTMLElement>) => void;
     readonly?: boolean;
+    isProposed?: boolean;
+    hideLink?: boolean;
+    hidePopOver?: boolean;
+    propagationDetails?: AttributionDetails;
 }
 
-export default function OwnerPill({ owner, onRemove, readonly }: Props) {
+export default function OwnerPill({
+    owner,
+    onRemove,
+    readonly,
+    isProposed,
+    hideLink,
+    hidePopOver,
+    propagationDetails,
+}: Props) {
     const entityRegistry = useEntityRegistryV2();
 
-    const avatarPhotoUrl = owner?.owner?.editableProperties?.pictureLink;
-    const userName = entityRegistry.getDisplayName(owner.owner.type, owner.owner);
-
-    const removable = !readonly;
+    const removable = useMemo(() => !readonly && !!onRemove && !isProposed, [readonly, onRemove, isProposed]);
 
     const onRemoveClick = useCallback(
         (e: React.MouseEvent<HTMLElement>) => {
             e.stopPropagation();
-            onRemove?.();
+            onRemove?.(e);
         },
         [onRemove],
     );
@@ -49,19 +61,31 @@ export default function OwnerPill({ owner, onRemove, readonly }: Props) {
         );
     }, [removable, onRemoveClick]);
 
-    const avatarType = mapEntityTypeToAvatarType(owner.owner.type);
+    if (!owner) return null;
+
+    const avatarPhotoUrl = owner.editableProperties?.pictureLink;
+    const avatarType = mapEntityTypeToAvatarType(owner.type);
+    const userName = entityRegistry.getDisplayName(owner.type, owner);
 
     return (
-        <HoverEntityTooltip entity={owner.owner} showArrow={false}>
+        <HoverEntityTooltip
+            entity={owner}
+            showArrow={false}
+            canOpen={!hidePopOver}
+            previewContext={{ propagationDetails }}
+        >
             <AvatarWrapper>
-                <Avatar
-                    name={userName}
-                    size="xs"
-                    imageUrl={avatarPhotoUrl}
-                    showInPill
-                    extraRightContent={renderButtons()}
-                    type={avatarType}
-                />
+                <LinkWrapper url={entityRegistry.getEntityUrl(owner.type, owner.urn)} hide={hideLink}>
+                    <Avatar
+                        name={userName}
+                        size="xs"
+                        imageUrl={avatarPhotoUrl}
+                        showInPill
+                        extraRightContent={renderButtons()}
+                        type={avatarType}
+                        pillBorderType={isProposed ? 'dashed' : 'default'}
+                    />
+                </LinkWrapper>
             </AvatarWrapper>
         </HoverEntityTooltip>
     );

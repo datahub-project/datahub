@@ -16,7 +16,7 @@ import {
     PropName,
 } from '@app/govern/structuredProperties/styledComponents';
 import { getDisplayName } from '@app/govern/structuredProperties/utils';
-import ActorPill from '@app/sharedV2/owners/ActorPill';
+import OwnerPill from '@app/sharedV2/owners/components/OwnerPill';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -225,7 +225,7 @@ const StructuredPropsTable = ({
             render: (record) => {
                 const createdByUser = record.entity.definition?.created?.actor;
 
-                return <>{createdByUser && <ActorPill actor={createdByUser} />}</>;
+                return <>{createdByUser && <OwnerPill owner={createdByUser} />}</>;
             },
             sorter: (sourceA, sourceB) => {
                 const createdByUserA = sourceA.entity.definition?.created?.actor;

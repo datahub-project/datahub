@@ -1,19 +1,22 @@
 import { ColorPicker, Input, Modal } from '@components';
 import { message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
-import OwnersSection from '@app/sharedV2/owners/OwnersSection';
+import OwnersSection from '@app/sharedV2/owners/OwnersSectionV2';
+import useOwnershipTypes from '@app/sharedV2/owners/hooks/useOwnershipTypes';
+import { convertOwnerToPendingOwner } from '@app/sharedV2/owners/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import {
     useBatchAddOwnersMutation,
+    useBatchRemoveOwnersMutation,
     useSetTagColorMutation,
     useUpdateDescriptionMutation,
 } from '@src/graphql/mutations.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
-import { EntityType, OwnerEntityType } from '@src/types.generated';
+import { EntityType, OwnerEntityType, OwnerType } from '@src/types.generated';
 
 const FormSection = styled.div`
     margin-bottom: 16px;
@@ -30,7 +33,7 @@ interface Props {
 interface PendingOwner {
     ownerUrn: string;
     ownerEntityType: OwnerEntityType;
-    ownershipTypeUrn: string;
+    ownershipTypeUrn?: string;
 }
 
 const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
@@ -43,6 +46,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     const [setTagColorMutation] = useSetTagColorMutation();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
 
     // State to track values
     const [colorValue, setColorValue] = useState('#1890ff');
@@ -60,9 +64,20 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
 
-    const onChangeOwners = (newOwners: PendingOwner[]) => {
-        setPendingOwners(newOwners);
+    const { defaultOwnershipType } = useOwnershipTypes();
+
+    const onChangeOwners = (newOwners: OwnerType[]) => {
+        setPendingOwners(newOwners.map((owner) => convertOwnerToPendingOwner(owner, defaultOwnershipType)));
     };
+
+    const hasOwnerFieldChanges = useCallback(() => {
+        if (pendingOwners.length !== owners.length) return true;
+
+        const pendingOwnersSet = new Set(pendingOwners.map((owner) => owner.ownerUrn));
+        const existingOwnersSet = new Set(owners.map((owner) => owner.owner.urn));
+
+        return pendingOwnersSet.symmetricDifference(existingOwnersSet).size > 0;
+    }, [pendingOwners, owners]);
 
     // When data loads, set the initial values
     useEffect(() => {
@@ -83,8 +98,17 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             // Set owners
             const tagOwners = data.tag.ownership?.owners || [];
             setOwners(tagOwners);
+            setPendingOwners(
+                tagOwners.map((tagOwner) =>
+                    convertOwnerToPendingOwner(
+                        { urn: tagOwner.owner.urn, type: tagOwner.owner.type },
+                        defaultOwnershipType,
+                    ),
+                ),
+            );
+            setSelectedOwnerUrns(tagOwners.map((owner) => owner.owner.urn));
         }
-    }, [data, entityRegistry]);
+    }, [data, entityRegistry, defaultOwnershipType]);
 
     // Handler functions
     const handleColorChange = (color: string) => {
@@ -101,14 +125,18 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
 
     // Check if anything has changed
     const hasChanges = () => {
-        return colorValue !== originalColor || description !== originalDescription || pendingOwners.length > 0;
+        return colorValue !== originalColor || description !== originalDescription || hasOwnerFieldChanges();
     };
 
     const handleReset = () => {
         setColorValue(originalColor);
         setDescription(originalDescription);
-        setPendingOwners([]);
-        setSelectedOwnerUrns([]);
+        setPendingOwners(
+            owners.map((owner) =>
+                convertOwnerToPendingOwner({ urn: owner.owner.urn, type: owner.owner.type }, defaultOwnershipType),
+            ),
+        );
+        setSelectedOwnerUrns(owners.map((owner) => owner.owner.urn));
     };
 
     // Save everything together
@@ -162,25 +190,41 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             }
 
             // Add pending owners if any
-            if (pendingOwners.length > 0) {
-                try {
+            const existingOwnersUrns = owners.map((owner) => owner.owner.urn);
+            const ownersToAdd = pendingOwners.filter((owner) => !existingOwnersUrns.includes(owner.ownerUrn));
+
+            const pendingOwnersUrns = pendingOwners.map((owner) => owner.ownerUrn);
+            const ownersUrnsToRemove = existingOwnersUrns.filter(
+                (existingOwnerUrn) => !pendingOwnersUrns.includes(existingOwnerUrn),
+            );
+
+            try {
+                if (ownersToAdd.length) {
                     await batchAddOwnersMutation({
                         variables: {
                             input: {
-                                owners: pendingOwners,
+                                owners: ownersToAdd,
                                 resources: [{ resourceUrn: tagUrn }],
                             },
                         },
                     });
-                    changesMade = true;
-                } catch (ownerError) {
-                    console.error('Error adding owners:', ownerError);
-                    throw new Error(
-                        `Failed to add owners: ${
-                            ownerError instanceof Error ? ownerError.message : String(ownerError)
-                        }`,
-                    );
                 }
+                if (ownersUrnsToRemove.length) {
+                    await batchRemoveOwnersMutation({
+                        variables: {
+                            input: {
+                                ownerUrns: ownersUrnsToRemove,
+                                resources: [{ resourceUrn: tagUrn }],
+                            },
+                        },
+                    });
+                }
+                changesMade = true;
+            } catch (ownerError) {
+                console.error('Error updating owners:', ownerError);
+                throw new Error(
+                    `Failed to update owners: ${ownerError instanceof Error ? ownerError.message : String(ownerError)}`,
+                );
             }
 
             if (changesMade) {
@@ -278,7 +322,6 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                     setSelectedOwnerUrns={setSelectedOwnerUrns}
                     existingOwners={owners}
                     onChange={onChangeOwners}
-                    sourceRefetch={refetch}
                     isEditForm
                 />
             </div>
