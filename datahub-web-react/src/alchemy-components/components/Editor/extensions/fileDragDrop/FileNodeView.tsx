@@ -13,7 +13,7 @@ const { Text } = Typography;
 const FileContainer = styled.div`
     margin: 8px 0;
     max-width: 100%;
-    
+
     /* Ensure this container gets the data attributes for markdown conversion */
     &.file-node {
         /* This will help with debugging */
@@ -24,12 +24,12 @@ const FileCard = styled(Card)`
     border: 1px solid ${colors.gray[300]};
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    
+
     &:hover {
         border-color: ${colors.blue[500]};
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
-    
+
     .ant-card-body {
         padding: 12px 16px;
     }
@@ -105,11 +105,11 @@ interface FileNodeViewProps extends NodeViewComponentProps {
 
 const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
@@ -125,7 +125,7 @@ const getFileIcon = (type: string) => {
 
 const handleDownload = (url: string, name: string) => {
     if (!url) return;
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = name;
@@ -137,9 +137,11 @@ const handleDownload = (url: string, name: string) => {
 
 export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
     const { url, name, type, size } = node.attrs;
-    
+
+    // Can add resolution to get real URL from backend here and have loading state while we ask for pre-signed URL to download given the file ID
+
     console.log('🔥 FileNodeView rendering with attrs:', { url, name, type, size });
-    
+
     // Create props with data attributes for markdown conversion
     // These must match exactly what toDOM creates in the extension
     const containerProps = {
@@ -154,9 +156,9 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
         'data-file-type': type,
         'data-file-size': size.toString(),
     };
-    
+
     console.log('🔥 Container props:', containerProps);
-    
+
     // Show loading state if no URL yet (file is being uploaded)
     if (!url) {
         return (
@@ -168,7 +170,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
             </FileContainer>
         );
     }
-    
+
     // Render images directly
     if (type.startsWith('image/')) {
         return (
@@ -201,15 +203,11 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node }) => {
             </FileContainer>
         );
     }
-    
+
     // Render other file types as downloadable cards
     return (
         <FileContainer {...containerProps}>
-            <FileCard
-                hoverable
-                onClick={() => handleDownload(url, name)}
-                style={{ cursor: 'pointer' }}
-            >
+            <FileCard hoverable onClick={() => handleDownload(url, name)} style={{ cursor: 'pointer' }}>
                 <FileInfo>
                     <FileIcon>{getFileIcon(type)}</FileIcon>
                     <FileDetails>

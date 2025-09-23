@@ -247,7 +247,11 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                         if (nodeAtPos && nodeAtPos.type === this.type) {
                             // Update the node with the uploaded URL
                             const updatedAttrs = { ...placeholderAttrs, url: finalUrl };
-                            const updateTransaction = currentState.tr.setNodeMarkup(coordinates.pos, null, updatedAttrs);
+                            const updateTransaction = currentState.tr.setNodeMarkup(
+                                coordinates.pos,
+                                null,
+                                updatedAttrs,
+                            );
                             view.dispatch(updateTransaction);
                             console.log('Node updated with uploaded URL');
                         } else {
@@ -318,16 +322,13 @@ class FileDragDropExtension extends NodeExtension<FileDragDropOptions> {
                 };
 
                 // Create a more styled content for read-only mode
-                const icon = type.startsWith('image/') ? '🖼️' : 
-                            type === 'application/pdf' ? '📄' : '📎';
-                
+                const icon = type.startsWith('image/') ? '🖼️' : type === 'application/pdf' ? '📄' : '📎';
+
                 console.log('🔥 toDOM returning:', ['div', attrs, `${icon} ${name}`]);
                 return ['div', attrs, `${icon} ${name}`];
             },
         };
     }
-
-
 
     /**
      * Renders a React Component in place of the dom node spec
