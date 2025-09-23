@@ -97,6 +97,8 @@ public class ApplicationTest extends WithBrowser {
   protected Application provideApplication() {
     return new GuiceApplicationBuilder()
         .configure("metadataService.port", String.valueOf(actualGmsServerPort))
+        .configure("metadataService.host", "localhost")
+        .configure("datahub.basePath", "")
         .configure("auth.baseUrl", "http://localhost:" + providePort())
         .configure(
             "auth.oidc.discoveryUri",
@@ -133,6 +135,7 @@ public class ApplicationTest extends WithBrowser {
   private String wellKnownUrl;
   private int actualOauthServerPort;
   private int actualGmsServerPort;
+  private String actualGmsServerHost;
 
   private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
   private static final String TEST_TOKEN = "faketoken_YCpYIrjQH4sD3_rAc3VPPFg4";
@@ -180,7 +183,7 @@ public class ApplicationTest extends WithBrowser {
           }
         });
 
-    gmsServer.start(actualGmsServerPort);
+    gmsServer.start(InetAddress.getByName("localhost"), actualGmsServerPort);
 
     // Start Mock Identity Provider
     startMockOauthServer();
