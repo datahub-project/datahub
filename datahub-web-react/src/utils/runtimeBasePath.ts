@@ -94,7 +94,7 @@ export function fixCSSFontPaths(): void {
                     if (currentSrc && currentSrc.includes('url("/assets/')) {
                         // Replace absolute /assets/ paths with runtime base path
                         const fixedSrc = currentSrc.replace(/url\("\/assets\//g, `url("${basePath}/assets/`);
-                        console.log("currentSrc:" + currentSrc + " fixedSrc: " + fixedSrc);
+                        console.log(`currentSrc:${  currentSrc  } fixedSrc: ${  fixedSrc}`);
                         // Apply the fix
                         if (fixedSrc !== currentSrc) {
                             rule.style.setProperty('src', fixedSrc);
