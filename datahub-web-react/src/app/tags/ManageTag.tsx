@@ -71,12 +71,14 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     };
 
     const hasOwnerFieldChanges = useCallback(() => {
-        if (pendingOwners.length !== owners.length) return true;
+        const pendingOwnersUrns = pendingOwners.map((owner) => owner.ownerUrn);
+        const existingOwnersUrns = owners.map((owner) => owner.owner.urn);
 
-        const pendingOwnersSet = new Set(pendingOwners.map((owner) => owner.ownerUrn));
-        const existingOwnersSet = new Set(owners.map((owner) => owner.owner.urn));
+        if (pendingOwnersUrns.length !== existingOwnersUrns.length) {
+            return true;
+        }
 
-        return pendingOwnersSet.symmetricDifference(existingOwnersSet).size > 0;
+        return pendingOwnersUrns.some((urn) => !existingOwnersUrns.includes(urn));
     }, [pendingOwners, owners]);
 
     // When data loads, set the initial values
