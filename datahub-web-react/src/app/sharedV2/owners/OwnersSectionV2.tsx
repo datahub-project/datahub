@@ -4,8 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { useGetRecommendations } from '@app/shared/recommendation';
-import OwnerOption from '@app/sharedV2/owners/components/OwnerOption';
 import OwnerPill from '@app/sharedV2/owners/components/OwnerPill';
 import useOwnershipTypes from '@app/sharedV2/owners/hooks/useOwnershipTypes';
 import { OwnerSelectOption, PartialExtendedOwner } from '@app/sharedV2/owners/types';
@@ -13,7 +13,7 @@ import { isCorpUserOrCorpGroup, mapEntityToOwnerEntityType } from '@app/sharedV2
 import { MergeStrategy, mergeArrays } from '@app/utils/mergeArrays';
 
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
-import { Entity, EntityType, Owner } from '@types';
+import { Entity, EntityType, Owner, OwnerType } from '@types';
 
 const SectionContainer = styled.div`
     margin-bottom: 24px;
@@ -35,7 +35,7 @@ interface Props {
     selectedOwnerUrns: string[];
     setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
     existingOwners: Owner[];
-    onChange: (owners: Entity[]) => void;
+    onChange: (owners: OwnerType[]) => void;
     isEditForm?: boolean;
     canEdit?: boolean;
 }
@@ -164,10 +164,16 @@ const OwnersSection = ({
                     selectLabelProps={{ variant: 'custom' }}
                     hideSelectedOptions
                     renderCustomSelectedValue={(option, onRemove) => (
-                        <OwnerPill owner={option.owner} onRemove={onRemove} readonly={!canEdit} />
+                        <OwnerPill owner={option.owner.owner} onRemove={onRemove} readonly={!canEdit} hideLink />
                     )}
                     filterResultsByQuery={false}
-                    renderCustomOptionText={(option) => <OwnerOption entity={option.owner.owner} />}
+                    renderCustomOptionText={(option) => (
+                        <AutoCompleteEntityItem
+                            entity={option.owner.owner}
+                            customDetailsRenderer={() => null}
+                            padding="0px"
+                        />
+                    )}
                     selectMinHeight="42px"
                 />
             </FormSection>

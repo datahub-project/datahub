@@ -64,10 +64,9 @@ export const getAvatarSizes = (size) => {
 };
 
 export const getAvatarNameSizes = (size) => {
-    if (size === 'xs') return '12px';
-    if (size === 'sm') return '12px';
-    if (size === 'md') return '14px';
     if (size === 'lg') return '16px';
+    if (size === 'sm') return '10px';
+    if (size === 'md') return '14px';
     return '12px';
 };
 
