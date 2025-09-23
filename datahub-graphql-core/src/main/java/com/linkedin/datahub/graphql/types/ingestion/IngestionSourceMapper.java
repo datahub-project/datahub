@@ -6,6 +6,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
+import com.linkedin.datahub.graphql.generated.IngestionSourceSource;
+import com.linkedin.datahub.graphql.generated.IngestionSourceSourceType;
 import com.linkedin.datahub.graphql.generated.StringMapEntry;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -15,6 +17,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
+import com.linkedin.ingestion.DataHubIngestionSourceSource;
 import com.linkedin.metadata.Constants;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -99,6 +102,9 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
     if (info.hasSchedule()) {
       result.setSchedule(mapIngestionSourceSchedule(info.getSchedule()));
     }
+    if (info.hasSource()) {
+      result.setSource(mapIngestionSourceSource(info.getSource()));
+    }
   }
 
   /**
@@ -134,6 +140,19 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
     final IngestionSchedule result = new IngestionSchedule();
     result.setInterval(schedule.getInterval());
     result.setTimezone(schedule.getTimezone());
+    return result;
+  }
+
+  /**
+   * Maps {@link DataHubIngestionSourceSource} to {@link IngestionSourceSource}.
+   *
+   * @param source the {@link DataHubIngestionSourceSource}
+   * @return the mapped {@link IngestionSourceSource}
+   */
+  private IngestionSourceSource mapIngestionSourceSource(
+      final DataHubIngestionSourceSource source) {
+    final IngestionSourceSource result = new IngestionSourceSource();
+    result.setType(IngestionSourceSourceType.valueOf(source.getType().name()));
     return result;
   }
 
