@@ -118,6 +118,11 @@ cachetools_lib = {
     "cachetools",
 }
 
+# Skip pyarrow 0.14.0-14.0.0 due to CVE-2023-47248: https://avd.aquasec.com/nvd/cve-2023-47248
+pyarrow_common = {
+    "pyarrow>14.0.0",
+}
+
 great_expectations_lib = {
     # 1. Our original dep was this:
     # "great-expectations>=0.15.12, <=0.15.50",
@@ -307,7 +312,7 @@ s3_base = {
     *aws_common,
     "more-itertools>=8.12.0",
     "parse>=1.19.0",
-    "pyarrow>=6.0.1",
+    *pyarrow_common,
     "tableschema>=1.20.2",
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
     "ujson>=5.2.0",
@@ -330,7 +335,7 @@ abs_base = {
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
-    "pyarrow>=6.0.1",
+    *pyarrow_common,
     "smart-open[azure]>=5.2.1",
     "tableschema>=1.20.2",
     "ujson>=5.2.0",
