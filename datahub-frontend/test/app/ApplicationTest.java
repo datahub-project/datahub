@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 import static play.mvc.Http.Status.NOT_FOUND;
+import static play.mvc.Http.Status.MOVED_PERMANENTLY;
 import static play.mvc.Http.Status.OK;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
@@ -480,10 +481,11 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
-  public void testIndexNotFound() {
+  public void testMovedPermanently() {
+    // We expect now to be redirected instead of returning 404
     Http.RequestBuilder request = fakeRequest(routes.Application.index("/other"));
     Result result = route(app, request);
-    assertEquals(NOT_FOUND, result.status());
+    assertEquals(MOVED_PERMANENTLY, result.status());
   }
 
   @Test
