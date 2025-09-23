@@ -20,8 +20,8 @@ from datahub.ingestion.source.looker.looker_common import (
 )
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_constant import (
-    VIEW_FIELD_INTERVALS_ATTRIBUTE,
     NAME,
+    VIEW_FIELD_INTERVALS_ATTRIBUTE,
     VIEW_FIELD_TIMEFRAMES_ATTRIBUTE,
     VIEW_FIELD_TYPE_ATTRIBUTE,
 )

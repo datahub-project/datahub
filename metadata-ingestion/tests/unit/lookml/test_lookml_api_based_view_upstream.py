@@ -1,4 +1,3 @@
-from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,6 +16,7 @@ from datahub.ingestion.source.looker.looker_constant import (
     VIEW_FIELD_TYPE_ATTRIBUTE,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_view_id_cache import LookerViewIdCache
 from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerFieldContext,
     LookerViewContext,
@@ -25,7 +25,6 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceConfig,
     LookMLSourceReport,
 )
-from datahub.ingestion.source.looker.looker_view_id_cache import LookerViewIdCache
 from datahub.ingestion.source.looker.view_upstream import (
     LookerQueryAPIBasedViewUpstream,
 )
