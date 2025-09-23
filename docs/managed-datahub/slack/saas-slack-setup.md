@@ -55,7 +55,7 @@ Now proceed to the [Subscriptions and Notifications page](https://docs.datahub.c
 
 ### DataHub Slack bot permissions
 
-The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with thier explanations.
+The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with their explanations.
 
 ```
 # Required for slash commands / shortcuts.

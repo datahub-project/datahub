@@ -73,3 +73,64 @@ This section tracks the progress of merging upstream changes from `upstream/mast
 
 - **a82d4e0647** - fix(ingest/athena): Fix Athena partition extraction and CONCAT function type issues (#14712)
   _by Tamas Nemeth on 2025-09-10_
+
+## Upstream Merge Session - 2025-09-23 15:36:41
+
+This section tracks the progress of merging upstream changes from `upstream/master` using stacked strategy.
+
+### Merge Details
+
+- **Source**: `upstream/master`
+- **Target**: `oss-merge-backfill-09-11-2025`
+- **Merge Base**: `d67681b08f0035e115c2867e4d10e7d58d04ebec`
+- **End Commit**: `dede42d9336fe07f396a8086ddc1d5b0bd780faf`
+- **Total Commits**: 15
+- **Strategy**: stacked
+- **Started**: Tue Sep 23 15:36:41 UTC 2025
+
+### Commits Included in This Merge
+
+- **3fbef4a632** - chore(setup): Limit mixpanel dependency <=4.10.1 (#14725)
+  _by skrydal on 2025-09-10_
+
+- **5f23652fd3** - fix(ingestion/iceberg): Improve iceberg source resiliency to server errors (#14731)
+  _by skrydal on 2025-09-11_
+
+- **137ffb7d48** - fix(ingest): only add to samples where platform match (#14722)
+  _by Aseem Bansal on 2025-09-11_
+
+- **d0519ddce3** - fix(docs): fixing spelling mistakes (#14730)
+  _by Jonny Dixon on 2025-09-11_
+
+- **01932d3f87** - fix(ingest/pipeline): Fix for slow ingestion and incomplete ingestion report metrics (#14735)
+  _by Tamas Nemeth on 2025-09-11_
+
+- **4244620e7a** - feat(cassandra): Add optional SSL configuration (#14726)
+  _by Brock Griffey on 2025-09-11_
+
+- **14130701b5** - fix(ingest): use sequence for sdk input types (#14695)
+  _by Harshal Sheth on 2025-09-11_
+
+- **3af386b626** - chore(ingestion/iceberg): Safe-guard pyiceberg version before pydantic 1->2 transition (#14736)
+  _by skrydal on 2025-09-11_
+
+- **ac80e8171b** - fix(kafka-setup): remove default to enable topicDefaults to be used (#14738)
+  _by Chakru on 2025-09-11_
+
+- **4ce1ae8dd1** - feat(docs): revise tuning instructions for smart assertions (#14740)
+  _by Jay on 2025-09-11_
+
+- **57250477bf** - feat(access-request): enable groups to be granted to role and grey button when granted (#14622)
+  _by Jonny Dixon on 2025-09-11_
+
+- **f34abede15** - fix(trivy): fix pattern (#14743)
+  _by david-leifker on 2025-09-11_
+
+- **030b4ace93** - chore(bump): bump msk-iam-auth (#14744)
+  _by david-leifker on 2025-09-11_
+
+- **c3283ef314** - docs(platform-instance): documentation refresh (#14739)
+  _by david-leifker on 2025-09-11_
+
+- **dede42d933** - docs(dev-setup): Update IntelliJ setup instructions (#14718)
+  _by Abe on 2025-09-11_

@@ -9,7 +9,17 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Literal, Optional, Type, TypeAlias, TypeVar, Union
+from typing import (
+    Callable,
+    Collection,
+    Literal,
+    Optional,
+    Type,
+    TypeAlias,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import pydantic
 import pytz
@@ -1147,10 +1157,13 @@ class _AssertionInput(ABC):
                 examples={
                     "Tags from string (tag name)": "my_tag_1",
                     "Tags from string (tag URN)": "urn:li:tag:my_tag_1",
-                    "Tags from list (mixed)": [
-                        "my_tag_1",
-                        "urn:li:tag:my_tag_2",
-                    ],
+                    "Tags from list (mixed)": cast(
+                        Collection[str],
+                        [
+                            "my_tag_1",
+                            "urn:li:tag:my_tag_2",
+                        ],
+                    ),
                 },
             )
 

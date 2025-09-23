@@ -26,7 +26,7 @@ _Not all Feature Guides will require a Tutorial._
 
 A Tutorial is meant to provide very specific steps to accomplish complex workflows and advanced use cases that are out of scope of a Feature Guide.
 
-Tutorials should be written to accomodate the targeted persona, i.e. Developer, Admin, End-User, etc.
+Tutorials should be written to accommodate the targeted persona, i.e. Developer, Admin, End-User, etc.
 
 _Not all Tutorials require an associated Feature Guide._
 

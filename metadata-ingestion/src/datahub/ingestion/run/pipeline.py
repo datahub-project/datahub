@@ -373,11 +373,13 @@ class Pipeline:
             )
             current_version = version_stats.client.current.version
 
-            logger.debug(f"""
+            logger.debug(
+                f"""
                 client_version: {current_version}
                 server_default_version: {server_default_version}
                 server_default_cli_ahead: True
-            """)
+            """
+            )
 
             self.source.get_report().warning(
                 title="Server default CLI version is ahead of CLI version",
@@ -440,7 +442,19 @@ class Pipeline:
             return True
         return False
 
+    def _set_platform(self) -> None:
+        platform = self.source.infer_platform()
+        if platform:
+            self.source.get_report().set_platform(platform)
+        else:
+            self.source.get_report().warning(
+                message="Platform not found",
+                title="Platform not found",
+                context="Platform not found",
+            )
+
     def run(self) -> None:
+        self._set_platform()
         self._warn_old_cli_version()
         with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:
@@ -548,8 +562,9 @@ class Pipeline:
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-                self.sink.flush()
-                self._notify_reporters_on_ingestion_completion()
+
+        # This can't be in the finally part because this should happen after context manager exists
+        self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """

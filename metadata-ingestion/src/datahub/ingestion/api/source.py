@@ -531,9 +531,9 @@ class Source(Closeable, metaclass=ABCMeta):
             auto_status_aspect,
             auto_materialize_referenced_tags_terms,
             partial(
-                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+                auto_fix_duplicate_schema_field_paths, platform=self.infer_platform()
             ),
-            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
+            partial(auto_fix_empty_field_paths, platform=self.infer_platform()),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
@@ -583,7 +583,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def close(self) -> None:
         self.get_report().close()
 
-    def _infer_platform(self) -> Optional[str]:
+    def infer_platform(self) -> Optional[str]:
         config = self.get_config()
         platform = (
             getattr(config, "platform_name", None)
@@ -598,7 +598,7 @@ class Source(Closeable, metaclass=ABCMeta):
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
 
-        platform = self._infer_platform()
+        platform = self.infer_platform()
         env = getattr(config, "env", None)
         browse_path_drop_dirs = [
             platform,

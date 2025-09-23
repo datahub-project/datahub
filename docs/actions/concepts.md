@@ -77,7 +77,7 @@ Each Event instance inside the framework corresponds to a single **Event Type**,
 
 Events are produced to the framework by **Event Sources**. Event Sources may include their own guarantees, configurations, behaviors, and semantics. They usually produce a fixed set of Event Types.
 
-In addition to sourcing events, Event Sources are also responsible for acking the succesful processing of an event by implementing the `ack` method. This is invoked by the framework once the Event is guaranteed to have reached the configured Action successfully.
+In addition to sourcing events, Event Sources are also responsible for acking the successful processing of an event by implementing the `ack` method. This is invoked by the framework once the Event is guaranteed to have reached the configured Action successfully.
 
 ### Transformers
 
