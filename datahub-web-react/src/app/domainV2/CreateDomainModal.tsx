@@ -2,6 +2,8 @@ import { Collapse, Form, Typography, message } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { Label } from '@components/components/TextArea/components';
+
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
@@ -27,8 +29,8 @@ const FormItemWithMargin = styled(FormItem)`
     margin-bottom: 16px;
 `;
 
-const AdvancedLabel = styled(Typography.Text)`
-    color: #373d44;
+const FormItemNoMargin = styled(FormItem)`
+    margin-bottom: 0px;
 `;
 
 type Props = {
@@ -60,7 +62,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const { user } = useUserContext();
 
     // Simply provide current user as placeholder - OwnersSection will handle auto-selection
-    const placeholderOwners = user ? [user] : [];
+    const defaultOwners = user ? [user] : [];
 
     // Sync local state with form when owners change
     useEffect(() => {
@@ -187,27 +189,26 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 </FormItemWithMargin>
                 {isNestedDomainsEnabled && (
                     <FormItemWithMargin>
+                        <Label>Parent Domains</Label>
                         <DomainSelector
                             selectedDomains={selectedParentUrn ? [selectedParentUrn] : []}
                             onDomainsChange={(selectedDomainUrns) => setSelectedParentUrn(selectedDomainUrns[0] || '')}
                             placeholder="Select parent domain"
-                            label="Parent Domain"
+                            label=""
                             isMultiSelect={false}
                         />
                     </FormItemWithMargin>
                 )}
                 {/* Owners Section */}
-                <FormItemWithMargin>
+                <FormItemNoMargin>
                     <OwnersSection
                         selectedOwnerUrns={selectedOwnerUrns}
                         setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
-                        existingOwners={[]}
-                        onChange={() => null}
-                        placeholderOwners={placeholderOwners}
+                        defaultOwners={defaultOwners}
                     />
-                </FormItemWithMargin>
+                </FormItemNoMargin>
                 <Collapse ghost>
-                    <Collapse.Panel header={<AdvancedLabel>Advanced Options</AdvancedLabel>} key="1">
+                    <Collapse.Panel header={<Label>Advanced Options</Label>} key="1">
                         <FormItemWithMargin
                             name={ID_FIELD_NAME}
                             rules={[
