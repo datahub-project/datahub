@@ -36,9 +36,11 @@ export interface ZendeskConfig {
     customFields?: Record<string | number, string>;
     trigger?: number; // Add a trigger to force re-execution
     offsetHorizontal?: string; // Dynamic horizontal offset
+    showZendeskWidget: boolean;
+    setShowZendeskWidget: (show: boolean) => void;
 }
 
-const prefillUserData = (userEmail?: string, userName?: string) => {
+const prefillUserData = (userEmail?: string, userName?: string, showZendeskWidget?: boolean) => {
     if (!window.zE) return;
 
     if (userEmail) {
@@ -51,8 +53,10 @@ const prefillUserData = (userEmail?: string, userName?: string) => {
             name: { value: userName },
         });
     }
-    window.zE('webWidget', 'show');
-    window.zE('webWidget', 'open');
+    if (showZendeskWidget) {
+        window.zE('webWidget', 'show');
+        window.zE('webWidget', 'open');
+    }
 };
 
 const getZendeskSettings = (customFields?: Record<string | number, string>, offsetHorizontal = '100px') => {
@@ -96,22 +100,14 @@ const createZendeskScript = (): HTMLScriptElement => {
     return script;
 };
 
-const cleanupZendesk = () => {
-    const existingScript = document.getElementById('ze-snippet');
-    if (existingScript) {
-        existingScript.remove();
-    }
-    delete window.zESettings;
-    delete window.zE;
-};
-
 export const useZendeskWidget = ({
-    onLoad,
     userEmail,
     userName,
     customFields,
     trigger,
     offsetHorizontal,
+    showZendeskWidget,
+    setShowZendeskWidget,
 }: ZendeskConfig) => {
     useEffect(() => {
         const existingScript = document.getElementById('ze-snippet');
@@ -120,10 +116,7 @@ export const useZendeskWidget = ({
         if (existingScript) {
             if (window.zE) {
                 updateZendeskSettings(customFields, offsetHorizontal);
-                prefillUserData(userEmail, userName);
-                onLoad?.();
-            } else {
-                console.log('window.zE is not available');
+                prefillUserData(userEmail, userName, showZendeskWidget);
             }
             return () => {};
         }
@@ -135,14 +128,14 @@ export const useZendeskWidget = ({
         const script = createZendeskScript();
         script.onload = () => {
             if (window.zE) {
-                prefillUserData(userEmail, userName);
+                prefillUserData(userEmail, userName, showZendeskWidget);
                 // https://developer.zendesk.com/api-reference/widget/core/#on-close
                 window.zE('webWidget:on', 'close', () => {
                     if (window.zE) {
                         window.zE('webWidget', 'hide');
                     }
+                    setShowZendeskWidget(false);
                 });
-                onLoad?.();
             }
         };
 
@@ -150,12 +143,5 @@ export const useZendeskWidget = ({
 
         // Don't cleanup on every trigger change, only on unmount
         return () => {};
-    }, [onLoad, userEmail, userName, customFields, trigger, offsetHorizontal]);
-
-    // Cleanup only when component unmounts
-    useEffect(() => {
-        return () => {
-            cleanupZendesk();
-        };
-    }, []);
+    }, [userEmail, userName, customFields, trigger, offsetHorizontal, showZendeskWidget, setShowZendeskWidget]);
 };

@@ -485,7 +485,14 @@ export const NavSidebar = () => {
                     )}
                 </Content>
                 {showZendeskWidget && (
-                    <ZendeskWidget me={me} config={config} trigger={zendeskTrigger} offsetHorizontal={sidebarWidth} />
+                    <ZendeskWidget
+                        me={me}
+                        config={config}
+                        trigger={zendeskTrigger}
+                        offsetHorizontal={sidebarWidth}
+                        showZendeskWidget={showZendeskWidget}
+                        setShowZendeskWidget={setShowZendeskWidget}
+                    />
                 )}
             </Container>
         </SidebarWidthProvider>

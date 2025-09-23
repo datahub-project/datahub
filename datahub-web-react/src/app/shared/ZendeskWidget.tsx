@@ -11,6 +11,8 @@ import { AppConfig, EntityType } from '@types';
 type ZendeskWidgetProps = ZendeskConfig & {
     me: UserContextType;
     config: AppConfig;
+    showZendeskWidget: boolean;
+    setShowZendeskWidget: (show: boolean) => void;
 };
 
 const getArea = () => {
@@ -27,7 +29,14 @@ const getArea = () => {
     return 'product';
 };
 
-export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config, trigger, offsetHorizontal }) => {
+export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({
+    me,
+    config,
+    trigger,
+    offsetHorizontal,
+    showZendeskWidget,
+    setShowZendeskWidget,
+}) => {
     const entityRegistry = useEntityRegistry();
     const userEmail = me.user?.editableProperties?.email || me.user?.info?.email || '';
     const userName =
@@ -46,7 +55,15 @@ export const ZendeskWidget: React.FC<ZendeskWidgetProps> = ({ onLoad, me, config
         // Area
         34905797479067: area,
     };
-    useZendeskWidget({ onLoad, userEmail, userName, customFields, trigger, offsetHorizontal });
+    useZendeskWidget({
+        userEmail,
+        userName,
+        customFields,
+        trigger,
+        offsetHorizontal,
+        showZendeskWidget,
+        setShowZendeskWidget,
+    });
 
     return null;
 };
