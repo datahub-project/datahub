@@ -280,7 +280,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         "Set to -1 to disable the limit entirely (not recommended for very large connectors).",
     )
 
-    @root_validator
+    @root_validator(pre=False)
     def validate_config_based_on_mode(cls, values: Dict) -> Dict:
         """Validate configuration based on the selected mode."""
         mode = values.get("fivetran_mode", FivetranMode.AUTO)
