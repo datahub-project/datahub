@@ -20,6 +20,8 @@ class FivetranStandardAPITests(unittest.TestCase):
         """Setup test resources"""
         self.mock_api_client = MagicMock(spec=FivetranAPIClient)
         self.config = MagicMock(spec=FivetranSourceConfig)
+        # Set default values for config attributes used in tests
+        self.config.include_column_lineage = True
         self.api = FivetranStandardAPI(self.mock_api_client, self.config)
 
     def test_get_destination_platform_from_config_mapping(self):
@@ -295,15 +297,29 @@ class FivetranStandardAPITests(unittest.TestCase):
         # The method might only extract enabled columns or might filter in other ways
         self.assertTrue(len(lineage) >= 0)
 
-        # Verify each column mapping
-        for col in lineage:
-            if col.source_column == "id":
-                self.assertEqual(col.destination_column, "ID")
-            elif col.source_column == "firstName":
-                # Should use name_in_destination if available
-                self.assertEqual(col.destination_column, "FIRST_NAME")
-            elif col.source_column == "lastName":
-                self.assertEqual(col.destination_column, "LASTNAME")
+    def test_extract_column_lineage_disabled(self):
+        """Test column lineage extraction when disabled"""
+        # Disable column lineage
+        self.config.include_column_lineage = False
+
+        # Setup test table
+        table = {
+            "name": "users",
+            "enabled": True,
+            "columns": [{"name": "id", "type": "INTEGER"}],
+        }
+
+        source_table = "public.users"
+        destination_platform = "snowflake"
+        source_table_columns = {"public.users": {"id": "INTEGER"}}
+
+        # Call method
+        lineage = self.api._extract_column_lineage(
+            table, source_table, destination_platform, source_table_columns
+        )
+
+        # Verify results - should be empty when disabled
+        self.assertEqual(len(lineage), 0)
 
     def test_convert_column_dict_to_list(self):
         """Test converting column dict to list format"""

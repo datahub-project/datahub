@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Iterator, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fivetran.config import (
@@ -36,6 +36,17 @@ class FivetranAccessInterface(ABC):
         syncs_interval: int,
     ) -> List[Connector]:
         """Get a list of connectors filtered by the provided patterns."""
+        pass
+
+    @abstractmethod
+    def get_allowed_connectors_stream(
+        self,
+        connector_patterns: AllowDenyPattern,
+        destination_patterns: AllowDenyPattern,
+        report: FivetranSourceReport,
+        syncs_interval: int,
+    ) -> Iterator[Connector]:
+        """Get a stream of connectors filtered by the provided patterns, yielding one at a time."""
         pass
 
 

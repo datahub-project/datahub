@@ -1532,15 +1532,14 @@ class FivetranSource(StatefulIngestionSourceBase):
         """
         logger.info("Fivetran plugin execution is started")
 
-        # Process connectors one at a time, yielding work units immediately
-        logger.info("Processing connectors with memory-efficient lineage extraction")
-        connectors = self.fivetran_access.get_allowed_connectors_list(
+        # Process connectors progressively, yielding work units as we go
+        logger.info("Processing connectors with progressive workunit emission")
+        for connector in self.fivetran_access.get_allowed_connectors_stream(
             self.config.connector_patterns,
             self.config.destination_patterns,
             self.report,
             self.config.history_sync_lookback_period,
-        )
-        for connector in connectors:
+        ):
             logger.info(f"Processing connector id: {connector.connector_id}")
             yield from self._get_connector_workunits(connector)
 

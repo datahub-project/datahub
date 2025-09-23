@@ -2125,7 +2125,7 @@ class FivetranAPIClient:
             return None
 
     def extract_table_lineage_generator(
-        self, connector_id: str
+        self, connector_id: str, include_column_lineage: bool = True
     ) -> Iterator[TableLineage]:
         """
         Generate table and column lineage information for a connector.
@@ -2148,7 +2148,7 @@ class FivetranAPIClient:
             # Stream lineage items one at a time
             lineage_count = 0
             for lineage_item in self._extract_table_lineage_generator(
-                schemas, destination_platform, connector_id
+                schemas, destination_platform, connector_id, include_column_lineage
             ):
                 lineage_count += 1
                 yield lineage_item
@@ -2165,7 +2165,11 @@ class FivetranAPIClient:
             return
 
     def _extract_table_lineage_generator(
-        self, schemas: List[Dict], destination_platform: str, connector_id: str
+        self,
+        schemas: List[Dict],
+        destination_platform: str,
+        connector_id: str,
+        include_column_lineage: bool = True,
     ) -> Iterator[TableLineage]:
         """Process table lineage one at a time to minimize memory usage."""
         for schema in schemas:
@@ -2196,6 +2200,7 @@ class FivetranAPIClient:
                         destination_platform,
                         connector_id,
                         schema_name_in_destination,
+                        include_column_lineage,
                     )
                     if lineage_item:
                         yield lineage_item
@@ -2212,6 +2217,7 @@ class FivetranAPIClient:
         destination_platform: str,
         connector_id: str,
         schema_name_in_destination: str,
+        include_column_lineage: bool = True,
     ) -> TableLineage:
         """Process lineage for a single table."""
         table_name = table.get("name", "")
@@ -2230,29 +2236,30 @@ class FivetranAPIClient:
         )
         destination_table = f"{destination_schema}.{destination_table_name}"
 
-        # Get column lineage for this table (process columns one at a time)
+        # Get column lineage for this table if enabled (process columns one at a time)
         column_lineage = []
-        columns = table.get("columns", [])
+        if include_column_lineage:
+            columns = table.get("columns", [])
 
-        for column in columns:
-            if not isinstance(column, dict):
-                continue
+            for column in columns:
+                if not isinstance(column, dict):
+                    continue
 
-            column_name = column.get("name", "")
-            if not column_name or not column.get("enabled", True):
-                continue
+                column_name = column.get("name", "")
+                if not column_name or not column.get("enabled", True):
+                    continue
 
-            # Get column name in destination from column data
-            destination_column = column.get("name_in_destination", column_name)
+                # Get column name in destination from column data
+                destination_column = column.get("name_in_destination", column_name)
 
-            column_lineage.append(
-                ColumnLineage(
-                    source_column=column_name,
-                    destination_column=destination_column,
-                    source_column_type=column.get("type"),
-                    destination_column_type=column.get("type"),  # Usually same type
+                column_lineage.append(
+                    ColumnLineage(
+                        source_column=column_name,
+                        destination_column=destination_column,
+                        source_column_type=column.get("type"),
+                        destination_column_type=column.get("type"),  # Usually same type
+                    )
                 )
-            )
 
         # Create table lineage with comprehensive metadata
         return TableLineage(
@@ -2469,8 +2476,13 @@ class FivetranAPIClient:
         source_table: str,
         destination_platform: str,
         source_table_columns: Dict[str, Dict[str, str]],
+        include_column_lineage: bool = True,
     ) -> List[ColumnLineage]:
         """Extract column lineage for a table."""
+        # Check if column lineage is enabled
+        if not include_column_lineage:
+            return []
+
         column_lineage = []
         columns = table.get("columns", [])
 

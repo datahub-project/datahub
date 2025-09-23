@@ -207,7 +207,8 @@ class PlatformDetail(ConfigModel):
 class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     fivetran_mode: FivetranMode = Field(
         default=FivetranMode.AUTO,
-        description="Mode of operation: 'enterprise' for log tables access, 'standard' for REST API, or 'auto' to detect.",
+        description="Mode of operation: 'enterprise' for log tables access (Snowflake/BigQuery destinations only), "
+        "'standard' for REST API (supports all destination platforms), or 'auto' to automatically detect the best approach.",
     )
 
     datajob_mode: DataJobMode = Field(
@@ -218,13 +219,17 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     # Enterprise version configuration
     fivetran_log_config: Optional[FivetranLogConfig] = Field(
         default=None,
-        description="Fivetran log connector destination server configurations for enterprise version.",
+        description="Fivetran log connector destination server configurations for Enterprise mode. "
+        "Requires access to Fivetran log tables in your Snowflake or BigQuery destination. "
+        "Provides faster performance but limited to these two destination platforms.",
     )
 
     # Standard version configuration
     api_config: Optional[FivetranAPIConfig] = Field(
         default=None,
-        description="Fivetran REST API configuration for standard version.",
+        description="Fivetran REST API configuration for Standard mode. "
+        "Uses Fivetran REST API and supports all destination platforms. "
+        "Slower than Enterprise mode but more universally compatible.",
     )
 
     connector_patterns: AllowDenyPattern = Field(
@@ -236,7 +241,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="Regex patterns for destination IDs or destination names to filter in ingestion. "
         "Supports filtering by either the destination ID (e.g. canyon_tolerable) or the destination name for maximum flexibility. "
         "Destination IDs are visible in the Fivetran UI under Destinations -> Overview -> Destination Group ID. "
-        "Note: Destination name filtering in Enterprise mode requires api_config to be provided for hybrid functionality.",
+        "Note: Destination name filtering in Enterprise (log table) mode works best when api_config is also provided for enhanced metadata retrieval, but is not required.",
     )
     include_column_lineage: bool = Field(
         default=True,
@@ -251,12 +256,16 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
     # Fivetran connector all sources to platform instance mapping
     sources_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
-        description="A mapping from connector id to its platform/instance/env/database details.",
+        description="A mapping from connector ID to its source platform/instance/env/database details. "
+        "Use this to override auto-detected source metadata or ensure connectors are included regardless of connector_patterns. "
+        "Particularly useful for filling gaps when API auto-detection is insufficient.",
     )
     # Fivetran destination to platform instance mapping
     destination_to_platform_instance: Dict[str, PlatformDetail] = Field(
         default={},
-        description="A mapping of destination id to its platform/instance/env details.",
+        description="A mapping of destination ID to its platform/instance/env/database details. "
+        "Use this to override auto-detected destination metadata. "
+        "More important in Enterprise (log table) mode where destination platform detection is limited to Snowflake and BigQuery.",
     )
 
     history_sync_lookback_period: int = Field(

@@ -2,7 +2,7 @@ import functools
 import json
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import sqlglot
 from sqlalchemy import create_engine
@@ -695,3 +695,19 @@ class FivetranLogAPI(FivetranAccessInterface):
             logger.info("Fetching connector job run history")
             self._fill_connectors_jobs(connectors, syncs_interval)
         return connectors
+
+    def get_allowed_connectors_stream(
+        self,
+        connector_patterns: AllowDenyPattern,
+        destination_patterns: AllowDenyPattern,
+        report: FivetranSourceReport,
+        syncs_interval: int,
+    ) -> Iterator[Connector]:
+        """Get allowed connectors as a stream, yielding one at a time."""
+        # For the log API, we use the list method and yield each connector
+        # This provides a consistent interface while maintaining the existing logic
+        connectors = self.get_allowed_connectors_list(
+            connector_patterns, destination_patterns, report, syncs_interval
+        )
+        for connector in connectors:
+            yield connector

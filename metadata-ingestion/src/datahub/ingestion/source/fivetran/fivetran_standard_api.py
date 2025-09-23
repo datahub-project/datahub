@@ -4,8 +4,7 @@
 import difflib
 import logging
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.fivetran.config import (
@@ -89,18 +88,14 @@ class FivetranStandardAPI(FivetranAccessInterface):
             logger.warning(f"Failed to get user email for user ID {user_id}: {e}")
             return None
 
-    def get_allowed_connectors_list(
+    def get_allowed_connectors_stream(
         self,
         connector_patterns: AllowDenyPattern,
         destination_patterns: AllowDenyPattern,
         report: FivetranSourceReport,
         syncs_interval: int,
-    ) -> List[Connector]:
-        """Get allowed connectors list with memory-efficient lineage extraction."""
-        """
-        Get a list of connectors filtered by the provided patterns.
-        """
-        connectors: List[Connector] = []
+    ) -> Iterator[Connector]:
+        """Get allowed connectors as a stream, processing and yielding one at a time."""
 
         with report.metadata_extraction_perf.connectors_metadata_extraction_sec:
             logger.info("Fetching connector list from Fivetran API")
@@ -179,10 +174,17 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         connector = self.api_client.extract_connector_metadata(
                             api_connector, sync_history
                         )
-                        connectors.append(connector)
 
                         # Cache for later use
                         self._connector_cache[connector_response.id] = connector
+
+                        # Process lineage for this connector immediately
+                        self._process_single_connector_lineage(
+                            connector, syncs_interval, report
+                        )
+
+                        # Yield the fully processed connector
+                        yield connector
 
                         # Report scanned connector
                         report.report_connectors_scanned()
@@ -199,94 +201,70 @@ class FivetranStandardAPI(FivetranAccessInterface):
                     logger.error(f"Error processing connector response: {e}")
                     continue
 
-        if not connectors:
-            logger.info("No allowed connectors found")
-            return []
+    def get_allowed_connectors_list(
+        self,
+        connector_patterns: AllowDenyPattern,
+        destination_patterns: AllowDenyPattern,
+        report: FivetranSourceReport,
+        syncs_interval: int,
+    ) -> List[Connector]:
+        """Get allowed connectors list - backward compatibility wrapper."""
+        logger.warning(
+            "get_allowed_connectors_list is deprecated. Use get_allowed_connectors_stream for better memory efficiency."
+        )
+        return list(
+            self.get_allowed_connectors_stream(
+                connector_patterns, destination_patterns, report, syncs_interval
+            )
+        )
 
-        logger.info(f"Found {len(connectors)} allowed connectors")
-
-        # Process lineage for all connectors in parallel
-        with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
-            logger.info("Extracting lineage from Fivetran API in parallel")
-            max_workers = (
-                getattr(self.config.api_config, "max_workers", 5)
-                if self.config
-                and hasattr(self.config, "api_config")
-                and self.config.api_config
-                else 5
+    def _process_single_connector_lineage(
+        self, connector: Connector, syncs_interval: int, report: FivetranSourceReport
+    ) -> None:
+        """Process lineage for a single connector immediately."""
+        try:
+            # Extract lineage using memory-efficient generator approach
+            lineage = list(
+                self.api_client.extract_table_lineage_generator(
+                    connector.connector_id,
+                    self.config.include_column_lineage if self.config else True,
+                )
             )
 
-            def extract_connector_lineage(connector):
-                """Extract lineage for a single connector using memory-efficient approach."""
-                try:
-                    # Extract lineage using memory-efficient generator approach
-                    lineage = list(
-                        self.api_client.extract_table_lineage_generator(
-                            connector.connector_id
-                        )
-                    )
+            if lineage:
+                self._log_lineage_statistics(lineage, connector.connector_id)
+                connector.lineage = lineage
+            else:
+                self._create_synthetic_lineage_fallback(connector)
 
-                    if lineage:
-                        self._log_lineage_statistics(lineage, connector.connector_id)
-                        connector.lineage = lineage
-                    else:
-                        self._create_synthetic_lineage_fallback(connector)
+        except Exception as e:
+            error_msg = (
+                f"Error extracting lineage for connector {connector.connector_id}: {e}"
+            )
+            logger.error(error_msg)
 
-                    return connector, None
+            # Try synthetic lineage as fallback for failed extractions
+            if self._create_synthetic_lineage_fallback(connector):
+                pass  # Successfully created synthetic lineage
+            else:
+                connector.lineage = []
+                report.report_failure(error_msg)
 
-                except Exception as e:
-                    error_msg = f"Error extracting lineage for connector {connector.connector_id}: {e}"
-                    logger.error(error_msg)
+        # Process job history cleanup for this connector
+        if len(connector.jobs) > MAX_JOBS_PER_CONNECTOR:
+            # Sort by end time to ensure we keep the most recent
+            connector.jobs.sort(key=lambda job: job.end_time, reverse=True)
+            logger.info(
+                f"Truncating jobs for connector {connector.connector_id} from {len(connector.jobs)} to {MAX_JOBS_PER_CONNECTOR}"
+            )
+            connector.jobs = connector.jobs[:MAX_JOBS_PER_CONNECTOR]
 
-                    # Try synthetic lineage as fallback for failed extractions
-                    if self._create_synthetic_lineage_fallback(connector):
-                        return connector, None
-
-                    connector.lineage = []
-                    return connector, error_msg
-
-            # Process connectors in parallel
-            with ThreadPoolExecutor(
-                max_workers=min(max_workers, len(connectors))
-            ) as executor:
-                # Submit all connector processing tasks
-                future_to_connector = {
-                    executor.submit(extract_connector_lineage, connector): connector
-                    for connector in connectors
-                }
-
-                # Collect results
-                for future in as_completed(future_to_connector):
-                    connector = future_to_connector[future]
-                    try:
-                        processed_connector, error = future.result()
-                        if error:
-                            report.report_failure(error)
-                    except Exception as e:
-                        error_msg = f"Unexpected error processing connector {connector.connector_id}: {e}"
-                        logger.error(error_msg)
-                        report.report_failure(error_msg)
-
-        # Clean up job history
-        with report.metadata_extraction_perf.connectors_jobs_extraction_sec:
-            logger.info("Processing job history")
-            for connector in connectors:
-                if len(connector.jobs) > MAX_JOBS_PER_CONNECTOR:
-                    # Sort by end time to ensure we keep the most recent
-                    connector.jobs.sort(key=lambda job: job.end_time, reverse=True)
-                    logger.info(
-                        f"Truncating jobs for connector {connector.connector_id} from {len(connector.jobs)} to {MAX_JOBS_PER_CONNECTOR}"
-                    )
-                    connector.jobs = connector.jobs[:MAX_JOBS_PER_CONNECTOR]
-
-                    report.warning(
-                        title="Job history truncated",
-                        message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs. "
-                        f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
-                        context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
-                    )
-
-        return connectors
+            report.warning(
+                title="Job history truncated",
+                message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {syncs_interval} days. "
+                f"Only the most recent {MAX_JOBS_PER_CONNECTOR} syncs were ingested.",
+                context=f"{connector.connector_name} (connector_id: {connector.connector_id})",
+            )
 
     def _log_lineage_statistics(
         self, lineage: List[TableLineage], connector_id: str
@@ -417,37 +395,40 @@ class FivetranStandardAPI(FivetranAccessInterface):
                         )
                         destination_table = f"{dest_schema}.{dest_table}"
 
-                        # Create synthetic column lineage if we have column info
+                        # Create synthetic column lineage if enabled and we have column info
                         column_lineage = []
 
-                        for col_name, col_data in (table.columns or {}).items():
-                            try:
-                                # Parse column data
-                                if isinstance(col_data, dict):
-                                    column = FivetranTableColumn(**col_data)  # type: ignore[arg-type]
-                                else:
-                                    column = col_data  # Already a FivetranTableColumn instance
+                        if self.config and self.config.include_column_lineage:
+                            for col_name, col_data in (table.columns or {}).items():
+                                try:
+                                    # Parse column data
+                                    if isinstance(col_data, dict):
+                                        column = FivetranTableColumn(**col_data)  # type: ignore[arg-type]
+                                    else:
+                                        column = col_data  # Already a FivetranTableColumn instance
 
-                                if column.name and not column.name.startswith(
-                                    "_fivetran"
-                                ):
-                                    is_bigquery = (
-                                        destination_platform.lower() == "bigquery"
-                                    )
-                                    dest_col = self._transform_column_name_for_platform(
-                                        column.name, is_bigquery
-                                    )
-                                    column_lineage.append(
-                                        ColumnLineage(
-                                            source_column=column.name,
-                                            destination_column=dest_col,
+                                    if column.name and not column.name.startswith(
+                                        "_fivetran"
+                                    ):
+                                        is_bigquery = (
+                                            destination_platform.lower() == "bigquery"
                                         )
+                                        dest_col = (
+                                            self._transform_column_name_for_platform(
+                                                column.name, is_bigquery
+                                            )
+                                        )
+                                        column_lineage.append(
+                                            ColumnLineage(
+                                                source_column=column.name,
+                                                destination_column=dest_col,
+                                            )
+                                        )
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Error processing column {col_name}: {e}"
                                     )
-                            except Exception as e:
-                                logger.warning(
-                                    f"Error processing column {col_name}: {e}"
-                                )
-                                continue
+                                    continue
 
                         # Create comprehensive TableLineage with all available metadata
                         lineage_entry = TableLineage(
@@ -1217,6 +1198,11 @@ class FivetranStandardAPI(FivetranAccessInterface):
         Returns:
             List of ColumnLineage objects
         """
+        # Check if column lineage is enabled
+        if not (self.config and self.config.include_column_lineage):
+            logger.debug(f"Column lineage disabled, skipping for {source_table}")
+            return []
+
         logger.debug(
             f"Extracting column lineage for {source_table} to {destination_platform}"
         )
