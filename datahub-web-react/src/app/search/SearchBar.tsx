@@ -1,30 +1,41 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback, EventHandler, SyntheticEvent } from 'react';
-import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
+import { AutoComplete, Button, Input } from 'antd';
+import React, {
+    EventHandler,
+    MutableRefObject,
+    SyntheticEvent,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { useHistory } from 'react-router';
-import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
-import EntityRegistry from '../entity/EntityRegistry';
-import filterSearchQuery from './utils/filterSearchQuery';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entity/shared/constants';
-import { getEntityPath } from '../entity/shared/containers/profile/utils';
-import { EXACT_SEARCH_PREFIX } from './utils/constants';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import AutoCompleteItem from './autoComplete/AutoCompleteItem';
-import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
-import QuickFilters from './autoComplete/quickFilters/QuickFilters';
-import { getFiltersWithQuickFilter } from './utils/filterUtils';
-import usePrevious from '../shared/usePrevious';
-import analytics, { Event, EventType } from '../analytics';
-import RecommendedOption from './autoComplete/RecommendedOption';
-import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
-import { useUserContext } from '../context/useUserContext';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import ViewAllSearchItem from './ViewAllSearchItem';
-import { ViewSelect } from '../entity/view/select/ViewSelect';
-import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
-import { CommandK } from './CommandK';
-import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import styled from 'styled-components/macro';
+
+import analytics, { Event, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { ViewSelect } from '@app/entity/view/select/ViewSelect';
+import { CommandK } from '@app/search/CommandK';
+import ViewAllSearchItem from '@app/search/ViewAllSearchItem';
+import AutoCompleteItem from '@app/search/autoComplete/AutoCompleteItem';
+import RecommendedOption from '@app/search/autoComplete/RecommendedOption';
+import SectionHeader, { EntityTypeLabel } from '@app/search/autoComplete/SectionHeader';
+import QuickFilters from '@app/search/autoComplete/quickFilters/QuickFilters';
+import { combineSiblingsInAutoComplete } from '@app/search/utils/combineSiblingsInAutoComplete';
+import { EXACT_SEARCH_PREFIX } from '@app/search/utils/constants';
+import filterSearchQuery from '@app/search/utils/filterSearchQuery';
+import { getFiltersWithQuickFilter } from '@app/search/utils/filterUtils';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import usePrevious from '@app/shared/usePrevious';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
+
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
+import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '@types';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -123,6 +134,7 @@ interface Props {
     onFocus?: () => void;
     onBlur?: () => void;
     showViewAllResults?: boolean;
+    searchInputRef?: MutableRefObject<any>;
 }
 
 const defaultProps = {
@@ -152,6 +164,7 @@ export const SearchBar = ({
     onFocus,
     onBlur,
     showViewAllResults = false,
+    ...props
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
@@ -303,7 +316,8 @@ export const SearchBar = ({
         }
     }
 
-    const searchInputRef = useRef(null);
+    const searchInputFallbackRef: MutableRefObject<any> = useRef(null);
+    const searchInputRef: MutableRefObject<any> = props.searchInputRef || searchInputFallbackRef;
 
     useEffect(() => {
         if (showCommandK) {
@@ -311,7 +325,7 @@ export const SearchBar = ({
                 // Support command-k to select the search bar.
                 // 75 is the keyCode for 'k'
                 if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
-                    (searchInputRef?.current as any)?.focus();
+                    searchInputRef.current?.focus();
                 }
             };
             document.addEventListener('keydown', handleKeyDown);
@@ -320,7 +334,7 @@ export const SearchBar = ({
             };
         }
         return () => null;
-    }, [showCommandK]);
+    }, [showCommandK, searchInputRef]);
 
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
@@ -341,6 +355,7 @@ export const SearchBar = ({
                         analytics.event({
                             type: EventType.SelectAutoCompleteOption,
                             optionType: option.type,
+                            showSearchBarAutocompleteRedesign: false,
                         } as Event);
                     } else {
                         // Navigate directly to the entity profile.
@@ -351,6 +366,7 @@ export const SearchBar = ({
                             optionType: option.type,
                             entityType: option.type,
                             entityUrn: value,
+                            showSearchBarAutocompleteRedesign: false,
                         } as Event);
                     }
                 }}
@@ -377,6 +393,7 @@ export const SearchBar = ({
                 listHeight={480}
             >
                 <StyledSearchBar
+                    ref={searchInputRef}
                     bordered={false}
                     placeholder={placeholderText}
                     onPressEnter={() => {
@@ -425,7 +442,6 @@ export const SearchBar = ({
                             />
                         </>
                     }
-                    ref={searchInputRef}
                     suffix={(showCommandK && !isFocused && <CommandK />) || null}
                 />
             </StyledAutoComplete>

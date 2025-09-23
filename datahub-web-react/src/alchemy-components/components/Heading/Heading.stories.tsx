@@ -1,9 +1,9 @@
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryFn, StoryObj } from '@storybook/react';
 import React from 'react';
 
-import type { Meta, StoryObj, StoryFn } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
 import { VerticalFlexGrid } from '@components/.docs/mdx-components';
+
 import { Heading, headingDefaults } from '.';
 
 // Auto Docs

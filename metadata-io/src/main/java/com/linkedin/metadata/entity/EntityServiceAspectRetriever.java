@@ -5,7 +5,7 @@ import static com.linkedin.metadata.utils.GenericRecordUtils.entityResponseToSys
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
-import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
@@ -22,7 +22,7 @@ import lombok.Setter;
 
 @Getter
 @Builder
-public class EntityServiceAspectRetriever implements CachingAspectRetriever {
+public class EntityServiceAspectRetriever implements AspectRetriever {
 
   @Setter private OperationContext systemOperationContext;
   private final EntityRegistry entityRegistry;
@@ -46,10 +46,23 @@ public class EntityServiceAspectRetriever implements CachingAspectRetriever {
       String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
       try {
         return entityResponseToAspectMap(
-            entityService.getEntitiesV2(systemOperationContext, entityName, urns, aspectNames));
+            entityService.getEntitiesV2(
+                systemOperationContext, entityName, urns, aspectNames, false));
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);
       }
+    }
+  }
+
+  @Nonnull
+  public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
+    if (urns.isEmpty()) {
+      return Map.of();
+    } else {
+      return urns.stream()
+          .collect(
+              Collectors.toMap(
+                  urn -> urn, urn -> entityService.exists(systemOperationContext, urn)));
     }
   }
 
@@ -71,7 +84,8 @@ public class EntityServiceAspectRetriever implements CachingAspectRetriever {
                 urnAspectNames.keySet(),
                 urnAspectNames.values().stream()
                     .flatMap(Collection::stream)
-                    .collect(Collectors.toSet())),
+                    .collect(Collectors.toSet()),
+                false),
             entityRegistry);
       } catch (URISyntaxException e) {
         throw new RuntimeException(e);

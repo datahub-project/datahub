@@ -1,0 +1,1 @@
+export { Bar } from './Bar';

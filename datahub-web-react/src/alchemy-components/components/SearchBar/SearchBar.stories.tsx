@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import React, { useState } from 'react';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { SearchBar, searchBarDefaults } from './SearchBar';
-import { SearchBarProps } from './types';
+import { SearchBar, searchBarDefaults } from '@components/components/SearchBar/SearchBar';
+import { SearchBarProps } from '@components/components/SearchBar/types';
 
 const meta = {
     title: 'Components / Search Bar',
@@ -45,6 +46,15 @@ const meta = {
                 type: 'text',
             },
         },
+        height: {
+            description: 'Height of the search bar.',
+            table: {
+                defaultValue: { summary: searchBarDefaults.height },
+            },
+            control: {
+                type: 'text',
+            },
+        },
         allowClear: {
             description: 'Whether clear button should be present.',
             table: {
@@ -54,8 +64,18 @@ const meta = {
                 type: 'boolean',
             },
         },
+        clearIcon: {
+            description: 'Optional custom clear icon',
+            table: {
+                defaultValue: { summary: 'undefined' },
+                type: { summary: 'ReactNode' },
+            },
+        },
         onChange: {
             description: 'On change function for the search bar.',
+        },
+        suffix: {
+            description: 'Optional element to render inside of search bar on the left side',
         },
     },
 

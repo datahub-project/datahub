@@ -9,13 +9,13 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Iterator, List, Optional, cast
+from typing import Any, Dict, Iterable, Iterator, List, Optional
 
 import click
 import humanfriendly
 import psutil
 
-import datahub
+from datahub._version import nice_version_name
 from datahub.configuration.common import (
     ConfigModel,
     IgnorableError,
@@ -26,26 +26,28 @@ from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnv
 from datahub.ingestion.api.global_context import set_graph_context
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.report import Report
-from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
+from datahub.ingestion.api.sink import Sink, SinkReport
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig, ReporterConfig
+from datahub.ingestion.run.sink_callback import DeadLetterQueueCallback, LoggingCallback
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
-from datahub.ingestion.sink.file import FileSink, FileSinkConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
-from datahub.ingestion.transformer.system_metadata_transformer import (
-    SystemMetadataTransformer,
-)
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.upgrade.upgrade import (
+    is_server_default_cli_ahead,
+    retrieve_version_stats,
+)
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.global_warning_util import (
     clear_global_warnings,
@@ -55,67 +57,6 @@ from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 _REPORT_PRINT_INTERVAL_SECONDS = 60
-
-
-class LoggingCallback(WriteCallback):
-    def __init__(self, name: str = "") -> None:
-        super().__init__()
-        self.name = name
-
-    def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
-    ) -> None:
-        logger.debug(
-            f"{self.name} sink wrote workunit {record_envelope.metadata['workunit_id']}"
-        )
-
-    def on_failure(
-        self,
-        record_envelope: RecordEnvelope,
-        failure_exception: Exception,
-        failure_metadata: dict,
-    ) -> None:
-        logger.error(
-            f"{self.name} failed to write record with workunit {record_envelope.metadata['workunit_id']}"
-            f" with {failure_exception} and info {failure_metadata}"
-        )
-
-
-class DeadLetterQueueCallback(WriteCallback):
-    def __init__(self, ctx: PipelineContext, config: Optional[FileSinkConfig]) -> None:
-        if not config:
-            config = FileSinkConfig.parse_obj({"filename": "failed_events.json"})
-        self.file_sink: FileSink = FileSink(ctx, config)
-        self.logging_callback = LoggingCallback(name="failure-queue")
-        logger.info(f"Failure logging enabled. Will log to {config.filename}.")
-
-    def on_success(
-        self, record_envelope: RecordEnvelope, success_metadata: dict
-    ) -> None:
-        pass
-
-    def on_failure(
-        self,
-        record_envelope: RecordEnvelope,
-        failure_exception: Exception,
-        failure_metadata: dict,
-    ) -> None:
-        if "workunit_id" in record_envelope.metadata:
-            if isinstance(record_envelope.record, MetadataChangeProposalClass):
-                mcp = cast(MetadataChangeProposalClass, record_envelope.record)
-                if mcp.systemMetadata:
-                    if not mcp.systemMetadata.properties:
-                        mcp.systemMetadata.properties = {}
-                    if "workunit_id" not in mcp.systemMetadata.properties:
-                        # update the workunit id
-                        mcp.systemMetadata.properties[
-                            "workunit_id"
-                        ] = record_envelope.metadata["workunit_id"]
-                record_envelope.record = mcp
-        self.file_sink.write_record_async(record_envelope, self.logging_callback)
-
-    def close(self) -> None:
-        self.file_sink.close()
 
 
 class PipelineInitError(Exception):
@@ -143,8 +84,8 @@ def _add_init_error_context(step: str) -> Iterator[None]:
 
 @dataclass
 class CliReport(Report):
-    cli_version: str = datahub.nice_version_name()
-    cli_entry_location: str = datahub.__file__
+    cli_version: str = nice_version_name()
+    cli_entry_location: str = __file__
     models_version: str = model_version_name()
     py_version: str = sys.version
     py_exec_path: str = sys.executable
@@ -200,9 +141,8 @@ class CliReport(Report):
 
 
 def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.INGESTION)
     sink_config = graph._make_rest_sink_config()
-
     return DatahubRestSink(ctx, sink_config)
 
 
@@ -235,76 +175,108 @@ class Pipeline:
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
 
-        self.graph = None
-        with _add_init_error_context("connect to DataHub"):
-            if self.config.datahub_api:
-                self.graph = DataHubGraph(self.config.datahub_api)
-                self.graph.test_connection()
+        with (
+            contextlib.ExitStack() as exit_stack,
+            contextlib.ExitStack() as inner_exit_stack,
+        ):
+            self.graph: Optional[DataHubGraph] = None
+            with _add_init_error_context("connect to DataHub"):
+                if self.config.datahub_api:
+                    self.config.datahub_api.client_mode = ClientMode.INGESTION
+                    self.graph = exit_stack.enter_context(
+                        DataHubGraph(self.config.datahub_api)
+                    )
+                    self.graph.test_connection()
 
-        with _add_init_error_context("set up framework context"):
-            self.ctx = PipelineContext(
-                run_id=self.config.run_id,
-                graph=self.graph,
-                pipeline_name=self.config.pipeline_name,
-                dry_run=dry_run,
-                preview_mode=preview_mode,
-                pipeline_config=self.config,
-            )
-
-        if self.config.sink is None:
-            logger.info(
-                "No sink configured, attempting to use the default datahub-rest sink."
-            )
-            with _add_init_error_context("configure the default rest sink"):
-                self.sink_type = "datahub-rest"
-                self.sink = _make_default_rest_sink(self.ctx)
-        else:
-            self.sink_type = self.config.sink.type
-            with _add_init_error_context(
-                f"find a registered sink for type {self.sink_type}"
-            ):
-                sink_class = sink_registry.get(self.sink_type)
-
-            with _add_init_error_context(f"configure the sink ({self.sink_type})"):
-                sink_config = self.config.sink.dict().get("config") or {}
-                self.sink = sink_class.create(sink_config, self.ctx)
-                logger.debug(f"Sink type {self.sink_type} ({sink_class}) configured")
-        logger.info(f"Sink configured successfully. {self.sink.configured()}")
-
-        if self.graph is None and isinstance(self.sink, DatahubRestSink):
-            with _add_init_error_context("setup default datahub client"):
-                self.graph = self.sink.emitter.to_graph()
-                self.graph.test_connection()
-        self.ctx.graph = self.graph
-        telemetry_instance.set_context(server=self.graph)
-
-        with set_graph_context(self.graph):
-            with _add_init_error_context("configure reporters"):
-                self._configure_reporting(report_to)
-
-            with _add_init_error_context(
-                f"find a registered source for type {self.source_type}"
-            ):
-                source_class = source_registry.get(self.source_type)
-
-            with _add_init_error_context(f"configure the source ({self.source_type})"):
-                self.source = source_class.create(
-                    self.config.source.dict().get("config", {}), self.ctx
-                )
-                logger.debug(
-                    f"Source type {self.source_type} ({source_class}) configured"
-                )
-                logger.info("Source configured successfully.")
-
-            extractor_type = self.config.source.extractor
-            with _add_init_error_context(f"configure the extractor ({extractor_type})"):
-                extractor_class = extractor_registry.get(extractor_type)
-                self.extractor = extractor_class(
-                    self.config.source.extractor_config, self.ctx
+            with _add_init_error_context("set up framework context"):
+                self.ctx = PipelineContext(
+                    run_id=self.config.run_id,
+                    graph=self.graph,
+                    pipeline_name=self.config.pipeline_name,
+                    dry_run=dry_run,
+                    preview_mode=preview_mode,
+                    pipeline_config=self.config,
                 )
 
-            with _add_init_error_context("configure transformers"):
-                self._configure_transforms()
+            if self.config.sink is None:
+                logger.info(
+                    "No sink configured, attempting to use the default datahub-rest sink."
+                )
+                with _add_init_error_context("configure the default rest sink"):
+                    self.sink_type = "datahub-rest"
+                    self.sink = exit_stack.enter_context(
+                        _make_default_rest_sink(self.ctx)
+                    )
+            else:
+                self.sink_type = self.config.sink.type
+                with _add_init_error_context(
+                    f"find a registered sink for type {self.sink_type}"
+                ):
+                    sink_class = sink_registry.get(self.sink_type)
+
+                with _add_init_error_context(f"configure the sink ({self.sink_type})"):
+                    sink_config = self.config.sink.dict().get("config") or {}
+                    self.sink = exit_stack.enter_context(
+                        sink_class.create(sink_config, self.ctx)
+                    )
+                    logger.debug(
+                        f"Sink type {self.sink_type} ({sink_class}) configured"
+                    )
+            logger.info(f"Sink configured successfully. {self.sink.configured()}")
+
+            if self.graph is None and isinstance(self.sink, DatahubRestSink):
+                with _add_init_error_context("setup default datahub client"):
+                    self.graph = self.sink.emitter.to_graph()
+                    self.graph.test_connection()
+            self.ctx.graph = self.graph
+            telemetry_instance.set_context(server=self.graph)
+
+            with set_graph_context(self.graph):
+                with _add_init_error_context("configure reporters"):
+                    self._configure_reporting(report_to)
+
+                with _add_init_error_context(
+                    f"find a registered source for type {self.source_type}"
+                ):
+                    source_class = source_registry.get(self.source_type)
+
+                with _add_init_error_context(
+                    f"configure the source ({self.source_type})"
+                ):
+                    self.source = inner_exit_stack.enter_context(
+                        source_class.create(
+                            self.config.source.dict().get("config", {}), self.ctx
+                        )
+                    )
+                    logger.debug(
+                        f"Source type {self.source_type} ({source_class}) configured"
+                    )
+                    logger.info("Source configured successfully.")
+
+                extractor_type = self.config.source.extractor
+                with _add_init_error_context(
+                    f"configure the extractor ({extractor_type})"
+                ):
+                    extractor_class = extractor_registry.get(extractor_type)
+                    self.extractor = inner_exit_stack.enter_context(
+                        extractor_class(self.config.source.extractor_config, self.ctx)
+                    )
+
+                with _add_init_error_context("configure transformers"):
+                    self._configure_transforms()
+
+                # Register completion callback with sink to handle final reporting
+                self.sink.register_pre_shutdown_callback(
+                    self._notify_reporters_on_ingestion_completion
+                )
+
+            # If all of the initialization succeeds, we can preserve the exit stack until the pipeline run.
+            # We need to use an exit stack so that if we have an exception during initialization,
+            # things that were already initialized are still cleaned up.
+            # We need to separate the source/extractor from the rest because stateful
+            # ingestion requires the source to be closed before the state can be updated.
+            self.inner_exit_stack = inner_exit_stack.pop_all()
+            self.exit_stack = exit_stack.pop_all()
 
     @property
     def source_type(self) -> str:
@@ -323,9 +295,6 @@ class Pipeline:
                 logger.debug(
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
-
-        # Add the system metadata transformer at the end of the list.
-        self.transformers.append(SystemMetadataTransformer(self.ctx))
 
     def _configure_reporting(self, report_to: Optional[str]) -> None:
         if self.dry_run:
@@ -380,8 +349,48 @@ class Pipeline:
         for reporter in self.reporters:
             try:
                 reporter.on_start(ctx=self.ctx)
-            except Exception as e:
-                logger.warning("Reporting failed on start", exc_info=e)
+            except Exception:
+                logger.warning("Reporting failed on start", exc_info=True)
+
+    def _warn_old_cli_version(self) -> None:
+        """
+        Check if the server default CLI version is ahead of the CLI version being used.
+        If so, add a warning to the report.
+        """
+
+        try:
+            version_stats = retrieve_version_stats(timeout=2.0, graph=self.graph)
+        except RuntimeError as e:
+            # Handle case where there's no event loop available (e.g., in ThreadPoolExecutor)
+            if "no current event loop" in str(e):
+                logger.debug("Skipping version check - no event loop available")
+                return
+            raise
+
+        if not version_stats or not self.graph:
+            return
+
+        if is_server_default_cli_ahead(version_stats):
+            server_default_version = (
+                version_stats.server.current_server_default_cli_version.version
+                if version_stats.server.current_server_default_cli_version
+                else None
+            )
+            current_version = version_stats.client.current.version
+
+            logger.debug(
+                f"""
+                client_version: {current_version}
+                server_default_version: {server_default_version}
+                server_default_cli_ahead: True
+            """
+            )
+
+            self.source.get_report().warning(
+                title="Server default CLI version is ahead of CLI version",
+                message="Please upgrade the CLI version being used",
+                context=f"Server Default CLI version: {server_default_version}, Used CLI version: {current_version}",
+            )
 
     def _notify_reporters_on_ingestion_completion(self) -> None:
         for reporter in self.reporters:
@@ -403,8 +412,8 @@ class Pipeline:
                     report=self._get_structured_report(),
                     ctx=self.ctx,
                 )
-            except Exception as e:
-                logger.warning("Reporting failed on completion", exc_info=e)
+            except Exception:
+                logger.warning("Reporting failed on completion", exc_info=True)
 
     @classmethod
     def create(
@@ -438,18 +447,33 @@ class Pipeline:
             return True
         return False
 
-    def run(self) -> None:  # noqa: C901
-        with contextlib.ExitStack() as stack:
+    def _set_platform(self) -> None:
+        platform = self.source.infer_platform()
+        if platform:
+            self.source.get_report().set_platform(platform)
+        else:
+            self.source.get_report().warning(
+                message="Platform not found",
+                title="Platform not found",
+                context="Platform not found",
+            )
+
+    def run(self) -> None:
+        self._set_platform()
+        self._warn_old_cli_version()
+        with self.exit_stack, self.inner_exit_stack:
             if self.config.flags.generate_memory_profiles:
                 import memray
 
-                stack.enter_context(
+                self.exit_stack.enter_context(
                     memray.Tracker(
                         f"{self.config.flags.generate_memory_profiles}/{self.config.run_id}.bin"
                     )
                 )
 
-            stack.enter_context(self.sink)
+            self.exit_stack.enter_context(
+                change_default_attribution(KnownAttribution.INGESTION)
+            )
 
             self.final_status = PipelineStatus.UNKNOWN
             self._notify_reporters_on_ingestion_start()
@@ -458,8 +482,10 @@ class Pipeline:
                 callback = (
                     LoggingCallback()
                     if not self.config.failure_log.enabled
-                    else DeadLetterQueueCallback(
-                        self.ctx, self.config.failure_log.log_config
+                    else self.exit_stack.enter_context(
+                        DeadLetterQueueCallback(
+                            self.ctx, self.config.failure_log.log_config
+                        )
                     )
                 )
                 for wu in itertools.islice(
@@ -500,17 +526,16 @@ class Pipeline:
 
                     except (RuntimeError, SystemExit):
                         raise
-                    except Exception as e:
+                    except Exception:
                         logger.error(
                             "Failed to process some records. Continuing.",
-                            exc_info=e,
+                            exc_info=True,
                         )
-                        # TODO: Transformer errors should cause the pipeline to fail.
+                        # TODO: Transformer errors should be reported more loudly / as part of the pipeline report.
 
                     if not self.dry_run:
                         self.sink.handle_work_unit_end(wu)
-                self.extractor.close()
-                self.source.close()
+
                 # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
                 for record_envelope in self.transform(
                     [
@@ -526,22 +551,22 @@ class Pipeline:
                         # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
                         self.sink.write_record_async(record_envelope, callback)
 
+                # Stateful ingestion generates the updated state objects as part of the
+                # source's close method. Because of that, we need to close the source
+                # before we call process_commits.
+                self.inner_exit_stack.close()
+
                 self.process_commits()
                 self.final_status = PipelineStatus.COMPLETED
-            except (SystemExit, KeyboardInterrupt) as e:
+            except (SystemExit, KeyboardInterrupt):
                 self.final_status = PipelineStatus.CANCELLED
-                logger.error("Caught error", exc_info=e)
+                logger.error("Caught error", exc_info=True)
                 raise
             except Exception as exc:
                 self.final_status = PipelineStatus.ERROR
                 self._handle_uncaught_pipeline_exception(exc)
             finally:
                 clear_global_warnings()
-
-                if callback and hasattr(callback, "close"):
-                    callback.close()  # type: ignore
-
-                self._notify_reporters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -559,10 +584,8 @@ class Pipeline:
         Evaluates the commit_policy for each committable in the context and triggers the commit operation
         on the committable if its required commit policies are satisfied.
         """
-        has_errors: bool = (
-            True
-            if self.source.get_report().failures or self.sink.get_report().failures
-            else False
+        has_errors: bool = bool(
+            self.source.get_report().failures or self.sink.get_report().failures
         )
         has_warnings: bool = bool(
             self.source.get_report().warnings or self.sink.get_report().warnings
@@ -596,18 +619,20 @@ class Pipeline:
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
-                "Source reported errors", self.source.get_report()
+                "Source reported errors", self.source.get_report().failures
             )
         if self.sink.get_report().failures:
-            raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
+            raise PipelineExecutionError(
+                "Sink reported errors", self.sink.get_report().failures
+            )
         if raise_warnings:
             if self.source.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Source reported warnings", self.source.get_report()
+                    "Source reported warnings", self.source.get_report().warnings
                 )
             if self.sink.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Sink reported warnings", self.sink.get_report()
+                    "Sink reported warnings", self.sink.get_report().warnings
                 )
 
     def log_ingestion_stats(self) -> None:
@@ -616,15 +641,22 @@ class Pipeline:
         sink_failures = len(self.sink.get_report().failures)
         sink_warnings = len(self.sink.get_report().warnings)
         global_warnings = len(get_global_warnings())
+        source_aspects = self.source.get_report().get_aspects_dict()
+        source_aspects_by_subtype = (
+            self.source.get_report().get_aspects_by_subtypes_dict()
+        )
 
         telemetry_instance.ping(
             "ingest_stats",
             {
                 "source_type": self.source_type,
+                "source_aspects": source_aspects,
+                "source_aspects_by_subtype": source_aspects_by_subtype,
                 "sink_type": self.sink_type,
                 "transformer_types": [
                     transformer.type for transformer in self.config.transformers or []
                 ],
+                "extractor_type": self.config.source.extractor,
                 "records_written": stats.discretize(
                     self.sink.get_report().total_records_written
                 ),
@@ -700,7 +732,7 @@ class Pipeline:
             num_failures_sink = len(self.sink.get_report().failures)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_failures_source+num_failures_sink} failures"
+                    status=f"with at least {num_failures_source + num_failures_sink} failures"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=True, warnings=False
@@ -718,7 +750,7 @@ class Pipeline:
             num_warn_global = len(global_warnings)
             click.secho(
                 message_template.format(
-                    status=f"with at least {num_warn_source+num_warn_sink+num_warn_global} warnings"
+                    status=f"with at least {num_warn_source + num_warn_sink + num_warn_global} warnings"
                 ),
                 fg=self._get_text_color(
                     running=currently_running, failures=False, warnings=True

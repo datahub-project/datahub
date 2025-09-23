@@ -1,21 +1,18 @@
 import styled from 'styled-components';
 
-import { borders, colors, shadows, spacing, transition } from '@components/theme';
-import { ColorOptions, SizeOptions } from '@components/theme/config';
-
-import { Icon } from '../Icon';
-
-import { formLabelTextStyles } from '../commonStyles';
-
+import { Icon } from '@components/components/Icon';
+import type { SwitchLabelPosition } from '@components/components/Switch/types';
 import {
     getIconTransformPositionLeft,
     getIconTransformPositionTop,
     getInputHeight,
     getSliderTransformPosition,
     getToggleSize,
-} from './utils';
-
-import type { SwitchLabelPosition } from './types';
+} from '@components/components/Switch/utils';
+import { formLabelTextStyles } from '@components/components/commonStyles';
+import { borders, colors, shadows, spacing, transition } from '@components/theme';
+import { ColorOptions, SizeOptions } from '@components/theme/config';
+import { getColor } from '@components/theme/utils';
 
 export const Label = styled.div({
     ...formLabelTextStyles,
@@ -44,7 +41,7 @@ export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDis
             minHeight: getToggleSize(size || 'md', 'slider'),
             borderRadius: !isSquare ? '35px' : '0px',
             top: '50%',
-            left: spacing.xxsm,
+            left: '2px',
             transform: 'translate(0, -50%)',
             backgroundColor: !isDisabled ? colors.white : colors.gray[200],
             boxShadow: `
@@ -63,7 +60,7 @@ export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDis
         position: 'relative',
 
         backgroundColor: colors.gray[100],
-        padding: spacing.xxsm,
+        padding: '2px',
         transition: `${transition.duration.normal} all`,
         boxSizing: 'content-box',
     },
@@ -84,7 +81,10 @@ export const StyledInput = styled.input<{
     position: absolute;
 
     &:checked + ${Slider} {
-        background-color: ${(props) => (!props.disabled ? colors[props.colorScheme][500] : colors.gray[100])};
+        background: ${(props) =>
+            !props.disabled
+                ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.20) 0%, rgba(83.44, 63, 209, 0.20) 100%), #533FD1'
+                : colors.gray[100]};
 
         &:before {
             transform: ${({ customSize }) => getSliderTransformPosition(customSize || 'md')};
@@ -92,8 +92,9 @@ export const StyledInput = styled.input<{
     }
 
     &:focus-within + ${Slider} {
-        border-color: ${(props) => (props.checked ? colors[props.colorScheme][200] : 'transparent')};
-        outline: ${(props) => (props.checked ? `${borders['2px']} ${colors[props.colorScheme][200]}` : 'none')};
+        border-color: ${(props) => (props.checked ? getColor(props.colorScheme, 200, props.theme) : 'transparent')};
+        outline: ${(props) =>
+            props.checked ? `${borders['2px']} ${getColor(props.colorScheme, 200, props.theme)}` : 'none'};
         box-shadow: ${(props) => (props.checked ? shadows.xs : 'none')};
     }
 `;
@@ -102,6 +103,7 @@ export const StyledIcon = styled(Icon)<{ checked?: boolean; size: SizeOptions }>
     ({ checked, size }) => ({
         left: getIconTransformPositionLeft(size, checked || false),
         top: getIconTransformPositionTop(size),
+        color: checked ? colors.violet[500] : colors.gray[500],
     }),
     {
         transition: `${transition.duration.normal} all`,
@@ -109,7 +111,6 @@ export const StyledIcon = styled(Icon)<{ checked?: boolean; size: SizeOptions }>
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: colors.gray[500],
     },
 );
 

@@ -1,11 +1,13 @@
+import { Col, Divider, Empty, List, Pagination, Row } from 'antd';
+import { Content } from 'antd/lib/layout/layout';
 import React from 'react';
 import styled from 'styled-components';
-import { Col, Divider, List, Pagination, Row, Empty } from 'antd';
-import { Content } from 'antd/lib/layout/layout';
-import { BrowseResultGroup, EntityType, Entity } from '../../types.generated';
-import BrowseResultCard from './BrowseResultCard';
-import { useEntityRegistry } from '../useEntityRegistry';
-import analytics, { EventType } from '../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import BrowseResultCard from '@app/browse/BrowseResultCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { BrowseResultGroup, Entity, EntityType } from '@types';
 
 const EntityList = styled(List)`
     && {

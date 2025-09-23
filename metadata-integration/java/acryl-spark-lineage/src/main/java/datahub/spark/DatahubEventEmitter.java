@@ -1,12 +1,18 @@
 package datahub.spark;
 
+import static com.linkedin.metadata.Constants.*;
 import static datahub.spark.converter.SparkStreamingEventToDatahub.*;
 import static io.datahubproject.openlineage.converter.OpenLineageToDataHub.*;
 import static io.datahubproject.openlineage.utils.DatahubUtils.*;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataJobUrn;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.RunResultType;
@@ -52,7 +58,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.spark.sql.streaming.StreamingQueryProgress;
 
 @Slf4j
 public class DatahubEventEmitter extends EventEmitter {
@@ -62,12 +67,23 @@ public class DatahubEventEmitter extends EventEmitter {
   private final Map<String, MetadataChangeProposalWrapper> schemaMap = new HashMap<>();
   private SparkLineageConf datahubConf;
   private static final int DEFAULT_TIMEOUT_SEC = 10;
+  private final ObjectMapper objectMapper;
+  private final JacksonDataTemplateCodec dataTemplateCodec;
 
   private final EventFormatter eventFormatter = new EventFormatter();
 
   public DatahubEventEmitter(SparkOpenLineageConfig config, String applicationJobName)
       throws URISyntaxException {
     super(config, applicationJobName);
+    objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    int maxSize =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    objectMapper
+        .getFactory()
+        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
   }
 
   private Optional<Emitter> getEmitter() {
@@ -387,19 +403,6 @@ public class DatahubEventEmitter extends EventEmitter {
     }
   }
 
-  public void emit(StreamingQueryProgress event) throws URISyntaxException {
-    List<MetadataChangeProposal> mcps = new ArrayList<>();
-    for (MetadataChangeProposalWrapper mcpw :
-        generateMcpFromStreamingProgressEvent(event, datahubConf, schemaMap)) {
-      try {
-        mcps.add(eventFormatter.convert(mcpw));
-      } catch (IOException e) {
-        log.error("Failed to convert mcpw to mcp", e);
-      }
-    }
-    emitMcps(mcps);
-  }
-
   protected void emitMcps(List<MetadataChangeProposal> mcps) {
     Optional<Emitter> emitter = getEmitter();
     if (emitter.isPresent()) {
@@ -407,7 +410,14 @@ public class DatahubEventEmitter extends EventEmitter {
           .map(
               mcp -> {
                 try {
-                  log.info("emitting mcpw: " + mcp);
+                  if (this.datahubConf.isLogMcps()) {
+                    DataMap map = mcp.data();
+                    String serializedMCP = dataTemplateCodec.mapToString(map);
+                    log.info("emitting mcpw: {}", serializedMCP);
+                  } else {
+                    log.info(
+                        "emitting aspect: {} for urn: {}", mcp.getAspectName(), mcp.getEntityUrn());
+                  }
                   return emitter.get().emit(mcp);
                 } catch (IOException ioException) {
                   log.error("Failed to emit metadata to DataHub", ioException);

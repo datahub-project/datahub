@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 from urllib.parse import urlparse
 
 import dateutil.parser
@@ -9,6 +9,7 @@ import requests
 from pydantic import Field, root_validator
 
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
     capability,
     config_class,
@@ -17,7 +18,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    SourceCapability,
     TestableSource,
     TestConnectionReport,
 )
@@ -26,6 +26,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTNode,
     DBTSourceBase,
+    DBTSourceReport,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -60,6 +61,11 @@ class DBTCloudConfig(DBTCommonConfig):
     run_id: Optional[int] = Field(
         None,
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
+    )
+
+    external_url_mode: Literal["explore", "ide"] = Field(
+        default="explore",
+        description='Where should the "View in dbt" link point to - either the "Explore" UI or the dbt Cloud IDE',
     )
 
     @root_validator(pre=True)
@@ -189,20 +195,20 @@ _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
 
 _DBT_FIELDS_BY_TYPE = {
     "models": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     dependsOn
     materializedType
 """,
     "seeds": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
 """,
     "sources": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
     identifier
     sourceName
     sourceDescription
@@ -213,9 +219,9 @@ _DBT_FIELDS_BY_TYPE = {
     loader
 """,
     "snapshots": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
-    { _DBT_GRAPHQL_NODE_COMMON_FIELDS }
-    { _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
+    {_DBT_GRAPHQL_NODE_COMMON_FIELDS}
+    {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     parentsSources {{
       uniqueId
     }}
@@ -224,7 +230,7 @@ _DBT_FIELDS_BY_TYPE = {
     }}
 """,
     "tests": f"""
-    { _DBT_GRAPHQL_COMMON_FIELDS }
+    {_DBT_GRAPHQL_COMMON_FIELDS}
     state
     columnName
     status
@@ -257,16 +263,16 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
-@support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig
+    report: DBTSourceReport  # nothing cloud-specific in the report
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = DBTCloudConfig.parse_obj(config_dict)
-        return cls(config, ctx, "dbt")
+        return cls(config, ctx)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -310,7 +316,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             res = response.json()
             if "errors" in res:
                 raise ValueError(
-                    f'Unable to fetch metadata from dbt Cloud: {res["errors"]}'
+                    f"Unable to fetch metadata from dbt Cloud: {res['errors']}"
                 )
             data = res["data"]
         except JSONDecodeError as e:
@@ -364,9 +370,12 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name = node["alias"]
 
         comment = node.get("comment", "")
-        description = node["description"]
-        if node.get("sourceDescription"):
-            description = node["sourceDescription"]
+
+        # In dbt sources, there are two types of descriptions:
+        # - description: table-level description (specific to the source table)
+        # - sourceDescription: schema-level description (describes the overall source schema)
+        # The table-level description should take precedence since it's more specific.
+        description = node["description"] or node.get("sourceDescription", "")
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
@@ -400,8 +409,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         if node["resourceType"] in {"model", "seed", "snapshot"}:
             status = node["status"]
             if status is None and materialization != "ephemeral":
-                self.report.report_warning(
-                    key, "node is missing a status, schema metadata will be incomplete"
+                self.report.warning(
+                    title="Schema information may be incomplete",
+                    message="Some nodes are missing the `status` field, which dbt uses to track the status of the node in the target database.",
+                    context=key,
+                    log=False,
                 )
 
             # The code fields are new in dbt 1.3, and replace the sql ones.
@@ -527,5 +539,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         )
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
-        # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
-        return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"
+        if self.config.external_url_mode == "explore":
+            return f"{self.config.access_url}/explore/{self.config.account_id}/projects/{self.config.project_id}/environments/production/details/{node.dbt_name}"
+        else:
+            return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"

@@ -5,6 +5,7 @@ import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,10 +25,12 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
   public SystemRestliEntityClient(
       @Nonnull final Client restliClient,
       @Nonnull EntityClientConfig clientConfig,
-      EntityClientCacheConfig cacheConfig) {
-    super(restliClient, clientConfig);
+      EntityClientCacheConfig cacheConfig,
+      MetricUtils metricUtils) {
+    super(restliClient, clientConfig, metricUtils);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
-    this.entityClientCache = buildEntityClientCache(SystemRestliEntityClient.class, cacheConfig);
+    this.entityClientCache =
+        buildEntityClientCache(metricUtils, SystemRestliEntityClient.class, cacheConfig);
   }
 
   @Nullable
@@ -59,6 +62,6 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    return super.batchGetV2(opContext, entityName, urns, aspectNames);
+    return super.batchGetV2(opContext, entityName, urns, aspectNames, false);
   }
 }

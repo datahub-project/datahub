@@ -64,4 +64,25 @@ record SearchFlags {
     * By default we include these, but custom aggregation requests don't need them.
     */
   includeDefaultFacets: optional boolean = true
+
+  /**
+   * Include only latest versions in version sets, default true
+   */
+   filterNonLatestVersions: optional boolean = true
+
+   /**
+    * Which fieldConfiguration should be applied. The possible values
+    * are defined in the configuration file `search_config.yaml`
+    */
+    fieldConfiguration:optional string
+
+  /**
+    * Sets slice parameter for elasticsearch query,
+    * to allow multiple clients to scroll the same query at once.
+    * Only supported by the ElasticSearchService
+    */
+  sliceOptions: optional record SliceOptions {
+    id: int
+    max: int
+  }
 }

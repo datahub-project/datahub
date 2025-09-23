@@ -21,6 +21,7 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - applications
       - schemaMetadata
       - status
       - container
@@ -46,6 +47,9 @@ entities:
       - structuredProperties
       - forms
       - partitionsSummary
+      - versionProperties
+      - icebergCatalogInfo
+      - logicalParent
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -58,6 +62,7 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataJobInfo
@@ -70,17 +75,20 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - forms
       - subTypes
       - incidentsSummary
       - testResults
+      - dataTransformLogic
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
     aspects:
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataFlowInfo
@@ -92,6 +100,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - incidentsSummary
@@ -105,6 +114,7 @@ entities:
       - ownership
       - status
       - testResults
+      - subTypes
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
@@ -116,6 +126,10 @@ entities:
       - dataProcessInstanceRunEvent
       - status
       - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
   - name: chart
     category: core
     keyAspect: chartKey
@@ -128,6 +142,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - applications
       - container
       - deprecation
       - ownership
@@ -146,6 +161,7 @@ entities:
     keyAspect: dashboardKey
     aspects:
       - domains
+      - applications
       - container
       - deprecation
       - dashboardUsageStatistics
@@ -180,6 +196,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - applications
       - subTypes
       - dataPlatformInstance
       - browsePathsV2
@@ -202,6 +219,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - slackUserInfo
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -216,6 +235,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: domain
     doc: A data domain within an organization.
     category: core
@@ -227,6 +247,8 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - displayProperties
+      - assetSettings
   - name: container
     doc: A container of related data assets.
     category: core
@@ -245,6 +267,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - applications
       - browsePathsV2
       - structuredProperties
       - forms
@@ -270,11 +293,14 @@ entities:
       - ownership
       - deprecation
       - domains
+      - applications
       - status
       - browsePaths
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - assetSettings
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -286,11 +312,15 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - displayProperties
+      - assetSettings
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
     aspects:
       - dataHubIngestionSourceInfo
+      - ownership
   - name: dataHubSecret
     category: internal
     keyAspect: dataHubSecretKey
@@ -329,6 +359,7 @@ entities:
       - institutionalMemory
       - deprecation
       - status
+      - icebergWarehouseInfo
   - name: mlModel
     category: core
     keyAspect: mlModelKey
@@ -336,6 +367,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - applications
       - ownership
       - mlModelProperties
       - intendedUse
@@ -359,6 +391,9 @@ entities:
       - forms
       - testResults
       - incidentsSummary
+      - versionProperties
+      - subTypes
+      - container
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -366,6 +401,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - applications
       - mlModelGroupProperties
       - ownership
       - status
@@ -377,6 +413,9 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - container
+      - institutionalMemory
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey
@@ -388,6 +427,7 @@ entities:
       - globalTags
       - dataPlatformInstance
       - testResults
+      - container
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
@@ -395,6 +435,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - applications
       - mlFeatureTableProperties
       - ownership
       - institutionalMemory
@@ -407,6 +448,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
@@ -414,6 +456,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - applications
       - mlFeatureProperties
       - ownership
       - institutionalMemory
@@ -427,6 +470,7 @@ entities:
       - forms
       - testResults
       - incidentsSummary
+      - subTypes
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
@@ -434,6 +478,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - applications
       - mlPrimaryKeyProperties
       - ownership
       - institutionalMemory
@@ -444,6 +489,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - subTypes
   - name: telemetry
     category: internal
     keyAspect: telemetryKey
@@ -483,12 +529,22 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - deprecation
+      - subTypes
+      - logicalParent
+      - globalTags
+      - glossaryTerms
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: versionSet
+    category: core
+    keyAspect: versionSetKey
+    aspects:
+      - versionSetProperties
   - name: incident
     doc: An incident for an asset.
     category: core
@@ -506,6 +562,7 @@ entities:
     keyAspect: postKey
     aspects:
       - postInfo
+      - subTypes
   - name: dataHubStepState
     category: internal
     keyAspect: dataHubStepStateKey
@@ -545,12 +602,30 @@ entities:
       - glossaryTerms
       - globalTags
       - domains
+      - applications
       - dataProductProperties
       - institutionalMemory
       - status
       - structuredProperties
       - forms
       - testResults
+      - subTypes
+      - assetSettings
+  - name: application
+    category: core
+    keyAspect: applicationKey
+    aspects:
+      - applicationProperties
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
+      - institutionalMemory
+      - status
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core
@@ -573,6 +648,7 @@ entities:
       - dataContractProperties
       - dataContractStatus
       - status
+      - structuredProperties
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey
@@ -614,6 +690,16 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+  - name: dataHubPageTemplate
+    category: core
+    keyAspect: dataHubPageTemplateKey
+    aspects:
+      - dataHubPageTemplateProperties
+  - name: dataHubPageModule
+    category: core
+    keyAspect: dataHubPageModuleKey
+    aspects:
+      - dataHubPageModuleProperties
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey
@@ -631,53 +717,15 @@ entities:
       - dataPlatformInstance
       - platformResourceInfo
       - status
+  - name: dataHubOpenAPISchema
+    doc: Contains aspects which are used in OpenAPI requests/responses which are not otherwise present in the data model.
+    category: internal
+    keyAspect: dataHubOpenAPISchemaKey
+    aspects:
+      - systemMetadata
 events:
 plugins:
   aspectPayloadValidators:
-    - className: 'com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-        - UPSERT
-      supportedEntityAspectNames:
-        - entityName: structuredProperty
-          aspectName: propertyDefinition
-        - entityName: structuredProperty
-          aspectName: structuredPropertyKey
-    - className: 'com.linkedin.metadata.structuredproperties.validation.StructuredPropertiesValidator'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.validation'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - DELETE
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
-    - className: 'com.linkedin.metadata.aspect.validation.ConditionalWriteValidator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - CREATE_ENTITY
-        - DELETE
-        - UPSERT
-        - UPDATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: '*'
     - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
       enabled: true
       spring:
@@ -685,17 +733,6 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
   mcpSideEffects:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
-      enabled: true
-      supportedOperations:
-        - DELETE
-      supportedEntityAspectNames:
-        - entityName: structuredProperty
-          aspectName: propertyDefinition
-        - entityName: structuredProperty
-          aspectName: structuredPropertyKey
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
       enabled: true
       spring:
@@ -703,26 +740,6 @@ plugins:
       packageScan:
         - com.linkedin.gms.factory.plugins
   mutationHooks:
-    - className: 'com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete'
-      packageScan:
-        - 'com.linkedin.metadata.structuredproperties.hooks'
-      enabled: true
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: structuredProperties
-    - className: 'com.linkedin.metadata.aspect.hooks.FieldPathMutator'
-      enabled: true
-      supportedOperations:
-        - CREATE
-        - UPSERT
-        - UPDATE
-        - RESTATE
-        - PATCH
-      supportedEntityAspectNames:
-        - entityName: '*'
-          aspectName: 'schemaMetadata'
-        - entityName: '*'
-          aspectName: 'editableSchemaMetadata'
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MutationHook'
       enabled: true
       spring:

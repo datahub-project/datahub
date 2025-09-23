@@ -1,5 +1,5 @@
 import collections
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from ruamel.yaml import YAML
 from typing_extensions import Literal
@@ -25,6 +25,8 @@ from datahub.metadata.schema_classes import (
     FreshnessContractClass,
     SchemaContractClass,
     StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -47,8 +49,12 @@ class DataContract(v1_ConfigModel):
     entity: str = v1_Field(
         description="The entity urn that the Data Contract is associated with"
     )
-    # TODO: add support for properties
-    # properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, Union[str, float, List[Union[str, float]]]]] = (
+        v1_Field(
+            default=None,
+            description="Structured properties associated with the data contract.",
+        )
+    )
 
     schema_field: Optional[SchemaAssertion] = v1_Field(default=None, alias="schema")
 
@@ -172,6 +178,30 @@ class DataContract(v1_ConfigModel):
         )
         yield from dq_assertion_mcps
 
+        # Construct the structured properties aspect if properties are defined
+        structured_properties_aspect: Optional[StructuredPropertiesClass] = None
+        if self.properties:
+            property_assignments: List[StructuredPropertyValueAssignmentClass] = []
+            for key, value in self.properties.items():
+                # Use f-string formatting for the property URN, like in dataset.py
+                prop_urn = f"urn:li:structuredProperty:{key}"
+                # Ensure value is a list for StructuredPropertyValueAssignmentClass
+                values_list = value if isinstance(value, list) else [value]
+                property_assignments.append(
+                    StructuredPropertyValueAssignmentClass(
+                        propertyUrn=prop_urn,
+                        values=[
+                            str(v) for v in values_list
+                        ],  # Ensure all values are strings
+                    )
+                )
+            if (
+                property_assignments
+            ):  # Only create aspect if there are valid assignments
+                structured_properties_aspect = StructuredPropertiesClass(
+                    properties=property_assignments
+                )
+
         # Now that we've generated the assertions, we can generate
         # the actual data contract.
         yield from MetadataChangeProposalWrapper.construct_many(
@@ -202,6 +232,8 @@ class DataContract(v1_ConfigModel):
                     if True
                     else None
                 ),
+                # Add structured properties aspect if defined
+                structured_properties_aspect,
             ],
         )
 

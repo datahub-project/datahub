@@ -1,10 +1,9 @@
-import time
 from datetime import datetime
 
 import pytest
-from freezegun import freeze_time
 from pydantic import ValidationError
 
+import datahub.ingestion.source.usage.usage_common
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -14,20 +13,12 @@ from datahub.ingestion.source.usage.usage_common import (
     DEFAULT_QUERIES_CHARACTER_LIMIT,
     BaseUsageConfig,
     GenericAggregatedDataset,
-    convert_usage_aggregation_class,
+    UsageAggregator,
 )
 from datahub.metadata.schema_classes import (
-    CalendarIntervalClass,
-    DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
-    DatasetUserUsageCountsClass,
-    FieldUsageCountsClass,
-    TimeWindowSizeClass,
-    UsageAggregationClass,
-    UsageAggregationMetricsClass,
-    UserUsageCountsClass,
-    WindowDurationClass,
 )
+from datahub.testing.doctest import assert_doctest
 
 _TestTableRef = str
 
@@ -309,67 +300,30 @@ def test_make_usage_workunit_include_top_n_queries():
     assert du.topSqlQueries is None
 
 
-@freeze_time("2023-01-01 00:00:00")
-def test_convert_usage_aggregation_class():
-    urn = make_dataset_urn_with_platform_instance(
-        "platform", "test_db.test_schema.test_table", None
-    )
-    usage_aggregation = UsageAggregationClass(
-        bucket=int(time.time() * 1000),
-        duration=WindowDurationClass.DAY,
-        resource=urn,
-        metrics=UsageAggregationMetricsClass(
-            uniqueUserCount=5,
-            users=[
-                UserUsageCountsClass(count=3, user="abc", userEmail="abc@acryl.io"),
-                UserUsageCountsClass(count=2),
-                UserUsageCountsClass(count=1, user="def"),
-            ],
-            totalSqlQueries=10,
-            topSqlQueries=["SELECT * FROM my_table", "SELECT col from a.b.c"],
-            fields=[FieldUsageCountsClass("col", 7), FieldUsageCountsClass("col2", 0)],
-        ),
-    )
-    assert convert_usage_aggregation_class(
-        usage_aggregation
-    ) == MetadataChangeProposalWrapper(
-        entityUrn=urn,
-        aspect=DatasetUsageStatisticsClass(
-            timestampMillis=int(time.time() * 1000),
-            eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
-            uniqueUserCount=5,
-            totalSqlQueries=10,
-            topSqlQueries=["SELECT * FROM my_table", "SELECT col from a.b.c"],
-            userCounts=[
-                DatasetUserUsageCountsClass(
-                    user="abc", count=3, userEmail="abc@acryl.io"
-                ),
-                DatasetUserUsageCountsClass(user="def", count=1),
-            ],
-            fieldCounts=[
-                DatasetFieldUsageCountsClass(fieldPath="col", count=7),
-                DatasetFieldUsageCountsClass(fieldPath="col2", count=0),
-            ],
-        ),
+def test_extract_user_email():
+    assert_doctest(datahub.ingestion.source.usage.usage_common)
+
+
+def test_usage_aggregator_passes_user_email_pattern():
+    test_email = "test_email@test.com"
+    test_query = "select * from test"
+    event_time = datetime(2020, 1, 1)
+    resource = "test_db.test_schema.test_table"
+    user_email_pattern = AllowDenyPattern(deny=["test_email@test.com"])
+
+    config = BaseUsageConfig(user_email_pattern=user_email_pattern)
+    aggregator: UsageAggregator[str] = UsageAggregator(config)
+
+    aggregator.aggregate_event(
+        resource=resource,
+        start_time=event_time,
+        query=test_query,
+        user=test_email,
+        fields=[],
     )
 
-    empty_urn = make_dataset_urn_with_platform_instance(
-        "platform",
-        "test_db.test_schema.empty_table",
-        None,
-    )
-    empty_usage_aggregation = UsageAggregationClass(
-        bucket=int(time.time() * 1000) - 1000 * 60 * 60 * 24,
-        duration=WindowDurationClass.MONTH,
-        resource=empty_urn,
-        metrics=UsageAggregationMetricsClass(),
-    )
-    assert convert_usage_aggregation_class(
-        empty_usage_aggregation
-    ) == MetadataChangeProposalWrapper(
-        entityUrn=empty_urn,
-        aspect=DatasetUsageStatisticsClass(
-            timestampMillis=int(time.time() * 1000) - 1000 * 60 * 60 * 24,
-            eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.MONTH),
-        ),
-    )
+    floored_ts = get_time_bucket(event_time, BucketDuration.DAY)
+    aggregated_dataset = aggregator.aggregation[floored_ts][resource]
+
+    assert aggregated_dataset.queryCount == 0
+    assert aggregated_dataset.userFreq[test_email] == 0

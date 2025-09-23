@@ -12,11 +12,11 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -29,11 +29,10 @@ import org.testng.annotations.Test;
 public class UpdateIndicesServiceTest {
 
   @Mock private UpdateGraphIndicesService updateGraphIndicesService;
-  @Mock private EntitySearchService entitySearchService;
+  @Mock private ElasticSearchService entitySearchService;
   @Mock private TimeseriesAspectService timeseriesAspectService;
   @Mock private SystemMetadataService systemMetadataService;
   @Mock private SearchDocumentTransformer searchDocumentTransformer;
-  @Mock private EntityIndexBuilders entityIndexBuilders;
 
   private OperationContext operationContext;
   private UpdateIndicesService updateIndicesService;
@@ -49,7 +48,6 @@ public class UpdateIndicesServiceTest {
             timeseriesAspectService,
             systemMetadataService,
             searchDocumentTransformer,
-            entityIndexBuilders,
             "MD5");
   }
 
@@ -66,7 +64,7 @@ public class UpdateIndicesServiceTest {
     event.setAspectName(CONTAINER_ASPECT_NAME);
     event.setEntityType(urn.getEntityType());
     event.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
-
+    event.setCreated(AuditStampUtils.createDefaultAuditStamp());
     // Execute Delete
     updateIndicesService.handleChangeEvent(operationContext, event);
 
@@ -78,7 +76,8 @@ public class UpdateIndicesServiceTest {
             eq(urn),
             nullable(RecordTemplate.class),
             eq(aspectSpec),
-            eq(true));
+            eq(true),
+            eq(event.getCreated()));
     verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
   }
 }

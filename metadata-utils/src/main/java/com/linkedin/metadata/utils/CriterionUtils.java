@@ -4,7 +4,9 @@ import static com.linkedin.metadata.Constants.URN_LI_PREFIX;
 
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -131,5 +133,12 @@ public class CriterionUtils {
     criterion.setValues(values != null ? new StringArray(values) : new StringArray());
     criterion.setValue(""); // deprecated
     return criterion;
+  }
+
+  public static ConjunctiveCriterion buildConjunctiveCriterion(Criterion... criteria) {
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    conjunctiveCriterion.setAnd(
+        new CriterionArray(Arrays.stream(criteria).collect(Collectors.toList())));
+    return conjunctiveCriterion;
   }
 }

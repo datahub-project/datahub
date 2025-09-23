@@ -8,7 +8,7 @@ import pydantic
 from pydantic import Field
 from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -17,7 +17,8 @@ from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.ge_data_profiler import DATABRICKS
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -33,6 +34,16 @@ from datahub.ingestion.source_config.operation_config import (
 from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
+
+# Configuration default constants
+INCLUDE_TAGS_DEFAULT = True
+INCLUDE_HIVE_METASTORE_DEFAULT = True
+
+
+class LineageDataSource(ConfigEnum):
+    AUTO = "AUTO"
+    SYSTEM_TABLES = "SYSTEM_TABLES"
+    API = "API"
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
@@ -130,10 +141,18 @@ class UnityCatalogSourceConfig(
     )
     warehouse_id: Optional[str] = pydantic.Field(
         default=None,
-        description="SQL Warehouse id, for running queries. If not set, will use the default warehouse.",
+        description=(
+            "SQL Warehouse id, for running queries. Must be explicitly provided to enable SQL-based features. "
+            "Required for the following features that need SQL access: "
+            "1) Tag extraction (include_tags=True) - queries system.information_schema.tags "
+            "2) Hive Metastore catalog (include_hive_metastore=True) - queries legacy hive_metastore catalog "
+            "3) System table lineage (lineage_data_source=SYSTEM_TABLES) - queries system.access.table_lineage/column_lineage "
+            "4) Data profiling (profiling.enabled=True) - runs SELECT/ANALYZE queries on tables. "
+            "When warehouse_id is missing, these features will be automatically disabled (with warnings) to allow ingestion to continue."
+        ),
     )
     include_hive_metastore: bool = pydantic.Field(
-        default=True,
+        default=INCLUDE_HIVE_METASTORE_DEFAULT,
         description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
     )
     workspace_name: Optional[str] = pydantic.Field(
@@ -228,6 +247,15 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",
     )
 
+    include_tags: bool = pydantic.Field(
+        default=INCLUDE_TAGS_DEFAULT,
+        description=(
+            "Option to enable/disable column/table tag extraction. "
+            "Requires warehouse_id to be set since tag extraction needs to query system.information_schema.tags. "
+            "If warehouse_id is not provided, this will be automatically disabled to allow ingestion to continue."
+        ),
+    )
+
     _rename_table_ownership = pydantic_renamed_field(
         "include_table_ownership", "include_ownership"
     )
@@ -235,6 +263,21 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    lineage_data_source: LineageDataSource = pydantic.Field(
+        default=LineageDataSource.AUTO,
+        description=(
+            "Source for lineage data extraction. Options: "
+            f"'{LineageDataSource.AUTO.value}' - Use system tables when SQL warehouse is available, fallback to API; "
+            f"'{LineageDataSource.SYSTEM_TABLES.value}' - Force use of system.access.table_lineage and system.access.column_lineage tables (requires SQL warehouse); "
+            f"'{LineageDataSource.API.value}' - Force use of REST API endpoints for lineage data"
+        ),
+    )
+
+    ignore_start_time_lineage: bool = pydantic.Field(
+        default=False,
+        description="Option to ignore the start_time and retrieve all available lineage. When enabled, the start_time filter will be set to zero to extract all lineage events regardless of the configured time window.",
     )
 
     column_lineage_column_limit: int = pydantic.Field(
@@ -248,13 +291,26 @@ class UnityCatalogSourceConfig(
         hidden_from_docs=True,
     )
 
+    databricks_api_page_size: int = pydantic.Field(
+        default=0,
+        ge=0,
+        description=(
+            "Page size for Databricks API calls when listing resources (catalogs, schemas, tables, etc.). "
+            "When set to 0 (default), uses server-side configured page length (recommended). "
+            "When set to a positive value, the page length is the minimum of this value and the server configured value. "
+            "Must be a non-negative integer."
+        ),
+    )
+
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistics.",
     )
 
     # TODO: Remove `type:ignore` by refactoring config
-    profiling: Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig] = Field(  # type: ignore
+    profiling: Union[
+        UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
+    ] = Field(  # type: ignore
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
@@ -270,7 +326,61 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    include_ml_model_aliases: bool = pydantic.Field(
+        default=False,
+        description="Whether to include ML model aliases in the ingestion.",
+    )
+
+    ml_model_max_results: int = pydantic.Field(
+        default=1000,
+        ge=0,
+        description="Maximum number of ML models to ingest.",
+    )
+
+    _forced_disable_tag_extraction: bool = pydantic.PrivateAttr(default=False)
+    _forced_disable_hive_metastore_extraction = pydantic.PrivateAttr(default=False)
+
     scheme: str = DATABRICKS
+
+    def __init__(self, **data):
+        # First, let the parent handle the root validators and field processing
+        super().__init__(**data)
+
+        # After model creation, check if we need to auto-disable features
+        # based on the final warehouse_id value (which may have been set by root validators)
+        include_tags_original = data.get("include_tags", INCLUDE_TAGS_DEFAULT)
+        include_hive_metastore_original = data.get(
+            "include_hive_metastore", INCLUDE_HIVE_METASTORE_DEFAULT
+        )
+
+        # Track what we're force-disabling
+        forced_disable_tag_extraction = False
+        forced_disable_hive_metastore_extraction = False
+
+        # Check if features should be auto-disabled based on final warehouse_id
+        if include_tags_original and not self.warehouse_id:
+            forced_disable_tag_extraction = True
+            self.include_tags = False  # Modify the model attribute directly
+            logger.warning(
+                "warehouse_id is not set but include_tags=True. "
+                "Automatically disabling tag extraction since it requires SQL queries. "
+                "Set warehouse_id to enable tag extraction."
+            )
+
+        if include_hive_metastore_original and not self.warehouse_id:
+            forced_disable_hive_metastore_extraction = True
+            self.include_hive_metastore = False  # Modify the model attribute directly
+            logger.warning(
+                "warehouse_id is not set but include_hive_metastore=True. "
+                "Automatically disabling hive metastore extraction since it requires SQL queries. "
+                "Set warehouse_id to enable hive metastore extraction."
+            )
+
+        # Set private attributes
+        self._forced_disable_tag_extraction = forced_disable_tag_extraction
+        self._forced_disable_hive_metastore_extraction = (
+            forced_disable_hive_metastore_extraction
+        )
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
@@ -341,16 +451,25 @@ class UnityCatalogSourceConfig(
                 "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`."
             )
 
-        if values.get("include_hive_metastore") and not values.get("warehouse_id"):
-            raise ValueError(
-                "When `include_hive_metastore` is set, `warehouse_id` must be set."
-            )
-
         if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
             profiling.warehouse_id = values["warehouse_id"]
 
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
+
+        return values
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_lineage_data_source_with_warehouse(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        lineage_data_source = values.get("lineage_data_source", LineageDataSource.AUTO)
+        warehouse_id = values.get("warehouse_id")
+
+        if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
+            raise ValueError(
+                f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
+            )
 
         return values
 

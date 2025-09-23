@@ -1,7 +1,12 @@
 import { HTMLAttributes } from 'react';
 
-import type { FontSizeOptions, FontColorOptions, RotationOptions } from '@components/theme/config';
-import { AVAILABLE_ICONS } from './constants';
+import { AVAILABLE_ICONS } from '@components/components/Icon/constants';
+import type {
+    FontColorLevelOptions,
+    FontColorOptions,
+    FontSizeOptions,
+    RotationOptions,
+} from '@components/theme/config';
 
 // Utility function to create an enum from an array of strings
 function createEnum<T extends string>(values: T[]): { [K in T]: K } {
@@ -14,10 +19,22 @@ function createEnum<T extends string>(values: T[]): { [K in T]: K } {
 const names = createEnum(AVAILABLE_ICONS);
 export type IconNames = keyof typeof names;
 
-export interface IconProps extends HTMLAttributes<HTMLElement> {
+export type MaterialIconVariant = 'filled' | 'outline';
+export type PhosphorIconWeight = 'thin' | 'light' | 'regular' | 'bold' | 'fill' | 'duotone';
+export type IconSource = 'material' | 'phosphor';
+
+export interface IconPropsDefaults {
+    source: IconSource;
+    variant: MaterialIconVariant;
+    weight?: PhosphorIconWeight;
+    size: FontSizeOptions;
+    color: FontColorOptions;
+    colorLevel?: FontColorLevelOptions;
+    rotate: RotationOptions;
+    tooltipText?: string;
+}
+
+export interface IconProps extends Partial<IconPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {
     icon: IconNames;
-    variant?: 'filled' | 'outline';
-    size?: FontSizeOptions;
-    color?: FontColorOptions;
-    rotate?: RotationOptions;
+    className?: string;
 }

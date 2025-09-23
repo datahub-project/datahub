@@ -1,10 +1,12 @@
 import { Typography } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { renderTypeToRenderer } from './renderers';
-import { RecommendationDisplayType } from './types';
+
+import analytics, { EventType } from '@app/analytics';
+import { renderTypeToRenderer } from '@app/recommendations/renderers';
+import { RecommendationDisplayType } from '@app/recommendations/types';
+
+import { RecommendationModule as RecommendationModuleType, ScenarioType } from '@types';
 
 type Props = {
     module: RecommendationModuleType;

@@ -97,6 +97,21 @@ The start and end time fields filter on the `timestampMillis` field of the times
 - `ddddddddd` (e.g. `1684384045`): a unix timestamp
 - `min`, `max`, `now`: special keywords
 
+#### Undo-ing soft deletion of entities
+
+You can restore soft-deleted entities using the `undo-by-filter` command. This reverts the effect of a soft delete.
+
+```shell
+# Restore (un-soft-delete) a single soft-deleted entity
+datahub delete undo-by-filter --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+
+# Restore all soft-deleted entities from a specific platform
+datahub delete undo-by-filter --platform snowflake
+
+# You can adjust the batch size (default 3000, max 10000) for better performance
+datahub delete undo-by-filter --platform snowflake --batch-size 5000
+```
+
 ## Delete CLI Examples
 
 :::note
@@ -210,7 +225,7 @@ datahub delete --platform snowflake --only-soft-deleted --hard
 
 ## Deletes using the SDK and APIs
 
-The Python SDK's [DataHubGraph](../../python-sdk/clients.md) client supports deletes via the following methods:
+The Python SDK's [DataHubGraph](../../python-sdk/clients/graph-client.mdx) client supports deletes via the following methods:
 
 - `soft_delete_entity`
 - `hard_delete_entity`

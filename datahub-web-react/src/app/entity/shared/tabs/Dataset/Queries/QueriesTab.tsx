@@ -1,23 +1,29 @@
-import styled from 'styled-components';
-import React, { useState } from 'react';
 import { debounce } from 'lodash';
-import { useListQueriesQuery } from '../../../../../../graphql/query.generated';
-import { GetDatasetQuery, useGetRecentQueriesQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../EntityContext';
-import getTopNQueries from './utils/getTopNQueries';
-import { useAppConfig } from '../../../../../useAppConfig';
-import QueryBuilderModal from './QueryBuilderModal';
-import EmptyQueries from './EmptyQueries';
-import { addQueryToListQueriesCache, removeQueryFromListQueriesCache, updateListQueriesCache } from './cacheUtils';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import EmptyQueries from '@app/entity/shared/tabs/Dataset/Queries/EmptyQueries';
+import QueriesListSection from '@app/entity/shared/tabs/Dataset/Queries/QueriesListSection';
+import QueriesTabToolbar from '@app/entity/shared/tabs/Dataset/Queries/QueriesTabToolbar';
+import QueryBuilderModal from '@app/entity/shared/tabs/Dataset/Queries/QueryBuilderModal';
+import {
+    addQueryToListQueriesCache,
+    removeQueryFromListQueriesCache,
+    updateListQueriesCache,
+} from '@app/entity/shared/tabs/Dataset/Queries/cacheUtils';
 import {
     DEFAULT_MAX_RECENT_QUERIES,
     HALF_SECOND_IN_MS,
     MAX_QUERIES_COUNT,
     MAX_ROWS_BEFORE_DEBOUNCE,
-} from './utils/constants';
-import { filterQueries } from './utils/filterQueries';
-import QueriesTabToolbar from './QueriesTabToolbar';
-import QueriesListSection from './QueriesListSection';
+} from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import { filterQueries } from '@app/entity/shared/tabs/Dataset/Queries/utils/filterQueries';
+import getTopNQueries from '@app/entity/shared/tabs/Dataset/Queries/utils/getTopNQueries';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { GetDatasetQuery, useGetRecentQueriesQuery } from '@graphql/dataset.generated';
+import { useListQueriesQuery } from '@graphql/query.generated';
 
 const Content = styled.div`
     padding: 24px;

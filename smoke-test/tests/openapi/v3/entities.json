@@ -1,0 +1,564 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetSingle1EntityV3%2CPROD%29",
+      "description": "Remove test dataset 1",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetSingle2EntityV3%2CPROD%29",
+      "description": "Remove test dataset 2",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetSingle3EntityV3%2CPROD%29",
+      "description": "Remove test dataset 3",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2Cdataset%2FEntityV3%2CPROD%29",
+      "description": "Remove test dataset with %2F",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetPatchEntityV3%2CPROD%29",
+      "description": "Remove PATCH test",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "params": {
+        "createIfNotExists": "false",
+        "createEntityIfNotExists": "false",
+        "async": "false"
+      },
+      "description": "Create 3 datasets",
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
+          "datasetProperties": {
+            "value": {
+              "name": "datasetSingle1EntityV3",
+              "qualifiedName": "entities.datasetSingle1EntityV3",
+              "customProperties": {},
+              "tags": []
+            }
+          },
+          "status": {
+            "value": {
+              "removed": false
+            }
+          }
+        },
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle2EntityV3,PROD)",
+          "datasetProperties": {
+            "value": {
+              "name": "datasetSingle2EntityV3",
+              "qualifiedName": "entities.datasetSingle2EntityV3",
+              "customProperties": {},
+              "tags": []
+            }
+          },
+          "status": {
+            "value": {
+              "removed": false
+            }
+          }
+        },
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle3EntityV3,PROD)",
+          "datasetProperties": {
+            "value": {
+              "name": "datasetSingle3EntityV3",
+              "qualifiedName": "entities.datasetSingle3EntityV3",
+              "customProperties": {},
+              "tags": []
+            }
+          },
+          "status": {
+            "value": {
+              "removed": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "pitKeepAlive": "1m",
+        "count": "1",
+        "query": "qualifiedName:entities\\.datasetSingle*",
+        "sortCriteria": "urn"
+      },
+      "description": "Generic scroll",
+      "json": {
+        "aspects": [
+          "datasetProperties"
+        ]
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
+            "datasetProperties": {
+              "value": {
+                "name": "datasetSingle1EntityV3",
+                "qualifiedName": "entities.datasetSingle1EntityV3",
+                "customProperties": {},
+                "tags": []
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "count": "10"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "sortCriteria": [
+          {
+            "field": "name",
+            "order": "ASCENDING"
+          }
+        ],
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["openapi"],
+                  "condition": "EQUAL"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:OpenApi",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "OpenApi"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "openapi",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "OpenAPI",
+                "logoUrl": "/assets/platforms/openapilogo.png"
+              }
+            }
+          }
+        ],
+        "totalCount": 1
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "count": "1"
+      },
+      "description": "Generic scroll with filters",
+      "json": {
+        "aspects": [],
+        "entities": [
+          "dataPlatform"
+        ],
+        "filter": {
+          "and": [
+            {
+              "criteria": [
+                {
+                  "field": "name",
+                  "values": ["vert"],
+                  "condition": "CONTAIN"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataPlatform:vertexai",
+            "dataPlatformKey": {
+              "value": {
+                "platformName": "vertexai"
+              }
+            },
+            "dataPlatformInfo": {
+              "value": {
+                "name": "vertexai",
+                "datasetNameDelimiter": ".",
+                "type": "OTHERS",
+                "displayName": "vertexai",
+                "logoUrl": "/assets/platforms/vertexai.png"
+              }
+            }
+          }
+        ],
+        "totalCount": 2
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll",
+      "params": {
+        "pitKeepAlive": "1m",
+        "count": "1",
+        "query": "qualifiedName:entities\\.datasetSingle*",
+        "sortCriteria": "urn",
+        "systemMetadata": "true"
+      },
+      "description": "Generic scroll",
+      "json": {
+        "aspects": [
+          "datasetProperties"
+        ]
+      }
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['sourceIP'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['properties'\\]\\['telemetryTraceId'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['auditStamp'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['lastObserved'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectCreated'\\]\\['time'\\]",
+        "root\\['entities'\\]\\[0\\]\\['datasetProperties'\\]\\['systemMetadata'\\]\\['aspectModified'\\]\\['time'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
+            "datasetProperties": {
+              "value": {
+                "name": "datasetSingle1EntityV3",
+                "qualifiedName": "entities.datasetSingle1EntityV3",
+                "customProperties": {},
+                "tags": []
+              },
+              "systemMetadata": {
+                "aspectCreated": {
+                  "actor":"urn:li:corpuser:datahub"
+                },
+                "aspectModified": {
+                  "actor":"urn:li:corpuser:datahub"
+                },
+                "version":"1",
+                "properties": {
+                  "eventSource":"OPENAPI"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset?aspects=datasetProperties&aspects=status",
+      "method": "get",
+      "params": {
+        "pitKeepAlive": "1m",
+        "count": "1",
+        "query": "qualifiedName:entities\\.datasetSingle*",
+        "sortCriteria": "urn",
+        "sortOrder": "DESCENDING"
+      },
+      "description": "Dataset Entity scroll"
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\['scrollId'\\]",
+        "root\\['totalCount'\\]"
+      ],
+      "json": {
+        "entities": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle3EntityV3,PROD)",
+            "datasetProperties": {
+              "value": {
+                "name": "datasetSingle3EntityV3",
+                "qualifiedName": "entities.datasetSingle3EntityV3",
+                "customProperties": {},
+                "tags": []
+              }
+            },
+            "status": {
+              "value": {
+                "removed": false
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "params": {
+        "async": "false"
+      },
+      "description": "Create dataset with %2F",
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset/EntityV3,PROD)",
+          "datasetProperties": {
+            "value": {
+              "name": "dataset/EntityV3",
+              "qualifiedName": "entities.dataset/EntityV3",
+              "customProperties": {},
+              "tags": []
+            }
+          },
+          "status": {
+            "value": {
+              "removed": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2Cdataset%2FEntityV3%2CPROD%29",
+      "method": "get",
+      "description": "Get dataset with %2F"
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset/EntityV3,PROD)",
+        "browsePathsV2": {
+          "value": {
+            "path": [
+              {
+                "id": "Default"
+              }
+            ]
+          }
+        },
+        "datasetKey": {
+          "value": {
+            "name": "dataset/EntityV3",
+            "platform": "urn:li:dataPlatform:test",
+            "origin": "PROD"
+          }
+        },
+        "dataPlatformInstance": {
+          "value": {
+            "platform": "urn:li:dataPlatform:test"
+          }
+        },
+        "datasetProperties": {
+          "value": {
+            "name": "dataset/EntityV3",
+            "customProperties": {},
+            "qualifiedName": "entities.dataset/EntityV3",
+            "tags": []
+          }
+        },
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "method": "patch",
+      "description": "Patch dataset with description",
+      "params": {
+        "async": false
+      },
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetPatchEntityV3,PROD)",
+          "datasetProperties": {
+            "value": {
+              "patch": [
+                {
+                  "op": "add",
+                  "path": "/description",
+                  "value": "Test description"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "response": {
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetPatchEntityV3,PROD)",
+          "browsePathsV2": {
+            "value": {
+              "path": [
+                {
+                  "id": "Default"
+                }
+              ]
+            }
+          },
+          "datasetKey": {
+            "value": {
+              "name": "datasetPatchEntityV3",
+              "platform": "urn:li:dataPlatform:test",
+              "origin": "PROD"
+            }
+          },
+          "dataPlatformInstance": {
+            "value": {
+              "platform": "urn:li:dataPlatform:test"
+            }
+          },
+          "datasetProperties": {
+            "value": {
+              "description": "Test description",
+              "tags": [],
+              "customProperties": {}
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetPatchEntityV3%2CPROD%29",
+      "method": "get",
+      "description": "Get the patched dataset with description",
+      "params": {
+        "aspects": "datasetProperties"
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetPatchEntityV3,PROD)",
+        "datasetProperties": {
+          "value": {
+            "description": "Test description",
+            "tags": [],
+            "customProperties": {}
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "method": "patch",
+      "description": "Patch REMOVE dataset description",
+      "params": {
+        "async": false
+      },
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetPatchEntityV3,PROD)",
+          "datasetProperties": {
+            "value": {
+              "patch": [
+                {
+                  "op": "remove",
+                  "path": "/description"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "response": {
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetPatchEntityV3,PROD)",
+          "datasetProperties": {
+            "value": {
+              "tags": [],
+              "customProperties": {}
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetPatchEntityV3%2CPROD%29",
+      "method": "get",
+      "description": "Get the patched dataset with REMOVED description",
+      "params": {
+        "aspects": "datasetProperties"
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetPatchEntityV3,PROD)",
+        "datasetProperties": {
+          "value": {
+            "tags": [],
+            "customProperties": {}
+          }
+        }
+      }
+    }
+  }
+]

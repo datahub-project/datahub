@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
                     "column": "Age"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[persons].[age] AS [age]"
+            }
         },
         {
             "downstream": {
@@ -41,7 +45,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
                     "column": "Name"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[persons].[name] AS [name]"
+            }
         },
         {
             "downstream": {
@@ -59,7 +67,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
                     "column": "Uppercased_Col"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[persons].[uppercased_col] AS [uppercased_col]"
+            }
         },
         {
             "downstream": {
@@ -72,9 +84,14 @@
                 },
                 "native_column_type": "INTEGER"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "COUNT(*) AS [count]"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT Age, name, UPPERCASED_COL, COUNT(*) AS Count FROM Foo.Persons GROUP BY Age"

@@ -44,7 +44,11 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_key_prefix,
     strip_abs_prefix,
 )
-from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.data_lake_common.data_lake_utils import (
+    ContainerWUCreator,
+    add_partition_columns_to_schema,
+)
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -53,10 +57,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
-    StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -128,6 +129,14 @@ class TableData:
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.TAGS, "Can extract ABS object/container tags if enabled")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Extract ABS containers and folders",
+    subtype_modifier=[
+        SourceCapabilityModifier.FOLDER,
+        SourceCapabilityModifier.ABS_CONTAINER,
+    ],
+)
 class ABSSource(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -223,35 +232,11 @@ class ABSSource(StatefulIngestionSourceBase):
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
         if self.source_config.add_partition_columns_to_schema:
-            self.add_partition_columns_to_schema(
+            add_partition_columns_to_schema(
                 fields=fields, path_spec=path_spec, full_path=table_data.full_path
             )
 
         return fields
-
-    def add_partition_columns_to_schema(
-        self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
-    ) -> None:
-        vars = path_spec.get_named_vars(full_path)
-        if vars is not None and "partition" in vars:
-            for partition in vars["partition"].values():
-                partition_arr = partition.split("=")
-                if len(partition_arr) != 2:
-                    logger.debug(
-                        f"Could not derive partition key from partition field {partition}"
-                    )
-                    continue
-                partition_key = partition_arr[0]
-                fields.append(
-                    SchemaField(
-                        fieldPath=f"{partition_key}",
-                        nativeDataType="string",
-                        type=SchemaFieldDataType(StringTypeClass()),
-                        isPartitioningKey=True,
-                        nullable=True,
-                        recursive=False,
-                    )
-                )
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
         reported_time = int(time.time() * 1000)
@@ -508,7 +493,12 @@ class ABSSource(StatefulIngestionSourceBase):
                         ):
                             abs_path = self.create_abs_path(obj.name)
                             logger.debug(f"Sampling file: {abs_path}")
-                            yield abs_path, obj.name, obj.last_modified, obj.size,
+                            yield (
+                                abs_path,
+                                obj.name,
+                                obj.last_modified,
+                                obj.size,
+                            )
                 except Exception as e:
                     # This odd check if being done because boto does not have a proper exception to catch
                     # The exception that appears in stacktrace cannot actually be caught without a lot more work
@@ -528,7 +518,7 @@ class ABSSource(StatefulIngestionSourceBase):
             )
             path_spec.sample_files = False
             for obj in container_client.list_blobs(
-                prefix=f"{prefix}", results_per_page=PAGE_SIZE
+                name_starts_with=f"{prefix}", results_per_page=PAGE_SIZE
             ):
                 abs_path = self.create_abs_path(obj.name)
                 logger.debug(f"Path: {abs_path}")
@@ -552,9 +542,12 @@ class ABSSource(StatefulIngestionSourceBase):
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")
             file_name = prefix
-            yield prefix, file_name, datetime.utcfromtimestamp(
-                os.path.getmtime(prefix)
-            ), os.path.getsize(prefix)
+            yield (
+                prefix,
+                file_name,
+                datetime.utcfromtimestamp(os.path.getmtime(prefix)),
+                os.path.getsize(prefix),
+            )
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
@@ -565,9 +558,12 @@ class ABSSource(StatefulIngestionSourceBase):
                     full_path = PurePath(
                         os.path.normpath(os.path.join(root, file))
                     ).as_posix()
-                    yield full_path, file, datetime.utcfromtimestamp(
-                        os.path.getmtime(full_path)
-                    ), os.path.getsize(full_path)
+                    yield (
+                        full_path,
+                        file,
+                        datetime.utcfromtimestamp(os.path.getmtime(full_path)),
+                        os.path.getsize(full_path),
+                    )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
@@ -613,7 +609,7 @@ class ABSSource(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for guid, table_data in table_dict.items():
+                for _, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:

@@ -12,7 +12,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
+from datahub.metadata.schema_classes import (
+    RecordTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +24,12 @@ logger = logging.getLogger(__name__)
 def flatten(d: dict, prefix: str = "") -> Generator:
     for k, v in d.items():
         if isinstance(v, dict):
+            # First yield the parent field
+            yield f"{prefix}.{k}".strip(".")
+            # Then yield all nested fields
             yield from flatten(v, f"{prefix}.{k}")
         else:
-            yield f"{prefix}-{k}".strip(".")
+            yield f"{prefix}.{k}".strip(".")  # Use dot instead of hyphen
 
 
 def flatten2list(d: dict) -> list:
@@ -34,7 +41,7 @@ def flatten2list(d: dict) -> list:
          "anotherone": {"third_a": {"last": 3}}
          }
 
-    yeilds:
+    yields:
 
         ["first.second_a",
          "first.second_b",
@@ -43,7 +50,7 @@ def flatten2list(d: dict) -> list:
          ]
     """
     fl_l = list(flatten(d))
-    return [d[1:] if d[0] == "-" else d for d in fl_l]
+    return fl_l
 
 
 def request_call(
@@ -52,17 +59,21 @@ def request_call(
     username: Optional[str] = None,
     password: Optional[str] = None,
     proxies: Optional[dict] = None,
+    verify_ssl: bool = True,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
     if username is not None and password is not None:
         return requests.get(
-            url, headers=headers, auth=HTTPBasicAuth(username, password)
+            url,
+            headers=headers,
+            auth=HTTPBasicAuth(username, password),
+            verify=verify_ssl,
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
-        return requests.get(url, proxies=proxies, headers=headers)
+        return requests.get(url, proxies=proxies, headers=headers, verify=verify_ssl)
     else:
-        return requests.get(url, headers=headers)
+        return requests.get(url, headers=headers, verify=verify_ssl)
 
 
 def get_swag_json(
@@ -72,10 +83,16 @@ def get_swag_json(
     password: Optional[str] = None,
     swagger_file: str = "",
     proxies: Optional[dict] = None,
+    verify_ssl: bool = True,
 ) -> Dict:
     tot_url = url + swagger_file
     response = request_call(
-        url=tot_url, token=token, username=username, password=password, proxies=proxies
+        url=tot_url,
+        token=token,
+        username=username,
+        password=password,
+        proxies=proxies,
+        verify_ssl=verify_ssl,
     )
 
     if response.status_code != 200:
@@ -111,7 +128,7 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
-def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
+def get_endpoints(sw_dict: dict) -> dict:
     """
     Get all the URLs, together with their description and the tags
     """
@@ -120,37 +137,45 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
     check_sw_version(sw_dict)
 
     for p_k, p_o in sw_dict["paths"].items():
-        method = list(p_o)[0]
-        if "200" in p_o[method]["responses"].keys():
-            base_res = p_o[method]["responses"]["200"]
-        elif 200 in p_o[method]["responses"].keys():
-            # if you read a plain yml file the 200 will be an integer
-            base_res = p_o[method]["responses"][200]
-        else:
-            # the endpoint does not have a 200 response
-            continue
+        for method, method_spec in p_o.items():
+            # skip non-method keys like "parameters"
+            if method.lower() not in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+            ]:
+                continue
 
-        if "description" in p_o[method].keys():
-            desc = p_o[method]["description"]
-        elif "summary" in p_o[method].keys():
-            desc = p_o[method]["summary"]
-        else:  # still testing
-            desc = ""
+            responses = method_spec.get("responses", {})
+            base_res = responses.get("200") or responses.get(200)
+            if not base_res:
+                # if there is no 200 response, we skip this method
+                continue
 
-        try:
-            tags = p_o[method]["tags"]
-        except KeyError:
-            tags = []
+            # if the description is not present, we will use the summary
+            # if both are not present, we will use an empty string
+            desc = method_spec.get("description") or method_spec.get("summary", "")
 
-        url_details[p_k] = {"description": desc, "tags": tags, "method": method}
+            # if the tags are not present, we will use an empty list
+            tags = method_spec.get("tags", [])
 
-        example_data = check_for_api_example_data(base_res, p_k)
-        if example_data:
-            url_details[p_k]["data"] = example_data
+            url_details[p_k] = {
+                "description": desc,
+                "tags": tags,
+                "method": method.upper(),
+            }
 
-        # checking whether there are defined parameters to execute the call...
-        if "parameters" in p_o[method].keys():
-            url_details[p_k]["parameters"] = p_o[method]["parameters"]
+            example_data = check_for_api_example_data(base_res, p_k)
+            if example_data:
+                url_details[p_k]["data"] = example_data
+
+            # checking whether there are defined parameters to execute the call...
+            if "parameters" in p_o[method]:
+                url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))
 
@@ -160,9 +185,9 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     Try to determine if example data is defined for the endpoint, and return it
     """
     data = {}
-    if "content" in base_res.keys():
+    if "content" in base_res:
         res_cont = base_res["content"]
-        if "application/json" in res_cont.keys():
+        if "application/json" in res_cont:
             ex_field = None
             if "example" in res_cont["application/json"]:
                 ex_field = "example"
@@ -179,9 +204,9 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                 logger.warning(
                     f"Field in swagger file does not give consistent data --- {key}"
                 )
-        elif "text/csv" in res_cont.keys():
+        elif "text/csv" in res_cont:
             data = res_cont["text/csv"]["schema"]
-    elif "examples" in base_res.keys():
+    elif "examples" in base_res:
         data = base_res["examples"]["application/json"]
 
     return data
@@ -232,7 +257,7 @@ def guessing_url_name(url: str, examples: dict) -> str:
 
     # substituting the parameter's name w the value
     for name, clean_name in zip(needed_n, cleaned_needed_n):
-        if clean_name in examples[ex2use].keys():
+        if clean_name in examples[ex2use]:
             guessed_url = re.sub(name, str(examples[ex2use][clean_name]), guessed_url)
 
     return guessed_url
@@ -322,6 +347,8 @@ def extract_fields(
             return ["contains_a_string"], {"contains_a_string": dict_data[0]}
         else:
             raise ValueError("unknown format")
+    elif not dict_data:  # Handle empty dict case
+        return [], {}
     if len(dict_data) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
@@ -349,6 +376,7 @@ def get_tok(
     tok_url: str = "",
     method: str = "post",
     proxies: Optional[dict] = None,
+    verify_ssl: bool = True,
 ) -> str:
     """
     Trying to post username/password to get auth.
@@ -359,7 +387,7 @@ def get_tok(
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
         # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, proxies=proxies, json=data)
+        response = requests.post(url4req, proxies=proxies, json=data, verify=verify_ssl)
         if response.status_code == 200:
             cont = json.loads(response.content)
             if "token" in cont:  # other authentication scheme
@@ -368,7 +396,7 @@ def get_tok(
                 token = f"Bearer {cont['tokens']['access']}"
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req)
+        response = requests.get(url4req, verify=verify_ssl)
         if response.status_code == 200:
             cont = json.loads(response.content)
             token = cont["token"]
@@ -384,16 +412,39 @@ def set_metadata(
     dataset_name: str, fields: List, platform: str = "api"
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
+    seen_paths = set()
 
-    for column in fields:
-        field = SchemaField(
-            fieldPath=column,
-            nativeDataType="str",
-            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-            description="",
-            recursive=False,
-        )
-        canonical_schema.append(field)
+    # Process all flattened fields
+    for field_path in fields:
+        parts = field_path.split(".")
+
+        # Add struct/object fields for each ancestor path
+        current_path: List[str] = []
+        for part in parts[:-1]:
+            ancestor_path = ".".join(current_path + [part])
+            if ancestor_path not in seen_paths:
+                struct_field = SchemaField(
+                    fieldPath=ancestor_path,
+                    nativeDataType="object",  # OpenAPI term for struct/record
+                    type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                    description="",
+                    recursive=False,
+                )
+                canonical_schema.append(struct_field)
+                seen_paths.add(ancestor_path)
+            current_path.append(part)
+
+        # Add the leaf field if not already seen
+        if field_path not in seen_paths:
+            leaf_field = SchemaField(
+                fieldPath=field_path,
+                nativeDataType="str",  # Keeping `str` for backwards compatability, ideally this is the correct type
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                description="",
+                recursive=False,
+            )
+            canonical_schema.append(leaf_field)
+            seen_paths.add(field_path)
 
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,

@@ -1,9 +1,11 @@
 import dataclasses
 import json
-from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple, Union
+import warnings
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, Union
 
 from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
+from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DictWrapper,
@@ -69,17 +71,27 @@ class MetadataChangeProposalWrapper:
     aspectName: Union[None, str] = None
     aspect: Union[None, _Aspect] = None
     systemMetadata: Union[None, SystemMetadataClass] = None
+    headers: Union[None, Dict[str, str]] = None
 
     def __post_init__(self) -> None:
         if self.entityUrn and self.entityType == _ENTITY_TYPE_UNSET:
             self.entityType = guess_entity_type(self.entityUrn)
         elif self.entityUrn and self.entityType:
-            guessed_entity_type = guess_entity_type(self.entityUrn).lower()
-            # Entity type checking is actually case insensitive.
-            # Note that urns are case sensitive, but entity types are not.
-            if self.entityType.lower() != guessed_entity_type:
+            guessed_entity_type = guess_entity_type(self.entityUrn)
+            if self.entityType.lower() != guessed_entity_type.lower():
+                # If they aren't a case-ignored match, raise an error.
                 raise ValueError(
                     f"entityType {self.entityType} does not match the entity type {guessed_entity_type} from entityUrn {self.entityUrn}",
+                )
+            elif self.entityType != guessed_entity_type:
+                # If they only differ in case, normalize and print a warning.
+                self.entityType = guessed_entity_type
+                warnings.warn(
+                    f"The passed entityType {self.entityType} differs in case from the expected entity type {guessed_entity_type}. "
+                    "This will be automatically corrected for now, but will become an error in a future release. "
+                    "Note that the entityType field is optional and will be automatically inferred from the entityUrn.",
+                    DataHubDeprecationWarning,
+                    stacklevel=3,
                 )
         elif self.entityType == _ENTITY_TYPE_UNSET:
             raise ValueError("entityType must be set if entityUrn is not set")
@@ -112,6 +124,7 @@ class MetadataChangeProposalWrapper:
             auditHeader=self.auditHeader,
             aspectName=self.aspectName,
             systemMetadata=self.systemMetadata,
+            headers=self.headers,
         )
 
     def make_mcp(self) -> MetadataChangeProposalClass:
@@ -211,6 +224,7 @@ class MetadataChangeProposalWrapper:
                 aspectName=mcpc.aspectName,
                 aspect=aspect,
                 systemMetadata=mcpc.systemMetadata,
+                headers=mcpc.headers,
             )
         else:
             return None
@@ -228,6 +242,7 @@ class MetadataChangeProposalWrapper:
             changeType=mcl.changeType,
             auditHeader=mcl.auditHeader,
             systemMetadata=mcl.systemMetadata,
+            headers=mcl.headers,
         )
         return cls.try_from_mcpc(mcpc) or mcpc
 

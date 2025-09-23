@@ -1,0 +1,35 @@
+namespace com.linkedin.ml.metadata
+import com.linkedin.common.Urn
+
+
+/**
+* A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups
+*/
+record MLModelLineageInfo {
+
+    /**
+    * List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.
+    */
+    @Relationship = {
+        "/*": {
+        "name": "TrainedBy",
+        "entityTypes": [ "dataJob", "dataProcessInstance" ],
+        "isLineage": true
+        }
+    }
+    trainingJobs: optional array[Urn]
+
+    /**
+    * List of jobs or process instances (if any) that use the model or group.
+    */
+    @Relationship = {
+        "/*": {
+        "name": "UsedBy",
+        "entityTypes": [ "dataJob", "dataProcessInstance" ],
+        "isLineage": true,
+        "isUpstream": false
+        }
+    }
+    downstreamJobs: optional array[Urn]
+
+}

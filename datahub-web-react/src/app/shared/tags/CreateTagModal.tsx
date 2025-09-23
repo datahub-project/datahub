@@ -1,11 +1,13 @@
+import { Button, Input, Modal, Space, message } from 'antd';
 import React, { useState } from 'react';
-import { message, Button, Input, Modal, Space } from 'antd';
 import styled from 'styled-components';
-import { useBatchAddTagsMutation } from '../../../graphql/mutations.generated';
-import { useCreateTagMutation } from '../../../graphql/tag.generated';
-import { ResourceRefInput } from '../../../types.generated';
-import { useEnterKeyListener } from '../useEnterKeyListener';
-import { handleBatchError } from '../../entity/shared/utils';
+
+import { handleBatchError } from '@app/entity/shared/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+
+import { useBatchAddTagsMutation } from '@graphql/mutations.generated';
+import { useCreateTagMutation } from '@graphql/tag.generated';
+import { ResourceRefInput } from '@types';
 
 type CreateTagModalProps = {
     open: boolean;

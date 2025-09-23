@@ -33,6 +33,12 @@ class LookerField:
 
 
 @dataclass
+class LookerConstant:
+    name: str
+    value: str
+
+
+@dataclass
 class LookerModel:
     connection: str
     includes: List[str]
@@ -75,6 +81,7 @@ class LookerModel:
             try:
                 parsed = load_and_preprocess_file(
                     path=included_file,
+                    reporter=reporter,
                     source_config=source_config,
                 )
                 included_explores = parsed.get("explores", [])
@@ -186,16 +193,16 @@ class LookerModel:
                 f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
             )
             if "*" not in inc and not included_files:
-                reporter.report_failure(
+                reporter.warning(
                     title="Error Resolving Include",
-                    message=f"Cannot resolve include {inc}",
-                    context=f"Path: {path}",
+                    message="Cannot resolve included file",
+                    context=f"Include: {inc}, path: {path}, traversal_path: {traversal_path}",
                 )
             elif not included_files:
-                reporter.report_failure(
+                reporter.warning(
                     title="Error Resolving Include",
-                    message=f"Did not resolve anything for wildcard include {inc}",
-                    context=f"Path: {path}",
+                    message="Did not find anything matching the wildcard include",
+                    context=f"Include: {inc}, path: {path}, traversal_path: {traversal_path}",
                 )
             # only load files that we haven't seen so far
             included_files = [x for x in included_files if x not in seen_so_far]
@@ -217,6 +224,7 @@ class LookerModel:
                 try:
                     parsed = load_and_preprocess_file(
                         path=included_file,
+                        reporter=reporter,
                         source_config=source_config,
                     )
                     seen_so_far.add(included_file)
@@ -231,9 +239,7 @@ class LookerModel:
                                 source_config,
                                 reporter,
                                 seen_so_far,
-                                traversal_path=traversal_path
-                                + "."
-                                + pathlib.Path(included_file).stem,
+                                traversal_path=f"{traversal_path} -> {pathlib.Path(included_file).stem}",
                             )
                         )
                 except Exception as e:

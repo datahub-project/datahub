@@ -3,16 +3,15 @@ pytest-dependency>=0.5.1
 psutil
 tenacity
 -e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql]
+pydantic>2
 slack-sdk==3.18.1
 aiohttp
 joblib
 pytest-xdist
 networkx
 # libaries for linting below this
-black==23.7.0
-isort==5.12.0
-mypy==1.5.1
-ruff==0.0.287
+mypy==1.14.1
+ruff==0.11.7
 # stub version are copied from metadata-ingestion/setup.py and that should be the source of truth
 types-requests>=2.28.11.6,<=2.31.0.3
 types-PyYAML
@@ -20,3 +19,6 @@ types-PyYAML
 requests<=2.31.0
 # Missing numpy requirement in 8.0.0
 deepdiff!=8.0.0
+opensearch-py==2.6.0
+
+python-dotenv==1.0.1

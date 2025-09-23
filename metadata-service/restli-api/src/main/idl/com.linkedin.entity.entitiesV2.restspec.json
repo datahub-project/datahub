@@ -19,6 +19,10 @@
         "name" : "aspects",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
         "optional" : true
+      }, {
+        "name" : "alwaysIncludeKeyAspect",
+        "type" : "boolean",
+        "optional" : true
       } ]
     }, {
       "method" : "batch_get",
@@ -26,6 +30,10 @@
       "parameters" : [ {
         "name" : "aspects",
         "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "alwaysIncludeKeyAspect",
+        "type" : "boolean",
         "optional" : true
       } ]
     } ],

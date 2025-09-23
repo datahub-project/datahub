@@ -114,7 +114,7 @@ class CorpGroup(BaseModel):
                 )
                 urns_created.add(m.urn)
             else:
-                logger.warn(
+                logger.warning(
                     f"Suppressing emission of member {m.urn} before we already emitted metadata for it"
                 )
 

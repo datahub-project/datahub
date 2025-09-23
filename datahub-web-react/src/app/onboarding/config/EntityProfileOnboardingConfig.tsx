@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 // Entity profile tabs. Note that the 'rc-tab' prefix for the ID is added by the antd library and may change in the future.
 export const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
@@ -14,6 +15,7 @@ export const ENTITY_PROFILE_OWNERS_ID = 'entity-profile-owners';
 export const ENTITY_PROFILE_TAGS_ID = 'entity-profile-tags';
 export const ENTITY_PROFILE_GLOSSARY_TERMS_ID = 'entity-profile-glossary-terms';
 export const ENTITY_PROFILE_DOMAINS_ID = 'entity-profile-domains';
+export const ENTITY_PROFILE_V2_SIDEBAR_ID = 'entity-profile-v2-sidebar';
 
 export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
@@ -126,7 +128,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Tags</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/tags">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/tags">
                         {' '}
                         here.{' '}
                     </a>
@@ -153,7 +155,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/glossary/business-glossary"
+                        href="https://docs.datahub.com/docs/glossary/business-glossary"
                     >
                         {' '}
                         here.
@@ -177,10 +179,24 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Domains</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
                         {' '}
                         here.
                     </a>
+                </p>
+            </Typography.Paragraph>
+        ),
+    },
+    {
+        id: ENTITY_PROFILE_V2_SIDEBAR_ID,
+        selector: `#${ENTITY_PROFILE_V2_SIDEBAR_ID}`,
+        title: 'Introducing the Asset Sidebar',
+        content: (
+            <Typography.Paragraph>
+                <p>
+                    The asset sidebar is a vertically organized set of important information about an asset. It shows up
+                    on the right side of the screen when you view an asset, a search result, a lineage entry and a host
+                    of other places.
                 </p>
             </Typography.Paragraph>
         ),

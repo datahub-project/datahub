@@ -3,9 +3,13 @@ from functools import cached_property
 from typing import ClassVar, List, Literal, Optional, Tuple
 
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+)
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
+    DEFAULT_SNOWFLAKE_DOMAIN,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeCloudProvider,
     SnowflakeObjectDomain,
@@ -16,13 +20,13 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 
 
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
     @abc.abstractmethod
-    def structured_reporter(self) -> SourceReport:
-        ...
+    def structured_reporter(self) -> SourceReport: ...
 
 
 class SnowsightUrlBuilder:
@@ -31,16 +35,21 @@ class SnowsightUrlBuilder:
         "us-east-1",
         "eu-west-1",
         "eu-central-1",
-        "ap-southeast-1",
         "ap-southeast-2",
     ]
 
     snowsight_base_url: str
 
-    def __init__(self, account_locator: str, region: str, privatelink: bool = False):
+    def __init__(
+        self,
+        account_locator: str,
+        region: str,
+        privatelink: bool = False,
+        snowflake_domain: str = DEFAULT_SNOWFLAKE_DOMAIN,
+    ):
         cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(region)
         self.snowsight_base_url = self.create_snowsight_base_url(
-            account_locator, cloud_region_id, cloud, privatelink
+            account_locator, cloud_region_id, cloud, privatelink, snowflake_domain
         )
 
     @staticmethod
@@ -49,6 +58,7 @@ class SnowsightUrlBuilder:
         cloud_region_id: str,
         cloud: str,
         privatelink: bool = False,
+        snowflake_domain: str = DEFAULT_SNOWFLAKE_DOMAIN,
     ) -> str:
         if cloud:
             url_cloud_provider_suffix = f".{cloud}"
@@ -64,9 +74,15 @@ class SnowsightUrlBuilder:
             else:
                 url_cloud_provider_suffix = f".{cloud}"
         if privatelink:
-            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.snowflakecomputing.com/"
+            url = f"https://app.{account_locator}.{cloud_region_id}.privatelink.{snowflake_domain}/"
         else:
-            url = f"https://app.snowflake.com/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
+            # Standard Snowsight URL format - works for most regions
+            # China region may use app.snowflake.cn instead of app.snowflake.com. This is not documented, just
+            # guessing Based on existence of snowflake.cn domain (https://domainindex.com/domains/snowflake.cn)
+            if snowflake_domain == "snowflakecomputing.cn":
+                url = f"https://app.snowflake.cn/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
+            else:
+                url = f"https://app.snowflake.com/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         return url
 
     @staticmethod
@@ -74,7 +90,7 @@ class SnowsightUrlBuilder:
         region: str,
     ) -> Tuple[str, str]:
         cloud: str
-        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING.keys():
+        if region in SNOWFLAKE_REGION_CLOUD_REGION_MAPPING:
             cloud, cloud_region_id = SNOWFLAKE_REGION_CLOUD_REGION_MAPPING[region]
         elif region.startswith(("aws_", "gcp_", "azure_")):
             # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
@@ -90,9 +106,20 @@ class SnowsightUrlBuilder:
         table_name: str,
         schema_name: str,
         db_name: str,
-        domain: Literal[SnowflakeObjectDomain.TABLE, SnowflakeObjectDomain.VIEW],
+        domain: Literal[
+            SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.VIEW,
+            SnowflakeObjectDomain.DYNAMIC_TABLE,
+        ],
     ) -> Optional[str]:
-        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{domain}/{table_name}/"
+        # For dynamic tables, use the dynamic-table domain in the URL path
+        # Ensure only explicitly dynamic tables use dynamic-table URL path
+        url_domain = (
+            "dynamic-table"
+            if domain == SnowflakeObjectDomain.DYNAMIC_TABLE
+            else str(domain)
+        )
+        return f"{self.snowsight_base_url}#/data/databases/{db_name}/schemas/{schema_name}/{url_domain}/{table_name}/"
 
     def get_external_url_for_schema(
         self, schema_name: str, db_name: str
@@ -125,19 +152,21 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
+            SnowflakeObjectDomain.STREAM,
+            SnowflakeObjectDomain.DYNAMIC_TABLE,
         ):
             return False
         if _is_sys_table(dataset_name):
             return False
 
-        dataset_params = _split_qualified_name(dataset_name)
+        dataset_params = split_qualified_name(dataset_name)
         if len(dataset_params) != 3:
             self.structured_reporter.info(
                 title="Unexpected dataset pattern",
                 message=f"Found a {dataset_type} with an unexpected number of parts. Database and schema filtering will not work as expected, but table filtering will still work.",
                 context=dataset_name,
             )
-            # We fall-through here so table/view filtering still works.
+            # We fall-through here so table/view/stream filtering still works.
 
         if (
             len(dataset_params) >= 1
@@ -156,7 +185,8 @@ class SnowflakeFilter:
             return False
 
         if dataset_type.lower() in {
-            SnowflakeObjectDomain.TABLE
+            SnowflakeObjectDomain.TABLE,
+            SnowflakeObjectDomain.DYNAMIC_TABLE,
         } and not self.filter_config.table_pattern.allowed(
             _cleanup_qualified_name(dataset_name, self.structured_reporter)
         ):
@@ -170,7 +200,18 @@ class SnowflakeFilter:
         ):
             return False
 
+        if (
+            dataset_type.lower() == SnowflakeObjectDomain.STREAM
+            and not self.filter_config.stream_pattern.allowed(
+                _cleanup_qualified_name(dataset_name, self.structured_reporter)
+            )
+        ):
+            return False
+
         return True
+
+    def is_procedure_allowed(self, procedure_name: str) -> bool:
+        return self.filter_config.procedure_pattern.allowed(procedure_name)
 
 
 def _combine_identifier_parts(
@@ -184,17 +225,17 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
-def _split_qualified_name(qualified_name: str) -> List[str]:
+def split_qualified_name(qualified_name: str) -> List[str]:
     """
     Split a qualified name into its constituent parts.
 
-    >>> _split_qualified_name("db.my_schema.my_table")
+    >>> split_qualified_name("db.my_schema.my_table")
     ['db', 'my_schema', 'my_table']
-    >>> _split_qualified_name('"db"."my_schema"."my_table"')
+    >>> split_qualified_name('"db"."my_schema"."my_table"')
     ['db', 'my_schema', 'my_table']
-    >>> _split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
+    >>> split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
     ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
-    >>> _split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    >>> split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
     ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
     """
 
@@ -232,7 +273,7 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
 def _cleanup_qualified_name(
     qualified_name: str, structured_reporter: SourceReport
 ) -> str:
-    name_parts = _split_qualified_name(qualified_name)
+    name_parts = split_qualified_name(qualified_name)
     if len(name_parts) != 3:
         if not _is_sys_table(qualified_name):
             structured_reporter.info(
@@ -300,6 +341,40 @@ class SnowflakeIdentifierBuilder:
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
         return f'"{db_name}"."{schema_name}"."{table_name}"'
 
+    # Note - decide how to construct user urns.
+    # Historically urns were created using part before @ from user's email.
+    # Users without email were skipped from both user entries as well as aggregates.
+    # However email is not mandatory field in snowflake user, user_name is always present.
+    def get_user_identifier(
+        self,
+        user_name: str,
+        user_email: Optional[str],
+    ) -> str:
+        if user_email:
+            return self.snowflake_identifier(user_email)
+        return self.snowflake_identifier(
+            f"{user_name}@{self.identifier_config.email_domain}"
+            if self.identifier_config.email_domain is not None
+            else user_name
+        )
+
+    def gen_schema_key(self, db_name: str, schema_name: str) -> SchemaKey:
+        return gen_schema_key(
+            db_name=self.snowflake_identifier(db_name),
+            schema=self.snowflake_identifier(schema_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
+    def gen_database_key(self, db_name: str) -> DatabaseKey:
+        return gen_database_key(
+            database=self.snowflake_identifier(db_name),
+            platform=self.platform,
+            platform_instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
 
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     platform = "snowflake"
@@ -314,24 +389,6 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     @cached_property
     def identifiers(self) -> SnowflakeIdentifierBuilder:
         return SnowflakeIdentifierBuilder(self.config, self.report)
-
-    # Note - decide how to construct user urns.
-    # Historically urns were created using part before @ from user's email.
-    # Users without email were skipped from both user entries as well as aggregates.
-    # However email is not mandatory field in snowflake user, user_name is always present.
-    def get_user_identifier(
-        self,
-        user_name: str,
-        user_email: Optional[str],
-        email_as_user_identifier: bool,
-    ) -> str:
-        if user_email:
-            return self.identifiers.snowflake_identifier(
-                user_email
-                if email_as_user_identifier is True
-                else user_email.split("@")[0]
-            )
-        return self.identifiers.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint

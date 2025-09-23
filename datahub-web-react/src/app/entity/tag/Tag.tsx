@@ -1,13 +1,15 @@
-import { TagOutlined, TagFilled } from '@ant-design/icons';
+import { TagFilled, TagOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import styled from 'styled-components';
-import { Tag, EntityType, SearchResult } from '../../../types.generated';
-import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
-import TagProfile from './TagProfile';
-import { useGetTagQuery } from '../../../graphql/tag.generated';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { urlEncodeUrn } from '@app/entity/shared/utils';
+import TagProfile from '@app/entity/tag/TagProfile';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+
+import { useGetTagQuery } from '@graphql/tag.generated';
+import { EntityType, SearchResult, Tag } from '@types';
 
 const PreviewTagIcon = styled(TagOutlined)`
     font-size: 20px;
@@ -58,7 +60,7 @@ export class TagEntity implements Entity<Tag> {
 
     renderProfile: (urn: string) => JSX.Element = (_) => <TagProfile />;
 
-    renderPreview = (_: PreviewType, data: Tag) => (
+    renderPreview = (previewType: PreviewType, data: Tag) => (
         <DefaultPreviewCard
             description={data.description || ''}
             name={this.displayName(data)}
@@ -67,6 +69,7 @@ export class TagEntity implements Entity<Tag> {
             logoComponent={<PreviewTagIcon />}
             type="Tag"
             typeIcon={this.icon(14, IconStyleType.ACCENT)}
+            previewType={previewType}
         />
     );
 

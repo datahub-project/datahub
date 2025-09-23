@@ -1,15 +1,17 @@
+import { DeleteOutlined, EditOutlined, LinkOutlined } from '@ant-design/icons';
+import { Button, Form, Input, List, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { message, Button, List, Typography, Modal, Form, Input } from 'antd';
-import { LinkOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
-import { useEntityData, useMutationUrn } from '../../../EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../constants';
-import { formatDateString } from '../../../containers/profile/utils';
-import { useAddLinkMutation, useRemoveLinkMutation } from '../../../../../../graphql/mutations.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { formatDateString } from '@app/entity/shared/containers/profile/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAddLinkMutation, useRemoveLinkMutation } from '@graphql/mutations.generated';
+import { InstitutionalMemoryMetadata } from '@types';
 
 const LinkListItem = styled(List.Item)`
     border-radius: 5px;
@@ -47,7 +49,13 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const handleDeleteLink = async (metadata: InstitutionalMemoryMetadata) => {
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl: metadata.url, resourceUrn: metadata.associatedUrn || entityUrn } },
+                variables: {
+                    input: {
+                        linkUrl: metadata.url,
+                        label: metadata.label,
+                        resourceUrn: metadata.associatedUrn || entityUrn,
+                    },
+                },
             });
             message.success({ content: 'Link Removed', duration: 2 });
         } catch (e: unknown) {
@@ -77,7 +85,13 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         if (!linkDetails) return;
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl: linkDetails.url, resourceUrn: linkDetails.associatedUrn || entityUrn } },
+                variables: {
+                    input: {
+                        linkUrl: linkDetails.url,
+                        label: linkDetails.label,
+                        resourceUrn: linkDetails.associatedUrn || entityUrn,
+                    },
+                },
             });
             await addLinkMutation({
                 variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
@@ -101,6 +115,20 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                 message.error({ content: `Error updating link: \n ${e.message || ''}`, duration: 2 });
             }
         }
+    };
+
+    const onConfirmDelete = (link) => {
+        Modal.confirm({
+            title: `Delete Link '${link?.description}'`,
+            content: `Are you sure you want to remove this Link?`,
+            onOk() {
+                handleDeleteLink(link);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
     };
 
     return entityData ? (
@@ -162,7 +190,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                     <Button onClick={() => handleEditLink(link)} type="text" shape="circle">
                                         <EditOutlined />
                                     </Button>
-                                    <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
+                                    <Button onClick={() => onConfirmDelete(link)} type="text" shape="circle" danger>
                                         <DeleteOutlined />
                                     </Button>
                                 </>

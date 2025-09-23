@@ -1,5 +1,5 @@
-import { glossaryNode1, glossaryNode2, glossaryNode3, glossaryNode4 } from '../../../../../Mocks';
-import { filterResultsForMove } from '../NodeParentSelect';
+import { filterResultsForMove } from '@app/entity/shared/EntityDropdown/NodeParentSelect';
+import { glossaryNode1, glossaryNode2, glossaryNode3, glossaryNode4 } from '@src/Mocks';
 
 describe('filterResultsForMove', () => {
     it('should return true if the given node is different than given urn and the node is not a child of the given urn', () => {

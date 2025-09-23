@@ -7,13 +7,17 @@ apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   api externalDependency.avro
-  implementation externalDependency.commonsLang
-  api externalDependency.dropwizardMetricsCore
-  implementation externalDependency.dropwizardMetricsJmx
+  api externalDependency.micrometerPrometheus
+  api externalDependency.micrometerJmx
+  api externalDependency.micrometerOtelBridge
+  implementation externalDependency.opentelemetrySdk
   api externalDependency.elasticSearchRest
   implementation externalDependency.httpClient
   api externalDependency.neo4jJavaDriver
   api externalDependency.json
+  implementation (externalDependency.hazelcast) {
+    exclude group: 'org.json', module: 'json'
+  }
 
   implementation spec.product.pegasus.restliClient
   implementation spec.product.pegasus.restliCommon
@@ -26,12 +30,17 @@ dependencies {
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
+  runtimeOnly externalDependency.javaxMail
 
   annotationProcessor externalDependency.lombok
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
+  testImplementation project(':metadata-operation-context')
+  testImplementation project(':entity-registry')
 
   constraints {
       implementation(externalDependency.log4jCore) {
@@ -39,6 +48,12 @@ dependencies {
       }
       implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.javaxMail) {
+      because("previous versions are vulnerable")
+    }
+    implementation(externalDependency.zookeeper) {
+      because("CVE-2023-44981")
     }
   }
   implementation externalDependency.logbackClassic

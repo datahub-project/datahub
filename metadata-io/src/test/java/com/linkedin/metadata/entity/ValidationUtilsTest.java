@@ -44,6 +44,8 @@ public class ValidationUtilsTest {
     rawMap.put("extraField", 1);
     Status status = new Status(rawMap);
     assertThrows(ValidationException.class, () -> ValidationApiUtils.validateOrThrow(status));
+    // this one should work
+    ValidationApiUtils.validateTrimOrThrow(status);
   }
 
   @Test

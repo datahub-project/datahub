@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.fixtures;
 
 import static io.datahubproject.test.search.SearchTestUtils.lineage;
 import static io.datahubproject.test.search.SearchTestUtils.searchAcrossEntities;
+import static io.datahubproject.test.search.SearchTestUtils.waitForDataAvailability;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -16,6 +17,7 @@ import java.net.URISyntaxException;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringContextTests {
@@ -28,6 +30,33 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
 
   @Nonnull
   protected abstract OperationContext getOperationContext();
+
+  @BeforeClass
+  public void verifyDataAvailability() {
+    // Wait for lineage data to be available before running tests
+    waitForDataAvailability(
+        () -> {
+          // First check if the dataset can be found
+          SearchResult searchResult =
+              searchAcrossEntities(
+                  getOperationContext(),
+                  getSearchService(),
+                  "e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8");
+
+          if (searchResult.getEntities().size() >= 1) {
+            Urn datasetUrn = searchResult.getEntities().get(0).getEntity();
+
+            // Check if lineage data is available
+            LineageSearchResult lineageResult =
+                lineage(getOperationContext(), getLineageService(), datasetUrn, 1);
+
+            return lineageResult.getEntities().size() >= 10;
+          }
+          return false;
+        },
+        30, // Wait up to 30 seconds
+        "Lineage data not available after 30 seconds. Expected dataset e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8 with 10 lineage relationships.");
+  }
 
   @Test
   public void testFixtureInitialization() {
@@ -65,7 +94,7 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
             Pair.of(2, 5), // Hop 2 -> 5 results
             Pair.of(3, 12) // Hop 3 -> 12 results
             );
-    hopsExpectedResultsStream.forEach(
+    hopsExpectedResultsStream.forEachOrdered(
         hopsExpectedResults -> {
           LineageSearchResult lineageResult =
               lineage(

@@ -10,6 +10,7 @@ public class Constants {
 
   public static final String URN_FIELD_NAME = "urn";
   public static final String URNS_FIELD_NAME = "urns";
+  public static final String CHECK_EXISTENCE_FIELD_NAME = "checkForExistence";
   public static final String GMS_SCHEMA_FILE = "entity.graphql";
   public static final String SEARCH_SCHEMA_FILE = "search.graphql";
   public static final String APP_SCHEMA_FILE = "app.graphql";
@@ -28,10 +29,22 @@ public class Constants {
   public static final String INCIDENTS_SCHEMA_FILE = "incident.graphql";
   public static final String CONTRACTS_SCHEMA_FILE = "contract.graphql";
   public static final String CONNECTIONS_SCHEMA_FILE = "connection.graphql";
+  public static final String VERSION_SCHEMA_FILE = "versioning.graphql";
+  public static final String OPERATIONS_SCHEMA_FILE = "operations.graphql";
+  public static final String TIMESERIES_SCHEMA_FILE = "timeseries.graphql";
+  public static final String LOGICAL_SCHEMA_FILE = "logical.graphql";
+  public static final String SETTINGS_SCHEMA_FILE = "settings.graphql";
+
+  public static final String QUERY_SCHEMA_FILE = "query.graphql";
+  public static final String TEMPLATE_SCHEMA_FILE = "template.graphql";
+  public static final String MODULE_SCHEMA_FILE = "module.graphql";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
   public static final String ENTITY_FILTER_NAME = "_entityType";
+  public static final String RANGE_INPUT_FIELD = "range";
+  public static final String START_TIME_MILLIS_INPUT_FIELD = "startTimeMillis";
+  public static final String TIME_ZONE_INPUT_FIELD = "timeZone";
 
   public static final Set<String> DEFAULT_PERSONA_URNS =
       ImmutableSet.of(

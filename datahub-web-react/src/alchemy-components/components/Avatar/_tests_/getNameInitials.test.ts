@@ -1,4 +1,4 @@
-import { getNameInitials } from '../utils';
+import { getNameInitials } from '@components/components/Avatar/utils';
 
 describe('get initials of the name', () => {
     it('get initials of name with first name and last name', () => {

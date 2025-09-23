@@ -1,10 +1,13 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import { GridList } from '@src/alchemy-components/.docs/mdx-components';
-import { colors } from '@src/alchemy-components/theme';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
+
+import { Icon } from '@components/components/Icon';
+
+import { GridList } from '@src/alchemy-components/.docs/mdx-components';
+import { colors } from '@src/alchemy-components/theme';
+
 import { Card, cardDefaults } from '.';
-import { Icon } from '../Icon';
 
 // Auto Docs
 const meta = {
@@ -70,8 +73,29 @@ const meta = {
                 type: 'text',
             },
         },
+        maxWidth: {
+            description: 'The maximum width of the card',
+            control: {
+                type: 'text',
+            },
+        },
+        height: {
+            description: 'The height of the card',
+            control: {
+                type: 'text',
+            },
+        },
         onClick: {
             description: 'The on click function for the card',
+        },
+        isEmpty: {
+            description: 'Whether the card is in empty state with No data',
+            table: {
+                defaultValue: { summary: `${cardDefaults.isEmpty}` },
+            },
+            control: {
+                type: 'boolean',
+            },
         },
     },
 
@@ -80,7 +104,7 @@ const meta = {
         title: 'Title',
         subTitle: 'Subtitle',
         iconAlignment: 'horizontal',
-        width: '150px',
+        isEmpty: false,
     },
 } satisfies Meta<typeof Card>;
 

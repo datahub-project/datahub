@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
@@ -15,6 +15,7 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
@@ -282,18 +283,30 @@ class BigQuerySchemaApi:
         with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
-            return [
-                BigqueryDataset(
-                    name=d.dataset_id,
-                    labels=d.labels,
-                    location=(
-                        d._properties.get("location")
-                        if hasattr(d, "_properties") and isinstance(d._properties, dict)
-                        else None
-                    ),
+            result = []
+            for d in datasets:
+                # TODO: Fetch dataset description individually impacts overall performance if the number of datasets is high (hundreds); instead we should fetch in batch for all datasets.
+                # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.client.Client#google_cloud_bigquery_client_Client_get_dataset
+                # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dataset.Dataset
+                dataset = self.bq_client.get_dataset(d.reference)
+
+                location = (
+                    d._properties.get("location")
+                    if hasattr(d, "_properties") and isinstance(d._properties, dict)
+                    else None
                 )
-                for d in datasets
-            ]
+
+                result.append(
+                    BigqueryDataset(
+                        name=d.dataset_id,
+                        labels=d.labels,
+                        location=location,
+                        comment=dataset.description,
+                        created=dataset.created,
+                        last_altered=dataset.modified,
+                    )
+                )
+            return result
 
     # This is not used anywhere
     def get_datasets_for_project_id_with_information_schema(
@@ -338,7 +351,7 @@ class BigQuerySchemaApi:
         with_partitions: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
-            filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
+            filter_clause: str = ", ".join(f"'{table}'" for table in tables)
 
             if with_partitions:
                 query_template = BigqueryQuery.tables_for_dataset
@@ -393,13 +406,7 @@ class BigQuerySchemaApi:
             name=table.table_name,
             created=table.created,
             table_type=table.table_type,
-            last_altered=(
-                datetime.fromtimestamp(
-                    table.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if table.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -460,11 +467,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=(
-                datetime.fromtimestamp(view.get("last_altered") / 1000, tz=timezone.utc)
-                if view.get("last_altered") is not None
-                else None
-            ),
+            last_altered=(parse_ts_millis(view.get("last_altered"))),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -705,13 +708,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=(
-                datetime.fromtimestamp(
-                    snapshot.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if snapshot.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(snapshot.get("last_altered")),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.query.request;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -18,6 +19,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -49,8 +51,8 @@ import org.testng.annotations.Test;
 
 public class AggregationQueryBuilderTest {
 
-  private static AspectRetriever aspectRetriever;
-  private static AspectRetriever aspectRetrieverV1;
+  private static CachingAspectRetriever aspectRetriever;
+  private static CachingAspectRetriever aspectRetrieverV1;
   private static String DEFAULT_FILTER = "_index";
 
   @BeforeClass
@@ -61,7 +63,7 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
 
     // legacy
-    aspectRetriever = mock(AspectRetriever.class);
+    aspectRetriever = mock(CachingAspectRetriever.class);
     when(aspectRetriever.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
@@ -106,7 +108,7 @@ public class AggregationQueryBuilderTest {
                     new Aspect(structPropUnderscoresAndDotsDefinition.data()))));
 
     // V1
-    aspectRetrieverV1 = mock(AspectRetriever.class);
+    aspectRetrieverV1 = mock(CachingAspectRetriever.class);
     when(aspectRetrieverV1.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
@@ -169,9 +171,11 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -202,9 +206,11 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -234,7 +240,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -251,9 +259,11 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -266,9 +276,11 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("test1", "test2", "hasTest1"));
-    Assert.assertEquals(aggs.size(), 4);
+    Assert.assertEquals(aggs.size(), 5);
     Set<String> facets = aggs.stream().map(AggregationBuilder::getName).collect(Collectors.toSet());
-    Assert.assertEquals(ImmutableSet.of("test1", "test2", "hasTest1", "_entityType"), facets);
+    Assert.assertEquals(
+        ImmutableSet.of("test1", "test2", "hasTest1", "_entityType", "_entityType␞typeNames"),
+        facets);
 
     // Case 2: Ask for fields that should NOT exist.
     aggs =
@@ -276,12 +288,12 @@ public class AggregationQueryBuilderTest {
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("hasTest2"));
     Assert.assertEquals(
-        aggs.size(), 1); // default has one field already, hasTest2 will not be in there
+        aggs.size(), 2); // default has two fields already, hasTest2 will not be in there
   }
 
   @Test
   public void testAggregateOverStructuredProperty() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -292,7 +304,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -308,7 +320,9 @@ public class AggregationQueryBuilderTest {
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten", "structuredProperties.hello"));
     Assert.assertEquals(
-        aggs.size(), 3); // has one default filter (_entityType) both get mapped to _index
+        aggs.size(),
+        4); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -321,7 +335,7 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testAggregateOverStructuredPropertyNamespaced() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -332,7 +346,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -345,7 +359,7 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.under.scores.and.dots_make_a_mess",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(aggs.size(), 4);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -358,7 +372,7 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testAggregateOverStructuredPropertyV1() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -369,7 +383,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -387,7 +401,9 @@ public class AggregationQueryBuilderTest {
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties._versioned.hello.00000000000001.string"));
     Assert.assertEquals(
-        aggs.size(), 3); // has two one filter (_entityType) both get mapped to _index
+        aggs.size(),
+        4); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -400,7 +416,7 @@ public class AggregationQueryBuilderTest {
 
   @Test
   public void testAggregateOverStructuredPropertyNamespacedV1() {
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -411,7 +427,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
             List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -427,7 +443,7 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.under.scores.and.dots_make_a_mess",
                 "structuredProperties._versioned.hello.00000000000001.string"));
-    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(aggs.size(), 4);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
@@ -455,7 +471,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -472,9 +490,11 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -492,7 +512,7 @@ public class AggregationQueryBuilderTest {
                 "hasTest1",
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 6);
+    Assert.assertEquals(aggs.size(), 7);
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -525,7 +545,9 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
     SearchableAnnotation annotation2 =
         new SearchableAnnotation(
@@ -542,9 +564,11 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            false);
+            false,
+            false,
+            Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -563,7 +587,9 @@ public class AggregationQueryBuilderTest {
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
     Assert.assertEquals(
-        aggs.size(), 6); // has one default filter (_entityType) both get mapped to _index
+        aggs.size(),
+        7); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -597,9 +623,11 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Collections.emptyMap(),
             Collections.emptyList(),
-            true);
+            true,
+            false,
+            Optional.empty());
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -624,7 +652,7 @@ public class AggregationQueryBuilderTest {
     final AggregationMetadata aggregationMetadata = new AggregationMetadata();
     aggregationMetadata.setName("structuredProperties.test_me.one");
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -641,7 +669,7 @@ public class AggregationQueryBuilderTest {
     final AggregationMetadata aggregationMetadata = new AggregationMetadata();
     aggregationMetadata.setName("domains");
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -656,7 +684,7 @@ public class AggregationQueryBuilderTest {
   public void testAddFiltersToMetadataWithStructuredPropsNoResults() {
     final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_me.one");
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -698,7 +726,7 @@ public class AggregationQueryBuilderTest {
     aggregations.put("test123", 1L);
     aggregationMetadata.setAggregations(aggregations);
 
-    SearchConfiguration config = new SearchConfiguration();
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
     AggregationQueryBuilder builder =
@@ -724,6 +752,563 @@ public class AggregationQueryBuilderTest {
         aggregationMetadataList.get(0).getName(), "structuredProperties.test_me.one");
     Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().size(), 1);
     Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().get("test123"), 1);
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithConflictingDisplayNames() {
+    // Create mock annotations with conflicting display names for the same field
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "department",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true (this was false before)
+            false,
+            Optional.of("Department"), // Display name 1
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "department",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true (this was false before)
+            false,
+            Optional.of("Division"), // Different display name for same field
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    // Create two different entity specs
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    // Use reflection to access private method getFacetToDisplayNames
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify the merged display name
+      Assert.assertEquals(displayNames.get("department"), "Department/Division");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithMultipleConflicts() {
+    // Test with three different display names for the same field
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "status",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Status"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "status",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("State"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation3 =
+        new SearchableAnnotation(
+            "status",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Condition"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    EntitySpec entitySpec3 = mock(EntitySpec.class);
+    when(entitySpec3.getName()).thenReturn("chart");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2),
+            entitySpec3, ImmutableList.of(annotation3));
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify alphabetical ordering in merged display name
+      Assert.assertEquals(displayNames.get("status"), "Condition/State/Status");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithHasFieldConflicts() {
+    // Test conflicts with hasValues fields
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "owners",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            true,
+            Optional.empty(),
+            Optional.of("Has Owners"),
+            1.0,
+            Optional.of("hasOwners"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "owners",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            true,
+            Optional.empty(),
+            Optional.of("Has Owner"), // Different display name
+            1.0,
+            Optional.of("hasOwners"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify the merged display name for hasValues field
+      Assert.assertEquals(displayNames.get("hasOwners"), "Has Owner/Has Owners");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithIdenticalNames() {
+    // Test when multiple entities have the same display name for a field - should not merge
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "type",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Type"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "type",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Type"), // Same display name
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Should not merge identical names
+      Assert.assertEquals(displayNames.get("type"), "Type");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithMixedFieldTypes() {
+    // Test with both regular fields and hasValues fields having conflicts
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "tags",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            true, // addHasValuesToFilters = true
+            Optional.of("Tags"),
+            Optional.of("Has Tags"),
+            1.0,
+            Optional.of("hasTags"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "tags",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            true, // addHasValuesToFilters = true
+            Optional.of("Labels"), // Different display name for regular field
+            Optional.of("Has Labels"), // Different display name for hasValues field
+            1.0,
+            Optional.of("hasTags"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify both fields have merged display names
+      Assert.assertEquals(displayNames.get("tags"), "Labels/Tags");
+      Assert.assertEquals(displayNames.get("hasTags"), "Has Labels/Has Tags");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testComputeDisplayNameWithConflictingNames() {
+    // Test the computeDisplayName method with conflicting display names
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "platform",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Platform"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "platform",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Data Platform"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dataFlow");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    // First, force initialization of display names by calling getFacetToDisplayNames
+    try {
+      java.lang.reflect.Method getFacetMethod =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      getFacetMethod.setAccessible(true);
+      getFacetMethod.invoke(builder);
+
+      // Now test computeDisplayName
+      java.lang.reflect.Method computeMethod =
+          AggregationQueryBuilder.class.getDeclaredMethod("computeDisplayName", String.class);
+      computeMethod.setAccessible(true);
+
+      String displayName = (String) computeMethod.invoke(builder, "platform");
+      Assert.assertEquals(displayName, "Data Platform/Platform");
+
+      // Test with a field that doesn't exist in the map
+      String unknownField = (String) computeMethod.invoke(builder, "unknownField");
+      Assert.assertEquals(unknownField, "unknownField");
+
+      // Test with a compound field name
+      String compoundField =
+          (String)
+              computeMethod.invoke(builder, "platform" + AGGREGATION_SEPARATOR_CHAR + "subfield");
+      Assert.assertEquals(
+          compoundField, "Data Platform/Platform" + AGGREGATION_SEPARATOR_CHAR + "subfield");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to test computeDisplayName: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testWarningLogForMultipleDisplayNames() {
+    // This test would verify that the warning log is generated
+    // In a real implementation, you would use a mock logger or log appender to capture the log
+    // output
+
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "category",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Category"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "category",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Type"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation3 =
+        new SearchableAnnotation(
+            "category",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Classification"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    EntitySpec entitySpec3 = mock(EntitySpec.class);
+    when(entitySpec3.getName()).thenReturn("chart");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2),
+            entitySpec3, ImmutableList.of(annotation3));
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      // Trigger the initialization which should log the warning
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify the merged result
+      Assert.assertEquals(displayNames.get("category"), "Category/Classification/Type");
+
+      // In a real test with a mock logger, you would verify:
+      // verify(mockLogger).warn("Field '{}' has multiple display names: {}", "category",
+      // Set.of("Category", "Type", "Classification"));
+
+    } catch (Exception e) {
+      Assert.fail("Failed to test warning log: " + e.getMessage());
+    }
   }
 
   private AspectRetriever getMockAspectRetriever(Urn propertyUrn) {

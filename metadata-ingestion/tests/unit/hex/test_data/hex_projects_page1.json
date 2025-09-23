@@ -1,0 +1,474 @@
+{
+  "values": [
+    {
+      "id": "c8f815c8-88c2-4dea-981f-69f544d6165d",
+      "title": "Welcome to Hex!-0",
+      "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user1@example.com"
+      },
+      "owner": {
+        "email": "user1@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": null
+      },
+      "lastEditedAt": "2024-08-21T17:16:09.567Z",
+      "lastPublishedAt": null,
+      "createdAt": "2024-08-21T17:07:19.275Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user1@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "dd0f1e20-7586-4b8e-89ae-bfe3c924625b",
+      "title": "Welcome to Hex!-2",
+      "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user2@example.com"
+      },
+      "owner": {
+        "email": "user2@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": null
+      },
+      "lastEditedAt": "2024-08-21T17:44:46.875Z",
+      "lastPublishedAt": null,
+      "createdAt": "2024-08-21T17:35:56.247Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user2@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "827ea1f2-ed9a-425f-8d48-0ecc491c7c7c",
+      "title": "Welcome to Hex!-3",
+      "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user3@example.com"
+      },
+      "owner": {
+        "email": "user3@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": null
+      },
+      "lastEditedAt": "2024-08-21T20:04:05.879Z",
+      "lastPublishedAt": null,
+      "createdAt": "2024-08-21T20:04:03.148Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user3@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "e9d940fe-34ad-415b-ad12-cb4c201650dc",
+      "title": "Welcome to Hex!-4",
+      "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user4@example.com"
+      },
+      "owner": {
+        "email": "user4a@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": null
+      },
+      "lastEditedAt": "2024-08-22T17:59:39.864Z",
+      "lastPublishedAt": null,
+      "createdAt": "2024-08-22T17:58:40.772Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user4a@example.com"
+            },
+            "access": "FULL_ACCESS"
+          },
+          {
+            "user": {
+              "email": "user4@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "89e64571-42d9-44ac-bf47-320a7440eb57",
+      "title": "Welcome to Hex!-5",
+      "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user4a@example.com"
+      },
+      "owner": {
+        "email": "user4a@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": null
+      },
+      "lastEditedAt": "2024-10-23T21:26:04.682Z",
+      "lastPublishedAt": null,
+      "createdAt": "2024-10-23T21:26:01.878Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user4a@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "d05b0d81-6d00-4798-8967-6587b6731c0a",
+      "title": "Welcome to Hex!-6",
+      "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user5@example.com"
+      },
+      "owner": {
+        "email": "user5@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": null
+      },
+      "lastEditedAt": "2024-12-03T13:31:17.016Z",
+      "lastPublishedAt": null,
+      "createdAt": "2024-12-03T06:53:25.879Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user5@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf",
+      "title": "PlayNotebook",
+      "description": "This is a play project\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user5@example.com"
+      },
+      "owner": {
+        "email": "user5@example.com"
+      },
+      "status": {
+        "name": "In development"
+      },
+      "categories": [
+        {
+          "name": "Scratchpad",
+          "description": "Personal scratchpad for a team member. Not intended for broad consumption"
+        }
+      ],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 16,
+          "lastSevenDays": 1,
+          "lastFourteenDays": 1,
+          "lastThirtyDays": 1
+        },
+        "lastViewedAt": "2025-03-17T14:55:34.717Z",
+        "publishedResultsUpdatedAt": "2025-03-18T12:11:34.907Z"
+      },
+      "lastEditedAt": "2024-12-18T08:38:03.873Z",
+      "lastPublishedAt": "2024-12-13T23:26:27.466Z",
+      "createdAt": "2024-12-03T09:54:58.471Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [
+        {
+          "cadence": "WEEKLY",
+          "enabled": true,
+          "hourly": null,
+          "daily": null,
+          "weekly": {
+            "dayOfWeek": "TUESDAY",
+            "hour": 17,
+            "minute": 40,
+            "timezone": "+05:30"
+          },
+          "monthly": null,
+          "custom": null
+        }
+      ],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user4a@example.com"
+            },
+            "access": "FULL_ACCESS"
+          },
+          {
+            "user": {
+              "email": "user5@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "4759f33c-1ab9-403d-92e8-9bef48de00c4",
+      "title": "Cancelled Orders",
+      "description": null,
+      "type": "COMPONENT",
+      "creator": {
+        "email": "user4a@example.com"
+      },
+      "owner": {
+        "email": "user4a@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": "2024-12-13T23:22:48.995Z"
+      },
+      "lastEditedAt": "2024-12-13T23:22:58.183Z",
+      "lastPublishedAt": "2024-12-13T23:22:58.189Z",
+      "createdAt": "2024-12-09T15:39:26.093Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user4a@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "after": "djI6WyIyMDI0LTEyLTA5VDE1OjM5OjI2LjA5M1oiLCI0NzU5ZjMzYy0xYWI5LTQwM2QtOTJlOC05YmVmNDhkZTAwYzQiXQ",
+    "before": "djI6WyIyMDI0LTA4LTIxVDE3OjA3OjE5LjI3NVoiLCJjOGY4MTVjOC04OGMyLTRkZWEtOTgxZi02OWY1NDRkNjE2NWQiXQ"
+  }
+}

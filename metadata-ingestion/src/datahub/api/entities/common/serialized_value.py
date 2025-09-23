@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Type, TypeVar, Union
 
 from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel
@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 _REMAPPED_SCHEMA_TYPES = {
     k.replace("pegasus2avro.", ""): v for k, v in SCHEMA_TYPES.items()
 }
+T = TypeVar("T", bound=BaseModel)
 
 
 class SerializedResourceValue(BaseModel):
@@ -83,8 +84,8 @@ class SerializedResourceValue(BaseModel):
             )
 
     def as_pydantic_object(
-        self, model_type: Type[BaseModel], validate_schema_ref: bool = False
-    ) -> BaseModel:
+        self, model_type: Type[T], validate_schema_ref: bool = False
+    ) -> T:
         """
         Parse the blob into a Pydantic-defined Python object based on the schema type and schema
         ref.
@@ -130,7 +131,7 @@ class SerializedResourceValue(BaseModel):
         elif isinstance(object, BaseModel):
             return SerializedResourceValue(
                 content_type=models.SerializedValueContentTypeClass.JSON,
-                blob=json.dumps(object.dict()).encode("utf-8"),
+                blob=json.dumps(object.dict(), sort_keys=True).encode("utf-8"),
                 schema_type=models.SerializedValueSchemaTypeClass.JSON,
                 schema_ref=object.__class__.__name__,
             )

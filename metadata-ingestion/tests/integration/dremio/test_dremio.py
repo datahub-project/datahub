@@ -8,9 +8,11 @@ import pytest
 import requests
 from freezegun import freeze_time
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
+
+pytestmark = pytest.mark.integration_batch_4
 
 FROZEN_TIME = "2023-10-15 07:00:00"
 MINIO_PORT = 9000
@@ -190,9 +192,9 @@ def create_mysql_source(headers):
         "type": "MYSQL",
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
-    assert (
-        response.status_code == 200
-    ), f"Failed to add mysql datasource: {response.text}"
+    assert response.status_code == 200, (
+        f"Failed to add mysql datasource: {response.text}"
+    )
 
 
 def upload_dataset(headers):
@@ -537,9 +539,9 @@ def test_dremio_platform_instance_urns(
 
         # Check dataset URN structure
         if mce["entityType"] == "dataset" and "entityUrn" in mce:
-            assert (
-                "test-platform.dremio" in mce["entityUrn"]
-            ), f"Platform instance missing in dataset URN: {mce['entityUrn']}"
+            assert "test-platform.dremio" in mce["entityUrn"], (
+                f"Platform instance missing in dataset URN: {mce['entityUrn']}"
+            )
 
         # Check aspects for both datasets and containers
         if "aspectName" in mce:
@@ -558,9 +560,9 @@ def test_dremio_platform_instance_urns(
 
                 instance = aspect_json["instance"]
                 expected_instance = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dremio,test-platform)"
-                assert (
-                    instance == expected_instance
-                ), f"Invalid platform instance format: {instance}"
+                assert instance == expected_instance, (
+                    f"Invalid platform instance format: {instance}"
+                )
 
     # Verify against golden file
     mce_helpers.check_golden_file(

@@ -1,6 +1,7 @@
 import { Modal } from 'antd';
 import React from 'react';
-import FormSelector from './FormSelector';
+
+import FormSelector from '@app/entity/shared/entityForm/FormSelectionModal/FormSelector';
 
 interface Props {
     isFormSelectionModalVisible: boolean;

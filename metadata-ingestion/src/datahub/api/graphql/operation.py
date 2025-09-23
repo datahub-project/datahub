@@ -55,10 +55,10 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         Report operation metadata for a dataset.
         :param source_type: The source type to filter on. If not set it will accept any source type.
             Default value: DATA_PROCESS
-            See valid types here: https://datahubproject.io/docs/graphql/enums#operationsourcetype
+            See valid types here: https://docs.datahub.com/docs/graphql/enums#operationsourcetype
         :param operation_type: The operation type to filter on. If not set it will accept any source type.
             Default value: "UPDATE"
-            See valid types here: https://datahubproject.io/docs/graphql/enums/#operationtype
+            See valid types here: https://docs.datahub.com/docs/graphql/enums/#operationtype
         :param partition: The partition to set the operation.
         :param num_affected_rows: The number of rows affected by this operation.
         :param custom_properties: Key/value pair of custom propertis
@@ -80,7 +80,7 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
             variable_values["customProperties"] = custom_properties
 
         result = self.client.execute(
-            gql(Operation.REPORT_OPERATION_MUTATION), variable_values
+            gql(Operation.REPORT_OPERATION_MUTATION), variable_values=variable_values
         )
 
         return result["reportOperation"]
@@ -103,9 +103,9 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         :param end_time_millis: The end time in milliseconds until the operations will be queried.
         :param limit: The maximum number of items to return.
         :param source_type: The source type to filter on. If not set it will accept any source type.
-            See valid types here: https://datahubproject.io/docs/graphql/enums#operationsourcetype
+            See valid types here: https://docs.datahub.com/docs/graphql/enums#operationsourcetype
         :param operation_type: The operation type to filter on. If not set it will accept any source type.
-            See valid types here: https://datahubproject.io/docs/graphql/enums#operationsourcetype
+            See valid types here: https://docs.datahub.com/docs/graphql/enums#operationsourcetype
         :param partition: The partition to check the operation.
         """
 

@@ -1,20 +1,22 @@
-import * as React from 'react';
 import { GlobalOutlined } from '@ant-design/icons';
-import { BusinessAttribute, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { useGetBusinessAttributeQuery } from '../../../graphql/businessAttribute.generated';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { Preview } from './preview/Preview';
-import { PageRoutes } from '../../../conf/Global';
-import BusinessAttributeRelatedEntity from './profile/BusinessAttributeRelatedEntity';
-import { BusinessAttributeDataTypeSection } from './profile/BusinessAttributeDataTypeSection';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/businessAttribute/preview/Preview';
+import { BusinessAttributeDataTypeSection } from '@app/entity/businessAttribute/profile/BusinessAttributeDataTypeSection';
+import BusinessAttributeRelatedEntity from '@app/entity/businessAttribute/profile/BusinessAttributeRelatedEntity';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { PageRoutes } from '@conf/Global';
+
+import { useGetBusinessAttributeQuery } from '@graphql/businessAttribute.generated';
+import { BusinessAttribute, EntityType, SearchResult } from '@types';
 
 /**
  *  Definition of datahub Business Attribute Entity

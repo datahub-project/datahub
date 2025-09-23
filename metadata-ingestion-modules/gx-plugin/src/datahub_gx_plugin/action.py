@@ -3,40 +3,12 @@ import logging
 import sys
 import time
 from dataclasses import dataclass
+from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 from datetime import timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import datahub.emitter.mce_builder as builder
 import packaging.version
-from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
-    AssertionInfo,
-    AssertionResult,
-    AssertionResultType,
-    AssertionRunEvent,
-    AssertionRunStatus,
-    AssertionStdAggregation,
-    AssertionStdOperator,
-    AssertionStdParameter,
-    AssertionStdParameters,
-    AssertionStdParameterType,
-    AssertionType,
-    BatchSpec,
-    DatasetAssertionInfo,
-    DatasetAssertionScope,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
-from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
-from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
 from great_expectations.core.batch_spec import (
@@ -60,6 +32,36 @@ from great_expectations.execution_engine.sqlalchemy_execution_engine import (
 from great_expectations.validator.validator import Validator
 from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
+
+import datahub.emitter.mce_builder as builder
+from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.graph.config import ClientMode
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
+    AssertionInfo,
+    AssertionResult,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionRunStatus,
+    AssertionStdAggregation,
+    AssertionStdOperator,
+    AssertionStdParameter,
+    AssertionStdParameters,
+    AssertionStdParameterType,
+    AssertionType,
+    BatchSpec,
+    DatasetAssertionInfo,
+    DatasetAssertionScope,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
+from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 # TODO: move this and version check used in tests to some common module
 try:
@@ -107,7 +109,6 @@ class DataHubValidationAction(ValidationAction):
         convert_urns_to_lowercase: bool = False,
         name: str = "DataHubValidationAction",
     ):
-
         if has_name_positional_arg:
             if len(args) >= 1 and isinstance(args[0], str):
                 name = args[0]
@@ -149,6 +150,8 @@ class DataHubValidationAction(ValidationAction):
                 retry_status_codes=self.retry_status_codes,
                 retry_max_times=self.retry_max_times,
                 extra_headers=self.extra_headers,
+                client_mode=ClientMode.INGESTION,
+                datahub_component="gx-plugin",
             )
 
             expectation_suite_name = validation_result_suite.meta.get(
@@ -163,9 +166,7 @@ class DataHubValidationAction(ValidationAction):
             if isinstance(
                 validation_result_suite_identifier, ValidationResultIdentifier
             ):
-                expectation_suite_name = (
-                    validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
-                )
+                expectation_suite_name = validation_result_suite_identifier.expectation_suite_identifier.expectation_suite_name
                 run_id = validation_result_suite_identifier.run_id
                 batch_identifier = validation_result_suite_identifier.batch_identifier
 

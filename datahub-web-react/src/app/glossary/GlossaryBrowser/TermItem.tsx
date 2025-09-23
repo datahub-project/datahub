@@ -1,11 +1,13 @@
 import React from 'react';
-import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
-import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
-import { useGlossaryActiveTabPath } from '../../entity/shared/containers/profile/utils';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useGlossaryActiveTabPath } from '@app/entity/shared/containers/profile/utils';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 
 const TermWrapper = styled.div`
     font-weight: normal;
@@ -14,19 +16,20 @@ const TermWrapper = styled.div`
 
 const nameStyles = `
     color: #262626;
-    display: inline-block;
+    display: inline-flex;
     height: 100%;
     padding: 3px 4px;
     width: 100%;
+    align-items: center;
 `;
 
-export const TermLink = styled(Link)<{ isSelected }>`
+export const TermLink = styled(Link)<{ $isSelected }>`
     ${nameStyles}
 
-    ${(props) => props.isSelected && `background-color: #F0FFFB;`}
+    ${(props) => props.$isSelected && `background-color: #F0FFFB;`}
 
     &:hover {
-        ${(props) => !props.isSelected && `background-color: ${ANTD_GRAY[3]};`}
+        ${(props) => !props.$isSelected && `background-color: ${ANTD_GRAY[3]};`}
         color: #262626;
     }
 `;
@@ -49,10 +52,12 @@ interface Props {
     isSelecting?: boolean;
     selectTerm?: (urn: string, displayName: string) => void;
     includeActiveTabPath?: boolean;
+    termUrnToHide?: string;
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath } = props;
+    const { term, isSelecting, selectTerm, includeActiveTabPath, termUrnToHide } = props;
+    const shouldHideTerm = termUrnToHide === term.urn;
 
     const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
@@ -67,6 +72,7 @@ function TermItem(props: Props) {
 
     const isOnEntityPage = entityData && entityData.urn === term.urn;
 
+    if (shouldHideTerm) return null;
     return (
         <TermWrapper>
             {!isSelecting && (
@@ -74,7 +80,7 @@ function TermItem(props: Props) {
                     to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${
                         includeActiveTabPath ? `/${activeTabPath}` : ''
                     }`}
-                    isSelected={entityData?.urn === term.urn}
+                    $isSelected={entityData?.urn === term.urn}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
                 </TermLink>

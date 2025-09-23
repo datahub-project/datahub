@@ -6,6 +6,9 @@ query getDomain($urn: String!) {
         properties {
             name
             description
+            createdOn {
+                time
+            }
         }
         parentDomains {
             ...parentDomainsFields
@@ -17,17 +20,7 @@ query getDomain($urn: String!) {
             ...entityPrivileges
         }
         institutionalMemory {
-            elements {
-                url
-                actor {
-                    ...resolvedActorFields
-                }
-                description
-                created {
-                    actor
-                    time
-                }
-            }
+            ...institutionalMemoryFields
         }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
@@ -40,7 +33,37 @@ query getDomain($urn: String!) {
         forms {
             ...formsFields
         }
+        displayProperties {
+            ...displayPropertiesFields
+        }
         ...domainEntitiesFields
+        ...notes
+        settings {
+            ...AssetSettingsFields
+        }
+    }
+}
+
+fragment ListDomain on Domain {
+    urn
+    id
+    type
+    properties {
+        name
+        description
+    }
+    parentDomains {
+        ...parentDomainsFields
+    }
+    ownership {
+        ...ownershipFields
+    }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    ...domainEntitiesFields
+    institutionalMemory {
+        ...institutionalMemoryFields
     }
 }
 
@@ -50,20 +73,22 @@ query listDomains($input: ListDomainsInput!) {
         count
         total
         domains {
-            urn
-            id
-            type
-            properties {
-                name
-                description
+            ...ListDomain
+        }
+    }
+}
+
+query scrollAcrossDomains($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        nextScrollId
+        count
+        total
+        searchResults {
+            entity {
+                ... on Domain {
+                    ...ListDomain
+                }
             }
-            parentDomains {
-                ...parentDomainsFields
-            }
-            ownership {
-                ...ownershipFields
-            }
-            ...domainEntitiesFields
         }
     }
 }
@@ -88,4 +113,28 @@ mutation moveDomain($input: MoveDomainInput!) {
 
 mutation deleteDomain($urn: String!) {
     deleteDomain(urn: $urn)
+}
+
+# We should replace this with a cached summary object on the domain
+query getDomainEntitySummary($urn: String!) {
+    aggregateAcrossEntities(
+        input: {
+            types: []
+            query: "*"
+            facets: ["_entityType␞typeNames", "_entityType"]
+            orFilters: [
+                {
+                    and: [
+                        { field: "_entityType", values: ["DATA_PRODUCT"], value: "DATA_PRODUCT", negated: true }
+                        { field: "domains", values: [$urn], value: $urn }
+                    ]
+                }
+            ]
+            searchFlags: { skipCache: true }
+        }
+    ) {
+        facets {
+            ...facetFields
+        }
+    }
 }

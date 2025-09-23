@@ -21,7 +21,7 @@ def _add_prefix_to_paths(
 
 
 def list_urns_with_path(
-    model: Union[DictWrapper, MetadataChangeProposalWrapper]
+    model: Union[DictWrapper, MetadataChangeProposalWrapper],
 ) -> List[Tuple[str, _Path]]:
     """List urns in the given model with their paths.
 
@@ -145,7 +145,7 @@ def lowercase_dataset_urns(
         MetadataChangeEventClass,
         MetadataChangeProposalClass,
         MetadataChangeProposalWrapper,
-    ]
+    ],
 ) -> None:
     def modify_urn(urn: str) -> str:
         if guess_entity_type(urn) == "dataset":

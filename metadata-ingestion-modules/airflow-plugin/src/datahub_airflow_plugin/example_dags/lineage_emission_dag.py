@@ -2,13 +2,14 @@
 
 This example demonstrates how to emit lineage to DataHub within an Airflow DAG.
 """
+
 from datetime import timedelta
 
-import datahub.emitter.mce_builder as builder
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 
+import datahub.emitter.mce_builder as builder
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
 default_args = {
@@ -30,7 +31,6 @@ with DAG(
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
     catchup=False,
-    default_view="tree",
 ) as dag:
     transformation_task = BashOperator(
         task_id="transformation_task",

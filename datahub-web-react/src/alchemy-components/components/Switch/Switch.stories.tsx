@@ -1,12 +1,10 @@
+import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
-import type { Meta, StoryObj } from '@storybook/react';
-import { BADGE } from '@geometricpanda/storybook-addon-badges';
-
 import { GridList } from '@components/.docs/mdx-components';
-
-import { Switch, switchDefaults } from './Switch';
-import { AVAILABLE_ICONS } from '../Icon';
+import { AVAILABLE_ICONS } from '@components/components/Icon';
+import { Switch, switchDefaults } from '@components/components/Switch/Switch';
 
 const meta = {
     title: 'Forms / Switch',

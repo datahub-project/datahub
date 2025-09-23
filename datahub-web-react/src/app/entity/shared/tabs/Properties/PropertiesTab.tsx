@@ -1,17 +1,21 @@
-import styled from 'styled-components';
 import React, { useState } from 'react';
-import ExpandIcon from '../Dataset/Schema/components/ExpandIcon';
-import { StyledTable as Table } from '../../components/styled/StyledTable';
-import { useEntityData } from '../../EntityContext';
-import { PropertyRow } from './types';
-import useStructuredProperties from './useStructuredProperties';
-import { getFilteredCustomProperties, mapCustomPropertiesToPropertyRows } from './utils';
-import ValuesColumn from './ValuesColumn';
-import NameColumn from './NameColumn';
-import TabHeader from './TabHeader';
-import useUpdateExpandedRowsFromFilter from './useUpdateExpandedRowsFromFilter';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { EditColumn } from './Edit/EditColumn';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { StyledTable as Table } from '@app/entity/shared/components/styled/StyledTable';
+import ExpandIcon from '@app/entity/shared/tabs/Dataset/Schema/components/ExpandIcon';
+import { EditColumn } from '@app/entity/shared/tabs/Properties/Edit/EditColumn';
+import NameColumn from '@app/entity/shared/tabs/Properties/NameColumn';
+import TabHeader from '@app/entity/shared/tabs/Properties/TabHeader';
+import ValuesColumn from '@app/entity/shared/tabs/Properties/ValuesColumn';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+import useStructuredProperties from '@app/entity/shared/tabs/Properties/useStructuredProperties';
+import useUpdateExpandedRowsFromFilter from '@app/entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
+import {
+    getFilteredCustomProperties,
+    mapCustomPropertiesToPropertyRows,
+} from '@app/entity/shared/tabs/Properties/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {

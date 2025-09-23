@@ -5,6 +5,7 @@ title: Complete a Form
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Complete a DataHub Compliance Form
+
 <FeatureAvailability/>
 
 Once a Compliance Form has been published (see [Create a Compliance Form](create-a-form.md)), Assignees will receive notifications in their Task Center prompting them to complete the Form for each Asset they are responsible for.
@@ -168,7 +169,6 @@ Here's an example where a different Form Assignee has already provided an answer
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/completion/complete-task-question-answered.png"
        alt="Sample Compliance Form"/>
 </p>
-
 
 ## FAQ and Troubleshooting
 

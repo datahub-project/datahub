@@ -1,9 +1,11 @@
 import { Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, EntityRelationship } from '../../../types.generated';
-import { EmptyValue, TagsSection, Tags, GroupsSeeMoreText } from './SidebarStyledComponents';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { EmptyValue, GroupsSeeMoreText, Tags, TagsSection } from '@app/entity/shared/SidebarStyledComponents';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityRelationship, EntityType } from '@types';
 
 type Props = {
     readMore: boolean;

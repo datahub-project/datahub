@@ -10,6 +10,7 @@ import yaml
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.config_loader import (
+    EnvResolver,
     list_referenced_env_variables,
     load_config_file,
 )
@@ -138,6 +139,28 @@ def test_load_success(pytestconfig, filename, golden_config, env, referenced_env
         # TODO check referenced env vars
 
 
+def test_load_strict_env_syntax() -> None:
+    config = {
+        "foo": "${BAR}",
+        "baz": "$BAZ",
+        "qux": "qux$QUX",
+    }
+    assert EnvResolver.list_referenced_variables(
+        config,
+        strict_env_syntax=True,
+    ) == {"BAR"}
+
+    assert EnvResolver(
+        environ={
+            "BAR": "bar",
+        }
+    ).resolve(config) == {
+        "foo": "bar",
+        "baz": "$BAZ",
+        "qux": "qux$QUX",
+    }
+
+
 @pytest.mark.parametrize(
     "filename,env,error_type",
     [
@@ -170,9 +193,8 @@ def test_load_success(pytestconfig, filename, golden_config, env, referenced_env
 def test_load_error(pytestconfig, filename, env, error_type):
     filepath = pytestconfig.rootpath / filename
 
-    with mock.patch.dict(os.environ, env):
-        with pytest.raises(error_type):
-            _ = load_config_file(filepath)
+    with mock.patch.dict(os.environ, env), pytest.raises(error_type):
+        _ = load_config_file(filepath)
 
 
 def test_write_file_directive(pytestconfig):

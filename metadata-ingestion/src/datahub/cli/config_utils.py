@@ -17,8 +17,8 @@ from datahub.ingestion.graph.config import DatahubClientConfig
 logger = logging.getLogger(__name__)
 
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
-DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
-DATAHUB_ROOT_FOLDER = os.path.expanduser("~/.datahub")
+DATAHUB_CONFIG_PATH: str = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
+DATAHUB_ROOT_FOLDER: str = os.path.expanduser("~/.datahub")
 ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 
 ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"

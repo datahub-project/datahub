@@ -2,7 +2,8 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { Button, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../../constants';
+
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 
 const MultiStringWrapper = styled.div``;
 

@@ -65,6 +65,7 @@ public class TestMCP implements ChangeMCP {
     return Set.of(
         TestMCP.builder()
             .urn(urn)
+            .changeType(ChangeType.UPSERT)
             .entitySpec(entityRegistry.getEntitySpec(urn.getEntityType()))
             .aspectSpec(
                 entityRegistry.getAspectSpecs().get(TestEntityRegistry.getAspectName(aspect)))
@@ -116,7 +117,7 @@ public class TestMCP implements ChangeMCP {
 
   private Urn urn;
   private RecordTemplate recordTemplate;
-  private SystemMetadata systemMetadata;
+  @Setter private SystemMetadata systemMetadata;
   private AuditStamp auditStamp;
   private ChangeType changeType;
   @Nonnull private final EntitySpec entitySpec;
@@ -126,12 +127,6 @@ public class TestMCP implements ChangeMCP {
   @Setter private SystemAspect previousSystemAspect;
   @Setter private long nextAspectVersion;
   @Setter private Map<String, String> headers;
-
-  @Nonnull
-  @Override
-  public SystemAspect getSystemAspect(@Nullable Long nextAspectVersion) {
-    return null;
-  }
 
   @Override
   public Map<String, String> getHeaders() {

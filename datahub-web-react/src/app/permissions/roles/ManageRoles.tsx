@@ -1,25 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Pagination, Tooltip, Typography } from 'antd';
-import styled from 'styled-components';
+import { Button, Tooltip } from '@components';
+import { Avatar, Empty, Pagination, Typography, message } from 'antd';
 import * as QueryString from 'query-string';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import { useListRolesQuery } from '../../../graphql/role.generated';
-import { Message } from '../../shared/Message';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import AvatarsGroup from '../AvatarsGroup';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { SearchBar } from '../../search/SearchBar';
-import { SearchSelectModal } from '../../entity/shared/components/styled/search/SearchSelectModal';
-import { EntityCapabilityType } from '../../entity/Entity';
-import { useBatchAssignRoleMutation } from '../../../graphql/mutations.generated';
-import { CorpUser, DataHubRole, DataHubPolicy } from '../../../types.generated';
-import RoleDetailsModal from './RoleDetailsModal';
-import analytics, { EventType } from '../../analytics';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { OnboardingTour } from '../../onboarding/OnboardingTour';
-import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
-import { clearUserListCache } from '../../identity/user/cacheUtils';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { EntityCapabilityType } from '@app/entity/Entity';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { clearUserListCache } from '@app/identity/user/cacheUtils';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
+import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
+import { useListRolesQuery } from '@graphql/role.generated';
+import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
 
 const SourceContainer = styled.div`
     overflow: auto;
@@ -174,16 +177,29 @@ export const ManageRoles = () => {
             dataIndex: 'users',
             key: 'users',
             render: (_: any, record: any) => {
+                const numberOfUsers = record?.totalUsers || 0;
                 return (
                     <>
-                        {(record?.users?.length && (
-                            <AvatarsGroup
-                                users={record?.users}
-                                groups={record?.resolvedGroups}
-                                entityRegistry={entityRegistry}
-                                maxCount={3}
-                                size={28}
-                            />
+                        {(!!numberOfUsers && (
+                            <>
+                                <AvatarsGroup
+                                    users={record?.users
+                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
+                                        .slice(0, 5)}
+                                    groups={record?.users
+                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
+                                        .slice(0, 5)}
+                                    entityRegistry={entityRegistry}
+                                    maxCount={5}
+                                    size={28}
+                                />
+                                {numberOfUsers > 5 && (
+                                    // Keeping the color same as the avatar component indicator
+                                    <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
+                                        +{numberOfUsers - 5}
+                                    </Avatar>
+                                )}
+                            </>
                         )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
                     </>
                 );
@@ -197,12 +213,13 @@ export const ManageRoles = () => {
                     <ActionsContainer>
                         <Tooltip title={`Assign the ${record.name} role to users`}>
                             <AddUsersButton
+                                variant="text"
                                 onClick={() => {
                                     setIsBatchAddRolesModalVisible(true);
                                     setFocusRole(record.role);
                                 }}
                             >
-                                ADD USERS
+                                Add Users
                             </AddUsersButton>
                         </Tooltip>
                     </ActionsContainer>
@@ -218,6 +235,7 @@ export const ManageRoles = () => {
         description: role?.description,
         name: role?.name,
         users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
+        totalUsers: role?.users?.total,
         policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
     }));
 

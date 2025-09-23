@@ -12,12 +12,14 @@ def run_test() -> None:
         for i in range(N):
             if i % 50 == 0:
                 print(
-                    f"Running iteration {i}, elapsed time: {timer.elapsed_seconds():.2f} seconds"
+                    f"Running iteration {i}, elapsed time: {timer.elapsed_seconds(digits=2)} seconds"
                 )
 
             try_format_query.__wrapped__(large_sql_query, platform="snowflake")
 
-    print(f"Total time taken for {N} iterations: {timer.elapsed_seconds():.2f} seconds")
+    print(
+        f"Total time taken for {N} iterations: {timer.elapsed_seconds(digits=2)} seconds"
+    )
 
 
 if __name__ == "__main__":

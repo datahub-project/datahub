@@ -1,0 +1,3 @@
+# The code in this directory requires the latest pyiceberg
+pyiceberg >= 0.8.1
+pyarrow >= 19.0.0

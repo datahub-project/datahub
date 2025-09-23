@@ -1,11 +1,11 @@
+import { Collapse } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Collapse } from 'antd';
 
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { applyOpacity } from '../../../../shared/styleUtils';
-import { StructuredReportItemContext } from './StructuredReportItemContext';
-import { StructuredReportLogEntry } from '../../types';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { StructuredReportItemContext } from '@app/ingest/source/executions/reporting/StructuredReportItemContext';
+import { StructuredReportLogEntry } from '@app/ingest/source/types';
+import { applyOpacity } from '@app/shared/styleUtils';
 
 const StyledCollapse = styled(Collapse)<{ color: string }>`
     background-color: ${(props) => applyOpacity(props.color, 8)};

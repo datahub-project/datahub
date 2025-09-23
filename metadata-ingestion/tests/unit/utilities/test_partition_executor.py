@@ -37,9 +37,9 @@ def test_partitioned_executor():
         saw_keys_in_parallel = False
         while executing_tasks or not done_tasks:
             keys_executing = [key for key, _ in executing_tasks]
-            assert list(sorted(keys_executing)) == list(
-                sorted(set(keys_executing))
-            ), "partitioning not working"
+            assert list(sorted(keys_executing)) == list(sorted(set(keys_executing))), (
+                "partitioning not working"
+            )
 
             if len(keys_executing) == 2:
                 saw_keys_in_parallel = True
@@ -63,9 +63,10 @@ def test_partitioned_executor_bounding():
         time.sleep(task_duration)
         return id
 
-    with PartitionExecutor(
-        max_workers=5, max_pending=10
-    ) as executor, PerfTimer() as timer:
+    with (
+        PartitionExecutor(max_workers=5, max_pending=10) as executor,
+        PerfTimer() as timer,
+    ):
         # The first 15 submits should be non-blocking.
         for i in range(15):
             executor.submit(f"key{i}", task, f"task{i}", done_callback=on_done)

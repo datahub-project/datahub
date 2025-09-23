@@ -54,7 +54,7 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
         data_products_container: Dict[str, DataProductPatchBuilder] = {}
         logger.debug("Generating dataproducts")
         is_container = self.config.is_container
-        for entity_urn in self.entity_map.keys():
+        for entity_urn in self.entity_map:
             data_product_urn = self.config.get_data_product_to_add(entity_urn)
             if data_product_urn:
                 if data_product_urn not in data_products:
@@ -80,10 +80,10 @@ class AddDatasetDataProduct(DatasetDataproductTransformer):
                         ).add_asset(container_urn)
                         data_products_container[data_product_urn] = container_product
                     else:
-                        data_products_container[
-                            data_product_urn
-                        ] = data_products_container[data_product_urn].add_asset(
-                            container_urn
+                        data_products_container[data_product_urn] = (
+                            data_products_container[data_product_urn].add_asset(
+                                container_urn
+                            )
                         )
 
         mcps: List[

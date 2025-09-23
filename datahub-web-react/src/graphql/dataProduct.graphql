@@ -17,6 +17,31 @@ query getDataProduct($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
+        settings {
+            ...AssetSettingsFields
+        }
+    }
+}
+
+query getDataProductsList($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ... on DataProduct {
+                    urn
+                    type
+                    properties {
+                        name
+                        description
+                        numAssets
+                    }
+                    domain {
+                        ...entityDomain
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -40,6 +65,9 @@ fragment dataProductSearchFields on DataProduct {
         name
         description
         externalUrl
+        createdOn {
+            time
+        }
     }
     ownership {
         ...ownershipFields

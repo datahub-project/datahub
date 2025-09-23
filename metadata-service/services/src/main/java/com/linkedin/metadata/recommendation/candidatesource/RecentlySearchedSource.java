@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
@@ -85,28 +84,35 @@ public class RecentlySearchedSource implements RecommendationSource {
       @Nullable Filter filter) {
     SearchRequest searchRequest =
         buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlySearched").time()) {
-      final SearchResponse searchResponse =
-          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      // extract results
-      ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      return parsedTerms.getBuckets().stream()
-          .map(bucket -> buildContent(bucket.getKeyAsString()))
-          .filter(Optional::isPresent)
-          .map(Optional::get)
-          .limit(MAX_CONTENT)
-          .collect(Collectors.toList());
-    } catch (Exception e) {
-      log.error("Search query to get most recently viewed entities failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+
+    return opContext.withSpan(
+        "getRecentlySearched",
+        () -> {
+          try {
+            final SearchResponse searchResponse =
+                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            // extract results
+            ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
+            return parsedTerms.getBuckets().stream()
+                .map(bucket -> buildContent(bucket.getKeyAsString()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .limit(MAX_CONTENT)
+                .collect(Collectors.toList());
+          } catch (Exception e) {
+            log.error("Search query to get most recently searched queries failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getRecentlySearched"));
   }
 
   private SearchRequest buildSearchRequest(@Nonnull Urn userUrn) {
     SearchRequest request = new SearchRequest();
     SearchSourceBuilder source = new SearchSourceBuilder();
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    // Filter for the entity view events of the user requesting recommendation
+    // Filter for the search results view event of the user requesting recommendation
     query.must(
         QueryBuilders.termQuery(
             DataHubUsageEventConstants.ACTOR_URN + ".keyword", userUrn.toString()));

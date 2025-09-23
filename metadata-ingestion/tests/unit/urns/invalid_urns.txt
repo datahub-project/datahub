@@ -8,6 +8,14 @@ urn:li:corpuser:abc)
 # Reserved characters
 urn:li:corpuser:foo␟bar
 urn:li:tag:a,b,c
+urn:li:corpuser:,
+urn:li:dataset:(urn:li:dataPlatform:hdfs␟path,PROD)
+urn:li:dashboard:(looker,dashboards,thelook)
+urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,())
+urn:li:dataset:(urn:li:dataPlatform:hdfs,(illegal),PROD)
+urn:li:corpuser:(foo)123
+urn:li:dataJob:(urn:li:dataFlow:(mssql,1/2/3/4.c_n on %28LOCAL%29,PROD),1/2/3/4.c_n on (LOCAL))
+urn:li:dataJob:(urn:li:dataFlow:(mssql,123.%28TEST%29,PROD),(TEST))
 
 # CorpUser URN tests
 urn:li:corpuser:(part1,part2)

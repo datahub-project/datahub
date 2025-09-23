@@ -189,6 +189,7 @@ WHERE
 
         if len(profile_requests) == 0:
             return
+
         yield from self.generate_profile_workunits(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
@@ -226,10 +227,11 @@ WHERE
             db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )
 
-        if partition is None and bq_table.partition_info:
+        # For partitioned tables, if it has a row count but not a valid partition, that means something went wrong with the partition detection.
+        if partition is None and bq_table.partition_info and bq_table.rows_count:
             self.report.report_warning(
                 title="Profile skipped for partitioned table",
-                message="profile skipped as partitioned table is empty or partition id or type was invalid",
+                message="profile skipped as partition id or type was invalid",
                 context=profile_request.pretty_name,
             )
             return None

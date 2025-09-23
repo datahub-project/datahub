@@ -25,7 +25,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
                     "column": "Age"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[persons].[age] AS [age]"
+            }
         },
         {
             "downstream": {
@@ -38,9 +42,14 @@
                 },
                 "native_column_type": "INTEGER"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "COUNT(*) AS [count]"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT age AS AGE, COUNT(*) AS Count INTO Foo.age_dist FROM Foo.Persons GROUP BY Age"

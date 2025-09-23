@@ -1,13 +1,14 @@
+import { ClockCircleOutlined, EyeOutlined, QuestionCircleOutlined, TeamOutlined } from '@ant-design/icons';
+import { Popover, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Popover, Tooltip } from 'antd';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from '../../dataset/shared/ExpandingStat';
+
+import ExpandingStat from '@app/entity/dataset/shared/ExpandingStat';
+import { StatsSummary } from '@app/entity/shared/components/styled/StatsSummary';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};

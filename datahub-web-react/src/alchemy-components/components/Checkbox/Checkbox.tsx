@@ -1,24 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { CheckboxProps, CheckboxGroupProps } from './types';
+
 import {
     CheckboxBase,
     CheckboxContainer,
     CheckboxGroupContainer,
     Checkmark,
-    HoverState,
     Label,
     Required,
     StyledCheckbox,
-} from './components';
+} from '@components/components/Checkbox/components';
+import { CheckboxGroupProps, CheckboxProps } from '@components/components/Checkbox/types';
 
 export const checkboxDefaults: CheckboxProps = {
-    label: 'Label',
     error: '',
     isChecked: false,
     isDisabled: false,
     isIntermediate: false,
     isRequired: false,
     setIsChecked: () => {},
+    size: 'md',
 };
 
 export const Checkbox = ({
@@ -29,10 +29,12 @@ export const Checkbox = ({
     isIntermediate = checkboxDefaults.isIntermediate,
     isRequired = checkboxDefaults.isRequired,
     setIsChecked = checkboxDefaults.setIsChecked,
+    size = checkboxDefaults.size,
+    onCheckboxChange,
+    dataTestId,
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
-    const [isHovering, setIsHovering] = useState(false);
 
     useEffect(() => {
         setChecked(isChecked || false);
@@ -42,21 +44,27 @@ export const Checkbox = ({
 
     return (
         <CheckboxContainer>
-            <Label aria-label={label}>
-                {label} {isRequired && <Required>*</Required>}
-            </Label>
+            {label ? (
+                <Label aria-label={label}>
+                    {label} {isRequired && <Required>*</Required>}
+                </Label>
+            ) : null}
             <CheckboxBase
-                onClick={() => {
+                onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     if (!isDisabled) {
                         setChecked(!checked);
                         setIsChecked?.(!checked);
+                        onCheckboxChange?.();
                     }
                 }}
+                data-testid={dataTestId}
             >
                 <StyledCheckbox
                     type="checkbox"
                     id="checked-input"
-                    checked={checked}
+                    checked={checked || isIntermediate || false}
                     disabled={isDisabled || false}
                     error={error || ''}
                     onChange={() => null}
@@ -69,14 +77,7 @@ export const Checkbox = ({
                     error={error || ''}
                     disabled={isDisabled || false}
                     checked={checked || false}
-                    onMouseOver={() => setIsHovering(true)}
-                    onMouseLeave={() => setIsHovering(false)}
-                />
-                <HoverState
-                    isHovering={!isDisabled ? isHovering : false}
-                    error={error || ''}
-                    checked={checked || false}
-                    disabled={isDisabled || false}
+                    size={size || 'md'}
                 />
             </CheckboxBase>
         </CheckboxContainer>

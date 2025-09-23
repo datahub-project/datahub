@@ -1,7 +1,9 @@
 package com.linkedin.metadata.search.opensearch;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.assertNotNull;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.TestEntityTestBase;
@@ -52,8 +54,8 @@ public class TestEntityOpenSearchTest extends TestEntityTestBase {
 
   @NotNull
   @Override
-  protected SearchConfiguration getSearchConfiguration() {
-    return _searchConfiguration;
+  protected ElasticSearchConfiguration getElasticSearchConfiguration() {
+    return TEST_OS_SEARCH_CONFIG;
   }
 
   @Test

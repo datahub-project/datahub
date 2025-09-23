@@ -1,7 +1,3 @@
-import moment from 'moment-timezone';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import Icon from '@ant-design/icons/lib/components/Icon';
-import TableIcon from '@src/images/table-icon.svg?react';
 import {
     BookOutlined,
     DatabaseOutlined,
@@ -11,24 +7,16 @@ import {
     TagOutlined,
     UserOutlined,
 } from '@ant-design/icons';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import Icon from '@ant-design/icons/lib/components/Icon';
+import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
-import {
-    AggregationMetadata,
-    DataPlatform,
-    DataPlatformInstance,
-    Domain,
-    Entity,
-    EntityType,
-    FacetFilterInput,
-    FacetMetadata,
-    GlossaryTerm,
-    Container,
-    StructuredPropertyEntity,
-} from '../../../types.generated';
-import { IconStyleType } from '../../entity/Entity';
+
+import { IconStyleType } from '@app/entity/Entity';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FACETS_TO_ENTITY_TYPES } from '@app/search/filters/constants';
+import { FilterOptionType } from '@app/search/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
@@ -44,14 +32,30 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
-} from '../utils/constants';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import DomainsIcon from '../../../images/domain.svg?react';
-import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
-import { FACETS_TO_ENTITY_TYPES } from './constants';
-import { FilterOptionType } from './types';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+} from '@app/search/utils/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import TableIcon from '@src/images/table-icon.svg?react';
+
+import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
+import {
+    AggregationMetadata,
+    Container,
+    DataPlatform,
+    DataPlatformInstance,
+    Domain,
+    Entity,
+    EntityType,
+    FacetFilterInput,
+    FacetMetadata,
+    GlossaryTerm,
+    StructuredPropertyEntity,
+} from '@types';
+
+import DomainsIcon from '@images/domain.svg?react';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
@@ -103,7 +107,7 @@ function getDataPlatformInstanceIconAndLabel(
 ) {
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
-    const logoUrl = (filterEntity as DataPlatformInstance)?.platform.properties?.logoUrl;
+    const logoUrl = (filterEntity as DataPlatformInstance)?.platform?.properties?.logoUrl;
     icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
@@ -146,10 +150,7 @@ function getFilterWithEntityIconAndLabel(
     let icon: React.ReactNode = null;
     let label: React.ReactNode = null;
 
-    if (entityRegistry.hasEntity(filterEntity.type)) {
-        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
-        label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
-    } else if (filterEntity.type === EntityType.DataPlatformInstance) {
+    if (filterEntity.type === EntityType.DataPlatformInstance) {
         const { icon: newIcon, label: newLabel } = getDataPlatformInstanceIconAndLabel(
             filterEntity,
             entityRegistry,
@@ -157,6 +158,9 @@ function getFilterWithEntityIconAndLabel(
         );
         icon = newIcon;
         label = newLabel;
+    } else if (entityRegistry.hasEntity(filterEntity.type)) {
+        icon = entityRegistry.getIcon(filterEntity.type, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9]);
+        label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
     } else {
         label = filterValue;
     }
@@ -279,6 +283,9 @@ export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedF
 }
 
 export function getFilterDropdownIcon(field: string) {
+    if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
+        return STRUCTURED_PROPERTY_FILTER.icon as JSX.Element;
+    }
     if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
         return <Icon component={TableIcon} />;
     }

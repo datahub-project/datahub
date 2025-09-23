@@ -1,13 +1,14 @@
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.metadata.urns import MlModelGroupUrn
+from datahub.sdk import DataHubClient
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import MLModelGroupPropertiesClass
+client = DataHubClient.from_env()
 
-# First we get the current owners
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
+# Or get this from the UI (share -> copy urn) and use MlModelGroupUrn.from_string(...)
+mlmodel_group_urn = MlModelGroupUrn(
+    platform="mlflow", name="my-recommendations-model-group"
+)
 
-urn = "urn:li:mlModelGroup:(urn:li:dataPlatform:science,my-model-group,PROD)"
-result = graph.get_aspect(entity_urn=urn, aspect_type=MLModelGroupPropertiesClass)
-
-print(result)
+mlmodel_group_entity = client.entities.get(mlmodel_group_urn)
+print("Model Group Name: ", mlmodel_group_entity.name)
+print("Model Group Description: ", mlmodel_group_entity.description)
+print("Model Group Custom Properties: ", mlmodel_group_entity.custom_properties)

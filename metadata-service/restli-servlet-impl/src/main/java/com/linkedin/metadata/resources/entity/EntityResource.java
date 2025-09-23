@@ -8,7 +8,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
-import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validateOrThrow;
+import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validateTrimOrThrow;
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
@@ -21,7 +21,9 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
-
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -84,7 +86,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -133,7 +135,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String SYSTEM_METADATA = "systemMetadata";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
-  private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
   private final Clock _clock = Clock.systemUTC();
 
   @Inject
@@ -184,6 +185,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Named("restrictedService")
   private RestrictedService restrictedService;
 
+  @Inject
+  private ElasticSearchConfiguration searchConfiguration;
+
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
   @Nonnull
@@ -207,7 +211,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity " + urn);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
@@ -248,7 +252,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entities: " + urnStrs);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
@@ -286,7 +290,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     try {
-      validateOrThrow(entity);
+      validateTrimOrThrow(entity);
     } catch (ValidationException e) {
       throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
     }
@@ -298,7 +302,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     // variables referenced in lambdas are required to be final
     final SystemMetadata finalSystemMetadata = systemMetadata;
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           entityService.ingestEntity(opContext, entity, auditStamp, finalSystemMetadata);
           return null;
@@ -333,7 +337,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     for (Entity entity : entities) {
       try {
-        validateOrThrow(entity);
+        validateTrimOrThrow(entity);
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e);
       }
@@ -355,7 +359,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .map(SystemMetadataUtils::generateSystemMetadataIfEmpty)
             .collect(Collectors.toList());
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           entityService.ingestEntities(opContext,
               Arrays.asList(entities), auditStamp, finalSystemMetadataList);
@@ -374,7 +378,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @Optional @Deprecated @Nullable @ActionParam(PARAM_FULLTEXT) Boolean fulltext,
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags) {
 
@@ -396,7 +400,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final SearchResult result;
           // This API is not used by the frontend for search bars so we default to structured
@@ -426,7 +430,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -484,7 +488,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_SCROLL_ID) @Optional @Nullable String scrollId,
       @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -509,7 +513,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         input,
         scrollId);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           ScrollResult result = searchService.scrollAcrossEntities(
                   opContext,
@@ -545,7 +549,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @Optional @Nullable @ActionParam(PARAM_SEARCH_FLAGS) SearchFlags searchFlags)
@@ -576,7 +580,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         direction,
         entityList,
         input);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> validateLineageSearchResult(opContext, lineageSearchService.searchAcrossLineage(
                   opContext,
                   urn,
@@ -606,7 +610,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_SCROLL_ID) @Optional @Nullable String scrollId,
       @ActionParam(PARAM_KEEP_ALIVE) String keepAlive,
-      @ActionParam(PARAM_COUNT) int count,
+      @ActionParam(PARAM_COUNT) @Nullable Integer count,
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags)
@@ -639,7 +643,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () ->
             validateLineageScrollResult(opContext,
                 lineageSearchService.scrollAcrossLineage(
@@ -667,7 +671,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) @Nullable Integer count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
@@ -686,7 +690,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final Filter finalFilter = validateAndConvert(filter);
     log.info("GET LIST RESULTS for {} with filter {}", entityName, finalFilter);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
             SearchResult result = entitySearchService.filter(opContext, entityName, finalFilter, sortCriterionList, start, count);
           if (!AuthUtil.isAPIAuthorizedResult(
@@ -709,7 +713,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_QUERY) @Nonnull String query,
       @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_LIMIT) int limit,
+      @ActionParam(PARAM_LIMIT) @Nullable Integer limit,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -725,7 +729,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit);
           if (!isAPIAuthorizedResult(
@@ -746,7 +750,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_PATH) @Nonnull String path,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_LIMIT) int limit,
+      @ActionParam(PARAM_LIMIT) @Nullable Integer limit,
       @ActionParam(PARAM_SEARCH_FLAGS) @Optional @Nullable SearchFlags searchFlags) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -763,7 +767,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
           if (!isAPIAuthorizedResult(
@@ -799,13 +803,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
     log.info("GET BROWSE PATHS for {}", urn);
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> new StringArray(entitySearchService.getBrowsePaths(opContext, urnToEntityName(urn), urn)),
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
 
   private String stringifyRowCount(int size) {
-    if (size < ELASTIC_MAX_PAGE_SIZE) {
+    if (size < ConfigUtils.applyLimit(systemMetadataService.getSystemMetadataServiceConfig(), size)) {
       return String.valueOf(size);
     } else {
       return "at least " + size;
@@ -839,7 +843,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     ComparableVersion finalRegistryVersion = registryVersion;
     String finalRegistryName1 = registryName;
     ComparableVersion finalRegistryVersion1 = registryVersion;
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           RollbackResponse response = new RollbackResponse();
           List<AspectRowSummary> aspectRowsToDelete =
@@ -848,7 +852,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   finalRegistryVersion.toString(),
                   false,
                   0,
-                  ESUtils.MAX_RESULT_SIZE);
+                   null);
           log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
           response.setAspectsAffected(aspectRowsToDelete.size());
           Set<String> urns =
@@ -879,7 +883,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             Map<String, String> conditions = new HashMap();
             conditions.put("registryName", finalRegistryName1);
             conditions.put("registryVersion", finalRegistryVersion1.toString());
-            entityService.rollbackWithConditions(opContext, aspectRowsToDelete, conditions, false);
+            entityService.rollbackWithConditions(opContext, aspectRowsToDelete, conditions, false, false);
           }
           return response;
         },
@@ -921,7 +925,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + urnStr);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           // Find the timeseries aspects to delete. If aspectName is null, delete all.
           List<String> timeseriesAspectNames =
@@ -1041,7 +1045,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urnStr);
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> deleteEntityService.deleteReferencesTo(opContext, urn, dryRun),
         MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
@@ -1121,7 +1125,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<ListUrnsResult> listUrns(
       @ActionParam(PARAM_ENTITY) @Nonnull String entityName,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count)
+      @ActionParam(PARAM_COUNT) @Nullable Integer count)
       throws URISyntaxException {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
@@ -1137,7 +1141,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }
 
     log.info("LIST URNS for {} with start {} and count {}", entityName, start, count);
-    return RestliUtils.toTask(() -> {
+    return RestliUtils.toTask(systemOperationContext, () -> {
       ListUrnsResult result = entityService.listUrns(opContext, entityName, start, count);
       if (!isAPIAuthorizedEntityUrns(
               opContext,
@@ -1178,7 +1182,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to apply retention.");
     }
 
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> entityService.batchApplyRetention(opContext, start, count, attemptWithVersion, aspectName, urn),
         ACTION_APPLY_RETENTION);
   }
@@ -1192,7 +1196,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
       @ActionParam(PARAM_SORT_CRITERIA) @Optional @Nullable SortCriterion[] sortCriteria,
       @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) {
+      @ActionParam(PARAM_COUNT) @Nullable Integer count) {
 
     final Authentication auth = AuthenticationContext.getAuthentication();
     OperationContext opContext = OperationContext.asSession(
@@ -1208,7 +1212,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                   entityName, filter, sortCriterionList, start, count);
@@ -1245,7 +1249,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("EXISTS for {}", urnStr);
     final boolean includeRemoved = includeSoftDelete == null || includeSoftDelete;
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () -> entityService.exists(opContext, urn, includeRemoved), MetricRegistry.name(this.getClass(), "exists"));
   }
 }

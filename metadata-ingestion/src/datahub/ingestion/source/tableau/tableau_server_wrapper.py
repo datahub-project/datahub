@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from tableauserverclient import Server, UserItem
 
@@ -10,9 +11,14 @@ class UserInfo:
     user_name: str
     site_role: str
     site_id: str
+    email: Optional[str] = None
 
-    def is_site_administrator_explorer(self):
-        return self.site_role == c.SITE_ROLE
+    def has_site_administrator_explorer_privileges(self):
+        return self.site_role in [
+            c.ROLE_SITE_ADMIN_EXPLORER,
+            c.ROLE_SITE_ADMIN_CREATOR,
+            c.ROLE_SERVER_ADMIN,
+        ]
 
     @staticmethod
     def from_server(server: Server) -> "UserInfo":
@@ -30,4 +36,5 @@ class UserInfo:
             user_name=user.name,
             site_role=user.site_role,
             site_id=server.site_id,
+            email=user.email,
         )

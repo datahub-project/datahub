@@ -1,15 +1,17 @@
-import React from 'react';
 import { Select } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { EntityType, GlossaryNode, SearchResult } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useEntityData } from '../EntityContext';
-import ClickOutside from '../../../shared/ClickOutside';
-import GlossaryBrowser from '../../../glossary/GlossaryBrowser/GlossaryBrowser';
-import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
-import useParentSelector from './useParentSelector';
-import ParentEntities from '../../../search/filters/ParentEntities';
-import { getParentGlossary } from '../../../glossary/utils';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import useParentSelector from '@app/entity/shared/EntityDropdown/useParentSelector';
+import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import { getParentGlossary } from '@app/glossary/utils';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import ClickOutside from '@app/shared/ClickOutside';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, GlossaryNode, SearchResult } from '@types';
 
 const SearchResultContainer = styled.div`
     display: flex;

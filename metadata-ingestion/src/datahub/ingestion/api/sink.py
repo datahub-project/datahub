@@ -1,7 +1,10 @@
 import datetime
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Generic, Optional, Type, TypeVar, cast
+from typing import Any, Callable, Generic, List, Optional, Type, TypeVar, cast
+
+from typing_extensions import Self
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
@@ -9,6 +12,8 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUn
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,7 +84,6 @@ class NoopWriteCallback(WriteCallback):
 
 SinkReportType = TypeVar("SinkReportType", bound=SinkReport, covariant=True)
 SinkConfig = TypeVar("SinkConfig", bound=ConfigModel, covariant=True)
-Self = TypeVar("Self", bound="Sink")
 
 
 class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
@@ -88,9 +92,10 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
     config: SinkConfig
     report: SinkReportType
+    _pre_shutdown_callbacks: List[Callable[[], None]]
 
     @classmethod
-    def get_config_class(cls: Type[Self]) -> Type[SinkConfig]:
+    def get_config_class(cls) -> Type[SinkConfig]:
         config_class = get_class_from_annotation(cls, Sink, ConfigModel)
         assert config_class, "Sink subclasses must define a config class"
         return cast(Type[SinkConfig], config_class)
@@ -105,20 +110,33 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
         self.ctx = ctx
         self.config = config
         self.report = self.get_report_class()()
+        self._pre_shutdown_callbacks = []
 
         self.__post_init__()
 
     def __post_init__(self) -> None:
+        """Hook called after the sink's main initialization is complete.
+
+        Sink subclasses can override this method to customize initialization.
+        """
         pass
 
     @classmethod
-    def create(cls: Type[Self], config_dict: dict, ctx: PipelineContext) -> "Self":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Self":
         return cls(ctx, cls.get_config_class().parse_obj(config_dict))
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
+        """Called at the start of each new workunit.
+
+        This method is deprecated and will be removed in a future release.
+        """
         pass
 
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
+        """Called at the end of each workunit.
+
+        This method is deprecated and will be removed in a future release.
+        """
         pass
 
     @abstractmethod
@@ -131,8 +149,28 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     def get_report(self) -> SinkReportType:
         return self.report
 
+    def register_pre_shutdown_callback(self, callback: Callable[[], None]) -> None:
+        """Register a callback to be executed before the sink shuts down.
+
+        This is useful for components that need to send final reports or cleanup
+        operations before the sink's resources are released.
+        """
+        self._pre_shutdown_callbacks.append(callback)
+
     def close(self) -> None:
-        pass
+        """Close the sink and clean up resources.
+
+        This method executes any registered pre-shutdown callbacks before
+        performing the actual shutdown. Subclasses should override this method
+        to provide sink-specific cleanup logic while calling super().close()
+        to ensure callbacks are executed.
+        """
+        # Execute pre-shutdown callbacks before shutdown
+        for callback in self._pre_shutdown_callbacks:
+            try:
+                callback()
+            except Exception as e:
+                logger.warning(f"Pre-shutdown callback failed: {e}", exc_info=True)
 
     def configured(self) -> str:
         """Override this method to output a human-readable and scrubbed version of the configured sink"""

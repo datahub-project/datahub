@@ -5,6 +5,8 @@ source:
     token: "<token>"
     include_metastore: false
     include_ownership: true
+    include_ml_model_aliases: false
+    ml_model_max_results: 1000
     profiling:
       method: "ge"
       enabled: true
@@ -34,7 +36,7 @@ source:
 #    table_pattern:
 #      allow:
 #        - my_catalog.my_schema.my_table
-#     First you have to create domains on Datahub by following this guide -> https://datahubproject.io/docs/domains/#domains-setup-prerequisites-and-permissions
+#     First you have to create domains on Datahub by following this guide -> https://docs.datahub.com/docs/domains/#domains-setup-prerequisites-and-permissions
 #    domain:
 #      urn:li:domain:1111-222-333-444-555:
 #        allow:

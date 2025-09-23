@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -367,7 +369,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   List<UpdateAspectResult> ingestAspects(
       @Nonnull OperationContext opContext,
@@ -432,14 +434,15 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> inputAspectNames,
-      @Nullable Integer inputBatchSize)
+      @Nullable Integer inputBatchSize,
+      boolean createDefaultAspects)
       throws RemoteInvocationException, URISyntaxException;
 
   ListUrnsResult listUrns(
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   @Deprecated
   Entity getEntity(
@@ -461,18 +464,32 @@ public interface EntityService<U extends ChangeMCP> {
       AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+  default Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull String entityName,
       @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspectValue,
       @Nullable final RecordTemplate newAspectValue,
       @Nullable final SystemMetadata oldSystemMetadata,
       @Nullable final SystemMetadata newSystemMetadata,
       @Nonnull AuditStamp auditStamp,
-      @Nonnull final ChangeType changeType);
+      @Nonnull final ChangeType changeType) {
+    final MetadataChangeLog metadataChangeLog =
+        constructMCL(
+            null,
+            entityName,
+            urn,
+            changeType,
+            aspectName,
+            auditStamp,
+            newAspectValue,
+            newSystemMetadata,
+            oldAspectValue,
+            oldSystemMetadata);
+    return alwaysProduceMCLAsync(opContext, urn, aspectSpec, metadataChangeLog);
+  }
 
   // RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 
@@ -502,9 +519,20 @@ public interface EntityService<U extends ChangeMCP> {
       String aspectName,
       @Nonnull Map<String, String> conditions,
       boolean hardDelete) {
+    return deleteAspect(opContext, urn, aspectName, conditions, hardDelete, false);
+  }
+
+  default Optional<RollbackResult> deleteAspect(
+      @Nonnull OperationContext opContext,
+      String urn,
+      String aspectName,
+      @Nonnull Map<String, String> conditions,
+      boolean hardDelete,
+      boolean preProcessHooks) {
     AspectRowSummary aspectRowSummary =
         new AspectRowSummary().setUrn(urn).setAspectName(aspectName);
-    return rollbackWithConditions(opContext, List.of(aspectRowSummary), conditions, hardDelete)
+    return rollbackWithConditions(
+            opContext, List.of(aspectRowSummary), conditions, hardDelete, preProcessHooks)
         .getRollbackResults()
         .stream()
         .findFirst();
@@ -522,7 +550,8 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,
       Map<String, String> conditions,
-      boolean hardDelete);
+      boolean hardDelete,
+      boolean preProcessHooks);
 
   List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async);

@@ -1,0 +1,19 @@
+name: "ingestion_executor" 
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+    topic_routes:
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
+filter: 
+  event_type: "MetadataChangeLogEvent_v1"
+  event: 
+    entityType: "dataHubExecutionRequest"
+    changeType: "UPSERT"
+action:
+  type: "executor"
+datahub:
+  server: "${DATAHUB_GMS_PROTOCOL:-http}://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}"
+  # token: <your-access-token # Requires 'Manage Secrets' platform privilege.

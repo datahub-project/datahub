@@ -1,13 +1,14 @@
 package com.linkedin.metadata.structuredproperties.validation;
 
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.structured.PropertyCardinality.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -24,6 +25,8 @@ import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -41,6 +44,8 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class PropertyDefinitionValidator extends AspectPayloadValidator {
   private AspectPluginConfig config;
+
+  private static String ALLOWED_TYPES = "allowedTypes";
 
   /**
    * Prevent deletion of the definition or key aspect (only soft delete)
@@ -91,6 +96,9 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       versionFormatCheck(item, newDefinition.getVersion()).ifPresent(exceptions::addException);
       urnIdCheck(item).ifPresent(exceptions::addException);
       qualifiedNameCheck(item, newDefinition.getQualifiedName())
+          .ifPresent(exceptions::addException);
+      allowedTypesCheck(
+              item, newDefinition.getTypeQualifier(), retrieverContext.getAspectRetriever())
           .ifPresent(exceptions::addException);
 
       if (item.getPreviousSystemAspect() != null) {
@@ -209,6 +217,49 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       return Optional.of(
           AspectValidationException.forItem(item, "Qualified names cannot have spaces"));
     }
+    return Optional.empty();
+  }
+
+  private static Optional<AspectValidationException> allowedTypesCheck(
+      MCPItem item, @Nullable StringArrayMap typeQualifier, AspectRetriever aspectRetriever) {
+    if (typeQualifier == null || typeQualifier.get(ALLOWED_TYPES) == null) {
+      return Optional.empty();
+    }
+    List<String> allowedTypes = typeQualifier.get(ALLOWED_TYPES);
+    try {
+      List<Urn> allowedTypesUrns =
+          allowedTypes.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+
+      // ensure all types are entityTypes
+      if (allowedTypesUrns.stream()
+          .anyMatch(t -> !t.getEntityType().equals(ENTITY_TYPE_ENTITY_NAME))) {
+        return Optional.of(
+            AspectValidationException.forItem(
+                item,
+                String.format(
+                    "Provided allowedType that is not an entityType entity. List of allowedTypes: %s",
+                    allowedTypes)));
+      }
+
+      // ensure all types exist as entities
+      Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(new HashSet<>(allowedTypesUrns));
+      if (existsMap.containsValue(false)) {
+        return Optional.of(
+            AspectValidationException.forItem(
+                item,
+                String.format(
+                    "Provided allowedType that does not exist. List of allowedTypes: %s",
+                    allowedTypes)));
+      }
+    } catch (Exception e) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Issue resolving allowedTypes inside of typeQualifier. These must be entity type urns. List of allowedTypes: %s",
+                  allowedTypes)));
+    }
+
     return Optional.empty();
   }
 }

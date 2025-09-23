@@ -1,154 +1,181 @@
-import { colors } from '@src/alchemy-components/theme';
-// import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { TickLabelProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
-import { LinearGradient } from '@visx/gradient';
+import { Group } from '@visx/group';
 import { ParentSize } from '@visx/responsive';
-import { AreaSeries, Axis, AxisScale, Grid, LineSeries, Tooltip, XYChart } from '@visx/xychart';
-import dayjs from 'dayjs';
-import React, { useState } from 'react';
-import { Popover } from '../Popover';
-import { ChartWrapper } from './components';
-import { LineChartProps } from './types';
-import { abbreviateNumber } from '../dataviz/utils';
+import { AreaSeries, Axis, AxisScale, GlyphSeries, Grid, Margin, Tooltip, XYChart } from '@visx/xychart';
+import React, { useMemo, useRef, useState } from 'react';
 
-const commonTickLabelProps: TickLabelProps<any> = {
-    fontSize: 10,
-    fontFamily: 'Mulish',
-    fill: colors.gray[1700],
-};
+import DynamicMarginSetter from '@components/components/BarChart/components/DynamicMarginSetter';
+import useMergedProps from '@components/components/BarChart/hooks/useMergedProps';
+import useMinDataValue from '@components/components/BarChart/hooks/useMinDataValue';
+import usePrepareScales from '@components/components/BarChart/hooks/usePrepareScales';
+import { AxisProps, GridProps } from '@components/components/BarChart/types';
+import { getMockedProps } from '@components/components/BarChart/utils';
+import { ChartWrapper } from '@components/components/LineChart/components';
+// FIY: tooltip has a bug when glyph and vertical/horizontal crosshair can be shown behind the graph
+// issue: https://github.com/airbnb/visx/issues/1333
+// We have this problem when LineChart shown on Drawer
+// That can be fixed by adding z-idex
+// But there are no ways to do it with StyledComponents as glyph and crosshairs rendered in portals
+// https://github.com/styled-components/styled-components/issues/2620
+import '@components/components/LineChart/customTooltip.css';
+import { lineChartDefault } from '@components/components/LineChart/defaults';
+import { Datum, LineChartProps } from '@components/components/LineChart/types';
+import { Popover } from '@components/components/Popover';
 
-const GLYPH_DROP_SHADOW_FILTER = `
-    drop-shadow(0px 1px 3px rgba(33, 23, 95, 0.30))
-    drop-shadow(0px 2px 5px rgba(33, 23, 95, 0.25))
-    drop-shadow(0px -2px 5px rgba(33, 23, 95, 0.25)
-`;
-
-export const lineChartDefault: LineChartProps<any> = {
-    data: [],
-    xAccessor: (datum) => datum?.x,
-    yAccessor: (datum) => datum?.y,
-    leftAxisTickFormat: abbreviateNumber,
-    leftAxisTickLabelProps: {
-        ...commonTickLabelProps,
-        textAnchor: 'end',
-    },
-    bottomAxisTickFormat: (x) => dayjs(x).format('D MMM'),
-    bottomAxisTickLabelProps: {
-        ...commonTickLabelProps,
-        textAnchor: 'middle',
-        verticalAnchor: 'start',
-    },
-    lineColor: colors.violet[500],
-    areaColor: 'url(#line-gradient)',
-    gridColor: '#e0e0e0',
-    renderGradients: () => (
-        <LinearGradient id="line-gradient" from={colors.violet[200]} to={colors.white} toOpacity={0.6} />
-    ),
-    toolbarVerticalCrosshairStyle: {
-        stroke: colors.white,
-        strokeWidth: 2,
-        filter: GLYPH_DROP_SHADOW_FILTER,
-    },
-    renderTooltipGlyph: (props) => {
-        return (
-            <>
-                <circle cx={props.x} cy={props.y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
-                <circle cx={props.x} cy={props.y} r="6" fill={colors.violet[500]} />
-            </>
-        );
-    },
-};
-
-export function LineChart<DatumType extends object>({
+export function LineChart({
     data,
-    xAccessor = lineChartDefault.xAccessor,
-    yAccessor = lineChartDefault.yAccessor,
-    renderTooltipContent,
-    margin,
-    leftAxisTickFormat = lineChartDefault.leftAxisTickFormat,
-    leftAxisTickLabelProps = lineChartDefault.leftAxisTickLabelProps,
-    bottomAxisTickFormat = lineChartDefault.bottomAxisTickFormat,
-    bottomAxisTickLabelProps = lineChartDefault.bottomAxisTickLabelProps,
+    isEmpty,
+
+    xScale = lineChartDefault.xScale,
+    yScale = lineChartDefault.yScale,
+    maxYDomainForZeroData,
+
     lineColor = lineChartDefault.lineColor,
     areaColor = lineChartDefault.areaColor,
-    gridColor = lineChartDefault.gridColor,
+    margin,
+
+    leftAxisProps,
+    showLeftAxisLine = lineChartDefault.showLeftAxisLine,
+    bottomAxisProps,
+    showBottomAxisLine = lineChartDefault.showBottomAxisLine,
+    gridProps,
+
+    popoverRenderer,
     renderGradients = lineChartDefault.renderGradients,
     toolbarVerticalCrosshairStyle = lineChartDefault.toolbarVerticalCrosshairStyle,
     renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
-}: LineChartProps<DatumType>) {
+    showGlyphOnSingleDataPoint = lineChartDefault.showGlyphOnSingleDataPoint,
+    renderGlyphOnSingleDataPoint = lineChartDefault.renderGlyphOnSingleDataPoint,
+}: LineChartProps) {
     const [showGrid, setShowGrid] = useState<boolean>(false);
 
-    // FYI: additional margins to show left and bottom axises
-    const internalMargin = {
-        top: (margin?.top ?? 0) + 30,
-        right: (margin?.right ?? 0) + 20,
-        bottom: (margin?.bottom ?? 0) + 35,
-        left: (margin?.left ?? 0) + 40,
-    };
+    const defaultMargin = useMemo(
+        () => ({
+            top: (margin?.top ?? 0) + 30,
+            right: (margin?.right ?? 0) + 0,
+            bottom: (margin?.bottom ?? 0) + 35,
+            left: (margin?.left ?? 0) + 0,
+        }),
+        [margin],
+    );
+    const [dynamicMargin, setDynamicMargin] = useState<Margin>(defaultMargin);
 
+    const xAccessor = (datum: Datum) => datum?.x;
+    const yAccessor = (datum: Datum) => datum.y;
     const accessors = { xAccessor, yAccessor };
+    const scales = usePrepareScales(data, false, xScale, xAccessor, yScale, yAccessor, maxYDomainForZeroData);
+
+    const { computeNumTicks: computeLeftAxisNumTicks, ...mergedLeftAxisProps } = useMergedProps<AxisProps>(
+        leftAxisProps,
+        lineChartDefault.leftAxisProps,
+    );
+
+    const { computeNumTicks: computeBottomAxisNumTicks, ...mergedBottomAxisProps } = useMergedProps<AxisProps>(
+        bottomAxisProps,
+        lineChartDefault.bottomAxisProps,
+    );
+
+    const { computeNumTicks: computeGridNumTicks, ...mergedGridProps } = useMergedProps<GridProps>(
+        gridProps,
+        lineChartDefault.gridProps,
+    );
+
+    const minDataValue = useMinDataValue(data, yAccessor);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    // In case of no data we should render empty graph with axises
+    // but they don't render at all without any data.
+    // To handle this case we will render the same graph with fake data and hide bars
+    if (!data.length) {
+        return <LineChart {...getMockedProps()} margin={margin} isEmpty />;
+    }
 
     return (
-        <ChartWrapper onMouseEnter={() => setShowGrid(true)} onMouseLeave={() => setShowGrid(false)}>
+        <ChartWrapper ref={wrapperRef} onMouseEnter={() => setShowGrid(true)} onMouseLeave={() => setShowGrid(false)}>
             <ParentSize>
                 {({ width, height }) => {
                     return (
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={{ type: 'time' }}
-                            yScale={{ type: 'linear', nice: true, round: true }}
-                            margin={internalMargin}
-                            captureEvents
+                            margin={dynamicMargin}
+                            captureEvents={!isEmpty}
+                            {...scales}
                         >
                             {renderGradients?.()}
 
+                            <DynamicMarginSetter
+                                setMargin={setDynamicMargin}
+                                wrapperRef={wrapperRef}
+                                minimalMargin={defaultMargin}
+                            />
+
                             <Axis
                                 orientation="left"
-                                tickFormat={leftAxisTickFormat}
-                                tickLabelProps={leftAxisTickLabelProps}
-                                hideAxisLine
-                                hideTicks
+                                numTicks={computeLeftAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                axisClassName="left-axis"
+                                {...mergedLeftAxisProps}
                             />
 
                             <Axis
                                 orientation="bottom"
-                                numTicks={Math.floor(data.length / 2)}
-                                tickFormat={bottomAxisTickFormat}
-                                tickLabelProps={bottomAxisTickLabelProps}
-                                hideAxisLine
-                                hideTicks
+                                numTicks={computeBottomAxisNumTicks?.(width, height, dynamicMargin, data)}
+                                tickClassName="bottom-axis-tick"
+                                {...mergedBottomAxisProps}
                             />
 
-                            <line
-                                x1={internalMargin.left}
-                                x2={internalMargin.left}
-                                y1={0}
-                                y2={height - internalMargin.bottom}
-                                stroke={gridColor}
-                            />
+                            <Group className="content-group">
+                                {/* Left vertical line for y-axis */}
+                                {showLeftAxisLine && (
+                                    <line
+                                        x1={dynamicMargin.left}
+                                        x2={dynamicMargin.left}
+                                        y1={0}
+                                        y2={height - dynamicMargin.bottom}
+                                        stroke={mergedGridProps.stroke}
+                                    />
+                                )}
 
-                            {showGrid && (
-                                <Grid rows={false} columns stroke={gridColor} numTicks={data.length} lineStyle={{}} />
-                            )}
+                                {/* Bottom horizontal line for x-axis */}
+                                {showBottomAxisLine && (
+                                    <line
+                                        x1={dynamicMargin.left}
+                                        x2={width - dynamicMargin.right}
+                                        y1={height - dynamicMargin.bottom}
+                                        y2={height - dynamicMargin.bottom}
+                                        stroke={mergedGridProps.stroke}
+                                    />
+                                )}
 
-                            <AreaSeries<AxisScale, AxisScale, DatumType>
-                                dataKey="line-chart-seria-01"
-                                data={data}
-                                fill={areaColor}
-                                curve={curveMonotoneX}
-                                {...accessors}
-                            />
-                            <LineSeries<AxisScale, AxisScale, DatumType>
-                                dataKey="line-chart-seria-01"
-                                data={data}
-                                stroke={lineColor}
-                                curve={curveMonotoneX}
-                                {...accessors}
-                            />
+                                {showGrid && (
+                                    <Grid
+                                        numTicks={computeGridNumTicks?.(width, height, dynamicMargin, data)}
+                                        {...mergedGridProps}
+                                    />
+                                )}
 
-                            <Tooltip<DatumType>
+                                <AreaSeries<AxisScale, AxisScale, Datum>
+                                    dataKey="line-chart-seria-01"
+                                    data={data}
+                                    fill={!isEmpty ? areaColor : 'transparent'}
+                                    curve={curveMonotoneX}
+                                    lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
+                                    // adjust baseline to show area correctly with negative values in data
+                                    y0Accessor={() => Math.min(minDataValue, 0)}
+                                    {...accessors}
+                                />
+
+                                {showGlyphOnSingleDataPoint && data.length === 1 && (
+                                    <GlyphSeries<AxisScale, AxisScale, Datum>
+                                        dataKey="line-chart-seria-01"
+                                        data={data}
+                                        renderGlyph={renderGlyphOnSingleDataPoint}
+                                        {...accessors}
+                                    />
+                                )}
+                            </Group>
+
+                            <Tooltip<Datum>
                                 snapTooltipToDatumX
                                 snapTooltipToDatumY
                                 showVerticalCrosshair
@@ -162,8 +189,10 @@ export function LineChart<DatumType extends object>({
                                         tooltipData?.nearestDatum && (
                                             <Popover
                                                 open
+                                                defaultOpen
                                                 placement="topLeft"
-                                                content={renderTooltipContent?.(tooltipData.nearestDatum.datum)}
+                                                key={`${xAccessor(tooltipData.nearestDatum.datum)}`}
+                                                content={popoverRenderer?.(tooltipData.nearestDatum.datum)}
                                             />
                                         )
                                     );

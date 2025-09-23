@@ -1,6 +1,6 @@
+import { Button, Icon } from '@components';
 import React from 'react';
 
-import { Button, Icon } from '@components';
 import { copyToClipboard } from './utils';
 
 interface Props {

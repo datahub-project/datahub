@@ -15,6 +15,7 @@ const addNewQuery = () => {
 
 const editQuery = () => {
   cy.get('[data-testid="query-edit-button-0"]').click();
+  cy.wait(1000); // let Editor load existing content before we try to type
   cy.get('[data-mode-id="sql"]').click().type(` + Edited Query-${runId}`);
   cy.get('[data-testid="query-builder-title-input"]')
     .click()
@@ -50,7 +51,8 @@ describe("manage queries", () => {
   });
 
   it("go to queries tab on dataset page then create query and verify & view the card", () => {
-    cy.waitTextVisible("Highlighted Queries");
+    cy.wait(1000);
+    cy.url().should("include", "Queries");
     cy.ensureTextNotPresent("Recent Queries");
     addNewQuery();
     cy.waitTextVisible(`+ Test Query-${runId}`);

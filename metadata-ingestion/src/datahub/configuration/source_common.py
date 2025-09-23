@@ -16,7 +16,7 @@ class PlatformInstanceConfigMixin(ConfigModel):
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to. "
         "This should be unique within the platform. "
-        "See https://datahubproject.io/docs/platform-instances/ for more details.",
+        "See https://docs.datahub.com/docs/platform-instances/ for more details.",
     )
 
 
@@ -62,4 +62,17 @@ class DatasetLineageProviderConfigBase(EnvConfigMixin):
     platform_instance_map: Optional[Dict[str, str]] = Field(
         default=None,
         description="A holder for platform -> platform_instance mappings to generate correct dataset urns",
+    )
+
+
+class PlatformDetail(ConfigModel):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
+        "with platform instance name used in ingestion "
+        "recipe of other datahub sources.",
+    )
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="The environment that all assets produced by DataHub platform ingestion source belong to",
     )

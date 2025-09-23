@@ -212,7 +212,7 @@ class ModelProcessor:
         mce = MetadataChangeEvent(proposedSnapshot=endpoint_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{endpoint_details["EndpointName"]}',
+            id=f"{endpoint_details['EndpointName']}",
             mce=mce,
         )
 
@@ -323,7 +323,7 @@ class ModelProcessor:
             model_training_jobs = model_training_jobs.union(
                 {
                     job_urn
-                    for job_urn, job_direction in data_url_matched_jobs.keys()
+                    for job_urn, job_direction in data_url_matched_jobs
                     if job_direction == JobDirection.TRAINING
                 }
             )
@@ -331,7 +331,7 @@ class ModelProcessor:
             model_downstream_jobs = model_downstream_jobs.union(
                 {
                     job_urn
-                    for job_urn, job_direction in data_url_matched_jobs.keys()
+                    for job_urn, job_direction in data_url_matched_jobs
                     if job_direction == JobDirection.DOWNSTREAM
                 }
             )
@@ -368,7 +368,7 @@ class ModelProcessor:
         model_training_jobs = model_training_jobs.union(
             {
                 job_urn
-                for job_urn, job_direction in name_matched_jobs.keys()
+                for job_urn, job_direction in name_matched_jobs
                 if job_direction == JobDirection.TRAINING
             }
         )
@@ -376,7 +376,7 @@ class ModelProcessor:
         model_downstream_jobs = model_downstream_jobs.union(
             {
                 job_urn
-                for job_urn, job_direction in name_matched_jobs.keys()
+                for job_urn, job_direction in name_matched_jobs
                 if job_direction == JobDirection.DOWNSTREAM
             }
         )
@@ -503,7 +503,7 @@ class ModelProcessor:
         mce = MetadataChangeEvent(proposedSnapshot=model_snapshot)
 
         return MetadataWorkUnit(
-            id=f'{model_details["ModelName"]}',
+            id=f"{model_details['ModelName']}",
             mce=mce,
         )
 

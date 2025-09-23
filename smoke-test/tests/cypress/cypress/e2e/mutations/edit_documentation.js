@@ -4,6 +4,12 @@ const wrong_url = "https://www.linkedincom";
 const correct_url = "https://www.linkedin.com";
 
 describe("edit documentation and link to dataset", () => {
+  beforeEach(() => {
+    cy.window().then((win) => {
+      win.localStorage.setItem("isThemeV2Enabled", "false");
+    });
+  });
+
   it("open test dataset page, edit documentation", () => {
     // edit documentation and verify changes saved
     cy.loginWithCredentials();
@@ -35,17 +41,21 @@ describe("edit documentation and link to dataset", () => {
     );
     cy.openEntityTab("Documentation");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
-    cy.get('[data-icon="delete"]').click();
+    cy.get('[data-icon="delete"]').click().wait(1000);
+    cy.get("button")
+      .contains("span", "Yes")
+      .should("be.visible")
+      .click({ force: true });
     cy.waitTextVisible("Link Removed");
     cy.clickOptionWithTestId("add-link-button").wait(1000);
-    cy.enterTextInTestId("add-link-modal-url", wrong_url);
+    cy.enterTextInTestId("link-form-modal-url", wrong_url);
     cy.waitTextVisible("This field must be a valid url.");
     cy.focused().clear();
     cy.waitTextVisible("A URL is required.");
-    cy.enterTextInTestId("add-link-modal-url", correct_url);
+    cy.enterTextInTestId("link-form-modal-url", correct_url);
     cy.ensureTextNotPresent("This field must be a valid url.");
-    cy.enterTextInTestId("add-link-modal-label", "Sample doc");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-label", "Sample doc");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Link Added");
     cy.openEntityTab("Documentation");
     cy.get(`[href='${correct_url}']`).should("be.visible");
@@ -55,21 +65,26 @@ describe("edit documentation and link to dataset", () => {
     cy.loginWithCredentials();
     cy.visit("/domain/urn:li:domain:marketing/Entities");
     cy.waitTextVisible("SampleCypressKafkaDataset");
-    cy.clickOptionWithTestId("add-link-button").wait(1000);
-    cy.enterTextInTestId("add-link-modal-url", wrong_url);
+    cy.wait(2000); // wait until the correct link button loads after documentation loads
+    cy.clickOptionWithTestId("add-link-button").wait(2000);
+    cy.enterTextInTestId("link-form-modal-url", wrong_url);
     cy.waitTextVisible("This field must be a valid url.");
     cy.focused().clear();
     cy.waitTextVisible("A URL is required.");
-    cy.enterTextInTestId("add-link-modal-url", correct_url);
+    cy.enterTextInTestId("link-form-modal-url", correct_url);
     cy.ensureTextNotPresent("This field must be a valid url.");
-    cy.enterTextInTestId("add-link-modal-label", "Sample doc");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
+    cy.enterTextInTestId("link-form-modal-label", "Sample doc");
+    cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Link Added");
     cy.openEntityTab("Documentation");
     cy.get("[data-testid='edit-documentation-button']").should("be.visible");
     cy.get(`[href='${correct_url}']`).should("be.visible");
     cy.contains("Sample doc").trigger("mouseover", { force: true });
-    cy.get('[data-icon="delete"]').click();
+    cy.get('[data-icon="delete"]').click().wait(1000);
+    cy.get("button")
+      .contains("span", "Yes")
+      .should("be.visible")
+      .click({ force: true });
     cy.waitTextVisible("Link Removed");
   });
 

@@ -27,6 +27,7 @@ dependencies() {
  
   implementation externalDependency.guava
   compileOnly externalDependency.lombok
+  compileOnly externalDependency.springContext
 
   annotationProcessor externalDependency.lombok
 
@@ -34,7 +35,7 @@ dependencies() {
   testImplementation externalDependency.mockito
   testImplementation project(path: ':metadata-operation-context')
   testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.6'
-
+  testImplementation externalDependency.springBootTest
 }
 
 task sourcesJar(type: Jar) {
@@ -60,7 +61,7 @@ publishing {
           group = 'io.acryl'
           artifactId = 'datahub-auth-api'
           description = 'DataHub Auth API for developers to write custom Authentication & Authorization plugins for DataHub'
-          url = 'https://datahubproject.io'
+          url = 'https://docs.datahub.com'
           artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
           scm {
@@ -89,8 +90,8 @@ publishing {
 
   repositories {
     maven {
-      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def releasesRepoUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/"
       def ossrhUsername = System.getenv('RELEASE_USERNAME')
       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
       credentials {
@@ -111,7 +112,7 @@ signing {
 
 // Required to submit jar file to staging repo of maven central
 nexusStaging {
-  serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
-  username = System.getenv("NEXUS_USERNAME")
-  password = System.getenv("NEXUS_PASSWORD")
+  serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+  username = System.getenv("RELEASE_USERNAME")
+  password = System.getenv("RELEASE_PASSWORD")
 }

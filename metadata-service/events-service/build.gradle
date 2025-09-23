@@ -1,0 +1,20 @@
+plugins {
+    id 'java-library'
+}
+
+
+dependencies {
+    api externalDependency.springCore
+    api externalDependency.springKafka
+
+    implementation externalDependency.kafkaClients
+    implementation externalDependency.kafkaAvroSerde
+
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
+
+    compileOnly externalDependency.lombok
+    compileOnly externalDependency.swaggerAnnotations
+
+    annotationProcessor externalDependency.lombok
+}

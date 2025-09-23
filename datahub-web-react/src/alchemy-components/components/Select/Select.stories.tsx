@@ -1,10 +1,12 @@
-import { GridList } from '@components/.docs/mdx-components';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { Select, selectDefaults } from './Select';
-import { SimpleSelect } from './SimpleSelect';
-import { SelectSizeOptions } from './types';
+
+import { GridList } from '@components/.docs/mdx-components';
+import { AVAILABLE_ICONS } from '@components/components/Icon';
+import { Select, selectDefaults } from '@components/components/Select/Select';
+import { SimpleSelect } from '@components/components/Select/SimpleSelect';
+import { SelectSizeOptions } from '@components/components/Select/types';
 
 // Auto Docs
 const meta: Meta = {
@@ -158,6 +160,39 @@ const meta: Meta = {
                 defaultValue: { summary: selectDefaults.showDescriptions?.toString() },
             },
         },
+        icon: {
+            description: `The name of the icon to display.`,
+            type: 'string',
+            options: AVAILABLE_ICONS,
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+            control: {
+                type: 'select',
+            },
+        },
+        optionSwitchable: {
+            description: 'Set to `true` to uselect option by clicking on it',
+            type: 'boolean',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        selectLabelProps: {
+            description: 'Additional props for rendering of select label',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+        },
+        emptyState: {
+            description: 'Custom empty state component to render when no options are available',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+        },
     },
 
     // Define defaults
@@ -212,6 +247,7 @@ export const simpleSelectSandbox: Story = {
             isMultiSelect={props.isMultiSelect}
             placeholder={props.placeholder}
             disabledValues={props.disabledValues}
+            icon={props.icon}
         />
     ),
 };
@@ -321,6 +357,18 @@ export const simpleSelectSizes = () => (
     </GridList>
 );
 
+export const simpleSelectWithIcon = () => (
+    <SimpleSelect
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Simple Select with icon"
+        icon="Search"
+    />
+);
+
 // Basic story is what is displayed 1st in storybook & is used as the code sandbox
 // Pass props to this so that it can be customized via the UI props panel
 export const BasicSelectSandbox: Story = {
@@ -341,6 +389,7 @@ export const BasicSelectSandbox: Story = {
             width={props.width}
             isMultiSelect={props.isMultiSelect}
             placeholder={props.placeholder}
+            icon={props.icon}
         />
     ),
 };
@@ -375,6 +424,7 @@ export const withSearch = () => (
         label="Select with Search"
         showSearch
         values={['2']}
+        filterResultsByQuery
     />
 );
 
@@ -428,4 +478,17 @@ export const footerActions = () => (
             size="md"
         />
     </GridList>
+);
+
+export const withIcon = () => (
+    <Select
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Select with icon"
+        values={['2']}
+        icon="Search"
+    />
 );

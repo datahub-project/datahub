@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { message, Modal, Button, Form, Input } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useEntityData, useMutationUrn } from '../../EntityContext';
-import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
-import analytics, { EventType, EntityActionType } from '../../../../analytics';
-import { useUserContext } from '../../../../context/useUserContext';
-import { getModalDomContainer } from '../../../../../utils/focus';
+import { Button, Form, Input, Modal, message } from 'antd';
+import React, { useState } from 'react';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import { getModalDomContainer } from '@utils/focus';
+
+import { useAddLinkMutation } from '@graphql/mutations.generated';
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
@@ -70,7 +72,12 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                     <Button type="text" onClick={handleClose}>
                         Cancel
                     </Button>,
-                    <Button data-testid="add-link-modal-add-button" form="addLinkForm" key="submit" htmlType="submit">
+                    <Button
+                        data-testid="link-form-modal-submit-button"
+                        form="addLinkForm"
+                        key="submit"
+                        htmlType="submit"
+                    >
                         Add
                     </Button>,
                 ]}
@@ -78,7 +85,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
             >
                 <Form form={form} name="addLinkForm" onFinish={handleAdd} layout="vertical">
                     <Form.Item
-                        data-testid="add-link-modal-url"
+                        data-testid="link-form-modal-url"
                         name="url"
                         label="URL"
                         rules={[
@@ -96,7 +103,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                         <Input placeholder="https://" autoFocus />
                     </Form.Item>
                     <Form.Item
-                        data-testid="add-link-modal-label"
+                        data-testid="link-form-modal-label"
                         name="label"
                         label="Label"
                         rules={[

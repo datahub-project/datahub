@@ -1,4 +1,4 @@
-import { EntityType, MatchedField } from '../../../types.generated';
+import { EntityType, MatchedField } from '@types';
 
 export type MatchedFieldName =
     | 'urn'

@@ -1,31 +1,196 @@
-fragment incidentsFields on EntityIncidentsResult {
+# We cannot use entityPreview here because it will cause a circular dependency
+fragment incidentLinkedAssetPreview on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        origin
+        uri
+        platform {
+            ...platformFields
+        }
+        editableProperties {
+            name
+            description
+        }
+        platformNativeType
+        properties {
+            name
+            description
+            customProperties {
+                key
+                value
+            }
+        }
+    }
+    ... on Dashboard {
+        urn
+        type
+        tool
+        dashboardId
+        properties {
+            name
+            description
+            externalUrl
+            access
+            lastModified {
+                time
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on Chart {
+        urn
+        type
+        tool
+        chartId
+        properties {
+            name
+            description
+            externalUrl
+            type
+            access
+            lastModified {
+                time
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataFlow {
+        urn
+        type
+        orchestrator
+        flowId
+        cluster
+        properties {
+            name
+            description
+            project
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLFeatureTable {
+        urn
+        type
+        name
+        description
+        featureTableProperties {
+            description
+            mlFeatures {
+                urn
+            }
+            mlPrimaryKeys {
+                urn
+            }
+        }
+        platform {
+            ...platformFields
+        }
+    }
+    ... on MLModel {
+        name
+        description
+        origin
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        origin
+        description
+        platform {
+            ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+}
+
+fragment incidentFields on Incident {
+    incidentType
+    customType
+    title
+    description
+    startedAt
+    incidentStatus {
+        state
+        stage
+        message
+        lastUpdated {
+            time
+            actor
+        }
+    }
+    source {
+        type
+        source {
+            ...assertionDetails
+        }
+    }
+    created {
+        time
+        actor
+    }
+    tags {
+        ...globalTagsFields
+    }
+    priority
+    assignees {
+        ... on CorpUser {
+            urn
+            type
+            username
+            status
+            properties {
+                displayName
+            }
+        }
+    }
+    entity {
+        ...incidentLinkedAssetPreview
+    }
+    linkedAssets: relationships(
+        input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000, includeSoftDelete: false }
+    ) {
+        relationships {
+            entity {
+                ...incidentLinkedAssetPreview
+            }
+        }
+    }
+}
+
+fragment incidentResultFields on EntityIncidentsResult {
     start
     count
     total
     incidents {
         urn
         type
-        incidentType
-        customType
-        title
-        description
+        ...incidentFields
+        # for backward compatibility
         status {
             state
+            stage
             message
             lastUpdated {
                 time
                 actor
             }
-        }
-        source {
-            type
-        }
-        created {
-            time
-            actor
-        }
-        tags {
-            ...globalTagsFields
         }
     }
 }
@@ -38,7 +203,22 @@ fragment datasetSiblingIncidents on Dataset {
             type
             ... on Dataset {
                 incidents(start: $start, count: $count, state: $state) {
-                    ...incidentsFields
+                    ...incidentResultFields
+                }
+            }
+        }
+    }
+    siblingsSearch(input: { query: "*", count: 5 }) {
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    incidents(start: $start, count: $count, state: $state) {
+                        ...incidentResultFields
+                    }
                 }
             }
         }
@@ -49,28 +229,43 @@ query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: Inci
     entity(urn: $urn) {
         ... on Dataset {
             incidents(start: $start, count: $count, state: $state) {
-                ...incidentsFields
+                ...incidentResultFields
             }
             ...datasetSiblingIncidents
+            privileges {
+                canEditIncidents
+            }
         }
         ... on DataJob {
             incidents(start: $start, count: $count, state: $state) {
-                ...incidentsFields
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
             }
         }
         ... on DataFlow {
             incidents(start: $start, count: $count, state: $state) {
-                ...incidentsFields
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
             }
         }
         ... on Dashboard {
             incidents(start: $start, count: $count, state: $state) {
-                ...incidentsFields
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
             }
         }
         ... on Chart {
             incidents(start: $start, count: $count, state: $state) {
-                ...incidentsFields
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
             }
         }
         ... on MLFeature {

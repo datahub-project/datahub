@@ -1,9 +1,11 @@
 import React from 'react';
-import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
+
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '@types';
 
 export const Preview = ({
     urn,
@@ -16,6 +18,7 @@ export const Preview = ({
     platform,
     degree,
     paths,
+    previewType,
 }: {
     urn: string;
     name: string;
@@ -27,6 +30,7 @@ export const Preview = ({
     platform?: DataPlatform | null | undefined;
     degree?: number;
     paths?: EntityPath[];
+    previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -46,6 +50,7 @@ export const Preview = ({
             dataProduct={dataProduct}
             degree={degree}
             paths={paths}
+            previewType={previewType}
         />
     );
 };

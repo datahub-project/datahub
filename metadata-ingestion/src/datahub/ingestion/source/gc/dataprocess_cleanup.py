@@ -98,6 +98,9 @@ query getDataJobRuns($dataJobUrn: String!, $start: Int!, $count: Int!) {
 
 
 class DataProcessCleanupConfig(ConfigModel):
+    enabled: bool = Field(
+        default=True, description="Whether to do data process cleanup."
+    )
     retention_days: Optional[int] = Field(
         10,
         description="Number of days to retain metadata in DataHub",
@@ -164,9 +167,11 @@ class DataJobEntity:
 class DataProcessCleanupReport(SourceReport):
     num_aspects_removed: int = 0
     num_aspect_removed_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
-    sample_removed_aspects_by_type: TopKDict[str, LossyList[str]] = field(
+    sample_soft_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
         default_factory=TopKDict
     )
+    num_data_flows_found: int = 0
+    num_data_jobs_found: int = 0
 
 
 class DataProcessCleanup:
@@ -262,13 +267,17 @@ class DataProcessCleanup:
                     self.report.report_failure(
                         f"Exception while deleting DPI: {e}", exc=e
                     )
-            if deleted_count_last_n % self.config.batch_size == 0:
+            if (
+                deleted_count_last_n % self.config.batch_size == 0
+                and deleted_count_last_n > 0
+            ):
                 logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
                 if self.config.delay:
                     logger.info(f"Sleeping for {self.config.delay} seconds")
                     time.sleep(self.config.delay)
 
-        logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
+        if deleted_count_last_n > 0:
+            logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
 
     def delete_entity(self, urn: str, type: str) -> None:
         assert self.ctx.graph
@@ -277,9 +286,9 @@ class DataProcessCleanup:
         self.report.num_aspect_removed_by_type[type] = (
             self.report.num_aspect_removed_by_type.get(type, 0) + 1
         )
-        if type not in self.report.sample_removed_aspects_by_type:
-            self.report.sample_removed_aspects_by_type[type] = LossyList()
-        self.report.sample_removed_aspects_by_type[type].append(urn)
+        if type not in self.report.sample_soft_deleted_aspects_by_type:
+            self.report.sample_soft_deleted_aspects_by_type[type] = LossyList()
+        self.report.sample_soft_deleted_aspects_by_type[type].append(urn)
 
         if self.dry_run:
             logger.info(
@@ -348,7 +357,10 @@ class DataProcessCleanup:
             except Exception as e:
                 self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
 
-            if deleted_count_retention % self.config.batch_size == 0:
+            if (
+                deleted_count_retention % self.config.batch_size == 0
+                and deleted_count_retention > 0
+            ):
                 logger.info(
                     f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
                 )
@@ -371,17 +383,27 @@ class DataProcessCleanup:
         previous_scroll_id: Optional[str] = None
 
         while True:
-            result = self.ctx.graph.execute_graphql(
-                DATAFLOW_QUERY,
-                {
-                    "query": "*",
-                    "scrollId": scroll_id if scroll_id else None,
-                    "batchSize": self.config.batch_size,
-                },
-            )
+            result = None
+            try:
+                result = self.ctx.graph.execute_graphql(
+                    DATAFLOW_QUERY,
+                    {
+                        "query": "*",
+                        "scrollId": scroll_id if scroll_id else None,
+                        "batchSize": self.config.batch_size,
+                    },
+                )
+            except Exception as e:
+                self.report.failure(
+                    f"While trying to get dataflows with {scroll_id}", exc=e
+                )
+                break
+
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")
+            self.report.num_data_flows_found += scrollAcrossEntities.get("count")
+            logger.info(f"Got {scrollAcrossEntities.get('count')} DataFlow entities")
 
             scroll_id = scrollAcrossEntities.get("nextScrollId")
             for flow in scrollAcrossEntities.get("searchResults"):
@@ -398,11 +420,14 @@ class DataProcessCleanup:
             previous_scroll_id = scroll_id
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if not self.config.enabled:
+            return []
         assert self.ctx.graph
 
         dataFlows: Dict[str, DataFlowEntity] = {}
-        for flow in self.get_data_flows():
-            dataFlows[flow.urn] = flow
+        if self.config.delete_empty_data_flows:
+            for flow in self.get_data_flows():
+                dataFlows[flow.urn] = flow
 
         scroll_id: Optional[str] = None
         previous_scroll_id: Optional[str] = None
@@ -411,18 +436,25 @@ class DataProcessCleanup:
         deleted_jobs: int = 0
 
         while True:
-            result = self.ctx.graph.execute_graphql(
-                DATAJOB_QUERY,
-                {
-                    "query": "*",
-                    "scrollId": scroll_id if scroll_id else None,
-                    "batchSize": self.config.batch_size,
-                },
-            )
+            try:
+                result = self.ctx.graph.execute_graphql(
+                    DATAJOB_QUERY,
+                    {
+                        "query": "*",
+                        "scrollId": scroll_id if scroll_id else None,
+                        "batchSize": self.config.batch_size,
+                    },
+                )
+            except Exception as e:
+                self.report.failure(
+                    f"While trying to get data jobs with {scroll_id}", exc=e
+                )
+                break
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")
 
+            self.report.num_data_jobs_found += scrollAcrossEntities.get("count")
             logger.info(f"Got {scrollAcrossEntities.get('count')} DataJob entities")
 
             scroll_id = scrollAcrossEntities.get("nextScrollId")
@@ -461,11 +493,12 @@ class DataProcessCleanup:
 
             previous_scroll_id = scroll_id
 
-        logger.info(f"Deleted {deleted_jobs} DataJobs")
+        if deleted_jobs > 0:
+            logger.info(f"Deleted {deleted_jobs} DataJobs")
         # Delete empty dataflows if needed
         if self.config.delete_empty_data_flows:
             deleted_data_flows: int = 0
-            for key in dataFlows.keys():
+            for key in dataFlows:
                 if not dataJobs.get(key) or len(dataJobs[key]) == 0:
                     logger.info(
                         f"Deleting dataflow {key} because there are not datajobs"

@@ -1,0 +1,31 @@
+# tests/integration/business-glossary/url_cleaning_glossary.yml
+version: "1"
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: "URL Testing"
+    description: "Testing URL cleaning functionality"
+    terms:
+      - name: "Basic Term With Spaces"
+        description: "Testing basic space replacement"
+
+      - name: "Special@#$Characters!"
+        description: "Testing special character removal"
+
+      - name: "MixedCase Term"
+        description: "Testing case preservation"
+
+      - name: "Multiple   Spaces"
+        description: "Testing multiple space handling"
+
+      - name: "Term.With.Special-Chars"
+        description: "Testing mixed special characters"
+
+      - name: "@#$Special At Start"
+        description: "Testing leading special characters"
+
+      - name: "Numbers 123"
+        description: "Testing numbers in term names"

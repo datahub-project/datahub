@@ -2,7 +2,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-            "urn": "urn:li:glossaryNode:Single Owner Types",
+            "urn": "urn:li:glossaryNode:Single-Owner-Types",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
@@ -31,21 +31,21 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Single Owner Types.Developer Owned",
+            "urn": "urn:li:glossaryTerm:Single-Owner-Types.Developer-Owned",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Developer Owned",
                         "definition": "Term owned by developer",
-                        "parentNode": "urn:li:glossaryNode:Single Owner Types",
+                        "parentNode": "urn:li:glossaryNode:Single-Owner-Types",
                         "termSource": "INTERNAL",
                         "sourceRef": "DataHub",
                         "sourceUrl": "https://github.com/datahub-project/datahub/"
@@ -71,21 +71,21 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Single Owner Types.Data Owner Owned",
+            "urn": "urn:li:glossaryTerm:Single-Owner-Types.Data-Owner-Owned",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Data Owner Owned",
                         "definition": "Term owned by data owner",
-                        "parentNode": "urn:li:glossaryNode:Single Owner Types",
+                        "parentNode": "urn:li:glossaryNode:Single-Owner-Types",
                         "termSource": "INTERNAL",
                         "sourceRef": "DataHub",
                         "sourceUrl": "https://github.com/datahub-project/datahub/"
@@ -111,21 +111,21 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Single Owner Types.Producer Owned",
+            "urn": "urn:li:glossaryTerm:Single-Owner-Types.Producer-Owned",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Producer Owned",
                         "definition": "Term owned by producer",
-                        "parentNode": "urn:li:glossaryNode:Single Owner Types",
+                        "parentNode": "urn:li:glossaryNode:Single-Owner-Types",
                         "termSource": "INTERNAL",
                         "sourceRef": "DataHub",
                         "sourceUrl": "https://github.com/datahub-project/datahub/"
@@ -151,21 +151,21 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Single Owner Types.Stakeholder Owned",
+            "urn": "urn:li:glossaryTerm:Single-Owner-Types.Stakeholder-Owned",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
                         "customProperties": {},
                         "name": "Stakeholder Owned",
                         "definition": "Term owned by stakeholder",
-                        "parentNode": "urn:li:glossaryNode:Single Owner Types",
+                        "parentNode": "urn:li:glossaryNode:Single-Owner-Types",
                         "termSource": "INTERNAL",
                         "sourceRef": "DataHub",
                         "sourceUrl": "https://github.com/datahub-project/datahub/"
@@ -191,13 +191,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryNode",
-    "entityUrn": "urn:li:glossaryNode:Single Owner Types",
+    "entityUrn": "urn:li:glossaryNode:Single-Owner-Types",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -207,13 +207,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Single Owner Types.Data Owner Owned",
+    "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Data-Owner-Owned",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -223,13 +223,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Single Owner Types.Developer Owned",
+    "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Developer-Owned",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -239,13 +239,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Single Owner Types.Producer Owned",
+    "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Producer-Owned",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -255,13 +255,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Single Owner Types.Stakeholder Owned",
+    "entityUrn": "urn:li:glossaryTerm:Single-Owner-Types.Stakeholder-Owned",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -271,7 +271,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "datahub-business-glossary-2020_04_14-07_00_00-ruwyic",
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-bx72oe",
         "lastRunId": "no-run-id-provided"
     }
 }

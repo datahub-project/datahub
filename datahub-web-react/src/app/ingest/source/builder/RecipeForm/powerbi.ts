@@ -1,6 +1,6 @@
 import { get } from 'lodash';
 
-import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const POWERBI_CLIENT_ID: RecipeField = {
     name: 'client_id',

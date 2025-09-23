@@ -6,7 +6,7 @@ import theme, { typography } from '../src/alchemy-components/theme';
 export default create({
 	// config 
 	base: 'light',
-	brandTitle: 'Acryl Design System',
+	brandTitle: 'DataHub Design System',
 	brandUrl: '/?path=/docs/',
 	brandImage: brandImage,
 	brandTarget: '_self',

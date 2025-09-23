@@ -67,7 +67,9 @@ record EditableSchemaFieldInfo {
     "/terms/*/urn": {
       "fieldName": "editedFieldGlossaryTerms",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "includeSystemModifiedAt": true,
+      "systemModifiedAtFieldName": "schemaFieldTermsModifiedAt"
     },
     "/terms/*/attribution/time": {
         "fieldName": "editedFieldTermAttributionDates",

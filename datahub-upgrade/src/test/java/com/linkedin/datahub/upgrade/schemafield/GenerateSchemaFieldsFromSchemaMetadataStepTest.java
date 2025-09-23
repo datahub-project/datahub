@@ -22,7 +22,6 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,7 +47,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
     step =
         new GenerateSchemaFieldsFromSchemaMetadataStep(
             mockOpContext, mockEntityService, mockAspectDao, 10, 100, 1000);
-    when(mockOpContext.getRetrieverContext()).thenReturn(Optional.of(mockRetrieverContext));
+    when(mockOpContext.getRetrieverContext()).thenReturn(mockRetrieverContext);
   }
 
   /** Test to verify the correct step ID is returned. */

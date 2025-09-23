@@ -495,62 +495,62 @@ class BigQueryUsageExtractor:
     def _generate_operational_workunits(
         self, usage_state: BigQueryUsageState, table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_OPERATIONAL_STATS)
-        for audit_event in usage_state.standalone_events():
-            try:
-                operational_wu = self._create_operation_workunit(
-                    audit_event, table_refs
-                )
-                if operational_wu:
-                    yield operational_wu
-                    self.report.num_operational_stats_workunits_emitted += 1
-            except Exception as e:
-                self.report.warning(
-                    message="Unable to generate operation workunit",
-                    context=f"{audit_event}",
-                    exc=e,
-                )
+        with self.report.new_stage(f"*: {USAGE_EXTRACTION_OPERATIONAL_STATS}"):
+            for audit_event in usage_state.standalone_events():
+                try:
+                    operational_wu = self._create_operation_workunit(
+                        audit_event, table_refs
+                    )
+                    if operational_wu:
+                        yield operational_wu
+                        self.report.num_operational_stats_workunits_emitted += 1
+                except Exception as e:
+                    self.report.warning(
+                        message="Unable to generate operation workunit",
+                        context=f"{audit_event}",
+                        exc=e,
+                    )
 
     def _generate_usage_workunits(
         self, usage_state: BigQueryUsageState
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_USAGE_AGGREGATION)
-        top_n = (
-            self.config.usage.top_n_queries
-            if self.config.usage.include_top_n_queries
-            else 0
-        )
-        for entry in usage_state.usage_statistics(top_n=top_n):
-            try:
-                query_freq = [
-                    (
-                        self.uuid_to_query.get(
-                            query_hash, usage_state.queries[query_hash]
-                        ),
-                        count,
+        with self.report.new_stage(f"*: {USAGE_EXTRACTION_USAGE_AGGREGATION}"):
+            top_n = (
+                self.config.usage.top_n_queries
+                if self.config.usage.include_top_n_queries
+                else 0
+            )
+            for entry in usage_state.usage_statistics(top_n=top_n):
+                try:
+                    query_freq = [
+                        (
+                            self.uuid_to_query.get(
+                                query_hash, usage_state.queries[query_hash]
+                            ),
+                            count,
+                        )
+                        for query_hash, count in entry.query_freq
+                    ]
+                    yield make_usage_workunit(
+                        bucket_start_time=datetime.fromisoformat(entry.timestamp),
+                        resource=BigQueryTableRef.from_string_name(entry.resource),
+                        query_count=entry.query_count,
+                        query_freq=query_freq,
+                        user_freq=entry.user_freq,
+                        column_freq=entry.column_freq,
+                        bucket_duration=self.config.bucket_duration,
+                        resource_urn_builder=self.identifiers.gen_dataset_urn_from_raw_ref,
+                        top_n_queries=self.config.usage.top_n_queries,
+                        format_sql_queries=self.config.usage.format_sql_queries,
+                        queries_character_limit=self.config.usage.queries_character_limit,
                     )
-                    for query_hash, count in entry.query_freq
-                ]
-                yield make_usage_workunit(
-                    bucket_start_time=datetime.fromisoformat(entry.timestamp),
-                    resource=BigQueryTableRef.from_string_name(entry.resource),
-                    query_count=entry.query_count,
-                    query_freq=query_freq,
-                    user_freq=entry.user_freq,
-                    column_freq=entry.column_freq,
-                    bucket_duration=self.config.bucket_duration,
-                    resource_urn_builder=self.identifiers.gen_dataset_urn_from_raw_ref,
-                    top_n_queries=self.config.usage.top_n_queries,
-                    format_sql_queries=self.config.usage.format_sql_queries,
-                    queries_character_limit=self.config.usage.queries_character_limit,
-                )
-                self.report.num_usage_workunits_emitted += 1
-            except Exception as e:
-                self.report.warning(
-                    message="Unable to generate usage statistics workunit",
-                    context=f"{entry.timestamp}, {entry.resource}",
-                    exc=e,
-                )
+                    self.report.num_usage_workunits_emitted += 1
+                except Exception as e:
+                    self.report.warning(
+                        message="Unable to generate usage statistics workunit",
+                        context=f"{entry.timestamp}, {entry.resource}",
+                        exc=e,
+                    )
 
     def _get_usage_events(self, projects: Iterable[str]) -> Iterable[AuditEvent]:
         if self.config.use_exported_bigquery_audit_metadata:
@@ -559,10 +559,10 @@ class BigQueryUsageExtractor:
         for project_id in projects:
             with PerfTimer() as timer:
                 try:
-                    self.report.set_ingestion_stage(
-                        project_id, USAGE_EXTRACTION_INGESTION
-                    )
-                    yield from self._get_parsed_bigquery_log_events(project_id)
+                    with self.report.new_stage(
+                        f"{project_id}: {USAGE_EXTRACTION_INGESTION}"
+                    ):
+                        yield from self._get_parsed_bigquery_log_events(project_id)
                 except Exception as e:
                     self.report.usage_failed_extraction.append(project_id)
                     self.report.warning(
@@ -572,8 +572,8 @@ class BigQueryUsageExtractor:
                     )
                     self.report_status(f"usage-extraction-{project_id}", False)
 
-                self.report.usage_extraction_sec[project_id] = round(
-                    timer.elapsed_seconds(), 2
+                self.report.usage_extraction_sec[project_id] = timer.elapsed_seconds(
+                    digits=2
                 )
 
     def _store_usage_event(
@@ -763,9 +763,9 @@ class BigQueryUsageExtractor:
                     )
 
                 if event.query_event.default_dataset:
-                    custom_properties[
-                        "defaultDatabase"
-                    ] = event.query_event.default_dataset
+                    custom_properties["defaultDatabase"] = (
+                        event.query_event.default_dataset
+                    )
             if event.read_event:
                 if event.read_event.readReason:
                     custom_properties["readReason"] = event.read_event.readReason

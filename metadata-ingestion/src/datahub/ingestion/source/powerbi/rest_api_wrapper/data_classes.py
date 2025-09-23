@@ -71,13 +71,13 @@ class Workspace:
     id: str
     name: str
     type: str  # This is used as a subtype of the Container entity.
-    dashboards: List["Dashboard"]
-    reports: List["Report"]
-    datasets: Dict[str, "PowerBIDataset"]
-    report_endorsements: Dict[str, List[str]]
-    dashboard_endorsements: Dict[str, List[str]]
+    dashboards: Dict[str, "Dashboard"]  # key = dashboard id
+    reports: Dict[str, "Report"]  # key = report id
+    datasets: Dict[str, "PowerBIDataset"]  # key = dataset id
+    report_endorsements: Dict[str, List[str]]  # key = report id
+    dashboard_endorsements: Dict[str, List[str]]  # key = dashboard id
     scan_result: dict
-    independent_datasets: List["PowerBIDataset"]
+    independent_datasets: Dict[str, "PowerBIDataset"]  # key = dataset id
     app: Optional["App"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
@@ -286,10 +286,14 @@ class Tile:
     id: str
     title: str
     embedUrl: str
-    dataset: Optional["PowerBIDataset"]
     dataset_id: Optional[str]
-    report: Optional[Report]
+    report_id: Optional[str]
     createdFrom: CreatedFrom
+
+    # In a first pass, `dataset_id` and/or `report_id` are filled in.
+    # In a subsequent pass, the objects are populated.
+    dataset: Optional["PowerBIDataset"]
+    report: Optional[Report]
 
     def get_urn_part(self):
         return f"charts.{self.id}"

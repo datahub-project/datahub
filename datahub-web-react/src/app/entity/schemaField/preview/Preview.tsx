@@ -1,9 +1,11 @@
-import React from 'react';
 import { PicCenterOutlined } from '@ant-design/icons';
-import { Dataset, EntityType, Owner, ParentContainersResult } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
+import React from 'react';
+
+import { IconStyleType, PreviewType } from '@app/entity/Entity';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Dataset, EntityType, Owner, ParentContainersResult } from '@types';
 
 export const Preview = ({
     datasetUrn,

@@ -36,7 +36,7 @@
                 },
                 {
                     "fieldPath": "city",
-                    "nullable": true,
+                    "nullable": false,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -72,7 +72,6 @@
                 {
                     "fieldPath": "partitionKey",
                     "nullable": false,
-                    "description": "Partition Key",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -166,6 +165,10 @@
                     "recursive": false,
                     "isPartOfKey": false
                 }
+            ],
+            "primaryKeys": [
+                "city",
+                "partitionKey"
             ]
         }
     },
@@ -184,8 +187,11 @@
         "json": {
             "customProperties": {
                 "table.arn": "arn:aws:dynamodb:us-west-2:123456789012:table/Location",
-                "table.totalItems": "1"
+                "table.totalItems": "1",
+                "Sort Key": "city",
+                "Partition Key": "partitionKey"
             },
+            "name": "Location",
             "tags": []
         }
     },

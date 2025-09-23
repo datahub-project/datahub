@@ -1,9 +1,10 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { Checkbox, checkboxDefaults, CheckboxGroup } from './Checkbox';
-import { CheckboxProps } from './types';
-import { Heading } from '../Heading';
+import { Checkbox, CheckboxGroup, checkboxDefaults } from '@components/components/Checkbox/Checkbox';
+import { CheckboxProps } from '@components/components/Checkbox/types';
+import { Heading } from '@components/components/Heading';
 
 const MOCK_CHECKBOXES: CheckboxProps[] = [
     {
@@ -122,6 +123,16 @@ export const states = () => (
         <Checkbox label="Checked" isChecked />
         <Checkbox label="Error" isChecked error="Error" />
         <Checkbox label="Required" isChecked isRequired />
+    </GridList>
+);
+
+export const sizes = () => (
+    <GridList>
+        <Checkbox label="Extra Small" isChecked size="xs" />
+        <Checkbox label="Small" isChecked size="sm" />
+        <Checkbox label="Medium" isChecked size="md" />
+        <Checkbox label="Large" isChecked size="lg" />
+        <Checkbox label="Extra Large" isChecked size="xl" />
     </GridList>
 );
 

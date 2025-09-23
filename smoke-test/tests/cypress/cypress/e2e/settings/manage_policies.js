@@ -4,9 +4,15 @@ const platform_policy_edited = `Platform test policy ${test_id} EDITED`;
 const metadata_policy_name = `Metadata test policy ${test_id}`;
 const metadata_policy_edited = `Metadata test policy ${test_id} EDITED`;
 
-function searchAndToggleMetadataPolicyStatus(metadataPolicyName, targetStatus) {
+function searchForPolicy(metadataPolicyName) {
+  cy.wait(1000);
   cy.get('[data-testid="search-input"]').should("be.visible");
   cy.get('[data-testid="search-input"]').eq(1).type(metadataPolicyName);
+  cy.get('[data-testid="search-input"]').eq(1).blur();
+}
+
+function searchAndToggleMetadataPolicyStatus(metadataPolicyName, targetStatus) {
+  searchForPolicy(metadataPolicyName);
   cy.contains("tr", metadataPolicyName).as("metadataPolicyRow");
   cy.contains(targetStatus).click();
 }
@@ -25,6 +31,12 @@ function clickOnButton(saveButton) {
   cy.get(`#${saveButton}`).click();
 }
 
+function changeFilterToAll(saveButton) {
+  cy.get("[data-testid='policy-filter']").click();
+  cy.get("[data-testid='all-policies-option']").click();
+  cy.wait(1000);
+}
+
 function createPolicy(decription, policyName) {
   clickFocusAndType("policy-description", decription);
   clickOnButton("nextButton");
@@ -34,6 +46,7 @@ function createPolicy(decription, policyName) {
   updateAndSave("groups", "All", "All Groups");
   clickOnButton("saveButton");
   cy.waitTextVisible("Successfully saved policy.");
+  searchForPolicy(policyName);
   cy.waitTextVisible(policyName);
 }
 
@@ -72,12 +85,12 @@ function deletePolicy(policyEdited, deletePolicy) {
 
 describe("create and manage platform and metadata policies", () => {
   beforeEach(() => {
-    cy.loginWithCredentials();
-    cy.visit("/settings/permissions/policies");
+    cy.visitWithLogin("/settings/permissions/policies");
   });
 
   it("create platform policy", () => {
     cy.waitTextVisible("Manage Permissions");
+    changeFilterToAll();
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", platform_policy_name);
     cy.get('[data-testid="policy-type"] [title="Metadata"]').click();
@@ -89,6 +102,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("edit platform policy", () => {
+    changeFilterToAll();
     editPolicy(
       `${platform_policy_name}`,
       platform_policy_edited,
@@ -99,6 +113,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("deactivate and activate platform policy", () => {
+    changeFilterToAll();
     deletePolicy(
       `${platform_policy_edited}`,
       `Delete ${platform_policy_edited}`,
@@ -107,6 +122,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("create metadata policy", () => {
+    changeFilterToAll();
     cy.clickOptionWithText("Create new policy");
     clickFocusAndType("policy-name", metadata_policy_name);
     cy.get('[data-testid="policy-type"]').should("have.text", "Metadata");
@@ -117,6 +133,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("edit metadata policy", () => {
+    changeFilterToAll();
     editPolicy(
       `${metadata_policy_name}`,
       metadata_policy_edited,
@@ -127,6 +144,7 @@ describe("create and manage platform and metadata policies", () => {
   });
 
   it("deactivate and activate metadata policy", () => {
+    changeFilterToAll();
     deletePolicy(
       `${metadata_policy_name}`,
       `Delete ${metadata_policy_name}`,

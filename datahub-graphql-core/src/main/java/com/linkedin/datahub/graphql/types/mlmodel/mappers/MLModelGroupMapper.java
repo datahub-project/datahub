@@ -3,12 +3,14 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -21,11 +23,8 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelGroupEditableProperties;
-import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -75,9 +74,8 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
     mappingHelper.mapToResult(
         ML_MODEL_GROUP_KEY_ASPECT_NAME, MLModelGroupMapper::mapToMLModelGroupKey);
     mappingHelper.mapToResult(
-        context,
         ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
-        MLModelGroupMapper::mapToMLModelGroupProperties);
+        (entity, dataMap) -> mapToMLModelGroupProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
         (mlModelGroup, dataMap) ->
@@ -118,6 +116,15 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (mlModelGroup, dataMap) -> mapApplicationAssociation(context, mlModelGroup, dataMap));
+    mappingHelper.mapToResult(
+        INSTITUTIONAL_MEMORY_ASPECT_NAME,
+        (mlModelGroup, dataMap) ->
+            mlModelGroup.setInstitutionalMemory(
+                InstitutionalMemoryMapper.map(
+                    context, new InstitutionalMemory(dataMap), entityUrn)));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLModelGroup.class);
@@ -136,9 +143,13 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
   }
 
   private static void mapToMLModelGroupProperties(
-      @Nullable final QueryContext context, MLModelGroup mlModelGroup, DataMap dataMap) {
+      @Nullable final QueryContext context,
+      MLModelGroup mlModelGroup,
+      DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     MLModelGroupProperties modelGroupProperties = new MLModelGroupProperties(dataMap);
-    mlModelGroup.setProperties(MLModelGroupPropertiesMapper.map(context, modelGroupProperties));
+    mlModelGroup.setProperties(
+        MLModelGroupPropertiesMapper.map(context, modelGroupProperties, entityUrn));
     if (modelGroupProperties.getDescription() != null) {
       mlModelGroup.setDescription(modelGroupProperties.getDescription());
     }
@@ -168,5 +179,14 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
       editableProperties.setDescription(input.getDescription());
     }
     entity.setEditableProperties(editableProperties);
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull MLModelGroup mlModelGroup,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    mlModelGroup.setApplication(
+        ApplicationAssociationMapper.map(context, applications, mlModelGroup.getUrn()));
   }
 }

@@ -37,6 +37,7 @@ dependencies {
   }
 
   implementation externalDependency.awsS3
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
@@ -117,6 +118,7 @@ shadowJar {
   dependencies {
     exclude(dependency("org.slf4j::"))
     exclude(dependency("antlr::"))
+    exclude(dependency("org.scala-lang::"))
     exclude("org/apache/commons/logging/**")
   }
   mergeServiceFiles()
@@ -203,7 +205,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-client' + (project.hasProperty('archiveAppendix') ? "-${archiveAppendix}" : '')
         description = 'DataHub Java client for metadata integration'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [shadowJar, javadocJar, sourcesJar]
 
         scm {
@@ -232,8 +234,8 @@ publishing {
 
   repositories {
     maven {
-      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def releasesRepoUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/"
       def ossrhUsername = System.getenv('RELEASE_USERNAME')
       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
       credentials {
@@ -253,8 +255,8 @@ signing {
 }
 
 nexusStaging {
-  serverUrl = "https://s01.oss.sonatype.org/service/local/"
+  serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/"
   //required only for projects registered in Sonatype after 2021-02-24
-  username = System.getenv("NEXUS_USERNAME")
-  password = System.getenv("NEXUS_PASSWORD")
+  username = System.getenv("RELEASE_USERNAME")
+  password = System.getenv("RELEASE_PASSWORD")
 }

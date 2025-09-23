@@ -1,4 +1,4 @@
-import { OwnershipType, OwnershipTypeEntity } from '../../../../../../../types.generated';
+import { OwnershipType, OwnershipTypeEntity } from '@types';
 
 /**
  * A mapping from OwnershipType to it's display name & description. In the future,

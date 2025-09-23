@@ -65,7 +65,7 @@ publishing {
                 groupId = 'io.acryl'
                 artifactId = 'datahub-schematron'
                 description = 'DataHub schema translation library for converting between different schema formats using DataHub as an intermediate representation'
-                url = 'https://datahubproject.io'
+                url = 'https://docs.datahub.com'
 
                 scm {
                     connection = 'scm:git:git://github.com/datahub-project/datahub.git'
@@ -93,8 +93,8 @@ publishing {
 
     repositories {
         maven {
-            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-            def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+            def releasesRepoUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/"
             def ossrhUsername = System.getenv('RELEASE_USERNAME')
             def ossrhPassword = System.getenv('RELEASE_PASSWORD')
             credentials {
@@ -120,7 +120,7 @@ signing {
 }
 
 nexusStaging {
-    serverUrl = "https://s01.oss.sonatype.org/service/local/"
-    username = System.getenv("NEXUS_USERNAME")
-    password = System.getenv("NEXUS_PASSWORD")
+    serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/"
+    username = System.getenv("RELEASE_USERNAME")
+    password = System.getenv("RELEASE_PASSWORD")
 }

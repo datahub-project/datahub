@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 from tests.test_helpers.state_helpers import (
@@ -21,9 +21,11 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to
 # these.
 PATHS_IN_GOLDEN_FILE_TO_IGNORE = [
-    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
-    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
-    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
+    r"root\[\d+\].+\['customProperties'\]\['created-at'\]",
+    r"root\[\d+\].+\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['created'\]",
+    r"root\[\d+\].+\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['lastModified'\]",
+    r"root\[\d+\].+\['customProperties'\]\['snapshot-id'\]",
+    r"root\[\d+\].+\['customProperties'\]\['manifest-list'\]",
 ]
 
 
@@ -67,8 +69,8 @@ def test_multiprocessing_iceberg_ingest(
         mce_helpers.check_golden_file(
             pytestconfig,
             ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
-            output_path=tmp_path / "iceberg_mces.json",
-            golden_path=test_resources_dir / "iceberg_ingest_mces_golden.json",
+            output_path=tmp_path / "iceberg_mcps.json",
+            golden_path=test_resources_dir / "iceberg_ingest_mcps_golden.json",
         )
 
 
@@ -93,8 +95,8 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         mce_helpers.check_golden_file(
             pytestconfig,
             ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
-            output_path=tmp_path / "iceberg_mces.json",
-            golden_path=test_resources_dir / "iceberg_ingest_mces_golden.json",
+            output_path=tmp_path / "iceberg_mcps.json",
+            golden_path=test_resources_dir / "iceberg_ingest_mcps_golden.json",
         )
 
 
@@ -142,12 +144,15 @@ def test_iceberg_stateful_ingest(
         "pipeline_name": "test_pipeline",
     }
 
-    with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "iceberg"
-    ) as docker_services, patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint:
+    with (
+        docker_compose_runner(
+            test_resources_dir / "docker-compose.yml", "iceberg"
+        ) as docker_services,
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+    ):
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
         # Run the create.py pyspark file to populate two tables.
@@ -164,10 +169,10 @@ def test_iceberg_stateful_ingest(
         assert checkpoint1
         assert checkpoint1.state
 
-        # Capture MCEs of second run to validate Status(removed=true)
-        deleted_mces_path = f"{tmp_path}/iceberg_deleted_mces.json"
+        # Capture MCPs of second run to validate Status(removed=true)
+        deleted_mcps_path = f"{tmp_path}/iceberg_deleted_mcps.json"
         pipeline_config_dict["sink"]["type"] = "file"
-        pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
+        pipeline_config_dict["sink"]["config"] = {"filename": deleted_mcps_path}
 
         # Run the delete.py pyspark file to delete the table.
         spark_submit("/home/iceberg/setup/delete.py")
@@ -205,8 +210,8 @@ def test_iceberg_stateful_ingest(
         mce_helpers.check_golden_file(
             pytestconfig,
             ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
-            output_path=deleted_mces_path,
-            golden_path=test_resources_dir / "iceberg_deleted_table_mces_golden.json",
+            output_path=deleted_mcps_path,
+            golden_path=test_resources_dir / "iceberg_deleted_table_mcps_golden.json",
         )
 
 
@@ -232,6 +237,6 @@ def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_t
         mce_helpers.check_golden_file(
             pytestconfig,
             ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
-            output_path=tmp_path / "iceberg_mces.json",
-            golden_path=test_resources_dir / "iceberg_profile_mces_golden.json",
+            output_path=tmp_path / "iceberg_mcps.json",
+            golden_path=test_resources_dir / "iceberg_profile_mcps_golden.json",
         )

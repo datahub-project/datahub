@@ -1,7 +1,6 @@
 from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
 
 import functools
-import hashlib
 import logging
 import re
 from typing import Dict, Iterable, Optional, Tuple, Union
@@ -9,6 +8,8 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
+
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 
 assert SQLGLOT_PATCHED
 
@@ -56,10 +57,7 @@ def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
 def is_dialect_instance(
     dialect: sqlglot.Dialect, platforms: Union[str, Iterable[str]]
 ) -> bool:
-    if isinstance(platforms, str):
-        platforms = [platforms]
-    else:
-        platforms = list(platforms)
+    platforms = [platforms] if isinstance(platforms, str) else list(platforms)
 
     dialects = [get_dialect(platform) for platform in platforms]
 
@@ -117,6 +115,8 @@ def _expression_to_string(
     return expression.sql(dialect=get_dialect(platform))
 
 
+PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION = re.compile(r"(%s|\$\d|\?)")
+
 _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
     re.compile(r"/\*.*?\*/", re.DOTALL): "",
@@ -132,7 +132,9 @@ _BASIC_NORMALIZATION_RULES = {
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
     # The r" ?" makes it more robust to uneven spacing.
-    re.compile(r"\b(IN|VALUES)\s*\( ?\?(?:, ?\?)* ?\)", re.IGNORECASE): r"\1 (?)",
+    re.compile(
+        r"\b(IN|VALUES)\s*\( ?(?:%s|\$\d|\?)(?:, ?(?:%s|\$\d|\?))* ?\)", re.IGNORECASE
+    ): r"\1 (?)",
     # Normalize parenthesis spacing.
     re.compile(r"\( "): "(",
     re.compile(r" \)"): ")",
@@ -141,6 +143,9 @@ _BASIC_NORMALIZATION_RULES = {
     # e.g. "col1,col2" -> "col1, col2"
     re.compile(r"\b ,"): ",",
     re.compile(r"\b,\b"): ", ",
+    # MAKE SURE THAT THIS IS AFTER THE ABOVE REPLACEMENT
+    # Replace all versions of placeholders with generic ? placeholder.
+    PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION: "?",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).
@@ -254,18 +259,20 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
     return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
 
 
-def generate_hash(text: str) -> str:
-    # Once we move to Python 3.9+, we can set `usedforsecurity=False`.
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
 def get_query_fingerprint_debug(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> Tuple[str, Optional[str]]:
     try:
         if not fast:
             dialect = get_dialect(platform)
             expression_sql = generalize_query(expression, dialect=dialect)
+            # Normalize placeholders for consistent fingerprinting -> this only needs to be backward compatible with earlier sqglot generated generalized queries where the placeholders were always ?
+            expression_sql = PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION.sub(
+                "?", expression_sql
+            )
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
     except (ValueError, sqlglot.errors.SqlglotError) as e:
@@ -275,16 +282,18 @@ def get_query_fingerprint_debug(
         logger.debug("Failed to generalize query for fingerprinting: %s", e)
         expression_sql = None
 
-    fingerprint = generate_hash(
-        expression_sql
-        if expression_sql is not None
-        else _expression_to_string(expression, platform=platform)
-    )
+    text = expression_sql or _expression_to_string(expression, platform=platform)
+    if secondary_id:
+        text = text + " -- " + secondary_id
+    fingerprint = generate_hash(text=text)
     return fingerprint, expression_sql
 
 
 def get_query_fingerprint(
-    expression: sqlglot.exp.ExpOrStr, platform: DialectOrStr, fast: bool = False
+    expression: sqlglot.exp.ExpOrStr,
+    platform: DialectOrStr,
+    fast: bool = False,
+    secondary_id: Optional[str] = None,
 ) -> str:
     """Get a fingerprint for a SQL query.
 
@@ -301,12 +310,15 @@ def get_query_fingerprint(
     Args:
         expression: The SQL query to fingerprint.
         platform: The SQL dialect to use.
+        secondary_id: An optional additional id string to included in the final fingerprint.
 
     Returns:
         The fingerprint for the SQL query.
     """
 
-    return get_query_fingerprint_debug(expression, platform, fast=fast)[0]
+    return get_query_fingerprint_debug(
+        expression=expression, platform=platform, fast=fast, secondary_id=secondary_id
+    )[0]
 
 
 @functools.lru_cache(maxsize=FORMAT_QUERY_CACHE_SIZE)
@@ -404,7 +416,7 @@ def detach_ctes(
         if new_statement == statement:
             if iteration > 1:
                 logger.debug(
-                    f"Required {iteration+1} iterations to detach and eliminate all CTEs"
+                    f"Required {iteration + 1} iterations to detach and eliminate all CTEs"
                 )
             break
         statement = new_statement

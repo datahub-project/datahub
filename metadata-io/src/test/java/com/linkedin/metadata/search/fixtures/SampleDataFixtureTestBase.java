@@ -68,6 +68,7 @@ import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.SortBuilder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringContextTests {
@@ -88,6 +89,44 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
 
   @Nonnull
   protected abstract CustomSearchConfiguration getCustomSearchConfiguration();
+
+  @BeforeClass
+  public void verifyDataAvailability() {
+    // Wait for sample data to be available before running tests
+    // This verifies that the basic search functionality works and returns expected counts
+    Map<String, Integer> expectedTypes =
+        Map.of(
+            "dataset", 13,
+            "chart", 0,
+            "container", 2,
+            "dashboard", 0,
+            "tag", 0,
+            "mlmodel", 0);
+
+    waitForDataAvailability(
+        () -> {
+          SearchResult testResult =
+              searchAcrossEntities(getOperationContext(), getSearchService(), "test");
+
+          // Check if we get the expected entity counts
+          for (Map.Entry<String, Integer> entry : expectedTypes.entrySet()) {
+            long actualCount =
+                testResult.getEntities().stream()
+                    .map(SearchEntity::getEntity)
+                    .filter(entity -> entry.getKey().equals(entity.getEntityType()))
+                    .count();
+
+            if (actualCount != entry.getValue()) {
+              return false;
+            }
+          }
+          return true;
+        },
+        30, // Wait up to 30 seconds
+        String.format(
+            "Sample data not available after 30 seconds. Expected entity counts: %s",
+            expectedTypes));
+  }
 
   @Test
   public void testSearchFieldConfig() throws IOException {
@@ -1079,10 +1118,53 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-  public void testFacets() {
+  public void testSearchFacets() {
     Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
     SearchResult testResult =
         searchAcrossEntities(getOperationContext(), getSearchService(), "cypress");
+    expectedFacets.forEach(
+        facet -> {
+          assertTrue(
+              testResult.getMetadata().getAggregations().stream()
+                  .anyMatch(agg -> agg.getName().equals(facet)),
+              String.format(
+                  "Failed to find facet `%s` in %s",
+                  facet,
+                  testResult.getMetadata().getAggregations().stream()
+                      .map(AggregationMetadata::getName)
+                      .collect(Collectors.toList())));
+        });
+    AggregationMetadata entityAggMeta =
+        testResult.getMetadata().getAggregations().stream()
+            .filter(aggMeta -> aggMeta.getName().equals("entity"))
+            .findFirst()
+            .get();
+    Map<String, Long> expectedEntityTypeCounts = new HashMap<>();
+    expectedEntityTypeCounts.put("container", 0L);
+    expectedEntityTypeCounts.put("corpuser", 0L);
+    expectedEntityTypeCounts.put("corpgroup", 0L);
+    expectedEntityTypeCounts.put("mlmodel", 0L);
+    expectedEntityTypeCounts.put("mlfeaturetable", 1L);
+    expectedEntityTypeCounts.put("mlmodelgroup", 1L);
+    expectedEntityTypeCounts.put("dataflow", 1L);
+    expectedEntityTypeCounts.put("glossarynode", 1L);
+    expectedEntityTypeCounts.put("mlfeature", 0L);
+    expectedEntityTypeCounts.put("datajob", 2L);
+    expectedEntityTypeCounts.put("domain", 0L);
+    expectedEntityTypeCounts.put("tag", 0L);
+    expectedEntityTypeCounts.put("glossaryterm", 2L);
+    expectedEntityTypeCounts.put("mlprimarykey", 1L);
+    expectedEntityTypeCounts.put("dataset", 9L);
+    expectedEntityTypeCounts.put("chart", 0L);
+    expectedEntityTypeCounts.put("dashboard", 0L);
+    assertEquals(entityAggMeta.getAggregations(), expectedEntityTypeCounts);
+  }
+
+  @Test
+  public void testScrollFacets() {
+    Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
+    ScrollResult testResult =
+        scrollAcrossEntities(getOperationContext(), getSearchService(), "cypress");
     expectedFacets.forEach(
         facet -> {
           assertTrue(
@@ -2026,7 +2108,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
   }
 
   @Test
-  public void testSortOrdering() {
+  public void testSearchSortOrdering() {
     String query = "unit_data";
     SortCriterion criterion =
         new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
@@ -2042,6 +2124,28 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
                 0,
                 100,
                 null);
+    assertTrue(
+        result.getEntities().size() > 2,
+        String.format("%s - Expected search results to have at least two results", query));
+  }
+
+  @Test
+  public void testScrollSortOrdering() {
+    String query = "unit_data";
+    SortCriterion criterion =
+        new SortCriterion().setOrder(SortOrder.ASCENDING).setField("lastOperationTime");
+    ScrollResult result =
+        getSearchService()
+            .scrollAcrossEntities(
+                getOperationContext()
+                    .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+                SEARCHABLE_ENTITIES,
+                query,
+                null,
+                Collections.singletonList(criterion),
+                null,
+                null,
+                100);
     assertTrue(
         result.getEntities().size() > 2,
         String.format("%s - Expected search results to have at least two results", query));

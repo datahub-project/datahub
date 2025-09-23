@@ -1,5 +1,6 @@
 import React from 'react';
-import { AppConfig } from './types.generated';
+
+import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -43,6 +44,15 @@ export const DEFAULT_APP_CONFIG = {
     viewsConfig: {
         enabled: false,
     },
+    searchBarConfig: {
+        apiVariant: SearchBarApi.AutocompleteForMultiple,
+    },
+    searchCardConfig: {
+        showDescription: false,
+    },
+    homePageConfig: {
+        firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
+    },
     featureFlags: {
         readOnlyModeEnabled: false,
         showSearchFiltersV2: true,
@@ -55,8 +65,36 @@ export const DEFAULT_APP_CONFIG = {
         businessAttributeEntityEnabled: false,
         dataContractsEnabled: false,
         editableDatasetNameEnabled: false,
+        themeV2Enabled: false,
+        themeV2Default: false,
+        themeV2Toggleable: false,
+        lineageGraphV2: false,
         showSeparateSiblings: false,
+        schemaFieldCLLEnabled: false,
+        schemaFieldLineageIgnoreStatus: false,
         showManageStructuredProperties: false,
+        hideDbtSourceInLineage: false,
+        showNavBarRedesign: false,
+        showAutoCompleteResults: false,
+        entityVersioningEnabled: false,
+        showHasSiblingsFilter: false,
+        showSearchBarAutocompleteRedesign: false,
+        showManageTags: false,
+        showIntroducePage: false,
+        showIngestionPageRedesign: false,
+        showLineageExpandMore: false,
+        showDefaultExternalLinks: true,
+        showStatsTabRedesign: false,
+        showHomePageRedesign: false,
+        showProductUpdates: false,
+        lineageGraphV3: false,
+        logicalModelsEnabled: false,
+        showHomepageUserRole: false,
+        assetSummaryPageV1: false,
+    },
+    chromeExtensionConfig: {
+        enabled: false,
+        lineageEnabled: false,
     },
 };
 

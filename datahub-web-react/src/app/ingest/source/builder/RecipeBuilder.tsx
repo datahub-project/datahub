@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import { Button, message, Typography } from 'antd';
-import YAML from 'yamljs';
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
+import { Typography, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { YamlEditor } from './YamlEditor';
-import RecipeForm from './RecipeForm/RecipeForm';
-import { SourceBuilderState, SourceConfig } from './types';
-import { CSV, LOOKER, LOOK_ML } from './constants';
-import { LookerWarning } from './LookerWarning';
-import { CSVInfo } from './CSVInfo';
-import { IngestionDocumentationHint } from './IngestionDocumentationHint';
+import YAML from 'yamljs';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
+import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
+import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
+import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
+import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
+import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
+import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { Button } from '@src/alchemy-components';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -45,6 +47,7 @@ const Title = styled(Typography.Title)`
 const ButtonsWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    gap: 16px;
 `;
 
 const HeaderContainer = styled.div`
@@ -94,7 +97,8 @@ function RecipeBuilder(props: Props) {
                 </Title>
                 <ButtonsWrapper>
                     <StyledButton
-                        type="text"
+                        variant="text"
+                        color="gray"
                         $isSelected={isViewingForm}
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
@@ -102,7 +106,8 @@ function RecipeBuilder(props: Props) {
                         <FormOutlined /> Form
                     </StyledButton>
                     <StyledButton
-                        type="text"
+                        variant="text"
+                        color="gray"
                         $isSelected={!isViewingForm}
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
@@ -128,10 +133,10 @@ function RecipeBuilder(props: Props) {
                         <YamlEditor initialText={displayRecipe} onChange={setStagedRecipe} />
                     </BorderedSection>
                     <ControlsContainer>
-                        <Button disabled={isEditing} onClick={goToPrevious}>
+                        <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                             Previous
                         </Button>
-                        <Button type="primary" data-testid="recipe-builder-next-button" onClick={onClickNext}>
+                        <Button data-testid="recipe-builder-next-button" onClick={onClickNext}>
                             Next
                         </Button>
                     </ControlsContainer>

@@ -1,26 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
-import { useTheme } from 'styled-components';
+import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { SearchHeader } from './SearchHeader';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType, FacetFilterInput } from '../../types.generated';
+import { useHistory, useLocation } from 'react-router';
+import { useTheme } from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { HALF_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import { SearchHeader } from '@app/search/SearchHeader';
+import { useSelectedSortOption } from '@app/search/context/SearchContext';
+import { getAutoCompleteInputFromQuickFilter } from '@app/search/utils/filterUtils';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import useFilters from '@app/search/utils/useFilters';
+import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
+
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
-} from '../../graphql/search.generated';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import analytics, { EventType } from '../analytics';
-import useFilters from './utils/useFilters';
-import { PageRoutes } from '../../conf/Global';
-import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
-import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
-import { useUserContext } from '../context/useUserContext';
-import { useSelectedSortOption } from './context/SearchContext';
-import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
-import { useBrowserTitle } from '../shared/BrowserTabTitleContext';
+} from '@graphql/search.generated';
+import { EntityType, FacetFilterInput } from '@types';
 
 const styles = {
     children: {

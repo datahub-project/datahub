@@ -26,7 +26,7 @@ public class ChangeItemImplTest {
             .recordTemplate(new Status().setRemoved(true))
             .systemMetadata(systemMetadata.copy())
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     ChangeItemImpl item2 =
         ChangeItemImpl.builder()
             .urn(entityUrn)
@@ -34,7 +34,7 @@ public class ChangeItemImplTest {
             .recordTemplate(new Status().setRemoved(false))
             .systemMetadata(systemMetadata.copy())
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
 
     assertFalse(item1.isDatabaseDuplicateOf(item2));
   }

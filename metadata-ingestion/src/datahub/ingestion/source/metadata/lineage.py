@@ -36,9 +36,10 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
+from datahub.ingestion.graph.config import ClientMode
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,9 +80,9 @@ class FineGrainedLineageConfig(ConfigModel):
     @validator("upstreamType")
     def upstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
-            FineGrainedLineageUpstreamType.FIELD_SET,
-            FineGrainedLineageUpstreamType.DATASET,
-            FineGrainedLineageUpstreamType.NONE,
+            FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            FineGrainedLineageUpstreamTypeClass.DATASET,
+            FineGrainedLineageUpstreamTypeClass.NONE,
         ]
         if v not in allowed_types:
             raise ValueError(
@@ -92,8 +93,8 @@ class FineGrainedLineageConfig(ConfigModel):
     @validator("downstreamType")
     def downstream_type_must_be_supported(cls, v: str) -> str:
         allowed_types = [
-            FineGrainedLineageDownstreamType.FIELD_SET,
-            FineGrainedLineageDownstreamType.FIELD,
+            FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+            FineGrainedLineageDownstreamTypeClass.FIELD,
         ]
         if v not in allowed_types:
             raise ValueError(
@@ -104,8 +105,8 @@ class FineGrainedLineageConfig(ConfigModel):
 
 class EntityNodeConfig(ConfigModel):
     entity: EntityConfig
-    upstream: Optional[List["EntityNodeConfig"]]
-    fineGrainedLineages: Optional[List[FineGrainedLineageConfig]]
+    upstream: Optional[List["EntityNodeConfig"]] = None
+    fineGrainedLineages: Optional[List[FineGrainedLineageConfig]] = None
 
 
 # https://pydantic-docs.helpmanual.io/usage/postponed_annotations/ required for when you reference a model within itself
@@ -210,7 +211,7 @@ def _get_lineage_mcp(
 
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
-        client = get_default_graph()
+        client = get_default_graph(ClientMode.INGESTION)
 
         old_upstream_lineage = get_aspects_for_entity(
             client._session,

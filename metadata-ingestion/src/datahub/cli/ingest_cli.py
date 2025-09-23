@@ -12,18 +12,18 @@ import click_spinner
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
-import datahub as datahub_package
+from datahub._version import nice_version_name
 from datahub.cli import cli_utils
-from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
-from datahub.configuration.common import ConfigModel, GraphError
+from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH, load_client_config
+from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.ingest_utils import deploy_source_vars
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,7 @@ def ingest() -> None:
         "no_progress",
     ]
 )
+@upgrade.check_upgrade
 def run(
     config: str,
     dry_run: bool,
@@ -147,7 +148,7 @@ def run(
                 return ret
 
     # main function begins
-    logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
+    logger.info("DataHub CLI version: %s", nice_version_name())
 
     pipeline_config = load_config_file(
         config,
@@ -177,40 +178,14 @@ def run(
         no_progress=no_progress,
         raw_config=raw_pipeline_config,
     )
-    with PerfTimer() as timer:
-        ret = run_pipeline_to_completion(pipeline)
-
-    # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
-    if ret == 0:
-        upgrade.check_upgrade_post(
-            main_method_runtime=timer.elapsed_seconds(), graph=pipeline.ctx.graph
-        )
+    ret = run_pipeline_to_completion(pipeline)
 
     if ret:
         sys.exit(ret)
     # don't raise SystemExit if there's no error
 
 
-def _make_ingestion_urn(name: str) -> str:
-    guid = datahub_guid(
-        {
-            "name": name,
-        }
-    )
-    return f"urn:li:dataHubIngestionSource:deploy-{guid}"
-
-
-class DeployOptions(ConfigModel):
-    name: str
-    schedule: Optional[str] = None
-    time_zone: str = "UTC"
-    cli_version: Optional[str] = None
-    executor_id: str = "default"
-
-
 @ingest.command()
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 @click.option(
     "-n",
     "--name",
@@ -233,9 +208,9 @@ class DeployOptions(ConfigModel):
 @click.option(
     "--executor-id",
     type=str,
-    default="default",
     help="Executor id to route execution requests to. Do not use this unless you have configured a custom executor.",
     required=False,
+    default=None,
 )
 @click.option(
     "--cli-version",
@@ -256,16 +231,29 @@ class DeployOptions(ConfigModel):
     type=str,
     help="Timezone for the schedule in 'America/New_York' format. Uses UTC by default.",
     required=False,
-    default="UTC",
+    default=None,
 )
+@click.option(
+    "--debug", type=bool, help="Should we debug.", required=False, default=False
+)
+@click.option(
+    "--extra-pip",
+    type=str,
+    help='Extra pip packages. e.g. ["memray"]',
+    required=False,
+    default=None,
+)
+@upgrade.check_upgrade
 def deploy(
     name: Optional[str],
     config: str,
     urn: Optional[str],
-    executor_id: str,
+    executor_id: Optional[str],
     cli_version: Optional[str],
     schedule: Optional[str],
-    time_zone: str,
+    time_zone: Optional[str],
+    extra_pip: Optional[str],
+    debug: bool = False,
 ) -> None:
     """
     Deploy an ingestion recipe to your DataHub instance.
@@ -274,85 +262,25 @@ def deploy(
     urn:li:dataHubIngestionSource:<name>
     """
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.CLI)
 
-    pipeline_config = load_config_file(
-        config,
-        allow_stdin=True,
-        allow_remote=True,
-        resolve_env_vars=False,
+    variables = deploy_source_vars(
+        name=name,
+        config=config,
+        urn=urn,
+        executor_id=executor_id,
+        cli_version=cli_version,
+        schedule=schedule,
+        time_zone=time_zone,
+        extra_pip=extra_pip,
+        debug=debug,
     )
-
-    deploy_options_raw = pipeline_config.pop("deployment", None)
-    if deploy_options_raw is not None:
-        deploy_options = DeployOptions.parse_obj(deploy_options_raw)
-
-        if name:
-            logger.info(f"Overriding deployment name {deploy_options.name} with {name}")
-            deploy_options.name = name
-    else:
-        if not name:
-            raise click.UsageError(
-                "Either --name must be set or deployment_name specified in the config"
-            )
-        deploy_options = DeployOptions(name=name)
-
-    # Use remaining CLI args to override deploy_options
-    if schedule:
-        deploy_options.schedule = schedule
-    if time_zone:
-        deploy_options.time_zone = time_zone
-    if cli_version:
-        deploy_options.cli_version = cli_version
-    if executor_id:
-        deploy_options.executor_id = executor_id
-
-    logger.info(f"Using {repr(deploy_options)}")
-
-    if not urn:
-        # When urn/name is not specified, we will generate a unique urn based on the deployment name.
-        urn = _make_ingestion_urn(deploy_options.name)
-        logger.info(f"Using recipe urn: {urn}")
-
-    # Invariant - at this point, both urn and deploy_options are set.
-
-    variables: dict = {
-        "urn": urn,
-        "name": deploy_options.name,
-        "type": pipeline_config["source"]["type"],
-        "recipe": json.dumps(pipeline_config),
-        "executorId": deploy_options.executor_id,
-        "version": deploy_options.cli_version,
-    }
-
-    if deploy_options.schedule is not None:
-        variables["schedule"] = {
-            "interval": deploy_options.schedule,
-            "timezone": deploy_options.time_zone,
-        }
 
     # The updateIngestionSource endpoint can actually do upserts as well.
     graphql_query: str = textwrap.dedent(
         """
-        mutation updateIngestionSource(
-            $urn: String!,
-            $name: String!,
-            $type: String!,
-            $schedule: UpdateIngestionSourceScheduleInput,
-            $recipe: String!,
-            $executorId: String!
-            $version: String) {
-
-            updateIngestionSource(urn: $urn, input: {
-                name: $name,
-                type: $type,
-                schedule: $schedule,
-                config: {
-                    recipe: $recipe,
-                    executorId: $executorId,
-                    version: $version,
-                }
-            })
+        mutation updateIngestionSource($urn: String!, $input: UpdateIngestionSourceInput!) {
+            updateIngestionSource(urn: $urn, input: $input)
         }
         """
     )
@@ -372,7 +300,7 @@ def deploy(
         sys.exit(1)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {variables['input']['name']}:"
     )
     click.echo(response)
 
@@ -414,7 +342,9 @@ def parse_restli_response(response):
 
 
 @ingest.command()
-@click.argument("path", type=click.Path(exists=True))
+@click.argument(
+    "path", type=click.Path(exists=False)
+)  # exists=False since it only supports local filesystems
 def mcps(path: str) -> None:
     """
     Ingest metadata from a mcp json file or directory of files.
@@ -423,6 +353,7 @@ def mcps(path: str) -> None:
     """
 
     click.echo("Starting ingestion...")
+    datahub_config = load_client_config()
     recipe: dict = {
         "source": {
             "type": "file",
@@ -430,6 +361,7 @@ def mcps(path: str) -> None:
                 "path": path,
             },
         },
+        "datahub_api": datahub_config,
     }
 
     pipeline = Pipeline.create(recipe, report_to=None)
@@ -446,9 +378,11 @@ def mcps(path: str) -> None:
     "--source", type=str, default=None, help="Filter by ingestion source name."
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
-    """List ingestion source runs with their details, optionally filtered by URN or source."""
+    """
+    List ingestion source runs with their details, optionally filtered by URN or source.
+    Required the Manage Metadata Ingestion permission.
+    """
 
     query = """
     query listIngestionRuns($input: ListIngestionSourcesInput!) {
@@ -485,7 +419,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
         }
     }
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -506,16 +440,17 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
     if not data:
         click.echo("No response received from the server.")
         return
-
-    # when urn or source filter does not match, exit gracefully
-    if (
-        not isinstance(data.get("data"), dict)
-        or "listIngestionSources" not in data["data"]
-    ):
-        click.echo("No matching ingestion sources found. Please check your filters.")
+    if "errors" in data:
+        click.echo("Errors in response:")
+        for error in data["errors"]:
+            click.echo(f"- {error.get('message', 'Unknown error')}")
         return
 
-    ingestion_sources = data["data"]["listIngestionSources"]["ingestionSources"]
+    # a lot of responses can be null if there's errors in the run
+    ingestion_sources = (
+        data.get("data", {}).get("listIngestionSources", {}).get("ingestionSources", [])
+    )
+
     if not ingestion_sources:
         click.echo("No ingestion sources or executions found.")
         return
@@ -526,17 +461,31 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
         name = ingestion_source.get("name", "N/A")
 
         executions = ingestion_source.get("executions", {}).get("executionRequests", [])
+
         for execution in executions:
+            if execution is None:
+                continue
+
             execution_id = execution.get("id", "N/A")
-            start_time = execution.get("result", {}).get("startTimeMs", "N/A")
-            start_time = (
-                datetime.fromtimestamp(start_time / 1000).strftime("%Y-%m-%d %H:%M:%S")
-                if start_time != "N/A"
-                else "N/A"
-            )
-            status = execution.get("result", {}).get("status", "N/A")
+            result = execution.get("result") or {}
+            status = result.get("status", "N/A")
+
+            try:
+                start_time = (
+                    datetime.fromtimestamp(
+                        result.get("startTimeMs", 0) / 1000
+                    ).strftime("%Y-%m-%d %H:%M:%S")
+                    if status != "DUPLICATE" and result.get("startTimeMs") is not None
+                    else "N/A"
+                )
+            except (TypeError, ValueError):
+                start_time = "N/A"
 
             rows.append([execution_id, name, start_time, status, urn])
+
+    if not rows:
+        click.echo("No execution data found.")
+        return
 
     click.echo(
         tabulate(
@@ -557,11 +506,10 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -607,12 +555,11 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -657,12 +604,11 @@ def show(
     help="Path to directory where rollback reports will be saved to",
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     if not force and not dry_run:
         click.confirm(

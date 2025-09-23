@@ -16,7 +16,8 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
@@ -28,7 +29,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.RetrieverContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -53,17 +53,17 @@ public class IgnoreUnknownMutatorTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn(
           "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)");
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
-    mockAspectRetriever = mock(AspectRetriever.class);
+    mockAspectRetriever = mock(CachingAspectRetriever.class);
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
-            .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
+            .graphRetriever(GraphRetriever.EMPTY)
             .build();
   }
 
@@ -75,8 +75,7 @@ public class IgnoreUnknownMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(GLOBAL_TAGS_ASPECT_NAME)
@@ -89,9 +88,9 @@ public class IgnoreUnknownMutatorTest {
                                     ByteString.copyString(
                                         "{\"tags\":[{\"tag\":\"urn:li:tag:Legacy\",\"foo\":\"bar\"}]}",
                                         StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                        .setSystemMetadata(new SystemMetadata()),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 
@@ -114,8 +113,7 @@ public class IgnoreUnknownMutatorTest {
     List<MCPItem> testItems =
         List.of(
             ProposedItem.builder()
-                .entitySpec(TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME))
-                .metadataChangeProposal(
+                .build(
                     new MetadataChangeProposal()
                         .setEntityUrn(TEST_DATASET_URN)
                         .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
@@ -127,10 +125,9 @@ public class IgnoreUnknownMutatorTest {
                                 .setValue(
                                     ByteString.copyString(
                                         "{\"foo\":\"bar\",\"customProperties\":{\"prop2\":\"pikachu\",\"prop1\":\"fakeprop\"}}",
-                                        StandardCharsets.UTF_8)))
-                        .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
-                .build());
+                                        StandardCharsets.UTF_8))),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    TEST_REGISTRY));
 
     List<MCPItem> result = test.proposalMutation(testItems, retrieverContext).toList();
 

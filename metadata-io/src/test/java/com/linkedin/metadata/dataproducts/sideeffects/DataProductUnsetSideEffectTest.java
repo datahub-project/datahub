@@ -8,14 +8,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCPItem;
@@ -75,12 +75,12 @@ public class DataProductUnsetSideEffectTest {
                       .build()))
           .build();
 
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
-    mockAspectRetriever = mock(AspectRetriever.class);
+    mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     RelatedEntities relatedEntities =
@@ -100,7 +100,7 @@ public class DataProductUnsetSideEffectTest {
             eq(QueryUtils.newFilter("urn", DATASET_URN_1.toString())),
             eq(null),
             eq(EMPTY_FILTER),
-            eq(ImmutableList.of("DataProductContains")),
+            eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Collections.emptyList()),
             eq(null),
@@ -127,7 +127,7 @@ public class DataProductUnsetSideEffectTest {
             eq(QueryUtils.newFilter("urn", DATASET_URN_2.toString())),
             eq(null),
             eq(EMPTY_FILTER),
-            eq(ImmutableList.of("DataProductContains")),
+            eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Collections.emptyList()),
             eq(null),
@@ -139,7 +139,7 @@ public class DataProductUnsetSideEffectTest {
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(graphRetriever)
             .build();
   }
@@ -282,7 +282,7 @@ public class DataProductUnsetSideEffectTest {
                   eq(QueryUtils.newFilter("urn", datasetUrn.toString())),
                   eq(null),
                   eq(EMPTY_FILTER),
-                  eq(ImmutableList.of("DataProductContains")),
+                  eq(ImmutableSet.of("DataProductContains")),
                   eq(
                       QueryUtils.newRelationshipFilter(
                           EMPTY_FILTER, RelationshipDirection.INCOMING)),

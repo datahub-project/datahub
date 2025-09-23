@@ -29,7 +29,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
             "add",
-            path="/qualifiedName",
+            path=("qualifiedName",),
             value=qualified_name,
         )
         return self
@@ -41,7 +41,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 StructuredPropertyDefinition.ASPECT_NAME,
                 "add",
-                path="/displayName",
+                path=("displayName",),
                 value=display_name,
             )
         return self
@@ -53,7 +53,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
             "add",
-            path="/valueType",
+            path=("valueType",),
             value=value_type,
         )
         return self
@@ -66,7 +66,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 StructuredPropertyDefinition.ASPECT_NAME,
                 "add",
-                path="/typeQualifier",
+                path=("typeQualifier",),
                 value=type_qualifier,
             )
         return self
@@ -78,7 +78,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
             "add",
-            path=f"/allowedValues/{str(allowed_value.get('value'))}",
+            path=("allowedValues", str(allowed_value.get("value"))),
             value=allowed_value,
         )
         return self
@@ -87,7 +87,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
             "add",
-            path="/cardinality",
+            path=("cardinality",),
             value=cardinality,
         )
         return self
@@ -98,7 +98,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
             "add",
-            path=f"/entityTypes/{self.quote(str(entity_type))}",
+            path=("entityTypes", str(entity_type)),
             value=entity_type,
         )
         return self
@@ -110,7 +110,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 StructuredPropertyDefinition.ASPECT_NAME,
                 "add",
-                path="/description",
+                path=("description",),
                 value=description,
             )
         return self
@@ -119,7 +119,7 @@ class StructuredPropertyPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             StructuredPropertyDefinition.ASPECT_NAME,
             "add",
-            path="/immutable",
+            path=("immutable",),
             value=immutable,
         )
         return self

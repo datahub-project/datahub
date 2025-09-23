@@ -1,0 +1,52 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "snowflake",
+                "database": "test_db"
+            },
+            "name": "test_db"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ff645a51ee3284db4355c6b1b7aec6de",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+}
+]

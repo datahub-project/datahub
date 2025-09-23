@@ -30,6 +30,7 @@ dependencies {
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   compileOnly externalDependency.swaggerAnnotations
+  compileOnly platform(externalDependency.jacksonBom)
   compileOnly externalDependency.jacksonCore
   compileOnly externalDependency.jacksonDataBind
 
@@ -74,7 +75,6 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema')
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
 
-task cleanExtraDirs {
+clean {
   delete "$projectDir/src/generatedJsonSchema"
 }
-clean.finalizedBy(cleanExtraDirs)

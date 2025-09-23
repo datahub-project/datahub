@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import EntityFormModal from '../../../../entityForm/EntityFormModal';
-import FormInfo from './FormInfo';
-import { StyledDivider } from './components';
-import { useEntityData } from '../../../../EntityContext';
-import { getFormAssociations } from './utils';
-import FormSelectionModal from '../../../../entityForm/FormSelectionModal/FormSelectionModal';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import FormInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/FormInfo';
+import { StyledDivider } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+import { getFormAssociations } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import EntityFormModal from '@app/entity/shared/entityForm/EntityFormModal';
+import FormSelectionModal from '@app/entity/shared/entityForm/FormSelectionModal/FormSelectionModal';
 
 const FormInfoWrapper = styled.div`
     margin-top: 16px;

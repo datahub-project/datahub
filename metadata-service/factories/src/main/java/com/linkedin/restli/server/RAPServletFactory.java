@@ -26,6 +26,9 @@ public class RAPServletFactory {
   @Value("#{systemEnvironment['RESTLI_SERVLET_THREADS']}")
   private Integer environmentThreads;
 
+  @Value("${RESTLI_TIMEOUT_SECONDS:60}")
+  private int restliTimeoutSeconds;
+
   @Value("${" + INGESTION_MAX_SERIALIZED_STRING_LENGTH + ":16000000}")
   private int maxSerializedStringLength;
 
@@ -71,6 +74,7 @@ public class RAPServletFactory {
     RestLiServer restLiServer = new RestLiServer(config, springInjectResourceFactory, parseqEngine);
     return new RAPJakartaServlet(
         new FilterChainDispatcher(
-            new DelegatingTransportDispatcher(restLiServer, restLiServer), FilterChains.empty()));
+            new DelegatingTransportDispatcher(restLiServer, restLiServer), FilterChains.empty()),
+        restliTimeoutSeconds);
   }
 }

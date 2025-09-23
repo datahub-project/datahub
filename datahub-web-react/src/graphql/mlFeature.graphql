@@ -23,5 +23,6 @@ query getMLFeature($urn: String!) {
         activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
             total
         }
+        ...notes
     }
 }

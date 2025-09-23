@@ -1,15 +1,17 @@
 import { LockOutlined } from '@ant-design/icons';
-import React from 'react';
-import styled from 'styled-components';
 import { List, Tag, Tooltip, Typography } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { CorpGroup, DataHubRole, EntityType, OriginType } from '../../../types.generated';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import EntityDropdown from '../../entity/shared/EntityDropdown';
-import { EntityMenuItems } from '../../entity/shared/EntityDropdown/EntityDropdown';
-import { getElasticCappedTotalValueText } from '../../entity/shared/constants';
-import SelectRoleGroup from './SelectRoleGroup';
+import styled from 'styled-components';
+
+import EntityDropdown from '@app/entity/shared/EntityDropdown';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { getElasticCappedTotalValueText } from '@app/entity/shared/constants';
+import SelectRoleGroup from '@app/identity/group/SelectRoleGroup';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpGroup, DataHubRole, EntityType, OriginType } from '@types';
 
 type Props = {
     group: CorpGroup;

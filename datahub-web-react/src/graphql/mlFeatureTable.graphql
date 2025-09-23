@@ -17,5 +17,6 @@ query getMLFeatureTable($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }

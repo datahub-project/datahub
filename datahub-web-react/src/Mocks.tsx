@@ -1,57 +1,91 @@
-import { GetDatasetDocument, UpdateDatasetDocument, GetDatasetSchemaDocument } from './graphql/dataset.generated';
-import { GetDataFlowDocument } from './graphql/dataFlow.generated';
-import { GetDataJobDocument } from './graphql/dataJob.generated';
-import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
+import React from 'react';
+
+import { Entity } from '@app/entity/Entity';
+import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { ViewBuilderState } from '@app/entity/view/types';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { FetchedEntity } from '@app/lineage/types';
+import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+
+import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
+import { GetBrowsePathsDocument, GetBrowseResultsDocument } from '@graphql/browse.generated';
+import { GetDataFlowDocument } from '@graphql/dataFlow.generated';
+import { GetDataJobDocument } from '@graphql/dataJob.generated';
+import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from '@graphql/dataset.generated';
+import { GetGlossaryTermDocument, GetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
+import { GetMeDocument } from '@graphql/me.generated';
+import { GetMlModelDocument } from '@graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from '@graphql/mlModelGroup.generated';
+import { GetGrantedPrivilegesDocument } from '@graphql/policy.generated';
+import { GetQuickFiltersDocument } from '@graphql/quickFilters.generated';
+import { ListRecommendationsDocument } from '@graphql/recommendations.generated';
 import {
-    GetAutoCompleteResultsDocument,
     GetAutoCompleteMultipleResultsDocument,
+    GetAutoCompleteResultsDocument,
     GetSearchResultsDocument,
-    GetSearchResultsQuery,
     GetSearchResultsForMultipleDocument,
     GetSearchResultsForMultipleQuery,
-} from './graphql/search.generated';
-import { GetUserDocument } from './graphql/user.generated';
+    GetSearchResultsQuery,
+} from '@graphql/search.generated';
+import { GetTagDocument } from '@graphql/tag.generated';
+import { GetUserDocument } from '@graphql/user.generated';
 import {
-    Dataset,
+    AppConfig,
+    BusinessAttribute,
+    Container,
     DataFlow,
+    DataHubView,
+    DataHubViewFilter,
+    DataHubViewType,
     DataJob,
-    GlossaryTerm,
-    GlossaryNode,
+    Dataset,
+    EntityPrivileges,
+    EntityRelationshipsResult,
     EntityType,
-    PlatformType,
+    FilterOperator,
+    GlobalTags,
+    GlossaryNode,
+    GlossaryTerm,
+    LogicalOperator,
+    Maybe,
     MlModel,
     MlModelGroup,
-    SchemaFieldDataType,
-    ScenarioType,
+    Owner,
+    OwnershipType,
+    PlatformPrivileges,
+    PlatformType,
     RecommendationRenderType,
     RelationshipDirection,
-    Container,
-    PlatformPrivileges,
-    FilterOperator,
-    AppConfig,
-    EntityPrivileges,
-    BusinessAttribute,
-} from './types.generated';
-import { GetTagDocument } from './graphql/tag.generated';
-import { GetMlModelDocument } from './graphql/mlModel.generated';
-import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
-import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
-import { GetEntityCountsDocument, AppConfigDocument } from './graphql/app.generated';
-import { GetMeDocument } from './graphql/me.generated';
-import { ListRecommendationsDocument } from './graphql/recommendations.generated';
-import { FetchedEntity } from './app/lineage/types';
-import { DEFAULT_APP_CONFIG } from './appConfigContext';
-import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
-import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
-import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+    ScenarioType,
+    SchemaFieldDataType,
+    SearchResult,
+} from '@types';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
+    canEditDomains: true,
+    canEditDataProducts: true,
+    canEditTags: true,
+    canEditGlossaryTerms: true,
+    canEditDescription: true,
+    canEditLinks: true,
+    canEditOwners: true,
+    canEditAssertions: true,
+    canEditIncidents: true,
+    canEditDeprecation: true,
+    canEditSchemaFieldTags: true,
+    canEditSchemaFieldGlossaryTerms: true,
+    canEditSchemaFieldDescription: true,
+    canEditQueries: true,
+    canEditEmbed: true,
     canManageEntity: true,
     canManageChildren: true,
-    canEditEmbed: true,
-    canEditQueries: true,
     canEditProperties: true,
+    canViewDatasetUsage: true,
+    canViewDatasetProfile: true,
+    canViewDatasetOperations: true,
+    canManageAssetSummary: true,
     __typename: 'EntityPrivileges',
 };
 
@@ -89,13 +123,15 @@ export const user1 = {
                     },
                 },
                 associatedUrn: 'urn:li:corpuser:1',
+                attribution: null,
             },
         ],
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     properties: null,
@@ -126,6 +162,8 @@ const user2 = {
         skills: [],
         __typename: 'CorpUserEditableProperties',
         email: 'john@domain.com',
+        persona: null,
+        platforms: null,
     },
     groups: {
         __typename: 'EntityRelationshipsResult',
@@ -159,13 +197,15 @@ const user2 = {
                     },
                 },
                 associatedUrn: 'urn:li:corpuser:3',
+                attribution: null,
             },
         ],
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     info: null,
@@ -257,6 +297,7 @@ export const dataset1 = {
                 },
                 associatedUrn: 'urn:li:dataset:1',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -264,6 +305,7 @@ export const dataset1 = {
                 },
                 associatedUrn: 'urn:li:dataset:1',
                 type: 'DELEGATE',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -273,6 +315,13 @@ export const dataset1 = {
     institutionalMemory: {
         elements: [
             {
+                actor: {
+                    ...user1,
+                },
+                author: {
+                    ...user1,
+                },
+                label: 'This only points to Google',
                 url: 'https://www.google.com',
                 description: 'This only points to Google',
                 created: {
@@ -298,6 +347,7 @@ export const dataset1 = {
         },
     ],
     domain: null,
+    application: null,
     container: null,
     health: [],
     assertions: null,
@@ -360,6 +410,7 @@ export const dataset2 = {
                 },
                 associatedUrn: 'urn:li:dataset:2',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -367,6 +418,7 @@ export const dataset2 = {
                 },
                 type: 'DELEGATE',
                 associatedUrn: 'urn:li:dataset:2',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -394,6 +446,7 @@ export const dataset2 = {
         },
     ],
     domain: null,
+    application: null,
     container: null,
     health: [],
     assertions: null,
@@ -487,6 +540,7 @@ export const dataset3 = {
                 type: 'DATAOWNER',
                 associatedUrn: 'urn:li:dataset:3',
                 ownershipType: null,
+                attribution: null,
             },
             {
                 __typename: 'Owner',
@@ -496,6 +550,7 @@ export const dataset3 = {
                 type: 'DELEGATE',
                 associatedUrn: 'urn:li:dataset:3',
                 ownershipType: null,
+                attribution: null,
             },
         ],
         lastModified: {
@@ -523,6 +578,7 @@ export const dataset3 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataset:3',
+                attribution: null,
             },
         ],
     },
@@ -548,7 +604,14 @@ export const dataset3 = {
                     ownership: null,
                     parentNodes: null,
                 },
+                attribution: null,
                 associatedUrn: 'urn:li:dataset:3',
+                actor: {
+                    __typename: 'CorpUser',
+                    urn: 'urn:li:corpuser:admin',
+                    type: EntityType.CorpUser,
+                    username: '',
+                },
             },
         ],
     },
@@ -565,12 +628,16 @@ export const dataset3 = {
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     type: EntityType.CorpUser,
+                    properties: null,
+                    info: null,
                 },
                 actor: {
                     __typename: 'CorpUser',
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     type: EntityType.CorpUser,
+                    properties: null,
+                    info: null,
                 },
                 description: 'This only points to Google',
                 label: 'This only points to Google',
@@ -580,11 +647,17 @@ export const dataset3 = {
                     time: 1612396473001,
                 },
                 associatedUrn: 'urn:li:dataset:3',
+                settings: {
+                    showInAssetPreview: false,
+                    __typename: 'InstitutionalMemoryMetadataSettings',
+                },
             },
         ],
     },
     deprecation: null,
     usageStats: null,
+    latestFullTableProfile: null,
+    latestPartitionProfile: null,
     operations: null,
     datasetProfiles: [
         {
@@ -619,6 +692,7 @@ export const dataset3 = {
             aspectName: 'autoRenderAspect',
             payload: '{ "values": [{ "autoField1": "autoValue1", "autoField2": "autoValue2" }] }',
             renderSpec: {
+                __typename: 'AutoRenderSpec',
                 displayType: 'tabular',
                 displayName: 'Auto Render Aspect Custom Tab Name',
                 key: 'values',
@@ -626,6 +700,7 @@ export const dataset3 = {
         },
     ],
     domain: null,
+    application: null,
     container: null,
     lineage: null,
     relationships: null,
@@ -635,16 +710,21 @@ export const dataset3 = {
     runs: null,
     testResults: null,
     siblings: null,
+    siblingsSearch: null,
     statsSummary: null,
     embed: null,
-    browsePathV2: { __typename: 'BrowsePathV2', path: [{ name: 'test', entity: null }] },
+    browsePathV2: { __typename: 'BrowsePathV2', path: [{ name: 'test', entity: null, __typename: 'BrowsePathEntry' }] },
     access: null,
     dataProduct: null,
     lastProfile: null,
     lastOperation: null,
     structuredProperties: null,
     forms: null,
+    notes: [],
     activeIncidents: null,
+    upstream: null,
+    downstream: null,
+    versionProperties: null,
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -707,7 +787,9 @@ export const dataset3WithSchema = {
             foreignKeys: [],
         },
         editableSchemaMetadata: null,
+        documentation: null,
         siblings: null,
+        siblingsSearch: null,
     },
 };
 
@@ -1018,6 +1100,7 @@ export const glossaryTerm1 = {
                 },
                 associatedUrn: 'urn:li:glossaryTerm:1',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -1025,6 +1108,7 @@ export const glossaryTerm1 = {
                 },
                 associatedUrn: 'urn:li:glossaryTerm:1',
                 type: 'DELEGATE',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1087,6 +1171,7 @@ const glossaryTerm2 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
+                associatedUrn: 'urn:li:glossaryTerm:example.glossaryterm1',
                 __typename: 'CustomPropertiesEntry',
             },
         ],
@@ -1126,7 +1211,7 @@ const glossaryTerm2 = {
     __typename: 'GlossaryTerm',
 };
 
-const glossaryTerm3 = {
+export const glossaryTerm3 = {
     urn: 'urn:li:glossaryTerm:example.glossaryterm2',
     type: 'GLOSSARY_TERM',
     name: 'glossaryterm2',
@@ -1315,6 +1400,7 @@ export const dataFlow1 = {
                 },
                 type: 'DATAOWNER',
                 associatedUrn: 'urn:li:dataFlow:1',
+                attribution: null,
             },
             {
                 owner: {
@@ -1322,6 +1408,7 @@ export const dataFlow1 = {
                 },
                 type: 'DELEGATE',
                 associatedUrn: 'urn:li:dataFlow:1',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1343,6 +1430,7 @@ export const dataFlow1 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataFlow:1',
+                attribution: null,
             },
         ],
     },
@@ -1358,6 +1446,7 @@ export const dataFlow1 = {
         },
     },
     domain: null,
+    application: null,
     deprecation: null,
     autoRenderAspects: [],
     activeIncidents: null,
@@ -1381,6 +1470,7 @@ export const dataJob1 = {
                 },
                 associatedUrn: 'urn:li:dataJob:1',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -1388,6 +1478,7 @@ export const dataJob1 = {
                 },
                 associatedUrn: 'urn:li:dataJob:1',
                 type: 'DELEGATE',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1425,6 +1516,7 @@ export const dataJob1 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:1',
+                attribution: null,
             },
         ],
     },
@@ -1445,6 +1537,7 @@ export const dataJob1 = {
         ],
     },
     domain: null,
+    application: null,
     status: null,
     deprecation: null,
     autoRenderAspects: [],
@@ -1474,6 +1567,7 @@ export const businessAttribute = {
                         hierarchicalName: 'SampleHierarchicalName',
                         name: 'SampleName',
                     },
+                    attribution: null,
                     associatedUrn: 'urn:li:businessAttribute:ba1',
                 },
             ],
@@ -1491,6 +1585,7 @@ export const businessAttribute = {
                     },
                     __typename: 'TagAssociation',
                     associatedUrn: 'urn:li:businessAttribute:ba1',
+                    attribution: null,
                 },
                 {
                     tag: {
@@ -1501,6 +1596,7 @@ export const businessAttribute = {
                     },
                     __typename: 'TagAssociation',
                     associatedUrn: 'urn:li:businessAttribute:ba1',
+                    attribution: null,
                 },
             ],
         },
@@ -1533,6 +1629,7 @@ export const businessAttribute = {
                 },
                 associatedUrn: 'urn:li:businessAttribute:ba',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -1540,6 +1637,7 @@ export const businessAttribute = {
                 },
                 associatedUrn: 'urn:li:businessAttribute:ba',
                 type: 'DELEGATE',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1566,6 +1664,7 @@ export const dataJob2 = {
                 },
                 associatedUrn: 'urn:li:dataJob:2',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -1573,6 +1672,7 @@ export const dataJob2 = {
                 },
                 associatedUrn: 'urn:li:dataJob:2',
                 type: 'DELEGATE',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1607,10 +1707,12 @@ export const dataJob2 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:2',
+                attribution: null,
             },
         ],
     },
     domain: null,
+    application: null,
     upstream: null,
     downstream: null,
     deprecation: null,
@@ -1639,6 +1741,7 @@ export const dataJob3 = {
                 },
                 associatedUrn: 'urn:li:dataJob:3',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -1646,6 +1749,7 @@ export const dataJob3 = {
                 },
                 associatedUrn: 'urn:li:dataJob:3',
                 type: 'DELEGATE',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1680,10 +1784,12 @@ export const dataJob3 = {
                     },
                 },
                 associatedUrn: 'urn:li:dataJob:3',
+                attribution: null,
             },
         ],
     },
     domain: null,
+    application: null,
     upstream: null,
     downstream: null,
     status: null,
@@ -1714,6 +1820,7 @@ export const mlModel = {
     },
     tags: [],
     properties: {
+        name: 'trust model',
         description: 'a ml trust model',
         date: null,
         version: '1',
@@ -1733,6 +1840,7 @@ export const mlModel = {
                 },
                 type: 'DATAOWNER',
                 associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+                attribution: null,
             },
             {
                 owner: {
@@ -1740,6 +1848,7 @@ export const mlModel = {
                 },
                 type: 'DELEGATE',
                 associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1763,6 +1872,7 @@ export const mlModel = {
                     },
                 },
                 associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+                attribution: null,
             },
         ],
     },
@@ -1823,6 +1933,7 @@ export const mlModelGroup = {
                 },
                 associatedUrn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
                 type: 'DATAOWNER',
+                attribution: null,
             },
             {
                 owner: {
@@ -1830,6 +1941,7 @@ export const mlModelGroup = {
                 },
                 associatedUrn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
                 type: 'DELEGATE',
+                attribution: null,
             },
         ],
         lastModified: {
@@ -1852,6 +1964,7 @@ export const mlModelGroup = {
                         colorHex: 'sample tag color',
                     },
                 },
+                attribution: null,
             },
         ],
     },
@@ -3659,6 +3772,7 @@ export const mocks = [
                         manageIdentities: true,
                         manageDomains: true,
                         manageTags: true,
+                        viewManageTags: true,
                         createDomains: true,
                         createTags: true,
                         manageUserCredentials: true,
@@ -3676,6 +3790,9 @@ export const mocks = [
                         manageBusinessAttributes: true,
                         manageStructuredProperties: true,
                         viewStructuredPropertiesPage: true,
+                        manageApplications: true,
+                        manageFeatures: true,
+                        manageHomePageTemplates: true,
                     },
                 },
             },
@@ -3794,6 +3911,7 @@ export const mocks = [
                         EntityType.MlfeatureTable,
                         EntityType.Mlmodel,
                         EntityType.MlmodelGroup,
+                        EntityType.DataProduct,
                     ],
                 },
             },
@@ -3949,6 +4067,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlossaries: true,
     manageUserCredentials: true,
     manageTags: true,
+    viewManageTags: true,
     createTags: true,
     createDomains: true,
     manageGlobalViews: true,
@@ -3958,4 +4077,352 @@ export const platformPrivileges: PlatformPrivileges = {
     manageBusinessAttributes: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
+    manageApplications: true,
+    manageFeatures: true,
+    manageHomePageTemplates: true,
+};
+
+export const DomainMock1 = {
+    urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f702',
+    id: 'afbdad41-c523-469f-9b62-de94f938f702',
+    type: 'DOMAIN',
+    icon: () => <></>,
+    isSearchEnabled: () => false,
+    isBrowseEnabled: () => false,
+    isLineageEnabled: () => false,
+    getCollectionName: () => 'domain1_mock_1',
+    getPathName: () => 'domain_path_1',
+    getGraphName: () => 'domain_graph_1',
+    displayName: () => 'MOCK_DOMAIN_1',
+    parentDomains: {
+        domains: [],
+    },
+    renderProfile: () => <></>,
+    renderPreview: () => <></>,
+    renderSearch: () => <></>,
+    getGenericEntityProperties: () => {
+        return {
+            parentDomains: {
+                count: 1,
+                domains: [
+                    {
+                        urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f702',
+                        type: 'DOMAIN',
+                        name: 'DOMAIN_1',
+                    },
+                ],
+            },
+        };
+    },
+    supportedCapabilities: () => new Set(),
+} as Entity<any>;
+
+export const DomainMock2 = {
+    urn: 'urn:li:domain:bebdad41-c523-469f-9b62-de94f938f603',
+    id: 'bebdad41-c523-469f-9b62-de94f938f603',
+    type: 'DOMAIN',
+    icon: () => <></>,
+    isSearchEnabled: () => false,
+    isBrowseEnabled: () => false,
+    isLineageEnabled: () => false,
+    getCollectionName: () => 'domain_mock_2',
+    getPathName: () => 'domain_path_2',
+    getGraphName: () => 'domain_graph_2',
+    displayName: () => 'MOCK_DOMAIN_2',
+    parentDomains: {
+        domains: [],
+    },
+    renderProfile: () => <></>,
+    renderPreview: () => <></>,
+    renderSearch: () => <></>,
+    getGenericEntityProperties: () => {
+        return {
+            parentDomains: {
+                count: 1,
+                domains: [
+                    {
+                        urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f603',
+                        type: 'DOMAIN',
+                        name: 'DOMAIN_2',
+                    },
+                ],
+            },
+        };
+    },
+    supportedCapabilities: () => new Set(),
+} as Entity<any>;
+
+export const DomainMock3 = [DomainMock1, DomainMock2] as Array<Entity<any>>;
+
+export const expectedResult = [
+    {
+        type: 'DOMAIN',
+        urn: 'urn:li:domain:afbdad41-c523-469f-9b62-de94f938f702',
+        name: 'DOMAIN_1',
+    },
+];
+
+export const owners: Owner[] = [
+    {
+        __typename: 'Owner',
+        owner: {
+            __typename: 'CorpUser',
+            username: 'john',
+            urn: 'urn:li:corpuser:3',
+            type: EntityType.CorpUser,
+        },
+        associatedUrn: 'urn:li:dataset:1',
+        type: OwnershipType.Developer,
+    },
+    {
+        owner: {
+            __typename: 'CorpUser',
+            username: 'john',
+            urn: 'urn:li:corpuser:3',
+            type: EntityType.CorpUser,
+        },
+        associatedUrn: 'urn:li:dataset:1',
+        type: OwnershipType.Delegate,
+    },
+    {
+        owner: {
+            __typename: 'CorpUser',
+            username: 'sdas',
+            urn: 'urn:li:corpuser:1',
+            type: EntityType.CorpUser,
+        },
+        associatedUrn: 'urn:li:dataset:2',
+        type: OwnershipType.Dataowner,
+    },
+    {
+        owner: {
+            __typename: 'CorpUser',
+            username: 'sdas',
+            urn: 'urn:li:corpuser:1',
+            type: EntityType.CorpUser,
+        },
+        type: OwnershipType.Delegate,
+        associatedUrn: 'urn:li:dataset:2',
+    },
+];
+
+export const globalTags: GlobalTags = {
+    __typename: 'GlobalTags',
+    tags: [
+        {
+            __typename: 'TagAssociation',
+            tag: {
+                __typename: 'Tag',
+                type: EntityType.Tag,
+                urn: 'urn:li:tag:abc-sample-tag',
+                name: 'abc-sample-tag',
+                description: 'sample tag',
+                properties: {
+                    __typename: 'TagProperties',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    colorHex: 'sample tag color',
+                },
+            },
+            associatedUrn: 'urn:li:corpuser:1',
+            attribution: null,
+        },
+    ],
+};
+
+export const entityCapabilities: Set<EntityCapabilityType> = new Set([
+    EntityCapabilityType.OWNERS,
+    EntityCapabilityType.GLOSSARY_TERMS,
+    EntityCapabilityType.TAGS,
+    EntityCapabilityType.DOMAINS,
+    EntityCapabilityType.DEPRECATION,
+    EntityCapabilityType.SOFT_DELETE,
+    EntityCapabilityType.TEST,
+    EntityCapabilityType.ROLES,
+    EntityCapabilityType.DATA_PRODUCTS,
+    EntityCapabilityType.HEALTH,
+    EntityCapabilityType.LINEAGE,
+]);
+
+const filters: DataHubViewFilter = {
+    filters: [
+        {
+            condition: FilterOperator.Equal,
+            field: 'mockField1',
+            negated: false,
+            values: ['value1', 'value2', 'value3'],
+        },
+        {
+            condition: FilterOperator.Exists,
+            field: 'mockField2',
+            negated: true,
+            values: ['value4', 'value5', 'value6'],
+        },
+    ],
+    operator: LogicalOperator.And,
+};
+
+export const viewBuilderStateMock: ViewBuilderState = {
+    viewType: DataHubViewType.Global,
+    name: 'VIEW_BUILDER_TEST',
+    description: 'A description for testing convertStateToUpdateInput',
+    definition: {
+        entityTypes: [EntityType.AccessToken, EntityType.Domain, EntityType.Container, EntityType.DataFlow],
+        filter: filters,
+    },
+};
+
+export const searchViewsMock: Array<DataHubView> = [
+    {
+        urn: 'test-urn1',
+        type: EntityType.DatahubView,
+        viewType: DataHubViewType.Global,
+        name: 'VIEW_BUILDER_TEST',
+        description: 'A description for testing convertStateToUpdateInput',
+        definition: {
+            entityTypes: [EntityType.AccessToken, EntityType.Domain, EntityType.Container, EntityType.DataFlow],
+            filter: {
+                operator: LogicalOperator.And,
+                filters: [
+                    {
+                        field: 'mockField1',
+                        condition: FilterOperator.Equal,
+                        values: ['value1', 'value2', 'value3'],
+                        negated: false,
+                    },
+                    {
+                        field: 'mockField2',
+                        condition: FilterOperator.Exists,
+                        values: ['value4', 'value5', 'value6'],
+                        negated: true,
+                    },
+                ],
+            },
+        },
+    },
+    {
+        urn: 'test-urn2',
+        type: EntityType.DatahubView,
+        viewType: DataHubViewType.Global,
+        name: 'MOCK_TEST_VIEW',
+        description: 'Lorem ipsum dolor sit amet, consectetu',
+        definition: {
+            entityTypes: [EntityType.AccessToken, EntityType.Container, EntityType.DataFlow],
+            filter: {
+                operator: LogicalOperator.Or,
+                filters: [
+                    {
+                        field: 'mockField1',
+                        condition: FilterOperator.GreaterThan,
+                        values: ['value1', 'value2', 'value3'],
+                        negated: false,
+                    },
+                    {
+                        field: 'mockField2',
+                        condition: FilterOperator.In,
+                        values: ['value4', 'value6'],
+                        negated: false,
+                    },
+                ],
+            },
+        },
+    },
+];
+
+export const mockEntityRelationShipResult: Maybe<EntityRelationshipsResult> = {
+    start: 0,
+    count: 0,
+    total: 0,
+    relationships: [
+        {
+            type: 'Test1',
+            direction: RelationshipDirection.Outgoing,
+            entity: {
+                urn: 'urn:li:glossaryTerm:schema.Field16Schema_v1',
+                type: EntityType.GlossaryTerm,
+            },
+        },
+        {
+            type: 'Test2',
+            direction: RelationshipDirection.Incoming,
+            entity: {
+                urn: 'urn:li:glossaryTerm:schema.Field16Schema_v2',
+                type: EntityType.Assertion,
+            },
+        },
+    ],
+    __typename: 'EntityRelationshipsResult',
+};
+
+export const mockSearchResult: SearchResult = {
+    __typename: 'SearchResult',
+    entity: {
+        __typename: 'Dataset',
+        ...dataset3,
+    },
+    matchedFields: [],
+    insights: [],
+    extraProperties: [
+        { name: 'isOutputPort', value: 'true' },
+        { name: 'test2_name', value: 'test2_value' },
+    ],
+};
+
+export const mockRecord: Record<string, string | boolean> = {
+    key1: 'value1',
+    key2: true,
+    key3: 'value2',
+    key4: false,
+    key5: 'value3',
+    key6: true,
+};
+
+export const mockFineGrainedLineages1: GenericEntityProperties = {
+    siblings: {
+        isPrimary: true,
+        siblings: [{ type: EntityType.Dataset, urn: 'test_urn' }],
+    },
+    siblingsSearch: {
+        count: 1,
+        total: 1,
+        searchResults: [{ entity: { type: EntityType.Dataset, urn: 'test_urn' }, matchedFields: [] }],
+    },
+    fineGrainedLineages: [
+        {
+            upstreams: [
+                {
+                    urn: 'urn:li:glossaryTerm:example.glossaryterm1',
+                    path: 'test_downstream1',
+                },
+            ],
+            downstreams: [
+                {
+                    urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                    path: 'test_downstream2',
+                },
+            ],
+        },
+    ],
+};
+
+export const useEntityDataFunc = () => {
+    const value = {
+        entityData: {
+            parentContainers: {
+                containers: [
+                    {
+                        properties: {
+                            name: 'name1',
+                        },
+                    },
+                    {
+                        properties: {
+                            name: 'name2',
+                        },
+                    },
+                ],
+            },
+        },
+    };
+    return value;
 };

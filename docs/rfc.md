@@ -15,13 +15,13 @@ consensus among the DataHub core teams.
 
 An RFC goes through the following stages:
 
-- *Discussion* (Optional): Create an issue with the "RFC" label to have a more open ended, initial discussion around
-your proposal (useful if you don't have a concrete proposal yet). Consider posting to #rfc in [Slack](./slack.md)
-for more visibility.
-- *Pending*: when the RFC is submitted as a PR. Please add the "RFC" label to the PR.
-- *Active*: when an RFC PR is merged and undergoing implementation.
-- *Landed*: when an RFC's proposed changes are shipped in an actual release.
-- *Rejected*: when an RFC PR is closed without being merged.
+- _Discussion_ (Optional): Create an issue with the "RFC" label to have a more open ended, initial discussion around
+  your proposal (useful if you don't have a concrete proposal yet). Consider posting to #rfc in [Slack](./slack.md)
+  for more visibility.
+- _Pending_: when the RFC is submitted as a PR. Please add the "RFC" label to the PR.
+- _Active_: when an RFC PR is merged and undergoing implementation.
+- _Landed_: when an RFC's proposed changes are shipped in an actual release.
+- _Rejected_: when an RFC PR is closed without being merged.
 
 [Pending RFC List](https://github.com/datahub-project/rfcs/pulls?q=is%3Apr+is%3Aopen)
 
@@ -58,27 +58,26 @@ file. At that point the RFC is 'active' and may be implemented with the goal of 
 
 - Fork the [datahub-project/rfc repository](https://github.com/datahub-project/rfcs).
 - Copy the `000-template.md` template file to `rfc/active/000-my-feature.md`, where `my-feature` is more
-descriptive. Don't assign an RFC number yet.
-- Fill in the RFC. Put care into the details. *RFCs that do not present convincing motivation, demonstrate understanding
-of the impact of the design, or are disingenuous about the drawback or alternatives tend to be poorly-received.*
+  descriptive. Don't assign an RFC number yet.
+- Fill in the RFC. Put care into the details. _RFCs that do not present convincing motivation, demonstrate understanding
+  of the impact of the design, or are disingenuous about the drawback or alternatives tend to be poorly-received._
 - Submit a pull request. As a pull request the RFC will receive design feedback from the larger community, and the
-author should be prepared to revise it in response.
+  author should be prepared to revise it in response.
 - Update the pull request to add the number of the PR to the filename and add a link to the PR in the header of the RFC.
 - Build consensus and integrate feedback. RFCs that have broad support are much more likely to make progress than those
-that don't receive any comments.
+  that don't receive any comments.
 - Eventually, the DataHub team will decide whether the RFC is a candidate for inclusion.
 - RFCs that are candidates for inclusion will entire a "final comment period" lasting 7 days. The beginning of this
-period will be signaled with a comment and tag on the pull request. Furthermore, an announcement will be made in the
-\#rfc Slack channel for further visibility.
+  period will be signaled with a comment and tag on the pull request. Furthermore, an announcement will be made in the
+  \#rfc Slack channel for further visibility.
 - An RFC acan be modified based upon feedback from the DataHub team and community. Significant modifications may trigger
-a new final comment period.
+  a new final comment period.
 - An RFC may be rejected by the DataHub team after public discussion has settled and comments have been made summarizing
-the rationale for rejection. The RFC will enter a "final comment period to close" lasting 7 days. At the end of the "FCP
-to close" period, the PR will be closed.
+  the rationale for rejection. The RFC will enter a "final comment period to close" lasting 7 days. At the end of the "FCP
+  to close" period, the PR will be closed.
 - An RFC author may withdraw their own RFC by closing it themselves. Please state the reason for the withdrawal.
 - An RFC may be accepted at the close of its final comment period. A DataHub team member will merge the RFC's associated
-pull request, at which point the RFC will become 'active'.
-
+  pull request, at which point the RFC will become 'active'.
 
 ## Details on Active RFCs
 
@@ -117,7 +116,5 @@ Most of the DataHub team will attempt to review some set of open RFC pull reques
 team member believes an RFC PR is ready to be accepted into active status, they can approve the PR using GitHub's
 review feature to signal their approval of the RFCs.
 
-
-
-*DataHub's RFC process is inspired by many others, including [Vue.js](https://github.com/vuejs/rfcs) and
-[Ember](https://github.com/emberjs/rfcs).*
+_DataHub's RFC process is inspired by many others, including [Vue.js](https://github.com/vuejs/rfcs) and
+[Ember](https://github.com/emberjs/rfcs)._

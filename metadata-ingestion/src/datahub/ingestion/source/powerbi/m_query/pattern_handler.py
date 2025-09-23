@@ -3,15 +3,17 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, cast
 
+import sqlglot
 from lark import Tree
+from sqlglot import ParseError, expressions as exp
 
+from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     DataBricksPlatformDetail,
     DataPlatformPair,
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
@@ -29,8 +31,20 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
     ReferencedTable,
 )
+from datahub.ingestion.source.powerbi.m_query.odbc import (
+    extract_dsn,
+    extract_platform,
+    extract_server,
+    normalize_platform_name,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +163,7 @@ class AbstractLineage(ABC):
                 tree_function.token_values(arg_list)
             ),
         )
+        logger.debug(f"DB Details: {arguments}")
 
         if len(arguments) < 2:
             logger.debug(f"Expected minimum 2 arguments, but got {len(arguments)}")
@@ -170,8 +185,7 @@ class AbstractLineage(ABC):
         logger.debug(f"Processing arguments {arguments}")
 
         if (
-            len(arguments)
-            >= 4  # [0] is warehouse FQDN.
+            len(arguments) >= 4  # [0] is warehouse FQDN.
             # [1] is endpoint, we are not using it.
             # [2] is "Catalog" key
             # [3] is catalog's value
@@ -197,15 +211,34 @@ class AbstractLineage(ABC):
 
         return None
 
+    @staticmethod
+    def is_sql_query(query: Optional[str]) -> bool:
+        if not query:
+            return False
+        query = native_sql_parser.remove_special_characters(query)
+        try:
+            expression = sqlglot.parse_one(query)
+            return isinstance(expression, exp.Select)
+        except (ParseError, Exception):
+            logger.debug(f"Failed to parse query as SQL: {query}")
+            return False
+
     def parse_custom_sql(
-        self, query: str, server: str, database: Optional[str], schema: Optional[str]
+        self,
+        query: str,
+        server: str,
+        database: Optional[str],
+        schema: Optional[str],
+        platform_pair: Optional[DataPlatformPair] = None,
     ) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
+        if not platform_pair:
+            platform_pair = self.get_platform_pair()
 
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(
-                    data_platform_pair=self.get_platform_pair(),
+                    data_platform_pair=platform_pair,
                     data_platform_server=server,
                 )
             )
@@ -215,16 +248,16 @@ class AbstractLineage(ABC):
             native_sql_parser.remove_special_characters(query)
         )
 
-        parsed_result: Optional[
-            "SqlParsingResult"
-        ] = native_sql_parser.parse_custom_sql(
-            ctx=self.ctx,
-            query=query,
-            platform=self.get_platform_pair().datahub_data_platform_name,
-            platform_instance=platform_detail.platform_instance,
-            env=platform_detail.env,
-            database=database,
-            schema=schema,
+        parsed_result: Optional["SqlParsingResult"] = (
+            native_sql_parser.parse_custom_sql(
+                ctx=self.ctx,
+                query=query,
+                platform=platform_pair.datahub_data_platform_name,
+                platform_instance=platform_detail.platform_instance,
+                env=platform_detail.env,
+                database=database,
+                schema=schema,
+            )
         )
 
         if parsed_result is None:
@@ -246,7 +279,7 @@ class AbstractLineage(ABC):
         for urn in parsed_result.in_tables:
             dataplatform_tables.append(
                 DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
+                    data_platform_pair=platform_pair,
                     urn=urn,
                 )
             )
@@ -262,6 +295,33 @@ class AbstractLineage(ABC):
                 else []
             ),
         )
+
+    def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
+        column_lineage = []
+
+        if self.table.columns is not None:
+            for column in self.table.columns:
+                downstream = DownstreamColumnRef(
+                    table=self.table.name,
+                    column=column.name,
+                    column_type=SchemaFieldDataTypeClass(type=column.datahubDataType),
+                    native_column_type=column.dataType or "UNKNOWN",
+                )
+
+                upstreams = [
+                    ColumnRef(
+                        table=urn,
+                        column=column.name.lower(),
+                    )
+                ]
+
+                column_lineage_info = ColumnLineageInfo(
+                    downstream=downstream, upstreams=upstreams
+                )
+
+                column_lineage.append(column_lineage_info)
+
+        return column_lineage
 
 
 class AmazonRedshiftLineage(AbstractLineage):
@@ -300,6 +360,8 @@ class AmazonRedshiftLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -307,7 +369,7 @@ class AmazonRedshiftLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
 
 
@@ -365,6 +427,8 @@ class OracleLineage(AbstractLineage):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -372,7 +436,7 @@ class OracleLineage(AbstractLineage):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
 
 
@@ -410,9 +474,9 @@ class DatabricksLineage(AbstractLineage):
             f"Processing Databrick data-access function detail {data_access_func_detail}"
         )
         table_detail: Dict[str, str] = {}
-        temp_accessor: Optional[
-            IdentifierAccessor
-        ] = data_access_func_detail.identifier_accessor
+        temp_accessor: Optional[IdentifierAccessor] = (
+            data_access_func_detail.identifier_accessor
+        )
 
         while temp_accessor:
             # Condition to handle databricks M-query pattern where table, schema and database all are present in
@@ -450,6 +514,8 @@ class DatabricksLineage(AbstractLineage):
                 qualified_table_name=qualified_table_name,
             )
 
+            column_lineage = self.create_table_column_lineage(urn)
+
             return Lineage(
                 upstreams=[
                     DataPlatformTable(
@@ -457,7 +523,7 @@ class DatabricksLineage(AbstractLineage):
                         urn=urn,
                     )
                 ],
-                column_lineage=[],
+                column_lineage=column_lineage,
             )
 
         return Lineage.empty()
@@ -510,6 +576,9 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
             server=server,
             qualified_table_name=qualified_table_name,
         )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -517,8 +586,60 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
+
+
+class MySQLLineage(AbstractLineage):
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Processing {self.get_platform_pair().powerbi_data_platform_name} data-access function detail {data_access_func_detail}"
+        )
+
+        server, db_name = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list
+        )
+        if server is None or db_name is None:
+            return Lineage.empty()  # Return an empty list
+
+        schema_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Schema"]
+
+        table_name: str = cast(
+            IdentifierAccessor, data_access_func_detail.identifier_accessor
+        ).items["Item"]
+
+        qualified_table_name: str = f"{schema_name}.{table_name}"
+
+        logger.debug(
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) qualified_table_name= {qualified_table_name}"
+        )
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.MYSQL.value
 
 
 class PostgresLineage(TwoStepDataAccessPattern):
@@ -647,11 +768,13 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
         db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
         # Second is schema name
         schema_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor.next  # type: ignore
+            IdentifierAccessor,
+            data_access_func_detail.identifier_accessor.next,  # type: ignore
         ).items["Name"]
         # Third is table name
         table_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor.next.next  # type: ignore
+            IdentifierAccessor,
+            data_access_func_detail.identifier_accessor.next.next,  # type: ignore
         ).items["Name"]
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
@@ -670,6 +793,8 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
             qualified_table_name=qualified_table_name,
         )
 
+        column_lineage = self.create_table_column_lineage(urn)
+
         return Lineage(
             upstreams=[
                 DataPlatformTable(
@@ -677,7 +802,7 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
                     urn=urn,
                 )
             ],
-            column_lineage=[],
+            column_lineage=column_lineage,
         )
 
 
@@ -725,6 +850,7 @@ class NativeQueryLineage(AbstractLineage):
 
         tables: List[str] = native_sql_parser.get_tables(query)
 
+        column_lineage = []
         for qualified_table_name in tables:
             if len(qualified_table_name.split(".")) != 3:
                 logger.debug(
@@ -747,12 +873,11 @@ class NativeQueryLineage(AbstractLineage):
                 )
             )
 
+            column_lineage = self.create_table_column_lineage(urn)
+
         logger.debug(f"Generated dataplatform_tables {dataplatform_tables}")
 
-        return Lineage(
-            upstreams=dataplatform_tables,
-            column_lineage=[],
-        )
+        return Lineage(upstreams=dataplatform_tables, column_lineage=column_lineage)
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
         if (
@@ -768,10 +893,13 @@ class NativeQueryLineage(AbstractLineage):
         ):  # database name is explicitly set
             return database
 
-        return get_next_item(  # database name is set in Name argument
-            data_access_tokens, "Name"
-        ) or get_next_item(  # If both above arguments are not available, then try Catalog
-            data_access_tokens, "Catalog"
+        return (
+            get_next_item(  # database name is set in Name argument
+                data_access_tokens, "Name"
+            )
+            or get_next_item(  # If both above arguments are not available, then try Catalog
+                data_access_tokens, "Catalog"
+            )
         )
 
     def create_lineage(
@@ -819,9 +947,7 @@ class NativeQueryLineage(AbstractLineage):
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(flat_argument_list[1])
             ),
-        )[
-            0
-        ]  # Remove any whitespaces and double quotes character
+        )[0]  # Remove any whitespaces and double quotes character
 
         server = tree_function.strip_char_from_list([data_access_tokens[2]])[0]
 
@@ -840,6 +966,211 @@ class NativeQueryLineage(AbstractLineage):
             database=database_name,
             schema=None,
         )
+
+
+class OdbcLineage(AbstractLineage):
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Processing {self.get_platform_pair().powerbi_data_platform_name} "
+            f"data-access function detail {data_access_func_detail}"
+        )
+
+        connect_string, query = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list
+        )
+
+        if not connect_string:
+            self.reporter.warning(
+                title="Can not extract ODBC connect string",
+                message="Can not extract ODBC connect string from data access function. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}, data-access-func-detail={data_access_func_detail}",
+            )
+            return Lineage.empty()
+
+        logger.debug(f"ODBC connect string: {connect_string}")
+        data_platform, powerbi_platform = extract_platform(connect_string)
+        server_name = extract_server(connect_string)
+
+        dsn = extract_dsn(connect_string)
+        if not dsn:
+            self.reporter.warning(
+                title="Can not determine ODBC DSN",
+                message="Can not extract DSN from ODBC connect string. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}, connect-string={connect_string}",
+            )
+            return Lineage.empty()
+        logger.debug(f"Extracted DSN: {dsn}")
+
+        if not data_platform:
+            server_name = dsn
+            if self.config.dsn_to_platform_name:
+                logger.debug(f"Attempting to map DSN {dsn} to platform")
+                name = self.config.dsn_to_platform_name.get(dsn)
+                if name:
+                    logger.debug(f"Found DSN {dsn} mapped to platform {name}")
+                    data_platform, powerbi_platform = normalize_platform_name(name)
+
+        if not data_platform or not powerbi_platform:
+            self.reporter.warning(
+                title="Can not determine ODBC platform",
+                message="Can not determine platform from ODBC connect string. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}, connect-string={connect_string}",
+            )
+            return Lineage.empty()
+
+        platform_pair: DataPlatformPair = self.create_platform_pair(
+            data_platform, powerbi_platform
+        )
+
+        if not server_name and self.config.server_to_platform_instance:
+            self.reporter.warning(
+                title="Can not determine ODBC server name",
+                message="Can not determine server name with server_to_platform_instance mapping. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}",
+            )
+            return Lineage.empty()
+        elif not server_name:
+            server_name = "unknown"
+
+        if self.is_sql_query(query):
+            return self.query_lineage(query, platform_pair, server_name, dsn)
+        else:
+            return self.expression_lineage(
+                data_access_func_detail, data_platform, platform_pair, server_name
+            )
+
+    def query_lineage(
+        self,
+        query: Optional[str],
+        platform_pair: DataPlatformPair,
+        server_name: str,
+        dsn: str,
+    ) -> Lineage:
+        database = None
+        schema = None
+
+        if not query:
+            # query should never be None as it is checked before calling this function.
+            # however, we need to check just in case.
+            self.reporter.warning(
+                title="ODBC Query is null",
+                message="No SQL to parse. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}",
+            )
+            return Lineage.empty()
+
+        if self.config.dsn_to_database_schema:
+            value = self.config.dsn_to_database_schema.get(dsn)
+            if value:
+                parts = value.split(".")
+                if len(parts) == 1:
+                    database = parts[0]
+                elif len(parts) == 2:
+                    database = parts[0]
+                    schema = parts[1]
+
+        logger.debug(
+            f"ODBC query processing: dsn={dsn} mapped to database={database}, schema={schema}"
+        )
+        result = self.parse_custom_sql(
+            query=query,
+            server=server_name,
+            database=database,
+            schema=schema,
+            platform_pair=platform_pair,
+        )
+        logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
+        return result
+
+    def expression_lineage(
+        self,
+        data_access_func_detail: DataAccessFunctionDetail,
+        data_platform: str,
+        platform_pair: DataPlatformPair,
+        server_name: str,
+    ) -> Lineage:
+        database_name = None
+        schema_name = None
+        table_name = None
+        qualified_table_name = None
+
+        temp_accessor: Optional[IdentifierAccessor] = (
+            data_access_func_detail.identifier_accessor
+        )
+
+        while temp_accessor:
+            logger.debug(
+                f"identifier = {temp_accessor.identifier} items = {temp_accessor.items}"
+            )
+            if temp_accessor.items.get("Kind") == "Database":
+                database_name = temp_accessor.items["Name"]
+
+            if temp_accessor.items.get("Kind") == "Schema":
+                schema_name = temp_accessor.items["Name"]
+
+            if temp_accessor.items.get("Kind") == "Table":
+                table_name = temp_accessor.items["Name"]
+
+            if temp_accessor.next is not None:
+                temp_accessor = temp_accessor.next
+            else:
+                break
+
+        if (
+            database_name is not None
+            and schema_name is not None
+            and table_name is not None
+        ):
+            qualified_table_name = f"{database_name}.{schema_name}.{table_name}"
+        elif database_name is not None and table_name is not None:
+            qualified_table_name = f"{database_name}.{table_name}"
+
+        if not qualified_table_name:
+            self.reporter.warning(
+                title="Can not determine qualified table name",
+                message="Can not determine qualified table name for ODBC data source. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}, data-platform={data_platform}",
+            )
+            logger.warning(
+                f"Can not determine qualified table name for ODBC data source {data_platform} "
+                f"table {self.table.full_name}."
+            )
+            return Lineage.empty()
+
+        logger.debug(
+            f"ODBC Platform {data_platform} found qualified table name {qualified_table_name}"
+        )
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=platform_pair,
+            server=server_name,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=platform_pair,
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
+
+    @staticmethod
+    def create_platform_pair(
+        data_platform: str, powerbi_platform: str
+    ) -> DataPlatformPair:
+        return DataPlatformPair(data_platform, powerbi_platform)
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.ODBC.value
 
 
 class SupportedPattern(Enum):
@@ -883,9 +1214,24 @@ class SupportedPattern(Enum):
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS,
     )
 
+    MYSQL = (
+        MySQLLineage,
+        FunctionName.MYSQL_DATA_ACCESS,
+    )
+
     NATIVE_QUERY = (
         NativeQueryLineage,
         FunctionName.NATIVE_QUERY,
+    )
+
+    ODBC = (
+        OdbcLineage,
+        FunctionName.ODBC_DATA_ACCESS,
+    )
+
+    ODBC_QUERY = (
+        OdbcLineage,
+        FunctionName.ODBC_QUERY,
     )
 
     def handler(self) -> Type[AbstractLineage]:

@@ -9,6 +9,7 @@ from datetime import timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.utils.dates import days_ago
+
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 
@@ -40,7 +41,6 @@ with DAG(
     schedule_interval=timedelta(days=1),
     start_date=days_ago(2),
     catchup=False,
-    default_view="tree",
 ) as dag:
     ingest_task = PythonOperator(
         task_id="ingest_using_recipe",

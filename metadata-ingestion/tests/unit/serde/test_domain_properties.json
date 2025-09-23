@@ -1,0 +1,16 @@
+[
+{
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:marketing",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Marketing",
+            "description": "Description of the marketing domain",
+            "parentDomain": "urn:li:domain:gtm"
+        }
+    }
+}
+]

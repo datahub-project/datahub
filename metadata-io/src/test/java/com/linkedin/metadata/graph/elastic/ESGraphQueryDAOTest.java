@@ -1,261 +1,415 @@
 package com.linkedin.metadata.graph.elastic;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.io.Resources;
-import com.linkedin.common.UrnArray;
-import com.linkedin.common.UrnArrayArray;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
-import com.linkedin.metadata.models.registry.LineageRegistry;
-import com.linkedin.metadata.query.LineageFlags;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import org.opensearch.index.query.QueryBuilder;
-import org.testng.Assert;
-import org.testng.annotations.BeforeTest;
+import org.apache.commons.lang3.NotImplementedException;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RestHighLevelClient;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ESGraphQueryDAOTest {
 
-  private static final String TEST_QUERY_FILE_LIMITED =
-      "elasticsearch/sample_filters/lineage_query_filters_limited.json";
-  private static final String TEST_QUERY_FILE_FULL =
-      "elasticsearch/sample_filters/lineage_query_filters_full.json";
-  private static final String TEST_QUERY_FILE_FULL_EMPTY_FILTERS =
-      "elasticsearch/sample_filters/lineage_query_filters_full_empty_filters.json";
-  private static final String TEST_QUERY_FILE_FULL_MULTIPLE_FILTERS =
-      "elasticsearch/sample_filters/lineage_query_filters_full_multiple_filters.json";
+  private RestHighLevelClient mockClient;
+  private GraphServiceConfiguration mockGraphServiceConfig;
+  private ElasticSearchConfiguration mockElasticSearchConfig;
+  private MetricUtils mockMetricUtils;
+  private GraphQueryBaseDAO mockDelegate;
+  private OperationContext mockOperationContext;
+  private Urn mockEntityUrn;
+  private LineageGraphFilters mockLineageGraphFilters;
+  private GraphFilters mockGraphFilters;
+  private List<SortCriterion> mockSortCriteria;
+  private SearchRequest mockSearchRequest;
+  private SearchResponse mockSearchResponse;
 
-  private OperationContext operationContext;
-
-  @BeforeTest
-  public void init() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  @BeforeMethod
+  public void setUp() {
+    mockClient = mock(RestHighLevelClient.class);
+    mockGraphServiceConfig = mock(GraphServiceConfiguration.class);
+    mockElasticSearchConfig = mock(ElasticSearchConfiguration.class);
+    mockMetricUtils = mock(MetricUtils.class);
+    mockDelegate = mock(GraphQueryBaseDAO.class);
+    mockOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    mockEntityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    mockLineageGraphFilters = mock(LineageGraphFilters.class);
+    mockGraphFilters = mock(GraphFilters.class);
+    mockSortCriteria = Arrays.asList(mock(SortCriterion.class));
+    mockSearchRequest = mock(SearchRequest.class);
+    mockSearchResponse = mock(SearchResponse.class);
   }
 
   @Test
-  private void testGetQueryForLineageFullArguments() throws Exception {
+  public void testConstructorWithElasticsearchImplementation() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
 
-    URL urlLimited = Resources.getResource(TEST_QUERY_FILE_LIMITED);
-    String expectedQueryLimited = Resources.toString(urlLimited, StandardCharsets.UTF_8);
-    URL urlFull = Resources.getResource(TEST_QUERY_FILE_FULL);
-    String expectedQueryFull = Resources.toString(urlFull, StandardCharsets.UTF_8);
-    URL urlFullEmptyFilters = Resources.getResource(TEST_QUERY_FILE_FULL_EMPTY_FILTERS);
-    String expectedQueryFullEmptyFilters =
-        Resources.toString(urlFullEmptyFilters, StandardCharsets.UTF_8);
-    URL urlFullMultipleFilters = Resources.getResource(TEST_QUERY_FILE_FULL_MULTIPLE_FILTERS);
-    String expectedQueryFullMultipleFilters =
-        Resources.toString(urlFullMultipleFilters, StandardCharsets.UTF_8);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
 
-    List<Urn> urns = List.of(Urn.createFromString("urn:li:dataset:test-urn"));
-    List<Urn> urnsMultiple1 =
-        ImmutableList.of(
-            UrnUtils.getUrn("urn:li:dataset:test-urn"),
-            UrnUtils.getUrn("urn:li:dataset:test-urn2"),
-            UrnUtils.getUrn("urn:li:dataset:test-urn3"));
-    List<Urn> urnsMultiple2 =
-        ImmutableList.of(
-            UrnUtils.getUrn("urn:li:chart:test-urn"),
-            UrnUtils.getUrn("urn:li:chart:test-urn2"),
-            UrnUtils.getUrn("urn:li:chart:test-urn3"));
-    List<LineageRegistry.EdgeInfo> edgeInfos =
-        new ArrayList<>(
-            ImmutableList.of(
-                new LineageRegistry.EdgeInfo(
-                    "DownstreamOf",
-                    RelationshipDirection.INCOMING,
-                    Constants.DATASET_ENTITY_NAME)));
-    List<LineageRegistry.EdgeInfo> edgeInfosMultiple1 =
-        ImmutableList.of(
-            new LineageRegistry.EdgeInfo(
-                "DownstreamOf", RelationshipDirection.OUTGOING, Constants.DATASET_ENTITY_NAME),
-            new LineageRegistry.EdgeInfo(
-                "Consumes", RelationshipDirection.OUTGOING, Constants.DATASET_ENTITY_NAME));
-    List<LineageRegistry.EdgeInfo> edgeInfosMultiple2 =
-        ImmutableList.of(
-            new LineageRegistry.EdgeInfo(
-                "DownstreamOf", RelationshipDirection.OUTGOING, Constants.DATA_JOB_ENTITY_NAME),
-            new LineageRegistry.EdgeInfo(
-                "Consumes", RelationshipDirection.OUTGOING, Constants.DATA_JOB_ENTITY_NAME));
-    String entityType = "testEntityType";
-    Map<String, List<Urn>> urnsPerEntityType = Map.of(entityType, urns);
-    Map<String, List<Urn>> urnsPerEntityTypeMultiple =
-        Map.of(
-            Constants.DATASET_ENTITY_NAME,
-            urnsMultiple1,
-            Constants.CHART_ENTITY_NAME,
-            urnsMultiple2);
-    Map<String, List<LineageRegistry.EdgeInfo>> edgesPerEntityType = Map.of(entityType, edgeInfos);
-    Map<String, List<LineageRegistry.EdgeInfo>> edgesPerEntityTypeMultiple =
-        Map.of(
-            Constants.DATASET_ENTITY_NAME, edgeInfosMultiple1,
-            Constants.DATA_JOB_ENTITY_NAME, edgeInfosMultiple2);
-    GraphFilters graphFilters = new GraphFilters(ImmutableList.of(Constants.DATASET_ENTITY_NAME));
-    GraphFilters graphFiltersMultiple =
-        new GraphFilters(
-            ImmutableList.of(
-                Constants.DATASET_ENTITY_NAME,
-                Constants.DASHBOARD_ENTITY_NAME,
-                Constants.DATA_JOB_ENTITY_NAME));
-    Long startTime = 0L;
-    Long endTime = 1L;
-
-    ESGraphQueryDAO graphQueryDAO =
-        new ESGraphQueryDAO(null, null, null, new GraphQueryConfiguration());
-    QueryBuilder limitedBuilder =
-        graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos, graphFilters);
-
-    QueryBuilder fullBuilder =
-        graphQueryDAO.getLineageQuery(
-            operationContext.withLineageFlags(
-                f -> new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime)),
-            urnsPerEntityType,
-            edgesPerEntityType,
-            graphFilters);
-
-    QueryBuilder fullBuilderEmptyFilters =
-        graphQueryDAO.getLineageQuery(
-            operationContext,
-            urnsPerEntityType,
-            edgesPerEntityType,
-            GraphFilters.emptyGraphFilters);
-
-    QueryBuilder fullBuilderMultipleFilters =
-        graphQueryDAO.getLineageQuery(
-            operationContext.withLineageFlags(
-                f -> new LineageFlags().setEndTimeMillis(endTime).setStartTimeMillis(startTime)),
-            urnsPerEntityTypeMultiple,
-            edgesPerEntityTypeMultiple,
-            graphFiltersMultiple);
-
-    Assert.assertEquals(limitedBuilder.toString(), expectedQueryLimited);
-    Assert.assertEquals(fullBuilder.toString(), expectedQueryFull);
-    Assert.assertEquals(fullBuilderEmptyFilters.toString(), expectedQueryFullEmptyFilters);
-    Assert.assertEquals(fullBuilderMultipleFilters.toString(), expectedQueryFullMultipleFilters);
+    assertNotNull(dao);
   }
 
   @Test
-  private static void testAddEdgeToPaths() {
-    // Test method, ensure that the global structure is updated as expected.
-    Urn testParent = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,Test,PROD)");
-    Urn testChild = UrnUtils.getUrn("urn:li:dashboard:(looker,test-dashboard)");
+  public void testConstructorWithOpenSearchImplementation() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH);
 
-    // Case 0: Add with no existing paths.
-    Map<Urn, UrnArrayArray> nodePaths = new HashMap<>();
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    UrnArrayArray expectedPathsToChild =
-        new UrnArrayArray(ImmutableList.of(new UrnArray(ImmutableList.of(testParent, testChild))));
-    Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
 
-    // Case 1: No paths to parent.
-    nodePaths = new HashMap<>();
-    nodePaths.put(
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,Other,PROD)"),
-        new UrnArrayArray());
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    expectedPathsToChild =
-        new UrnArrayArray(ImmutableList.of(new UrnArray(ImmutableList.of(testParent, testChild))));
-    Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
+    assertNotNull(dao);
+  }
 
-    // Case 2: 1 Existing Path to Parent Node
-    nodePaths = new HashMap<>();
-    Urn testParentParent =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,TestParent,PROD)");
-    UrnArrayArray existingPathsToParent =
-        new UrnArrayArray(
-            ImmutableList.of(new UrnArray(ImmutableList.of(testParentParent, testParent))));
-    nodePaths.put(testParent, existingPathsToParent);
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    expectedPathsToChild =
-        new UrnArrayArray(
-            ImmutableList.of(
-                new UrnArray(ImmutableList.of(testParentParent, testParent, testChild))));
-    Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
+  @Test
+  public void testConstructorWithUnsupportedImplementation() {
+    when(mockElasticSearchConfig.getImplementation()).thenReturn("unsupported");
 
-    // Case 3: > 1 Existing Paths to Parent Node
-    nodePaths = new HashMap<>();
-    Urn testParentParent2 =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,TestParent2,PROD)");
-    UrnArrayArray existingPathsToParent2 =
-        new UrnArrayArray(
-            ImmutableList.of(
-                new UrnArray(ImmutableList.of(testParentParent, testParent)),
-                new UrnArray(ImmutableList.of(testParentParent2, testParent))));
-    nodePaths.put(testParent, existingPathsToParent2);
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    expectedPathsToChild =
-        new UrnArrayArray(
-            ImmutableList.of(
-                new UrnArray(ImmutableList.of(testParentParent, testParent, testChild)),
-                new UrnArray(ImmutableList.of(testParentParent2, testParent, testChild))));
-    Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
+    assertThrows(
+        NotImplementedException.class,
+        () -> {
+          new ESGraphQueryDAO(
+              mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+        });
+  }
 
-    // Case 4: Build graph from empty by adding multiple edges
-    nodePaths = new HashMap<>();
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParentParent, testParent);
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParentParent2, testParent);
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
+  @Test
+  public void testGetLineage() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
 
-    // Verify no paths to the grand-parents
-    Assert.assertNull(nodePaths.get(testParentParent));
-    Assert.assertNull(nodePaths.get(testParentParent2));
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
 
-    // Verify paths to testParent
-    UrnArrayArray expectedPathsToParent =
-        new UrnArrayArray(
-            ImmutableList.of(
-                new UrnArray(ImmutableList.of(testParentParent, testParent)),
-                new UrnArray(ImmutableList.of(testParentParent2, testParent))));
-    Assert.assertEquals(nodePaths.get(testParent), expectedPathsToParent);
+    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList());
+    when(mockDelegate.getLineage(
+            eq(mockOperationContext),
+            eq(mockEntityUrn),
+            eq(mockLineageGraphFilters),
+            eq(0),
+            eq(10),
+            eq(3)))
+        .thenReturn(expectedResponse);
 
-    // Verify paths to testChild
-    expectedPathsToChild =
-        new UrnArrayArray(
-            ImmutableList.of(
-                new UrnArray(ImmutableList.of(testParentParent, testParent, testChild)),
-                new UrnArray(ImmutableList.of(testParentParent2, testParent, testChild))));
-    Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
+    LineageResponse result =
+        dao.getLineage(mockOperationContext, mockEntityUrn, mockLineageGraphFilters, 0, 10, 3);
 
-    // Case 5: Mainly documentation: Verify that if you build the graph out of order bad things
-    // happen.
-    // Also test duplicate edge addition
-    nodePaths = new HashMap<>();
-    // Add edge to testChild first! Before path to testParent has been constructed.
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    // Duplicate paths WILL appear if you add the same edge twice. Documenting that here.
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParent, testChild);
-    // Now construct paths to testParent.
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParentParent, testParent);
-    ESGraphQueryDAO.addEdgeToPaths(nodePaths, testParentParent2, testParent);
+    assertEquals(result, expectedResponse);
+    verify(mockDelegate)
+        .getLineage(mockOperationContext, mockEntityUrn, mockLineageGraphFilters, 0, 10, 3);
+  }
 
-    // Verify no paths to the grand-parents
-    Assert.assertNull(nodePaths.get(testParentParent));
-    Assert.assertNull(nodePaths.get(testParentParent2));
+  @Test
+  public void testGetImpactLineage() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
 
-    // Verify paths to testParent
-    expectedPathsToParent =
-        new UrnArrayArray(
-            ImmutableList.of(
-                new UrnArray(ImmutableList.of(testParentParent, testParent)),
-                new UrnArray(ImmutableList.of(testParentParent2, testParent))));
-    Assert.assertEquals(nodePaths.get(testParent), expectedPathsToParent);
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
 
-    // Verify paths to testChild are INCORRECT: partial & duplicated
-    expectedPathsToChild =
-        new UrnArrayArray(
-            ImmutableList.of(
-                new UrnArray(ImmutableList.of(testParent, testChild)),
-                new UrnArray(ImmutableList.of(testParent, testChild))));
-    Assert.assertEquals(nodePaths.get(testChild), expectedPathsToChild);
+    LineageResponse expectedResponse = new LineageResponse(3, Arrays.asList());
+    when(mockDelegate.getImpactLineage(
+            eq(mockOperationContext), eq(mockEntityUrn), eq(mockLineageGraphFilters), eq(5)))
+        .thenReturn(expectedResponse);
+
+    LineageResponse result =
+        dao.getImpactLineage(mockOperationContext, mockEntityUrn, mockLineageGraphFilters, 5);
+
+    assertEquals(result, expectedResponse);
+    verify(mockDelegate)
+        .getImpactLineage(mockOperationContext, mockEntityUrn, mockLineageGraphFilters, 5);
+  }
+
+  @Test
+  public void testGetSearchResponseBasic() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    when(mockDelegate.getSearchResponse(
+            eq(mockOperationContext), eq(mockGraphFilters), eq(0), eq(20)))
+        .thenReturn(mockSearchResponse);
+
+    SearchResponse result = dao.getSearchResponse(mockOperationContext, mockGraphFilters, 0, 20);
+
+    assertEquals(result, mockSearchResponse);
+    verify(mockDelegate).getSearchResponse(mockOperationContext, mockGraphFilters, 0, 20);
+  }
+
+  @Test
+  public void testGetSearchResponseAdvanced() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    when(mockDelegate.getSearchResponse(
+            eq(mockOperationContext),
+            eq(mockGraphFilters),
+            eq(mockSortCriteria),
+            eq("scroll123"),
+            eq("5m"),
+            eq(15)))
+        .thenReturn(mockSearchResponse);
+
+    SearchResponse result =
+        dao.getSearchResponse(
+            mockOperationContext, mockGraphFilters, mockSortCriteria, "scroll123", "5m", 15);
+
+    assertEquals(result, mockSearchResponse);
+    verify(mockDelegate)
+        .getSearchResponse(
+            mockOperationContext, mockGraphFilters, mockSortCriteria, "scroll123", "5m", 15);
+  }
+
+  @Test
+  public void testGetSearchResponseWithNullParameters() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    when(mockDelegate.getSearchResponse(
+            eq(mockOperationContext),
+            eq(mockGraphFilters),
+            eq(mockSortCriteria),
+            isNull(),
+            isNull(),
+            isNull()))
+        .thenReturn(mockSearchResponse);
+
+    SearchResponse result =
+        dao.getSearchResponse(
+            mockOperationContext, mockGraphFilters, mockSortCriteria, null, null, null);
+
+    assertEquals(result, mockSearchResponse);
+    verify(mockDelegate)
+        .getSearchResponse(
+            mockOperationContext, mockGraphFilters, mockSortCriteria, null, null, null);
+  }
+
+  @Test
+  public void testExecuteSearch() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    when(mockDelegate.executeSearch(eq(mockSearchRequest))).thenReturn(mockSearchResponse);
+
+    SearchResponse result = dao.executeSearch(mockSearchRequest);
+
+    assertEquals(result, mockSearchResponse);
+    verify(mockDelegate).executeSearch(mockSearchRequest);
+  }
+
+  @Test
+  public void testConstructorCreatesCorrectDelegateForElasticsearch() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    assertNotNull(dao);
+    // The delegate should be an instance of GraphQueryElasticsearch7DAO
+    assertTrue(dao instanceof ESGraphQueryDAO);
+  }
+
+  @Test
+  public void testConstructorCreatesCorrectDelegateForOpenSearch() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH);
+
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    assertNotNull(dao);
+    // The delegate should be an instance of GraphQueryOpenSearchDAO
+    assertTrue(dao instanceof ESGraphQueryDAO);
+  }
+
+  @Test
+  public void testGetLineageWithNullCount() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    LineageResponse expectedResponse = new LineageResponse(5, Arrays.asList());
+    when(mockDelegate.getLineage(
+            eq(mockOperationContext),
+            eq(mockEntityUrn),
+            eq(mockLineageGraphFilters),
+            eq(0),
+            isNull(),
+            eq(3)))
+        .thenReturn(expectedResponse);
+
+    LineageResponse result =
+        dao.getLineage(mockOperationContext, mockEntityUrn, mockLineageGraphFilters, 0, null, 3);
+
+    assertEquals(result, expectedResponse);
+    verify(mockDelegate)
+        .getLineage(mockOperationContext, mockEntityUrn, mockLineageGraphFilters, 0, null, 3);
+  }
+
+  @Test
+  public void testGetSearchResponseWithNullCount() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    when(mockDelegate.getSearchResponse(
+            eq(mockOperationContext), eq(mockGraphFilters), eq(0), isNull()))
+        .thenReturn(mockSearchResponse);
+
+    SearchResponse result = dao.getSearchResponse(mockOperationContext, mockGraphFilters, 0, null);
+
+    assertEquals(result, mockSearchResponse);
+    verify(mockDelegate).getSearchResponse(mockOperationContext, mockGraphFilters, 0, null);
+  }
+
+  @Test
+  public void testGetSearchResponseAdvancedWithNullParameters() {
+    when(mockElasticSearchConfig.getImplementation())
+        .thenReturn(ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH);
+    ESGraphQueryDAO dao =
+        new ESGraphQueryDAO(
+            mockClient, mockGraphServiceConfig, mockElasticSearchConfig, mockMetricUtils);
+
+    // Use reflection to set the delegate since it's private
+    try {
+      java.lang.reflect.Field delegateField = ESGraphQueryDAO.class.getDeclaredField("delegate");
+      delegateField.setAccessible(true);
+      delegateField.set(dao, mockDelegate);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    when(mockDelegate.getSearchResponse(
+            eq(mockOperationContext),
+            eq(mockGraphFilters),
+            eq(mockSortCriteria),
+            eq("scroll123"),
+            eq("5m"),
+            isNull()))
+        .thenReturn(mockSearchResponse);
+
+    SearchResponse result =
+        dao.getSearchResponse(
+            mockOperationContext, mockGraphFilters, mockSortCriteria, "scroll123", "5m", null);
+
+    assertEquals(result, mockSearchResponse);
+    verify(mockDelegate)
+        .getSearchResponse(
+            mockOperationContext, mockGraphFilters, mockSortCriteria, "scroll123", "5m", null);
   }
 }

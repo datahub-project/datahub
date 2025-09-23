@@ -1,9 +1,11 @@
 import React, { useContext } from 'react';
-import { EntityType } from '../../../types.generated';
-import { useIsSeparateSiblingsMode } from './siblingUtils';
-import { EntityContextType, UpdateEntityType } from './types';
 
-const EntityContext = React.createContext<EntityContextType>({
+import { shouldEntityBeTreatedAsPrimary, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { EntityContextType, UpdateEntityType } from '@app/entity/shared/types';
+
+import { EntityType } from '@types';
+
+export const EntityContext = React.createContext<EntityContextType>({
     urn: '',
     entityType: EntityType.Dataset,
     entityData: null,
@@ -14,6 +16,7 @@ const EntityContext = React.createContext<EntityContextType>({
     refetch: () => Promise.resolve({}),
     lineage: undefined,
     dataNotCombinedWithSiblings: null,
+    entityState: { shouldRefetchContents: false, setShouldRefetchContents: () => {} },
 });
 
 export default EntityContext;
@@ -60,8 +63,8 @@ export const useLineageData = () => {
 export const useMutationUrn = () => {
     const { urn, entityData } = useContext(EntityContext);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
-    if (!entityData?.siblings || entityData?.siblings?.isPrimary || isHideSiblingMode) {
+    if (!entityData?.siblingsSearch?.searchResults || shouldEntityBeTreatedAsPrimary(entityData) || isHideSiblingMode) {
         return urn;
     }
-    return entityData?.siblings?.siblings?.[0]?.urn || urn;
+    return entityData?.siblingsSearch?.searchResults?.[0].entity.urn || urn;
 };
