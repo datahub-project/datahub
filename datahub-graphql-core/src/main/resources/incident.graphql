@@ -615,7 +615,8 @@ extend type Chart {
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type MLModel {
