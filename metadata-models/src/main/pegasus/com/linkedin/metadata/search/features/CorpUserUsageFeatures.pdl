@@ -54,12 +54,5 @@ record CorpUserUsageFeatures {
    * With links to the users top datasets with lineage (top 25)
    * Map keys are dataset URN strings
    */
-  @Searchable = {
-    "/*": {
-      "fieldName": "topDatasetsByUsage",
-      "fieldType": "OBJECT",
-      "queryByDefault": false
-    }
-  }
   userTopDatasetsByUsage: optional map[string, double]
 }
