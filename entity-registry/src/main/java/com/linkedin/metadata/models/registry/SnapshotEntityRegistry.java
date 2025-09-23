@@ -12,7 +12,6 @@ import com.linkedin.metadata.aspect.patch.template.common.GlobalTagsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.GlossaryTermsTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.OwnershipTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.SiblingsTemplate;
-import com.linkedin.metadata.aspect.patch.template.common.StatusTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.StructuredPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.VersionPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dashboard.DashboardInfoTemplate;
@@ -23,11 +22,7 @@ import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductProper
 import com.linkedin.metadata.aspect.patch.template.dataset.DatasetPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
-import com.linkedin.metadata.aspect.patch.template.domain.DomainsTemplate;
 import com.linkedin.metadata.aspect.patch.template.form.FormInfoTemplate;
-import com.linkedin.metadata.aspect.patch.template.glossary.GlossaryNodeInfoTemplate;
-import com.linkedin.metadata.aspect.patch.template.glossary.GlossaryRelatedTermsTemplate;
-import com.linkedin.metadata.aspect.patch.template.glossary.GlossaryTermInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.structuredproperty.StructuredPropertyDefinitionTemplate;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
@@ -102,18 +97,12 @@ public class SnapshotEntityRegistry implements EntityRegistry {
 
     Map<String, Template<? extends RecordTemplate>> aspectSpecTemplateMap = new HashMap<>();
     aspectSpecTemplateMap.put(OWNERSHIP_ASPECT_NAME, new OwnershipTemplate());
-    aspectSpecTemplateMap.put(STATUS_ASPECT_NAME, new StatusTemplate());
     aspectSpecTemplateMap.put(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesTemplate());
     aspectSpecTemplateMap.put(UPSTREAM_LINEAGE_ASPECT_NAME, new UpstreamLineageTemplate());
     aspectSpecTemplateMap.put(GLOBAL_TAGS_ASPECT_NAME, new GlobalTagsTemplate());
     aspectSpecTemplateMap.put(
         EDITABLE_SCHEMA_METADATA_ASPECT_NAME, new EditableSchemaMetadataTemplate());
     aspectSpecTemplateMap.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTermsTemplate());
-    aspectSpecTemplateMap.put(GLOSSARY_TERM_INFO_ASPECT_NAME, new GlossaryTermInfoTemplate());
-    aspectSpecTemplateMap.put(GLOSSARY_NODE_INFO_ASPECT_NAME, new GlossaryNodeInfoTemplate());
-    aspectSpecTemplateMap.put(
-        GLOSSARY_RELATED_TERM_ASPECT_NAME, new GlossaryRelatedTermsTemplate());
-    aspectSpecTemplateMap.put(DOMAINS_ASPECT_NAME, new DomainsTemplate());
     aspectSpecTemplateMap.put(DATA_FLOW_INFO_ASPECT_NAME, new DataFlowInfoTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INFO_ASPECT_NAME, new DataJobInfoTemplate());
     aspectSpecTemplateMap.put(

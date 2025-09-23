@@ -1,7 +1,6 @@
 extend type Mutation {
   patchEntity(input: PatchEntityInput!): PatchEntityResult!
   patchEntities(input: [PatchEntityInput!]!): [PatchEntityResult!]!
-  patchGlossaryTerm(input: PatchGlossaryTermInput!): PatchEntityResult!
 }
 
 input PatchEntityInput {
@@ -13,14 +12,6 @@ input PatchEntityInput {
   headers: [StringMapEntryInput!]
 }
 
-input PatchGlossaryTermInput {
-  urn: String
-  entityType: String
-  aspectName: String!
-  patch: [PatchOperationInput!]!
-  systemMetadata: SystemMetadataInput
-  headers: [StringMapEntryInput!]
-}
 
 input PatchOperationInput {
   op: PatchOperationType!
