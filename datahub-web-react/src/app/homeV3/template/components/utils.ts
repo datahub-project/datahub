@@ -1,6 +1,8 @@
 import { ClientRect, CollisionDetection } from '@dnd-kit/core';
 import { Coordinates } from '@dnd-kit/utilities';
 
+import { PageTemplateSurfaceType } from '@types';
+
 // Distance threshold in pixels - ignore droppables beyond this distance
 const DISTANCE_THRESHOLD = 200;
 
@@ -57,3 +59,13 @@ export const pointerClosestCollisionDetector: CollisionDetection = ({ droppableR
         .filter((collision) => collision.data.distance < DISTANCE_THRESHOLD)
         .sort((a, b) => a.data.distance - b.data.distance);
 };
+
+export type BottomAddButtonMode = 'homeWithRows' | 'homeWithoutRows' | 'assetSummary';
+
+export function getBottomButtonMode(templateType: PageTemplateSurfaceType, hasRows: boolean): BottomAddButtonMode {
+    if (templateType === PageTemplateSurfaceType.AssetSummary) {
+        return 'assetSummary';
+    }
+    if (hasRows) return 'homeWithRows';
+    return 'homeWithoutRows';
+}

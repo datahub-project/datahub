@@ -166,7 +166,7 @@ class NifiSourceConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     )
 
     @root_validator(skip_on_failure=True)
-    def validate_auth_params(cla, values):
+    def validate_auth_params(cls, values):
         if values.get("auth") is NifiAuthType.CLIENT_CERT and not values.get(
             "client_cert_file"
         ):

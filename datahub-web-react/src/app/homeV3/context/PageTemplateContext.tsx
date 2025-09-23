@@ -1,4 +1,4 @@
-import React, { ReactNode, createContext, useContext, useMemo, useState } from 'react';
+import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useAssetSummaryOperations } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
@@ -42,7 +42,7 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         useTemplateOperations(setPersonalTemplate, personalTemplate, templateType);
 
     // Modal state
-    const moduleModalState = useModuleModalState();
+    const moduleModalState = useModuleModalState(templateType);
 
     // Module operations
     const { addModule, removeModule, upsertModule, moveModule, moduleContext } = useModuleOperations(
@@ -69,9 +69,6 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
         upsertTemplate,
     );
 
-    // If modules should be reloaded
-    const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
-
     const value = useMemo(
         () => ({
             isTemplateEditable,
@@ -90,8 +87,6 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
-            reloadHomepageModules,
-            setReloadHomepageModules,
             moduleContext,
             // Asset summary operations
             summaryElements,
@@ -116,8 +111,6 @@ export const PageTemplateProvider = ({ children, templateType }: Props) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
-            reloadHomepageModules,
-            setReloadHomepageModules,
             moduleContext,
             // Asset summary operations
             summaryElements,
