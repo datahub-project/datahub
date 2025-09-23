@@ -10,6 +10,7 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
     DynamicTypedConfig,
+    HiddenFromDocs,
 )
 from datahub.configuration.pydantic_migration_helpers import GenericModel
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -55,25 +56,21 @@ class StatefulIngestionConfig(ConfigModel):
         description="Whether or not to enable stateful ingest. "
         "Default: True if a pipeline_name is set and either a datahub-rest sink or `datahub_api` is specified, otherwise False",
     )
-    max_checkpoint_state_size: pydantic.PositiveInt = Field(
+    max_checkpoint_state_size: HiddenFromDocs[pydantic.PositiveInt] = Field(
         default=2**24,  # 16 MB
         description="The maximum size of the checkpoint state in bytes. Default is 16MB",
-        hidden_from_docs=True,
     )
-    state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
+    state_provider: HiddenFromDocs[Optional[DynamicTypedStateProviderConfig]] = Field(
         default=None,
         description="The ingestion state provider configuration.",
-        hidden_from_docs=True,
     )
-    ignore_old_state: bool = Field(
+    ignore_old_state: HiddenFromDocs[bool] = Field(
         default=False,
         description="If set to True, ignores the previous checkpoint state.",
-        hidden_from_docs=True,
     )
-    ignore_new_state: bool = Field(
+    ignore_new_state: HiddenFromDocs[bool] = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
-        hidden_from_docs=True,
     )
 
     @pydantic.root_validator(skip_on_failure=True)

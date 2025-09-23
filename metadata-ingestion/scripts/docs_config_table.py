@@ -1,7 +1,7 @@
 import html
 import json
 import re
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, ClassVar, Dict, Iterable, List, Optional, Type
 
 from pydantic import BaseModel, Field
 
@@ -71,10 +71,12 @@ class FieldRow(BaseModel):
         field_name: Optional[str]
 
     # matches any [...] style section inside a field path
-    _V2_FIELD_PATH_TOKEN_MATCHER = r"\[[\w.]*[=]*[\w\(\-\ \_\).]*\][\.]*"
+    _V2_FIELD_PATH_TOKEN_MATCHER: ClassVar[str] = r"\[[\w.]*[=]*[\w\(\-\ \_\).]*\][\.]*"
     # matches a .?[...] style section inside a field path anchored to the beginning
-    _V2_FIELD_PATH_TOKEN_MATCHER_PREFIX = rf"^[\.]*{_V2_FIELD_PATH_TOKEN_MATCHER}"
-    _V2_FIELD_PATH_FIELD_NAME_MATCHER = r"^\w+"
+    _V2_FIELD_PATH_TOKEN_MATCHER_PREFIX: ClassVar[str] = (
+        rf"^[\.]*{_V2_FIELD_PATH_TOKEN_MATCHER}"
+    )
+    _V2_FIELD_PATH_FIELD_NAME_MATCHER: ClassVar[str] = r"^\w+"
 
     @staticmethod
     def map_field_path_to_components(field_path: str) -> List[Component]:
@@ -344,7 +346,7 @@ def priority_value(path: str) -> str:
 
 
 def should_hide_field(
-    schema_field, current_source: str, schema_dict: Dict[str, Any]
+    schema_field: SchemaFieldClass, current_source: str, schema_dict: Dict[str, Any]
 ) -> bool:
     """Check if field should be hidden for the current source"""
     # Extract field name from the path
