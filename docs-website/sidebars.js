@@ -566,7 +566,7 @@ module.exports = {
           },
           items: [
             "metadata-ingestion/docs/transformer/dataset_transformer",
-            "metadata-ingestion/docs/transformer/universal_transformers"
+            "metadata-ingestion/docs/transformer/universal_transformers",
           ],
         },
       ],
