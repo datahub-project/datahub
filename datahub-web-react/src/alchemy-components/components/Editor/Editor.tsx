@@ -27,6 +27,8 @@ import {
 
 import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
+import { uploadFile } from '@components/components/Editor/extensions/fileDragDrop/fileUploadUtils';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
@@ -47,10 +49,22 @@ type EditorProps = {
     placeholder?: string;
     hideHighlightToolbar?: boolean;
     toolbarStyles?: React.CSSProperties;
+    enableFileDragDrop?: boolean;
+    onFileUpload?: (file: File) => Promise<string>;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles } = props;
+    const {
+        content,
+        readOnly,
+        onChange,
+        className,
+        placeholder,
+        hideHighlightToolbar,
+        toolbarStyles,
+        enableFileDragDrop = true,
+        onFileUpload,
+    } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -64,6 +78,13 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new HeadingExtension({}),
             new HistoryExtension({}),
             new HorizontalRuleExtension({}),
+            ...(enableFileDragDrop
+                ? [
+                      new FileDragDropExtension({
+                          onFileUpload: onFileUpload || uploadFile,
+                      }),
+                  ]
+                : []),
             new ImageExtension({ enableResizing: !readOnly }),
             new ItalicExtension(),
             new LinkExtension({ autoLink: true, defaultTarget: '_blank' }),

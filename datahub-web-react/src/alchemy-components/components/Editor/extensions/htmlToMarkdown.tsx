@@ -3,6 +3,7 @@ import _TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 
 import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
+import { FILE_ATTRS } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { ptToPx } from '@components/components/Editor/utils';
 
 const TurndownService = defaultImport(_TurndownService);
@@ -105,6 +106,53 @@ const turndownService = new TurndownService({
             if (!urn) return '';
 
             return `[${node.textContent}](${urn})`;
+        },
+    })
+    /* Formats HTML file nodes to Markdown - looks for React components with file-node class */
+    .addRule('fileNodes', {
+        filter: (node) => {
+            // Look for elements with file-node class (from React components)
+            const hasFileClass = node.classList && node.classList.contains('file-node');
+            const hasFileAttrs = node.hasAttribute && (
+                node.hasAttribute(FILE_ATTRS.name) || 
+                node.hasAttribute('data-file-name')
+            );
+            
+            console.log('🔥 Turndown filter checking node:', {
+                nodeName: node.nodeName,
+                className: node.className,
+                classList: node.classList,
+                hasFileClass,
+                hasFileAttrs,
+                hasAttribute: !!node.hasAttribute,
+                attributes: node.attributes ? Array.from(node.attributes).map(attr => `${attr.name}=${attr.value}`) : []
+            });
+            
+            return hasFileClass || hasFileAttrs;
+        },
+        replacement: (_, node) => {
+            console.log('🔥 Turndown converting file node to markdown:', node);
+            invariant(isElementDomNode(node), {
+                code: ErrorConstant.EXTENSION,
+                message: `Invalid node \`${node.nodeName}\` encountered for file nodes when converting html to markdown.`,
+            });
+            
+            // Try multiple attribute patterns since React might use different ones
+            const url = node.getAttribute(FILE_ATTRS.url) || 
+                       node.getAttribute('data-file-url') || '';
+            const name = node.getAttribute(FILE_ATTRS.name) || 
+                        node.getAttribute('data-file-name') || '';
+            const type = node.getAttribute(FILE_ATTRS.type) || 
+                        node.getAttribute('data-file-type') || '';
+            const size = node.getAttribute(FILE_ATTRS.size) || 
+                        node.getAttribute('data-file-size') || '0';
+
+            console.log('🔥 Extracted file attributes:', { url, name, type, size });
+
+            // Create our custom markdown syntax: [FILE:filename.ext|type|size|url]
+            const fileMarker = `\n\n[FILE:${name}|${type}|${size}|${url}]\n\n`;
+            console.log('🔥 Generated file marker:', fileMarker);
+            return fileMarker;
         },
     })
     /* Add support for underline */
