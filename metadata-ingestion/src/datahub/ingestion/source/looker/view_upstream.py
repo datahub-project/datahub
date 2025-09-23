@@ -15,9 +15,16 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerExplore,
     LookerViewId,
     ViewField,
+    ViewFieldDimensionGroupType,
     ViewFieldType,
 )
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
+from datahub.ingestion.source.looker.looker_constant import (
+    VIEW_FIELD_INTERVALS_ATTRIBUTE,
+    NAME,
+    VIEW_FIELD_TIMEFRAMES_ATTRIBUTE,
+    VIEW_FIELD_TYPE_ATTRIBUTE,
+)
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerQueryResponseFormat,
@@ -29,7 +36,6 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
 )
 from datahub.ingestion.source.looker.lookml_config import (
     DERIVED_VIEW_SUFFIX,
-    NAME,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
@@ -308,7 +314,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     Why view_to_explore_map is required:
     The Looker Query API expects the explore name (not the view name) as the "view" parameter in the WriteQuery.
     In Looker, a view can be referenced by multiple explores, but the API needs any one of the
-    explores to access the view's fiels
+    explores to access the view's fields
 
     Example WriteQuery request (see `_execute_query` for details):
         {
@@ -424,6 +430,51 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             # Reraise the exception to allow higher-level handling.
             raise
 
+    def _get_time_dim_group_field_name(self, dim_group: dict) -> str:
+        """
+        Time dimension groups must be referenced by their individual timeframes suffix.
+        Example:
+            dimension_group: created {
+                type: time
+                timeframes: [date, week, month]
+                sql: ${TABLE}.created_at ;;
+            }
+        Used as: {view_name.date_created}
+
+        created -> created_date, created_week, created_month
+        # Ref: https://cloud.google.com/looker/docs/reference/param-field-dimension-group#dimension_groups_must_be_referenced_by_their_individual_dimensions
+        """
+        dim_group_name = dim_group.get(NAME)
+        timeframes = dim_group.get(VIEW_FIELD_TIMEFRAMES_ATTRIBUTE)
+
+        # If timeframes is not included (rare case), the dimension group will include all possible timeframes.
+        # We will pick to use "raw"
+        suffix = timeframes[0] if timeframes else "raw"
+        return f"{dim_group_name}_{suffix}"
+
+    def _get_duration_dim_group_field_name(self, dim_group: dict) -> str:
+        """
+        Duration dimension groups must be referenced by their plural version of the interval value as prefix
+        Example:
+            dimension_group: since_event {
+                type: duration
+                intervals: [hour, day, week, month, quarter, year]
+                sql_start: ${faa_event_date_raw} ;;
+                sql_end: CURRENT_TIMESTAMP();;
+            }
+        Used as: {view_name.hours_since_event}
+
+        since_event -> hours_since_event, days_since_event, weeks_since_event, months_since_event, quarters_since_event, years_since_event
+        # Ref: https://cloud.google.com/looker/docs/reference/param-field-dimension-group#referencing_intervals_from_another_lookml_field
+        """
+        dim_group_name = dim_group.get(NAME)
+        intervals = dim_group.get(VIEW_FIELD_INTERVALS_ATTRIBUTE)
+
+        # If intervals is not included (rare case), the dimension group will include all possible intervals.
+        # We will pick to use "day" -> "days"
+        prefix = f"{intervals[0]}s" if intervals else "days"
+        return f"{prefix}_{dim_group_name}"
+
     def _get_sql_write_query(self) -> WriteQuery:
         """
         Constructs a WriteQuery object to obtain the SQL representation of the current Looker view.
@@ -445,25 +496,30 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         # Collect all dimension and measure fields for the view.
         view_fields: List[str] = []
+        # Add dimension fields in the format: <view_name>.<dimension_name> or <view_name>.<measure_name>
+        for field in self.view_context.dimensions() + self.view_context.measures():
+            field_name = field.get(NAME)
+            assert field_name  # Happy linter
+            view_fields.append(self._get_looker_api_field_name(field_name))
 
-        # Add dimension fields in the format: <view_name>.<dimension_name>
-        for dim in self.view_context.dimensions():
-            dim_name = dim.get("name")
-            if dim_name:
-                view_fields.append(self._get_looker_api_field_name(dim_name))
+        for dim_group in self.view_context.dimension_groups():
+            dim_group_type: ViewFieldDimensionGroupType = ViewFieldDimensionGroupType(
+                dim_group.get(VIEW_FIELD_TYPE_ATTRIBUTE)
+            )
 
-        # Add measure fields in the format: <view_name>.<measure_name>
-        for measure in self.view_context.measures():
-            measure_name = measure.get("name")
-            if measure_name:
-                view_fields.append(self._get_looker_api_field_name(measure_name))
-
-        # NOTE: Dimension groups are not currently handled.
-        # If needed, uncomment and implement the following:
-        # for dim_group in self.view_context.dimension_groups():
-        #     dim_group_name = dim_group.get("name")
-        #     if dim_group_name:
-        #         view_fields.append(f"{view_name}.{dim_group_name}")
+            match dim_group_type:
+                case ViewFieldDimensionGroupType.TIME:
+                    view_fields.append(
+                        self._get_looker_api_field_name(
+                            self._get_time_dim_group_field_name(dim_group)
+                        )
+                    )
+                case ViewFieldDimensionGroupType.DURATION:
+                    view_fields.append(
+                        self._get_looker_api_field_name(
+                            self._get_duration_dim_group_field_name(dim_group)
+                        )
+                    )
 
         # Construct and return the WriteQuery object.
         # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
@@ -638,8 +694,31 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         if not spr.column_lineage:
             return []
 
+        field_type: Optional[ViewFieldDimensionGroupType] = None
         field_name = field_context.name()
+        try:
+            # Try if field is a dimension group
+            field_type = ViewFieldDimensionGroupType(
+                field_context.raw_field.get(VIEW_FIELD_TYPE_ATTRIBUTE)
+            )
+
+            match field_type:
+                case ViewFieldDimensionGroupType.TIME:
+                    field_name = self._get_time_dim_group_field_name(
+                        field_context.raw_field
+                    )
+                case ViewFieldDimensionGroupType.DURATION:
+                    field_name = self._get_duration_dim_group_field_name(
+                        field_context.raw_field
+                    )
+        except Exception:
+            # Not a dimension group, no modification needed
+            logger.debug(
+                f"view-name={self.view_context.name()}, field-name={field_name}, field-type={field_context.raw_field.get(VIEW_FIELD_TYPE_ATTRIBUTE)}"
+            )
+
         field_api_name = self._get_looker_api_field_name(field_name).lower()
+
         upstream_refs: List[ColumnRef] = []
 
         for lineage in spr.column_lineage:

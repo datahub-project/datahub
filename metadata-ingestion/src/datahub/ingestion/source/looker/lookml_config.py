@@ -31,8 +31,6 @@ from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
-NAME: str = "name"
-
 BASE_PROJECT_NAME = "__BASE"
 
 EXPLORE_FILE_EXTENSION = ".explore.lkml"
