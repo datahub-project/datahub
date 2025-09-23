@@ -4,6 +4,7 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 
 
@@ -30,12 +31,22 @@ class EnvConfigMixin(ConfigModel):
         description="The environment that all assets produced by this connector belong to",
     )
 
-    @pydantic.field_validator("env", mode="after")
-    @classmethod
-    def env_must_be_one_of(cls, v: str) -> str:
-        if v.upper() not in ALL_ENV_TYPES:
-            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
-        return v.upper()
+    if PYDANTIC_VERSION_2:
+
+        @pydantic.field_validator("env", mode="after")
+        @classmethod
+        def env_must_be_one_of(cls, v: str) -> str:
+            if v.upper() not in ALL_ENV_TYPES:
+                raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
+            return v.upper()
+    else:
+
+        @pydantic.validator("env")
+        @classmethod
+        def env_must_be_one_of(cls, v: str) -> str:
+            if v.upper() not in ALL_ENV_TYPES:
+                raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
+            return v.upper()
 
 
 class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):

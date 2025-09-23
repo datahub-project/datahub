@@ -19,7 +19,6 @@ from typing import (
 )
 
 import pydantic
-import pydantic_core
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
@@ -27,6 +26,10 @@ from typing_extensions import Protocol, Self
 
 from datahub.configuration._config_enum import ConfigEnum as ConfigEnum
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
+
+# Conditional import for Pydantic v2
+if PYDANTIC_VERSION_2:
+    import pydantic_core
 from datahub.utilities.dedup_list import deduplicate_list
 
 REDACT_KEYS = {
@@ -91,24 +94,35 @@ def redact_raw_config(obj: Any) -> Any:
 if TYPE_CHECKING:
     AnyType = TypeVar("AnyType")
     HiddenFromDocs = Annotated[AnyType, ...]
-else:
+elif PYDANTIC_VERSION_2:
     HiddenFromDocs = pydantic.json_schema.SkipJsonSchema
+else:
+    # For Pydantic v1, use a simple annotation
+    HiddenFromDocs = Annotated[Any, ...]
 
-LaxStr = Annotated[str, pydantic.BeforeValidator(lambda v: str(v))]
+if PYDANTIC_VERSION_2:
+    LaxStr = Annotated[str, pydantic.BeforeValidator(lambda v: str(v))]
+else:
+    # For Pydantic v1, just use str
+    LaxStr = str
 
 
 @dataclasses.dataclass(frozen=True)
 class SupportedSources:
     sources: List[str]
 
-    def __get_pydantic_json_schema__(
-        self,
-        core_schema: pydantic_core.core_schema.CoreSchema,
-        handler: pydantic.GetJsonSchemaHandler,
-    ) -> pydantic.json_schema.JsonSchemaValue:
-        json_schema = handler(core_schema)
-        json_schema.setdefault("schema_extra", {})["supported_sources"] = self.sources
-        return json_schema
+    if PYDANTIC_VERSION_2:
+
+        def __get_pydantic_json_schema__(
+            self,
+            core_schema: "pydantic_core.core_schema.CoreSchema",
+            handler: pydantic.GetJsonSchemaHandler,
+        ) -> pydantic.json_schema.JsonSchemaValue:
+            json_schema = handler(core_schema)
+            json_schema.setdefault("schema_extra", {})["supported_sources"] = (
+                self.sources
+            )
+            return json_schema
 
 
 class ConfigModel(BaseModel):
