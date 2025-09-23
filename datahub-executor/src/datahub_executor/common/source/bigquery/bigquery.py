@@ -179,6 +179,10 @@ class BigQuerySource(Source):
             yield entry
 
     def _execute_fetchall_query(self, query: str) -> QueryJob:  # type: ignore[override]  # TODO: Sync with parent class
+        self._validate_custom_sql(query)
+        return self._execute_fetchall_query_internal(query)
+
+    def _execute_fetchall_query_internal(self, query: str) -> QueryJob:  # type: ignore[override]  # TODO: Sync with parent class
         try:
             return self.connection.get_client().query(query)
         except (

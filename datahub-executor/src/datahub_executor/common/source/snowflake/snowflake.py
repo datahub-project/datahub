@@ -93,7 +93,7 @@ class SnowflakeSource(Source):
     def _convert_value_for_comparison(self, column_value: str, column_type: str) -> str:
         return convert_value_for_comparison(column_value, column_type)
 
-    def _execute_fetchall_query(self, query: str) -> List[Any]:
+    def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         try:
             cur = self.connection.get_client().cursor()
             cur.execute(query)

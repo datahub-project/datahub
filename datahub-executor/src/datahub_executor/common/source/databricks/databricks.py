@@ -72,7 +72,7 @@ class DatabricksSource(Source):
         self.field_values_sql_generator = DatabricksFieldValuesSQLGenerator()
         self.field_metrics_sql_generator = DatabricksFieldMetricsSQLGenerator()
 
-    def _execute_fetchall_query(self, query: str) -> List[Any]:
+    def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         client = self.connection.get_client()
         try:
             return client.cursor().execute(query).fetchall()

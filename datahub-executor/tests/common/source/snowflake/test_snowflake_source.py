@@ -385,7 +385,15 @@ class TestSnowflakeSource:
 
     def test_execute_fetchall_query(self) -> None:
         query = "SELECT * FROM TABLE;"
-        self.snowflake_source._execute_fetchall_query(query)
+
+        with patch.object(
+            self.snowflake_source,
+            "_validate_custom_sql",
+            wraps=self.snowflake_source._validate_custom_sql,
+        ) as validate_spy:
+            self.snowflake_source._execute_fetchall_query(query)
+            validate_spy.assert_called_once_with(query)
+
         self.snowflake_connection_mock.get_client().cursor().execute.assert_has_calls(
             [
                 call(

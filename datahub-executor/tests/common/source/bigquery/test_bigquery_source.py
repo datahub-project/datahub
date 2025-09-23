@@ -283,7 +283,14 @@ class TestBigQuerySource:
 
     def test_execute_fetchall_query(self) -> None:
         query = "SELECT * FROM TABLE;"
-        self.bigquery_source._execute_fetchall_query(query)
+        with patch.object(
+            self.bigquery_source,
+            "_validate_custom_sql",
+            wraps=self.bigquery_source._validate_custom_sql,
+        ) as validate_spy:
+            self.bigquery_source._execute_fetchall_query(query)
+            validate_spy.assert_called_once_with(query)
+
         self.bigquery_connection_mock.get_client().query.assert_called_once_with(query)
 
     def test_get_entity_events_field_update_bad_column_type(self) -> None:

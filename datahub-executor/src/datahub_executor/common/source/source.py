@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import date, datetime, timezone
 from typing import Any, List, Optional, Tuple, Union
 
@@ -56,6 +57,10 @@ class Source:
         self.connection = connection
 
     def _execute_fetchall_query(self, query: str) -> List[Any]:
+        self._validate_custom_sql(query)
+        return self._execute_fetchall_query_internal(query)
+
+    def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         raise NotImplementedError()
 
     def _get_database_string(
@@ -346,6 +351,28 @@ class Source:
         database_params = self._get_database_params(entity_urn, database_parameters)
         return self._get_row_count(database_params, volume_parameters, filter_params)
 
+    def _validate_custom_sql(
+        self,
+        sql_statement: str,
+    ) -> None:
+        INVALID_STATEMENTS = [
+            r"INSERT INTO",
+            r"UPDATE .*? SET",
+            r"DELETE FROM",
+            r"CREATE TABLE",
+            r"ALTER TABLE",
+            r"DROP TABLE",
+            r"CREATE DATABASE",
+            r"DROP DATABASE",
+        ]
+        if any(
+            re.search(invalid_statement, sql_statement, re.IGNORECASE)
+            for invalid_statement in INVALID_STATEMENTS
+        ):
+            raise CustomSQLErrorException(
+                message="Custom SQL cannot alter tables or databases"
+            )
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=2, min=4, max=10),
@@ -364,7 +391,6 @@ class Source:
             raise CustomSQLErrorException(
                 f"Custom SQL returned {len(rows)} rows, expected one!"
             )
-
         row = rows[0]
         if len(row) != 1:
             # this SQL should return ONE value only

@@ -52,6 +52,7 @@ class AssertionStdParameterType(Enum):
     NUMBER = "NUMBER"
     LIST = "LIST"
     SET = "SET"
+    SQL = "SQL"
     UNKNOWN = "UNKNOWN"
 
 

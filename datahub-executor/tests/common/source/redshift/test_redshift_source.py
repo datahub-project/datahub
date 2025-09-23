@@ -338,7 +338,14 @@ class TestRedshiftSource:
 
     def test_execute_fetchall_query(self) -> None:
         query = "SELECT * FROM TABLE;"
-        self.redshift_source._execute_fetchall_query(query)
+        with patch.object(
+            self.redshift_source,
+            "_validate_custom_sql",
+            wraps=self.redshift_source._validate_custom_sql,
+        ) as validate_spy:
+            self.redshift_source._execute_fetchall_query(query)
+            validate_spy.assert_called_once_with(query)
+
         self.redshift_connection_mock.get_client().cursor().execute.assert_called_once_with(
             query
         )

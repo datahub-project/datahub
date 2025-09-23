@@ -353,7 +353,14 @@ class TestDatabricksSource:
 
     def test_execute_fetchall_query(self) -> None:
         query = "SELECT * FROM TABLE;"
-        self.databricks_source._execute_fetchall_query(query)
+        with patch.object(
+            self.databricks_source,
+            "_validate_custom_sql",
+            wraps=self.databricks_source._validate_custom_sql,
+        ) as validate_spy:
+            self.databricks_source._execute_fetchall_query(query)
+            validate_spy.assert_called_once_with(query)
+
         self.databricks_connection_mock.get_client().cursor().execute.assert_has_calls(
             [call(query)]
         )

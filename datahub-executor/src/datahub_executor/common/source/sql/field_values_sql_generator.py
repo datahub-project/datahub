@@ -5,6 +5,7 @@ from typing import List, Optional, Union
 from datahub_executor.common.types import (
     AssertionStdOperator,
     AssertionStdParameters,
+    AssertionStdParameterType,
     FieldTransform,
     FieldTransformType,
     SchemaFieldSpec,
@@ -184,10 +185,17 @@ class FieldValuesSQLGenerator:
             operator_value = (
                 "IN" if operator == AssertionStdOperator.NOT_IN else "NOT IN"
             )
-            values = json.loads(parameters.value.value)
-            where_clause = self._setup_where_clause_in_or_not_in(
-                operator_value, field.path, values
-            )
+            if parameters.value.type == AssertionStdParameterType.SQL:
+                sql_subquery = parameters.value.value.strip().rstrip(";")
+                where_clause = f"""CASE
+                    WHEN {field.path} {operator_value} ({sql_subquery}) THEN 1
+                    ELSE 0
+                END = 1"""
+            else:
+                values = json.loads(parameters.value.value)
+                where_clause = self._setup_where_clause_in_or_not_in(
+                    operator_value, field.path, values
+                )
 
         return where_clause
 
@@ -282,5 +290,4 @@ class FieldValuesSQLGenerator:
             {where_string}
         """
 
-        logger.debug(field_values_query)
         return field_values_query
