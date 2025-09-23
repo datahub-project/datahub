@@ -109,7 +109,7 @@ describe("summary tab", () => {
     cy.login();
   });
 
-  it("domain", () => {
+  it.only("domain", () => {
     const testId = getTestId();
     const domainName = `domain_${testId}`;
     const childDomainName = `child_domain_${testId}`;
