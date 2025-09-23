@@ -98,8 +98,8 @@ class EntityClient:
         except KeyError as e:
             # Try to import cloud-specific entities if not found
             try:
-                from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
-                from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+                from acryl_datahub_cloud.sdk.entities.assertion import Assertion
+                from acryl_datahub_cloud.sdk.entities.monitor import Monitor
 
                 if urn.entity_type == "assertion":
                     EntityClass = Assertion
@@ -124,11 +124,11 @@ class EntityClient:
 
         # Type narrowing for cloud-specific entities
         if urn.entity_type == "assertion":
-            from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
+            from acryl_datahub_cloud.sdk.entities.assertion import Assertion
 
             assert isinstance(entity, Assertion)
         elif urn.entity_type == "monitor":
-            from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+            from acryl_datahub_cloud.sdk.entities.monitor import Monitor
 
             assert isinstance(entity, Monitor)
 
