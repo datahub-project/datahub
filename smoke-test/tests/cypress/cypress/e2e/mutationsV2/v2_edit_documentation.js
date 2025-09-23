@@ -154,7 +154,7 @@ describe("edit documentation and link to dataset", () => {
 
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
     goToEntityDocumentationTab();
   });
 
