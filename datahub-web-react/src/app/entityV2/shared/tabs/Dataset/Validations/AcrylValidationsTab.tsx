@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Tabs, Tooltip } from '@components';
 import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -151,6 +151,21 @@ export const AcrylValidationsTab = () => {
             <TabContentWrapper>
                 {tabs.filter((tab) => tab.path === selectedTab).map((tab) => tab.content)}
             </TabContentWrapper>
+            <Tabs
+                tabs={[
+                    {
+                        name: 'Test One',
+                        key: '0',
+                        component: <div />,
+                        subTabs: [
+                            { name: 'Test One Sub 1', key: '0', component: <div>Test One Sub 1 Content</div> },
+                            { name: 'Test One Sub 2', key: '1', component: <div>Test One Sub 2 Content</div> },
+                            { name: 'Test One Sub 3', key: '2', component: <div>Test One Sub 3 Content</div> },
+                        ],
+                    },
+                    { name: 'Test Two', key: '1', component: <div>Test Two Content</div> },
+                ]}
+            />
         </>
     );
 };

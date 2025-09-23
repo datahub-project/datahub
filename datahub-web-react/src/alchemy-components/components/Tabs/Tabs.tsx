@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 
 import { Pill } from '@components/components/Pills';
+import SubTabs, { SubTab } from '@components/components/Tabs/SubTabs';
 import { Tooltip } from '@components/components/Tooltip';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
@@ -227,6 +228,7 @@ export interface Tab {
     id?: string;
     dataTestId?: string;
     disabled?: boolean;
+    subTabs?: SubTab[];
 }
 
 export interface Props {
@@ -302,12 +304,15 @@ export function Tabs({
 
     const StyledTabs = secondary ? StyledTabsSecondary : StyledTabsPrimary;
 
+    const subTabsStyleOptions = { ...styleOptions, addPaddingLeft, scrollToTopOnChange, stickyHeader };
+
     const items = tabs.map((tab) => ({
         key: tab.key,
         label: <TabView tab={tab} />,
         disabled: tab.disabled,
         children: (
             <ErrorBoundary resetKeys={[tab.key]} variant="tab">
+                <SubTabs subTabs={tab.subTabs} styleOptions={subTabsStyleOptions} />
                 {tab.component}
             </ErrorBoundary>
         ),
