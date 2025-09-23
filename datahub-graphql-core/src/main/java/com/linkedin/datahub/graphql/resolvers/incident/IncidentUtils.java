@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
