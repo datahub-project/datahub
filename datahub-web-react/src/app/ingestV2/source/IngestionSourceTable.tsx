@@ -128,7 +128,7 @@ function IngestionSourceTable({
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
             onCellClick: (record) => navigateToRunHistory(record),
-            cellWrapper: wrapDateTimeColumnWithHover,
+            cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },
         {
             title: 'Status',

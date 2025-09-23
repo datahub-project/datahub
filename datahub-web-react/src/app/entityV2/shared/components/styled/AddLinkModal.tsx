@@ -39,6 +39,7 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: Props) => {
                         input: {
                             linkUrl: formData.url,
                             label: formData.label,
+                            settings: { showInAssetPreview: formData.showInAssetPreview },
                             resourceUrn: mutationUrn,
                         },
                     },

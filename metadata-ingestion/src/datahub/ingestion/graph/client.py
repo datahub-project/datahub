@@ -971,7 +971,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
                 $scrollId: String,
-                $skipCache: Boolean!) {
+                $skipCache: Boolean!,
+                $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
                     query: $query,
@@ -983,6 +984,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+                        includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
                     nextScrollId
@@ -1002,6 +1004,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "includeSoftDeleted": (
+                None
+                if status is None
+                else status != RemovedStatusFilter.NOT_SOFT_DELETED
+            ),
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):

@@ -17,3 +17,5 @@ export enum ErrorCodes {
 }
 
 export const DEBOUNCE_SEARCH_MS = 300;
+
+export const ANT_NOTIFICATION_Z_INDEX = 1010;

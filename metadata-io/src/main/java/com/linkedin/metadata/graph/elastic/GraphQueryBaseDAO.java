@@ -1341,6 +1341,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                 maxHops));
       }
 
+      // About to get lineage for `currentLevel`: annotate with `explored`
+      currentLevel.forEach(
+          urn -> Optional.ofNullable(result.get(urn)).ifPresent(rel -> rel.setExplored(true)));
+
       // Do one hop on the lineage graph
       // Note: maxRelations is the original total limit, but we pass the remaining capacity
       // to the scroll methods to ensure accurate limit checking at each level

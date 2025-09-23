@@ -10,6 +10,7 @@ import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/do
 import OwnersSection from '@app/domainV2/OwnersSection';
 import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -17,7 +18,7 @@ import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button, Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const FormItem = styled(Form.Item)`
     .ant-form-item-label {
@@ -74,6 +75,8 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
         setSelectedOwnerUrns(ownerUrns);
     }, []);
 
+    const { reloadModules } = useModulesContext();
+
     const onCreateDomain = () => {
         // Create owner input objects from selected owner URNs using utility
         const ownerInputs = createOwnerInputs(selectedOwnerUrns);
@@ -118,6 +121,9 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     };
                     setNewDomain(newDomain);
                     form.resetFields();
+                    // Reload modules
+                    // ChildHierarchy - to reload shown child domains on asset summary tab
+                    reloadModules([DataHubPageModuleType.ChildHierarchy], 3000);
                 }
             })
             .catch((e) => {

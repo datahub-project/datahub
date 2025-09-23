@@ -58,7 +58,8 @@ jobs:
           "bryanprosser-acryl",
           "Alex23Hub",
           "alexsku",
-          "benjiaming"
+          "benjiaming",
+          "deepgarg760"
           ]'),
           github.actor
           )

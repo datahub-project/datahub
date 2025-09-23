@@ -1,35 +1,51 @@
-import React, { ReactNode, createContext, useContext, useMemo, useState } from 'react';
+import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useAssetSummaryOperations } from '@app/homeV3/context/hooks/useAssetSummaryOperations';
 import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 import { PageTemplateContextState } from '@app/homeV3/context/types';
 
+import { PageTemplateSurfaceType } from '@types';
+
 const PageTemplateContext = createContext<PageTemplateContextState | undefined>(undefined);
 
-export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
+interface Props {
+    children: ReactNode;
+    templateType: PageTemplateSurfaceType;
+}
+
+export const PageTemplateProvider = ({ children, templateType }: Props) => {
+    const { entityData } = useEntityData();
+    const editable = !!entityData?.privileges?.canManageAssetSummary;
+    const isTemplateEditable = useMemo(
+        () => (templateType === PageTemplateSurfaceType.AssetSummary ? editable : false),
+        [editable, templateType],
+    );
     // Template state management
     const {
         personalTemplate,
         globalTemplate,
         template,
         isEditingGlobalTemplate,
+        summaryElements,
         setIsEditingGlobalTemplate,
         setPersonalTemplate,
         setGlobalTemplate,
         setTemplate,
-    } = useTemplateState();
+    } = useTemplateState(templateType);
 
     // Template operations
     const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate, resetTemplateToDefault } =
-        useTemplateOperations(setPersonalTemplate, personalTemplate);
+        useTemplateOperations(setPersonalTemplate, personalTemplate, templateType);
 
     // Modal state
-    const moduleModalState = useModuleModalState();
+    const moduleModalState = useModuleModalState(templateType);
 
     // Module operations
-    const { addModule, removeModule, upsertModule, moveModule } = useModuleOperations(
+    const { addModule, removeModule, upsertModule, moveModule, moduleContext } = useModuleOperations(
         isEditingGlobalTemplate,
         personalTemplate,
         globalTemplate,
@@ -40,16 +56,26 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
         upsertTemplate,
         moduleModalState.isEditing,
         moduleModalState.initialState,
+        templateType,
     );
 
-    // If modules should be reloaded
-    const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
+    // Asset summary operations
+    const { addSummaryElement, removeSummaryElement, replaceSummaryElement } = useAssetSummaryOperations(
+        isEditingGlobalTemplate,
+        personalTemplate,
+        globalTemplate,
+        setPersonalTemplate,
+        setGlobalTemplate,
+        upsertTemplate,
+    );
 
     const value = useMemo(
         () => ({
+            isTemplateEditable,
             personalTemplate,
             globalTemplate,
             template,
+            templateType,
             isEditingGlobalTemplate,
             setIsEditingGlobalTemplate,
             setPersonalTemplate,
@@ -61,13 +87,19 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
-            reloadHomepageModules,
-            setReloadHomepageModules,
+            moduleContext,
+            // Asset summary operations
+            summaryElements,
+            addSummaryElement,
+            removeSummaryElement,
+            replaceSummaryElement,
         }),
         [
+            isTemplateEditable,
             personalTemplate,
             globalTemplate,
             template,
+            templateType,
             isEditingGlobalTemplate,
             setIsEditingGlobalTemplate,
             setPersonalTemplate,
@@ -79,8 +111,12 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
             moduleModalState,
             moveModule,
             resetTemplateToDefault,
-            reloadHomepageModules,
-            setReloadHomepageModules,
+            moduleContext,
+            // Asset summary operations
+            summaryElements,
+            addSummaryElement,
+            removeSummaryElement,
+            replaceSummaryElement,
         ],
     );
 

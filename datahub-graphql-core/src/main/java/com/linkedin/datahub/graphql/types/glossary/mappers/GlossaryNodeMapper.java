@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeProperties;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
+import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -28,6 +29,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.key.GlossaryNodeKey;
+import com.linkedin.settings.asset.AssetSettings;
 import com.linkedin.structured.StructuredProperties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -88,6 +90,10 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         ((glossaryNode, dataMap) ->
             glossaryNode.setDisplayProperties(
                 DisplayPropertiesMapper.map(context, new DisplayProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        ASSET_SETTINGS_ASPECT_NAME,
+        ((entity, dataMap) ->
+            entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), GlossaryNode.class);

@@ -58,6 +58,8 @@ public enum DataHubUsageEventType {
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
   INGESTION_EXECUTION_RESULT_VIEWED_EVENT("IngestionExecutionResultViewedEvent"),
   INGESTION_SOURCE_CONFIGURATION_IMPRESSION_EVENT("IngestionSourceConfigurationImpressionEvent"),
+  INGESTION_VIEW_ALL_CLICK_EVENT("IngestionViewAllClickEvent"),
+  INGESTION_VIEW_ALL_CLICK_WARNING_EVENT("IngestionViewAllClickWarningEvent"),
   CREATE_INGESTION_SOURCE_EVENT("CreateIngestionSourceEvent"),
   UPDATE_INGESTION_SOURCE_EVENT("UpdateIngestionSourceEvent"),
   DELETE_INGESTION_SOURCE_EVENT("DeleteIngestionSourceEvent"),
@@ -134,6 +136,9 @@ public enum DataHubUsageEventType {
   HOME_PAGE_TEMPLATE_MODULE_LINK_CLICK_EVENT("HomePageTemplateModuleLinkClick"),
   HOME_PAGE_TEMPLATE_MODULE_ANNOUNCEMENT_DISMISS_EVENT("HomePageTemplateModuleAnnouncementDismiss"),
   SET_DEPRECATION("SetDeprecation"),
+  ASSET_PAGE_ADD_SUMMARY_ELEMENT("AssetPageAddSummaryElement"),
+  ASSET_PAGE_REMOVE_SUMMARY_ELEMENT("AssetPageRemoveSummaryElement"),
+  ASSET_PAGE_REPLACE_SUMMARY_ELEMENT("AssetPageReplaceSummaryElement"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),

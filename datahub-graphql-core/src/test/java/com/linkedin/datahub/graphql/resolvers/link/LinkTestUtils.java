@@ -8,6 +8,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.InstitutionalMemoryMetadata;
+import com.linkedin.common.InstitutionalMemoryMetadataSettings;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -32,11 +33,16 @@ import org.testng.Assert;
 
 public class LinkTestUtils {
 
-  public static InstitutionalMemoryMetadata createLink(String url, String label) throws Exception {
+  public static InstitutionalMemoryMetadata createLink(
+      String url, String label, Boolean showInAssetPreview) throws Exception {
     InstitutionalMemoryMetadata link = new InstitutionalMemoryMetadata();
 
     link.setUrl(new Url(url));
     link.setDescription(label);
+
+    InstitutionalMemoryMetadataSettings settings = new InstitutionalMemoryMetadataSettings();
+    settings.setShowInAssetPreview(showInAssetPreview);
+    link.setSettings(settings);
 
     AuditStamp createStamp = new AuditStamp();
     createStamp.setActor(new Urn("urn:corpuser:test"));
@@ -132,6 +138,11 @@ public class LinkTestUtils {
                     expectedAspect.getElements().get(index);
                 Assert.assertEquals(element.getUrl(), expectedElement.getUrl());
                 Assert.assertEquals(element.getDescription(), expectedElement.getDescription());
+                if (expectedElement.getSettings() != null) {
+                  Assert.assertEquals(
+                      element.getSettings().isShowInAssetPreview(),
+                      expectedElement.getSettings().isShowInAssetPreview());
+                }
               });
     }
   }

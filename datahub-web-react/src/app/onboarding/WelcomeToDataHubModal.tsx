@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 import {
     LoadingContainer,
     SlideContainer,
@@ -190,6 +191,7 @@ export const WelcomeToDataHubModal = () => {
             width={MODAL_WIDTH}
             onCancel={() => closeTour('close_button')}
             buttons={[]}
+            zIndex={ANT_NOTIFICATION_Z_INDEX + 2} // 2 higher because home settings button is 1 higher
         >
             <Carousel
                 ref={carouselRef}

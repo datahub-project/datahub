@@ -120,7 +120,8 @@ public abstract class GenericEntitiesController<
       Set<String> aspectNames,
       boolean withSystemMetadata,
       @Nullable String scrollId,
-      boolean expandEmpty)
+      boolean expandEmpty,
+      int totalCount)
       throws URISyntaxException;
 
   protected List<E> buildEntityList(
@@ -294,7 +295,8 @@ public abstract class GenericEntitiesController<
             mergedAspects,
             withSystemMetadata,
             result.getScrollId(),
-            true));
+            true,
+            result.getNumEntities()));
   }
 
   @Tag(name = "Generic Entities")

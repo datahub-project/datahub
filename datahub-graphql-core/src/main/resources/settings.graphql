@@ -1,0 +1,86 @@
+extend type Mutation {
+  """
+  Update an asset's settings
+  """
+  updateAssetSettings(input: UpdateAssetSettingsInput!): AssetSettings!
+}
+
+input UpdateAssetSettingsInput {
+  """
+  Urn of the asset you are updating
+  """
+  urn: String!
+
+  """
+  Input related to the summary page of this asset
+  """
+  summary: UpdateAssetSummaryInput
+}
+
+"""
+Input related to the summary page of this asset
+"""
+input UpdateAssetSummaryInput {
+  """
+  The urn of the template you want to set for this asset summary page
+  """
+  template: String!
+}
+
+"""
+Settings associated with this asset
+"""
+type AssetSettings {
+  """
+  Information related to the asset summary for this asset
+  """
+  assetSummary: AssetSummarySettings
+}
+
+"""
+Information related to the asset summary for this asset
+"""
+type AssetSummarySettings {
+  """
+  The list of templates applied to this asset in order. Right now we only expect one.
+  """
+  templates: [AssetSummarySettingsTemplate!]
+}
+
+"""
+Object containing the template and any additional info for asset summary settings
+"""
+type AssetSummarySettingsTemplate {
+  """
+  The page template entity
+  """
+  template: DataHubPageTemplate
+}
+
+extend type Domain {
+  """
+  Settings associated with this asset
+  """
+  settings: AssetSettings
+}
+
+extend type DataProduct {
+  """
+  Settings associated with this asset
+  """
+  settings: AssetSettings
+}
+
+extend type GlossaryTerm {
+  """
+  Settings associated with this asset
+  """
+  settings: AssetSettings
+}
+
+extend type GlossaryNode {
+  """
+  Settings associated with this asset
+  """
+  settings: AssetSettings
+}

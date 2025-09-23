@@ -137,6 +137,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     flex-shrink: 0;
     padding: 0;
+    overflow: hidden;
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`

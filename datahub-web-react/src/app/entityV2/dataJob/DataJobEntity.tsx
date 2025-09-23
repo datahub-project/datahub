@@ -47,7 +47,6 @@ const getDataJobPlatformName = (data?: DataJob | null): string => {
 };
 
 const headerDropdownItems = new Set([
-    EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -251,6 +250,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data?.browsePathV2 || undefined}
                 parentContainers={data.parentContainers}
+                previewType={PreviewType.SEARCH}
             />
         );
     };

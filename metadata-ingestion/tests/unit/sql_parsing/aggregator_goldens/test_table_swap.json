@@ -189,7 +189,7 @@
         "json": {
             "customProperties": {},
             "statement": {
-                "value": "ALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info /* Datahub generated query text-- */",
+                "value": "ALTER TABLE dev.public.person_info_swap\nSWAP WITH dev.public.person_info /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -445,7 +445,7 @@
         "json": {
             "customProperties": {},
             "statement": {
-                "value": "ALTER TABLE dev.public.person_info SWAP WITH dev.public.person_info_swap /* Datahub generated query text-- */",
+                "value": "ALTER TABLE dev.public.person_info\nSWAP WITH dev.public.person_info_swap /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",

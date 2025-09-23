@@ -29,6 +29,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.urn import guess_platform_name
 
 logger = logging.getLogger(__name__)
 LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
@@ -41,6 +42,15 @@ class SupportsAsObj(Protocol):
 
 @dataclass
 class Report(SupportsAsObj):
+    def __post_init__(self) -> None:
+        self.platform: Optional[str] = None
+
+    def set_platform(self, platform: str) -> None:
+        self.platform = platform
+
+    def get_platform(self) -> Optional[str]:
+        return self.platform
+
     @staticmethod
     def to_str(some_val: Any) -> str:
         if isinstance(some_val, Enum):
@@ -204,6 +214,7 @@ class ExamplesReport(Report, Closeable):
     samples: Dict[str, Dict[str, List[str]]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(list))
     )
+    compute_stats_time_seconds: float = 0.0
     _file_based_dict: Optional[FileBackedDict[SourceReportSubtypes]] = None
 
     # We are adding this to make querying easier for fine-grained lineage
@@ -212,6 +223,7 @@ class ExamplesReport(Report, Closeable):
     _lineage_aspects_seen: Set[str] = field(default_factory=set)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         self._file_based_dict = FileBackedDict(
             tablename="urn_aspects",
             extra_columns={
@@ -346,6 +358,9 @@ class ExamplesReport(Report, Closeable):
         aspectName: str,
         mcp: Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper],
     ) -> None:
+        platform_name = guess_platform_name(urn)
+        if platform_name != self.get_platform():
+            return
         if is_lineage_aspect(entityType, aspectName):
             self._lineage_aspects_seen.add(aspectName)
         has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
@@ -405,6 +420,7 @@ class ExamplesReport(Report, Closeable):
             self._update_file_based_dict(urn, entityType, aspectName, mcp)
 
     def compute_stats(self) -> None:
+        start_time = datetime.now()
         if self._file_based_dict is None:
             return
 
@@ -466,6 +482,8 @@ class ExamplesReport(Report, Closeable):
             list(self._lineage_aspects_seen), "lineage"
         )
         self._collect_samples_with_all_conditions("all_3")
+        end_time = datetime.now()
+        self.compute_stats_time_seconds += (end_time - start_time).total_seconds()
 
 
 class EntityFilterReport(ReportAttribute):

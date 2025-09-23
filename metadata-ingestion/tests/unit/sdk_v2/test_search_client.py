@@ -616,6 +616,7 @@ def test_get_urns() -> None:
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
                 "skipCache": False,
+                "includeSoftDeleted": None,
             },
         )
 
@@ -667,5 +668,6 @@ def test_get_urns_with_skip_cache() -> None:
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
                 "skipCache": True,
+                "includeSoftDeleted": None,
             },
         )

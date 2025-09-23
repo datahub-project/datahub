@@ -16,11 +16,11 @@ export default function StructuredPropertyProperty(props: PropertyComponentProps
     const { entityData } = useEntityContext();
 
     const structuredPropertyEntry: StructuredPropertiesEntry | undefined = useMemo(() => {
-        if (!property.structuredPropertyUrn) return undefined;
+        if (!property.structuredProperty?.urn) return undefined;
         return entityData?.structuredProperties?.properties?.find(
-            (entry) => entry.structuredProperty.urn === property.structuredPropertyUrn,
+            (entry) => entry.structuredProperty.urn === property.structuredProperty?.urn,
         );
-    }, [property.structuredPropertyUrn, entityData]);
+    }, [property.structuredProperty?.urn, entityData]);
 
     const valueType = structuredPropertyEntry?.structuredProperty.definition.valueType.urn;
 

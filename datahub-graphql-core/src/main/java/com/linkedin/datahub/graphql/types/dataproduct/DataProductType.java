@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataproduct;
 
 import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSET_SETTINGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
@@ -57,7 +58,8 @@ public class DataProductType
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          APPLICATION_MEMBERSHIP_ASPECT_NAME);
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          ASSET_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

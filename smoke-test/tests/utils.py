@@ -352,3 +352,5 @@ class TestSessionWrapper:
                 f"{self._frontend_url}/api/v2/graphql", json=json
             )
             response.raise_for_status()
+            # Clear the token ID after successful revocation to prevent double-call issues
+            self._gms_token_id = None

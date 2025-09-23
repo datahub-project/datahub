@@ -69,7 +69,7 @@ public class TopicsConfiguration {
   public static class TopicConfiguration {
     private String name;
     private Integer partitions;
-    private Integer replicationFactor = 1;
+    private Integer replicationFactor;
     private Map<String, String> configProperties;
     private Boolean enabled = true; // Default to true if not specified
   }

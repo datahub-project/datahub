@@ -24,7 +24,12 @@ import ContextPath from '@app/previewV2/ContextPath';
 import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import EntityHeader from '@app/previewV2/EntityHeader';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
-import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
+import {
+    useRemoveApplicationAssets,
+    useRemoveDataProductAssets,
+    useRemoveDomainAssets,
+    useRemoveGlossaryTermAssets,
+} from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
@@ -165,7 +170,7 @@ interface Props {
     // how the listed node is connected to the source node
     degree?: number;
     parentEntities?: Entity[] | null;
-    previewType?: Maybe<PreviewType>;
+    previewType: PreviewType;
     paths?: EntityPath[];
     health?: Health[];
     lastUpdatedMs?: DatasetLastUpdatedMs | DashboardLastUpdatedMs;
@@ -408,6 +413,7 @@ function useRemoveRelationship(entityType: EntityType) {
     const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
     const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
     const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
+    const { removeApplication } = useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch);
 
     const previewData = usePreviewData();
     const entityData = useEntityData();
@@ -434,6 +440,13 @@ function useRemoveRelationship(entityType: EntityType) {
             removeButtonText: showRemovalFromList ? removeText || 'Remove from Data Product' : null,
         };
     }
+    if (pageEntityType === EntityType.Application) {
+        return {
+            removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
+            removeButtonText: showRemovalFromList ? removeText || 'Remove from Application' : null,
+        };
+    }
+
     return {
         removeRelationship: () => {},
         removeButtonText: null,

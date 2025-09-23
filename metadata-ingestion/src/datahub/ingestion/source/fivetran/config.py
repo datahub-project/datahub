@@ -70,6 +70,7 @@ class Constant:
 
 
 KNOWN_DATA_PLATFORM_MAPPING = {
+    "google_cloud_postgresql": "postgres",
     "postgres": "postgres",
     "snowflake": "snowflake",
 }
@@ -101,7 +102,7 @@ class FivetranLogConfig(ConfigModel):
         "destination_config", "snowflake_destination_config"
     )
 
-    @root_validator(pre=True)
+    @root_validator(skip_on_failure=True)
     def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
         destination_platform = values["destination_platform"]
         if destination_platform == "snowflake":
@@ -194,7 +195,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
-        default=None, description="Airbyte Stateful Ingestion Config."
+        default=None, description="Fivetran Stateful Ingestion Config."
     )
 
     # Fivetran connector all sources to platform instance mapping

@@ -467,7 +467,7 @@ class TestExternalEntityId:
         # ExternalEntityId doesn't have __init__ defined, so we test through inheritance
         assert hasattr(ExternalEntityId, "to_platform_resource_key")
         # platform_instance is a Pydantic field, check it exists in the model fields
-        assert "platform_instance" in ExternalEntityId.__fields__
+        assert "platform_instance" in ExternalEntityId.model_fields
 
 
 class MockExternalEntityId(ExternalEntityId):

@@ -5,7 +5,6 @@ import functools
 import logging
 import os
 import threading
-import time
 import uuid
 from enum import auto
 from typing import List, Optional, Tuple, Union
@@ -349,18 +348,11 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             RecordEnvelope(item, metadata={}), NoopWriteCallback()
         )
 
-    def flush(self) -> None:
-        """Wait for all pending records to be written."""
-        i = 0
-        while self.report.pending_requests > 0:
-            time.sleep(0.1)
-            i += 1
-            if i % 1000 == 0:
-                logger.info(
-                    f"Waiting for {self.report.pending_requests} records to be written"
-                )
-
     def close(self):
+        # Execute pre-shutdown callbacks first (handled by parent class)
+        super().close()
+
+        # Then perform sink-specific shutdown
         with self.report.main_thread_blocking_timer:
             self.executor.shutdown()
 

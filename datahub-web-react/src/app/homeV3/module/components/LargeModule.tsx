@@ -4,6 +4,7 @@ import React, { memo, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
@@ -35,8 +36,12 @@ const ModuleHeader = styled.div`
     }
 `;
 
-const DragHandle = styled.div<{ $isDragging?: boolean }>`
-    cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
+const DragHandle = styled.div<{ $isDragging?: boolean; $isDisabled?: boolean }>`
+    cursor: ${({ $isDisabled, $isDragging }) => {
+        if ($isDisabled) return 'default';
+        if ($isDragging) return 'grabbing';
+        return 'grab';
+    }};
     flex: 1;
     max-width: calc(100% - 10px);
 `;
@@ -83,6 +88,7 @@ function LargeModule({
             isSmall: false,
         },
     });
+    const { isTemplateEditable, templateType } = usePageTemplateContext();
 
     const hasViewAll = useMemo(() => !!onClickViewAll, [onClickViewAll]);
 
@@ -91,33 +97,39 @@ function LargeModule({
         analytics.event({
             type: EventType.HomePageTemplateModuleViewAllClick,
             moduleType: module.properties.type,
+            location: templateType,
         });
-    }, [onClickViewAll, module.properties.type]);
+    }, [onClickViewAll, module.properties.type, templateType]);
 
     return (
         <ModuleContainer $height="316px" ref={setNodeRef} data-testId={dataTestId}>
             <ModuleHeader>
                 <DragHandle
-                    {...listeners}
-                    {...attributes}
+                    {...(isTemplateEditable ? listeners : {})}
+                    {...(isTemplateEditable ? attributes : {})}
                     $isDragging={isDragging}
+                    $isDisabled={!isTemplateEditable}
                     data-testid="large-module-drag-handle"
                 >
-                    <DragIcon
-                        {...listeners}
-                        size="lg"
-                        color="gray"
-                        icon="DotsSixVertical"
-                        source="phosphor"
-                        isDragging={isDragging}
-                    />
+                    {isTemplateEditable && (
+                        <DragIcon
+                            {...listeners}
+                            size="lg"
+                            color="gray"
+                            icon="DotsSixVertical"
+                            source="phosphor"
+                            isDragging={isDragging}
+                        />
+                    )}
                     <ModuleName text={name} />
                     {/* TODO: implement description for modules CH-548 */}
                     {/* <ModuleDescription text={description} /> */}
                 </DragHandle>
-                <FloatingRightHeaderSection>
-                    <ModuleMenu module={module} position={position} />
-                </FloatingRightHeaderSection>
+                {isTemplateEditable && (
+                    <FloatingRightHeaderSection>
+                        <ModuleMenu module={module} position={position} />
+                    </FloatingRightHeaderSection>
+                )}
             </ModuleHeader>
             <Content $hasViewAll={hasViewAll}>
                 {loading ? (

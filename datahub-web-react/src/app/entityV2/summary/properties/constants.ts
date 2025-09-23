@@ -1,46 +1,36 @@
-import { AssetProperty, PropertyType } from '@app/entityV2/summary/properties/types';
+import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+
+import { SummaryElementType } from '@types';
 
 export const OWNERS_PROPERTY: AssetProperty = {
     name: 'Owners',
-    type: PropertyType.Owners,
+    type: SummaryElementType.Owners,
     icon: 'UserCircle',
 };
 
 export const DOMAIN_PROPERTY: AssetProperty = {
     name: 'Domain',
-    type: PropertyType.Domain,
+    type: SummaryElementType.Domain,
     icon: 'Globe',
 };
 
 export const TAGS_PROPERTY: AssetProperty = {
     name: 'Tags',
-    type: PropertyType.Tags,
+    type: SummaryElementType.Tags,
     icon: 'Tag',
 };
 
 export const TERMS_PROPERTY: AssetProperty = {
     name: 'Terms',
-    type: PropertyType.Terms,
+    type: SummaryElementType.GlossaryTerms,
     icon: 'BookmarkSimple',
 };
 
 export const CREATED_PROPERTY: AssetProperty = {
     name: 'Created',
-    type: PropertyType.Created,
+    type: SummaryElementType.Created,
     icon: 'Clock',
-};
-
-export const LAST_UPDATED_PROPERTY: AssetProperty = {
-    name: 'Last Updated',
-    type: PropertyType.LastUpdated,
-    icon: 'Clock',
-};
-
-export const VERIFICATION_STATUS_PROPERTY: AssetProperty = {
-    name: 'Verification Status',
-    type: PropertyType.VerificationStatus,
-    icon: 'SealCheck',
 };
 
 export const SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES = [

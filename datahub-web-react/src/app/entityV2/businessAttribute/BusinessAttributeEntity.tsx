@@ -18,6 +18,8 @@ import { PageRoutes } from '@conf/Global';
 import { useGetBusinessAttributeQuery } from '@graphql/businessAttribute.generated';
 import { BusinessAttribute, EntityType, SearchResult } from '@types';
 
+const headerDropdownItems = new Set([EntityMenuItems.DELETE]);
+
 /**
  *  Definition of datahub Business Attribute Entity
  */
@@ -97,7 +99,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                 urn={urn}
                 entityType={EntityType.BusinessAttribute}
                 useEntityQuery={useGetBusinessAttributeQuery as any}
-                headerDropdownItems={new Set([EntityMenuItems.DELETE])}
+                headerDropdownItems={headerDropdownItems}
                 isNameEditable
                 tabs={[
                     {
