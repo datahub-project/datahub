@@ -90,12 +90,16 @@ export function setTagToOpenedEntity(tagName) {
 
 export function addAsset(entityType, assetName, assetUrn) {
   let addAssetButtonTestId;
+  let assetAddedText;
   if (entityType === "DOMAIN") {
     addAssetButtonTestId = "domain-batch-add";
+    assetAddedText = "Added assets to Domain!";
   } else if (entityType === "GLOSSARY_TERM") {
     addAssetButtonTestId = "glossary-batch-add";
+    assetAddedText = "Added Glossary Term to entities!";
   } else if (entityType === "DATA_PRODUCT") {
     addAssetButtonTestId = "data-product-batch-add";
+    assetAddedText = "Added assets to Data Product!";
   }
 
   if (addAssetButtonTestId) {
@@ -105,6 +109,9 @@ export function addAsset(entityType, assetName, assetUrn) {
       cy.clickOptionWithTestId(`checkbox-${assetUrn}`);
       cy.get('[id="continueButton"]').click();
     });
+    if (assetAddedText) {
+      cy.waitTextVisible(assetAddedText);
+    }
   }
 }
 
@@ -176,7 +183,7 @@ export function createGlossaryNode(name) {
   cy.waitTextVisible("Create Glossary");
   cy.enterTextInTestId("create-glossary-entity-modal-name", name);
   cy.clickOptionWithTestId("glossary-entity-modal-create-button");
-  cy.waitTextVisible(name);
+  cy.waitTextVisible("Created Term Group!");
 }
 
 export function openGlossaryNode(name) {
@@ -308,11 +315,14 @@ export function replaceProperty(propertyTypeToReplace, targetPropertyType) {
   });
 
   cy.getWithTestId("menu-item-replace").filter(":visible").trigger("mouseover");
-  cy.getWithTestId(`menu-item-${targetPropertyType}`).should("be.visible");
-  cy.getWithTestId(`menu-item-${targetPropertyType}`)
+  // cy.getWithTestId(`menu-item-${targetPropertyType}`).should("be.visible");
+  cy.get(".ant-dropdown-menu-submenu")
     .filter(":visible")
-    .trigger("mouseover")
-    .click();
+    .within(() => {
+      cy.getWithTestId(`menu-item-${targetPropertyType}`)
+        .trigger("mouseover")
+        .click();
+    });
 }
 
 // Structured properties
