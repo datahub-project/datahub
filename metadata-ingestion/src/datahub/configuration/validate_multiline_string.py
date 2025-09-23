@@ -1,9 +1,12 @@
-from typing import Optional, Type, Union
+from typing import TYPE_CHECKING, Optional, Type, Union
 
 import pydantic
 
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1Validator
 
-def pydantic_multiline_string(field: str) -> classmethod:
+
+def pydantic_multiline_string(field: str) -> "V1Validator":
     """If the field is present and contains an escaped newline, replace it with a real newline.
 
     This makes the assumption that the field value is never supposed to have a

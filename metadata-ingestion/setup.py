@@ -15,14 +15,11 @@ _self_pin = (
 
 base_requirements = {
     # Our min version of typing_extensions is somewhat constrained by Airflow.
-    "typing_extensions>=4.5.0",
+    "typing_extensions>=4.8.0",
     # Actual dependencies.
     "typing-inspect",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    "pydantic>=1.10.0,!=1.10.3",
-    "mixpanel>=4.9.0,<=4.10.1",
+    "pydantic>=2.4.0",
+    "mixpanel>=4.9.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
 }
@@ -56,12 +53,6 @@ framework_common = {
     "jsonref",
     "jsonschema",
     "ruamel.yaml",
-}
-
-pydantic_no_v2 = {
-    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    # Tags sources that require the pydantic v2 API.
-    "pydantic<2",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -120,11 +111,16 @@ classification_lib = {
 
 dbt_common = {
     *sqlglot_lib,
-    "more_itertools",
+    "more-itertools",
 }
 
 cachetools_lib = {
     "cachetools",
+}
+
+# Skip pyarrow 0.14.0-14.0.0 due to CVE-2023-47248: https://avd.aquasec.com/nvd/cve-2023-47248
+pyarrow_common = {
+    "pyarrow>14.0.0",
 }
 
 great_expectations_lib = {
@@ -290,9 +286,15 @@ microsoft_common = {
 }
 
 iceberg_common = {
-    # Iceberg Python SDK
-    # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
-    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.4.0",
+    # PyIceberg dependency restrictions history:
+    # - From v0.4.0, pydantic v2 is required.
+    # - From v0.8.0, there have been changes to the catalog connection configuration details -
+    # especially for AWS-based catalogs and warehouses, the properties `profile_name`, `region_name`,
+    # `aws_access_key_id`, `aws_secret_access_key`, and `aws_session_token` were deprecated and removed in version
+    # 0.8.0.
+    # - From v0.10.0, new signatures: `visit_timestamp_ns`, `visit_timestampz_ns` and `visit_unknown`
+    # need to be implemented (still to be done).
+    "pyiceberg[glue,hive,dynamodb,snappy,hive,s3fs,adlfs,pyarrow,zstandard]>=0.8.0,<0.10.0",
     *cachetools_lib,
 }
 
@@ -310,7 +312,7 @@ s3_base = {
     *aws_common,
     "more-itertools>=8.12.0",
     "parse>=1.19.0",
-    "pyarrow>=6.0.1",
+    *pyarrow_common,
     "tableschema>=1.20.2",
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
     "ujson>=5.2.0",
@@ -333,7 +335,7 @@ abs_base = {
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
-    "pyarrow>=6.0.1",
+    *pyarrow_common,
     "smart-open[azure]>=5.2.1",
     "tableschema>=1.20.2",
     "ujson>=5.2.0",
@@ -414,8 +416,9 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
     "circuit-breaker": {
-        "gql>=3.3.0",
-        "gql[requests]>=3.3.0",
+        # In gql v4, the execute() method's signature changed. Since we've updated
+        # our code to use the new signature, we need to pin to gql v4.
+        "gql[requests]>=4.0.0",
     },
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
     # but not the full sql_common.
@@ -501,7 +504,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
-    "json-schema": set(),
+    "json-schema": {"requests"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
@@ -519,7 +522,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-debug": {"dnspython==2.7.0", "requests"},
     "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
-    "mongodb": {"pymongo[srv]>=3.11", "packaging"},
+    "mongodb": {"pymongo>=4.8.0", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": sql_common | mysql,
@@ -736,7 +739,6 @@ base_dev_requirements = {
         if plugin
         for dependency in plugins[plugin]
     ),
-    *pydantic_no_v2,
 }
 
 dev_requirements = {
@@ -973,40 +975,16 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     extras_require={
         "base": list(framework_common),
         **{
-            plugin: list(
-                framework_common
-                | (
-                    # While pydantic v2 support is experimental, require that all plugins
-                    # continue to use v1. This will ensure that no ingestion recipes break.
-                    pydantic_no_v2
-                    if plugin
-                    not in {
-                        "airflow",
-                        "datahub-rest",
-                        "datahub-kafka",
-                        "sync-file-emitter",
-                        "sql-parser",
-                        # Some sources have been manually tested for compatibility with pydantic v2.
-                        "iceberg",
-                        "feast",
-                        "bigquery-slim",
-                        "snowflake-slim",
-                        "mysql",  # tested in smoke-test
-                    }
-                    else set()
-                )
-                | dependencies
-            )
+            plugin: list(framework_common | dependencies)
             for (plugin, dependencies) in plugins.items()
         },
         "all": list(
             framework_common.union(
-                pydantic_no_v2,
                 *[
                     requirements
                     for plugin, requirements in plugins.items()
                     if plugin not in all_exclude_plugins
-                ],
+                ]
             )
         ),
         "cloud": ["acryl-datahub-cloud"],

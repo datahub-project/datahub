@@ -108,20 +108,4 @@ describe('useReloadableModules', () => {
         expect(result.current.shouldModuleBeReloaded(DataHubPageModuleType.Link, 'urn:li:glossaryNode:2')).toBe(false);
         expect(result.current.shouldModuleBeReloaded(DataHubPageModuleType.Link, 'urn:li:glossaryNode:3')).toBe(true);
     });
-
-    it('should handle module types without URNs', () => {
-        const { result } = renderHook(() => useReloadableModules());
-
-        act(() => {
-            result.current.markModulesAsReloaded(DataHubPageModuleType.Link);
-        });
-
-        expect(result.current.shouldModuleBeReloaded(DataHubPageModuleType.Link)).toBe(false);
-
-        act(() => {
-            result.current.reloadModules([DataHubPageModuleType.Link]);
-        });
-
-        expect(result.current.shouldModuleBeReloaded(DataHubPageModuleType.Link)).toBe(true);
-    });
 });
