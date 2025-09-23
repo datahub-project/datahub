@@ -46,7 +46,7 @@ def create_mock_sql_parsing_result(
     return mock_spr
 
 
-class TestLookerQueryAPIBasedViewUpstream:
+class TestLookMLAPIBasedViewUpstream:
     """Test suite for LookerQueryAPIBasedViewUpstream functionality."""
 
     @pytest.fixture
