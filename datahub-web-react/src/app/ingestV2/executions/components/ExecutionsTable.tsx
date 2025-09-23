@@ -149,6 +149,7 @@ export default function ExecutionsTable({
                         <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />
                     ) : null
                 }
+                data-testid="executions-table"
             />
             <RollbackExecutionConfirmation
                 isOpen={!!runIdOfRollbackConfirmation}
