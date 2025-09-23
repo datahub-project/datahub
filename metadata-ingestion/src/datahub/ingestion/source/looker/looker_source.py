@@ -736,7 +736,16 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 display_name=dashboard_element.title,  # title is (deprecated) using display_name
                 extra_aspects=chart_extra_aspects,
                 input_datasets=dashboard_element.get_view_urns(self.source_config),
-                last_modified=self._get_last_modified_time(dashboard),
+                last_modified=self._get_last_modified_time(
+                    dashboard
+                ),  # Inherited from Dashboard
+                last_modified_by=self._get_last_modified_by(
+                    dashboard
+                ),  # Inherited from Dashboard
+                created_at=self._get_created_at(dashboard),  # Inherited from Dashboard
+                created_by=self._get_created_by(dashboard),  # Inherited from Dashboard
+                deleted_on=self._get_deleted_on(dashboard),  # Inherited from Dashboard
+                deleted_by=self._get_deleted_by(dashboard),  # Inherited from Dashboard
                 name=dashboard_element.get_urn_element_id(),
                 owners=chart_ownership,
                 parent_container=chart_parent_container,
@@ -803,6 +812,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 display_name=looker_dashboard.title,  # title is (deprecated) using display_name
                 extra_aspects=dashboard_extra_aspects,
                 last_modified=self._get_last_modified_time(looker_dashboard),
+                last_modified_by=self._get_last_modified_by(looker_dashboard),
+                created_at=self._get_created_at(looker_dashboard),
+                created_by=self._get_created_by(looker_dashboard),
+                deleted_on=self._get_deleted_on(looker_dashboard),
+                deleted_by=self._get_deleted_by(looker_dashboard),
                 name=looker_dashboard.get_urn_dashboard_id(),
                 owners=dashboard_ownership,
                 parent_container=dashboard_parent_container,
@@ -988,9 +1002,44 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _get_last_modified_time(
         self, looker_dashboard: Optional[LookerDashboard]
     ) -> Optional[datetime.datetime]:
-        if looker_dashboard is None:
+        return looker_dashboard.last_updated_at if looker_dashboard else None
+
+    def _get_last_modified_by(
+        self, looker_dashboard: Optional[LookerDashboard]
+    ) -> Optional[str]:
+        if not looker_dashboard or not looker_dashboard.last_updated_by:
             return None
-        return looker_dashboard.last_updated_at
+        return looker_dashboard.last_updated_by.get_urn(
+            self.source_config.strip_user_ids_from_email
+        )
+
+    def _get_created_at(
+        self, looker_dashboard: Optional[LookerDashboard]
+    ) -> Optional[datetime.datetime]:
+        return looker_dashboard.created_at if looker_dashboard else None
+
+    def _get_created_by(
+        self, looker_dashboard: Optional[LookerDashboard]
+    ) -> Optional[str]:
+        if not looker_dashboard or not looker_dashboard.owner:
+            return None
+        return looker_dashboard.owner.get_urn(
+            self.source_config.strip_user_ids_from_email
+        )
+
+    def _get_deleted_on(
+        self, looker_dashboard: Optional[LookerDashboard]
+    ) -> Optional[datetime.datetime]:
+        return looker_dashboard.deleted_at if looker_dashboard else None
+
+    def _get_deleted_by(
+        self, looker_dashboard: Optional[LookerDashboard]
+    ) -> Optional[str]:
+        if not looker_dashboard or not looker_dashboard.deleted_by:
+            return None
+        return looker_dashboard.deleted_by.get_urn(
+            self.source_config.strip_user_ids_from_email
+        )
 
     def _get_looker_folder(self, folder: Union[Folder, FolderBase]) -> LookerFolder:
         assert folder.id
