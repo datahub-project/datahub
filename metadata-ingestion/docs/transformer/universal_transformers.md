@@ -34,6 +34,9 @@ transformers:
 ```
 
 will be reflected as every entity having path prefixed by `abc` and `def` nodes (`def` will be contained by `abc`).
+
+### Variable substitution
+
 The transformer has a mechanism of variables substitution in the path, where list of variables are build based on
 existing `browsePathsV2` aspect of the entity. Every _node_ in the existing path, as long as it contains reference to
 another entity (e.g. a `container` or a `dataPlatformInstance`) is stored in the list of variables to use. Since

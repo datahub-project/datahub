@@ -32,11 +32,10 @@ def make_generic_dataset(
 
 
 def make_browse_paths_aspect(*nodes: str) -> BrowsePathsV2Class:
-    path = []
-    for node in nodes:
-        path.append(
-            BrowsePathEntryClass(id=node, urn=node if node.startswith("urn:") else None)
-        )
+    path = [
+        BrowsePathEntryClass(id=node, urn=node if node.startswith("urn:") else None)
+        for node in nodes
+    ]
     return BrowsePathsV2Class(path)
 
 
