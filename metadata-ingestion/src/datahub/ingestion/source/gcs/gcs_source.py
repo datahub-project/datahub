@@ -141,6 +141,11 @@ class GCSSource(StatefulIngestionSourceBase):
                     table_name=path_spec.table_name,
                     enable_compression=path_spec.enable_compression,
                     sample_files=path_spec.sample_files,
+                    allow_double_stars=path_spec.allow_double_stars,
+                    autodetect_partitions=path_spec.autodetect_partitions,
+                    include_hidden_folders=path_spec.include_hidden_folders,
+                    tables_filter_pattern=path_spec.tables_filter_pattern,
+                    traversal_method=path_spec.traversal_method,
                 )
             )
 
