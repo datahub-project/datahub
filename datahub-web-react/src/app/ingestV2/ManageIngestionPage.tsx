@@ -1,6 +1,7 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
+import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
@@ -8,7 +9,6 @@ import { Tab } from '@components/components/Tabs/Tabs';
 import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
-import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -82,22 +82,47 @@ export const ManageIngestionPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
-
-    const {
-        isLoading: isCapabilitySummaryLoading,
-        error: isCapabilitySummaryError,
-        isProfilingSupported,
-    } = useCapabilitySummary();
     const history = useHistory();
+    const location = useLocation();
     const shouldPreserveParams = useRef(false);
 
-    if (!isCapabilitySummaryLoading && !isCapabilitySummaryError) {
-        console.log(
-            'Example to be removed when is actually used for something is profiling support for bigquery',
-            isProfilingSupported('bigquery'),
-        );
-    }
+    // Parse URL parameters for filters
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const hideSystemFromUrl = params.hideSystem === 'true';
+    const sourceFilterFromUrl = params.sourceFilter ? Number(params.sourceFilter) : undefined;
+
+    const [hideSystemSources, setHideSystemSources] = useState(hideSystemFromUrl ?? true);
+
+    // Update URL when filters change
+    const updateUrlWithFilters = useCallback(
+        (newHideSystem?: boolean, newSourceFilter?: number) => {
+            const currentParams = QueryString.parse(location.search, { arrayFormat: 'comma' });
+            const updatedParams = { ...currentParams };
+
+            if (newHideSystem !== undefined) {
+                updatedParams.hideSystem = newHideSystem.toString();
+            }
+            if (newSourceFilter !== undefined) {
+                updatedParams.sourceFilter = newSourceFilter.toString();
+            }
+
+            const newSearch = QueryString.stringify(updatedParams, { arrayFormat: 'comma' });
+            history.replace({
+                pathname: location.pathname,
+                search: newSearch,
+            });
+        },
+        [history, location],
+    );
+
+    // Handle hideSystemSources change
+    const handleSetHideSystemSources = useCallback(
+        (newValue: boolean) => {
+            setHideSystemSources(newValue);
+            updateUrlWithFilters(newValue, sourceFilterFromUrl);
+        },
+        [updateUrlWithFilters, sourceFilterFromUrl],
+    );
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -137,9 +162,11 @@ export const ManageIngestionPage = () => {
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources}
-                    setHideSystemSources={setHideSystemSources}
+                    setHideSystemSources={handleSetHideSystemSources}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
+                    sourceFilterFromUrl={sourceFilterFromUrl}
+                    updateUrlWithFilters={updateUrlWithFilters}
                 />
             ),
             key: TabType.Sources as string,
@@ -150,7 +177,7 @@ export const ManageIngestionPage = () => {
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources}
-                    setHideSystemSources={setHideSystemSources}
+                    setHideSystemSources={handleSetHideSystemSources}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                 />
