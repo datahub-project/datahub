@@ -1,0 +1,12 @@
+namespace com.linkedin.common
+
+/**
+ * Settings related to a record of InstitutionalMemoryMetadata
+ */
+record InstitutionalMemoryMetadataSettings {
+
+  /**
+   * Show record in asset preview like on entity header and search previews
+   */
+  showInAssetPreview: boolean = false
+}

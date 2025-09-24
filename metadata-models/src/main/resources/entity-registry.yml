@@ -414,6 +414,7 @@ entities:
       - testResults
       - subTypes
       - container
+      - institutionalMemory
   - name: mlModelDeployment
     category: core
     keyAspect: mlModelDeploymentKey

@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Custom Home Page
 
-<FeatureAvailability/>
+<FeatureAvailability saasOnly />
 
 DataHub's **Custom Home Page** empowers organizations and individual users to create personalized, modular home page experiences that put the most relevant data assets and information front and center.
 
@@ -67,6 +67,10 @@ When you upgrade to this version, your default home page will automatically incl
 ## Personalizing the Home Page
 
 When you begin customizing your home page, you'll "fork" from your organization's default to create your own personal version. This means your changes won't affect what other users see, and you can always return to the organization default if needed.
+
+:::note
+Customization is currently only supported in DataHub Cloud. DataHub Core will support a default home page with no way to customize.
+:::
 
 ### Add New Modules
 

@@ -46,6 +46,14 @@ GRANT SELECT ON pg_catalog.svv_datashares TO datahub_user;
 
 -- Table creation timestamps (provisioned clusters)
 GRANT SELECT ON pg_catalog.pg_class_info TO datahub_user;
+
+-- Essential pg_catalog tables for table discovery
+GRANT SELECT ON pg_catalog.pg_class TO datahub_user;
+GRANT SELECT ON pg_catalog.pg_namespace TO datahub_user;
+GRANT SELECT ON pg_catalog.pg_description TO datahub_user;
+GRANT SELECT ON pg_catalog.pg_database TO datahub_user;
+GRANT SELECT ON pg_catalog.pg_attribute TO datahub_user;
+GRANT SELECT ON pg_catalog.pg_attrdef TO datahub_user;
 ```
 
 ## Detailed Permission Breakdown

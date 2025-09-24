@@ -1,16 +1,22 @@
 import { InfiniteScrollList } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
+import styled from 'styled-components';
 
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
+import { sortByUrnOrder } from '@app/homeV3/modules/assetCollection/utils';
 import { excludeEmptyAndFilters } from '@app/searchV2/utils/filterUtils';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { convertLogicalPredicateToOrFilters } from '@app/sharedV2/queryBuilder/builder/utils';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, Entity } from '@types';
+
+const ContentWrapper = styled.div`
+    height: 100%;
+`;
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -59,7 +65,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
                 ...(shouldFetchByDynamicFilter
                     ? { orFilters: dynamicOrFilters }
                     : {
-                          filters: [{ field: 'urn', values: assetUrns }],
+                          filters: [{ field: 'urn', values: assetUrns.slice(0, DEFAULT_PAGE_SIZE) }],
                       }),
             },
         },
@@ -67,6 +73,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
         onCompleted: () => {
             setIsFirstFetch(false);
         },
+        fetchPolicy: 'cache-first',
     });
 
     const initialEntities = useMemo(
@@ -93,7 +100,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
             const results =
                 result.data?.searchAcrossEntities?.searchResults
                     ?.map((res) => res.entity)
-                    .filter((entity): entity is Entity => !!entity) || [];
+                    ?.filter((entity): entity is Entity => !!entity) || [];
 
             return results;
         },
@@ -120,7 +127,10 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     .filter((entity): entity is Entity => !!entity) || [];
 
             const urnToEntity = new Map(results.map((e) => [e.urn, e]));
-            return urnSlice.map((urn) => urnToEntity.get(urn)).filter((entity): entity is Entity => !!entity);
+            return sortByUrnOrder(
+                urnSlice.map((urn) => urnToEntity.get(urn)).filter((entity): entity is Entity => !!entity),
+                assetUrns,
+            );
         },
         [assetUrns, refetch],
     );
@@ -128,7 +138,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
     const fetchEntities = useCallback(
         async (start: number, count: number): Promise<Entity[]> => {
             if (isFirstFetch) {
-                return initialEntities;
+                return sortByUrnOrder(initialEntities, assetUrns);
             }
             if (shouldFetchByDynamicFilter) {
                 return fetchEntitiesByDynamicFilter(start, count);
@@ -141,12 +151,13 @@ const AssetCollectionModule = (props: ModuleProps) => {
             fetchEntitiesByAssetUrns,
             initialEntities,
             fetchEntitiesByDynamicFilter,
+            assetUrns,
         ],
     );
 
     return (
         <LargeModule {...props} loading={loading} dataTestId="asset-collection-module">
-            <div data-testid="asset-collection-entities">
+            <ContentWrapper data-testid="asset-collection-entities">
                 <InfiniteScrollList<Entity>
                     key={assetUrns.join(',')}
                     fetchData={fetchEntities}
@@ -167,7 +178,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     }
                     totalItemCount={totalForInfiniteScroll}
                 />
-            </div>
+            </ContentWrapper>
         </LargeModule>
     );
 };
