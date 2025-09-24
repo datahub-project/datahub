@@ -128,9 +128,18 @@ class GCSSource(StatefulIngestionSourceBase):
     def create_equivalent_s3_path_specs(self):
         s3_path_specs = []
         for path_spec in self.config.path_specs:
+            # PathSpec modifies the passed-in include to add /** to the end if
+            # autodetecting partitions. Remove that, otherwise creating a new
+            # PathSpec will complain.
+            # TODO: this should be handled inside PathSpec, which probably shouldn't
+            # modify its input.
+            include = path_spec.include
+            if include.endswith("{table}/**") and not path_spec.allow_double_stars:
+                include = include.removesuffix("**")
+
             s3_path_specs.append(
                 PathSpec(
-                    include=path_spec.include.replace("gs://", "s3://"),
+                    include=include.replace("gs://", "s3://"),
                     exclude=(
                         [exc.replace("gs://", "s3://") for exc in path_spec.exclude]
                         if path_spec.exclude
