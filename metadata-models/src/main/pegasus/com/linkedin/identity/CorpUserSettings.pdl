@@ -1,6 +1,7 @@
 namespace com.linkedin.identity
 
 import com.linkedin.event.notification.settings.NotificationSettings
+import com.linkedin.settings.global.AiAssistantSettings
 
 /**
  * Settings that a user can customize through the DataHub UI
@@ -28,4 +29,9 @@ record CorpUserSettings {
    * Settings related to the home page for a user
    */
   homePage: optional CorpUserHomePageSettings
+
+  /**
+   * Settings related to AI-powered chat assistant (Ask DataHub).
+   */
+  aiAssistant: optional AiAssistantSettings
 }

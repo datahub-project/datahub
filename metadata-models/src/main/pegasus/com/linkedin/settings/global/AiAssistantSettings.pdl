@@ -1,0 +1,11 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Settings related to the AI assistant (Ask DataHub) feature
+ */
+record AiAssistantSettings {
+  /**
+   * Custom instructions to inject into the AI assistant prompt
+   */
+  instructions: array[AiInstruction] = []
+}

@@ -4,9 +4,13 @@ namespace com.linkedin.settings.global
  * Settings related to AI-powered documentation.
  */
 record DocumentationAiSettings {
-
   /**
    * Whether or not AI-generated documentation is enabled.
    */
   enabled: boolean = true
+
+  /**
+   * Custom instructions to inject into the AI documentation model prompt.
+   */
+  instructions: array[AiInstruction] = []
 }

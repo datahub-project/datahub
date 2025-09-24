@@ -785,6 +785,11 @@ type GlobalSettings {
   Settings related to AI-powered documentation.
   """
   documentationAi: DocumentationAiSettings
+
+  """
+  Settings related to AI-powered chat assistant (Ask DataHub).
+  """
+  aiAssistant: AiAssistantSettings
 }
 
 """
@@ -1167,6 +1172,11 @@ input UpdateGlobalSettingsInput {
   Input required to update documentation AI settings
   """
   documentationAi: UpdateDocumentationAiSettingsInput
+
+  """
+  Input required to update AI assistant settings
+  """
+  aiAssistant: UpdateAiAssistantSettingsInput
 }
 
 """
@@ -1889,6 +1899,57 @@ input UpdateOrganizationDisplayPreferencesInput {
 }
 
 """
+An object representing custom AI instructions for the AI assistant.
+Generally, these are injected into the prompt sent to the AI model.
+"""
+type AiInstruction {
+  """
+  A unique identifier for this instruction.
+  This enables users to manage multiple versions of the same instruction in the future.
+  """
+  id: String!
+
+  """
+  The type of instruction
+  """
+  type: AiInstructionType!
+
+  """
+  The state of the instruction (ACTIVE or INACTIVE).
+  """
+  state: AiInstructionState!
+
+  """
+  Custom instruction text to be sent to the AI model.
+  """
+  instruction: String!
+
+  """
+  The actor and timestamp of when this instruction was created.
+  """
+  created: AuditStamp!
+
+  """
+  The actor and timestamp of when this instruction was last modified.
+  """
+  lastModified: AuditStamp!
+}
+
+"""
+The state of an AI instruction.
+"""
+enum AiInstructionState {
+  """
+  The instruction is active and will be used by the AI assistant.
+  """
+  ACTIVE
+  """
+  The instruction is inactive and will not be used by the AI assistant.
+  """
+  INACTIVE
+}
+
+"""
 Settings related to AI-powered documentation.
 """
 type DocumentationAiSettings {
@@ -1896,11 +1957,78 @@ type DocumentationAiSettings {
   Whether or not AI-generated documentation is enabled.
   """
   enabled: Boolean!
+
+  """
+  Custom instructions to inject into the AI documentation model prompt.
+  """
+  instructions: [AiInstruction!]!
+}
+
+"""
+Settings related to the AI assistant (Ask DataHub) feature
+"""
+type AiAssistantSettings {
+  """
+  Custom instructions to inject into the AI assistant prompt
+  """
+  instructions: [AiInstruction!]!
+}
+
+"""
+Input for an AI instruction.
+Note: When updating instructions, the entire set of instructions will be replaced.
+"""
+input AiInstructionInput {
+  """
+  A unique identifier for this instruction (optional).
+  If not provided, a system-generated UUID will be assigned.
+  """
+  id: String
+
+  """
+  Currently the only supported type is GENERAL_CONTEXT.
+  """
+  type: AiInstructionType!
+
+  """
+  The state of the instruction (optional).
+  If not provided, defaults to ACTIVE.
+  """
+  state: AiInstructionState
+
+  """
+  Custom instruction text to be sent to the AI model.
+  """
+  instruction: String!
+}
+
+"""
+The type of AI instruction.
+"""
+enum AiInstructionType {
+  """
+  General context to customize the AI assistant's behavior globally or personally. This is the only supported type currently.
+  """
+  GENERAL_CONTEXT
 }
 
 input UpdateDocumentationAiSettingsInput {
   """
   Whether or not AI-generated documentation is enabled.
   """
-  enabled: Boolean!
+  enabled: Boolean
+
+  """
+  Custom instructions to inject into the AI documentation model prompt.
+  Note: This will replace the entire set of existing instructions.
+  """
+  instructions: [AiInstructionInput!]
+}
+
+input UpdateAiAssistantSettingsInput {
+  """
+  Custom instructions to inject into the AI assistant prompt.
+  Note: This will replace the entire set of existing instructions.
+  """
+  instructions: [AiInstructionInput!]!
 }

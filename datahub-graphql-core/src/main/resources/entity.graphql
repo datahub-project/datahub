@@ -840,6 +840,13 @@ type Mutation {
   updateUserHomePageSettings(input: UpdateUserHomePageSettingsInput!): Boolean
 
   """
+  Update the AI assistant settings for a user.
+  """
+  updateCorpUserAiAssistantSettings(
+    input: UpdateCorpUserAiAssistantSettingsInput!
+  ): Boolean
+
+  """
   Update a user setting
   """
   updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -4544,6 +4551,11 @@ type CorpUserSettings {
   Settings related to the home page for a user
   """
   homePage: CorpUserHomePageSettings
+
+  """
+  Settings related to AI-powered chat assistant (Ask DataHub).
+  """
+  aiAssistant: AiAssistantSettings
 }
 
 """
@@ -13715,6 +13727,16 @@ input UpdateUserHomePageSettingsInput {
   Whether to remove the page template for the user.
   """
   removePageTemplate: Boolean
+}
+
+"""
+Input required to update a user's AI assistant settings.
+"""
+input UpdateCorpUserAiAssistantSettingsInput {
+  """
+  Custom instructions to inject into the AI assistant prompt
+  """
+  instructions: [AiInstructionInput!]!
 }
 
 """

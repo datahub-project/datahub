@@ -1,0 +1,58 @@
+namespace com.linkedin.settings.global
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * An object representing custom AI instructions for the AI assistant.
+ * Generally, these are injected into the prompt sent to the AI model.
+ *
+ * In the future we extend this to include positive examples, negative examples,
+ * and other parameters to customize the AI model's behavior.
+ */
+record AiInstruction {
+  /**
+  * A unique identifier for this instruction.
+  * This will enable users to manage multiple versions of the same instruction in the future.
+  */
+  id: string
+
+  /**
+  * A unique identifier for this instruction.
+  * This will enable users to manage multiple versions of the same instruction in the future.
+  */
+  type: enum AiInstructionType {
+    /**
+     * General context to customize the AI assistant's behavior globally or personally. This is the only supported type currently.
+     */
+    GENERAL_CONTEXT
+  }
+
+  /**
+  * The state of the instruction
+  */
+  state: enum AiInstructionState {
+    /**
+     * The instruction is active and will be used by the AI assistant.
+     */
+    ACTIVE
+    /**
+     * The instruction is inactive and will not be used by the AI assistant.
+     */
+    INACTIVE
+  }
+
+  /**
+   * Custom instruction text to be sent to the AI model.
+   */
+  instruction: string
+
+  /**
+   * The actor + timestamp of when this instruction was created.
+   */
+  created: AuditStamp
+
+  /**
+   * The actor + timestamp of when this instruction was last modified.
+   */
+  lastModified: AuditStamp
+}

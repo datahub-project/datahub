@@ -5,6 +5,11 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.AiAssistantSettings;
+import com.linkedin.datahub.graphql.generated.AiInstruction;
+import com.linkedin.datahub.graphql.generated.AiInstructionState;
+import com.linkedin.datahub.graphql.generated.AiInstructionType;
+import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.DocumentationAiSettings;
 import com.linkedin.datahub.graphql.generated.EmailIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalIntegrationSettings;
@@ -26,6 +31,8 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /** Utility functions useful for Settings resolvers. */
@@ -85,15 +92,14 @@ public class SettingsMapper {
     if (input.hasVisual() && input.getVisual() != null) {
       result.setVisualSettings(mapVisualSettings(input.getVisual()));
     }
-    DocumentationAiSettings docAiSettings = new DocumentationAiSettings();
-    if (!_featureFlags.isAiFeaturesEnabled()) {
-      docAiSettings.setEnabled(false);
-    } else if (input.hasDocumentationAi() && input.getDocumentationAi() != null) {
-      docAiSettings.setEnabled(input.getDocumentationAi().isEnabled());
-    } else {
-      docAiSettings.setEnabled(_featureFlags.isDocumentationAiDefaultEnabled());
-    }
+    // Map Documentation AI Settings
+    DocumentationAiSettings docAiSettings = mapDocumentationAiSettings(input);
     result.setDocumentationAi(docAiSettings);
+
+    // Map AI Assistant Settings
+    AiAssistantSettings aiAssistantSettings = mapAiAssistantSettings(input);
+    result.setAiAssistant(aiAssistantSettings);
+
     return result;
   }
 
@@ -253,5 +259,68 @@ public class SettingsMapper {
       result.setPreferredJwsAlgorithm(input.getPreferredJwsAlgorithm2());
     }
     return result;
+  }
+
+  private DocumentationAiSettings mapDocumentationAiSettings(@Nonnull GlobalSettingsInfo input) {
+    DocumentationAiSettings docAiSettings = new DocumentationAiSettings();
+    if (!_featureFlags.isAiFeaturesEnabled()) {
+      docAiSettings.setEnabled(false);
+      docAiSettings.setInstructions(Collections.emptyList());
+    } else if (input.hasDocumentationAi() && input.getDocumentationAi() != null) {
+      docAiSettings.setEnabled(input.getDocumentationAi().isEnabled());
+      docAiSettings.setInstructions(
+          mapAiInstructions(input.getDocumentationAi().getInstructions()));
+    } else {
+      docAiSettings.setEnabled(_featureFlags.isDocumentationAiDefaultEnabled());
+      docAiSettings.setInstructions(Collections.emptyList());
+    }
+    return docAiSettings;
+  }
+
+  private AiAssistantSettings mapAiAssistantSettings(@Nonnull GlobalSettingsInfo input) {
+    AiAssistantSettings aiAssistantSettings = new AiAssistantSettings();
+    if (input.hasAiAssistant() && input.getAiAssistant() != null) {
+      aiAssistantSettings.setInstructions(
+          mapAiInstructions(input.getAiAssistant().getInstructions()));
+    } else {
+      aiAssistantSettings.setInstructions(Collections.emptyList());
+    }
+    return aiAssistantSettings;
+  }
+
+  private List<AiInstruction> mapAiInstructions(
+      @Nonnull com.linkedin.settings.global.AiInstructionArray instructions) {
+    return instructions.stream()
+        .map(
+            gmsInstruction -> {
+              AiInstruction aiInstruction = new AiInstruction();
+              aiInstruction.setId(gmsInstruction.getId());
+              aiInstruction.setType(AiInstructionType.valueOf(gmsInstruction.getType().toString()));
+              aiInstruction.setState(mapAiInstructionState(gmsInstruction.getState()));
+              aiInstruction.setInstruction(gmsInstruction.getInstruction());
+              aiInstruction.setCreated(mapAuditStamp(gmsInstruction.getCreated()));
+              aiInstruction.setLastModified(mapAuditStamp(gmsInstruction.getLastModified()));
+              return aiInstruction;
+            })
+        .collect(Collectors.toList());
+  }
+
+  private AiInstructionState mapAiInstructionState(
+      @Nonnull com.linkedin.settings.global.AiInstructionState state) {
+    switch (state) {
+      case ACTIVE:
+        return AiInstructionState.ACTIVE;
+      case INACTIVE:
+        return AiInstructionState.INACTIVE;
+      default:
+        throw new IllegalArgumentException("Unknown AiInstructionState: " + state);
+    }
+  }
+
+  private AuditStamp mapAuditStamp(@Nonnull com.linkedin.common.AuditStamp auditStamp) {
+    AuditStamp graphqlAuditStamp = new AuditStamp();
+    graphqlAuditStamp.setTime(auditStamp.getTime());
+    graphqlAuditStamp.setActor(auditStamp.getActor().toString());
+    return graphqlAuditStamp;
   }
 }

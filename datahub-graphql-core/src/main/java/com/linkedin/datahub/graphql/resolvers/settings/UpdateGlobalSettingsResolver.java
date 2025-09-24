@@ -4,11 +4,17 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.AiInstructionInput;
 import com.linkedin.datahub.graphql.generated.TeamsChannelInput;
+import com.linkedin.datahub.graphql.generated.UpdateAiAssistantSettingsInput;
+import com.linkedin.datahub.graphql.generated.UpdateDocumentationAiSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
@@ -17,11 +23,16 @@ import com.linkedin.datahub.graphql.generated.UpdateOidcSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateTeamsIntegrationSettingsInput;
+import com.linkedin.datahub.graphql.resolvers.settings.ai.AiInstructionValidationUtils;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.NotificationSettingMap;
+import com.linkedin.settings.global.AiAssistantSettings;
+import com.linkedin.settings.global.AiInstruction;
+import com.linkedin.settings.global.AiInstructionArray;
+import com.linkedin.settings.global.AiInstructionType;
 import com.linkedin.settings.global.DocumentationAiSettings;
 import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
@@ -36,7 +47,9 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -73,7 +86,7 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
                 SettingsMapper.getGlobalSettings(context.getOperationContext(), _entityClient);
 
             // Next, patch the global settings.
-            updateSettings(globalSettings, input);
+            updateSettings(globalSettings, input, context);
 
             // Finally, write it back in a new aspect.
             final MetadataChangeProposal proposal =
@@ -95,7 +108,9 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
   }
 
   private void updateSettings(
-      final GlobalSettingsInfo existingSettings, final UpdateGlobalSettingsInput update) {
+      final GlobalSettingsInfo existingSettings,
+      final UpdateGlobalSettingsInput update,
+      @Nonnull final QueryContext context) {
     if (update.getIntegrationSettings() != null) {
       updateGlobalIntegrationSettings(
           existingSettings.getIntegrations(), update.getIntegrationSettings());
@@ -111,9 +126,20 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       existingSettings.setSso(existingSsoSettings);
     }
     if (update.getDocumentationAi() != null) {
-      DocumentationAiSettings docAiSettings = new DocumentationAiSettings();
-      docAiSettings.setEnabled(update.getDocumentationAi().getEnabled());
+      DocumentationAiSettings docAiSettings =
+          existingSettings.hasDocumentationAi()
+              ? existingSettings.getDocumentationAi()
+              : new DocumentationAiSettings();
+      updateDocumentationAiSettings(docAiSettings, update.getDocumentationAi(), context);
       existingSettings.setDocumentationAi(docAiSettings);
+    }
+    if (update.getAiAssistant() != null) {
+      AiAssistantSettings aiAssistantSettings =
+          existingSettings.hasAiAssistant()
+              ? existingSettings.getAiAssistant()
+              : new AiAssistantSettings();
+      updateAiAssistantSettings(aiAssistantSettings, update.getAiAssistant(), context);
+      existingSettings.setAiAssistant(aiAssistantSettings);
     }
   }
 
@@ -297,5 +323,90 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       oidcSettings.setPreferredJwsAlgorithm2(update.getPreferredJwsAlgorithm());
     }
     oidcSettings.removePreferredJwsAlgorithm();
+  }
+
+  private void updateDocumentationAiSettings(
+      final DocumentationAiSettings existingSettings,
+      final UpdateDocumentationAiSettingsInput update,
+      @Nonnull final QueryContext context) {
+    if (update.getEnabled() != null) {
+      existingSettings.setEnabled(update.getEnabled());
+    }
+    if (update.getInstructions() != null) {
+      // Validate instructions before processing
+      AiInstructionValidationUtils.validateAiInstructions(update.getInstructions());
+
+      // Replace entire set of instructions (not append)
+      AiInstructionArray instructions = mapAiInstructionInputs(update.getInstructions(), context);
+      existingSettings.setInstructions(instructions);
+    }
+  }
+
+  private void updateAiAssistantSettings(
+      final AiAssistantSettings existingSettings,
+      final UpdateAiAssistantSettingsInput update,
+      @Nonnull final QueryContext context) {
+    if (update.getInstructions() != null) {
+      // Validate instructions before processing
+      AiInstructionValidationUtils.validateAiInstructions(update.getInstructions());
+
+      // Replace entire set of instructions (not append)
+      AiInstructionArray instructions = mapAiInstructionInputs(update.getInstructions(), context);
+      existingSettings.setInstructions(instructions);
+    }
+  }
+
+  private AiInstructionArray mapAiInstructionInputs(
+      java.util.List<AiInstructionInput> inputs, @Nonnull final QueryContext context) {
+    AiInstructionArray instructions = new AiInstructionArray();
+    final long currentTimeMs = System.currentTimeMillis();
+    final Urn actor = UrnUtils.getUrn(context.getActorUrn());
+
+    for (AiInstructionInput input : inputs) {
+      AiInstruction instruction = new AiInstruction();
+
+      // Set ID - use provided ID or generate UUID
+      String id = input.getId();
+      if (id == null || id.trim().isEmpty()) {
+        id = UUID.randomUUID().toString();
+      }
+      instruction.setId(id);
+      instruction.setType(AiInstructionType.valueOf(input.getType().toString()));
+
+      // Set state - use provided state or default to ACTIVE
+      com.linkedin.datahub.graphql.generated.AiInstructionState graphqlState = input.getState();
+      com.linkedin.settings.global.AiInstructionState pdlState;
+      if (graphqlState == null) {
+        pdlState = com.linkedin.settings.global.AiInstructionState.ACTIVE;
+      } else {
+        pdlState = mapGraphqlStateToPdlState(graphqlState);
+      }
+      instruction.setState(pdlState);
+
+      // Set instruction text
+      instruction.setInstruction(input.getInstruction());
+
+      // Set audit stamps (server-managed)
+      AuditStamp auditStamp = new AuditStamp();
+      auditStamp.setTime(currentTimeMs);
+      auditStamp.setActor(actor);
+      instruction.setCreated(auditStamp);
+      instruction.setLastModified(auditStamp);
+
+      instructions.add(instruction);
+    }
+    return instructions;
+  }
+
+  private com.linkedin.settings.global.AiInstructionState mapGraphqlStateToPdlState(
+      com.linkedin.datahub.graphql.generated.AiInstructionState graphqlState) {
+    switch (graphqlState) {
+      case ACTIVE:
+        return com.linkedin.settings.global.AiInstructionState.ACTIVE;
+      case INACTIVE:
+        return com.linkedin.settings.global.AiInstructionState.INACTIVE;
+      default:
+        throw new IllegalArgumentException("Unknown GraphQL AiInstructionState: " + graphqlState);
+    }
   }
 }

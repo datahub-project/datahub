@@ -11,6 +11,11 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.AiAssistantSettings;
+import com.linkedin.datahub.graphql.generated.AiInstruction;
+import com.linkedin.datahub.graphql.generated.AiInstructionState;
+import com.linkedin.datahub.graphql.generated.AiInstructionType;
+import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserAppearanceSettings;
 import com.linkedin.datahub.graphql.generated.CorpUserHomePageSettings;
@@ -39,6 +44,7 @@ import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.search.features.CorpUserUsageFeatures;
 import com.linkedin.structured.StructuredProperties;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -153,6 +159,11 @@ public class CorpUserMapper {
       result.setHomePage(mapCorpUserHomePageSettings(corpUserSettings.getHomePage()));
     }
 
+    // Map AI Assistant Settings.
+    if (corpUserSettings.hasAiAssistant()) {
+      result.setAiAssistant(mapCorpUserAiAssistantSettings(corpUserSettings.getAiAssistant()));
+    }
+
     corpUser.setSettings(result);
   }
 
@@ -210,6 +221,54 @@ public class CorpUserMapper {
     }
 
     return result;
+  }
+
+  @Nonnull
+  private AiAssistantSettings mapCorpUserAiAssistantSettings(
+      @Nonnull final com.linkedin.settings.global.AiAssistantSettings aiAssistantSettings) {
+    AiAssistantSettings result = new AiAssistantSettings();
+
+    if (aiAssistantSettings.hasInstructions()) {
+      List<AiInstruction> instructions =
+          aiAssistantSettings.getInstructions().stream()
+              .map(
+                  instruction -> {
+                    AiInstruction aiInstruction = new AiInstruction();
+                    aiInstruction.setType(
+                        AiInstructionType.valueOf(instruction.getType().toString()));
+                    aiInstruction.setId(instruction.getId());
+                    aiInstruction.setState(mapAiInstructionState(instruction.getState()));
+                    aiInstruction.setInstruction(instruction.getInstruction());
+                    aiInstruction.setCreated(mapAuditStamp(instruction.getCreated()));
+                    aiInstruction.setLastModified(mapAuditStamp(instruction.getLastModified()));
+                    return aiInstruction;
+                  })
+              .collect(Collectors.toList());
+      result.setInstructions(instructions);
+    } else {
+      result.setInstructions(Collections.emptyList());
+    }
+
+    return result;
+  }
+
+  private AiInstructionState mapAiInstructionState(
+      @Nonnull com.linkedin.settings.global.AiInstructionState state) {
+    switch (state) {
+      case ACTIVE:
+        return AiInstructionState.ACTIVE;
+      case INACTIVE:
+        return AiInstructionState.INACTIVE;
+      default:
+        throw new IllegalArgumentException("Unknown AiInstructionState: " + state);
+    }
+  }
+
+  private AuditStamp mapAuditStamp(@Nonnull com.linkedin.common.AuditStamp auditStamp) {
+    AuditStamp graphqlAuditStamp = new AuditStamp();
+    graphqlAuditStamp.setTime(auditStamp.getTime());
+    graphqlAuditStamp.setActor(auditStamp.getActor().toString());
+    return graphqlAuditStamp;
   }
 
   private void mapCorpUserKey(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {

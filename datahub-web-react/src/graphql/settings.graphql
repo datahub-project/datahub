@@ -155,6 +155,36 @@ query getGlobalSettings {
         }
         documentationAi {
             enabled
+            instructions {
+                id
+                type
+                state
+                instruction
+                created {
+                    time
+                    actor
+                }
+                lastModified {
+                    time
+                    actor
+                }
+            }
+        }
+        aiAssistant {
+            instructions {
+                id
+                type
+                state
+                instruction
+                created {
+                    time
+                    actor
+                }
+                lastModified {
+                    time
+                    actor
+                }
+            }
         }
     }
 }
@@ -237,12 +267,20 @@ mutation updateGlobalDocsAiSettings($input: UpdateDocumentationAiSettingsInput!)
     updateGlobalSettings(input: { documentationAi: $input })
 }
 
+mutation updateGlobalAiAssistantSettings($input: UpdateAiAssistantSettingsInput!) {
+    updateGlobalSettings(input: { aiAssistant: $input })
+}
+
 mutation updateHelpLink($input: UpdateHelpLinkInput!) {
     updateHelpLink(input: $input)
 }
 
 mutation updateOrganizationDisplayPreferences($input: UpdateOrganizationDisplayPreferencesInput!) {
     updateOrganizationDisplayPreferences(input: $input)
+}
+
+mutation updateCorpUserAiAssistantSettings($input: UpdateCorpUserAiAssistantSettingsInput!) {
+    updateCorpUserAiAssistantSettings(input: $input)
 }
 
 fragment AssetSettingsFields on AssetSettings {
