@@ -88,6 +88,7 @@ export const ManageIngestionPage = () => {
     // Use URL query param hooks for state management
     const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
+    const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -131,7 +132,9 @@ export const ManageIngestionPage = () => {
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                     sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
-                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString())}
+                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString() || '')}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
                 />
             ),
             key: TabType.Sources as string,
