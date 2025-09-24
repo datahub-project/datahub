@@ -121,6 +121,7 @@ class GCSSource(StatefulIngestionSourceBase):
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
             platform=PLATFORM_GCS,  # Ensure GCS platform is used for correct container subtypes
+            platform_instance=self.config.platform_instance,
         )
         return s3_config
 
