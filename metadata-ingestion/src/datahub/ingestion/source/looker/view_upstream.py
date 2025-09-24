@@ -507,19 +507,18 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 dim_group.get(VIEW_FIELD_TYPE_ATTRIBUTE)
             )
 
-            match dim_group_type:
-                case ViewFieldDimensionGroupType.TIME:
-                    view_fields.append(
-                        self._get_looker_api_field_name(
-                            self._get_time_dim_group_field_name(dim_group)
-                        )
+            if dim_group_type == ViewFieldDimensionGroupType.TIME:
+                view_fields.append(
+                    self._get_looker_api_field_name(
+                        self._get_time_dim_group_field_name(dim_group)
                     )
-                case ViewFieldDimensionGroupType.DURATION:
-                    view_fields.append(
-                        self._get_looker_api_field_name(
-                            self._get_duration_dim_group_field_name(dim_group)
-                        )
+                )
+            elif dim_group_type == ViewFieldDimensionGroupType.DURATION:
+                view_fields.append(
+                    self._get_looker_api_field_name(
+                        self._get_duration_dim_group_field_name(dim_group)
                     )
+                )
 
         # Construct and return the WriteQuery object.
         # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
@@ -702,15 +701,15 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                 field_context.raw_field.get(VIEW_FIELD_TYPE_ATTRIBUTE)
             )
 
-            match field_type:
-                case ViewFieldDimensionGroupType.TIME:
-                    field_name = self._get_time_dim_group_field_name(
-                        field_context.raw_field
-                    )
-                case ViewFieldDimensionGroupType.DURATION:
-                    field_name = self._get_duration_dim_group_field_name(
-                        field_context.raw_field
-                    )
+            if field_type == ViewFieldDimensionGroupType.TIME:
+                field_name = self._get_time_dim_group_field_name(
+                    field_context.raw_field
+                )
+            elif field_type == ViewFieldDimensionGroupType.DURATION:
+                field_name = self._get_duration_dim_group_field_name(
+                    field_context.raw_field
+                )
+
         except Exception:
             # Not a dimension group, no modification needed
             logger.debug(

@@ -189,12 +189,11 @@ class LookerAPI:
         )
 
         data = None
-        match result_format:
-            case LookerQueryResponseFormat.JSON:
-                data = json.loads(response)
-            case LookerQueryResponseFormat.SQL:
-                # Convert response sql string to list of dicts to match return type consistency
-                data = [{"sql": response}]
+        if result_format == LookerQueryResponseFormat.JSON:
+            data = json.loads(response)
+        elif result_format == LookerQueryResponseFormat.SQL:
+            # Convert response sql string to list of dicts to match return type consistency
+            data = [{"sql": response}]
 
         logger.debug("=================Response=================")
         logger.debug("Length of response: %d", len(data))
