@@ -668,11 +668,9 @@ class S3Source(StatefulIngestionSourceBase):
         aspects: List[Optional[_Aspect]] = []
 
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
-        browse_path: str = (
-            self.strip_s3_prefix(table_data.table_path)
-            if self.is_s3_platform()
-            else table_data.table_path.strip("/")
-        )
+
+        # remove protocol and any leading or trailing slashes
+        browse_path = re.sub(r"^[a-z0-9]+://", "", table_data.table_path).strip("/")
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
         logger.info(f"Creating dataset urn with name: {browse_path}")
