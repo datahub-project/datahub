@@ -817,7 +817,16 @@ class S3Source(StatefulIngestionSourceBase):
         path = browse_path.file
         partitions = browse_path.partitions
         logger.debug(f"Getting table data for path: {path}")
-        table_name, table_path = path_spec.extract_table_name_and_path(path)
+
+        # Extract the table name and base path from a path that's been normalized back to the "s3://" protocol
+        table_name, table_path = path_spec.extract_table_name_and_path(
+            self._normalize_uri_for_pattern_matching(path)
+        )
+        # Then convert the base path back to the original protocol
+        protocol = re.match(r"^[a-z0-9]+://", path)
+        if protocol:
+            table_path = re.sub(r"^[a-z0-9]+://", protocol[0], table_path)
+
         return TableData(
             display_name=table_name,
             is_s3=self.is_s3_platform(),
