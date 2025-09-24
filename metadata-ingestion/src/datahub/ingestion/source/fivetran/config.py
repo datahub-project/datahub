@@ -70,6 +70,7 @@ class Constant:
 
 
 KNOWN_DATA_PLATFORM_MAPPING = {
+    "google_cloud_postgresql": "postgres",
     "postgres": "postgres",
     "snowflake": "snowflake",
 }
