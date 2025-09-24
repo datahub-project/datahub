@@ -1,6 +1,6 @@
 import pytest
 
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, get_admin_username, ingest_file_via_rest
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -56,6 +56,8 @@ MUTATION_UPSERT = """
 mutation upsertLink($input: UpsertLinkInput!) {\n
   upsertLink(input: $input)\n
 }"""
+
+ADMIN_USERNAME = get_admin_username()
 
 
 def execute_query(auth_session, query, variables):
@@ -134,7 +136,7 @@ def test_add_institutional_memory(auth_session):
                 "url": "http://example.com",
                 "label": "example",
                 "created": {
-                    "actor": "urn:li:corpuser:admin",
+                    "actor": f"urn:li:corpuser:{ADMIN_USERNAME}",
                     "time": 0,
                 },
                 "updated": None,
@@ -183,7 +185,7 @@ def test_update_institutional_memory(auth_session):
                     "time": 1581407189000,
                 },
                 "updated": {
-                    "actor": "urn:li:corpuser:admin",
+                    "actor": f"urn:li:corpuser:{ADMIN_USERNAME}",
                     "time": 0,
                 },
                 "settings": {"showInAssetPreview": True},
@@ -280,7 +282,7 @@ def test_upsert_institutional_memory(auth_session):
                     "time": 1581407189000,
                 },
                 "updated": {
-                    "actor": "urn:li:corpuser:admin",
+                    "actor": f"urn:li:corpuser:{ADMIN_USERNAME}",
                     "time": 0,
                 },
                 "settings": {"showInAssetPreview": True},
@@ -289,7 +291,7 @@ def test_upsert_institutional_memory(auth_session):
                 "url": "https://example.com",
                 "label": "example",
                 "created": {
-                    "actor": "urn:li:corpuser:admin",
+                    "actor": f"urn:li:corpuser:{ADMIN_USERNAME}",
                     "time": 0,
                 },
                 "updated": None,
