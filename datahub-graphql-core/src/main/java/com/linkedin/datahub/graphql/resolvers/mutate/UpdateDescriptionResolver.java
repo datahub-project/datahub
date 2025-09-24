@@ -111,7 +111,7 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!DescriptionUtils.isAuthorizedToUpdateDomainDescription(context, targetUrn)) {
+          if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

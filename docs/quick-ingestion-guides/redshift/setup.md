@@ -37,6 +37,14 @@ GRANT SELECT ON pg_catalog.svv_external_tables TO datahub;
 GRANT SELECT ON pg_catalog.svv_external_columns TO datahub;
 GRANT SELECT ON pg_catalog.pg_class_info TO datahub;
 
+-- Essential pg_catalog tables for table discovery
+GRANT SELECT ON pg_catalog.pg_class TO datahub;
+GRANT SELECT ON pg_catalog.pg_namespace TO datahub;
+GRANT SELECT ON pg_catalog.pg_description TO datahub;
+GRANT SELECT ON pg_catalog.pg_database TO datahub;
+GRANT SELECT ON pg_catalog.pg_attribute TO datahub;
+GRANT SELECT ON pg_catalog.pg_attrdef TO datahub;
+
 -- Datashare lineage (enabled by default)
 GRANT SELECT ON pg_catalog.svv_datashares TO datahub;
 

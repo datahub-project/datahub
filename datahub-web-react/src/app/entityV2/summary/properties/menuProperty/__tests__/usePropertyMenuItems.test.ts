@@ -27,7 +27,7 @@ describe('usePropertyMenuItems', () => {
     });
 
     it('should return the correct menu structure', () => {
-        const { result } = renderHook(() => usePropertyMenuItems(0));
+        const { result } = renderHook(() => usePropertyMenuItems(0, SummaryElementType.Created));
         expect(result.current).toHaveLength(2);
         const replaceItem = result.current[0] as MenuItemType;
         expect(replaceItem.key).toBe('replace');
@@ -37,21 +37,25 @@ describe('usePropertyMenuItems', () => {
     });
 
     it('should call remove with the correct position when remove is clicked', () => {
-        const { result } = renderHook(() => usePropertyMenuItems(5));
+        const { result } = renderHook(() => usePropertyMenuItems(5, SummaryElementType.Created));
         const removeItem = result.current[1] as MenuItemType;
         act(() => {
             removeItem.onClick!();
         });
-        expect(mockRemove).toHaveBeenCalledWith(5);
+        expect(mockRemove).toHaveBeenCalledWith(5, SummaryElementType.Created);
     });
 
     it('should call replace with the correct arguments when onReplace is called', () => {
-        renderHook(() => usePropertyMenuItems(3));
+        renderHook(() => usePropertyMenuItems(3, SummaryElementType.Created));
         const onReplace = (useAddPropertyMenuItems as any).mock.calls[0][0];
         const newProperty = { name: 'new', type: SummaryElementType.Domain };
         act(() => {
             onReplace(newProperty);
         });
-        expect(mockReplace).toHaveBeenCalledWith({ position: 3, elementType: SummaryElementType.Domain });
+        expect(mockReplace).toHaveBeenCalledWith({
+            position: 3,
+            elementType: SummaryElementType.Domain,
+            currentElementType: SummaryElementType.Created,
+        });
     });
 });

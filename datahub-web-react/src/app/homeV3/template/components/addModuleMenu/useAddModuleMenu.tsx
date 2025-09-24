@@ -244,7 +244,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             label: (
                 <MenuItem
                     description="View the hierarchy of this asset's children"
-                    title="Children"
+                    title={entityType === EntityType.Domain ? 'Domains' : 'Contents'}
                     icon="Globe"
                     isSmallModule={false}
                 />

@@ -794,6 +794,11 @@ type FeatureFlagsConfig {
   showHomepageUserRole: Boolean!
 
   """
+  If enabled, show the default external links on the entity page
+  """
+  showDefaultExternalLinks: Boolean!
+
+  """
   Enables displaying the asset summary page
   """
   assetSummaryPageV1: Boolean!

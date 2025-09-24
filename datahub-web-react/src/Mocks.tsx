@@ -315,6 +315,13 @@ export const dataset1 = {
     institutionalMemory: {
         elements: [
             {
+                actor: {
+                    ...user1,
+                },
+                author: {
+                    ...user1,
+                },
+                label: 'This only points to Google',
                 url: 'https://www.google.com',
                 description: 'This only points to Google',
                 created: {
@@ -621,12 +628,16 @@ export const dataset3 = {
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     type: EntityType.CorpUser,
+                    properties: null,
+                    info: null,
                 },
                 actor: {
                     __typename: 'CorpUser',
                     urn: 'urn:li:corpuser:datahub',
                     username: 'datahub',
                     type: EntityType.CorpUser,
+                    properties: null,
+                    info: null,
                 },
                 description: 'This only points to Google',
                 label: 'This only points to Google',
@@ -636,6 +647,10 @@ export const dataset3 = {
                     time: 1612396473001,
                 },
                 associatedUrn: 'urn:li:dataset:3',
+                settings: {
+                    showInAssetPreview: false,
+                    __typename: 'InstitutionalMemoryMetadataSettings',
+                },
             },
         ],
     },

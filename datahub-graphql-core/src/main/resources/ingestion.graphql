@@ -508,6 +508,11 @@ type IngestionSource {
   The latest successful execution request for this source
   """
   latestSuccessfulExecution: ExecutionRequest
+
+  """
+  The source or origin of the Ingestion Source
+  """
+  source: IngestionSourceSource
 }
 
 """
@@ -638,6 +643,41 @@ input UpdateIngestionSourceInput {
   A set of type-specific ingestion source configurations
   """
   config: UpdateIngestionSourceConfigInput!
+
+  """
+  Optionally specify source
+  """
+  source: IngestionSourceSourceInput
+}
+
+"""
+Source information for an ingestion source
+"""
+type IngestionSourceSource {
+  """
+  The source type of the ingestion source
+  """
+  type: IngestionSourceSourceType!
+}
+
+"""
+Input for specifying ingestion source source information
+"""
+input IngestionSourceSourceInput {
+  """
+  The source type of the ingestion source
+  """
+  type: IngestionSourceSourceType!
+}
+
+"""
+The type of ingestion source source
+"""
+enum IngestionSourceSourceType {
+  """
+  A system internal source, e.g. for running search indexing operations, feature computation, etc.
+  """
+  SYSTEM
 }
 
 """

@@ -8,7 +8,7 @@ import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 
 const modalBodyStyles = {
     overflow: 'auto',
-    maxHeight: '70vh',
+    maxHeight: '75vh',
 };
 
 interface Props {

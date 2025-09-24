@@ -136,6 +136,9 @@ public enum DataHubUsageEventType {
   HOME_PAGE_TEMPLATE_MODULE_LINK_CLICK_EVENT("HomePageTemplateModuleLinkClick"),
   HOME_PAGE_TEMPLATE_MODULE_ANNOUNCEMENT_DISMISS_EVENT("HomePageTemplateModuleAnnouncementDismiss"),
   SET_DEPRECATION("SetDeprecation"),
+  ASSET_PAGE_ADD_SUMMARY_ELEMENT("AssetPageAddSummaryElement"),
+  ASSET_PAGE_REMOVE_SUMMARY_ELEMENT("AssetPageRemoveSummaryElement"),
+  ASSET_PAGE_REPLACE_SUMMARY_ELEMENT("AssetPageReplaceSummaryElement"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),

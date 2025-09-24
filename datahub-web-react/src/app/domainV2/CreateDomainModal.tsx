@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { UpdatedDomain, useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import DomainParentSelect from '@app/entityV2/shared/EntityDropdown/DomainParentSelect';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -12,7 +13,7 @@ import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { Button } from '@src/alchemy-components';
 
 import { useCreateDomainMutation } from '@graphql/domain.generated';
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 8px;
@@ -74,6 +75,8 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
+    const { reloadModules } = useModulesContext();
+
     const onCreateDomain = () => {
         createDomainMutation({
             variables: {
@@ -114,6 +117,9 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     };
                     setNewDomain(newDomain);
                     form.resetFields();
+                    // Reload modules
+                    // ChildHierarchy - to reload shown child domains on asset summary tab
+                    reloadModules([DataHubPageModuleType.ChildHierarchy], 3000);
                 }
             })
             .catch((e) => {

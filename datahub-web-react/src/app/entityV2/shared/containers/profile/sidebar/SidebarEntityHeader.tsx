@@ -7,6 +7,7 @@ import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/h
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import ContextPath from '@app/previewV2/ContextPath';
@@ -15,7 +16,7 @@ import NotesIcon from '@app/previewV2/NotesIcon';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataPlatform, Entity, EntityType, Post } from '@types';
+import { DataPlatform, EntityType, Post } from '@types';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
@@ -49,13 +50,7 @@ const SidebarEntityHeader = () => {
     const platforms =
         entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
 
-    const containerPath =
-        entityData?.parentContainers?.containers ||
-        entityData?.parentDomains?.domains ||
-        entityData?.parentNodes?.nodes ||
-        [];
-    const parentPath: Entity[] = entityData?.parent ? [entityData.parent as Entity] : [];
-    const parentEntities = containerPath.length ? containerPath : parentPath;
+    const parentEntities = getParentEntities(entityData, entityType);
 
     if (loading) {
         return <EntityTitleLoadingSection />;

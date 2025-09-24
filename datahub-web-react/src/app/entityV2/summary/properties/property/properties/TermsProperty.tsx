@@ -12,7 +12,7 @@ export default function TermsProperty(props: PropertyComponentProps) {
     const glossaryTermAssociations = entityData?.glossaryTerms?.terms ?? [];
 
     const renderTerm = (glossaryTermAssociation: GlossaryTermAssociation) => {
-        return <Term term={glossaryTermAssociation} />;
+        return <Term term={glossaryTermAssociation} readOnly />;
     };
 
     return (

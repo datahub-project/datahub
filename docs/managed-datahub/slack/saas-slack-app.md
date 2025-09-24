@@ -4,30 +4,20 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-The DataHub Slack App brings several of DataHub's key capabilities directly into your Slack experience. These include:
+The DataHub Slack App brings several of DataHub's key capabilities directly into your Slack experience.
+The integration enables your team to:
 
-1. Receive notifications
-2. Chat with the @DataHub bot
-3. Searching for Data Assets
-4. Subscribing to notifications for Data Assets
-5. Managing Data Incidents
+1. Ask DataHub about your data (by tagging @DataHub)
+2. Get notified when Data Assets change
+3. Search for & subscribe to data assets using slash commands
+4. Manage Data Incidents
 
-_Our goal with the Slack app is to make data discovery easier and more accessible for you._
-
+The Slack App makes data discovery easier and more accessible, by making DataHub available where you work.
 Learn more about [how to set up the Slack app](./saas-slack-setup.md) or [how to troubleshoot issues](./saas-slack-troubleshoot.md).
 
-## Receive Notifications
+## Ask DataHub
 
-The DataHub Slack app can send notifications to Slack channels and direct messages.
-Notifications [can be configured](../subscription-and-notification.md) in the DataHub UI once the [Slack app is set up](./saas-slack-setup.md#configure-notifications).
-
-<p align="center">
-    <img width="70%" alt="Example DataHub notification in Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/notification_1.png" />
-</p>
-
-## @DataHub AI in Slack
-
-With the DataHub AI in Slack, you can mention @DataHub in any channel and ask it questions about your metadata.
+**Ask DataHub** is DataHub's conversational AI assistant. In Slack, you can mention @DataHub in any channel to ask questions about your metadata.
 
 <p align="center">
 <video width="80%" autoPlay muted loop playsInline crossOrigin="anonymous">
@@ -44,21 +34,30 @@ Key capabilities include:
 - Dig into specific assets and their glossary terms, owners, and more.
 - Write first-drafts of SQL queries to answer specific questions.
 
-#### Enabling @DataHub AI in Slack
+#### Enabling **Ask DataHub** in Slack
 
 :::warning Permissions
 
-The current version of the @DataHub AI in Slack assumes that all users have read permissions for all assets. A future version will support more granular permissions.
+The current version assumes that all users have read permissions for all assets. A future version will support more granular permissions.
 
 :::
 
-In DataHub Cloud v0.3.13 (July 2025), the @DataHub AI command is in **public beta** and can be enabled in the Settings → AI page. In prior versions, it was in private beta and required a request to your DataHub Cloud representative to get access.
+In DataHub Cloud v0.3.13 (July 2025), **Ask DataHub** is in **public beta** and can be enabled in the Settings → AI page. In prior versions, it was in private beta and required a request to your DataHub Cloud representative to get access.
 
 <p align="center">
     <img width="70%" alt="Enabling @DataHub AI in Slack" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_config.png" />
 </p>
 
-## Slack App Commands
+## Get Notified
+
+The DataHub Slack app can send notifications to Slack channels and direct messages.
+Notifications [can be configured](../subscription-and-notification.md) in the DataHub UI once the [Slack app is set up](./saas-slack-setup.md#configure-notifications).
+
+<p align="center">
+    <img width="70%" alt="Example DataHub notification in Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/notification_1.png" />
+</p>
+
+## Slash Commands
 
 The command-based capabilities on the Slack App revolve around search.
 
@@ -92,17 +91,17 @@ You can hit the **'Subscribe'** button on a specific search result to subscribe 
 
 ## Manage Data Incidents
 
-Some of the most commonly used features within our Slack app are the Incidents management capabilities.
-The DataHub UI offers a rich set of [Incident tracking and management](https://docs.datahub.com/docs/incidents/incidents/) features.
-When a Slack member or channel receives notifications about an Incident, many of these features are made accessible right within the Slack app.
+One of the most common use cases for the Teams app is incident management.
+When an incident is raised, you will get notified about its impact, priority, and more.
+You will also be able to directly resolve the incident, or dive deeper into DataHub, directly from Teams.
 
-When an incident is raised, you will receive rich context about the incident in the Slack message itself. You will also be able to `Mark as Resolved`, update the `Priority`, set a triage `Stage` and `View Details` - directly from the Slack message.
+To learn more about DataHub incident management, check out the [Incidents](https://docs.datahub.com/docs/incidents/incidents/) feature guide.
 
 <p align="center">
     <img width="70%" alt="Example of search results being displayed within Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_incidents_1.png" />
 </p>
 
-If you choose to `Mark as Resolved` the message will update in-place, and you will be presented with the ability to `Reopen Incident` should you choose.
+You can also resolve incidents directly from within Slack. Once resolved, incidents can also be reopened:
 
 <p align="center">
     <img width="70%" alt="Example of search results being displayed within Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_incidents_2.png" />

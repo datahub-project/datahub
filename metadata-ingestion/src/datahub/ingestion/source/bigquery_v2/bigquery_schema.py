@@ -283,23 +283,30 @@ class BigQuerySchemaApi:
         with self.report.list_datasets_timer:
             self.report.num_list_datasets_api_requests += 1
             datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
-            return [
-                BigqueryDataset(
-                    name=d.dataset_id,
-                    labels=d.labels,
-                    location=(
-                        d._properties.get("location")
-                        if hasattr(d, "_properties") and isinstance(d._properties, dict)
-                        else None
-                    ),
-                    # TODO: Fetch dataset description individually impacts overall performance if the number of datasets is high (hundreds); instead we should fetch in batch for all datasets.
-                    # TODO: Given we are calling get_dataset for each dataset, we may consume and publish other fields too, such as created, modified, etc...
-                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.client.Client#google_cloud_bigquery_client_Client_get_dataset
-                    # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dataset.Dataset
-                    comment=self.bq_client.get_dataset(d.reference).description,
+            result = []
+            for d in datasets:
+                # TODO: Fetch dataset description individually impacts overall performance if the number of datasets is high (hundreds); instead we should fetch in batch for all datasets.
+                # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.client.Client#google_cloud_bigquery_client_Client_get_dataset
+                # https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dataset.Dataset
+                dataset = self.bq_client.get_dataset(d.reference)
+
+                location = (
+                    d._properties.get("location")
+                    if hasattr(d, "_properties") and isinstance(d._properties, dict)
+                    else None
                 )
-                for d in datasets
-            ]
+
+                result.append(
+                    BigqueryDataset(
+                        name=d.dataset_id,
+                        labels=d.labels,
+                        location=location,
+                        comment=dataset.description,
+                        created=dataset.created,
+                        last_altered=dataset.modified,
+                    )
+                )
+            return result
 
     # This is not used anywhere
     def get_datasets_for_project_id_with_information_schema(

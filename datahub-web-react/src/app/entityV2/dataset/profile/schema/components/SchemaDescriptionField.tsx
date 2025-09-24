@@ -98,6 +98,7 @@ const StyledViewer = styled(Editor)`
 const DescriptionWrapper = styled.span`
     display: inline-flex;
     align-items: center;
+    width: 100%;
 `;
 
 const AddModalWrapper = styled.div``;
@@ -219,13 +220,13 @@ export default function DescriptionField({
                                     customStyle={{ fontSize: '12px' }}
                                     scrollableY={false}
                                 />
+                                {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
                             </DescriptionWrapper>
                         </Tooltip>
                         {/* </StripMarkdownText> */}
                     </>
                 )
             )}
-            {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <AddModalWrapper onClick={(e) => e.stopPropagation()}>
                     <UpdateDescriptionModal

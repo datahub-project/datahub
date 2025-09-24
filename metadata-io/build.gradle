@@ -135,8 +135,11 @@ test {
   useTestNG() {
     suites 'src/test/resources/testng.xml'
   }
-  testLogging.showStandardStreams = true
-  testLogging.exceptionFormat = 'full'
+  testLogging {
+    events "failed", "skipped"
+    exceptionFormat "full"
+    showStandardStreams = false
+  }
 
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }

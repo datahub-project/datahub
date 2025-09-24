@@ -102,7 +102,7 @@ class FivetranLogConfig(ConfigModel):
         "destination_config", "snowflake_destination_config"
     )
 
-    @root_validator(pre=True)
+    @root_validator(skip_on_failure=True)
     def validate_destination_platfrom_and_config(cls, values: Dict) -> Dict:
         destination_platform = values["destination_platform"]
         if destination_platform == "snowflake":

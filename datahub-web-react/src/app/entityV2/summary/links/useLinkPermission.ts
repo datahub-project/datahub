@@ -7,8 +7,9 @@ export function useLinkPermission() {
 
     // Edit links permission
     const canEditLinks = !!entityData?.privileges?.canEditLinks;
+    const canManageSummary = !!entityData?.privileges?.canManageAssetSummary;
 
-    const hasLinkPermissions = canEditLinks || canUpdateGlossaryEntity;
+    const hasLinkPermissions = canEditLinks || canUpdateGlossaryEntity || canManageSummary;
 
     return hasLinkPermissions;
 }

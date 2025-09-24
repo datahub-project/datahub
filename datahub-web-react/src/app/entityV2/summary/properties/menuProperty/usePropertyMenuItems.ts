@@ -6,18 +6,24 @@ import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddPro
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
-export default function usePropertyMenuItems(position: number): ItemType[] {
+import { SummaryElementType } from '@types';
+
+export default function usePropertyMenuItems(position: number, elementType: SummaryElementType): ItemType[] {
     const { removeSummaryElement, replaceSummaryElement } = usePageTemplateContext();
 
-    const onRemove = useCallback(() => removeSummaryElement(position), [removeSummaryElement, position]);
+    const onRemove = useCallback(
+        () => removeSummaryElement(position, elementType),
+        [removeSummaryElement, position, elementType],
+    );
     const onReplace = useCallback(
         (newElement: AssetProperty) =>
             replaceSummaryElement({
                 elementType: newElement.type,
                 structuredProperty: newElement.structuredProperty,
                 position,
+                currentElementType: elementType,
             }),
-        [replaceSummaryElement, position],
+        [replaceSummaryElement, position, elementType],
     );
 
     const addPropertyMenuItems = useAddPropertyMenuItems(onReplace);

@@ -1,4 +1,3 @@
-import { Text } from '@components';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -61,9 +60,6 @@ const SelectAssetsSection = ({
 
     return (
         <AssetsSection>
-            <Text color="gray" weight="bold">
-                Search and Select Assets
-            </Text>
             <ButtonTabs tabs={tabs} onTabClick={onTabChanged} defaultKey={selectAssetType} />
         </AssetsSection>
     );

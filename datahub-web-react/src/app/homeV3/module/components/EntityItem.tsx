@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -36,6 +37,7 @@ export default function EntityItem({
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
+    const { templateType } = usePageTemplateContext();
 
     const sendAnalytics = useCallback(
         () =>
@@ -43,8 +45,9 @@ export default function EntityItem({
                 type: EventType.HomePageTemplateModuleAssetClick,
                 moduleType,
                 assetUrn: entity.urn,
+                location: templateType,
             }),
-        [entity.urn, moduleType],
+        [entity.urn, moduleType, templateType],
     );
 
     return (

@@ -1,6 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { Icon, Pill, Table, Text, Tooltip } from '@components';
-import { Dropdown } from 'antd';
+import { Icon, Menu, Pill, Table, Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 
@@ -10,7 +9,6 @@ import {
     CardIcons,
     DataContainer,
     IconContainer,
-    MenuItem,
     NameColumn,
     PillContainer,
     PillsContainer,
@@ -245,95 +243,68 @@ const StructuredPropsTable = ({
             render: (record) => {
                 const items = [
                     {
+                        type: 'item' as const,
                         key: '0',
-                        label: (
-                            <MenuItem
-                                onClick={() => {
-                                    setIsViewDrawerOpen(true);
-                                    setSelectedProperty(record);
-                                    analytics.event({
-                                        type: EventType.ViewStructuredPropertyEvent,
-                                        propertyUrn: record.entity.urn,
-                                    });
-                                }}
-                            >
-                                View
-                            </MenuItem>
-                        ),
+                        title: 'View',
+                        onClick: () => {
+                            setIsViewDrawerOpen(true);
+                            setSelectedProperty(record);
+                            analytics.event({
+                                type: EventType.ViewStructuredPropertyEvent,
+                                propertyUrn: record.entity.urn,
+                            });
+                        },
                     },
                     {
+                        type: 'item' as const,
                         key: '1',
-                        label: (
-                            <MenuItem
-                                onClick={() => {
-                                    navigator.clipboard.writeText(record.entity.urn);
-                                }}
-                            >
-                                Copy Urn
-                            </MenuItem>
-                        ),
+                        title: 'Copy Urn',
+                        onClick: () => {
+                            navigator.clipboard.writeText(record.entity.urn);
+                        },
                     },
                     {
+                        type: 'item' as const,
                         key: '2',
+                        title: 'Edit',
                         disabled: !canEditProps,
-                        label: (
-                            <Tooltip
-                                showArrow={false}
-                                title={
-                                    !canEditProps
-                                        ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
-                                        : null
-                                }
-                            >
-                                <MenuItem
-                                    onClick={() => {
-                                        if (canEditProps) {
-                                            setIsDrawerOpen(true);
-                                            setSelectedProperty(record);
-                                            analytics.event({
-                                                type: EventType.ViewStructuredPropertyEvent,
-                                                propertyUrn: record.entity.urn,
-                                            });
-                                        }
-                                    }}
-                                >
-                                    Edit
-                                </MenuItem>
-                            </Tooltip>
-                        ),
+                        tooltip: !canEditProps
+                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
+                            : undefined,
+                        onClick: () => {
+                            if (canEditProps) {
+                                setIsDrawerOpen(true);
+                                setSelectedProperty(record);
+                                analytics.event({
+                                    type: EventType.ViewStructuredPropertyEvent,
+                                    propertyUrn: record.entity.urn,
+                                });
+                            }
+                        },
                     },
                     {
+                        type: 'item' as const,
                         key: '3',
+                        title: 'Delete',
                         disabled: !canEditProps,
-                        label: (
-                            <Tooltip
-                                showArrow={false}
-                                title={
-                                    !canEditProps
-                                        ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
-                                        : null
-                                }
-                            >
-                                <MenuItem
-                                    onClick={() => {
-                                        if (canEditProps) {
-                                            setSelectedProperty(record);
-                                            setShowConfirmDelete(true);
-                                        }
-                                    }}
-                                >
-                                    <Text color="red">Delete </Text>
-                                </MenuItem>
-                            </Tooltip>
-                        ),
+                        danger: true,
+                        tooltip: !canEditProps
+                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
+                            : undefined,
+                        onClick: () => {
+                            if (canEditProps) {
+                                setSelectedProperty(record);
+                                setShowConfirmDelete(true);
+                            }
+                        },
                     },
                 ];
                 return (
                     <>
                         <CardIcons>
-                            <Dropdown menu={{ items }} trigger={['click']}>
+                            <Menu items={items} trigger={['click']}>
                                 <Icon icon="MoreVert" size="md" data-testid="structured-props-more-options-icon" />
-                            </Dropdown>
+                            </Menu>
                         </CardIcons>
                     </>
                 );

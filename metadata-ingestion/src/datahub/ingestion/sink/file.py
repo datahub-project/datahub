@@ -79,6 +79,7 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
             write_callback.on_success(record_envelope, {})
 
     def close(self):
+        super().close()
         self.file.write("\n]")
         self.file.close()
 

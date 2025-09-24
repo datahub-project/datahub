@@ -9,6 +9,11 @@ const StyledEditor = styled(Editor)`
     overflow: auto;
 `;
 
+const toolbarStyles = {
+    width: '100%',
+    justifyContent: 'flex-start',
+};
+
 type Props = {
     content: string | undefined;
     form: FormInstance;
@@ -18,7 +23,7 @@ const RichTextContent = ({ content, form }: Props) => {
     return (
         <Form form={form} initialValues={{ content }}>
             <Form.Item name="content" data-testid="rich-text-documentation">
-                <StyledEditor content={content} placeholder="Write some text here..." />
+                <StyledEditor content={content} placeholder="Write some text here..." toolbarStyles={toolbarStyles} />
             </Form.Item>
         </Form>
     );

@@ -3,7 +3,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React from 'react';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { EMPTY_MESSAGES, ENTITY_TYPES_WITH_NEW_SUMMARY_TAB } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
 import SourceRefSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SourceRefSection';
@@ -11,6 +11,8 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
 import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
@@ -47,7 +49,9 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
 
     const hasContent = !!displayedDescription || links.length > 0;
 
-    const canEditDescription = !!entityData?.privileges?.canEditDescription;
+    const canEditDescription = useDocumentationPermission();
+
+    const showNewSummaryTab = useShowAssetSummaryPage();
 
     return (
         <>
@@ -55,15 +59,15 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                 title="Documentation"
                 content={
                     <>
-                        {displayedDescription && [
+                        {displayedDescription && (
                             <DescriptionSection
                                 description={displayedDescription}
                                 isExpandable
                                 lineLimit={LINE_LIMIT}
-                            />,
-                        ]}
+                            />
+                        )}
                         {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
-                        {!hasContent && [<EmptySectionText message={EMPTY_MESSAGES.documentation.title} />]}
+                        {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
                     </>
                 }
                 extra={
@@ -74,7 +78,17 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                 dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {
-                                        routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                        if (
+                                            ENTITY_TYPES_WITH_NEW_SUMMARY_TAB.includes(entityType) &&
+                                            showNewSummaryTab
+                                        ) {
+                                            routeToTab({
+                                                tabName: 'Summary',
+                                                tabParams: { editingDescription: true },
+                                            });
+                                        } else {
+                                            routeToTab({ tabName: 'Documentation', tabParams: { editing: true } });
+                                        }
                                     } else {
                                         const url = getEntityPath(
                                             entityType,

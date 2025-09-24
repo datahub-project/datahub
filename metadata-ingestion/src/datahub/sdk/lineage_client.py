@@ -905,9 +905,9 @@ class LineageClient:
         direction: Literal["upstream", "downstream"],
     ) -> LineageResult:
         """Create a LineageResult from entity and entry data."""
-        platform = entity.get("platform", {}).get("name") or entity.get(
-            "dataPlatformInstance", {}
-        ).get("platform", {}).get("name")
+        platform = (entity.get("platform") or {}).get("name") or (
+            (entity.get("dataPlatformInstance") or {}).get("platform") or {}
+        ).get("name")
 
         result = LineageResult(
             urn=entity["urn"],

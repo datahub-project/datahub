@@ -687,7 +687,10 @@ public class GraphQueryElasticsearch7DAOTest {
     LineageResponse response = dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
 
     Assert.assertNotNull(response);
-    Assert.assertEquals(2, response.getTotal());
+    Assert.assertEquals(response.getTotal(), 2);
+    for (LineageRelationship rel : response.getLineageRelationships()) {
+      Assert.assertNotEquals(rel.isExplored(), Boolean.TRUE);
+    }
 
     // Verify that search was called 2 times (1 initial search per slice)
     // Elasticsearch 7 DAO uses scroll for pagination, not repeated search calls
@@ -820,7 +823,7 @@ public class GraphQueryElasticsearch7DAOTest {
 
     Assert.assertNotNull(response);
     Assert.assertNotNull(response.getLineageRelationships());
-    Assert.assertEquals(0, response.getTotal());
+    Assert.assertEquals(response.getTotal(), 0);
   }
 
   @Test
@@ -865,9 +868,17 @@ public class GraphQueryElasticsearch7DAOTest {
     // Note: The actual result count depends on whether relationships are extracted from mock data
     // For now, just verify the response structure is correct
     Assert.assertTrue(response.getTotal() >= 0, "Response total should be non-negative");
+    Set<Urn> oneHopUrns = new HashSet<>();
+    for (LineageRelationship rel : response.getLineageRelationships()) {
+      Assert.assertNotEquals(rel.isExplored(), Boolean.TRUE);
+      oneHopUrns.add(rel.getEntity());
+    }
 
     // Test with maxHops = 2 (should also return results, potentially the same if no multi-hop data)
     LineageResponse responseTwoHops = dao.getImpactLineage(operationContext, sourceUrn, filters, 2);
+    for (LineageRelationship rel : responseTwoHops.getLineageRelationships()) {
+      Assert.assertNotEquals(rel.isExplored(), !oneHopUrns.contains(rel.getEntity()));
+    }
 
     Assert.assertNotNull(responseTwoHops);
     Assert.assertNotNull(responseTwoHops.getLineageRelationships());

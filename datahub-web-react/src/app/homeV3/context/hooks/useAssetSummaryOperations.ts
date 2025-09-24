@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import {
     TemplateUpdateContext,
     getTemplateToUpdate,
@@ -33,6 +34,7 @@ export interface ReplaceSummaryElementInput {
     elementType: SummaryElementType;
     structuredProperty?: StructuredPropertyFieldsFragment;
     position: number;
+    currentElementType: SummaryElementType;
 }
 
 // Helper function to create a new summary element from input
@@ -127,13 +129,19 @@ export function useAssetSummaryOperations(
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'add summary element');
+
+            analytics.event({
+                type: EventType.AssetPageAddSummaryElement,
+                templateUrn: templateToUpdate.urn,
+                elementType: input.elementType,
+            });
         },
         [context],
     );
 
     // Remove a summary element from the template
     const removeSummaryElement = useCallback(
-        (position: number) => {
+        (position: number, elementType: SummaryElementType) => {
             // Validate input
             const validationError = validateRemoveSummaryElementInput(position);
             if (handleValidationError(validationError, 'removeSummaryElement')) return;
@@ -166,6 +174,12 @@ export function useAssetSummaryOperations(
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove summary element');
+
+            analytics.event({
+                type: EventType.AssetPageRemoveSummaryElement,
+                templateUrn: templateToUpdate.urn,
+                elementType,
+            });
         },
         [context],
     );
@@ -208,6 +222,13 @@ export function useAssetSummaryOperations(
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'replace summary element');
+
+            analytics.event({
+                type: EventType.AssetPageReplaceSummaryElement,
+                templateUrn: templateToUpdate.urn,
+                currentElementType: input.currentElementType,
+                newElementType: input.elementType,
+            });
         },
         [context],
     );

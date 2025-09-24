@@ -5,10 +5,11 @@ import analytics, { EventType } from '@app/analytics';
 import { useHandleDeleteDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeleteDomain';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
+import { useModulesContext } from '@app/homeV3/module/context/ModulesContext';
 import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType } from '@types';
+import { DataHubPageModuleType, EntityType } from '@types';
 
 /**
  * Performs the flow for deleting an entity of a given type.
@@ -25,6 +26,7 @@ function useDeleteEntity(
     hideMessage?: boolean,
     skipWait?: boolean,
 ) {
+    const { reloadModules } = useModulesContext();
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
     const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn } = useGlossaryEntityData();
@@ -68,6 +70,25 @@ function useDeleteEntity(
                                 content: `Deleted ${entityRegistry.getEntityName(type)}!`,
                                 duration: 2,
                             });
+                        }
+
+                        // Reload modules
+                        // DataProducts - as listed data product could be removed
+                        if (type === EntityType.DataProduct) {
+                            reloadModules([DataHubPageModuleType.DataProducts]);
+                        }
+                        // ChildHierarchy - as listed term in contents module in glossary node could be removed
+                        // RelatedTerms - as listed term in related terms could be removed
+                        if (type === EntityType.GlossaryTerm) {
+                            reloadModules([DataHubPageModuleType.ChildHierarchy, DataHubPageModuleType.RelatedTerms]);
+                        }
+                        // ChildHierarchy - as listed node in contents module in glossary node could be removed
+                        if (type === EntityType.GlossaryNode) {
+                            reloadModules([DataHubPageModuleType.ChildHierarchy]);
+                        }
+                        // ChildHierarchy - as listed domain in child domains module could be removed
+                        if (type === EntityType.Domain) {
+                            reloadModules([DataHubPageModuleType.ChildHierarchy]);
                         }
                     },
                     skipWait ? 0 : 2000,
