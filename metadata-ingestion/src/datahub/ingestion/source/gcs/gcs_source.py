@@ -37,6 +37,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+GCS_ENDPOINT_URL = "https://storage.googleapis.com"
+
 
 class HMACKey(ConfigModel):
     hmac_access_id: str = Field(description="Access ID")
@@ -112,7 +114,7 @@ class GCSSource(StatefulIngestionSourceBase):
         s3_config = DataLakeSourceConfig(
             path_specs=s3_path_specs,
             aws_config=AwsConnectionConfig(
-                aws_endpoint_url="https://storage.googleapis.com",
+                aws_endpoint_url=GCS_ENDPOINT_URL,
                 aws_access_key_id=self.config.credential.hmac_access_id,
                 aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
