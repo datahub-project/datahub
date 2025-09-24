@@ -80,6 +80,7 @@ export const SimpleSelect = ({
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
     isLoading = false,
+    selectMinHeight,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -179,7 +180,11 @@ export const SimpleSelect = ({
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef} ignoreMaxHeight={ignoreMaxHeight}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            ignoreMaxHeight={ignoreMaxHeight}
+                            data-testid="select-dropdown"
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder="Search…"
@@ -282,6 +287,7 @@ export const SimpleSelect = ({
                         fontSize={size}
                         {...props}
                         position={position}
+                        minHeight={selectMinHeight}
                     >
                         <SelectLabelContainer>
                             {icon && <StyledIcon icon={icon} size="lg" />}

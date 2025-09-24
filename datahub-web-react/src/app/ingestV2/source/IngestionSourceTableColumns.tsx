@@ -119,6 +119,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 }
             }}
             $shouldUnderline={!!onNameClick}
+            data-testid="ingestion-source-name"
         >
             {record.name || ''}
         </SourceNameText>
@@ -150,7 +151,7 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
             </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
-                    <div>
+                    <div data-testid="ingestion-source-cli-pill">
                         <Pill label="CLI" color="blue" size="xs" />
                     </div>
                 </Tooltip>
@@ -181,6 +182,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
                     showArrow: false,
                 },
             }}
+            data-testid="schedule"
         >
             {scheduleText || '-'}
         </TextContainer>
@@ -194,6 +196,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
             imageUrl: owner.owner.editableProperties?.pictureLink,
             type: mapEntityTypeToAvatarType(owner.owner.type),
             urn: owner.owner.urn,
+            dataTestId: `owner-avatar-${owner.owner.urn}`,
         };
     });
     const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
@@ -214,6 +217,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
                         imageUrl={singleOwner.editableProperties?.pictureLink}
                         showInPill
                         type={mapEntityTypeToAvatarType(singleOwner.type)}
+                        dataTestId={`owner-avatar-${singleOwner.urn}`}
                     />
                 </Link>
             )}
@@ -386,6 +390,7 @@ export function ActionsColumn({
                     onExecute(record.urn);
                 }}
                 tooltipText="Execute"
+                data-testid="run-ingestion-source-button"
             />
         );
     };

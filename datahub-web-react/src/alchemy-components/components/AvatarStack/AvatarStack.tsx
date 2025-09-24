@@ -18,7 +18,14 @@ export const AvatarStack = ({ avatars, size = 'md', showRemainingNumber = true, 
     const remainingNumber = avatars.length - maxToShow;
     const renderAvatarStack = avatars?.slice(0, maxToShow).map((avatar: AvatarItemProps) => (
         <AvatarContainer key={avatar.name}>
-            <Avatar size={size} isOutlined imageUrl={avatar.imageUrl} name={avatar.name} type={avatar.type} />
+            <Avatar
+                size={size}
+                isOutlined
+                imageUrl={avatar.imageUrl}
+                name={avatar.name}
+                type={avatar.type}
+                dataTestId={avatar.dataTestId}
+            />
         </AvatarContainer>
     ));
     return (

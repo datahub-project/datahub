@@ -49,6 +49,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
+    selectMinHeight?: string;
 }
 
 export const selectDefaults: SelectProps = {
@@ -90,6 +91,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
+    selectMinHeight,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -242,7 +244,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                     disabled={isDisabled}
                     placement="bottomRight"
                     dropdownRender={() => (
-                        <DropdownContainer ref={dropdownRef} style={{ maxHeight: height, overflow: 'auto' }}>
+                        <DropdownContainer
+                            ref={dropdownRef}
+                            style={{ maxHeight: height, overflow: 'auto' }}
+                            data-testid="select-dropdown"
+                        >
                             {showSearch && (
                                 <DropdownSearchBar
                                     placeholder={searchPlaceholder}
@@ -297,6 +303,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                         fontSize={size}
                         data-testid="nested-options-dropdown-container"
                         width={props.width}
+                        minHeight={selectMinHeight}
                         {...props}
                     >
                         <SelectLabelRenderer

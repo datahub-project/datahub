@@ -10,6 +10,7 @@ export interface AvatarItemProps {
     imageUrl?: string | null;
     urn?: string;
     type?: AvatarType;
+    dataTestId?: string;
 }
 
 export type AvatarStackProps = {

@@ -1,3 +1,4 @@
+import { BorderType } from '@components/components/Avatar/types';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { colors } from '@src/alchemy-components/theme';
@@ -49,6 +50,7 @@ export default function getAvatarColor(name: string) {
 
 export const getAvatarSizes = (size) => {
     const sizeMap = {
+        xs: { width: '16px', height: '16px', fontSize: '7px' },
         sm: { width: '18px', height: '18px', fontSize: '8px' },
         md: { width: '24px', height: '24px', fontSize: '12px' },
         lg: { width: '28px', height: '28px', fontSize: '14px' },
@@ -76,4 +78,13 @@ export const mapEntityTypeToAvatarType = (entityType: EntityType): AvatarType =>
 export const mapAvatarTypeToEntityType = (avatarType: AvatarType): EntityType => {
     if (avatarType === AvatarType.group) return EntityType.CorpGroup;
     return EntityType.CorpUser;
+};
+
+export const getAvatarPillBorderStyle = (borderType: BorderType | undefined) => {
+    switch (borderType) {
+        case 'dashed':
+            return `1px dashed ${colors.gray[100]}`;
+        default:
+            return `1px solid ${colors.gray[100]}`;
+    }
 };
