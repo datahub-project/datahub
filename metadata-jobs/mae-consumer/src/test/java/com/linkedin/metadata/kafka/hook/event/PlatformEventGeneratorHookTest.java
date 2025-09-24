@@ -2393,6 +2393,46 @@ public class PlatformEventGeneratorHookTest {
   }
 
   @Test
+  public void testRelationshipEventGenerationFromAspectDeletion() throws Exception {
+    String TEST_UPSTREAM_LINEAGE_URN =
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset-upstream,PROD)";
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fine = new FineGrainedLineageArray();
+    FineGrainedLineage lineage = new FineGrainedLineage();
+    UrnArray downstreams = new UrnArray();
+    downstreams.add(Urn.createFromString(TEST_DATASET_URN));
+    lineage.setDownstreams(downstreams);
+
+    UrnArray upstreams = new UrnArray();
+    upstreams.add(Urn.createFromString(TEST_UPSTREAM_LINEAGE_URN));
+    lineage.setUpstreams(upstreams);
+    fine.add(lineage);
+    upstreamLineage.setFineGrainedLineages(fine);
+
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(upstreamLineage));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProduceRelationshipPlatformEvent(
+        _mockClient,
+        createRelationshipEvent(
+            "downstreamOf",
+            Urn.createFromString(TEST_DATASET_URN),
+            upstreams.get(0),
+            RelationshipChangeOperation.REMOVE,
+            actorUrn),
+        false);
+  }
+
+  @Test
   public void testRelationshipEventGenerationFromDataJobInputOutputAspectRelationshipRemoved()
       throws Exception {
     String TEST_UPSTREAM_LINEAGE_URN = "urn:li:datajob:(datahub,my_pipeline.daily_etl_job,PROD)\n";
@@ -2576,7 +2616,7 @@ public class PlatformEventGeneratorHookTest {
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
 
-    // Build Dataset Entity Spec
+    // Build Container Entity Spec
     EntitySpec containerSpec = Mockito.mock(EntitySpec.class);
 
     AspectSpec mockContainerProperties = createMockAspectSpec(ContainerProperties.class);
@@ -2690,6 +2730,7 @@ public class PlatformEventGeneratorHookTest {
   private <T extends RecordTemplate> AspectSpec createMockAspectSpec(Class<T> clazz) {
     AspectSpec mockSpec = Mockito.mock(AspectSpec.class);
     Mockito.when(mockSpec.getDataTemplateClass()).thenReturn((Class<RecordTemplate>) clazz);
+    Mockito.when(mockSpec.getName()).thenReturn(clazz.getSimpleName());
     return mockSpec;
   }
 

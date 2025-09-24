@@ -423,42 +423,29 @@ public class GraphIndexUtils {
       @Nonnull final Urn urn,
       @Nonnull final AspectSpec aspectSpec,
       @Nullable final RecordTemplate oldAspect,
-      @Nonnull final RecordTemplate newAspect,
+      @Nullable final RecordTemplate newAspect,
       @Nonnull final MetadataChangeLog event,
       final List<String> fineGrainedLineageNotAllowedForPlatforms,
       final EntityRegistry entityRegistry) {
-
-    Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
-    if (oldAspect != null) {
-      oldEdgeAndRelationTypes =
-          GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
-              urn,
-              aspectSpec,
-              oldAspect,
-              event,
-              false,
-              fineGrainedLineageNotAllowedForPlatforms,
-              entityRegistry);
-    }
-
-    final List<Edge> oldEdges =
-        oldEdgeAndRelationTypes != null
-            ? oldEdgeAndRelationTypes.getFirst()
-            : Collections.emptyList();
-    final Set<Edge> oldEdgeSet = new HashSet<>(oldEdges);
-
-    Pair<List<Edge>, HashMap<Urn, Set<String>>> newEdgeAndRelationTypes =
-        GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
+    final Set<Edge> oldEdgeSet =
+        getAspectEdges(
+            oldAspect,
+            false,
             urn,
             aspectSpec,
-            newAspect,
             event,
-            true,
             fineGrainedLineageNotAllowedForPlatforms,
             entityRegistry);
 
-    final List<Edge> newEdges = newEdgeAndRelationTypes.getFirst();
-    final Set<Edge> newEdgeSet = new HashSet<>(newEdges);
+    final Set<Edge> newEdgeSet =
+        getAspectEdges(
+            newAspect,
+            true,
+            urn,
+            aspectSpec,
+            event,
+            fineGrainedLineageNotAllowedForPlatforms,
+            entityRegistry);
 
     // Edges to add
     final List<Edge> additiveDifference =
@@ -472,6 +459,31 @@ public class GraphIndexUtils {
     final List<Edge> mergedEdges = getMergedEdges(oldEdgeSet, newEdgeSet);
 
     return new EdgeDiff(additiveDifference, subtractiveDifference, mergedEdges);
+  }
+
+  private static Set<Edge> getAspectEdges(
+      @Nullable final RecordTemplate aspect,
+      final boolean isNewAspectVersion,
+      @Nonnull final Urn urn,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final MetadataChangeLog event,
+      final List<String> fineGrainedLineageNotAllowedForPlatforms,
+      final EntityRegistry entityRegistry) {
+    if (aspect == null) {
+      return Collections.emptySet();
+    }
+
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
+        GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
+            urn,
+            aspectSpec,
+            aspect,
+            event,
+            isNewAspectVersion,
+            fineGrainedLineageNotAllowedForPlatforms,
+            entityRegistry);
+
+    return new HashSet<>(edgeAndRelationTypes.getFirst());
   }
 
   private static List<Edge> getMergedEdges(final Set<Edge> oldEdgeSet, final Set<Edge> newEdgeSet) {

@@ -14,7 +14,6 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.graph.EdgeDiff;
-import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -30,11 +29,9 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.Parameters;
 import com.linkedin.platform.event.v1.RelationshipChangeEvent;
 import com.linkedin.platform.event.v1.RelationshipChangeOperation;
-import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -318,10 +315,13 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
             .getAspectSpec(logEvent.getAspectName());
 
     if (aspectSpec == null) {
-      log.error(
+      log.warn(
           "Failed to find aspect spec for entity type {} for log event: {}",
           logEvent.getEntityType(),
           logEvent);
+      return Collections.emptyList();
+    } else if (logEvent.getEntityUrn() == null) {
+      log.warn("Log event does not have an entity urn: {}", logEvent);
       return Collections.emptyList();
     }
 
@@ -338,23 +338,6 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
             ? GenericRecordUtils.deserializeAspect(
                 logEvent.getAspect().getValue(), logEvent.getAspect().getContentType(), aspectSpec)
             : null;
-    Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
-    if (oldAspect != null) {
-      oldEdgeAndRelationTypes =
-          GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
-              Objects.requireNonNull(logEvent.getEntityUrn()),
-              aspectSpec,
-              oldAspect,
-              logEvent,
-              false,
-              fineGrainedLineageNotAllowedForPlatforms,
-              systemOperationContext.getEntityRegistry());
-    }
-
-    final List<Edge> oldEdges =
-        oldEdgeAndRelationTypes != null
-            ? oldEdgeAndRelationTypes.getFirst()
-            : Collections.emptyList();
 
     EdgeDiff edgeDiff =
         computeAspectEdgeDiff(
