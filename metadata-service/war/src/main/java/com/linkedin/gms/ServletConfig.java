@@ -58,6 +58,9 @@ public class ServletConfig implements WebMvcConfigurer {
   @Value("${datahub.gms.async.request-timeout-ms}")
   private long asyncTimeoutMilliseconds;
 
+  @Value("${datahub.gms.basePath}")
+  private String gmsBasePath;
+
   @Bean
   public FilterRegistrationBean<AuthenticationExtractionFilter> authExtractionFilter(
       AuthenticationExtractionFilter filter) {

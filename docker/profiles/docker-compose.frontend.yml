@@ -130,6 +130,7 @@ services:
     <<: *datahub-frontend-service-dev
     profiles:
       - debug-basepath
+      - debug-basepath-consumers
     environment:
       DATAHUB_BASE_PATH: "/datahub"
       DATAHUB_GMS_BASE_PATH: "/datahub"

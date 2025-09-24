@@ -128,7 +128,7 @@ services:
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
         -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       KAFKA_BOOTSTRAP_SERVER: broker:29092
-      PLAY_HTTP_CONTEXT: /
+      PLAY_HTTP_CONTEXT: /datahub
       THEME_V2_DEFAULT: 'true'
     hostname: datahub-frontend-react
     image: acryldata/datahub-frontend-react:${DATAHUB_VERSION}
@@ -222,6 +222,7 @@ services:
     - debug-backend-aws
     - debug-aws
     - debug-basepath
+    - debug-basepath-consumers
     command:
     - --character-set-server=utf8mb4
     - --collation-server=utf8mb4_bin
@@ -300,6 +301,7 @@ services:
     - debug-backend-aws
     - debug-aws
     - debug-basepath
+    - debug-basepath-consumers
     deploy:
       resources:
         limits:

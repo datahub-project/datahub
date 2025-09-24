@@ -26,6 +26,7 @@ public class RestliEntityClientFactory {
   public EntityClient entityClient(
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
+      @Value("${datahub.gms.basePath}") String gmsBasePath,
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
@@ -36,7 +37,8 @@ public class RestliEntityClientFactory {
       restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
     } else {
       restClient =
-          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+          DefaultRestliClientFactory.getRestLiClient(
+              gmsHost, gmsPort, gmsBasePath, gmsUseSSL, gmsSslProtocol);
     }
     return new RestliEntityClient(restClient, entityClientConfig, metricUtils);
   }
@@ -46,6 +48,7 @@ public class RestliEntityClientFactory {
   public SystemEntityClient systemEntityClient(
       @Value("${datahub.gms.host}") String gmsHost,
       @Value("${datahub.gms.port}") int gmsPort,
+      @Value("${datahub.gms.basePath}") String gmsBasePath,
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
@@ -58,7 +61,8 @@ public class RestliEntityClientFactory {
       restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
     } else {
       restClient =
-          DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
+          DefaultRestliClientFactory.getRestLiClient(
+              gmsHost, gmsPort, gmsBasePath, gmsUseSSL, gmsSslProtocol);
     }
     return new SystemRestliEntityClient(
         restClient, entityClientConfig, entityClientCacheConfig, metricUtils);

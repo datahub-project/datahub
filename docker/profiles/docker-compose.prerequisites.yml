@@ -23,6 +23,7 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-backend-aws
   - debug-aws
   - debug-basepath
+  - debug-basepath-consumers
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -40,6 +41,7 @@ x-mysql-profiles: &mysql-profiles
   - debug-backend-aws
   - debug-aws
   - debug-basepath
+  - debug-basepath-consumers
 
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
@@ -84,6 +86,7 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug-backend-aws
   - debug-aws
   - debug-basepath
+  - debug-basepath-consumers
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -105,6 +108,7 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-backend-aws
   - debug-aws
   - debug-basepath
+  - debug-basepath-consumers
 
 # AWS Infra profiles
 x-profiles-aws: &aws-profiles
@@ -135,6 +139,7 @@ x-profiles-dev: &profiles-dev
   - debug-backend-aws
   - debug-aws
   - debug-basepath
+  - debug-basepath-consumers
 
 services:
   mysql:
