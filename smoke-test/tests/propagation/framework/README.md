@@ -1,6 +1,6 @@
-# Enhanced Propagation Test Framework
+# DataHub Propagation Test Framework
 
-A **type-safe, extensible, and highly readable** framework for creating DataHub propagation tests with minimal boilerplate code and comprehensive phase management.
+A framework for creating DataHub propagation tests with comprehensive phase management and automated test lifecycle handling.
 
 ## 🚀 Key Framework Features
 
@@ -11,18 +11,25 @@ A **type-safe, extensible, and highly readable** framework for creating DataHub 
 - **Configurable Phase Control**: Skip bootstrap, rollback, or live phases based on propagation type support
 - **Rich Result Tracking**: Detailed timing, success metrics, and error reporting per phase
 
-### **Developer Experience Excellence**
+### **Developer Experience**
 
 - **Fluent Builder APIs** for intuitive test creation
 - **Type-safe** propagation test definitions with compile-time validation
 - **Automatic lifecycle management** with built-in cleanup and error recovery
-- **54% code reduction** compared to original manual approach
 
 ### **Extensible Plugin Architecture**
 
-- **Feature-based plugins** for terms, tags, documentation, and custom propagation types
+- **Feature-based plugins** for terms, tags, documentation, structured properties, and custom propagation types
 - **Modular design** allowing independent component usage
 - **Easy extension** for new propagation types without framework changes
+
+### **Type Safety & Consistency**
+
+- **Full mypy compliance** with strict type checking for all framework components
+- **Simplified expectation parameters** - All expectations use clean `expected_*` field names (`expected_tag_urn`, `expected_term_urn`)
+- **Complete URN migration** - All expectations and tests use URN-based parameters (`dataset_urn`, `field_urn`) for consistency with mutations
+- **Smart mutation handling** with automatic explanations, MCP generation, and dataset name extraction from URNs
+- **Reliable test isolation** with unique URN generation preventing state leakage between tests
 
 ## 🏗️ **Current Architecture**
 
@@ -33,10 +40,9 @@ framework/
 ├── core/                           # Core framework components
 │   ├── base.py                     # PropagationTestFramework with 4-phase execution
 │   ├── models.py                   # PropagationTestScenario and expectation base classes
-│   ├── expectations.py             # ExpectationBase and validation system
+│   ├── expectations.py             # ExpectationBase and validation system with type safety
 │   ├── mutations.py                # Mutation base classes
-│   ├── action_manager.py           # Action lifecycle management (bootstrap/rollback/live)
-│   └── validation.py               # Core validation logic
+│   └── action_manager.py           # Action lifecycle management (bootstrap/rollback/live)
 ├── builders/                       # Scenario building utilities
 │   └── scenario_builder.py         # PropagationScenarioBuilder with fluent API
 ├── plugins/                        # Feature-specific implementations
@@ -46,9 +52,14 @@ framework/
 │   ├── term/                       # Glossary term propagation
 │   │   ├── expectations.py         # TermPropagationExpectation
 │   │   └── mutations.py            # TermMutationPlugin
-│   └── tag/                        # Tag propagation
-│       ├── expectations.py         # TagPropagationExpectation
-│       └── mutations.py            # TagMutationPlugin
+│   ├── tag/                        # Tag propagation
+│   │   ├── expectations.py         # TagPropagationExpectation
+│   │   └── mutations.py            # TagMutationPlugin
+│   └── structured_properties/      # Structured property propagation
+│       ├── expectations.py         # DatasetStructuredPropertyPropagationExpectation
+│       ├── mutations.py            # StructuredProperty mutations
+│       ├── models.py               # StructuredProperty data models
+│       └── templates.py            # Property template creation utilities
 └── utils/                          # Utilities and helpers
     ├── graph_utils.py              # Graph generation utilities
     └── test_utilities.py           # Helper functions
@@ -148,9 +159,18 @@ def check_expectation(self, graph_client, action_urn=None, rollback=False):
         if first_element.documentation != self.expected_description:
             raise AssertionError(f"Documentation mismatch")
 
-        # ✅ Verify attribution (source, origin, via)
+        # ✅ Verify comprehensive attribution (source, origin, via, depth, direction, relationship)
         if action_urn and first_element.attribution:
-            self.check_attribution(action_urn, first_element.attribution, ...)
+            self.check_attribution(
+                action_urn,
+                first_element.attribution,
+                expected_source=self.propagation_source,
+                expected_origin=self.propagation_origin,
+                expected_via=self.propagation_via,
+                expected_depth=self.expected_depth,
+                expected_direction=self.expected_direction,
+                expected_relationship=self.expected_relationship,
+            )
 ```
 
 ### **Rollback Mode (`rollback=True`)**
@@ -163,6 +183,37 @@ def check_expectation(self, graph_client, action_urn=None, rollback=False):
         # ✅ Verify propagation is REMOVED
         if documentation_aspect and documentation_aspect.documentations:
             raise AssertionError("Documentation should have been rolled back")
+```
+
+### **Intelligent Rollback Validation**
+
+The framework automatically distinguishes between **propagated content** (which should be removed during rollback) and **directly added content** (which should remain) using the `is_propagated` flag:
+
+```python
+# Expectation for propagated content (default behavior)
+DocumentationPropagationExpectation(
+    field_urn=make_schema_field_urn(target_dataset.urn, "customer_id"),
+    expected_description="Propagated description",
+    is_propagated=True,  # Default: will be validated during rollback
+)
+
+# Expectation for directly added content
+NoDocumentationPropagationExpectation(
+    field_urn=make_schema_field_urn(source_dataset.urn, "id"),
+    is_propagated=False,  # Skip during rollback validation
+)
+```
+
+During rollback, the framework automatically filters expectations:
+
+```python
+# Filter expectations for rollback mode - only check propagated content
+filtered_expectations = expectations
+if rollback:
+    filtered_expectations = [exp for exp in expectations if exp.is_propagated]
+    if len(filtered_expectations) < len(expectations):
+        skipped_count = len(expectations) - len(filtered_expectations)
+        logger.info(f"Rollback mode: Skipping {skipped_count} non-propagated expectations")
 ```
 
 ## ⚙️ **Configuration & Phase Control**
@@ -381,6 +432,8 @@ builder.register_dataset("target", target_dataset)
 - `.with_column_description("col", "description")` - Add field documentation
 - `.with_dataset_description("description")` - Add dataset documentation
 - `.with_subtype("Source")` - Set dataset subtype
+- `.set_sibling(dataset_or_urn, is_primary=True)` - Set sibling relationship
+- `.set_logical_parent(parent_dataset_or_urn)` - Set logical parent relationship
 - `.build()` - Finalize the dataset
 
 ### **Step 3: Define Lineage Relationships**
@@ -414,6 +467,185 @@ builder.register_lineage("source", "target", simple_lineage)
 - `.add_many_to_one_lineage(source_ds, [source_fields], target_ds, target_field)` - N:1 field mapping
 - `.build(dataset_urn)` - Finalize lineage for the dataset
 
+## 🔗 **Dataset Relationships**
+
+The framework supports advanced DataHub relationship types for comprehensive propagation testing:
+
+### **Sibling Relationships**
+
+Create sibling relationships between datasets (e.g., dbt source → physical table):
+
+```python
+# Create dbt source dataset
+dbt_source = (
+    builder.add_dataset("customer_source", "dbt")
+    .with_columns(["id", "name", "email"])
+    .with_column_description("id", "Customer identifier from dbt docs")
+    .with_subtype("Source")
+    .build()
+)
+
+# Create physical dataset as sibling
+snowflake_table = (
+    builder.add_dataset("customers", "snowflake")
+    .with_columns(["id", "name", "email"])
+    .set_sibling(dbt_source, is_primary=True)  # dbt source is primary
+    .build()
+)
+
+# Framework automatically generates SiblingsClass MCP
+scenario = builder.build()  # Sibling relationship included
+```
+
+### **Logical Parent Relationships**
+
+Create logical parent-child hierarchies for organizational datasets:
+
+```python
+# Create parent dataset (e.g., domain-level)
+domain_dataset = (
+    builder.add_dataset("customer_domain", "snowflake")
+    .with_columns(["domain_id", "domain_name"])
+    .with_column_description("domain_id", "Customer domain identifier")
+    .build()
+)
+
+# Create child dataset with logical parent
+child_dataset = (
+    builder.add_dataset("customer_profiles", "snowflake")
+    .with_columns(["profile_id", "customer_id", "profile_data"])
+    .set_logical_parent(domain_dataset)  # Set hierarchical relationship
+    .build()
+)
+
+# Framework automatically generates LogicalParentClass MCP
+scenario = builder.build()  # Logical parent relationship included
+```
+
+### **Supported Parameter Types**
+
+Both relationship methods accept flexible input types with proper validation:
+
+```python
+# Using dataset objects (recommended)
+child.set_logical_parent(parent_dataset)
+child.set_sibling(sibling_dataset, is_primary=False)
+
+# Using DatasetUrn instances (type-safe)
+from datahub.metadata.urns.urn_defs import DatasetUrn
+parent_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,parent,PROD)")
+child.set_logical_parent(parent_urn)
+
+# Using URN strings (validated)
+child.set_logical_parent("urn:li:dataset:(urn:li:dataPlatform:snowflake,parent,PROD)")
+```
+
+### **Relationship-Based Propagation Testing**
+
+Test propagation across relationship types:
+
+```python
+def test_sibling_propagation():
+    """Test propagation from dbt source to physical table via sibling relationship."""
+
+    # dbt source with documentation
+    dbt_source = (
+        builder.add_dataset("customer_source", "dbt")
+        .with_columns(["id", "name"])
+        .with_column_description("id", "Customer ID from dbt docs")
+        .with_subtype("Source")
+        .build()
+    )
+
+    # Physical table as sibling (no initial docs)
+    physical_table = (
+        builder.add_dataset("customers", "snowflake")
+        .with_columns(["id", "name"])
+        .set_sibling(dbt_source, is_primary=True)  # dbt is primary
+        .build()
+    )
+
+    # Analytics table with lineage from physical table
+    analytics = (
+        builder.add_dataset("customer_analytics", "snowflake")
+        .with_columns(["customer_id", "customer_name"])
+        .build()
+    )
+
+    # Register datasets
+    builder.register_dataset("dbt_source", dbt_source)
+    builder.register_dataset("physical", physical_table)
+    builder.register_dataset("analytics", analytics)
+
+    # Create lineage: physical → analytics
+    lineage = (
+        builder.add_lineage("physical", "analytics")
+        .add_field_lineage("physical", "id", "analytics", "customer_id")
+        .build(physical_table.urn)
+    )
+    builder.register_lineage("physical", "analytics", lineage)
+
+    # Expect 2-hop propagation: dbt → physical (sibling) → analytics (lineage)
+    builder.base_expectations = [
+        DocumentationPropagationExpectation(
+            platform="snowflake",
+            dataset_name="test.customers",
+            field_name="id",
+            expected_description="Customer ID from dbt docs",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(dbt_source.urn, "id"),
+            propagation_via=None,  # Direct sibling propagation
+        ),
+        DocumentationPropagationExpectation(
+            platform="snowflake",
+            dataset_name="test.customer_analytics",
+            field_name="customer_id",
+            expected_description="Customer ID from dbt docs",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(dbt_source.urn, "id"),
+            propagation_via=make_schema_field_urn(physical_table.urn, "id"),  # Via physical table
+        )
+    ]
+```
+
+### **Complex Relationship Scenarios**
+
+Combine multiple relationship types for comprehensive testing:
+
+```python
+def test_hierarchical_sibling_propagation():
+    """Test complex scenario: parent-child + sibling + lineage relationships."""
+
+    # Domain parent
+    domain = builder.add_dataset("customer_domain", "domain").build()
+
+    # dbt source (child of domain)
+    dbt_source = (
+        builder.add_dataset("customer_source", "dbt")
+        .set_logical_parent(domain)
+        .with_subtype("Source")
+        .build()
+    )
+
+    # Physical table (sibling of dbt + child of domain)
+    physical = (
+        builder.add_dataset("customers", "snowflake")
+        .set_logical_parent(domain)
+        .set_sibling(dbt_source, is_primary=True)
+        .build()
+    )
+
+    # Analytics (child of domain + lineage from physical)
+    analytics = (
+        builder.add_dataset("customer_analytics", "snowflake")
+        .set_logical_parent(domain)
+        .build()
+    )
+
+    # All relationships automatically managed by framework
+    scenario = builder.build()
+```
+
 ### **Step 4: Define Propagation Expectations**
 
 Set up expectations for what should happen during bootstrap and live phases:
@@ -440,19 +672,32 @@ builder.base_expectations = [
 
 ### **Step 5: Add Live Mutations (Optional)**
 
-Define changes that will be tested in live mode:
+Define changes that will be tested in live mode using the smart mutation handling:
 
 ```python
 from tests.propagation.framework.plugins.documentation.mutations import (
-    DocumentationUpdateMutation
+    FieldDocumentationUpdateMutation
+)
+from tests.propagation.framework.plugins.tag.mutations import (
+    FieldTagAdditionMutation
 )
 
-# Create a mutation to test live propagation
-mutation = DocumentationUpdateMutation(
-    field_name="id",
-    new_description="Updated customer unique identifier"
-)
-builder.mutations = [mutation.apply_mutation(source_dataset.urn)]
+# Create mutations with only dataset URN (no dataset_name needed)
+mutations = [
+    FieldDocumentationUpdateMutation(
+        dataset_urn=source_dataset.urn,
+        field_name="id",
+        new_description="Updated customer unique identifier"
+    ),
+    FieldTagAdditionMutation(
+        dataset_urn=source_dataset.urn,
+        field_name="email",
+        tag_urn="urn:li:tag:PII"
+    )
+]
+
+# Apply mutations with automatic explanations and MCP handling
+scenario.add_mutation_objects(mutations)
 
 # Define expectations after the mutation
 builder.post_mutation_expectations = [
@@ -678,6 +923,359 @@ class TermPropagationTest(BasePropagationTest):
         return True  # Terms require glossary setup
 ```
 
+## 🔧 **Reliable Test Isolation**
+
+The framework ensures reliable test isolation through unique URN generation and proper cleanup:
+
+### **Unique Test Action URNs**
+
+Each test gets a completely unique action URN to prevent state interference:
+
+```python
+@pytest.fixture(scope="function")  # Function scope ensures per-test uniqueness
+def test_action_urn():
+    """Unique URN for test action."""
+    import random
+    return f"urn:li:dataHubAction:{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
+```
+
+### **Automatic Entity Cleanup**
+
+The framework automatically cleans up test entities between tests:
+
+```python
+def cleanup_entities_and_actions(
+    auth_session: Any,
+    graph_client: DataHubGraph,
+    urns: Iterable[str],
+    test_resources_dir: str,
+    remove_actions: bool = True,
+):
+    """Clean up test entities and actions after test completion."""
+    for urn in urns:
+        graph_client.delete_entity(urn, hard=True)
+```
+
+### **Preventing Test Interference**
+
+- **Function-scoped fixtures** ensure each test gets fresh URNs
+- **High-precision timestamps** with randomization prevent URN collisions
+- **Automatic cleanup** removes test data between runs
+- **Hard entity deletion** ensures complete state reset
+
+This ensures tests pass both **individually** and **when run together** without state leakage.
+
+## 🔧 **URN-Based Parameters**
+
+The framework uses URN-based parameter handling for all expectations, providing type safety, consistency, and better integration:
+
+### **URN-Based Parameters**
+
+```python
+# URN-based parameters (recommended)
+from datahub.emitter.mce_builder import make_schema_field_urn
+
+expectation = DocumentationPropagationExpectation(
+    field_urn=make_schema_field_urn(target_dataset.urn, "customer_id"),
+    expected_description="Customer unique identifier",
+    propagation_source=test_action_urn,
+    propagation_origin=make_schema_field_urn(source_dataset.urn, "id"),
+)
+```
+
+### **Benefits of URN-Based Parameters**
+
+The URN approach provides several key benefits:
+
+1. **Consistency**: Expectations and mutations both use the same URN-based approach
+2. **Type Safety**: URNs are validated and parsed automatically
+3. **Builder Integration**: Works seamlessly with `PropagationScenarioBuilder` dataset objects
+4. **Future-proof**: Handles complex URN structures and evolving DataHub schemas
+5. **Test Logic Accuracy**: Fixed propagation behavior expectations for live vs bootstrap phases
+
+### **Automatic URN Parsing & Validation**
+
+The framework automatically parses field URNs and validates them using Pydantic model validators:
+
+```python
+@model_validator(mode="before")
+@classmethod
+def parse_field_urn(cls, values: Any) -> Dict[str, Any]:
+    """Parse field_urn into platform, dataset_name, field_name if provided."""
+    if isinstance(values, dict) and "field_urn" in values:
+        field_urn = values["field_urn"]
+        try:
+            parsed_urn = Urn.create_from_string(field_urn)
+            dataset_urn = parsed_urn.entity_ids[0]
+            field_name = parsed_urn.entity_ids[1]
+
+            # Parse dataset URN to extract platform and dataset name
+            dataset_parsed = Urn.create_from_string(dataset_urn)
+            values["platform"] = dataset_parsed.entity_ids[0].split(":")[-1]
+            values["dataset_name"] = dataset_parsed.entity_ids[1]
+            values["field_name"] = field_name
+
+            values.pop("field_urn", None)  # Remove field_urn after parsing
+        except Exception as e:
+            raise ValueError(f"Failed to parse field_urn '{field_urn}': {e}")
+
+    return values
+```
+
+### **Benefits of Field URN Syntax**
+
+1. **Concise**: Single parameter instead of three separate ones
+2. **Copy-paste friendly**: Easy to copy URNs from DataHub UI or logs
+3. **Type-safe**: Full validation with clear error messages on parse failures
+4. **Flexible**: Works alongside traditional parameter syntax
+5. **Future-proof**: Handles complex URN structures automatically
+
+### **Supported Across All Plugins**
+
+Field URN shorthand works for all expectation types:
+
+```python
+# Documentation expectations
+DocumentationPropagationExpectation(field_urn="...", expected_description="...")
+
+# Term expectations
+TermPropagationExpectation(field_urn="...", expected_term_urn="...")
+
+# Tag expectations
+TagPropagationExpectation(field_urn="...", expected_tag_urn="...")
+
+# Custom expectations (inherit the behavior automatically)
+CustomPropagationExpectation(field_urn="...", custom_property="...")
+```
+
+## 🧠 **Smart Mutation Handling**
+
+The framework provides intelligent mutation handling that eliminates boilerplate code and provides automatic explanations for all mutations. All mutation classes now support the new API with full type safety and mypy compliance:
+
+### **Mutation Handling**
+
+```python
+# New way - automatic handling with explanations
+from tests.propagation.framework.plugins.documentation.mutations import (
+    FieldDocumentationUpdateMutation
+)
+from tests.propagation.framework.plugins.tag.mutations import (
+    FieldTagAdditionMutation
+)
+
+# Create mutations with only essential parameters
+mutations = [
+    FieldDocumentationUpdateMutation(
+        dataset_urn=source_dataset.urn,  # Only URN needed
+        field_name="id",
+        new_description="Updated customer identifier"
+    ),
+    FieldTagAdditionMutation(
+        dataset_urn=source_dataset.urn,
+        field_name="email",
+        tag_urn="urn:li:tag:PII"
+    )
+]
+
+# Smart application with automatic explanations
+scenario.add_mutation_objects(mutations)
+```
+
+### **Key Benefits of Smart Mutation Handling**
+
+1. **Automatic Dataset Name Extraction**: Dataset names are automatically extracted from URNs using `Urn.from_string()` with fallback handling
+2. **Self-Describing Mutations**: All mutations provide `explain()` methods that generate human-readable descriptions
+3. **Automatic MCP Generation**: MCPs are generated and applied automatically with proper error handling
+4. **Built-in Merging**: Conflicting mutations (e.g., multiple field changes to the same dataset) are automatically merged to avoid overwrites
+5. **Visual Feedback**: Mutations display helpful 📝 emojis and explanations during execution
+
+### **Automatic Dataset Name Extraction**
+
+The framework automatically extracts dataset names from URNs, removing the need for redundant parameters:
+
+```python
+# BaseMutation class automatically provides dataset_name
+@dataclass(frozen=True)
+class BaseMutation(ABC):
+    dataset_urn: str  # Only this is required
+
+    @property
+    def dataset_name(self) -> str:
+        """Extract dataset name from URN automatically."""
+        from datahub.utilities.urns.urn import Urn
+        try:
+            parsed_urn = Urn.from_string(self.dataset_urn)
+            return parsed_urn.entity_ids[1]  # Dataset name from URN
+        except Exception:
+            return self.dataset_urn  # Fallback to full URN
+```
+
+### **Self-Describing Mutations**
+
+Every mutation provides automatic explanations that are displayed during test execution:
+
+```python
+# Example explain() methods in mutations
+class FieldDocumentationUpdateMutation(FieldMutation):
+    def explain(self) -> str:
+        return f"Updating documentation on field {self.dataset_name}.{self.field_name}: '{self.new_description}'"
+
+class FieldTagAdditionMutation(FieldMutation):
+    def explain(self) -> str:
+        return f"Adding tag {self.tag_urn} to field {self.dataset_name}.{self.field_name}"
+
+class DatasetTermAdditionMutation(BaseMutation):
+    def explain(self) -> str:
+        return f"Adding term {self.term_urn} to dataset {self.dataset_name}"
+```
+
+### **Automatic Mutation Merging**
+
+The framework automatically handles conflicting mutations that target the same dataset by merging them intelligently:
+
+```python
+# Multiple field mutations on the same dataset are automatically merged
+mutations = [
+    FieldDocumentationUpdateMutation(
+        dataset_urn=source_urn,
+        field_name="id",
+        new_description="Customer ID"
+    ),
+    FieldTagAdditionMutation(
+        dataset_urn=source_urn,  # Same dataset
+        field_name="email",
+        tag_urn="urn:li:tag:PII"
+    ),
+    FieldTermAdditionMutation(
+        dataset_urn=source_urn,  # Same dataset
+        field_name="phone",
+        term_urn="urn:li:glossaryTerm:ContactInfo"
+    )
+]
+
+# These are automatically merged into a single EditableSchemaMetadataClass MCP
+scenario.add_mutation_objects(mutations)
+```
+
+### **Enhanced Logging and Visual Execution Feedback**
+
+During test execution, both mutations and expectations provide comprehensive feedback with attribution details:
+
+**Mutation Logging:**
+
+```
+📝 Updating documentation on field customers.id: 'Updated customer identifier'
+📝 Adding tag urn:li:tag:PII to field customers.email
+📝 Adding term urn:li:glossaryTerm:ContactInfo to field customers.phone
+ℹ️ Merged 3 mutations into 1 MCP for dataset customers
+```
+
+**Enhanced Expectation Logging:**
+
+```
+ℹ️ Expected field tag 'urn:li:tag:PII' on field dataset.table.column (depth=1, direction=down, origin=source.field)
+✅ Field tag propagation validated successfully with attribution details
+ℹ️ Expected removal of field tag 'urn:li:tag:PII' from field dataset.table.column (rollback mode)
+✅ Field tag rollback validated successfully
+```
+
+### **Smart Mutation API Reference**
+
+The `add_mutation_objects()` method provides the smart mutation interface:
+
+```python
+def add_mutation_objects(self, mutations: List[Any], verbose: bool = True) -> None:
+    """Add mutation objects with automatic handling.
+
+    Args:
+        mutations: List of mutation objects (FieldMutation, BaseMutation, etc.)
+        verbose: Whether to print mutation explanations (default: True)
+    """
+    for mutation in mutations:
+        if verbose:
+            print(f"📝 {mutation.explain()}")  # Automatic explanation
+
+        mcps = mutation.apply_mutation()  # Generate MCPs
+        self.mutations.extend(mcps)       # Add to scenario
+
+    self._merge_editable_schema_mutations()  # Auto-merge conflicts
+```
+
+### **Supported Mutation Types**
+
+Smart mutation handling works with all framework mutation types:
+
+**Field-Level Mutations:**
+
+- `FieldDocumentationUpdateMutation`, `FieldDocumentationAdditionMutation`, `FieldDocumentationRemovalMutation`
+- `FieldTagAdditionMutation`, `FieldTagRemovalMutation`, `FieldTagUpdateMutation`
+- `FieldTermAdditionMutation`, `FieldTermRemovalMutation`, `FieldTermUpdateMutation`
+
+**Dataset-Level Mutations:**
+
+- `DatasetDocumentationUpdateMutation`
+- `DatasetTagAdditionMutation`, `DatasetTagRemovalMutation`
+- `DatasetTermAdditionMutation`, `DatasetTermRemovalMutation`
+- `DatasetStructuredPropertyAdditionMutation`, `DatasetStructuredPropertyUpdateMutation`
+
+**Multi-Field Mutations:**
+
+- `MultiFieldTermMutation` (atomic multiple field changes)
+- `MultipleStructuredPropertiesAdditionMutation`
+
+All mutation types automatically provide explanations and support the smart handling API.
+
+### **Type Safety & MyPy Compliance**
+
+The entire framework is fully mypy compliant with strict type checking:
+
+```python
+# All mutation base classes use proper typing
+@abstractmethod
+def apply_mutation(
+    self,
+) -> Union[
+    List["MetadataChangeProposalWrapper"], List["MetadataChangeProposalClass"]
+]:
+    """Apply this mutation and return the appropriate MCPs."""
+    pass
+
+# Automatic dataset name extraction with type safety
+@property
+def dataset_name(self) -> str:
+    """Extract dataset name from URN automatically."""
+    from datahub.utilities.urns.urn import Urn
+    try:
+        parsed_urn = Urn.from_string(self.dataset_urn)
+        return parsed_urn.entity_ids[1]
+    except Exception:
+        return self.dataset_urn  # Fallback with proper typing
+```
+
+This ensures compile-time validation of all mutation parameters and prevents runtime type errors.
+
+### **Legacy Migration Support**
+
+For migrating from old mutation patterns, simply update parameters:
+
+```python
+# Before: Old API with dataset_name parameter
+mutation = FieldTermAdditionMutation(
+    dataset_name="customers",  # Remove this
+    field_name="id",
+    term_urn="urn:li:glossaryTerm:TestTerm"
+)
+mcps = mutation.apply_mutation(dataset_urn)  # Manual URN passing
+
+# After: New API with dataset_urn parameter
+mutation = FieldTermAdditionMutation(
+    dataset_urn=dataset_urn,  # Use URN directly
+    field_name="id",
+    term_urn="urn:li:glossaryTerm:TestTerm"
+)
+mcps = mutation.apply_mutation()  # No parameters needed
+```
+
 ## 📦 **Feature Plugin System**
 
 ### **Documentation Plugin**
@@ -694,9 +1292,9 @@ from tests.propagation.framework.plugins.documentation.expectations import (
 
 # Mutation support
 from tests.propagation.framework.plugins.documentation.mutations import (
-    DocumentationUpdateMutation,
-    DocumentationAdditionMutation,
-    DocumentationRemovalMutation,
+    FieldDocumentationUpdateMutation,
+    FieldDocumentationAdditionMutation,
+    FieldDocumentationRemovalMutation,
 )
 
 # Usage
@@ -731,7 +1329,17 @@ expectation = TermPropagationExpectation(
     platform="snowflake",
     dataset_name="target_table",
     field_name="column_0",
-    expected_term="urn:li:glossaryTerm:CustomerID",
+    expected_term_urn="urn:li:glossaryTerm:CustomerID",
+    propagation_source=test_action_urn,
+    expected_depth=1,  # Validate propagation depth
+    expected_direction="down",  # Validate propagation direction
+    expected_relationship="lineage",  # Validate relationship type
+)
+
+# Alternative: Use field_urn shorthand syntax
+expectation = TermPropagationExpectation(
+    field_urn="urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD),column_0)",
+    expected_term_urn="urn:li:glossaryTerm:CustomerID",
     propagation_source=test_action_urn,
 )
 ```
@@ -750,13 +1358,56 @@ field_tag_expectation = TagPropagationExpectation(
     platform="snowflake",
     dataset_name="target_table",
     field_name="column_0",
-    expected_tag="urn:li:tag:PII",
+    expected_tag_urn="urn:li:tag:PII",
 )
 
 dataset_tag_expectation = DatasetTagPropagationExpectation(
     platform="snowflake",
     dataset_name="target_table",
-    expected_tag="urn:li:tag:CustomerData",
+    expected_tag_urn="urn:li:tag:CustomerData",
+)
+```
+
+### **Structured Properties Plugin**
+
+Structured property propagation for dataset-level metadata:
+
+```python
+from tests.propagation.framework.plugins.structured_properties.expectations import (
+    DatasetStructuredPropertyPropagationExpectation,
+)
+from tests.propagation.framework.plugins.structured_properties.mutations import (
+    DatasetStructuredPropertyAdditionMutation,
+    DatasetStructuredPropertyUpdateMutation,
+)
+from tests.propagation.framework.plugins.structured_properties.templates import (
+    create_structured_property_template,
+    create_common_structured_property_templates,
+)
+
+# Create structured property template
+property_template = create_structured_property_template(
+    qualified_name="io.datahub.test.data_classification",
+    display_name="Data Classification",
+    value_type="string",
+    allowed_values=["Public", "Internal", "Confidential", "Restricted"],
+    description="Classification level of the data"
+)
+
+# Expectation for structured property propagation
+structured_prop_expectation = DatasetStructuredPropertyPropagationExpectation(
+    platform="snowflake",
+    dataset_name="target_table",
+    structured_property_urn="urn:li:structuredProperty:io.datahub.test.data_classification",
+    expected_value="Confidential",
+    expected_value_type="string"
+)
+
+# Mutation for adding structured property
+mutation = DatasetStructuredPropertyAdditionMutation(
+    structured_property_urn="urn:li:structuredProperty:io.datahub.test.data_classification",
+    value="Internal",
+    value_type="string"
 )
 ```
 

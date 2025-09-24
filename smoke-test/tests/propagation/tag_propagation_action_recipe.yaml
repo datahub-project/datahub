@@ -1,0 +1,24 @@
+name: Tag Propagation
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081/subjects}
+datahub:
+  server: ${DATAHUB_SERVER_URL:-http://localhost:8080}
+
+action:
+  type: datahub_integrations.propagation.tag.tag_propagation_action.TagPropagationAction
+  config:
+    enabled: true
+    include_downstreams: true
+    include_siblings: true
+    max_propagation_depth: 5
+    max_propagation_fanout: 1000
+    max_propagation_time_millis: 60000
+    rate_limit_propagated_writes: 100
+    rate_limit_propagated_writes_period: 15
+    tag_prefixes:
+        - urn:li:tag:PII
+        - urn:li:tag:Sensitive

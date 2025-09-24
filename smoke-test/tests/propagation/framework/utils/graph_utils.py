@@ -1,10 +1,12 @@
 """Graph generation utilities for propagation tests."""
 
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
+
+from pydantic import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.dataset.dataset import (
-    Dataset,
+    Dataset as BaseDataset,
     SchemaFieldSpecification,
     SchemaSpecification,
 )
@@ -16,6 +18,24 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+
+
+class Dataset(BaseDataset):
+    """Extended Dataset class with additional fields for propagation testing."""
+
+    sibling_info: Optional[Tuple[List[str], bool]] = Field(
+        default=None,
+        description="Tuple of (sibling_urns, is_primary) for sibling relationships",
+    )
+
+    logical_parent_urn: Optional[str] = Field(
+        default=None, description="URN of the logical parent dataset"
+    )
+
+    field_logical_parents: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Dictionary mapping field names to their logical parent field URNs",
+    )
 
 
 class LineageGraphBuilder:

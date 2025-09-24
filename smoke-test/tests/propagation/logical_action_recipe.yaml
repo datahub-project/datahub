@@ -1,0 +1,37 @@
+name: Logical Datatype Propagation
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8080/schema-registry/api/}
+datahub:
+  server: ${DATAHUB_SERVER_URL:-http://localhost:8080}
+
+action:
+  type: datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action
+  config:
+    enabled: true
+    propagation_rule:
+      # What metadata to propagate
+      metadata_propagated:
+        tags:
+          enabled: true
+        terms:
+          enabled: true
+        documentation:
+          enabled: true
+        ownership:
+          enabled: true
+        structured_properties:
+          enabled: true
+
+      # How to fetch origin urns during bootstrap (logical parents via PhysicalInstanceOf)
+      origin_urn_resolution:
+        lookup_type: "relationship"
+        relationship_type: "PhysicalInstanceOf"
+
+      # How to find target urns (children to propagate to via PhysicalInstanceOf relationship)
+      target_urn_resolution:
+        - lookup_type: "relationship"
+          relationship_type: "PhysicalInstanceOf"

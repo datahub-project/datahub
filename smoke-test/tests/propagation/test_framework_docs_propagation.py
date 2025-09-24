@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
+from datahub.emitter.mce_builder import make_schema_field_urn
 from tests.propagation.framework.builders.scenario_builder import (
     PropagationScenarioBuilder,
 )
@@ -24,7 +24,7 @@ from tests.propagation.framework.plugins.documentation.expectations import (
     NoDocumentationPropagationExpectation,
 )
 from tests.propagation.framework.plugins.documentation.mutations import (
-    DocumentationUpdateMutation,
+    FieldDocumentationUpdateMutation,
 )
 from tests.propagation.framework.utils.test_utilities import create_standard_fixtures
 
@@ -82,55 +82,43 @@ def create_1_to_1_scenario(test_action_urn: str) -> Any:
     # Base expectations - column_0 should propagate, others should not
     builder.base_expectations = [
         DocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="docs_1_to_1.target_table",  # Full prefixed name
-            field_name="column_0",
+            field_urn=make_schema_field_urn(target_dataset.urn, "column_0"),
             expected_description="this is column 0",
             propagation_source=test_action_urn,
-            propagation_origin=make_schema_field_urn(
-                make_dataset_urn("snowflake", "docs_1_to_1.source_table"), "column_0"
-            ),
+            propagation_origin=make_schema_field_urn(source_dataset.urn, "column_0"),
             propagation_via=None,
         ),
         NoDocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="docs_1_to_1.target_table",  # Full prefixed name
-            field_name="column_1",
+            field_urn=make_schema_field_urn(target_dataset.urn, "column_1"),
         ),
         NoDocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="docs_1_to_1.target_table",  # Full prefixed name
-            field_name="column_2",
+            field_urn=make_schema_field_urn(target_dataset.urn, "column_2"),
         ),
     ]
-
-    # Create mutation for live testing - update source column_0 description
-    mutation = DocumentationUpdateMutation(
-        dataset_name="source_table",  # Just the dataset name, not prefixed
-        field_name="column_0",
-        new_description="this is the updated description",
-    )
-    source_dataset_urn = builder.graph_builder.get_dataset_urn(
-        "snowflake", "source_table"
-    )
-    builder.mutations.append(mutation.apply_mutation(source_dataset_urn))
 
     # Post-mutation expectations - column_0 should have updated description
     builder.post_mutation_expectations = [
         DocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="docs_1_to_1.target_table",  # Full prefixed name
-            field_name="column_0",
+            field_urn=make_schema_field_urn(target_dataset.urn, "column_0"),
             expected_description="this is the updated description",
             propagation_source=test_action_urn,
-            propagation_origin=make_schema_field_urn(
-                make_dataset_urn("snowflake", "docs_1_to_1.source_table"), "column_0"
-            ),
+            propagation_origin=make_schema_field_urn(source_dataset.urn, "column_0"),
             propagation_via=None,
         ),
     ]
 
-    return builder.build()
+    # Build scenario first, then add smart mutations
+    scenario = builder.build()
+
+    # Create mutation for live testing - update source column_0 description
+    mutation = FieldDocumentationUpdateMutation(
+        dataset_urn=source_dataset.urn,  # Use URN directly from dataset
+        field_name="column_0",
+        new_description="this is the updated description",
+    )
+    scenario.add_mutation_objects([mutation])
+
+    return scenario
 
 
 def create_2_hop_scenario(test_action_urn: str) -> Any:
@@ -183,52 +171,48 @@ def create_2_hop_scenario(test_action_urn: str) -> Any:
     # So we expect the first hop (dataset1 -> dataset2) to work, but not the second hop yet
     builder.base_expectations = [
         DocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="docs_2_hop.table_foo_1",  # First hop: dataset1 -> dataset2
-            field_name="column_0",
+            field_urn=make_schema_field_urn(dataset2.urn, "column_0"),
             expected_description="this is column 0",
             propagation_source=test_action_urn,
-            propagation_origin=make_schema_field_urn(
-                make_dataset_urn("snowflake", "docs_2_hop.table_foo_0"), "column_0"
-            ),
+            propagation_origin=make_schema_field_urn(dataset1.urn, "column_0"),
             propagation_via=None,  # Direct 1-hop propagation
+            expected_depth=1,  # This is a 1-hop propagation
+            expected_direction="down",  # Downstream propagation
+            expected_relationship="lineage",  # Through lineage relationships
         ),
         # dataset3.column_0 should NOT have propagation yet during bootstrap
         NoDocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="docs_2_hop.table_foo_2",
-            field_name="column_0",
+            field_urn=make_schema_field_urn(dataset3.urn, "column_0"),
         ),
     ]
-
-    # Create mutation for dataset1 column_0 to trigger 2-hop propagation
-    mutation = DocumentationUpdateMutation(
-        dataset_name="table_foo_0",  # Just the dataset name, not prefixed
-        field_name="column_0",
-        new_description="this is the updated description for the origin",
-    )
-    dataset1_urn = builder.graph_builder.get_dataset_urn("snowflake", "table_foo_0")
-    builder.mutations.append(mutation.apply_mutation(dataset1_urn))
 
     # Post-mutation expectations - During live phase, mutations can trigger multi-hop propagation
     builder.post_mutation_expectations = [
         # The mutation should trigger the 2-hop propagation: dataset1.column_0 -> dataset2.column_0 -> dataset3.column_0
         DocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="docs_2_hop.table_foo_2",
-            field_name="column_0",
+            field_urn=make_schema_field_urn(dataset3.urn, "column_0"),
             expected_description="this is the updated description for the origin",  # Updated description from mutation
             propagation_source=test_action_urn,
-            propagation_origin=make_schema_field_urn(
-                make_dataset_urn("snowflake", "docs_2_hop.table_foo_0"), "column_0"
-            ),
-            propagation_via=make_schema_field_urn(
-                make_dataset_urn("snowflake", "docs_2_hop.table_foo_1"), "column_0"
-            ),
+            propagation_origin=make_schema_field_urn(dataset1.urn, "column_0"),
+            propagation_via=make_schema_field_urn(dataset2.urn, "column_0"),
+            expected_depth=2,  # This is a 2-hop propagation
+            expected_direction="down",  # Downstream propagation
+            expected_relationship="lineage",  # Through lineage relationships
         ),
     ]
 
-    return builder.build()
+    # Build scenario first, then add smart mutations
+    scenario = builder.build()
+
+    # Create mutation for dataset1 column_0 to trigger 2-hop propagation
+    mutation = FieldDocumentationUpdateMutation(
+        dataset_urn=dataset1.urn,  # Use URN directly from dataset
+        field_name="column_0",
+        new_description="this is the updated description for the origin",
+    )
+    scenario.add_mutation_objects([mutation])
+
+    return scenario
 
 
 def create_sibling_scenario(test_action_urn: str) -> Any:
@@ -374,14 +358,10 @@ def test_simple_documentation_propagation_example(
     # Expect documentation to propagate
     builder.base_expectations = [
         DocumentationPropagationExpectation(
-            platform="snowflake",
-            dataset_name="simple_docs.analytics",
-            field_name="customer_id",
+            field_urn=make_schema_field_urn(target.urn, "customer_id"),
             expected_description="Customer unique identifier",
             propagation_source=test_action_urn,
-            propagation_origin=make_schema_field_urn(
-                make_dataset_urn("snowflake", "simple_docs.customers"), "id"
-            ),
+            propagation_origin=make_schema_field_urn(source.urn, "id"),
         )
     ]
 

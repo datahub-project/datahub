@@ -21,11 +21,8 @@ from tests.propagation.framework.core.base import (
 # Base expectation class
 from tests.propagation.framework.core.expectations import ExpectationBase
 from tests.propagation.framework.core.models import (
-    DocumentationPropagationExpectation,
     PropagationExpectation,
     PropagationTestScenario,
-    TagPropagationExpectation,
-    TermPropagationExpectation,
 )
 from tests.propagation.framework.core.mutations import BaseMutation, FieldMutation
 
@@ -55,12 +52,9 @@ __all__ = [
     "TermPropagationTest",
     "TagPropagationTest",
     "DocumentationPropagationTest",
-    # Models and expectations (legacy)
+    # Models and expectations
     "PropagationTestScenario",
     "PropagationExpectation",
-    "TermPropagationExpectation",
-    "TagPropagationExpectation",
-    "DocumentationPropagationExpectation",
     # Typed expectations
     "ExpectationBase",
     "TypedTermPropagationExpectation",

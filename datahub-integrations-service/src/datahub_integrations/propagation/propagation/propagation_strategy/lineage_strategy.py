@@ -1,6 +1,6 @@
 import logging
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 import cachetools
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -86,22 +86,60 @@ class LineageBasedStrategy(BaseStrategy):
         ]:
             return
 
-        if entity_lookup.type == PropagationRelationships.DOWNSTREAM:
+        # Determine which directions to propagate based on current propagation state
+        directions_to_process = self._get_propagation_directions(
+            entity_lookup.type, context.propagation_direction
+        )
+
+        # Execute propagation for each allowed direction
+        for direction in directions_to_process:
             yield from self._propagate_to_direction(
                 propagator,
                 directive,
                 context,
-                DirectionType.DOWN,
+                direction,
                 entity_lookup.relationship_names,
             )
-        if entity_lookup.type == PropagationRelationships.UPSTREAM:
-            yield from self._propagate_to_direction(
-                propagator,
-                directive,
-                context,
-                DirectionType.UP,
-                entity_lookup.relationship_names,
-            )
+
+    def _get_propagation_directions(
+        self,
+        lookup_type: PropagationRelationships,
+        current_direction: Optional[DirectionType],
+    ) -> List[DirectionType]:
+        """
+        Determine which directions to propagate based on lookup type and current direction.
+
+        Args:
+            lookup_type: The type of relationship lookup (UPSTREAM or DOWNSTREAM)
+            current_direction: The current propagation direction (None for first hop)
+
+        Returns:
+            List of directions to propagate to
+        """
+        # First hop: allow both directions based on lookup type
+        if current_direction is None:
+            directions = []
+            if lookup_type == PropagationRelationships.DOWNSTREAM:
+                directions.append(DirectionType.DOWN)
+            if lookup_type == PropagationRelationships.UPSTREAM:
+                directions.append(DirectionType.UP)
+            return directions
+
+        # Subsequent hops: maintain directional consistency
+        if (
+            lookup_type == PropagationRelationships.DOWNSTREAM
+            and current_direction == DirectionType.DOWN
+        ):
+            return [DirectionType.DOWN]
+
+        if (
+            lookup_type == PropagationRelationships.UPSTREAM
+            and current_direction == DirectionType.UP
+        ):
+            return [DirectionType.UP]
+
+        # Direction mismatch: no propagation
+        return []
 
     def _propagate_to_direction(
         self,
@@ -165,7 +203,14 @@ class LineageBasedStrategy(BaseStrategy):
         """Create a new context with propagation details."""
         propagated_context = SourceDetails.parse_obj(context.dict())
         propagated_context.propagation_relationship = RelationshipType.LINEAGE
-        propagated_context.propagation_direction = direction
+
+        # For first hop, set the direction; for subsequent hops, preserve original direction
+        if context.propagation_direction is None:
+            propagated_context.propagation_direction = direction  # First hop
+        else:
+            # Keep existing direction for consistency in multi-hop propagation
+            propagated_context.propagation_direction = context.propagation_direction
+
         return propagated_context
 
     def _get_lineage_entities(
@@ -184,11 +229,13 @@ class LineageBasedStrategy(BaseStrategy):
         else:
             raise ValueError(f"Invalid direction: {direction_type}")
 
-        return self.graph.get_relationships(
+        relationships = self.graph.get_relationships(
             entity_urn=entity_urn,
             direction=direction,
             relationship_types=relationship_types,
         )
+
+        return relationships
 
     def _propagate_schema_field(
         self,

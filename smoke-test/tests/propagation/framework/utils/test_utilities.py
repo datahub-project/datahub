@@ -1,5 +1,6 @@
 """Utility functions and patterns for propagation tests."""
 
+import random
 import time
 from typing import TYPE_CHECKING, Iterator, List, Optional, Type
 
@@ -29,10 +30,11 @@ def create_standard_fixtures():
         """Path to test resources directory."""
         return pytestconfig.rootpath / "tests/propagation/"
 
-    @pytest.fixture(scope="module")
+    @pytest.fixture(scope="function")
     def test_action_urn():
         """Unique URN for test action."""
-        return f"urn:li:dataHubAction:{int(time.time())}"
+
+        return f"urn:li:dataHubAction:{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
 
     @pytest.fixture(scope="module")
     def load_glossary(auth_session, test_resources_dir):

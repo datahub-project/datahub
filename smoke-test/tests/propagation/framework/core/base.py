@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.integrations_service_utils import wait_until_action_has_processed_event
 from tests.propagation.framework.core.action_manager import ActionManager
@@ -34,20 +35,32 @@ def validate_expectations(
         expectations: List of expectation objects that inherit from ExpectationBase
         graph_client: DataHub graph client for aspect retrieval
         action_urn: Optional action URN for attribution checking
-        rollback: Whether to check rollback behavior
+        rollback: Whether to check rollback behavior - when True, only propagated expectations are validated
         verbose: Whether to print human-friendly expectation explanations
 
     Raises:
         AssertionError: If any expectation fails validation
     """
-    for i, expectation in enumerate(expectations):
+    # Filter expectations for rollback mode - only check propagated content
+    filtered_expectations = expectations
+    if rollback:
+        filtered_expectations = [exp for exp in expectations if exp.is_propagated]
+        if len(filtered_expectations) < len(expectations):
+            skipped_count = len(expectations) - len(filtered_expectations)
+            logger.info(
+                f"Rollback mode: Skipping {skipped_count} non-propagated expectations"
+            )
+
+    for i, expectation in enumerate(filtered_expectations):
         if verbose:
-            explanation = expectation.explain()
+            explanation = expectation.explain(rollback=rollback)
             if explanation is not None:
-                rollback_prefix = "🔄 Rollback: " if rollback else ""
-                logger.info(
-                    f"   🎯 {i + 1}/{len(expectations)}: {rollback_prefix}{explanation}"
-                )
+                if rollback:
+                    logger.info(
+                        f"   🎯 {i + 1}/{len(expectations)}: 🔄 Rollback: {explanation}"
+                    )
+                else:
+                    logger.info(f"   🎯 {i + 1}/{len(expectations)}: {explanation}")
             else:
                 logger.info(
                     f"Validating expectation: {expectation.get_expectation_type()}"
@@ -203,11 +216,24 @@ class TagPropagationTest(BasePropagationTest):
 class DocumentationPropagationTest(BasePropagationTest):
     """Concrete implementation for documentation propagation tests."""
 
+    def __init__(
+        self, action_type: Optional[str] = None, recipe_filename: Optional[str] = None
+    ):
+        """Initialize with optional overrides for action type and recipe."""
+        self._action_type_override = action_type
+        self._recipe_filename_override = recipe_filename
+
     def get_action_type(self) -> str:
-        return "datahub_integrations.propagation.propagation.generic_propagation_action.GenericPropagationAction"
+        return (
+            self._action_type_override
+            or "datahub_integrations.propagation.propagation.generic_propagation_action.GenericPropagationAction"
+        )
 
     def get_recipe_filename(self) -> str:
-        return "docs_propagation_generic_action_recipe.yaml"
+        return (
+            self._recipe_filename_override
+            or "docs_propagation_generic_action_recipe.yaml"
+        )
 
     def get_action_name(self) -> str:
         return "test_docs_propagation"
@@ -286,6 +312,18 @@ class PropagationTestFramework:
             logger.info(f"Initial cleanup completed in {cleanup_time:.2f}s")
 
         try:
+            # Always set up base graph data (independent of bootstrap phase)
+            if scenario.base_graph:
+                logger.info(f"Setting up {len(scenario.base_graph)} base graph MCPs...")
+                self._setup_base_graph(scenario)
+
+            # Apply pre-bootstrap mutations (if any)
+            if scenario.pre_bootstrap_mutations:
+                logger.info(
+                    f"Applying {len(scenario.pre_bootstrap_mutations)} pre-bootstrap mutations..."
+                )
+                self._apply_pre_bootstrap_mutations(scenario)
+
             # Phase 1: Bootstrap (if enabled)
             if not config.skip_bootstrap and scenario.run_bootstrap:
                 success, duration, error = self._run_phase_safely(
@@ -366,6 +404,41 @@ class PropagationTestFramework:
             )
             return False, duration, error_msg
 
+    def _setup_base_graph(self, scenario: PropagationTestScenario) -> None:
+        """Set up base graph data (datasets, relationships, etc.) - independent of bootstrap phase."""
+        logger.info("Setting up base graph data...")
+        for i, mcp in enumerate(scenario.base_graph):
+            logger.debug(
+                f"Emitting MCP {i + 1}/{len(scenario.base_graph)}: {mcp.entityUrn} - {type(mcp.aspect).__name__}"
+            )
+            if scenario.debug_mcps:
+                self._print_mcp_debug_info(
+                    mcp, f"Base Graph MCP {i + 1}/{len(scenario.base_graph)}"
+                )
+            self.graph_client.emit(
+                mcp, emit_mode=EmitMode.SYNC_WAIT
+            )  # Use sync wait emit mode to ensure writes are processed
+
+        logger.info("Waiting for writes to sync...")
+        wait_for_writes_to_sync()
+
+    def _apply_pre_bootstrap_mutations(self, scenario: PropagationTestScenario) -> None:
+        """Apply pre-bootstrap mutations - these represent existing metadata that should propagate during bootstrap."""
+        logger.info("Applying pre-bootstrap mutations...")
+        for i, mcp in enumerate(scenario.pre_bootstrap_mutations):
+            logger.info(
+                f"Applying pre-bootstrap mutation {i + 1}/{len(scenario.pre_bootstrap_mutations)}: {mcp.entityUrn} - {type(mcp.aspect).__name__}"
+            )
+            if scenario.debug_mcps:
+                self._print_mcp_debug_info(
+                    mcp,
+                    f"Pre-bootstrap Mutation MCP {i + 1}/{len(scenario.pre_bootstrap_mutations)}",
+                )
+            self.graph_client.emit(mcp, emit_mode=EmitMode.SYNC_WAIT)
+
+        logger.info("Waiting for pre-bootstrap mutations to sync...")
+        wait_for_writes_to_sync()
+
     def _execute_bootstrap_phase(
         self, scenario: PropagationTestScenario, test_action_urn: str, timeout: int
     ) -> None:
@@ -376,21 +449,6 @@ class PropagationTestFramework:
         logger.info(f"Base graph MCPs: {len(scenario.base_graph)}")
         logger.info(f"Base expectations: {len(scenario.base_expectations)}")
         logger.info(f"{'=' * 60}")
-
-        # Apply base graph
-        logger.info("Setting up base graph data...")
-        for i, mcp in enumerate(scenario.base_graph):
-            logger.debug(
-                f"Emitting MCP {i + 1}/{len(scenario.base_graph)}: {mcp.entityUrn} - {type(mcp.aspect).__name__}"
-            )
-            if scenario.debug_mcps:
-                self._print_mcp_debug_info(
-                    mcp, f"Base Graph MCP {i + 1}/{len(scenario.base_graph)}"
-                )
-            self.graph_client.emit(mcp)  # Use default emit mode like original test
-
-        logger.info("Waiting for writes to sync...")
-        wait_for_writes_to_sync()
 
         logger.info("Running bootstrap action...")
         try:
@@ -437,6 +495,9 @@ class PropagationTestFramework:
         logger.info("Executing rollback action...")
         self.action_manager.run_rollback(test_action_urn)
 
+        logger.info("Waiting for rollback propagation to complete...")
+        time.sleep(3)  # Wait 3 seconds for rollback effects to propagate
+
         # Check rollback expectations using modern validation system
         all_expectations = scenario.base_expectations
         if post_mutation:
@@ -473,15 +534,37 @@ class PropagationTestFramework:
             # Apply mutations
             audit_timestamp = datetime.datetime.now(datetime.timezone.utc)
             logger.info(f"Applying {len(scenario.mutations)} mutations...")
-            for i, mcp in enumerate(scenario.mutations):
-                logger.debug(
-                    f"Applying mutation {i + 1}/{len(scenario.mutations)}: {mcp.entityUrn} - {type(mcp.aspect).__name__}"
-                )
+            for i, mutation in enumerate(scenario.mutations):
+                # Print mutation info at INFO level if verbose mode is enabled
+                # Use original mutation object for explain() if available, fallback to basic info
+                mutation_explanation = "mutation"
+                if i < len(scenario.mutation_objects):
+                    mutation_explanation = scenario.mutation_objects[i].explain()
+                elif hasattr(mutation, "aspect") and hasattr(
+                    mutation.aspect, "__class__"
+                ):
+                    mutation_explanation = (
+                        f"{mutation.entityUrn} - {mutation.aspect.__class__.__name__}"
+                    )
+
+                if scenario.verbose_mode:
+                    logger.info(
+                        f"Applying mutation {i + 1}/{len(scenario.mutations)}: {mutation_explanation}"
+                    )
+                else:
+                    logger.debug(
+                        f"Applying mutation {i + 1}/{len(scenario.mutations)}: {mutation_explanation}"
+                    )
+
+                # Use the MCP directly for emission
+                mcp_to_emit = mutation
                 if scenario.debug_mcps:
                     self._print_mcp_debug_info(
-                        mcp, f"Mutation MCP {i + 1}/{len(scenario.mutations)}"
+                        mcp_to_emit, f"Mutation MCP {i + 1}/{len(scenario.mutations)}"
                     )
-                self.graph_client.emit(mcp)  # Use default emit mode like original test
+                self.graph_client.emit(
+                    mcp_to_emit, emit_mode=EmitMode.SYNC_WAIT
+                )  # Use Sync wait emit mode to make sure all the writes processed
 
             logger.info(
                 f"Waiting for action to process events (timestamp: {audit_timestamp})..."
@@ -537,17 +620,17 @@ class PropagationTestFramework:
         scenario: PropagationTestScenario,
     ) -> None:
         """Print formatted test header."""
-        print(f"\n{'=' * 80}")
-        print(f"🧪 PROPAGATION TEST: {scenario_name.upper()}")
-        print(f"📋 Test Type: {test_type.__class__.__name__}")
-        print(f"⚙️  Action Type: {test_type.get_action_name()}")
-        print(f"📊 Base MCPs: {len(scenario.base_graph)}")
-        print(f"🎯 Base Expectations: {len(scenario.base_expectations)}")
-        print(f"🔄 Mutations: {len(scenario.mutations)}")
-        print(
+        logger.info(f"\n{'=' * 80}")
+        logger.info(f"🧪 PROPAGATION TEST: {scenario_name.upper()}")
+        logger.info(f"📋 Test Type: {test_type.__class__.__name__}")
+        logger.info(f"⚙️  Action Type: {test_type.get_action_name()}")
+        logger.info(f"📊 Base MCPs: {len(scenario.base_graph)}")
+        logger.info(f"🎯 Base Expectations: {len(scenario.base_expectations)}")
+        logger.info(f"🔄 Mutations: {len(scenario.mutations)}")
+        logger.info(
             f"🎯 Post-mutation Expectations: {len(scenario.post_mutation_expectations)}"
         )
-        print(f"{'=' * 80}")
+        logger.info(f"{'=' * 80}")
 
         phases = []
         if not self.config.skip_bootstrap and scenario.run_bootstrap:
@@ -559,10 +642,10 @@ class PropagationTestFramework:
             if not self.config.skip_rollback:
                 phases.append("↩️  Live Rollback")
 
-        print("📋 Test Phases:")
+        logger.info("📋 Test Phases:")
         for i, phase in enumerate(phases, 1):
-            print(f"   {i}. {phase}")
-        print(f"{'=' * 80}\n")
+            logger.info(f"   {i}. {phase}")
+        logger.info(f"{'=' * 80}\n")
 
     def _finalize_result(
         self,
@@ -587,23 +670,23 @@ class PropagationTestFramework:
         self, scenario: PropagationTestScenario, scenario_name: str
     ) -> None:
         """Print a summary of what the test scenario will do (backward compatibility)."""
-        print(f"\n{'=' * 120}")
-        print(f"🧪 TEST SCENARIO: {scenario_name.upper()}")
-        print(f"{'=' * 120}")
+        logger.info(f"\n{'=' * 120}")
+        logger.info(f"🧪 TEST SCENARIO: {scenario_name.upper()}")
+        logger.info(f"{'=' * 120}")
 
-        print("🧪 TEST PHASES:")
-        print(
+        logger.info("🧪 TEST PHASES:")
+        logger.info(
             "   1. 🏗️  Bootstrap: Set up data, run initial propagation, verify base expectations"
         )
-        print("   2. ↩️  Rollback: Remove all propagated data, verify cleanup")
-        print(
+        logger.info("   2. ↩️  Rollback: Remove all propagated data, verify cleanup")
+        logger.info(
             "   3. 🔴 Live: Start live action, apply mutations, verify real-time propagation"
         )
-        print(
+        logger.info(
             "   4. ↩️  Live Rollback: Remove all propagated data again, verify final cleanup"
         )
 
-        print(f"{'=' * 120}\n")
+        logger.info(f"{'=' * 120}\n")
 
     def _print_mcp_debug_info(self, mcp: Any, mcp_description: str) -> None:
         """Print detailed debug information for an MCP."""
@@ -611,18 +694,18 @@ class PropagationTestFramework:
 
         from datahub.emitter.serialization_helper import pre_json_transform
 
-        print(f"\n{'=' * 80}")
-        print(f"🔍 DEBUG MCP: {mcp_description}")
-        print(f"{'=' * 80}")
-        print(f"Entity URN: {mcp.entityUrn}")
-        print(f"Aspect Type: {type(mcp.aspect).__name__}")
+        logger.info(f"\n{'=' * 80}")
+        logger.info(f"🔍 DEBUG MCP: {mcp_description}")
+        logger.info(f"{'=' * 80}")
+        logger.info(f"Entity URN: {mcp.entityUrn}")
+        logger.info(f"Aspect Type: {type(mcp.aspect).__name__}")
 
         try:
             aspect_dict = pre_json_transform(mcp.aspect)
             aspect_json = json.dumps(aspect_dict, indent=2, sort_keys=True)
-            print(f"Aspect Content:\n{aspect_json}")
+            logger.info(f"Aspect Content:\n{aspect_json}")
         except Exception as e:
-            print(f"Failed to serialize aspect: {e}")
-            print(f"Raw aspect: {mcp.aspect}")
+            logger.warning(f"Failed to serialize aspect: {e}")
+            logger.info(f"Raw aspect: {mcp.aspect}")
 
-        print(f"{'=' * 80}\n")
+        logger.info(f"{'=' * 80}\n")

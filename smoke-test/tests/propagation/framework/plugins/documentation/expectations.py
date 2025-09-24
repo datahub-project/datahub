@@ -50,6 +50,19 @@ class DocumentationPropagationExpectation(SchemaFieldExpectation):
         """Return the expectation type identifier."""
         return "documentation_propagation"
 
+    def explain(self, rollback: bool = False) -> Optional[str]:
+        """Provide human-readable explanation of the expectation."""
+        if rollback:
+            return (
+                f"Expected removal of field description '{self.expected_description}' "
+                f"on field {self.field_urn}"
+            )
+        else:
+            return (
+                f"Expected field description '{self.expected_description}' "
+                f"on field {self.field_urn}"
+            )
+
     def check_expectation(
         self,
         graph_client: "DataHubGraph",
@@ -57,9 +70,8 @@ class DocumentationPropagationExpectation(SchemaFieldExpectation):
         rollback: bool = False,
     ) -> None:
         """Check if documentation propagation expectation is met."""
-        schema_field_urn = self.get_urn(
-            self.platform, self.dataset_name, self.field_name
-        )
+        # Use the field URN directly
+        schema_field_urn = self.field_urn
         documentation_aspect = get_documentation_aspect(graph_client, schema_field_urn)
 
         if self.propagation_found and not rollback:
@@ -107,6 +119,19 @@ class DatasetDocumentationPropagationExpectation(DatasetExpectation):
         """Return the expectation type identifier."""
         return "dataset_documentation_propagation"
 
+    def explain(self, rollback: bool = False) -> Optional[str]:
+        """Provide human-readable explanation of the expectation."""
+        if rollback:
+            return (
+                f"Expected removal of dataset description '{self.expected_description}' "
+                f"on dataset {self.dataset_urn}"
+            )
+        else:
+            return (
+                f"Expected dataset description '{self.expected_description}' "
+                f"on dataset {self.dataset_urn}"
+            )
+
     def check_expectation(
         self,
         graph_client: "DataHubGraph",
@@ -114,23 +139,37 @@ class DatasetDocumentationPropagationExpectation(DatasetExpectation):
         rollback: bool = False,
     ) -> None:
         """Check if dataset documentation propagation expectation is met."""
-        dataset_urn = self.get_urn(self.platform, self.dataset_name)
+        dataset_urn = self.dataset_urn
         documentation_aspect = get_documentation_aspect(graph_client, dataset_urn)
 
-        assert documentation_aspect is not None, (
-            f"Expected to have documentation aspect on dataset {self.dataset_name} but it was missing"
-        )
-        assert (
-            documentation_aspect.documentations
-            and len(documentation_aspect.documentations) > 0
-        ), (
-            f"Expected to have documentation entries on dataset {self.dataset_name} but none found"
-        )
-        first_doc = documentation_aspect.documentations[0]
-        assert first_doc.documentation == self.expected_description, (
-            f"Expected to have documentation '{self.expected_description}' on dataset {self.dataset_name} "
-            f"but found '{first_doc.documentation}'"
-        )
+        if rollback:
+            # During rollback, expect the documentation to NOT be present or not contain expected description
+            if documentation_aspect and documentation_aspect.documentations:
+                # Check if any documentation entry contains our expected description
+                found_expected_doc = any(
+                    doc.documentation == self.expected_description
+                    for doc in documentation_aspect.documentations
+                )
+                assert not found_expected_doc, (
+                    f"Expected documentation '{self.expected_description}' to be removed from dataset {self.dataset_urn} "
+                    f"after rollback, but it was still found"
+                )
+        else:
+            # Normal mode: expect documentation to be present
+            assert documentation_aspect is not None, (
+                f"Expected to have documentation aspect on dataset {self.dataset_urn} but it was missing"
+            )
+            assert (
+                documentation_aspect.documentations
+                and len(documentation_aspect.documentations) > 0
+            ), (
+                f"Expected to have documentation entries on dataset {self.dataset_urn} but none found"
+            )
+            first_doc = documentation_aspect.documentations[0]
+            assert first_doc.documentation == self.expected_description, (
+                f"Expected to have documentation '{self.expected_description}' on dataset {self.dataset_urn} "
+                f"but found '{first_doc.documentation}'"
+            )
 
 
 class NoDocumentationPropagationExpectation(SchemaFieldExpectation):
@@ -145,6 +184,19 @@ class NoDocumentationPropagationExpectation(SchemaFieldExpectation):
         """Return the expectation type identifier."""
         return "no_documentation_propagation"
 
+    def explain(self, rollback: bool = False) -> str:
+        """Return a human-friendly explanation of what this expectation does."""
+        if rollback:
+            # For "no propagation" expectations, rollback mode doesn't change the meaning
+            explanation = f"🚫 Expect NO documentation to be propagated to field '{self.field_urn}'"
+        else:
+            explanation = f"🚫 Expect NO documentation to be propagated to field '{self.field_urn}'"
+
+        if self.is_live:
+            explanation += " (during live propagation)"
+
+        return explanation
+
     def check_expectation(
         self,
         graph_client: "DataHubGraph",
@@ -152,9 +204,8 @@ class NoDocumentationPropagationExpectation(SchemaFieldExpectation):
         rollback: bool = False,
     ) -> None:
         """Check that no documentation propagation occurred."""
-        schema_field_urn = self.get_urn(
-            self.platform, self.dataset_name, self.field_name
-        )
+        # Use the field URN directly
+        schema_field_urn = self.field_urn
         documentation_aspect = get_documentation_aspect(graph_client, schema_field_urn)
 
         assert (
@@ -162,6 +213,6 @@ class NoDocumentationPropagationExpectation(SchemaFieldExpectation):
             or not documentation_aspect.documentations
             or len(documentation_aspect.documentations) == 0
         ), (
-            f"Expected no documentation on {self.dataset_name}.{self.field_name} "
+            f"Expected no documentation on {self.field_urn} "
             f"but found documentation with {len(documentation_aspect.documentations) if documentation_aspect and documentation_aspect.documentations else 0} entries"
         )

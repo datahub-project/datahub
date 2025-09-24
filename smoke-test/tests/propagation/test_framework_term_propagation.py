@@ -17,7 +17,11 @@ Key improvements over the legacy version:
 """
 
 import logging
+from typing import Any
 
+import pytest
+
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.propagation.framework.builders.scenario_builder import (
     PropagationScenarioBuilder,
@@ -27,7 +31,6 @@ from tests.propagation.framework.builders.scenario_builder import (
 from tests.propagation.framework.core.base import (
     PropagationTestFramework,
     TermPropagationTest,
-    validate_expectations,
 )
 from tests.propagation.framework.plugins.term.expectations import (
     NoTermPropagationExpectation,
@@ -102,51 +105,46 @@ def create_modern_1_to_1_scenario_with_new_expectations(test_action_urn: str):
     # Create TermPropagationExpectation using the new plugin system
     # Note: Framework adds prefix to dataset names, so we need to match that
 
+    # With bootstrap configuration added, term propagation SHOULD work during bootstrap!
     # Based on term_propagation_generic_action_recipe.yaml:
     # - TestTerm1_0 is NOT in target_terms, so field_0 should have NO propagation
     # - TestTerm1_1 IS in target_terms, so field_1 should have propagation
     # - TestTerm2_2 IS in target_terms, so field_2 should have propagation
 
     no_term_expectation_0 = NoTermPropagationExpectation(
-        platform="snowflake",
-        dataset_name="modern2.downstream_table",  # Include framework prefix
-        field_name="field_0",  # TestTerm1_0 not in propagation rules
+        field_urn=make_schema_field_urn(
+            downstream.urn, "field_0"
+        ),  # TestTerm1_0 not in propagation rules
     )
 
     term_expectation_1 = TermPropagationExpectation(
-        platform="snowflake",
-        dataset_name="modern2.downstream_table",  # Include framework prefix
-        field_name="field_1",
+        field_urn=make_schema_field_urn(downstream.urn, "field_1"),
         expected_term_urn="urn:li:glossaryTerm:TestTerm1_1",
         origin_dataset="modern2.upstream_table",
         origin_field="field_1",
         propagation_found=True,
         propagation_source=test_action_urn,
+        propagation_origin=make_schema_field_urn(upstream.urn, "field_1"),
     )
 
     # Field 2 SHOULD propagate (TestTerm2_2 IS in target_terms)
     term_expectation_2 = TermPropagationExpectation(
-        platform="snowflake",
-        dataset_name="modern2.downstream_table",  # Include framework prefix
-        field_name="field_2",
+        field_urn=make_schema_field_urn(downstream.urn, "field_2"),
         expected_term_urn="urn:li:glossaryTerm:TestTerm2_2",
         origin_dataset="modern2.upstream_table",
         origin_field="field_2",
         propagation_found=True,
         propagation_source=test_action_urn,
+        propagation_origin=make_schema_field_urn(upstream.urn, "field_2"),
     )
 
     # Fields 3-4 have no lineage, so no propagation expected
     no_term_expectation_3 = NoTermPropagationExpectation(
-        platform="snowflake",
-        dataset_name="modern2.downstream_table",  # Include framework prefix
-        field_name="field_3",
+        field_urn=make_schema_field_urn(downstream.urn, "field_3"),
     )
 
     no_term_expectation_4 = NoTermPropagationExpectation(
-        platform="snowflake",
-        dataset_name="modern2.downstream_table",  # Include framework prefix
-        field_name="field_4",
+        field_urn=make_schema_field_urn(downstream.urn, "field_4"),
     )
 
     # Add mutation for live testing
@@ -156,14 +154,13 @@ def create_modern_1_to_1_scenario_with_new_expectations(test_action_urn: str):
 
     # Add live expectation
     live_expectation = TermPropagationExpectation(
-        platform="snowflake",
-        dataset_name="modern2.downstream_table",  # Include framework prefix
-        field_name="field_0",
+        field_urn=make_schema_field_urn(downstream.urn, "field_0"),
         expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",
         origin_dataset="modern2.upstream_table",
         origin_field="field_0",
         propagation_found=True,
         propagation_source=test_action_urn,
+        propagation_origin=make_schema_field_urn(upstream.urn, "field_0"),
     )
 
     # Build scenario with both framework and plugin expectations
@@ -177,119 +174,508 @@ def create_modern_1_to_1_scenario_with_new_expectations(test_action_urn: str):
         no_term_expectation_3,
         no_term_expectation_4,
     ]
-    scenario.post_mutation_expectations = [live_expectation]
+    # For full cycle tests, include live expectations that will work during mutations
+    # Note: Only expect propagation for the NEW mutation, not re-establishment of bootstrap terms
+    scenario.post_mutation_expectations = [
+        live_expectation,  # From mutation - TestTerm1_2 should propagate to field_0
+        # Bootstrap terms (TestTerm1_1, TestTerm2_2) are NOT re-established after rollback
+        # The live mutation only propagates the new term, not the original dataset state
+    ]
 
     return scenario
 
 
-def test_modern_term_propagation_bootstrap(
-    test_framework: PropagationTestFramework,
-    graph_client: DataHubGraph,
-    test_action_urn: str,
-    create_modern_test_action,
-    load_glossary,
-) -> None:
-    """Test bootstrap phase using modern framework and expectation system."""
-    logger.info("🧪 TESTING BOOTSTRAP PHASE - Modern Term Propagation")
+def create_1_to_1_scenario(test_action_urn: str) -> Any:
+    """Create a 1:1 lineage scenario similar to the original test."""
+    builder = PropagationScenarioBuilder(test_action_urn, "terms_1_to_1")
 
-    # Create scenario using framework builder and plugin expectations
-    scenario = create_modern_1_to_1_scenario_with_new_expectations(test_action_urn)
-
-    # Use framework to run bootstrap phase with built-in cleanup
-    test_framework._execute_bootstrap_phase(scenario, test_action_urn, 120)
-
-    # Debug: Verify lineage was applied in DataHub
-    from datahub.metadata.schema_classes import UpstreamLineageClass
-
-    downstream_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,modern2.downstream_table,PROD)"
+    # Create source dataset with terms
+    source_dataset = (
+        builder.add_dataset("upstream_table", "snowflake")
+        .with_description("Upstream dataset with terms")
+        .with_columns(["field_0", "field_1", "field_2", "field_3", "field_4"])
+        .with_column_glossary_term("field_0", "urn:li:glossaryTerm:TestTerm1_0")
+        .with_column_glossary_term("field_1", "urn:li:glossaryTerm:TestTerm1_1")
+        .with_column_glossary_term("field_2", "urn:li:glossaryTerm:TestTerm2_2")
+        .build()
     )
-    lineage_aspect = graph_client.get_aspect(downstream_urn, UpstreamLineageClass)
-    if lineage_aspect:
-        logger.info(
-            f"✅ Lineage aspect found with {len(lineage_aspect.fineGrainedLineages or [])} fine-grained lineages"
+
+    # Create target dataset without terms
+    target_dataset = (
+        builder.add_dataset("downstream_table", "snowflake")
+        .with_description("Downstream dataset")
+        .with_columns(["field_0", "field_1", "field_2", "field_3", "field_4"])
+        .build()
+    )
+
+    # Register datasets
+    builder.register_dataset("source", source_dataset)
+    builder.register_dataset("target", target_dataset)
+
+    # Create lineage - 1:1 mappings for field_0, field_1, field_2
+    lineage = (
+        builder.add_lineage("source", "target")
+        .add_field_lineage("source", "field_0", "target", "field_0")
+        .add_field_lineage("source", "field_1", "target", "field_1")
+        .add_field_lineage("source", "field_2", "target", "field_2")
+        .build(source_dataset.urn)
+    )
+
+    builder.register_lineage("source", "target", lineage)
+
+    # Base expectations based on term propagation configuration
+    # TestTerm1_0 NOT in target_terms - should NOT propagate
+    # TestTerm1_1 IS in target_terms - should propagate
+    # TestTerm2_2 IS in target_terms - should propagate
+    builder.base_expectations = [
+        NoTermPropagationExpectation(
+            field_urn=make_schema_field_urn(target_dataset.urn, "field_0"),
+        ),
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(target_dataset.urn, "field_1"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_1",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(source_dataset.urn, "field_1"),
+        ),
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(target_dataset.urn, "field_2"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm2_2",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(source_dataset.urn, "field_2"),
+        ),
+        NoTermPropagationExpectation(
+            field_urn=make_schema_field_urn(target_dataset.urn, "field_3"),
+        ),
+        NoTermPropagationExpectation(
+            field_urn=make_schema_field_urn(target_dataset.urn, "field_4"),
+        ),
+    ]
+
+    # Post-mutation expectations
+    builder.post_mutation_expectations = [
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(target_dataset.urn, "field_0"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(source_dataset.urn, "field_0"),
+        ),
+    ]
+
+    # Build scenario first, then add smart mutations
+    scenario = builder.build()
+
+    # Create mutation for live testing using smart mutations
+    from tests.propagation.framework.plugins.term.mutations import (
+        FieldTermAdditionMutation,
+    )
+
+    mutation = FieldTermAdditionMutation(
+        dataset_urn=source_dataset.urn,  # Use URN directly from dataset
+        field_name="field_0",
+        term_urn="urn:li:glossaryTerm:TestTerm1_2",
+    )
+    scenario.add_mutation_objects([mutation])
+
+    return scenario
+
+
+def create_2_hop_scenario(test_action_urn: str) -> Any:
+    """Create a 2-hop lineage scenario to test multi-hop propagation with via/origin tracking."""
+    builder = PropagationScenarioBuilder(test_action_urn, "terms_2_hop")
+
+    # Create datasets
+    dataset1 = (
+        builder.add_dataset("table_foo_0", "snowflake")
+        .with_columns(["field_0", "field_1", "field_2", "field_3", "field_4"])
+        .with_column_glossary_term("field_0", "urn:li:glossaryTerm:TestTerm1_1")
+        .build()
+    )
+
+    dataset2 = (
+        builder.add_dataset("table_foo_1", "snowflake")
+        .with_columns(["field_0", "field_1", "field_2", "field_3", "field_4"])
+        .build()
+    )
+
+    dataset3 = (
+        builder.add_dataset("table_foo_2", "snowflake")
+        .with_columns(["field_0", "field_1", "field_2", "field_3", "field_4"])
+        .build()
+    )
+
+    # Register datasets
+    builder.register_dataset("dataset1", dataset1)
+    builder.register_dataset("dataset2", dataset2)
+    builder.register_dataset("dataset3", dataset3)
+
+    # Create lineage chain: dataset1 -> dataset2 -> dataset3
+    lineage1 = (
+        builder.add_lineage("dataset1", "dataset2")
+        .add_field_lineage("dataset1", "field_0", "dataset2", "field_0")
+        .build(dataset1.urn)
+    )
+    builder.register_lineage("dataset1", "dataset2", lineage1)
+
+    lineage2 = (
+        builder.add_lineage("dataset2", "dataset3")
+        .add_field_lineage("dataset2", "field_0", "dataset3", "field_0")
+        .build(dataset2.urn)
+    )
+    builder.register_lineage("dataset2", "dataset3", lineage2)
+
+    # Base expectations - Bootstrap creates only 1-hop propagation
+    builder.base_expectations = [
+        # 1-hop: dataset1.field_0 -> dataset2.field_0 (should work during bootstrap)
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(dataset2.urn, "field_0"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_1",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(dataset1.urn, "field_0"),
+            propagation_via=None,  # Direct 1-hop, no intermediate
+            expected_depth=1,  # This is a 1-hop propagation
+            expected_direction="down",  # Downstream propagation
+            expected_relationship="lineage",  # Through lineage relationships
+        ),
+        # 2-hop: dataset1.field_0 -> dataset2.field_0 -> dataset3.field_0 (should NOT work during bootstrap)
+        NoTermPropagationExpectation(
+            field_urn=make_schema_field_urn(dataset3.urn, "field_0"),
+        ),
+    ]
+
+    # Post-mutation expectations - During live phase, mutations should trigger multi-hop propagation
+    # Note: Only expect propagation for the NEW mutation, not re-establishment of bootstrap terms
+    builder.post_mutation_expectations = [
+        # New term should propagate 1-hop: dataset1.field_0 -> dataset2.field_0
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(dataset2.urn, "field_0"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(dataset1.urn, "field_0"),
+            propagation_via=None,  # Direct 1-hop
+            expected_depth=1,  # This is a 1-hop propagation
+            expected_direction="down",  # Downstream propagation
+            expected_relationship="lineage",  # Through lineage relationships
+        ),
+        # New term should propagate 2-hop: dataset1.field_0 -> dataset2.field_0 -> dataset3.field_0
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(dataset3.urn, "field_0"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",  # New term from mutation
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(dataset1.urn, "field_0"),
+            propagation_via=make_schema_field_urn(
+                dataset2.urn, "field_0"
+            ),  # Propagated via dataset2.field_0
+            expected_depth=2,  # This is a 2-hop propagation
+            expected_direction="down",  # Downstream propagation
+            expected_relationship="lineage",  # Through lineage relationships
+        ),
+        # Bootstrap terms (TestTerm1_1) are NOT re-established after rollback
+        # The live mutation only propagates the new term, not the original dataset state
+    ]
+
+    # Build scenario first, then add smart mutations
+    scenario = builder.build()
+
+    # Create mutation to trigger 2-hop propagation during live phase using smart mutations
+    from tests.propagation.framework.plugins.term.mutations import (
+        FieldTermAdditionMutation,
+    )
+
+    # Add a new term to dataset1.field_0 to trigger live propagation
+    mutation = FieldTermAdditionMutation(
+        dataset_urn=dataset1.urn,  # Use URN directly from dataset
+        field_name="field_0",
+        term_urn="urn:li:glossaryTerm:TestTerm1_2",
+    )
+    scenario.add_mutation_objects([mutation])
+
+    return scenario
+
+
+def create_logical_field_to_field_scenario(test_action_urn: str) -> Any:
+    """Create a logical field-to-field relationship scenario for term propagation.
+
+    This scenario tests:
+    - Parent dataset with fields that have terms
+    - Multiple children datasets with corresponding fields
+    - Field-level logical relationships (not dataset-level)
+    - Term mutations on parent fields propagating to connected child fields
+    """
+    builder = PropagationScenarioBuilder(test_action_urn, "terms_logical_field")
+
+    # Create parent dataset with terms on fields
+    parent_dataset = (
+        builder.add_dataset("parent_table", "snowflake")
+        .with_description("Parent table with logical field relationships")
+        .with_columns(["id", "name", "email", "status", "created_date"])
+        .with_column_glossary_term(
+            "id", "urn:li:glossaryTerm:TestTerm1_1"
+        )  # Will propagate
+        .with_column_glossary_term(
+            "email", "urn:li:glossaryTerm:TestTerm2_2"
+        )  # Will propagate
+        .build()
+    )
+
+    # Create child dataset 1
+    child1_dataset = (
+        builder.add_dataset("child1_table", "snowflake")
+        .with_description("Child table 1 with logical field connections")
+        .with_columns(
+            [
+                "customer_id",
+                "full_name",
+                "email_address",
+                "account_status",
+                "signup_date",
+            ]
         )
-        if lineage_aspect.fineGrainedLineages:
-            for i, fgl in enumerate(lineage_aspect.fineGrainedLineages):
-                upstream_urn = fgl.upstreams[0] if fgl.upstreams else "unknown"
-                downstream_urn = fgl.downstreams[0] if fgl.downstreams else "unknown"
-                logger.info(
-                    f"  Applied FGL {i + 1}: {upstream_urn} -> {downstream_urn}"
-                )
-    else:
-        logger.warning("⚠️  No lineage aspect found in DataHub!")
-
-    # Additional validation using new plugin-based expectations
-    logger.info("✅ Validating expectations using modern plugin system...")
-    validate_expectations(
-        expectations=scenario.base_expectations,
-        graph_client=graph_client,
-        action_urn=test_action_urn,
-        rollback=False,
+        .build()
     )
 
-    logger.info("🎉 Bootstrap phase completed successfully!")
+    # Create child dataset 2
+    child2_dataset = (
+        builder.add_dataset("child2_table", "snowflake")
+        .with_description("Child table 2 with logical field connections")
+        .with_columns(
+            [
+                "user_id",
+                "display_name",
+                "contact_email",
+                "user_status",
+                "registration_date",
+            ]
+        )
+        .build()
+    )
+
+    # Register datasets
+    builder.register_dataset("parent", parent_dataset)
+    builder.register_dataset("child1", child1_dataset)
+    builder.register_dataset("child2", child2_dataset)
+
+    # TODO: Implement field-level logical relationships
+    # This would create logical relationships between specific fields instead of entire datasets
+    # Currently commented out due to API changes - needs investigation of correct LogicalParentClass usage
+
+    # For now, we'll skip the logical relationship setup and focus on the mutation testing framework
+
+    # Base expectations - Terms should propagate through logical field relationships during bootstrap
+    builder.base_expectations = [
+        # Parent.id -> Child1.customer_id (TestTerm1_1 should propagate)
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child1_dataset.urn, "customer_id"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_1",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "id"),
+        ),
+        # Parent.id -> Child2.user_id (TestTerm1_1 should propagate)
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child2_dataset.urn, "user_id"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_1",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "id"),
+        ),
+        # Parent.email -> Child1.email_address (TestTerm2_2 should propagate)
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child1_dataset.urn, "email_address"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm2_2",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "email"),
+        ),
+        # Parent.email -> Child2.contact_email (TestTerm2_2 should propagate)
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child2_dataset.urn, "contact_email"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm2_2",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "email"),
+        ),
+        # Fields without logical relationships should NOT have propagation
+        NoTermPropagationExpectation(
+            field_urn=make_schema_field_urn(child1_dataset.urn, "full_name"),
+        ),
+        NoTermPropagationExpectation(
+            field_urn=make_schema_field_urn(child2_dataset.urn, "display_name"),
+        ),
+    ]
+
+    # Post-mutation expectations - New terms should propagate to all connected child fields
+    builder.post_mutation_expectations = [
+        # Original terms should still be propagated
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child1_dataset.urn, "customer_id"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_1",  # Original term
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "id"),
+        ),
+        # New term from mutation1 should propagate to child1.customer_id
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child1_dataset.urn, "customer_id"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",  # New term
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "id"),
+        ),
+        # New term from mutation1 should propagate to child2.user_id
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child2_dataset.urn, "user_id"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",  # New term
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "id"),
+        ),
+        # New term from mutation2 should propagate to child1.email_address
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child1_dataset.urn, "email_address"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",  # New term
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "email"),
+        ),
+        # New term from mutation2 should propagate to child2.contact_email
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(child2_dataset.urn, "contact_email"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_2",  # New term
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(parent_dataset.urn, "email"),
+        ),
+    ]
+
+    # Build scenario first, then add smart mutations
+    scenario = builder.build()
+
+    # Create mutations for live testing using smart mutations
+    from tests.propagation.framework.plugins.term.mutations import (
+        FieldTermAdditionMutation,
+    )
+
+    # Mutation 1: Add a new term to parent.id field
+    mutation1 = FieldTermAdditionMutation(
+        dataset_urn=parent_dataset.urn,  # Use URN directly from dataset
+        field_name="id",
+        term_urn="urn:li:glossaryTerm:TestTerm1_2",  # New term to add
+    )
+
+    # Mutation 2: Add a new term to parent.email field
+    mutation2 = FieldTermAdditionMutation(
+        dataset_urn=parent_dataset.urn,  # Use URN directly from dataset
+        field_name="email",
+        term_urn="urn:li:glossaryTerm:TestTerm1_2",  # Same new term
+    )
+
+    scenario.add_mutation_objects([mutation1, mutation2])
+
+    return scenario
 
 
-def test_modern_term_propagation_rollback(
+@pytest.mark.parametrize(
+    "scenario_name,scenario_func",
+    [
+        ("1:1 Term Propagation", create_1_to_1_scenario),
+        ("2-hop Term Propagation", create_2_hop_scenario),
+    ],
+    ids=["1_to_1", "2_hop"],
+)
+def test_term_propagation_scenarios(
     test_framework: PropagationTestFramework,
-    graph_client: DataHubGraph,
     test_action_urn: str,
     create_modern_test_action,
-    load_glossary,
-) -> None:
-    """Test rollback phase using modern framework and expectation system."""
-    logger.info("🧪 TESTING ROLLBACK PHASE - Modern Term Propagation")
+    scenario_name: str,
+    scenario_func,
+):
+    """Test term propagation using the new framework.
 
-    scenario = create_modern_1_to_1_scenario_with_new_expectations(test_action_urn)
+    This test demonstrates how the new framework simplifies the original
+    term propagation test by using:
 
-    # Use framework to run bootstrap first, then rollback - built-in cleanup
-    test_framework._execute_bootstrap_phase(scenario, test_action_urn, 120)
+    1. PropagationScenarioBuilder for readable scenario creation
+    2. TermPropagationExpectation for type-safe expectations
+    3. PropagationTestFramework for automated test execution
+    4. Built-in cleanup and error handling
 
-    # Now test rollback using framework
-    test_framework._execute_rollback_phase(
-        scenario, test_action_urn, post_mutation=False
+    The test maintains the same functionality as the original but with
+    significantly less code and better readability.
+    """
+    logger.info(f"Starting {scenario_name} test with new framework")
+
+    # Create scenario using the factory function
+    scenario = scenario_func(test_action_urn)
+    # Disable debug mode for faster execution
+    scenario.debug_mcps = False
+
+    # Run the test using the framework
+    result = test_framework.run_propagation_test(
+        scenario=scenario,
+        test_action_urn=test_action_urn,
+        test_type=TermPropagationTest(),
+        scenario_name=scenario_name,
     )
 
-    # Additional validation using plugin-based expectations
-    logger.info("✅ Validating rollback using modern plugin system...")
-    validate_expectations(
-        expectations=scenario.base_expectations,
-        graph_client=graph_client,
-        action_urn=test_action_urn,
-        rollback=True,
-    )
+    # Verify the test succeeded
+    assert result.success, f"Test failed: {result.error_details}"
 
-    logger.info("🎉 Rollback phase completed successfully!")
+    logger.info(f"✅ {scenario_name} completed successfully")
+    logger.info(result.get_summary())
 
 
-def test_modern_term_propagation_live(
+def test_simple_term_propagation_example(
     test_framework: PropagationTestFramework,
-    graph_client: DataHubGraph,
     test_action_urn: str,
     create_modern_test_action,
-    load_glossary,
-) -> None:
-    """Test live phase using modern framework and expectation system."""
-    logger.info("🧪 TESTING LIVE PHASE - Modern Term Propagation")
+):
+    """Simple example showing how easy it is to create a term propagation test.
 
-    scenario = create_modern_1_to_1_scenario_with_new_expectations(test_action_urn)
+    This demonstrates the most basic usage of the framework.
+    """
+    # Build a simple scenario with the fluent API
+    builder = PropagationScenarioBuilder(test_action_urn, "simple_terms")
 
-    # Use framework to run live phase with built-in cleanup and lifecycle management
-    test_framework._execute_live_phase(scenario, test_action_urn, 120)
-
-    # Additional validation using plugin-based expectations
-    logger.info(
-        "✅ Validating post-mutation expectations using modern plugin system..."
-    )
-    validate_expectations(
-        expectations=scenario.post_mutation_expectations,
-        graph_client=graph_client,
-        action_urn=test_action_urn,
-        rollback=False,
+    # Create source dataset with terms
+    source = (
+        builder.add_dataset("customers", "snowflake")
+        .with_columns(["id", "name", "email"])
+        .with_column_glossary_term("id", "urn:li:glossaryTerm:TestTerm1_1")
+        .build()
     )
 
-    logger.info("🎉 Live phase completed successfully!")
+    # Create target dataset without terms
+    target = (
+        builder.add_dataset("analytics", "snowflake")
+        .with_columns(["customer_id", "name", "email"])
+        .build()
+    )
+
+    # Register datasets
+    builder.register_dataset("source", source)
+    builder.register_dataset("target", target)
+
+    # Create simple 1:1 lineage
+    lineage = (
+        builder.add_lineage("source", "target")
+        .add_field_lineage("source", "id", "target", "customer_id")
+        .build(source.urn)
+    )
+    builder.register_lineage("source", "target", lineage)
+
+    # Expect term to propagate (TestTerm1_1 is in target_terms)
+    builder.base_expectations = [
+        TermPropagationExpectation(
+            field_urn=make_schema_field_urn(target.urn, "customer_id"),
+            expected_term_urn="urn:li:glossaryTerm:TestTerm1_1",
+            propagation_source=test_action_urn,
+            propagation_origin=make_schema_field_urn(source.urn, "id"),
+        )
+    ]
+
+    scenario = builder.build()
+
+    # Run the test
+    result = test_framework.run_propagation_test(
+        scenario=scenario,
+        test_action_urn=test_action_urn,
+        test_type=TermPropagationTest(),
+        scenario_name="Simple Term Propagation",
+    )
+
+    assert result.success, f"Simple test failed: {result.error_details}"
+    logger.info("✅ Simple term propagation test completed successfully")
 
 
 def test_modern_term_propagation_full_cycle(

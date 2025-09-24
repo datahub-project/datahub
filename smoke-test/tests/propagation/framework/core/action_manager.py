@@ -33,7 +33,7 @@ def kill_action_processes(action_urn=None):
     try:
         output = subprocess.check_output(["ps", "aux"], universal_newlines=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error running ps command: {e}")
+        logger.error(f"Error running ps command: {e}")
         return
 
     pids = []
@@ -50,25 +50,25 @@ def kill_action_processes(action_urn=None):
             if action_urn
             else "No action_runner.py processes found"
         )
-        print(message)
+        logger.info(message)
         return
 
     # Kill processes
     for pid in pids:
         try:
             os.kill(pid, signal.SIGKILL)
-            print(f"Killed process {pid}")
+            logger.info(f"Killed process {pid}")
         except ProcessLookupError:
-            print(f"Process {pid} not found")
+            logger.warning(f"Process {pid} not found")
         except PermissionError:
-            print(f"Permission denied to kill process {pid}")
+            logger.error(f"Permission denied to kill process {pid}")
 
     message = (
         f"All processes for action URN {action_urn} have been terminated"
         if action_urn
         else "All action_runner.py processes have been terminated"
     )
-    print(message)
+    logger.info(message)
 
 
 def cleanup_entities_and_actions(

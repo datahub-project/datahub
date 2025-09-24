@@ -199,7 +199,10 @@ def test_create_property_change_proposal_dataset(tag_propagator_setup: Any) -> N
 
     # Assert
     graph.add_tags_to_dataset.assert_called_once_with(
-        dataset_urn.urn(), [tag], context=source_details.for_metadata_attribution()
+        dataset_urn.urn(),
+        [tag],
+        context=source_details.for_metadata_attribution(),
+        action_urn="urn:li:dataHubAction:test_action",
     )
 
 

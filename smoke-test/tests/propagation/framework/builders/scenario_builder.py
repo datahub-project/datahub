@@ -5,17 +5,28 @@ These builders use a fluent API to make test creation more readable and maintain
 
 import datetime
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    EdgeClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    LogicalParentClass,
+    SiblingsClass,
+    StatusClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from tests.propagation.framework.core.models import PropagationTestScenario
+from tests.propagation.framework.plugins.structured_properties.models import (
+    DatasetStructuredProperties,
+)
+from tests.propagation.framework.plugins.structured_properties.templates import (
+    create_structured_property_template,
+)
 from tests.propagation.framework.utils.graph_utils import LineageGraphBuilder
 
 logger = logging.getLogger(__name__)
@@ -31,9 +42,14 @@ class DatasetBuilder:
         self.description: Optional[str] = None
         self.column_names: List[str] = []
         self.field_descriptions: Dict[str, str] = {}
-        self.field_glossary_terms: Dict[str, str] = {}
+        self.field_glossary_terms: Dict[str, List[str]] = {}
         self.field_tags: Dict[str, str] = {}
+        self.structured_properties = DatasetStructuredProperties(name, [])
         self.subtype: Optional[str] = None
+        self.sibling_urns: List[str] = []
+        self.is_primary_sibling: bool = True
+        self.logical_parent_urn: Optional[str] = None
+        self.field_logical_parents: Dict[str, str] = {}
 
     def with_description(self, description: str) -> "DatasetBuilder":
         """Set dataset description."""
@@ -64,7 +80,34 @@ class DatasetBuilder:
             raise ValueError(
                 f"Column '{column_name}' not found. Available columns: {self.column_names}"
             )
-        self.field_glossary_terms[column_name] = term
+        # Store as single-item list to maintain consistent structure
+        self.field_glossary_terms[column_name] = [term]
+        return self
+
+    def with_column_glossary_terms(
+        self, column_name: str, terms: Union[str, List[str]]
+    ) -> "DatasetBuilder":
+        """Set multiple glossary terms for a specific column by name."""
+        if column_name not in self.column_names:
+            raise ValueError(
+                f"Column '{column_name}' not found. Available columns: {self.column_names}"
+            )
+        # Handle both single term and list of terms
+        if isinstance(terms, str):
+            self.field_glossary_terms[column_name] = [terms]
+        else:
+            self.field_glossary_terms[column_name] = terms[:]  # Copy the list
+        return self
+
+    def add_column_glossary_term(self, column_name: str, term: str) -> "DatasetBuilder":
+        """Add an additional glossary term to a column (append to existing terms)."""
+        if column_name not in self.column_names:
+            raise ValueError(
+                f"Column '{column_name}' not found. Available columns: {self.column_names}"
+            )
+        if column_name not in self.field_glossary_terms:
+            self.field_glossary_terms[column_name] = []
+        self.field_glossary_terms[column_name].append(term)
         return self
 
     def with_column_tag(self, column_name: str, tag: str) -> "DatasetBuilder":
@@ -76,12 +119,100 @@ class DatasetBuilder:
         self.field_tags[column_name] = tag
         return self
 
+    def with_structured_property(
+        self, property_name_or_urn: str, value: Any, value_type: str = "string"
+    ) -> "DatasetBuilder":
+        """Set a structured property for this dataset.
+
+        Args:
+            property_name_or_urn: Name or URN of the structured property definition
+            value: The value to set for the property
+            value_type: Type of the value (string, number, date, urn)
+        """
+        self.structured_properties.add_property(property_name_or_urn, value, value_type)
+        return self
+
+    def add_structured_property(
+        self, property_name_or_urn: str, value: Any, value_type: str = "string"
+    ) -> "DatasetBuilder":
+        """Add a structured property (alias for with_structured_property for consistency)."""
+        return self.with_structured_property(property_name_or_urn, value, value_type)
+
     def with_subtype(self, subtype: str) -> "DatasetBuilder":
         """Set dataset subtype."""
         self.subtype = subtype
         return self
 
-    def build(self):
+    def set_sibling(
+        self, sibling_dataset_or_urn, is_primary: bool = True
+    ) -> "DatasetBuilder":
+        """Set sibling relationship for this dataset.
+
+        Args:
+            sibling_dataset_or_urn: Either a dataset object with .urn attribute or a URN string
+            is_primary: Whether this dataset should be marked as primary in the sibling relationship
+        """
+        if hasattr(sibling_dataset_or_urn, "urn"):
+            # It's a dataset object
+            sibling_urn = sibling_dataset_or_urn.urn
+        else:
+            # It's already a URN string
+            sibling_urn = sibling_dataset_or_urn
+
+        self.sibling_urns.append(sibling_urn)
+        self.is_primary_sibling = is_primary
+        return self
+
+    def set_logical_parent(
+        self, parent_dataset_or_urn: Union[DatasetUrn, str]
+    ) -> "DatasetBuilder":
+        """Set logical parent relationship for this dataset.
+
+        Args:
+            parent_dataset_or_urn: Either a dataset object with .urn attribute, DatasetUrn instance, or URN string
+        """
+        if isinstance(parent_dataset_or_urn, DatasetUrn):
+            # It's a DatasetUrn instance
+            parent_urn = str(parent_dataset_or_urn)
+        elif isinstance(
+            parent_dataset_or_urn, str
+        ) and parent_dataset_or_urn.startswith("urn:li:"):
+            # It's a URN string
+            parent_urn = parent_dataset_or_urn
+        else:
+            raise ValueError(
+                f"parent_dataset_or_urn must be a DatasetUrn instance or a valid URN string starting with 'urn:li:', got: {parent_dataset_or_urn}"
+            )
+
+        self.logical_parent_urn = parent_urn
+        return self
+
+    def add_field_logical_parent(
+        self, field_name: str, parent_field_urn: str
+    ) -> "DatasetBuilder":
+        """Add a field-level logical parent relationship.
+
+        This creates a field URN -> field URN logical relationship where a specific field
+        in this dataset has a logical parent field in another dataset.
+
+        Args:
+            field_name: The name of the field in this dataset that will have a logical parent
+            parent_field_urn: The URN of the parent field (must be a field URN)
+        """
+        if not parent_field_urn.startswith("urn:li:schemaField:"):
+            raise ValueError(
+                f"parent_field_urn must be a field URN starting with 'urn:li:schemaField:', got: {parent_field_urn}"
+            )
+
+        if field_name not in self.column_names:
+            raise ValueError(
+                f"Field '{field_name}' not found. Available fields: {self.column_names}"
+            )
+
+        self.field_logical_parents[field_name] = parent_field_urn
+        return self
+
+    def build(self) -> Any:
         """Build the dataset."""
         if not self.column_names:
             raise ValueError(
@@ -89,18 +220,24 @@ class DatasetBuilder:
             )
 
         num_fields = len(self.column_names)
-        field_descriptions_list = []
-        field_glossary_terms_list = []
-        field_tags_list = []
+        field_descriptions_list: List[str] = []
+        field_glossary_terms_list: List[str] = []
+        field_tags_list: List[str] = []
 
         for column_name in self.column_names:
             # For descriptions
             if column_name in self.field_descriptions:
                 field_descriptions_list.append(self.field_descriptions[column_name])
 
-            # For glossary terms
+            # For glossary terms - maintain field-term correspondence
             if column_name in self.field_glossary_terms:
-                field_glossary_terms_list.append(self.field_glossary_terms[column_name])
+                # For now, just take the first term to maintain compatibility with original Dataset API
+                # The original Dataset API expects a flat list where each position corresponds to a field
+                field_glossary_terms_list.append(
+                    self.field_glossary_terms[column_name][0]
+                )
+            # Note: If we need multiple terms per field in the future, we'd need to enhance
+            # the underlying Dataset creation API as well
 
             # For tags
             if column_name in self.field_tags:
@@ -117,6 +254,37 @@ class DatasetBuilder:
             field_global_tags=field_tags_list,
             subtype=self.subtype,
         )
+
+        # Store sibling info on the dataset for the scenario builder to use
+        if self.sibling_urns:
+            dataset.sibling_info = (self.sibling_urns, self.is_primary_sibling)
+        else:
+            dataset.sibling_info = None
+
+        # Store logical parent info on the dataset for the scenario builder to use
+        dataset.logical_parent_urn = self.logical_parent_urn
+
+        # Store field logical parent relationships on the dataset for the scenario builder to use
+        dataset.field_logical_parents = self.field_logical_parents
+
+        # Convert structured properties to DataHub Dataset format if any exist
+        if self.structured_properties.has_properties():
+            structured_props_dict = {}
+            for prop in self.structured_properties.properties:
+                # Resolve name to URN using consistent pattern
+                if prop.name_or_urn.startswith("urn:li:structuredProperty:"):
+                    property_urn = prop.name_or_urn
+                elif prop.name_or_urn.startswith("urn:"):
+                    property_urn = prop.name_or_urn
+                else:
+                    # Assume it's a simple name and convert to our standard URN pattern
+                    property_urn = (
+                        f"urn:li:structuredProperty:io.datahub.test.{prop.name_or_urn}"
+                    )
+
+                structured_props_dict[property_urn] = prop.format_value()
+
+            dataset.structured_properties = structured_props_dict
 
         return dataset
 
@@ -242,6 +410,12 @@ class PropagationScenarioBuilder:
         self.debug_mcps: bool = False
         self.verbose_mode: bool = True
         self.cleanup_entities: bool = True
+        self.structured_property_templates: List[
+            MetadataChangeProposalWrapper
+        ] = []  # Property definition templates
+        self.available_structured_properties: Dict[
+            str, str
+        ] = {}  # {property_name: property_urn}
 
     def add_dataset(self, name: str, platform: str = "snowflake") -> DatasetBuilder:
         """Add a dataset with fluent configuration."""
@@ -250,6 +424,10 @@ class PropagationScenarioBuilder:
     def register_dataset(self, name: str, dataset) -> "PropagationScenarioBuilder":
         """Register a built dataset."""
         self.datasets[name] = dataset
+
+        # Store structured properties if provided and has properties
+        # TODO: Handle structured properties via dataset.structured_properties when dataset supports it
+
         if self.verbose_mode:
             # Get field glossary terms from the schema_metadata if available
             field_glossary_terms_dict = {}  # Dict[str, List[str]] - proper structure
@@ -282,6 +460,39 @@ class PropagationScenarioBuilder:
             logger.info(
                 f"📊 Registered dataset '{name}' on platform '{dataset.platform}' with {num_columns} columns{terms_str}"
             )
+        return self
+
+    def define_structured_property(
+        self,
+        name: str,
+        display_name: str,
+        value_type: str = "string",
+        description: Optional[str] = None,
+        allowed_values: Optional[List[str]] = None,
+        cardinality: str = "SINGLE",
+    ) -> "PropagationScenarioBuilder":
+        """Define a structured property template that will be created during scenario build."""
+        template = create_structured_property_template(
+            qualified_name=f"io.datahub.test.{name}",
+            display_name=display_name,
+            value_type=value_type,
+            description=description,
+            allowed_values=allowed_values,
+            cardinality=cardinality,
+        )
+
+        self.structured_property_templates.append(template)
+        # Map the name to the URN for easy reference
+        urn = f"urn:li:structuredProperty:io.datahub.test.{name}"
+        self.available_structured_properties[name] = urn
+
+        return self
+
+    def register_structured_property(
+        self, name: str, urn: str
+    ) -> "PropagationScenarioBuilder":
+        """Register a structured property that's already ingested (for external properties)."""
+        self.available_structured_properties[name] = urn
         return self
 
     def add_lineage(
@@ -317,10 +528,18 @@ class PropagationScenarioBuilder:
     def add_term_mutation(
         self, dataset: str, field: str, term: str
     ) -> "PropagationScenarioBuilder":
-        """Add a glossary term mutation for live testing."""
-        dataset_urn = self.graph_builder.get_dataset_urn(
-            self._extract_platform(dataset), self._extract_name(dataset)
-        )
+        """Add a glossary term mutation for live testing.
+
+        Args:
+            dataset: Registered dataset name (must be previously registered with register_dataset)
+            field: Field name within the dataset
+            term: Glossary term URN to add
+        """
+        if dataset not in self.datasets:
+            raise ValueError(
+                f"Dataset '{dataset}' not found in registered datasets. Available datasets: {list(self.datasets.keys())}"
+            )
+        dataset_urn = self.datasets[dataset].urn
 
         mutation = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -389,22 +608,150 @@ class PropagationScenarioBuilder:
     def build(self) -> PropagationTestScenario:
         """Build the complete test scenario."""
         # Generate MCPs for all datasets
-        base_mcps = []
+        base_mcps: List[MetadataChangeProposalWrapper] = []
+
+        # First add structured property templates
+        base_mcps.extend(self.structured_property_templates)
         for dataset in self.datasets.values():
+            # First, emit a status aspect for every dataset (must be first)
+            status_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset.urn,
+                aspect=StatusClass(removed=False),
+            )
+            base_mcps.append(status_mcp)
+
+            # Then emit all other aspects for the dataset
             base_mcps.extend(dataset.generate_mcp())
 
-        # Add lineage relationships
+            # Add sibling relationship MCP if defined
+            if dataset.sibling_info:
+                sibling_urns, is_primary = dataset.sibling_info
+                sibling_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=dataset.urn,
+                    aspect=SiblingsClass(
+                        siblings=sibling_urns,
+                        primary=is_primary,
+                    ),
+                )
+                base_mcps.append(sibling_mcp)
+
+            # Add logical parent relationship MCP if defined
+            if dataset.logical_parent_urn:
+                timestamp = int(
+                    datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
+                )
+                logical_parent_mcp = MetadataChangeProposalWrapper(
+                    entityUrn=dataset.urn,
+                    aspect=LogicalParentClass(
+                        parent=EdgeClass(
+                            destinationUrn=dataset.logical_parent_urn,
+                            created=AuditStampClass(
+                                time=timestamp,
+                                actor="urn:li:corpuser:test_user",
+                            ),
+                            lastModified=AuditStampClass(
+                                time=timestamp,
+                                actor="urn:li:corpuser:test_user",
+                            ),
+                        )
+                    ),
+                )
+                base_mcps.append(logical_parent_mcp)
+
+            # Add field-level logical parent relationships if defined
+            if dataset.field_logical_parents:
+                from datahub.emitter.mce_builder import make_schema_field_urn
+
+                timestamp = int(
+                    datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
+                )
+
+                for (
+                    field_name,
+                    parent_field_urn,
+                ) in dataset.field_logical_parents.items():
+                    # Create field URN for the child field
+                    child_field_urn = make_schema_field_urn(dataset.urn, field_name)
+
+                    # Create LogicalParentClass aspect for the field
+                    field_logical_parent_mcp = MetadataChangeProposalWrapper(
+                        entityUrn=child_field_urn,
+                        aspect=LogicalParentClass(
+                            parent=EdgeClass(
+                                sourceUrn=child_field_urn,
+                                destinationUrn=parent_field_urn,
+                                created=AuditStampClass(
+                                    time=timestamp,
+                                    actor="urn:li:corpuser:test_user",
+                                ),
+                                lastModified=AuditStampClass(
+                                    time=timestamp,
+                                    actor="urn:li:corpuser:test_user",
+                                ),
+                            )
+                        ),
+                    )
+                    base_mcps.append(field_logical_parent_mcp)
+
+        # Structured property value assignments are now handled during dataset materialization
+        # via dataset.generate_mcp() - no separate handling needed here
+
+        # Add lineage relationships - combine multiple upstream lineages to the same downstream
+        # Group lineage relationships by downstream dataset
+        lineage_by_downstream: Dict[
+            str, tuple[Any, List[Any]]
+        ] = {}  # downstream_name -> (downstream_dataset, lineage_aspects)
+
         for _upstream, downstream, lineage_aspect in self.lineage_relationships:
             downstream_dataset = self.datasets[downstream]
-            base_mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=downstream_dataset.urn, aspect=lineage_aspect
+
+            if downstream not in lineage_by_downstream:
+                lineage_by_downstream[downstream] = (downstream_dataset, [])
+            lineage_by_downstream[downstream][1].append(lineage_aspect)
+
+        # Create merged lineage MCPs
+        from datahub.metadata.schema_classes import UpstreamLineageClass
+
+        for _downstream_name, (
+            downstream_dataset,
+            lineage_aspects,
+        ) in lineage_by_downstream.items():
+            if len(lineage_aspects) == 1:
+                # Single lineage - use as-is
+                base_mcps.append(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=downstream_dataset.urn, aspect=lineage_aspects[0]
+                    )
                 )
-            )
+            else:
+                # Multiple lineages - merge them
+                all_upstreams = []
+                all_fine_grained_lineages = []
+
+                for lineage_aspect in lineage_aspects:
+                    all_upstreams.extend(lineage_aspect.upstreams)
+                    if lineage_aspect.fineGrainedLineages:
+                        all_fine_grained_lineages.extend(
+                            lineage_aspect.fineGrainedLineages
+                        )
+
+                merged_lineage = UpstreamLineageClass(
+                    upstreams=all_upstreams,
+                    fineGrainedLineages=all_fine_grained_lineages
+                    if all_fine_grained_lineages
+                    else None,
+                )
+
+                base_mcps.append(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=downstream_dataset.urn, aspect=merged_lineage
+                    )
+                )
 
         return PropagationTestScenario(
             base_graph=base_mcps,
             base_expectations=self.base_expectations,
+            pre_bootstrap_mutations=[],  # Empty by default, can be added via scenario methods
             mutations=self.mutations,
             post_mutation_expectations=self.post_mutation_expectations,
             run_bootstrap=self.run_bootstrap,
@@ -412,15 +759,3 @@ class PropagationScenarioBuilder:
             verbose_mode=self.verbose_mode,
             cleanup_entities=self.cleanup_entities,
         )
-
-    def _extract_platform(self, dataset_name: str) -> str:
-        """Extract platform from dataset name."""
-        if "." in dataset_name:
-            return dataset_name.split(".")[0]
-        return "snowflake"  # default
-
-    def _extract_name(self, dataset_name: str) -> str:
-        """Extract name from dataset name."""
-        if "." in dataset_name:
-            return dataset_name.split(".", 1)[1]
-        return dataset_name

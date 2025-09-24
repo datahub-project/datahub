@@ -232,19 +232,21 @@ class TagPropagator(EntityPropagator):
             via = entity_urn if source_details.origin != entity_urn else None
             propagation_depth = (
                 source_details.propagation_depth + 1
-                if source_details.propagation_depth
+                if source_details.propagation_depth is not None
                 else 1
             )
             actor = source_details.actor if source_details.actor else self.actor_urn
             propagation_started_at = source_details.propagation_started_at or int(
                 time.time() * 1000.0
             )
+            propagation_direction = source_details.propagation_direction
         else:
             origin = entity_urn
             via = None
-            propagation_depth = 1
+            propagation_depth = 0
             actor = self.actor_urn
             propagation_started_at = int(time.time() * 1000.0)
+            propagation_direction = None
 
         return TagPropagationDirective(
             propagate=True,
@@ -256,6 +258,7 @@ class TagPropagator(EntityPropagator):
             propagation_depth=propagation_depth,
             actor=actor,
             propagation_started_at=propagation_started_at,
+            propagation_direction=propagation_direction,
         )
 
     def process_ece(self, event: EventEnvelope) -> Optional[TagPropagationDirective]:
@@ -335,6 +338,7 @@ class TagPropagator(EntityPropagator):
                 str(entity_urn),
                 propagation_directive.tags,
                 context=context.for_metadata_attribution(),
+                action_urn=self.action_urn,
             )
         elif entity_urn.entity_type == "schemaField":
             schema_field_urn: SchemaFieldUrn = SchemaFieldUrn.from_string(
@@ -672,14 +676,24 @@ class TagPropagator(EntityPropagator):
         global_tags = self.graph.graph.get_aspect(asset.urn(), GlobalTagsClass)
         if global_tags:
             tags = []
+            aspect_updated = False
             for tag in global_tags.tags:
                 assert isinstance(tag, TagAssociationClass)
                 if tag.attribution and tag.attribution.source == self.action_urn:
                     logger.info(f"Deleting tag association {tag.tag}")
+                    aspect_updated = True
                 else:
                     tags.append(tag)
 
-            # TODO: Handle update if tags have changed
+            # Emit updated aspect if tags were removed
+            if aspect_updated:
+                global_tags.tags = tags
+                self.graph.graph.emit(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=asset.urn(),
+                        aspect=global_tags,
+                    )
+                )
 
     def _rollback_editable_schema_tags(self, asset: Urn) -> None:
         """Rollback tag associations from editable schema metadata."""

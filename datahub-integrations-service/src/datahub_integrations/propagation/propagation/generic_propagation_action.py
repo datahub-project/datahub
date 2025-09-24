@@ -357,18 +357,20 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
     ) -> PropagationOutput:
         assert self.ctx.graph
 
-        # Create source context for propagation
-        context = SourceDetails(
-            origin=directive.origin,
-            via=directive.via,
-            propagated=True,
-            actor=directive.actor,
-            propagation_started_at=directive.propagation_started_at,
-            propagation_depth=directive.propagation_depth,
-        )
-
         for resolution in self.config.propagation_rule.target_urn_resolution:
             if strategy := self.propagation_strategies.get(resolution.lookup_type):
+                # Create fresh context for each resolution to prevent depth accumulation across iterations
+                # But preserve propagation_direction to maintain directional consistency
+                context = SourceDetails(
+                    origin=directive.origin,
+                    via=directive.via,
+                    propagated=True,
+                    actor=directive.actor,
+                    propagation_started_at=directive.propagation_started_at,
+                    propagation_depth=directive.propagation_depth,
+                    propagation_direction=directive.propagation_direction,
+                )
+
                 yield from strategy.propagate(
                     resolution, propagator, directive, context
                 )

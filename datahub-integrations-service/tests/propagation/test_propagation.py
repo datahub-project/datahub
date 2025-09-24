@@ -438,6 +438,7 @@ def test_tag_propagation_upstream() -> None:
             "propagation_relationship": RelationshipType.LINEAGE.value,
             "propagation_direction": DirectionType.UP.value,
         },
+        action_urn="urn:li:dataHubAction:test_pipeline",
     )
 
 

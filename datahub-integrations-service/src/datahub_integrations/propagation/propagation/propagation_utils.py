@@ -81,6 +81,10 @@ class PropagationDirective(BaseModel):
         default=0,
         description="Depth of propagation. This is used to track the depth of the propagation.",
     )
+    propagation_direction: Optional[DirectionType] = Field(
+        default=None,
+        description="Direction of propagation (UP or DOWN). Used to maintain directional consistency in multi-hop propagation.",
+    )
 
     def to_entity_lookups(self) -> List[EntityLookup]:
         """
