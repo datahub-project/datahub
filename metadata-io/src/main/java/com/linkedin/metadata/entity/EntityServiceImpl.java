@@ -904,7 +904,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(opContext),
-        true,
+        !cdcModeChangeLog,
         true);
   }
 
@@ -941,26 +941,37 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .collect(Collectors.toList());
 
     List<UpdateAspectResult> updateAspectResults;
-    if (emitMCL) {
-      List<MCLEmitResult> mclEmitResults = produceMCLAsync(opContext, mcls);
 
-      updateAspectResults =
-          IntStream.range(0, ingestResults.getUpdateAspectResults().size())
-              .mapToObj(
-                  i -> {
-                    UpdateAspectResult updateAspectResult =
-                        ingestResults.getUpdateAspectResults().get(i);
-                    MCLEmitResult mclEmitResult = mclEmitResults.get(i);
-                    return updateAspectResult.toBuilder()
-                        .mclFuture(mclEmitResult.getMclFuture())
-                        .processedMCL(mclEmitResult.isProcessedMCL())
-                        .build();
-                  })
-              .collect(Collectors.toList());
+    List<MCLEmitResult> mclEmitResults;
+    if (!cdcModeChangeLog && emitMCL) {
+      mclEmitResults = produceMCLAsync(opContext, mcls);
     } else {
-      // TOOD. With CDC mode, this is not available here.
-      updateAspectResults = ingestResults.getUpdateAspectResults();
+      mclEmitResults =
+          mcls.stream()
+              .map(mcl -> Pair.of(preprocessEvent(opContext, mcl), mcl))
+              .map(
+                  preprocessResult ->
+                      MCLEmitResult.builder()
+                          .emitted(false)
+                          .processedMCL(preprocessResult.getFirst())
+                          .mclFuture(null)
+                          .metadataChangeLog(preprocessResult.getSecond())
+                          .build())
+              .collect(Collectors.toList());
     }
+    updateAspectResults =
+        IntStream.range(0, ingestResults.getUpdateAspectResults().size())
+            .mapToObj(
+                i -> {
+                  UpdateAspectResult updateAspectResult =
+                      ingestResults.getUpdateAspectResults().get(i);
+                  MCLEmitResult mclEmitResult = mclEmitResults.get(i);
+                  return updateAspectResult.toBuilder()
+                      .mclFuture(mclEmitResult.getMclFuture())
+                      .processedMCL(mclEmitResult.isProcessedMCL())
+                      .build();
+                })
+            .collect(Collectors.toList());
 
     // Produce FailedMCPs for tracing
     produceFailedMCPs(opContext, ingestResults);
@@ -1425,8 +1436,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext);
-    List<UpdateAspectResult> ingested =
-        ingestAspects(opContext, aspectsBatch, !cdcModeChangeLog, false);
+    List<UpdateAspectResult> ingested = ingestAspects(opContext, aspectsBatch, true, false);
 
     return ingested.stream().findFirst().map(UpdateAspectResult::getNewValue).orElse(null);
   }
@@ -1689,7 +1699,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           }
 
           List<UpdateAspectResult> upsertResults =
-              ingestAspects(opContext, nonTimeseries, !cdcModeChangeLog, true);
+              ingestAspects(opContext, nonTimeseries, true, true);
 
           return upsertResults.stream()
               .map(
@@ -2509,7 +2519,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .collect(Collectors.toList()))
             .build(opContext);
 
-    ingestAspects(opContext, aspectsBatch, !cdcModeChangeLog, true);
+    ingestAspects(opContext, aspectsBatch, true, true);
   }
 
   protected RecordTemplate toSnapshotRecord(
