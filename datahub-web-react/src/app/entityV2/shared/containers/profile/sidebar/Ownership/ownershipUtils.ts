@@ -1,6 +1,6 @@
 import { forcePluralize } from '@app/shared/textUtil';
 
-import { OwnershipType, OwnershipTypeEntity } from '@types';
+import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
 
 /**
  * A mapping from OwnershipType to it's display name & description. In the future,
@@ -45,3 +45,6 @@ export const getDescriptionFromType = (type: OwnershipType) => {
 export function getOwnershipTypeName(ownershipType?: OwnershipTypeEntity | null) {
     return (ownershipType?.info?.name && forcePluralize(ownershipType?.info?.name)) || 'Other';
 }
+
+// Type to keep SaaS compatibility
+export type ExtendedOwner = Owner;
