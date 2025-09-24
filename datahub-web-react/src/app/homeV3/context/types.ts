@@ -68,6 +68,8 @@ export type PageTemplateContextState = {
     removeModule: (input: RemoveModuleInput) => void;
     moveModule: (input: MoveModuleInput) => void;
     resetTemplateToDefault: () => void;
+    reloadHomepageModules: boolean;
+    setReloadHomepageModules: (val: boolean) => void;
     moduleContext: TemplateUpdateContext;
     // Asset summary operations
     summaryElements?: AssetProperty[];
