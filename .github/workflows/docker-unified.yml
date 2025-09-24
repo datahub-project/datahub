@@ -755,7 +755,7 @@ jobs:
     runs-on: depot-ubuntu-22.04-small
     needs: [setup, base_build]
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'acryldata' && needs.setup.outputs.repository_name == 'datahub-fork' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
