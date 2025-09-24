@@ -172,6 +172,7 @@ const OwnersSection = ({
                             entity={option.owner.owner}
                             customDetailsRenderer={() => null}
                             padding="0px"
+                            dataTestId={`owner-option-${option.owner.owner.urn}`}
                         />
                     )}
                     selectMinHeight="42px"

@@ -21,6 +21,8 @@ const ingestionSourceDetails = {
   role: `role${number}`,
 };
 
+const ADMIN_USERNAME = Cypress.env("ADMIN_USERNAME");
+
 describe("ingestion sources", () => {
   beforeEach(() => {
     setThemeV2AndIngestionRedesignFlags(true);
@@ -35,19 +37,19 @@ describe("ingestion sources", () => {
     createIngestionSource(sourceName, {
       sourceDetails: ingestionSourceDetails,
       schedule: { hour: "01" },
-      currentUserUrn: "urn:li:corpuser:admin",
+      currentUserUrn: `urn:li:corpuser:${ADMIN_USERNAME}`,
       userNameToAddAsOwner: "John Doe",
       userUrnToAddAsOwner: "urn:li:corpuser:jdoe",
     });
     cy.waitTextVisible(sourceName);
     verifyScheduleIsAppliedOnTable(sourceName, "01:00 am");
-    verifyOwnerIsInTable(sourceName, "urn:li:corpuser:admin");
+    verifyOwnerIsInTable(sourceName, `urn:li:corpuser:${ADMIN_USERNAME}`);
     verifyOwnerIsInTable(sourceName, "urn:li:corpuser:jdoe");
     deleteIngestionSource(sourceName);
   });
 
   it("edit an ingestion source", () => {
-    const sourceName = "ingestion source";
+    const sourceName = "ingestion source to update";
     const updatedSourceName = "updated ingestion source";
     createIngestionSource(sourceName);
     verifyScheduleIsAppliedOnTable(sourceName, "12:00 am"); // the default schedule
@@ -55,12 +57,12 @@ describe("ingestion sources", () => {
       schedule: { hour: "01" },
       userNameToAddAsOwner: "John Doe",
       userUrnToAddAsOwner: "urn:li:corpuser:jdoe",
-      ownerUrnToRemove: "urn:li:corpuser:admin",
+      ownerUrnToRemove: `urn:li:corpuser:${ADMIN_USERNAME}`,
     });
     cy.waitTextVisible(updatedSourceName);
     verifyScheduleIsAppliedOnTable(updatedSourceName, "01:00 am");
     verifyOwnerIsInTable(updatedSourceName, "urn:li:corpuser:jdoe");
-    verifyOwnerIsNotInTable(updatedSourceName, "urn:li:corpuser:admin");
+    verifyOwnerIsNotInTable(updatedSourceName, `urn:li:corpuser:${ADMIN_USERNAME}`);
     deleteIngestionSource(updatedSourceName);
   });
 

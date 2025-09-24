@@ -77,7 +77,7 @@ export const addOwner = (ownerName, ownerUrn) => {
   cy.clickOptionWithTestId("owners-select");
   cy.enterTextInTestId("select-search-input", ownerName);
   cy.clickOptionWithTestId(`owner-option-${ownerUrn}`);
-  cy.clickOptionWithTestId("select-button-update");
+  cy.clickOptionWithTestId("select-update-button");
 };
 
 export const removeOwner = (ownerUrn) => {
