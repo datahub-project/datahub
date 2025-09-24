@@ -448,9 +448,8 @@ class S3Source(StatefulIngestionSourceBase):
                 self.source_config.verify_ssl
             )
 
-            file = smart_open(
-                table_data.full_path, "rb", transport_params={"client": s3_client}
-            )
+            path = re.sub(r"^[a-z0-9]+://", "s3://", table_data.full_path)
+            file = smart_open(path, "rb", transport_params={"client": s3_client})
         else:
             # We still use smart_open here to take advantage of the compression
             # capabilities of smart_open.
