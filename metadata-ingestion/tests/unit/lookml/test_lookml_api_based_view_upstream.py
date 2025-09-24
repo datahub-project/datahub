@@ -223,6 +223,7 @@ class TestLookMLAPIBasedViewUpstream:
         assert query.model == "test_model"
         assert query.view == "test_explore"
         assert query.limit == "1"
+        assert query.fields is not None
         assert "test_view.user_id" in query.fields
         assert "test_view.email" in query.fields
         assert "test_view.total_users" in query.fields
