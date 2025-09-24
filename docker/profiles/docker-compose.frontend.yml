@@ -64,7 +64,7 @@ services:
     profiles:
       - quickstart-consumers-cdc
     depends_on:
-      system-update-quickstart-consumers-cdc:
+      system-update-quickstart-cdc:
         condition: service_completed_successfully
   frontend-debug:
     <<: *datahub-frontend-service-dev

@@ -519,6 +519,21 @@ services:
     depends_on:
       datahub-gms-debug-consumers:
         condition: service_healthy
+  datahub-mae-consumer-quickstart-consumers-cdc:
+    <<: *datahub-mae-consumer-service
+    profiles:
+      - quickstart-consumers-cdc
+    depends_on:
+      datahub-gms-quickstart-consumers-cdc:
+        condition: service_healthy
+  datahub-mae-consumer-debug-consumers-cdc:
+    <<: *datahub-mae-consumer-service-dev
+    profiles:
+      - debug-consumers-cdc
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy
+
   #################################
   # MCE Consumer
   #################################
