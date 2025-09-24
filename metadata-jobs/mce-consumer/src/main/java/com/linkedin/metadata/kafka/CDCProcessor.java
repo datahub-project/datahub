@@ -51,7 +51,6 @@ import org.springframework.stereotype.Component;
 public class CDCProcessor {
   private final OperationContext systemOperationContext;
 
-  // private final SystemEntityClient entityClient;
   private final EntityService entityService;
 
   @Qualifier("kafkaThrottle")
