@@ -1145,20 +1145,11 @@ class S3Source(StatefulIngestionSourceBase):
 
                 # STEP 4: Process each table folder to create a table-level dataset
                 for folder in table_folders:
-                    bucket_name = get_bucket_name(folder.path)
-                    table_folder = get_bucket_relative_path(folder.path)
-
-                    # Create the full S3 path for this table
-                    table_s3_path = self.create_s3_path(bucket_name, table_folder)
-                    logger.info(
-                        f"Processing table folder: {table_folder} -> {table_s3_path}"
-                    )
+                    logger.info(f"Processing table path: {folder.path}")
 
                     # Extract table name using the ORIGINAL path spec pattern matching (not the modified one)
                     # This uses the compiled regex pattern to extract the table name from the full path
-                    table_name, _ = self.extract_table_name_and_path(
-                        path_spec, table_s3_path
-                    )
+                    table_name, _ = self.extract_table_name_and_path(path_spec, folder.path)
 
                     # Apply table name filtering if configured
                     if not path_spec.tables_filter_pattern.allowed(table_name):
@@ -1170,9 +1161,9 @@ class S3Source(StatefulIngestionSourceBase):
 
                     if path_spec.traversal_method == FolderTraversalMethod.ALL:
                         # Process ALL partitions (original behavior)
-                        dirs_to_process = [table_s3_path]
+                        dirs_to_process = [folder.path]
                         logger.debug(
-                            f"Processing ALL partition folders under: {table_s3_path}"
+                            f"Processing ALL partition folders under: {folder.path}"
                         )
 
                     else:
@@ -1183,7 +1174,7 @@ class S3Source(StatefulIngestionSourceBase):
                         ):
                             # Get MAX partition using original logic
                             dirs_to_process_max = self.get_dir_to_process(
-                                uri=table_s3_path,
+                                uri=folder.path,
                                 path_spec=path_spec,
                                 min=False,
                             )
@@ -1196,7 +1187,7 @@ class S3Source(StatefulIngestionSourceBase):
                         if path_spec.traversal_method == FolderTraversalMethod.MIN_MAX:
                             # Get MIN partition using original logic
                             dirs_to_process_min = self.get_dir_to_process(
-                                uri=table_s3_path,
+                                uri=folder.path,
                                 path_spec=path_spec,
                                 min=True,
                             )
