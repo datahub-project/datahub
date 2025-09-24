@@ -96,7 +96,8 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
    * Builds connector configuration by merging database connection details, Kafka settings, and
    * explicit configuration overrides in that priority order.
    */
-  protected Map<String, Object> buildConnectorConfiguration() {
+  @com.google.common.annotations.VisibleForTesting
+  Map<String, Object> buildConnectorConfiguration() {
     Map<String, Object> config = new HashMap<>();
 
     injectDatabaseConnection(config);
@@ -119,70 +120,44 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
 
   /** Extracts database connection from environment variables and EbeanConfiguration. */
   private void injectDatabaseConnection(Map<String, Object> config) {
-    try {
-      String hostPort = System.getenv("EBEAN_DATASOURCE_HOST");
-      String dbName = System.getenv("DATAHUB_DB_NAME");
+    String dbConnectionUrl = ebeanConfig.getUrl();
 
-      if (hostPort != null && !hostPort.isEmpty()) {
-        String[] hostPortParts = hostPort.split(":");
-        if (hostPortParts.length == 0 || hostPortParts[0].trim().isEmpty()) {
-          log.warn("Invalid EBEAN_DATASOURCE_HOST format: {}", hostPort);
-          return;
-        }
+    // Parse JDBC URL to extract hostname, port, and database name
+    if (dbConnectionUrl != null && !dbConnectionUrl.isEmpty()) {
+      // Handle MySQL: jdbc:mysql://hostname:port/database
+      // Handle PostgreSQL: jdbc:postgresql://hostname:port/database
+      String urlPattern = "jdbc:(mysql|postgresql)://([^:/]+)(?::(\\d+))?/([^?]+)";
+      java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(urlPattern);
+      java.util.regex.Matcher matcher = pattern.matcher(dbConnectionUrl);
 
-        config.put("database.hostname", hostPortParts[0].trim());
+      if (matcher.find()) {
+        String dbType = matcher.group(1);
+        String hostname = matcher.group(2);
+        String portStr = matcher.group(3);
+        String database = matcher.group(4);
 
-        if (hostPortParts.length > 1) {
-          try {
-            Integer.parseInt(hostPortParts[1].trim());
-            config.put("database.port", hostPortParts[1].trim());
-          } catch (NumberFormatException e) {
-            log.warn("Invalid port number in EBEAN_DATASOURCE_HOST: {}", hostPortParts[1]);
-          }
+        config.put("database.hostname", hostname);
+        config.put("database.include.list", database);
+
+        // Set default port if not specified
+        if (portStr != null) {
+          config.put("database.port", portStr);
         } else {
-          if (ebeanConfig.getUrl() != null && ebeanConfig.getUrl().contains("postgresql")) {
-            config.put("database.port", "5432");
-          } else if (ebeanConfig.getUrl() != null && ebeanConfig.getUrl().contains("mysql")) {
-            config.put("database.port", "3306");
-          }
+          // Use default ports
+          String defaultPort = "mysql".equals(dbType) ? "3306" : "5432";
+          config.put("database.port", defaultPort);
         }
+
+        log.info(
+            "Parsed database connection: host={}, port={}, database={}",
+            hostname,
+            config.get("database.port"),
+            database);
       } else {
         log.warn(
-            "EBEAN_DATASOURCE_HOST environment variable not set - database connection may fail");
+            "Could not parse database URL format: {}, falling back to mclProcessing.cdcSource.debeziumConfig.config",
+            dbConnectionUrl);
       }
-
-      if (dbName != null && !dbName.isEmpty()) {
-        config.put("database.include.list", dbName);
-      } else {
-        log.warn("DATAHUB_DB_NAME environment variable not set - CDC may capture all databases");
-      }
-
-      String cdcUser = System.getenv("CDC_USER");
-      String cdcPassword = System.getenv("CDC_PASSWORD");
-
-      if (cdcUser != null && !cdcUser.trim().isEmpty()) {
-        config.put("database.user", cdcUser);
-      } else if (ebeanConfig.getUsername() != null && !ebeanConfig.getUsername().trim().isEmpty()) {
-        log.warn(
-            "CDC_USER not set, falling back to regular database user - this may lack CDC privileges");
-        config.put("database.user", ebeanConfig.getUsername());
-      } else {
-        log.warn("Neither CDC_USER nor database username configured - authentication may fail");
-      }
-
-      if (cdcPassword != null && !cdcPassword.trim().isEmpty()) {
-        config.put("database.password", cdcPassword);
-      } else if (ebeanConfig.getPassword() != null && !ebeanConfig.getPassword().trim().isEmpty()) {
-        log.warn("CDC_PASSWORD not set, falling back to regular database password - this may fail");
-        config.put("database.password", ebeanConfig.getPassword());
-      } else {
-        log.warn("Neither CDC_PASSWORD nor database password configured - authentication may fail");
-      }
-
-    } catch (Exception e) {
-      log.error("Failed to configure database connection details: {}", e.getMessage(), e);
-      throw new IllegalStateException(
-          "Cannot proceed without database connection configuration", e);
     }
   }
 

@@ -233,6 +233,9 @@ mclProcessing:
         topic.prefix: datahub
         tables.include.list: datahub.metadata_aspects_v2
         database.server.id: 184001 # unique db ID per connector instance
+        database.user: ${CDC_USER:datahub_cdc}
+        database.password: ${CDC_PASSWORD:datahub_cdc}
+        database.include.list: ${DATAHUB_DB_NAME:datahub}
         # Transforms to use urn as partitioning key
         transforms: setKey
         transforms.setKey.type: org.apache.kafka.connect.transforms.ValueToKey
@@ -242,14 +245,11 @@ mclProcessing:
         predicates.aspectsTablePredicate.type: org.apache.kafka.connect.transforms.predicates.TopicNameMatches
         predicates.aspectsTablePredicate.pattern: datahub.metadata_aspects_v2
         schema.history.internal.kafka.topic: datahub.schema-changes
-        # Default configs injected by System Update. Any additional configs are applied on top of these.
 
+        # Default configs injected by System Update. Any additional configs are applied on top of these.
         # Below are inferred from db connection config and injected by DebeziumCDCSetupStep.
         #datahub.hostname
         #database.port
-        #database.user: $CDC_USER
-        #database.password: $CDC_PASSWORD
-        #database.include.list: ${DATAHUB_DB_NAME:datahub}
 
         # Below are inferred from available kafka configs
         #schema.history.internal.kafka.bootstrap.servers: broker:29092

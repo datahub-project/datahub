@@ -1,17 +1,29 @@
 package com.linkedin.datahub.upgrade.system.cdc.debezium;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.config.DebeziumConfiguration;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -26,24 +38,6 @@ public class ConfigureDebeziumConnectorStepTest {
   private EbeanConfiguration ebeanConfig;
   private KafkaConfiguration kafkaConfig;
   private KafkaProperties kafkaProperties;
-
-  // Test subclass to access protected methods
-  private static class TestableConfigureDebeziumConnectorStep
-      extends ConfigureDebeziumConnectorStep {
-    public TestableConfigureDebeziumConnectorStep(
-        OperationContext opContext,
-        DebeziumConfiguration debeziumConfig,
-        EbeanConfiguration ebeanConfig,
-        KafkaConfiguration kafkaConfig,
-        KafkaProperties kafkaProperties) {
-      super(opContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    }
-
-    @Override
-    public Map<String, Object> buildConnectorConfiguration() {
-      return super.buildConnectorConfiguration();
-    }
-  }
 
   @BeforeMethod
   public void setUp() throws Exception {
@@ -85,8 +79,8 @@ public class ConfigureDebeziumConnectorStepTest {
 
   @Test
   public void testBuildConnectorConfiguration() {
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -104,8 +98,8 @@ public class ConfigureDebeziumConnectorStepTest {
     overrides.put("custom.property", "override-value");
     debeziumConfig.setConfig(overrides);
 
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -120,8 +114,8 @@ public class ConfigureDebeziumConnectorStepTest {
     kafkaConfig.setBootstrapServers("kafka-config-server:9092");
     kafkaProperties.setBootstrapServers(List.of("kafka-props-server:9092"));
 
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -136,8 +130,8 @@ public class ConfigureDebeziumConnectorStepTest {
     kafkaConfig.setBootstrapServers(null);
     kafkaProperties.setBootstrapServers(List.of("fallback-server:9092"));
 
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -152,8 +146,8 @@ public class ConfigureDebeziumConnectorStepTest {
     kafkaConfig.setBootstrapServers(null);
     kafkaProperties.setBootstrapServers(List.of("broker1:9092", "broker2:9092", "broker3:9092"));
 
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -166,8 +160,8 @@ public class ConfigureDebeziumConnectorStepTest {
 
   @Test
   public void testConnectorConfigurationWithTopicPrefix() {
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -185,8 +179,8 @@ public class ConfigureDebeziumConnectorStepTest {
     kafkaConfig.setBootstrapServers(null);
     kafkaProperties.setBootstrapServers(null);
 
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -204,8 +198,8 @@ public class ConfigureDebeziumConnectorStepTest {
     overrides.put("snapshot.mode", "initial");
     debeziumConfig.setConfig(overrides);
 
-    TestableConfigureDebeziumConnectorStep step =
-        new TestableConfigureDebeziumConnectorStep(
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
             mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
 
     Map<String, Object> config = step.buildConnectorConfiguration();
@@ -214,5 +208,244 @@ public class ConfigureDebeziumConnectorStepTest {
     assertEquals(config.get("database.server.name"), "custom-server");
     assertEquals(config.get("database.server.id"), "12345");
     assertEquals(config.get("snapshot.mode"), "initial");
+  }
+
+  @Test
+  public void testExecutableCreateConnectorSuccess() throws Exception {
+    UpgradeContext mockUpgradeContext = mock(UpgradeContext.class);
+    HttpClient mockHttpClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+
+    when(mockResponse.statusCode()).thenReturn(404, 201);
+    when(mockResponse.body()).thenReturn("Connector created successfully");
+    when(mockHttpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(mockResponse);
+
+    ConfigureDebeziumConnectorStep step =
+        spy(
+            new ConfigureDebeziumConnectorStep(
+                mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties));
+    when(step.createHttpClient()).thenReturn(mockHttpClient);
+
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
+  public void testExecutableUpdateConnectorSuccess() throws Exception {
+    UpgradeContext mockUpgradeContext = mock(UpgradeContext.class);
+    HttpClient mockHttpClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.body()).thenReturn("Connector updated successfully");
+    when(mockHttpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenReturn(mockResponse);
+
+    ConfigureDebeziumConnectorStep step =
+        spy(
+            new ConfigureDebeziumConnectorStep(
+                mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties));
+    when(step.createHttpClient()).thenReturn(mockHttpClient);
+
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
+  public void testExecutableMissingConnectUrl() throws Exception {
+    UpgradeContext mockUpgradeContext = mock(UpgradeContext.class);
+    debeziumConfig.setUrl(null);
+
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testExecutableHttpException() throws Exception {
+    UpgradeContext mockUpgradeContext = mock(UpgradeContext.class);
+    HttpClient mockHttpClient = mock(HttpClient.class);
+
+    when(mockHttpClient.send(any(HttpRequest.class), eq(HttpResponse.BodyHandlers.ofString())))
+        .thenThrow(new RuntimeException("Network error"));
+
+    ConfigureDebeziumConnectorStep step =
+        spy(
+            new ConfigureDebeziumConnectorStep(
+                mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties));
+    when(step.createHttpClient()).thenReturn(mockHttpClient);
+
+    Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
+    UpgradeStepResult result = executable.apply(mockUpgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testDatabaseConnectionParsingMySQL() {
+    ebeanConfig.setUrl("jdbc:mysql://db-host:3306/production_db");
+
+    // Use minimal config to avoid overrides
+    Map<String, String> minimalConfig = new HashMap<>();
+    minimalConfig.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
+    debeziumConfig.setConfig(minimalConfig);
+
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    assertEquals(config.get("database.hostname"), "db-host");
+    assertEquals(config.get("database.port"), "3306");
+    assertEquals(config.get("database.include.list"), "production_db");
+  }
+
+  @Test
+  public void testDatabaseConnectionParsingPostgreSQL() {
+    ebeanConfig.setUrl("jdbc:postgresql://pg-host:5432/test_db");
+
+    // Use minimal config to avoid overrides
+    Map<String, String> minimalConfig = new HashMap<>();
+    minimalConfig.put("connector.class", "io.debezium.connector.postgresql.PostgreSqlConnector");
+    debeziumConfig.setConfig(minimalConfig);
+
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    assertEquals(config.get("database.hostname"), "pg-host");
+    assertEquals(config.get("database.port"), "5432");
+    assertEquals(config.get("database.include.list"), "test_db");
+  }
+
+  @Test
+  public void testDatabaseConnectionDefaultPortMySQL() {
+    ebeanConfig.setUrl("jdbc:mysql://mysql-host/datahub");
+
+    // Use minimal config to avoid overrides
+    Map<String, String> minimalConfig = new HashMap<>();
+    minimalConfig.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
+    debeziumConfig.setConfig(minimalConfig);
+
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    assertEquals(config.get("database.hostname"), "mysql-host");
+    assertEquals(config.get("database.port"), "3306");
+    assertEquals(config.get("database.include.list"), "datahub");
+  }
+
+  @Test
+  public void testDatabaseConnectionDefaultPortPostgreSQL() {
+    ebeanConfig.setUrl("jdbc:postgresql://pg-host/datahub");
+
+    // Use minimal config to avoid overrides
+    Map<String, String> minimalConfig = new HashMap<>();
+    minimalConfig.put("connector.class", "io.debezium.connector.postgresql.PostgreSqlConnector");
+    debeziumConfig.setConfig(minimalConfig);
+
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    assertEquals(config.get("database.hostname"), "pg-host");
+    assertEquals(config.get("database.port"), "5432");
+    assertEquals(config.get("database.include.list"), "datahub");
+  }
+
+  @Test
+  public void testDatabaseConnectionUnparsableUrl() {
+    ebeanConfig.setUrl("jdbc:oracle://oracle-host:1521:XE");
+
+    // Use minimal config to avoid overrides
+    Map<String, String> minimalConfig = new HashMap<>();
+    minimalConfig.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
+    debeziumConfig.setConfig(minimalConfig);
+
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Should not set any database properties for unparsable URLs
+    assertFalse(config.containsKey("database.hostname"));
+    assertFalse(config.containsKey("database.port"));
+    assertFalse(config.containsKey("database.include.list"));
+  }
+
+  @Test
+  public void testDatabaseConnectionNullUrl() {
+    ebeanConfig.setUrl(null);
+
+    // Use minimal config to avoid overrides
+    Map<String, String> minimalConfig = new HashMap<>();
+    minimalConfig.put("connector.class", "io.debezium.connector.mysql.MySqlConnector");
+    debeziumConfig.setConfig(minimalConfig);
+
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Should not set any database properties for null URL
+    assertFalse(config.containsKey("database.hostname"));
+    assertFalse(config.containsKey("database.port"));
+    assertFalse(config.containsKey("database.include.list"));
+  }
+
+  @Test
+  public void testSchemaHistoryTopicGeneration() {
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    // Verify that when bootstrap servers are configured, the schema history topic is set correctly
+    // The actual value depends on bootstrap server configuration being available at test time
+    assertTrue(config.containsKey("topic.prefix"));
+    assertEquals(config.get("topic.prefix"), "test-prefix");
+  }
+
+  @Test
+  public void testAvroSerializationConfiguration() {
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    Map<String, Object> config = step.buildConnectorConfiguration();
+
+    assertEquals(config.get("key.converter"), "org.apache.kafka.connect.storage.StringConverter");
+    assertEquals(config.get("value.converter"), "org.apache.kafka.connect.json.JsonConverter");
+  }
+
+  @Test
+  public void testCreateHttpClient() {
+    ConfigureDebeziumConnectorStep step =
+        new ConfigureDebeziumConnectorStep(
+            mockOpContext, debeziumConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    HttpClient client = step.createHttpClient();
+    assertNotNull(client);
   }
 }

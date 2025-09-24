@@ -51,7 +51,7 @@ public class CDCSourceConfiguration {
    * configuration objects are accepted.
    */
   public void setCdcImplConfig(Object config) {
-    if (config instanceof DebeziumConfiguration) {
+    if (config == null || config instanceof DebeziumConfiguration) {
       this.debeziumConfig = (DebeziumConfiguration) config;
     }
     // Future implementations (Maxwell, Canal, etc.) can be handled here

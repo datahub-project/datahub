@@ -1,8 +1,6 @@
 package com.linkedin.datahub.upgrade.system.cdc.debezium;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.config.DebeziumConfiguration;
@@ -77,7 +75,7 @@ public class DebeziumCDCSourceSetupTest {
     DebeziumCDCSourceSetup setup =
         new DebeziumCDCSourceSetup(
             mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-    assertEquals(setup.id(), "DebeziumCDCSetup-test-connector");
+    assertEquals(setup.id(), "DebeziumCDCSetup");
   }
 
   @Test
@@ -109,43 +107,6 @@ public class DebeziumCDCSourceSetupTest {
   }
 
   @Test
-  public void testSetupWithPostgresConfiguration() {
-    // Test with PostgreSQL configuration
-    ebeanConfig.setUrl("jdbc:postgresql://pg-host:5432/testdb");
-
-    DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-
-    List<UpgradeStep> steps = setup.steps();
-    assertNotNull(steps);
-    assertEquals(steps.size(), 2);
-
-    // Verify steps are still created correctly
-    assertTrue(steps.get(0) instanceof WaitForDebeziumReadyStep);
-    assertTrue(steps.get(1) instanceof ConfigureDebeziumConnectorStep);
-  }
-
-  @Test
-  public void testSetupWithMultipleKafkaBrokers() {
-    // Test with multiple Kafka brokers
-    kafkaProperties.setBootstrapServers(
-        Arrays.asList("broker1:9092", "broker2:9092", "broker3:9092"));
-
-    DebeziumCDCSourceSetup setup =
-        new DebeziumCDCSourceSetup(
-            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
-
-    List<UpgradeStep> steps = setup.steps();
-    assertNotNull(steps);
-    assertEquals(steps.size(), 2);
-
-    // Steps should handle multiple brokers correctly
-    assertTrue(steps.get(0) instanceof WaitForDebeziumReadyStep);
-    assertTrue(steps.get(1) instanceof ConfigureDebeziumConnectorStep);
-  }
-
-  @Test
   public void testCanRun() {
     DebeziumCDCSourceSetup setup =
         new DebeziumCDCSourceSetup(
@@ -171,5 +132,37 @@ public class DebeziumCDCSourceSetupTest {
         new DebeziumCDCSourceSetup(
             mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
     assertEquals(setup.getCdcType(), DebeziumCDCSourceSetup.DEBEZIUM_TYPE);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testConstructorWithNullDebeziumConfig() {
+    cdcSourceConfig.setDebeziumConfig(null);
+
+    new DebeziumCDCSourceSetup(
+        mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+  }
+
+  @Test
+  public void testCanRunWithMissingConnectorClass() {
+    Map<String, String> config = new HashMap<>();
+    config.put("topic.prefix", "test-prefix");
+    debeziumConfig.setConfig(config);
+
+    DebeziumCDCSourceSetup setup =
+        new DebeziumCDCSourceSetup(
+            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    assertFalse(setup.canRun());
+  }
+
+  @Test
+  public void testIdWithNullConnectorName() {
+    debeziumConfig.setName(null);
+
+    DebeziumCDCSourceSetup setup =
+        new DebeziumCDCSourceSetup(
+            mockOpContext, cdcSourceConfig, ebeanConfig, kafkaConfig, kafkaProperties);
+
+    assertEquals(setup.id(), "DebeziumCDCSetup");
   }
 }

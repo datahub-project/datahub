@@ -53,8 +53,7 @@ public class DebeziumCDCSourceSetup extends CDCSourceSetup {
 
   @Override
   public String id() {
-    return "DebeziumCDCSetup-"
-        + (debeziumConfig.getName() != null ? debeziumConfig.getName() : "default");
+    return "DebeziumCDCSetup";
   }
 
   @Override

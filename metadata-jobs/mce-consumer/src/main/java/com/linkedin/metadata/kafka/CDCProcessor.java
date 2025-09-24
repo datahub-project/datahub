@@ -77,9 +77,8 @@ public class CDCProcessor {
 
   @KafkaListener(
       id = "cdc-consumer-job-client",
-      // topics = "#{${mclProcessing.cdcSource.enabled:true} ?
-      // '${kafka.topic.cdcTopic.name:datahub.datahub.metadata_aspect_v2}' : null}",
-      topics = "datahub.datahub.metadata_aspect_v2",
+      topics =
+          "#{${mclProcessing.cdcSource.enabled:true}?'${kafka.topic.cdcTopic.name:datahub.datahub.metadata_aspect_v2}' : null}",
       containerFactory = CDC_EVENT_CONSUMER_NAME,
       autoStartup = "false")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
@@ -185,14 +184,6 @@ public class CDCProcessor {
       //    - UpdateAspectResult.toMCL() generates MetadataChangeLog for downstream processing
       //    - ChangeMCP interface requires urn, aspectName, changeType, recordTemplate,
       // systemMetadata
-      //
-      // Reference patterns:
-      // - EbeanAspectV2 entity shows metadata_aspect_v2 table structure (metadata column is JSON
-      // LOB)
-      // - RecordUtils.java provides JSON ⟷ RecordTemplate conversion utilities
-      // - Use systemOperationContext.getEntityRegistry() to get aspect specs for deserialization
-      // - UpdateAspectResult constructor shows required fields for change tracking
-      // - ChangeMCP implementations (ChangeItemImpl, DeleteItemImpl) show MCP patterns
 
       // Step 1: Parse JSON using Jackson ObjectMapper
       JsonNode cdcRecord = systemOperationContext.getObjectMapper().readTree(record);
