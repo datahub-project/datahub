@@ -583,6 +583,7 @@ plugins: Dict[str, Set[str]] = {
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common,
     "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
+    "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
@@ -674,7 +675,8 @@ base_dev_requirements = {
     "pytest-cov>=2.8.1",
     "pytest-random-order~=1.1.0",
     "requests-mock",
-    "freezegun",
+    "freezegun",  # TODO: fully remove and use time-machine
+    "time-machine",  # better Pydantic v2 compatibility
     "jsonpickle",
     "build",
     "twine",
@@ -713,6 +715,7 @@ base_dev_requirements = {
             "redshift",
             "s3",
             "snowflake",
+            "snaplogic",
             "slack",
             "tableau",
             "teradata",
@@ -858,6 +861,7 @@ entry_points = {
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
+        "snaplogic = datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
@@ -871,6 +875,7 @@ entry_points = {
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
         "mark_dataset_status = datahub.ingestion.transformer.mark_dataset_status:MarkDatasetStatus",
         "set_dataset_browse_path = datahub.ingestion.transformer.add_dataset_browse_path:AddDatasetBrowsePathTransformer",
+        "set_browse_path = datahub.ingestion.transformer.set_browse_path:SetBrowsePathTransformer",
         "add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership",
         "simple_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership",
         "pattern_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership",
