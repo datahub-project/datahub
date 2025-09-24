@@ -999,7 +999,9 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
             # If partition_id is None, it means the folder is not a partition
-            partition_id = path_spec.get_partition_from_path(max_file_s3_path)
+            partition_id = path_spec.get_partition_from_path(
+                self._normalize_uri_for_pattern_matching(max_file_s3_path)
+            )
 
             yield Folder(
                 partition_id=partition_id,
