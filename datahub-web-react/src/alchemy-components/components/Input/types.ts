@@ -10,6 +10,7 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     icon?: IconProps;
     error?: string;
     warning?: string;
+    helperText?: string;
     isSuccess?: boolean;
     isDisabled?: boolean;
     isInvalid?: boolean;
