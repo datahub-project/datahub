@@ -179,7 +179,7 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service
   image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-debug}}
-  environment:
+  environment: &datahub-mae-consumer-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
@@ -246,6 +246,13 @@ services:
     <<: *datahub-system-update-service
     profiles:
       - quickstart-consumers-cdc
+    environment:
+      <<: *datahub-system-update-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
+      CDC_USER: ${CDC_USER:-datahub_cdc}
+      CDC_PASSWORD: ${CDC_PASSWORD:-datahub_cdc}
+      DATAHUB_DB_NAME: ${DATAHUB_DB_NAME:-datahub}
     depends_on:
       mysql-setup-cdc:
         condition: service_completed_successfully
@@ -255,6 +262,8 @@ services:
         condition: service_healthy
       mysql:
         condition: service_healthy
+      kafka-connect:
+        condition: service_started
   system-update-quickstart-cassandra:
     <<: *datahub-system-update-service
     profiles:
@@ -314,6 +323,8 @@ services:
         condition: service_completed_successfully
       opensearch-setup-dev:
         condition: service_completed_successfully
+      kafka-connect:
+        condition: service_started
     environment:
       <<: *datahub-system-update-dev-env
       CDC_MCL_PROCESSING_ENABLED: true
@@ -521,6 +532,10 @@ services:
         condition: service_healthy
   datahub-mae-consumer-quickstart-consumers-cdc:
     <<: *datahub-mae-consumer-service
+    environment:
+      <<: *datahub-mae-consumer-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
     profiles:
       - quickstart-consumers-cdc
     depends_on:
@@ -528,10 +543,14 @@ services:
         condition: service_healthy
   datahub-mae-consumer-debug-consumers-cdc:
     <<: *datahub-mae-consumer-service-dev
+    environment:
+      <<: *datahub-mae-consumer-dev-env
+      CDC_MCL_PROCESSING_ENABLED: true
+      CDC_CONFIGURE_SOURCE: true
     profiles:
       - debug-consumers-cdc
     depends_on:
-      datahub-gms-debug-consumers:
+      datahub-gms-debug-consumers-cdc:
         condition: service_healthy
 
   #################################
