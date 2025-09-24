@@ -136,8 +136,8 @@ interface Props {
     setHideSystemSources: (show: boolean) => void;
     selectedTab: TabType | undefined | null;
     setSelectedTab: (selectedTab: TabType | null | undefined) => void;
-    sourceFilterFromUrl?: number;
-    updateUrlWithFilters: (hideSystem?: boolean, sourceFilter?: number) => void;
+    sourceFilter?: number;
+    setSourceFilter: (sourceFilter: number | undefined) => void;
 }
 
 export const IngestionSourceList = ({
@@ -148,8 +148,8 @@ export const IngestionSourceList = ({
     setHideSystemSources,
     selectedTab,
     setSelectedTab,
-    sourceFilterFromUrl,
-    updateUrlWithFilters,
+    sourceFilter: sourceFilterFromUrl,
+    setSourceFilter: setSourceFilterFromUrl,
 }: Props) => {
     const location = useLocation();
     const me = useUserContext();
@@ -202,8 +202,9 @@ export const IngestionSourceList = ({
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
-    const [sourceFilter, setSourceFilter] = useState(sourceFilterFromUrl ?? IngestionSourceType.ALL);
     const [sort, setSort] = useState<SortCriterion>();
+
+    const sourceFilter = sourceFilterFromUrl ?? IngestionSourceType.ALL;
 
     // Debounce the search query
     useDebounce(
@@ -215,19 +216,10 @@ export const IngestionSourceList = ({
         [searchInput],
     );
 
-    // When source filter changes, reset page to 1 and update URL
+    // When source filter changes, reset page to 1
     useEffect(() => {
         setPage(1);
     }, [sourceFilter, setPage]);
-
-    // Handle sourceFilter change with URL update
-    const handleSetSourceFilter = useCallback(
-        (newValue: number) => {
-            setSourceFilter(newValue);
-            updateUrlWithFilters(hideSystemSources, newValue);
-        },
-        [updateUrlWithFilters, hideSystemSources],
-    );
 
     /**
      * Show or hide system ingestion sources using a hidden command S command.
@@ -654,7 +646,7 @@ export const IngestionSourceList = ({
                                     { label: 'CLI', value: '2' },
                                 ]}
                                 values={[sourceFilter.toString()]}
-                                onUpdate={(values) => handleSetSourceFilter(Number(values[0]))}
+                                onUpdate={(values) => setSourceFilterFromUrl(Number(values[0]))}
                                 showClear={false}
                                 width="fit-content"
                                 size="lg"

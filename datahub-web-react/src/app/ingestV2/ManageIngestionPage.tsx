@@ -1,7 +1,6 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
-import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { Tab } from '@components/components/Tabs/Tabs';
@@ -17,6 +16,7 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { NoPageFound } from '@app/shared/NoPageFound';
+import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -83,46 +83,11 @@ export const ManageIngestionPage = () => {
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const history = useHistory();
-    const location = useLocation();
     const shouldPreserveParams = useRef(false);
 
-    // Parse URL parameters for filters
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const hideSystemFromUrl = params.hideSystem === 'true';
-    const sourceFilterFromUrl = params.sourceFilter ? Number(params.sourceFilter) : undefined;
-
-    const [hideSystemSources, setHideSystemSources] = useState(hideSystemFromUrl ?? true);
-
-    // Update URL when filters change
-    const updateUrlWithFilters = useCallback(
-        (newHideSystem?: boolean, newSourceFilter?: number) => {
-            const currentParams = QueryString.parse(location.search, { arrayFormat: 'comma' });
-            const updatedParams = { ...currentParams };
-
-            if (newHideSystem !== undefined) {
-                updatedParams.hideSystem = newHideSystem.toString();
-            }
-            if (newSourceFilter !== undefined) {
-                updatedParams.sourceFilter = newSourceFilter.toString();
-            }
-
-            const newSearch = QueryString.stringify(updatedParams, { arrayFormat: 'comma' });
-            history.replace({
-                pathname: location.pathname,
-                search: newSearch,
-            });
-        },
-        [history, location],
-    );
-
-    // Handle hideSystemSources change
-    const handleSetHideSystemSources = useCallback(
-        (newValue: boolean) => {
-            setHideSystemSources(newValue);
-            updateUrlWithFilters(newValue, sourceFilterFromUrl);
-        },
-        [updateUrlWithFilters, sourceFilterFromUrl],
-    );
+    // Use URL query param hooks for state management
+    const { value: hideSystemSources, setValue: setHideSystemSources } = useUrlQueryParam('hideSystem', 'true');
+    const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -161,12 +126,12 @@ export const ManageIngestionPage = () => {
                     showCreateModal={showCreateSourceModal}
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
-                    hideSystemSources={hideSystemSources}
-                    setHideSystemSources={handleSetHideSystemSources}
+                    hideSystemSources={hideSystemSources === 'true'}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
-                    sourceFilterFromUrl={sourceFilterFromUrl}
-                    updateUrlWithFilters={updateUrlWithFilters}
+                    sourceFilter={sourceFilter ? Number(sourceFilter) : undefined}
+                    setSourceFilter={(value: number | undefined) => setSourceFilter(value?.toString())}
                 />
             ),
             key: TabType.Sources as string,
@@ -176,8 +141,8 @@ export const ManageIngestionPage = () => {
             component: (
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}
-                    hideSystemSources={hideSystemSources}
-                    setHideSystemSources={handleSetHideSystemSources}
+                    hideSystemSources={hideSystemSources === 'true'}
+                    setHideSystemSources={(value: boolean) => setHideSystemSources(value.toString())}
                     selectedTab={selectedTab}
                     setSelectedTab={setSelectedTab}
                 />
