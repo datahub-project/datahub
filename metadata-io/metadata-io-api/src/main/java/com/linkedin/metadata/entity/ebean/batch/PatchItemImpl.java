@@ -35,6 +35,9 @@ import jakarta.json.JsonStructure;
 import jakarta.json.JsonValue;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -115,21 +118,70 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   public ChangeItemImpl applyPatch(RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
+    // Use generic patching if explicitly requested
     if (genericJsonPatch != null) {
       if (!genericJsonPatch.getArrayPrimaryKeys().isEmpty()
           || genericJsonPatch.isForceGenericPatch()) {
         return applyGenericPatch(recordTemplate, aspectRetriever);
       }
     }
-    return applyTemplatePatch(recordTemplate, aspectRetriever);
+
+    // Check if template patching would work (has template in BOTH supported list AND template map)
+    AspectTemplateEngine aspectTemplateEngine =
+        aspectRetriever.getEntityRegistry().getAspectTemplateEngine();
+
+    // Check if a template is both supported AND actually exists in the template map
+    boolean hasTemplate = AspectTemplateEngine.SUPPORTED_TEMPLATES.contains(getAspectName());
+    RecordTemplate defaultTemplate = aspectTemplateEngine.getDefaultTemplate(getAspectName());
+    boolean hasActualTemplate = defaultTemplate != null;
+
+    // Only use template patching if we have both support AND an actual template implementation
+    if (hasTemplate && hasActualTemplate) {
+      return applyTemplatePatch(recordTemplate, aspectRetriever);
+    } else {
+      // Template patching would fail - fall back to generic patching
+      return applyGenericPatch(recordTemplate, aspectRetriever);
+    }
   }
 
   private ChangeItemImpl applyGenericPatch(
       RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
     try {
+      // If we don't have a GenericJsonPatch, create a basic one from the JsonPatch
+      GenericJsonPatch effectiveGenericPatch = genericJsonPatch;
+      if (effectiveGenericPatch == null) {
+        // Convert JsonPatch to GenericJsonPatch format
+        List<GenericJsonPatch.PatchOp> patchOps = new ArrayList<>();
+        patch
+            .toJsonArray()
+            .forEach(
+                jsonValue -> {
+                  JsonObject opObj = jsonValue.asJsonObject();
+                  GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+                  patchOp.setOp(opObj.getString("op").toLowerCase());
+                  patchOp.setPath(opObj.getString("path"));
+                  if (opObj.containsKey("value")) {
+                    try {
+                      patchOp.setValue(
+                          OBJECT_MAPPER.readValue(opObj.get("value").toString(), Object.class));
+                    } catch (Exception e) {
+                      patchOp.setValue(opObj.get("value").toString());
+                    }
+                  }
+                  patchOps.add(patchOp);
+                });
+
+        effectiveGenericPatch =
+            GenericJsonPatch.builder()
+                .patch(patchOps)
+                .arrayPrimaryKeys(Collections.emptyMap())
+                .forceGenericPatch(false)
+                .build();
+      }
+
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
           GenericPatchTemplate.builder()
-              .genericJsonPatch(genericJsonPatch)
+              .genericJsonPatch(effectiveGenericPatch)
               .templateType(aspectSpec.getDataTemplateClass())
               .templateDefault(
                   aspectSpec.getDataTemplateClass().getDeclaredConstructor().newInstance())

@@ -8,10 +8,11 @@ input PatchEntityInput {
   entityType: String
   aspectName: String!
   patch: [PatchOperationInput!]!
+  arrayPrimaryKeys: [ArrayPrimaryKeyInput!]
+  forceGenericPatch: Boolean
   systemMetadata: SystemMetadataInput
   headers: [StringMapEntryInput!]
 }
-
 
 input PatchOperationInput {
   op: PatchOperationType!
@@ -33,6 +34,11 @@ input SystemMetadataInput {
   lastObserved: Long
   runId: String
   properties: [StringMapEntryInput!]
+}
+
+input ArrayPrimaryKeyInput {
+  arrayField: String!
+  keys: [String!]!
 }
 
 type PatchEntityResult {
