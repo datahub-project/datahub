@@ -1,8 +1,6 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, message } from 'antd';
-import * as QueryString from 'query-string';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -156,12 +154,6 @@ export const IngestionSourceList = ({
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
 }: Props) => {
-    const location = useLocation();
-
-    const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location]);
-    const paramsQuery = useMemo(() => (params?.query as string) || undefined, [params]);
-    const history = useHistory();
-
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
