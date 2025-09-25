@@ -115,6 +115,8 @@ profiling_flags_to_report = [
     "include_field_sample_values",
 ]
 
+URI_SCHEME_REGEX = re.compile(r"^[a-z0-9]+://")
+
 
 def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
     # Try to convert to number and compare if the folder name is a number
@@ -439,7 +441,7 @@ class S3Source(StatefulIngestionSourceBase):
                 self.source_config.verify_ssl
             )
 
-            path = re.sub(r"^[a-z0-9]+://", "s3://", table_data.full_path)
+            path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
             file = smart_open(path, "rb", transport_params={"client": s3_client})
         else:
             # We still use smart_open here to take advantage of the compression
@@ -660,7 +662,7 @@ class S3Source(StatefulIngestionSourceBase):
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
 
         # remove protocol and any leading or trailing slashes
-        browse_path = re.sub(r"^[a-z0-9]+://", "", table_data.table_path).strip("/")
+        browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
         logger.info(f"Creating dataset urn with name: {browse_path}")
@@ -813,9 +815,9 @@ class S3Source(StatefulIngestionSourceBase):
             self._normalize_uri_for_pattern_matching(path)
         )
         # Then convert the base path back to the original protocol
-        protocol = re.match(r"^[a-z0-9]+://", path)
+        protocol = re.match(URI_SCHEME_REGEX, path)
         if protocol:
-            table_path = re.sub(r"^[a-z0-9]+://", protocol[0], table_path)
+            table_path = re.sub(URI_SCHEME_REGEX, protocol[0], table_path)
 
         return TableData(
             display_name=table_name,
