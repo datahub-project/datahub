@@ -209,6 +209,16 @@
     displayName: MySQL
     type: RELATIONAL_DB
     logoUrl: "/assets/platforms/mysqllogo.png"
+- entityUrn: urn:li:dataPlatform:starrocks
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: starrocks
+    displayName: StarRocks
+    type: QUERY_ENGINE
+    logoUrl: "/assets/platforms/starrockslogo.png"
 - entityUrn: urn:li:dataPlatform:db2
   entityType: dataPlatform
   aspectName: dataPlatformInfo
