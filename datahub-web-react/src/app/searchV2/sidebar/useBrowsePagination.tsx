@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useBrowsePath, useEntityType } from '@app/searchV2/sidebar/BrowseContext';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from '@app/searchV2/sidebar/constants';
@@ -43,7 +43,11 @@ const useBrowsePagination = ({ skip }: Props) => {
     const [start, setStart] = useState(0);
     const { loading, error, refetch } = useGetBrowseResultsV2Query({
         skip,
+<<<<<<< HEAD
         fetchPolicy: isInFormContext ? 'no-cache' : 'cache-first',
+=======
+        fetchPolicy: 'cache-first',
+>>>>>>> e479ca59b77e8e9698374bba64c8d4de25beeb7d
         variables: {
             input: {
                 type,
@@ -53,7 +57,10 @@ const useBrowsePagination = ({ skip }: Props) => {
                 orFilters: sidebarFilters.orFilters,
                 viewUrn: sidebarFilters.viewUrn,
                 query: sidebarFilters.query,
+<<<<<<< HEAD
                 formFilter,
+=======
+>>>>>>> e479ca59b77e8e9698374bba64c8d4de25beeb7d
             },
         },
         onCompleted: (data) => {
@@ -79,6 +86,7 @@ const useBrowsePagination = ({ skip }: Props) => {
         if (refetch) refetch();
     };
 
+<<<<<<< HEAD
     useEffect(() => {
         if (shouldRefetch) {
             refetch?.();
@@ -86,6 +94,8 @@ const useBrowsePagination = ({ skip }: Props) => {
         }
     }, [shouldRefetch, refetch, setShouldRefetch]);
 
+=======
+>>>>>>> e479ca59b77e8e9698374bba64c8d4de25beeb7d
     const advancePage = useCallback(() => {
         const newStart = latestStart + BROWSE_PAGE_SIZE;
         if (initializing.current || error || done || latestStart < 0 || total <= 0 || newStart >= total) return;
