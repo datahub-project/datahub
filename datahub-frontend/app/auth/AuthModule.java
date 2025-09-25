@@ -346,6 +346,7 @@ public class AuthModule extends AbstractModule {
   }
 
   private com.linkedin.restli.client.Client buildRestliClient() {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(this.configs);
     final String metadataServiceHost =
         utils.ConfigUtil.getString(
             configs,
@@ -366,11 +367,23 @@ public class AuthModule extends AbstractModule {
             configs,
             utils.ConfigUtil.METADATA_SERVICE_SSL_PROTOCOL_CONFIG_PATH,
             ConfigUtil.DEFAULT_METADATA_SERVICE_SSL_PROTOCOL);
+
+    String truststorePath = null;
+    String truststorePassword = null;
+    String truststoreType = null;
+    if (tsConfig.isValid()) {
+      truststorePath = tsConfig.path;
+      truststorePassword = tsConfig.password;
+      truststoreType = tsConfig.type;
+    }
     return DefaultRestliClientFactory.getRestLiClient(
         metadataServiceHost,
         metadataServicePort,
         metadataServiceUseSsl,
-        metadataServiceSslProtocol);
+        metadataServiceSslProtocol,
+        truststorePath,
+        truststorePassword,
+        truststoreType);
   }
 
   protected boolean doesMetadataServiceUseSsl(com.typesafe.config.Config configs) {
