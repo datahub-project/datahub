@@ -3,7 +3,7 @@ from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -44,7 +44,7 @@ def spark_submit(file_path: str, args: str = "") -> None:
     assert ret.returncode == 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_multiprocessing_iceberg_ingest(
     docker_compose_runner, pytestconfig, tmp_path, mock_time
 ):
@@ -74,7 +74,7 @@ def test_multiprocessing_iceberg_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
@@ -100,7 +100,7 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_stateful_ingest(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -215,7 +215,7 @@ def test_iceberg_stateful_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 

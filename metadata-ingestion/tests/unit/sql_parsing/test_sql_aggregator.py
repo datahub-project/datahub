@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
@@ -62,7 +62,7 @@ def make_basic_aggregator(store: bool = False) -> SqlParsingAggregator:
     return aggregator
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = make_basic_aggregator()
     mcps = list(aggregator.gen_metadata())
@@ -73,7 +73,7 @@ def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> N
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_aggregator_dump(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     # Validates the query log storage + extraction functionality.
     aggregator = make_basic_aggregator(store=True)
@@ -94,7 +94,7 @@ def test_aggregator_dump(pytestconfig: pytest.Config, tmp_path: pathlib.Path) ->
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_overlapping_inserts() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -128,7 +128,7 @@ def test_overlapping_inserts() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_temp_table() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -186,7 +186,7 @@ def test_temp_table() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_multistep_temp_table() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -247,7 +247,7 @@ def test_multistep_temp_table() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_overlapping_inserts_from_temp_tables() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -322,7 +322,7 @@ def test_overlapping_inserts_from_temp_tables() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_aggregate_operations() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -370,7 +370,7 @@ def test_aggregate_operations() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_view_lineage() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -407,7 +407,7 @@ def test_view_lineage() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_known_lineage_mapping() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -437,7 +437,7 @@ def test_known_lineage_mapping() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_column_lineage_deduplication() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -474,7 +474,7 @@ def test_column_lineage_deduplication() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_add_known_query_lineage() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -518,7 +518,7 @@ def test_add_known_query_lineage() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_rename() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -575,7 +575,7 @@ def test_table_rename() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_rename_with_temp() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -634,7 +634,7 @@ def test_table_rename_with_temp() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_swap() -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -720,7 +720,7 @@ def test_table_swap() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_swap_with_temp() -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",
@@ -889,7 +889,7 @@ def test_table_swap_with_temp() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_create_table_query_mcps() -> None:
     aggregator = SqlParsingAggregator(
         platform="bigquery",
@@ -915,7 +915,7 @@ def test_create_table_query_mcps() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_table_lineage_via_temp_table_disordered_add() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
@@ -948,7 +948,7 @@ def test_table_lineage_via_temp_table_disordered_add() -> None:
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_basic_usage() -> None:
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     aggregator = SqlParsingAggregator(
@@ -1028,7 +1028,7 @@ def test_sql_aggreator_close_cleans_tmp(tmp_path):
         assert len(os.listdir(tmp_path)) == 0
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_override_dialect_passed_to_sqlglot_lineage() -> None:
     """Test that override_dialect is correctly passed to sqlglot_lineage"""
     aggregator = SqlParsingAggregator(
@@ -1070,7 +1070,7 @@ def test_override_dialect_passed_to_sqlglot_lineage() -> None:
         assert call_args.kwargs["override_dialect"] is None
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = SqlParsingAggregator(
         platform="snowflake",

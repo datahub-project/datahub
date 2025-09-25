@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -759,7 +759,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_ingest(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
@@ -800,7 +800,7 @@ def test_superset_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_stateful_ingest(
     pytestconfig: pytest.Config,
@@ -1119,7 +1119,7 @@ def test_superset_stateful_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_superset_aggregate_chart(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any

@@ -1,7 +1,7 @@
 import sys
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -14,7 +14,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 # python 3.11 if run with standalone virtual env setup with feast plugin alone using
 # `pip install acryl-datahub[feast]` since it allows pydantic > 2
 @pytest.mark.skipif(sys.version_info > (3, 11), reason="Skipped on Python 3.11+")
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"
     output_path = tmp_path / "feast_repository_mces.json"

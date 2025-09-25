@@ -1,7 +1,7 @@
 import platform
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -11,7 +11,7 @@ pytestmark = pytest.mark.integration_batch_4
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.xfail  # TODO: debug the flakes for this test
 @pytest.mark.skipif(
     platform.machine().lower() == "aarch64",

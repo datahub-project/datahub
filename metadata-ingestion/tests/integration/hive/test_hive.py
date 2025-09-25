@@ -2,7 +2,7 @@ import re
 import subprocess
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -55,7 +55,7 @@ def base_pipeline_config(events_file, db=None):
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_hive_ingest(
     loaded_hive, pytestconfig, test_resources_dir, tmp_path, mock_time
 ):
@@ -82,7 +82,7 @@ def test_hive_ingest(
     # Limitation - native data types for union does not show up as expected
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration_batch_1
 def test_hive_ingest_all_db(
     loaded_hive, pytestconfig, test_resources_dir, tmp_path, mock_time
@@ -110,7 +110,7 @@ def test_hive_ingest_all_db(
     # Limitation - native data types for union does not show up as expected
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_hive_instance_check(loaded_hive, test_resources_dir, tmp_path, pytestconfig):
     instance: str = "production_warehouse"
 

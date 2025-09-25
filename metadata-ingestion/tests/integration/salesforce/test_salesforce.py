@@ -3,7 +3,7 @@ import pathlib
 from unittest import mock
 from unittest.mock import Mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.salesforce import SalesforceConfig, SalesforceSource
@@ -158,7 +158,7 @@ def test_custom_version(mock_sdk):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_salesforce_ingest(pytestconfig, tmp_path):
     with mock.patch("datahub.ingestion.source.salesforce.Salesforce") as mock_sdk:
         mock_sf = mock.Mock()
@@ -212,7 +212,7 @@ def test_salesforce_ingest(pytestconfig, tmp_path):
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_salesforce_ingest_with_lineage(pytestconfig, tmp_path):
     with mock.patch("datahub.ingestion.source.salesforce.Salesforce") as mock_sdk:
         mock_sf = mock.Mock()

@@ -4,7 +4,7 @@ from typing import Dict, Sequence
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -52,7 +52,7 @@ def loaded_hive_metastore(hive_metastore_runner):
     subprocess.run(command, shell=True, check=True)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,simplify_nested_field_paths,"
     "test_suffix",
@@ -146,7 +146,7 @@ def test_hive_metastore_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_hive_metastore_instance_ingest(
     loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):

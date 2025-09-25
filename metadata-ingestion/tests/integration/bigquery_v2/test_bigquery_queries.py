@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
@@ -43,7 +43,7 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
         shared_connection.close()
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.cloud.bigquery.Client")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tmp_path):

@@ -3,7 +3,7 @@ import time
 
 import pytest
 import requests
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -55,7 +55,7 @@ def loaded_nifi(docker_compose_runner, test_resources_dir):
     cleanup_image("apache/nifi")
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_nifi_ingest_standalone(
     loaded_nifi, pytestconfig, tmp_path, test_resources_dir
 ):
@@ -110,7 +110,7 @@ def test_nifi_ingest_standalone(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources_dir):
     # Wait for nifi cluster to execute all lineage processors, max wait time 120 seconds
     url = "http://localhost:9080/nifi-api/flow/process-groups/root"

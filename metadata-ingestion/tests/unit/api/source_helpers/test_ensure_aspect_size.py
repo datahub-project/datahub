@@ -3,7 +3,7 @@ import time
 from unittest.mock import patch
 
 import pytest
-from freezegun.api import freeze_time
+import time_machine
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -152,7 +152,7 @@ def proper_dataset_profile() -> DatasetProfileClass:
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_proper_dataset_profile(processor):
     profile = proper_dataset_profile()
     orig_repr = json.dumps(profile.to_obj())
@@ -164,7 +164,7 @@ def test_ensure_size_of_proper_dataset_profile(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_schema_metadata(processor):
     schema = too_big_schema_metadata()
     assert len(schema.fields) == 1004
@@ -182,7 +182,7 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_proper_schema_metadata(processor):
     schema = proper_schema_metadata()
     orig_repr = json.dumps(schema.to_obj())
@@ -194,7 +194,7 @@ def test_ensure_size_of_proper_schema_metadata(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_dataset_profile(processor):
     profile = proper_dataset_profile()
     big_field = DatasetFieldProfileClass(
@@ -219,7 +219,7 @@ def test_ensure_size_of_too_big_dataset_profile(processor):
     )
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
     "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
@@ -243,7 +243,7 @@ def test_wu_processor_triggered_by_data_profile_aspect(
     ensure_schema_metadata_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
     "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
@@ -272,7 +272,7 @@ def test_wu_processor_triggered_by_data_profile_aspect_mcpc(
     ensure_schema_metadata_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
     "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
@@ -294,7 +294,7 @@ def test_wu_processor_triggered_by_data_profile_aspect_mce(
     ensure_dataset_profile_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
     "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
@@ -318,7 +318,7 @@ def test_wu_processor_triggered_by_schema_metadata_aspect(
     ensure_dataset_profile_size_mock.assert_not_called()
 
 
-@freeze_time("2023-01-02 00:00:00")
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
 @patch(
     "datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )

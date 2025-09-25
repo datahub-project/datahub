@@ -4,7 +4,7 @@ from functools import partial
 from typing import List
 from unittest.mock import patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.azure_ad import AzureADConfig
@@ -233,7 +233,7 @@ def test_azure_ad_config():
     assert config.ingest_group_membership
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -253,7 +253,7 @@ def test_azure_ad_source_default_configs(pytestconfig, mock_datahub_graph, tmp_p
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_source_empty_group_membership(
     pytestconfig, mock_datahub_graph, tmp_path
 ):
@@ -280,7 +280,7 @@ def test_azure_ad_source_empty_group_membership(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_source_nested_groups(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -307,7 +307,7 @@ def test_azure_ad_source_nested_groups(pytestconfig, mock_datahub_graph, tmp_pat
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -334,7 +334,7 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_stateful_ingestion(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

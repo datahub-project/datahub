@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 from unittest import mock
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -304,7 +304,7 @@ def default_source_config():
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_profiling(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"

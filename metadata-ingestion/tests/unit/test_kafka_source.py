@@ -4,11 +4,11 @@ from typing import Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
+import time_machine
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
 )
-from freezegun import freeze_time
 
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
@@ -557,7 +557,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     assert len(workunits) == 3
 
 
-@freeze_time("2023-09-20 10:00:00")
+@time_machine.travel("2023-09-20 10:00:00", tick=False)
 @patch(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,

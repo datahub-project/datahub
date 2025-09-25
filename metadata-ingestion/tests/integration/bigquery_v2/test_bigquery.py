@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.api.entities.platformresource.platform_resource import (
@@ -92,7 +92,7 @@ def recipe(mcp_output_path: str, source_config_override: Optional[dict] = None) 
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
@@ -244,7 +244,7 @@ def test_bigquery_v2_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, attribute="get_projects_with_labels")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
 @patch.object(BigQuerySchemaGenerator, "get_core_table_details")
@@ -341,7 +341,7 @@ def test_bigquery_v2_project_labels_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
@@ -469,7 +469,7 @@ def test_bigquery_queries_v2_ingest(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
@@ -580,7 +580,7 @@ LIMIT 100
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQuerySchemaApi, "get_snapshots_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_views_for_dataset")
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")

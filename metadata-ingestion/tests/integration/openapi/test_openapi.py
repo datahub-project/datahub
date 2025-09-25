@@ -1,5 +1,5 @@
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -7,7 +7,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_openapi_ingest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/openapi"
@@ -24,7 +24,7 @@ def test_openapi_ingest(pytestconfig, tmp_path):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_openapi_3_1_ingest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/openapi"
