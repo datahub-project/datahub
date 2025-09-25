@@ -675,7 +675,8 @@ base_dev_requirements = {
     "pytest-cov>=2.8.1",
     "pytest-random-order~=1.1.0",
     "requests-mock",
-    "freezegun",
+    "freezegun",  # TODO: fully remove and use time-machine
+    "time-machine",  # better Pydantic v2 compatibility
     "jsonpickle",
     "build",
     "twine",
@@ -874,6 +875,7 @@ entry_points = {
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
         "mark_dataset_status = datahub.ingestion.transformer.mark_dataset_status:MarkDatasetStatus",
         "set_dataset_browse_path = datahub.ingestion.transformer.add_dataset_browse_path:AddDatasetBrowsePathTransformer",
+        "set_browse_path = datahub.ingestion.transformer.set_browse_path:SetBrowsePathTransformer",
         "add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership",
         "simple_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership",
         "pattern_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership",

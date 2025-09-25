@@ -1959,6 +1959,9 @@ fragment ingestionSourceFields on IngestionSource {
         type
         name
     }
+    source {
+        type
+    }
 }
 
 fragment minimalIngestionExecutionRequestFields on ExecutionRequest {
