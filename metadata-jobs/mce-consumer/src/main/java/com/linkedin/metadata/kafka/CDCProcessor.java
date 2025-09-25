@@ -312,9 +312,9 @@ public class CDCProcessor {
 
   @com.google.common.annotations.VisibleForTesting
   boolean shouldProcessCDCRecord(JsonNode afterRecord, JsonNode beforeRecord) {
-    if (afterRecord == null && beforeRecord != null) {
-      return true; // This is a delete
-    }
+    // if ((afterRecord == null || !afterRecord.has("version")) && beforeRecord != null) {
+    //  return true; // This is a delete
+    // }
 
     if (afterRecord == null || !afterRecord.has("version")) {
       log.warn("CDC record missing after.version field, skipping");

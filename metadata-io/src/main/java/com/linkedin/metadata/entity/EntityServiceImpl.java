@@ -2320,63 +2320,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         || Objects.equals(newAspect, oldAspect);
   }
 
-  // TODO Drop this
-  // @Override
-  /*
-  public Optional<Pair<Future<?>, Boolean>> conditionallyProduceMCLAsync(
-      @Nonnull OperationContext opContext,
-      @Nullable RecordTemplate oldAspect,
-      @Nullable SystemMetadata oldSystemMetadata,
-      RecordTemplate newAspect,
-      SystemMetadata newSystemMetadata,
-      @Nullable MetadataChangeProposal mcp,
-      Urn entityUrn,
-      AuditStamp auditStamp,
-      AspectSpec aspectSpec) {
-    boolean isNoOp =
-        SystemMetadataUtils.isNoOp(newSystemMetadata) || Objects.equals(oldAspect, newAspect);
-    if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
-      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
-
-      final MetadataChangeLog metadataChangeLog =
-          constructMCL(
-              mcp,
-              urnToEntityName(entityUrn),
-              entityUrn,
-              aspectSpec.getName(),
-              auditStamp,
-              newAspect,
-              newSystemMetadata,
-              oldAspect,
-              oldSystemMetadata);
-
-      log.debug("Serialized MCL event: {}", metadataChangeLog);
-      Pair<Future<?>, Boolean> emissionStatus =
-          alwaysProduceMCLAsync(opContext, entityUrn, aspectSpec, metadataChangeLog);
-
-      // for tracing propagate properties to system meta
-      if (newSystemMetadata != null && metadataChangeLog.getSystemMetadata().hasProperties()) {
-        if (!newSystemMetadata.hasProperties()) {
-          newSystemMetadata.setProperties(
-              metadataChangeLog.getSystemMetadata().getProperties(), SetMode.IGNORE_NULL);
-        } else {
-          newSystemMetadata
-              .getProperties()
-              .putAll(metadataChangeLog.getSystemMetadata().getProperties());
-        }
-      }
-
-      return emissionStatus.getFirst() != null ? Optional.of(emissionStatus) : Optional.empty();
-    } else {
-      log.info(
-          "Skipped producing MCL for ingested aspect {}, urn {}. Aspect has not changed.",
-          aspectSpec.getName(),
-          entityUrn);
-      return Optional.empty();
-    }
-  }
-  */
-
   public void produceFailedMCPs(
       @Nonnull OperationContext opContext, @Nonnull IngestAspectsResult ingestAspectsResult) {
 
