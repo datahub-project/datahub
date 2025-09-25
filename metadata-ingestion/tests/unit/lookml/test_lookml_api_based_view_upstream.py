@@ -126,7 +126,7 @@ class TestLookMLAPIBasedViewUpstream:
     ):
         """Create a LookerQueryAPIBasedViewUpstream instance for testing."""
         # Mock the API response to prevent initialization errors
-        mock_looker_client.execute_query.return_value = [
+        mock_looker_client.generate_sql_query.return_value = [
             {"sql": "SELECT test_view.user_id FROM test_table"}
         ]
 
@@ -275,8 +275,8 @@ class TestLookMLAPIBasedViewUpstream:
     ):
         """Test successful query execution."""
         # Mock the SQL response
-        mock_sql_response = [{"sql": "SELECT test_view.user_id FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_sql_response = "SELECT test_view.user_id FROM test_table"
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the SQL parsing result
         mock_spr = create_mock_sql_parsing_result(
@@ -289,7 +289,7 @@ class TestLookMLAPIBasedViewUpstream:
 
     def test_execute_query_no_sql_response(self, upstream_instance, mock_looker_client):
         """Test query execution when no SQL is returned."""
-        mock_looker_client.execute_query.return_value = []
+        mock_looker_client.generate_sql_query.return_value = []
 
         with pytest.raises(ValueError, match="No SQL found in response"):
             upstream_instance._execute_query(MagicMock(spec=WriteQuery))
@@ -298,7 +298,7 @@ class TestLookMLAPIBasedViewUpstream:
         self, upstream_instance, mock_looker_client
     ):
         """Test query execution with invalid response format."""
-        mock_looker_client.execute_query.return_value = [{"invalid": "response"}]
+        mock_looker_client.generate_sql_query.return_value = None
 
         with pytest.raises(ValueError, match="No SQL found in response"):
             upstream_instance._execute_query(MagicMock(spec=WriteQuery))
@@ -315,7 +315,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT * FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the SQL parsing result with table error
         mock_spr = create_mock_sql_parsing_result(
@@ -340,7 +340,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT * FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the SQL parsing result with column error
         mock_spr = create_mock_sql_parsing_result(
@@ -364,7 +364,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT * FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the SQL parsing result
         mock_spr = create_mock_sql_parsing_result(
@@ -388,7 +388,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT user_id FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the SQL parsing result with column lineage
         mock_column_lineage = [
@@ -422,7 +422,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT created_date FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the SQL parsing result with column lineage
         mock_column_lineage = [
@@ -460,7 +460,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT user_id FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the SQL parsing result with column lineage
         mock_column_lineage = [
@@ -503,7 +503,7 @@ class TestLookMLAPIBasedViewUpstream:
     ):
         """Test that API failures are handled gracefully."""
         # Mock the Looker client to raise an exception
-        mock_looker_client.execute_query.side_effect = Exception("API call failed")
+        mock_looker_client.generate_sql_query.side_effect = Exception("API call failed")
 
         # This should not raise an exception, but should be handled by the fallback mechanism
         # in the factory function
@@ -527,7 +527,7 @@ class TestLookMLAPIBasedViewUpstream:
 
         # Mock the SQL response
         mock_sql_response = [{"sql": "SELECT * FROM test_table"}]
-        mock_looker_client.execute_query.return_value = mock_sql_response
+        mock_looker_client.generate_sql_query.return_value = mock_sql_response
 
         # Mock the view ID cache to return a valid view ID
         mock_view_id = MagicMock(spec=LookerViewId)

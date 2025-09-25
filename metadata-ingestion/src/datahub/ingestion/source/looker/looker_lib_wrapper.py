@@ -33,8 +33,11 @@ logger = logging.getLogger(__name__)
 
 
 class LookerQueryResponseFormat(Enum):
+    # result_format - Ref: https://cloud.google.com/looker/docs/reference/looker-api/latest/methods/Query/run_inline_query
     JSON = "json"
-    SQL = "sql"
+    SQL = (
+        "sql"  # Note: This does not execute the query, it only generates the SQL query.
+    )
 
 
 class TransportOptionsConfig(ConfigModel):
@@ -75,6 +78,7 @@ class LookerAPIStats(BaseModel):
     search_looks_calls: int = 0
     search_dashboards_calls: int = 0
     all_user_calls: int = 0
+    generate_sql_query_calls: int = 0
 
 
 class LookerAPI:
@@ -172,32 +176,43 @@ class LookerAPI:
             logger.warning(f"Failure was {e}")
         return []
 
-    def execute_query(
-        self,
-        write_query: WriteQuery,
-        result_format: LookerQueryResponseFormat = LookerQueryResponseFormat.JSON,
-        use_cache: bool = False,
-    ) -> List[Dict]:
+    def execute_query(self, write_query: WriteQuery) -> List[Dict]:
         logger.debug(f"Executing query {write_query}")
         self.client_stats.query_calls += 1
 
         response = self.client.run_inline_query(
-            result_format=result_format.value,
+            result_format=LookerQueryResponseFormat.JSON.value,
+            body=write_query,
+            transport_options=self.transport_options,
+        )
+
+        data = json.loads(response)
+
+        logger.debug("=================Response=================")
+        logger.debug("Length of response: %d", len(data))
+        return data
+
+    def generate_sql_query(
+        self, write_query: WriteQuery, use_cache: bool = False
+    ) -> str:
+        """
+        Generates a SQL query string for a given WriteQuery.
+
+        Note: This does not execute the query, it only generates the SQL query.
+        """
+        logger.debug(f"Generating SQL query for {write_query}")
+        self.client_stats.generate_sql_query_calls += 1
+
+        response = self.client.run_inline_query(
+            result_format=LookerQueryResponseFormat.SQL.value,
             body=write_query,
             transport_options=self.transport_options,
             cache=use_cache,
         )
 
-        data = None
-        if result_format == LookerQueryResponseFormat.JSON:
-            data = json.loads(response)
-        elif result_format == LookerQueryResponseFormat.SQL:
-            # Convert response sql string to list of dicts to match return type consistency
-            data = [{"sql": response}]
-
         logger.debug("=================Response=================")
-        logger.debug("Length of response: %d", len(data))
-        return data
+        logger.debug("Length of SQL response: %d", len(response))
+        return str(response)
 
     def dashboard(self, dashboard_id: str, fields: Union[str, List[str]]) -> Dashboard:
         self.client_stats.dashboard_calls += 1

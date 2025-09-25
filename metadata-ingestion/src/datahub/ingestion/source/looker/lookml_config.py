@@ -28,6 +28,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.stats_collections import TopKDict, float_top_k_dict
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,8 @@ DERIVED_VIEW_PATTERN: str = r"\$\{([^}]*)\}"
 @dataclass
 class LookMLSourceReport(StaleEntityRemovalSourceReport):
     git_clone_latency: Optional[timedelta] = None
-    looker_query_api_latency: Optional[Dict[str, timedelta]] = (
-        None  # Key: view name, Value: latency
+    looker_query_api_latency_seconds: Optional[TopKDict[str, float]] = dataclass_field(
+        default_factory=float_top_k_dict
     )
     models_discovered: int = 0
     models_dropped: LossyList[str] = dataclass_field(default_factory=LossyList)
@@ -85,9 +86,7 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
     def report_looker_query_api_latency(
         self, view_urn: str, latency: timedelta
     ) -> None:
-        if self.looker_query_api_latency is None:
-            self.looker_query_api_latency = {}
-        self.looker_query_api_latency[view_urn] = latency
+        self.looker_query_api_latency_seconds[view_urn] = latency.total_seconds()
 
 
 class LookMLSourceConfig(
@@ -132,7 +131,9 @@ class LookMLSourceConfig(
     parse_table_names_from_sql: bool = Field(True, description="See note below.")
     use_api_for_view_lineage: bool = Field(
         False,
-        description="When enabled, uses Looker API to get SQL representation of views for lineage parsing instead of parsing LookML files directly. Requires 'api' configuration to be provided.",
+        description="When enabled, uses Looker API to get SQL representation of views for lineage parsing instead of parsing LookML files directly. Requires 'api' configuration to be provided."
+        "Coverage of regex based lineage extraction has limitations, it only supportes ${TABLE}.column_name syntax, See (https://cloud.google.com/looker/docs/reference/param-field-sql#sql_for_dimensions) to"
+        "understand the other substitutions and cross-references allowed in LookML.",
     )
     use_api_cache_for_view_lineage: bool = Field(
         False,

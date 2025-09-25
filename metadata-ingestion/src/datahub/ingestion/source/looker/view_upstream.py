@@ -27,7 +27,6 @@ from datahub.ingestion.source.looker.looker_constant import (
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
-    LookerQueryResponseFormat,
 )
 from datahub.ingestion.source.looker.looker_view_id_cache import LookerViewIdCache
 from datahub.ingestion.source.looker.lookml_concept_context import (
@@ -303,6 +302,9 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     that includes all dimensions, dimension groups and measures. The SQL is then parsed to extract column-level lineage.
     The Looker client is required for this class, as it is used to execute the WriteQuery and retrieve the SQL.
 
+    Other view upstream implementations use string parsing to extract lineage information from the SQL, which does not cover all the edge cases.
+    Limitations of string based lineage extraction: Ref: https://cloud.google.com/looker/docs/reference/param-field-sql#sql_for_dimensions
+
     Key Features:
     - Requires a Looker client (`looker_client`) to execute queries and retrieve SQL for the view.
     - Requires a `view_to_explore_map` to map view names to their corresponding explore name
@@ -331,7 +333,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
     For further details, see the method-level docstrings, especially:
       - `__get_spr`: SQL parsing and lineage extraction workflow
       - `_get_sql_write_query`: WriteQuery construction and field enumeration
-      - `_execute_query`: Looker API invocation and SQL retrieval
+      - `_execute_query`: Looker API invocation and SQL retrieval - this only generates the SQL query, does not execute it
       - Field name translation: `_get_looker_api_field_name` and `_get_field_name_from_looker_api_field_name`
 
     Note: This class is intended to be robust and raise exceptions if SQL parsing or API calls fail, and will fall back to
@@ -587,10 +589,8 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         start_time = datetime.now()
 
         # Execute the query using the Looker client.
-        sql_response = self.looker_client.execute_query(
-            write_query=query,
-            result_format=LookerQueryResponseFormat.SQL,
-            use_cache=self.config.use_api_for_view_lineage,
+        sql_response = self.looker_client.generate_sql_query(
+            write_query=query, use_cache=self.config.use_api_cache_for_view_lineage
         )
 
         # Record the end time after query execution.
@@ -618,17 +618,13 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
             )
 
         # Validate the response structure.
-        if (
-            not sql_response
-            or len(sql_response) != 1
-            or (sql_response[0].get("sql") is None)
-        ):
+        if not sql_response:
             raise ValueError(
                 f"No SQL found in response for view '{self.view_context.name()}'. Response: {sql_response}"
             )
 
         # Extract the SQL string from the response.
-        return str(sql_response[0].get("sql"))
+        return sql_response
 
     def __get_upstream_dataset_urn(self) -> List[Urn]:
         """
@@ -1173,7 +1169,7 @@ def create_view_upstream(
         except Exception as e:
             # Fallback to other implementations - best effort approach
             reporter.report_warning(
-                title="Failed to create upstream lineage for view using Looker Query API, falling back to other implementations",
+                title="Failed to create upstream lineage for view using Looker Query API, falling back to custom regex-based parsing",
                 message=f"Failed to create upstream lineage for view: {view_context.name()} using Looker Query API: {e}",
             )
     else:
