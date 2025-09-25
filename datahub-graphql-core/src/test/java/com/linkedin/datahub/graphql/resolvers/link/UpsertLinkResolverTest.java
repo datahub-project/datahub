@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.link;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Authentication;
@@ -12,8 +13,11 @@ import com.linkedin.datahub.graphql.generated.UpsertLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpsertLinkResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -176,5 +180,42 @@ public class UpsertLinkResolverTest {
     assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv).join());
 
     LinkTestUtils.verifyIngestInstitutionalMemory(mockService, 0, null);
+  }
+
+  @Test
+  public void testUpsertLinkFailure() throws Exception {
+    InstitutionalMemory originalAspect = new InstitutionalMemory();
+    originalAspect.setElements(new InstitutionalMemoryMetadataArray());
+
+    InstitutionalMemory expectedAspect = new InstitutionalMemory();
+    InstitutionalMemoryMetadata updatedLink =
+        LinkTestUtils.createLink("https://original-url.com", "Original label", false);
+    InstitutionalMemoryMetadataArray newElements =
+        new InstitutionalMemoryMetadataArray(updatedLink);
+    expectedAspect.setElements(newElements);
+
+    EntityService<?> mockService = LinkTestUtils.initMockEntityService(true, originalAspect);
+    Mockito.when(
+            mockService.ingestProposal(
+                any(OperationContext.class),
+                any(MetadataChangeProposal.class),
+                any(AuditStamp.class),
+                any(boolean.class)))
+        .thenThrow(new RuntimeException("test"));
+    EntityClient mockClient = LinkTestUtils.initMockClient();
+    DataFetchingEnvironment mockEnv =
+        initMockEnv(
+            new UpsertLinkInput(
+                "https://original-url.com",
+                "Original label",
+                new LinkSettingsInput(false),
+                ASSET_URN));
+    UpsertLinkResolver resolver = new UpsertLinkResolver(mockService, mockClient);
+
+    assertThrows(
+        ExecutionException.class,
+        () -> {
+          resolver.get(mockEnv).get();
+        });
   }
 }
