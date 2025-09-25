@@ -37,12 +37,12 @@ class IngestionHighStageContext(AbstractContextManager):
         self._timer: PerfTimer = PerfTimer()
         self._report = report
 
-    def enter(self) -> "IngestionHighStageContext":
+    def __enter__(self) -> "IngestionHighStageContext":
         logger.info(f"High stage started: {self._ingestion_high_stage.value}")
         self._timer.start()
         return self
 
-    def exit(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         elapsed = self._timer.elapsed_seconds(digits=2)
         logger.info(
             f"Time spent in stage <{self._ingestion_high_stage.value}>: {elapsed} seconds",
