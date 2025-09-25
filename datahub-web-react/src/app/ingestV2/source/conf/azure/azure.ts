@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import azureLogo from '@images/azure-ad.png';
 
@@ -36,7 +35,7 @@ const azureAdConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Azure AD',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/azure-ad',
-    logoUrl: resolveRuntimePath(azureLogo),
+    logoUrl: azureLogo,
 };
 
 export default azureAdConfig;

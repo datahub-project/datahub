@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import sacLogo from '@images/saclogo.svg';
 
@@ -22,7 +21,7 @@ const sacConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'SAP Analytics Cloud',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/sac/',
-    logoUrl: resolveRuntimePath(sacLogo),
+    logoUrl: sacLogo,
 };
 
 export default sacConfig;

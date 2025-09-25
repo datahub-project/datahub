@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import bigqueryLogo from '@images/bigquerylogo.png';
 
@@ -33,7 +32,7 @@ const bigqueryConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'BigQuery',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/bigquery/',
-    logoUrl: resolveRuntimePath(bigqueryLogo),
+    logoUrl: bigqueryLogo,
 };
 
 export default bigqueryConfig;

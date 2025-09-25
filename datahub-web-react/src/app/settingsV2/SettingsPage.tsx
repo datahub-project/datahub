@@ -23,7 +23,6 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button, colors } from '@src/alchemy-components';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 const PageContainer = styled.div`
     display: flex;

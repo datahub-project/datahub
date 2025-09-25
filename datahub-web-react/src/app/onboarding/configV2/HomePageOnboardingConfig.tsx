@@ -3,7 +3,6 @@ import React from 'react';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
 
@@ -32,7 +31,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                         margin: '0 auto 20px auto',
                     }}
                 >
-                    <Image preview={false} height={184} width={500} src={resolveRuntimePath(dataHubFlowDiagram)} />
+                    <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
                 </div>
                 <Typography.Title level={3}>Welcome to DataHub Core! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>

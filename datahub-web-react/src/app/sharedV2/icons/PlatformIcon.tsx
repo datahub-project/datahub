@@ -6,7 +6,6 @@ import { IconStyleType } from '@app/entityV2/Entity';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { DataPlatform, EntityType } from '@types';
 
@@ -58,7 +57,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const [background, setBackground] = useState<string | undefined>(undefined);
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
-    const logoUrl = platform?.properties?.logoUrl ? resolveRuntimePath(platform.properties.logoUrl) : undefined;
+    const logoUrl = platform?.properties?.logoUrl ? platform.properties.logoUrl : undefined;
 
     const handleError = useCallback(() => {
         const img = imgRef.current;

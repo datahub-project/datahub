@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import tableauLogo from '@images/tableaulogo.png';
 
@@ -31,7 +30,7 @@ const tableauConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Tableau',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/tableau/',
-    logoUrl: resolveRuntimePath(tableauLogo),
+    logoUrl: tableauLogo,
 };
 
 export default tableauConfig;

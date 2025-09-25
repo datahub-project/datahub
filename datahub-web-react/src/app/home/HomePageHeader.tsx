@@ -21,7 +21,6 @@ import { useAppConfig, useIsShowAcrylInfoEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import {
     GetAutoCompleteMultipleResultsQuery,
@@ -260,7 +259,7 @@ export const HomePageHeader = () => {
                 <Image
                     src={
                         appConfig.config !== DEFAULT_APP_CONFIG
-                            ? resolveRuntimePath(appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl)
+                            ? (appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl)
                             : undefined
                     }
                     preview={false}

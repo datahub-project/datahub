@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useAppConfig } from '@app/useAppConfig';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { useCustomTheme } from '@src/customThemeContext';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 // add new theme ids here
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -33,7 +32,7 @@ export function useSetAppTheme() {
         // here is where we can start adding new custom themes based on customThemeId
 
         if (isThemeV2) {
-            fetch(resolveRuntimePath('/assets/conf/theme/theme_v2.config.json'))
+            fetch('assets/conf/theme/theme_v2.config.json')
                 .then((response) => response.json())
                 .then((theme) => updateTheme(theme))
                 .catch((error) => {
@@ -42,7 +41,7 @@ export function useSetAppTheme() {
                     import('../conf/theme/theme_v2.config.json').then((theme) => updateTheme(theme));
                 });
         } else {
-            fetch(resolveRuntimePath('/assets/conf/theme/theme_light.config.json'))
+            fetch('assets/conf/theme/theme_light.config.json')
                 .then((response) => response.json())
                 .then((theme) => updateTheme(theme))
                 .catch((error) => {

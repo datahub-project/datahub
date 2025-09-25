@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import postgresLogo from '@images/postgreslogo.png';
 
@@ -34,7 +33,7 @@ const postgresConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Postgres',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/postgres/',
-    logoUrl: resolveRuntimePath(postgresLogo),
+    logoUrl: postgresLogo,
 };
 
 export default postgresConfig;

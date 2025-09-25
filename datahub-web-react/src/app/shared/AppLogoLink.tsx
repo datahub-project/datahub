@@ -23,7 +23,7 @@ export default function AppLogoLink() {
             <LogoImage
                 src={
                     appConfig.config !== DEFAULT_APP_CONFIG
-                        ? resolveRuntimePath(appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl)
+                        ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
                         : undefined
                 }
                 preview={false}

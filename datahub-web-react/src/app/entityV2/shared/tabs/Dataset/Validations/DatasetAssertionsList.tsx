@@ -14,7 +14,6 @@ import {
     getResultText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { Assertion, AssertionRunStatus } from '@types';
@@ -149,7 +148,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                                     width={20}
                                     src={
                                         record.platform.properties?.logoUrl
-                                            ? resolveRuntimePath(record.platform.properties.logoUrl)
+                                            ? record.platform.properties.logoUrl
                                             : undefined
                                     }
                                 />

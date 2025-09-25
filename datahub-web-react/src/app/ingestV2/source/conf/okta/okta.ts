@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import oktaLogo from '@images/oktalogo.png';
 
@@ -38,7 +37,7 @@ const oktaConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Okta',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/okta',
-    logoUrl: resolveRuntimePath(oktaLogo),
+    logoUrl: oktaLogo,
 };
 
 export default oktaConfig;

@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import kafkaLogo from '@images/kafkalogo.png';
 
@@ -23,7 +22,7 @@ const kafkaConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Kafka',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/kafka/',
-    logoUrl: resolveRuntimePath(kafkaLogo),
+    logoUrl: kafkaLogo,
 };
 
 export default kafkaConfig;

@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import lookerLogo from '@images/lookerlogo.svg';
 
@@ -23,7 +22,7 @@ const lookerConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Looker',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/looker/',
-    logoUrl: resolveRuntimePath(lookerLogo),
+    logoUrl: lookerLogo,
 };
 
 export default lookerConfig;

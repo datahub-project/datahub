@@ -2,7 +2,6 @@ import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
 
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import DataHubLogo from '@images/datahublogo.png';
 
@@ -42,7 +41,7 @@ const TextContent = styled.div`
 export default function AcrylDemoBanner() {
     return (
         <BannerWrapper>
-            <Logo src={resolveRuntimePath(DataHubLogo)} />
+            <Logo src={DataHubLogo} />
             <TextWrapper>
                 <Title>Schedule a Demo of DataHub Cloud</Title>
                 <TextContent>

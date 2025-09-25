@@ -128,7 +128,7 @@ services:
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
         -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       KAFKA_BOOTSTRAP_SERVER: broker:29092
-      PLAY_HTTP_CONTEXT: /datahub
+      PLAY_HTTP_CONTEXT: /
       THEME_V2_DEFAULT: 'true'
     hostname: datahub-frontend-react
     image: acryldata/datahub-frontend-react:${DATAHUB_VERSION}

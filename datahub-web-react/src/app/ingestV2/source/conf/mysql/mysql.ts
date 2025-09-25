@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import mysqlLogo from '@images/mysqllogo-2.png';
 
@@ -30,7 +29,7 @@ const mysqlConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'MySQL',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/mysql/',
-    logoUrl: resolveRuntimePath(mysqlLogo),
+    logoUrl: mysqlLogo,
 };
 
 export default mysqlConfig;

@@ -7,7 +7,6 @@ import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import ManageLineageModal from '@app/lineage/manage/ManageLineageModal';
 import { Direction, UpdatedLineages } from '@app/lineage/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { EntityType } from '@types';
 
@@ -143,7 +142,7 @@ export default function ManageLineageMenu({
                   key: 2,
                   label: (
                       <MenuItemStyle onClick={centerEntity}>
-                          <StyledImage src={resolveRuntimePath(FocusIcon)} alt="focus on entity" />
+                          <StyledImage src={FocusIcon} alt="focus on entity" />
                           &nbsp; Focus on Entity
                       </MenuItemStyle>
                   ),

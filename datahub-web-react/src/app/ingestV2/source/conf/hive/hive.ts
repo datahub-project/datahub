@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import hiveLogo from '@images/hivelogo.png';
 
@@ -26,7 +25,7 @@ const hiveConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Hive',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/hive/',
-    logoUrl: resolveRuntimePath(hiveLogo),
+    logoUrl: hiveLogo,
 };
 
 export default hiveConfig;

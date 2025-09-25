@@ -10,7 +10,6 @@ import LowIcon from '@src/images/incident-chart-bar-one.svg';
 import HighIcon from '@src/images/incident-chart-bar-three.svg';
 import MediumIcon from '@src/images/incident-chart-bar-two.svg';
 import CriticalIcon from '@src/images/incident-critical.svg';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 // 🔄 Map priorities to icons for cleaner code
 const priorityIcons = {
@@ -26,7 +25,7 @@ const Icons = Object.fromEntries(
     Object.entries(priorityIcons).map(([priority, iconSrc]) => [
         priority,
         {
-            icon: iconSrc ? <StyledImage src={resolveRuntimePath(iconSrc)} alt={priority} /> : null,
+            icon: iconSrc ? <StyledImage src={iconSrc} alt={priority} /> : null,
             type: IconType.ICON,
         },
     ]),

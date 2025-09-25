@@ -7,7 +7,6 @@ import styled from 'styled-components';
 
 import getAvatarColor from '@app/shared/avatar/getAvatarColor';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import defaultAvatar from '@images/default_avatar.png';
 
@@ -71,7 +70,7 @@ export default function ActorAvatar({
         </AvatarStyled>
     ) : (
         <AvatarStyled
-            src={resolveRuntimePath(defaultAvatar)}
+            src={defaultAvatar}
             style={style}
             size={size}
             $backgroundColor={getAvatarColor(name)}
@@ -80,7 +79,7 @@ export default function ActorAvatar({
     const avatarWithDefault = useDefaultAvatar ? (
         <AvatarStyled
             onClick={navigate}
-            src={resolveRuntimePath(defaultAvatar)}
+            src={defaultAvatar}
             style={style}
             size={size}
             $backgroundColor={getAvatarColor(name)}

@@ -11,7 +11,6 @@ import {
     VideoContainer,
     VideoSlide,
 } from '@src/app/onboarding/WelcomeToDataHubModal.components';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.png';
 
@@ -82,7 +81,7 @@ export const WelcomeToDataHubModal = () => {
                 try {
                     const module = await importPromise;
                     setVideoSources((prev) =>
-                        prev ? { ...prev, [videoKey]: resolveRuntimePath(module.default) } : prev,
+                        prev ? { ...prev, [videoKey]: (module.default) } : prev,
                     );
                 } catch (error) {
                     console.error(`Failed to load ${videoKey} video:`, error);
@@ -304,7 +303,7 @@ export const WelcomeToDataHubModal = () => {
                         Explore our comprehensive documentation or jump right in and start discovering your data
                     </Heading>
                     <LoadedImage
-                        src={resolveRuntimePath(welcomeModalHomeScreenshot)}
+                        src={welcomeModalHomeScreenshot}
                         alt={WELCOME_TO_DATAHUB_MODAL_TITLE}
                         width={MODAL_IMAGE_WIDTH}
                     />

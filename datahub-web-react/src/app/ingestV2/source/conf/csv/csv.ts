@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import csvLogo from '@images/csv-logo.png';
 
@@ -18,7 +17,7 @@ const csvConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'CSV',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/csv-enricher',
-    logoUrl: resolveRuntimePath(csvLogo),
+    logoUrl: csvLogo,
 };
 
 export default csvConfig;

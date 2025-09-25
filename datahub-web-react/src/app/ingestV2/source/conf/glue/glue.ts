@@ -1,5 +1,4 @@
 import { SourceConfig } from '@app/ingestV2/source/conf/types';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import glueLogo from '@images/gluelogo.png';
 
@@ -31,7 +30,7 @@ const glueConfig: SourceConfig = {
     placeholderRecipe,
     displayName: 'Glue',
     docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/glue',
-    logoUrl: resolveRuntimePath(glueLogo),
+    logoUrl: glueLogo,
 };
 
 export default glueConfig;

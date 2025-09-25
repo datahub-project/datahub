@@ -3,7 +3,6 @@ import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import dataHubLogo from '@images/datahublogo.png';
 
@@ -67,7 +66,7 @@ export const ErrorSection = (): JSX.Element => {
         <Section>
             <div>
                 <TitleSection>
-                    <Image src={resolveRuntimePath(dataHubLogo)} preview={false} style={{ width: 40 }} />
+                    <Image src={dataHubLogo} preview={false} style={{ width: 40 }} />
                     <TitleText strong>{themeConfig.content.title}</TitleText>
                 </TitleSection>
                 <MessageSection>

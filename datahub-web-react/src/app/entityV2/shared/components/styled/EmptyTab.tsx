@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import NoDocs from '@images/no-docs.svg';
 
@@ -47,7 +46,7 @@ export const EmptyTab = ({ tab, hideImage, children }: Props) => {
                 </EmptyDescription>
             }
             $hideImage={hideImage}
-            image={resolveRuntimePath(NoDocs)}
+            image={NoDocs}
         >
             {children}
         </StyledEmpty>

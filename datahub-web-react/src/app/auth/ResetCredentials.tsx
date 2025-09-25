@@ -103,7 +103,7 @@ export const ResetCredentials: React.VFC<ResetCredentialsProps> = () => {
                 <div className={styles.login_logo_box}>
                     <Image
                         wrapperClassName={styles.logo_image}
-                        src={themeConfig.assets?.logoUrl ? resolveRuntimePath(themeConfig.assets.logoUrl) : undefined}
+                        src={themeConfig.assets?.logoUrl ? themeConfig.assets.logoUrl : undefined}
                         preview={false}
                     />
                 </div>

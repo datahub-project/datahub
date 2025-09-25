@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { DataPlatform, EntityType } from '@types';
 
@@ -32,7 +31,7 @@ export const AssertionPlatformAvatar = ({ platform, externalUrl, noRightMargin }
                             width={24}
                             src={
                                 platform.properties?.logoUrl
-                                    ? resolveRuntimePath(platform.properties.logoUrl)
+                                    ? platform.properties.logoUrl
                                     : undefined
                             }
                             style={{ objectFit: 'fill', borderRadius: 12 }}

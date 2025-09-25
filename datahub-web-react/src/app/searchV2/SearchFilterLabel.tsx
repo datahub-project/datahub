@@ -13,7 +13,6 @@ import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import {
     Container,
@@ -137,7 +136,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
             <Tooltip title={displayName}>
                 {!!platform.properties?.logoUrl && (
                     <PreviewImage
-                        src={platform.properties?.logoUrl ? resolveRuntimePath(platform.properties.logoUrl) : undefined}
+                        src={platform.properties?.logoUrl ? platform.properties.logoUrl : undefined}
                         alt={displayName}
                     />
                 )}
@@ -171,7 +170,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
                     <PreviewImage
                         src={
                             container.platform?.properties?.logoUrl
-                                ? resolveRuntimePath(container.platform.properties.logoUrl)
+                                ? container.platform.properties.logoUrl
                                 : undefined
                         }
                         alt={container.properties?.name}
