@@ -1,9 +1,11 @@
 # This import verifies that the dependencies are available.
 
+import copy
 from typing import List
 
+import certifi
 import pymysql  # noqa: F401
-from pydantic.fields import Field
+from pydantic import Field, validator
 from sqlalchemy import util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
@@ -58,6 +60,16 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
     scheme: HiddenFromDocs[str] = "mysql+pymysql"
+
+    @validator("options", always=True)
+    def validate_options_add_default_ssl_ca(cls, value: dict) -> dict:
+        # Default to certifi for a SSL CA root certificate, since PyMySQL
+        # will not automatically enable SSL unless ssl_ca is explicitly passed.
+        # It's okay to set this unconditionally since PyMySQL will just ignore
+        # it if the MySQL server does not have SSL enabled.
+        value = copy.deepcopy(value)
+        value.setdefault("connect_args", {}).setdefault("ssl_ca", certifi.where())
+        return value
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
