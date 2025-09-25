@@ -56,6 +56,7 @@ public class CDCConsumerFactory {
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
 
+    customizedProperties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     // Create factory using GenericRecord typing to match ThreadPoolContainerCustomizer
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
