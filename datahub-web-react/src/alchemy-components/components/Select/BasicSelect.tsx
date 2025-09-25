@@ -68,6 +68,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     emptyState,
     descriptionMaxWidth,
     dataTestId,
+    autoUpdate = false,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -83,6 +84,23 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
     const [tempValues, setTempValues] = useState<string[]>(values || []);
     const [areAllSelected, setAreAllSelected] = useState(false);
+
+    const prevIsOpen = useRef(isOpen);
+
+    const handleUpdateClick = useCallback(() => {
+        setSelectedValues(tempValues);
+        closeDropdown();
+        if (onUpdate) {
+            onUpdate(tempValues);
+        }
+    }, [closeDropdown, tempValues, onUpdate]);
+
+    useEffect(() => {
+        if (prevIsOpen.current && !isOpen && autoUpdate) {
+            handleUpdateClick();
+        }
+        prevIsOpen.current = isOpen;
+    }, [isOpen, autoUpdate, handleUpdateClick]);
 
     useEffect(() => {
         if (values !== undefined && !isEqual(selectedValues, values)) {
@@ -127,14 +145,6 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         },
         [selectedValues, onUpdate],
     );
-
-    const handleUpdateClick = useCallback(() => {
-        setSelectedValues(tempValues);
-        closeDropdown();
-        if (onUpdate) {
-            onUpdate(tempValues);
-        }
-    }, [closeDropdown, tempValues, onUpdate]);
 
     const handleCancelClick = useCallback(() => {
         closeDropdown();
@@ -263,11 +273,13 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                     </OptionLabel>
                                 ))}
                             </OptionList>
-                            <DropdownFooterActions
-                                onCancel={handleCancelClick}
-                                onUpdate={handleUpdateClick}
-                                size={getFooterButtonSize(size)}
-                            />
+                            {!autoUpdate && (
+                                <DropdownFooterActions
+                                    onCancel={handleCancelClick}
+                                    onUpdate={handleUpdateClick}
+                                    size={getFooterButtonSize(size)}
+                                />
+                            )}
                         </DropdownContainer>
                     )}
                 >
