@@ -1,10 +1,13 @@
 from typing import Iterable
 
+import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source_report.ingestion_high_stage import IngestionHighStage
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
     DatasetLineageTypeClass,
@@ -437,3 +440,86 @@ def test_stale_entity_removal_excludes_all_aspects():
     assert source.source_report.aspects_by_subtypes == {
         "dataset": {"Table": {"status": 1, "subTypes": 1, "datasetProfile": 1}}
     }
+
+
+def test_get_workunits_with_timing():
+    """Test _get_workunits_with_timing method for timing measurement and workunit generation."""
+    source = FakeSource(PipelineContext(run_id="test_get_workunits_with_timing"))
+
+    def mock_method():
+        return [
+            MetadataChangeProposalWrapper(
+                entityUrn=_get_urn("test1"),
+                aspect=StatusClass(removed=False),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=_get_urn("test2"),
+                aspect=StatusClass(removed=False),
+            ),
+        ]
+
+    result_workunits = list(
+        source._get_workunits_with_timing(IngestionHighStage.PROFILING, mock_method)
+    )
+
+    assert len(result_workunits) == 2
+    assert (
+        IngestionHighStage.PROFILING.value
+        in source.source_report.ingestion_high_stage_seconds
+    )
+    assert (
+        source.source_report.ingestion_high_stage_seconds[
+            IngestionHighStage.PROFILING.value
+        ]
+        >= 0
+    )
+
+
+def test_get_workunits_with_timing_exception_handling():
+    """Test _get_workunits_with_timing method handles exceptions properly."""
+    source = FakeSource(
+        PipelineContext(run_id="test_get_workunits_with_timing_exception")
+    )
+
+    def mock_method_with_exception():
+        yield MetadataChangeProposalWrapper(
+            entityUrn=_get_urn("test1"),
+            aspect=StatusClass(removed=False),
+        )
+        raise RuntimeError("Test exception")
+
+    with pytest.raises(RuntimeError, match="Test exception"):
+        list(
+            source._get_workunits_with_timing(
+                IngestionHighStage.PROFILING, mock_method_with_exception
+            )
+        )
+
+    assert (
+        IngestionHighStage.PROFILING.value
+        in source.source_report.ingestion_high_stage_seconds
+    )
+
+
+def test_get_workunits_with_timing_empty_generator():
+    """Test _get_workunits_with_timing method with empty generator."""
+    source = FakeSource(PipelineContext(run_id="test_get_workunits_with_timing_empty"))
+
+    def empty_method():
+        return []
+
+    result_workunits = list(
+        source._get_workunits_with_timing(IngestionHighStage.PROFILING, empty_method)
+    )
+
+    assert len(result_workunits) == 0
+    assert (
+        IngestionHighStage.PROFILING.value
+        in source.source_report.ingestion_high_stage_seconds
+    )
+    assert (
+        source.source_report.ingestion_high_stage_seconds[
+            IngestionHighStage.PROFILING.value
+        ]
+        >= 0
+    )
