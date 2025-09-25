@@ -337,7 +337,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
       - Field name translation: `_get_looker_api_field_name` and `_get_field_name_from_looker_api_field_name`
 
     Note: This class is intended to be robust and raise exceptions if SQL parsing or API calls fail, and will fall back to
-    other implementations if necessary.
+    other implementations - custom regex-based parsing if necessary.
     """
 
     def __init__(
@@ -354,6 +354,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
         self.looker_client = looker_client
         self.view_to_explore_map = view_to_explore_map
         # Cache the SQL parsing results
+        # We use maxsize=1 because a new class instance is created for each view, Ref: view_upstream.create_view_upstream
         self._get_spr = lru_cache(maxsize=1)(self.__get_spr)
         self._get_upstream_dataset_urn = lru_cache(maxsize=1)(
             self.__get_upstream_dataset_urn
@@ -406,7 +407,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     context=f"View-name: {self.view_context.name()}",
                     exc=table_error,
                 )
-                raise ValueError(
+                raise RuntimeError(
                     f"Error in parsing SQL for upstream tables: {table_error}"
                 )
 
@@ -418,17 +419,12 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     context=f"View-name: {self.view_context.name()}",
                     exc=column_error,
                 )
-                raise ValueError(
+                raise RuntimeError(
                     f"Error in parsing SQL for column lineage: {column_error}"
                 )
 
             return spr
-
-        except Exception as exc:
-            self.reporter.report_warning(
-                f"view-{self.view_context.name()}",
-                f"Failed to get SQL representation: {exc}",
-            )
+        except Exception:
             # Reraise the exception to allow higher-level handling.
             raise
 
@@ -522,23 +518,18 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     )
                 )
 
-        # Construct and return the WriteQuery object.
-        # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
         # Use explore name from view_to_explore_map if available
+        # explore_name is always present in the view_to_explore_map because of the check in view_upstream.create_view_upstream
         explore_name = self.view_to_explore_map.get(self.view_context.name())
+        assert explore_name  # Happy linter
 
-        # If no fields are found, log a warning and return None.
         if not view_fields:
             raise ValueError(
                 f"No fields found for view '{self.view_context.name()}'. Cannot proceed with Looker API for view lineage."
             )
 
-        # Raise exception if explore name is not found
-        if not explore_name:
-            raise ValueError(
-                f"Explore name mapping not found for view '{self.view_context.name()}'. Cannot proceed with Looker API for view lineage."
-            )
-
+        # Construct and return the WriteQuery object.
+        # The 'limit' is set to "1" as the query is only used to obtain SQL, not to fetch data.
         return WriteQuery(
             model=self.looker_view_id_cache.model_name,
             view=explore_name,
@@ -595,12 +586,6 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
 
         # Record the end time after query execution.
         end_time = datetime.now()
-
-        # Log the time taken to retrieve the SQL query.
-        logger.debug(
-            "LookerQueryApiStats: Retrieved SQL query in %.2f seconds",
-            (end_time - start_time).total_seconds(),
-        )
 
         # Attempt to get the LookerViewId for reporting.
         looker_view_id: Optional[LookerViewId] = (
@@ -1167,10 +1152,12 @@ def create_view_upstream(
                 view_to_explore_map=view_to_explore_map,
             )
         except Exception as e:
-            # Fallback to other implementations - best effort approach
+            # Falling back to custom regex-based parsing - best effort approach
             reporter.report_warning(
-                title="Failed to create upstream lineage for view using Looker Query API, falling back to custom regex-based parsing",
-                message=f"Failed to create upstream lineage for view: {view_context.name()} using Looker Query API: {e}",
+                title="Looker Query API based View Upstream Failed",
+                message="Error in getting upstream lineage for view using Looker Query API",
+                context=f"View-name: {view_context.name()}",
+                exc=e,
             )
     else:
         logger.debug(

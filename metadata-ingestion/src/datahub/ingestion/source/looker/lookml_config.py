@@ -46,7 +46,7 @@ DERIVED_VIEW_PATTERN: str = r"\$\{([^}]*)\}"
 @dataclass
 class LookMLSourceReport(StaleEntityRemovalSourceReport):
     git_clone_latency: Optional[timedelta] = None
-    looker_query_api_latency_seconds: Optional[TopKDict[str, float]] = dataclass_field(
+    looker_query_api_latency_seconds: TopKDict[str, float] = dataclass_field(
         default_factory=float_top_k_dict
     )
     models_discovered: int = 0
