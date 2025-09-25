@@ -97,13 +97,11 @@ services:
   datahub-frontend:
     environment:
       - DATAHUB_BASE_PATH=/datahub
-	  - DATAHUB_GMS_BASE_PATH=/datahub
 	  - PLAY_HTTP_CONTEXT=/datahub
 
   datahub-gms:
     environment:
       - DATAHUB_BASE_PATH=/datahub
-	  - DATAHUB_GMS_BASE_PATH=/datahub
 ```
 
 ### Kubernetes

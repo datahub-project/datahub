@@ -393,13 +393,13 @@ public class AuthModule extends AbstractModule {
     return configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
         ? configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
         : Integer.parseInt(
-            Configuration.getEnvironmentVariable(GMS_BASE_PATH_ENV_VAR, DEFAULT_GMS_BASE_PATH));
+            Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
   }
 
   protected String getMetadataServiceBasePath(com.typesafe.config.Config configs) {
     return configs.hasPath(METADATA_SERVICE_BASE_PATH_CONFIG_PATH)
         ? configs.getString(METADATA_SERVICE_BASE_PATH_CONFIG_PATH)
-        : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_BASE_PATH);
+        : Configuration.getEnvironmentVariable(GMS_BASE_PATH_ENV_VAR, DEFAULT_GMS_BASE_PATH);
   }
 
   protected String getSsoSettingsRequestUrl(com.typesafe.config.Config configs) {
