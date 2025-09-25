@@ -33,35 +33,39 @@ describe("ingestion sources", () => {
   Cypress.on("uncaught:exception", (err, runnable) => false);
 
   it("create a new ingestion source with details", () => {
+    const testUser = "create_ingestion@test.com";
+    cy.createUser(testUser, "sample password", testUser);
     const sourceName = "new ingestion source";
     createIngestionSource(sourceName, {
       sourceDetails: ingestionSourceDetails,
       schedule: { hour: "01" },
       currentUserUrn: `urn:li:corpuser:${ADMIN_USERNAME}`,
-      userNameToAddAsOwner: "John Doe",
-      userUrnToAddAsOwner: "urn:li:corpuser:jdoe",
+      userNameToAddAsOwner: testUser,
+      userUrnToAddAsOwner: `urn:li:corpuser:${testUser}`,
     });
     cy.waitTextVisible(sourceName);
     verifyScheduleIsAppliedOnTable(sourceName, "01:00 am");
     verifyOwnerIsInTable(sourceName, `urn:li:corpuser:${ADMIN_USERNAME}`);
-    verifyOwnerIsInTable(sourceName, "urn:li:corpuser:jdoe");
+    verifyOwnerIsInTable(sourceName, `urn:li:corpuser:${testUser}`);
     deleteIngestionSource(sourceName);
   });
 
   it("edit an ingestion source", () => {
+    const testUser = "update_ingestion@test.com";
+    cy.createUser(testUser, "sample password", testUser);
     const sourceName = "ingestion source to update";
     const updatedSourceName = "updated ingestion source";
     createIngestionSource(sourceName);
     verifyScheduleIsAppliedOnTable(sourceName, "12:00 am"); // the default schedule
     updateIngestionSource(sourceName, updatedSourceName, {
       schedule: { hour: "01" },
-      userNameToAddAsOwner: "John Doe",
-      userUrnToAddAsOwner: "urn:li:corpuser:jdoe",
+      userNameToAddAsOwner: testUser,
+      userUrnToAddAsOwner: `urn:li:corpuser:${testUser}`,
       ownerUrnToRemove: `urn:li:corpuser:${ADMIN_USERNAME}`,
     });
     cy.waitTextVisible(updatedSourceName);
     verifyScheduleIsAppliedOnTable(updatedSourceName, "01:00 am");
-    verifyOwnerIsInTable(updatedSourceName, "urn:li:corpuser:jdoe");
+    verifyOwnerIsInTable(updatedSourceName, `urn:li:corpuser:${testUser}`);
     verifyOwnerIsNotInTable(updatedSourceName, `urn:li:corpuser:${ADMIN_USERNAME}`);
     deleteIngestionSource(updatedSourceName);
   });
