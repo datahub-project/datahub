@@ -20,6 +20,7 @@ class BigQueryConnection(Connection):
         self.connection: Optional[Any] = None
 
     def get_client(self) -> Any:
+        # Note, we do not need to handle closing this as bigquery library handles cleanup
         if self.connection is None:
             self.connection = self.config.get_bigquery_client()
         return self.connection

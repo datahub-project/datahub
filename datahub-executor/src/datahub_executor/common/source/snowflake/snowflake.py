@@ -62,8 +62,8 @@ class SnowflakeSource(Source):
             # Set our default timezone to UTC so that comparisons with
             # timezone columns are always peformed in UTC.
             query = f"ALTER SESSION SET TIMEZONE = 'UTC', STATEMENT_TIMEOUT_IN_SECONDS = {DATAHUB_EXECUTOR_SNOWFLAKE_TIMEOUT};"
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
+            with self.connection.get_client().cursor() as cur:
+                cur.execute(query)
         except Exception as e:
             raise SourceQueryFailedException(
                 message=f"Source query (Snowflake) failed with error: {e}", query=query
@@ -95,9 +95,9 @@ class SnowflakeSource(Source):
 
     def _execute_fetchall_query_internal(self, query: str) -> List[Any]:
         try:
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
-            return cur.fetchall()
+            with self.connection.get_client().cursor() as cur:
+                cur.execute(query)
+                return cur.fetchall()
         except Exception as e:
             raise SourceQueryFailedException(
                 message=f"Source query (Snowflake) failed with error: {e}", query=query
@@ -105,19 +105,19 @@ class SnowflakeSource(Source):
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
         try:
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
-            result = cur.fetchone()
-            if result is None:
-                return []
-            elif isinstance(result, dict):
-                return list(result.values())
-            elif isinstance(result, tuple):
-                return list(result)
-            else:
-                raise SourceQueryFailedException(
-                    message=f"Unexpected result type: {type(result)}", query=query
-                )
+            with self.connection.get_client().cursor() as cur:
+                cur.execute(query)
+                result = cur.fetchone()
+                if result is None:
+                    return []
+                elif isinstance(result, dict):
+                    return list(result.values())
+                elif isinstance(result, tuple):
+                    return list(result)
+                else:
+                    raise SourceQueryFailedException(
+                        message=f"Unexpected result type: {type(result)}", query=query
+                    )
         except Exception as e:
             raise SourceQueryFailedException(
                 message=f"Source query (Snowflake) failed with error: {e}", query=query

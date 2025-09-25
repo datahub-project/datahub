@@ -136,6 +136,18 @@ TEST_CUSTOM_SQL_STATEMENT = (
 class TestDatabricksSource:
     def setup_method(self) -> None:
         self.databricks_connection_mock = Mock(spec=DatabricksConnection)
+
+        # Setup mock client and cursor for context manager
+        self.mock_client = Mock()
+        self.mock_cursor = Mock()
+        self.databricks_connection_mock.get_client.return_value = self.mock_client
+
+        # Setup cursor context manager
+        cursor_context_manager = Mock()
+        cursor_context_manager.__enter__ = Mock(return_value=self.mock_cursor)
+        cursor_context_manager.__exit__ = Mock(return_value=None)
+        self.mock_client.cursor.return_value = cursor_context_manager
+
         self.databricks_source = DatabricksSource(self.databricks_connection_mock)
 
     @patch.object(DatabricksSource, "_build_audit_log_results")
@@ -353,24 +365,41 @@ class TestDatabricksSource:
 
     def test_execute_fetchall_query(self) -> None:
         query = "SELECT * FROM TABLE;"
+
+        # Mock the execute result for Databricks pattern
+        execute_result = Mock()
+        execute_result.fetchall.return_value = [("test",)]
+        self.mock_cursor.execute.return_value = execute_result
+
         with patch.object(
             self.databricks_source,
             "_validate_custom_sql",
             wraps=self.databricks_source._validate_custom_sql,
         ) as validate_spy:
-            self.databricks_source._execute_fetchall_query(query)
+            result = self.databricks_source._execute_fetchall_query(query)
             validate_spy.assert_called_once_with(query)
 
-        self.databricks_connection_mock.get_client().cursor().execute.assert_has_calls(
-            [call(query)]
-        )
+        # Verify cursor context manager was used
+        self.mock_client.cursor.assert_called()
+        self.mock_cursor.execute.assert_called_with(query)
+        execute_result.fetchall.assert_called_once()
+        assert result == [("test",)]
 
     def test_execute_fetchone_query(self) -> None:
         query = "SELECT * FROM TABLE;"
-        self.databricks_source._execute_fetchone_query(query)
-        self.databricks_connection_mock.get_client().cursor().execute.assert_has_calls(
-            [call(query)]
-        )
+
+        # Mock the execute result for Databricks pattern
+        execute_result = Mock()
+        execute_result.fetchone.return_value = ("test",)
+        self.mock_cursor.execute.return_value = execute_result
+
+        result = self.databricks_source._execute_fetchone_query(query)
+
+        # Verify cursor context manager was used
+        self.mock_client.cursor.assert_called()
+        self.mock_cursor.execute.assert_called_with(query)
+        execute_result.fetchone.assert_called_once()
+        assert result == ("test",)
 
     def test_get_entity_events_field_update_bad_column_type(self) -> None:
         with pytest.raises(InvalidParametersException):
