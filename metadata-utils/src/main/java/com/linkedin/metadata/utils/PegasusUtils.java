@@ -139,7 +139,7 @@ public class PegasusUtils {
         SystemMetadataUtils.isNoOp(newSystemMetadata)
                 || Objects.equals(oldAspectValue, newAspectValue)
             ? ChangeType.RESTATE
-            : ChangeType.UPSERT,
+            : newAspectValue != null ? ChangeType.UPSERT : ChangeType.DELETE,
         aspectName,
         auditStamp,
         newAspectValue,

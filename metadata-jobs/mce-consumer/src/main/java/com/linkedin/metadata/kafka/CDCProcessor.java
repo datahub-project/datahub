@@ -123,7 +123,9 @@ public class CDCProcessor {
 
       // if (log.isDebugEnabled()) {
       log.info("CDC Record {}", record);
-      processCDCRecord(consumerRecord);
+      if (record != null) {
+        processCDCRecord(record);
+      }
 
     } catch (Exception e) {
       log.error("CDC Processor Error", e);
@@ -133,9 +135,8 @@ public class CDCProcessor {
     }
   }
 
-  private void processCDCRecord(final ConsumerRecord<String, String> consumerRecord) {
+  private void processCDCRecord(final String record) {
     try {
-      final String record = consumerRecord.value();
 
       // Parse the Debezium CDC JSON record containing before/after values
       // The record structure follows Debezium format:
@@ -209,32 +210,49 @@ public class CDCProcessor {
     JsonNode afterRecord = payload.get("after");
 
     // Step 3: Check if we should process this record (only latest versions)
-    if (!shouldProcessCDCRecord(afterRecord)) {
+    if (!shouldProcessCDCRecord(afterRecord, beforeRecord)) {
       return Optional.empty();
     }
 
     // Step 4: Extract urn, aspect, metadata, systemmetadata fields from both before/after CDC
     // records
-    String urn = afterRecord.get("urn").asText();
-    String aspectName = afterRecord.get("aspect").asText();
+    String urn =
+        afterRecord != null ? afterRecord.get("urn").asText() : beforeRecord.get("urn").asText();
+    String aspectName =
+        afterRecord != null
+            ? afterRecord.get("aspect").asText()
+            : beforeRecord.get("aspect").asText();
 
     String beforeMetadata =
         beforeRecord != null && beforeRecord.has("metadata")
             ? beforeRecord.get("metadata").asText()
             : null;
-    String afterMetadata = afterRecord.get("metadata").asText();
+    String afterMetadata =
+        afterRecord != null && afterRecord.has("metadata")
+            ? afterRecord.get("metadata").asText()
+            : null;
 
     String beforeSystemMetadata =
         beforeRecord != null && beforeRecord.has("systemmetadata")
             ? beforeRecord.get("systemmetadata").asText()
             : null;
     String afterSystemMetadata =
-        afterRecord.has("systemmetadata") ? afterRecord.get("systemmetadata").asText() : null;
+        afterRecord != null && afterRecord.has("systemmetadata")
+            ? afterRecord.get("systemmetadata").asText()
+            : null;
 
-    String createdOn = afterRecord.get("createdon").asText();
-    String createdBy = afterRecord.get("createdby").asText();
+    String createdOn =
+        afterRecord != null
+            ? afterRecord.get("createdon").asText()
+            : beforeRecord.get("createdon").asText();
+    String createdBy =
+        afterRecord != null
+            ? afterRecord.get("createdby").asText()
+            : beforeRecord.get("createdby").asText();
     String createdFor =
-        afterRecord.has("createdfor") && !afterRecord.get("createdfor").isNull()
+        afterRecord != null
+                && afterRecord.has("createdfor")
+                && !afterRecord.get("createdfor").isNull()
             ? afterRecord.get("createdfor").asText()
             : null;
 
@@ -290,7 +308,11 @@ public class CDCProcessor {
     return Optional.of(mcl);
   }
 
-  private boolean shouldProcessCDCRecord(JsonNode afterRecord) {
+  private boolean shouldProcessCDCRecord(JsonNode afterRecord, JsonNode beforeRecord) {
+    if (afterRecord == null && beforeRecord != null && beforeRecord.has("version")) {
+      return true; // This is a delete
+    }
+
     if (afterRecord == null || !afterRecord.has("version")) {
       log.warn("CDC record missing after.version field, skipping");
       return false;
