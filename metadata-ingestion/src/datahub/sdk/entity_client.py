@@ -134,6 +134,10 @@ class EntityClient:
             from acryl_datahub_cloud.sdk.entities.monitor import Monitor
 
             assert isinstance(entity, Monitor)
+        elif urn.entity_type == "subscription":
+            from acryl_datahub_cloud.sdk.entities.subscription import Subscription
+
+            assert isinstance(entity, Subscription)
 
         return entity
 
