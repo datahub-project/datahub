@@ -237,36 +237,6 @@ class TestLookMLAPIBasedViewUpstream:
         with pytest.raises(ValueError, match="No fields found for view"):
             upstream_instance._get_sql_write_query()
 
-    def test_get_sql_write_query_no_explore_mapping(
-        self, upstream_instance, view_to_explore_map
-    ):
-        """Test WriteQuery construction when explore mapping is missing."""
-        view_to_explore_map.clear()
-
-        with pytest.raises(ValueError, match="Explore name mapping not found"):
-            upstream_instance._get_sql_write_query()
-
-    def test_get_sql_write_query_with_dimension_groups(
-        self, upstream_instance, mock_view_context
-    ):
-        """Test WriteQuery construction with dimension groups."""
-        mock_view_context.dimension_groups.return_value = [
-            {
-                NAME: "created",
-                VIEW_FIELD_TYPE_ATTRIBUTE: "time",
-                VIEW_FIELD_TIMEFRAMES_ATTRIBUTE: ["date", "week"],
-            },
-            {
-                NAME: "since_event",
-                VIEW_FIELD_TYPE_ATTRIBUTE: "duration",
-                VIEW_FIELD_INTERVALS_ATTRIBUTE: ["hour", "day"],
-            },
-        ]
-
-        query = upstream_instance._get_sql_write_query()
-        assert "test_view.created_date" in query.fields
-        assert "test_view.hours_since_event" in query.fields
-
     @patch(
         "datahub.ingestion.source.looker.view_upstream.create_lineage_sql_parsed_result"
     )

@@ -407,7 +407,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     context=f"View-name: {self.view_context.name()}",
                     exc=table_error,
                 )
-                raise RuntimeError(
+                raise ValueError(
                     f"Error in parsing SQL for upstream tables: {table_error}"
                 )
 
@@ -419,7 +419,7 @@ class LookerQueryAPIBasedViewUpstream(AbstractViewUpstream):
                     context=f"View-name: {self.view_context.name()}",
                     exc=column_error,
                 )
-                raise RuntimeError(
+                raise ValueError(
                     f"Error in parsing SQL for column lineage: {column_error}"
                 )
 
