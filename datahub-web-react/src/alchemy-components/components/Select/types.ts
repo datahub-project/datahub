@@ -60,6 +60,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     descriptionMaxWidth?: number;
     hideSelectedOptions?: boolean;
     selectMinHeight?: string;
+    autoUpdate?: boolean;
 }
 
 export interface SelectStyleProps {

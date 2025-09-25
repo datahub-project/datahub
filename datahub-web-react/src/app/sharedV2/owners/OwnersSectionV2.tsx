@@ -175,6 +175,7 @@ const OwnersSection = ({
                         />
                     )}
                     selectMinHeight="42px"
+                    autoUpdate
                 />
             </FormSection>
         </SectionContainer>
