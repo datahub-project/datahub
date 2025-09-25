@@ -129,15 +129,12 @@ const DescriptionWrapper = styled.span`
     display: inline-flex;
     align-items: center;
     width: 100%;
-<<<<<<< HEAD
 `;
 
 const AiSparkle = styled(Sparkle)`
     height: 14px;
     width: 14px;
     margin-right: 4px;
-=======
->>>>>>> f8a401ddd15268aea53f61c404f15424f1565c9d
 `;
 
 const AddModalWrapper = styled.div``;
