@@ -230,8 +230,8 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:${datahub.basePath}/assets/platforms/datahublogo.png}
-    faviconUrl: ${REACT_APP_FAVICON_URL:${datahub.basePath}/assets/icons/favicon.ico}
+    logoUrl: ${REACT_APP_LOGO_URL:assets/platforms/datahublogo.png}
+    faviconUrl: ${REACT_APP_FAVICON_URL:assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
   showFullTitleInLineage: ${REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE:false}

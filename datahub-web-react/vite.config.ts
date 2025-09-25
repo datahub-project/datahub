@@ -108,7 +108,7 @@ export default defineConfig(async ({ mode }) => {
 
     return {
         appType: 'spa',
-        base: '/',  // Always use root - runtime base path detection handles deployment paths
+        base: './',  // Always use root - runtime base path detection handles deployment paths
         plugins: [
             ...devPlugins,
             ...envs,
