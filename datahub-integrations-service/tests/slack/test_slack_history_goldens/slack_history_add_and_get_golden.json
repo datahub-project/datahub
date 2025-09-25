@@ -21,5 +21,6 @@
     "channel_id": "C123",
     "thread_ts": "1000.1",
     "is_limited_history": true
-  }
+  },
+  "reduced_history": null
 }

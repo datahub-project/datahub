@@ -1,12 +1,14 @@
 from datahub_integrations.gen_ai.mlflow_init import initialize_mlflow, is_mlflow_enabled
 
 import contextlib
+import json
 import re
 import uuid
 from typing import (
     TYPE_CHECKING,
     Callable,
     Dict,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -29,9 +31,21 @@ from datahub_integrations.chat.chat_history import (
     HumanMessage,
     Message,
     ReasoningMessage,
+    SummaryMessage,
     ToolCallRequest,
     ToolResult,
     ToolResultError,
+)
+from datahub_integrations.chat.context_reducer import (
+    ChatContextReducer,
+    ContextReducerConfig,
+    TokenCountEstimator,
+)
+from datahub_integrations.chat.reducers.conversation_summarizer import (
+    ConversationSummarizer,
+)
+from datahub_integrations.chat.reducers.sliding_window_reducer import (
+    SlidingWindowReducer,
 )
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
@@ -50,7 +64,10 @@ from datahub_integrations.telemetry.chat_events import ChatbotToolCallEvent
 from datahub_integrations.telemetry.telemetry import track_saas_event
 
 if TYPE_CHECKING:
-    from mypy_boto3_bedrock_runtime.type_defs import ContentBlockOutputTypeDef
+    from mypy_boto3_bedrock_runtime.type_defs import (
+        ContentBlockOutputTypeDef,
+        TokenUsageTypeDef,
+    )
 
 # Initialize MLflow for @mlflow.trace decorators in this module
 initialize_mlflow()
@@ -72,10 +89,19 @@ CHATBOT_MODEL = get_bedrock_model_env_variable(
     "CHATBOT_MODEL", BedrockModel.CLAUDE_37_SONNET
 )
 
+CLAUDE_TOKEN_LIMIT = int(200e3)
 ProgressCallback = Callable[[List[str]], None]
+
+CHAT_SUMMARIZATION_MODEL = get_bedrock_model_env_variable(
+    "CHAT_SUMMARIZATION_MODEL", BedrockModel.CLAUDE_37_SONNET
+)
 
 
 class ChatSessionMaxTokensExceededError(Exception):
+    pass
+
+
+class ChatOutputMaxTokensExceededError(Exception):
     pass
 
 
@@ -215,6 +241,7 @@ class ChatSession:
         tools: Sequence[ToolWrapper | FastMCP],
         client: DataHubClient,
         history: Optional[ChatHistory] = None,
+        # Custom context reducers can be supported in future
     ):
         self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
         self.tools: List[ToolWrapper] = [
@@ -226,6 +253,12 @@ class ChatSession:
         ] + [_respond_to_user_tool]
         self.client = client
         self.history: ChatHistory = history or ChatHistory()
+
+        self.context_reducers: Iterable[ChatContextReducer] = (
+            create_default_context_reducer_chain(
+                self._get_model_id(), self._get_tools_config()
+            )
+        )
 
         # Create a dummy progress listener to start with.
         self._progress_listener = FilteredProgressListener(
@@ -239,6 +272,18 @@ class ChatSession:
     @property
     def tool_map(self) -> Dict[str, ToolWrapper]:
         return {tool.name: tool for tool in self.tools}
+
+    def _get_tools_config(self) -> dict:
+        return {
+            "tools": [tool.to_bedrock_spec() for tool in self.tools],
+        }
+
+    def _get_model_id(self) -> str:
+        return (
+            CHATBOT_MODEL.value
+            if isinstance(CHATBOT_MODEL, BedrockModel)
+            else CHATBOT_MODEL
+        )
 
     @classmethod
     def is_respond_to_user(cls, message: Message) -> TypeGuard[ToolResult]:
@@ -302,16 +347,27 @@ class ChatSession:
         # sets us up to handle a subsequent request quickly. As long as a cache is used
         # once, prompt caching will also be cheaper.
 
-        messages = self.history.messages
-        formatted_messages = [message.to_obj() for message in messages]
+        # Apply context reduction if configured
+        for reducer in self.context_reducers:
+            reducer.reduce(self.history)
+
+        formatted_messages = [
+            message.to_obj() for message in self.history.context_messages
+        ]
 
         if self._use_prompt_caching:
             potential_cache_point_indexes = [
                 i
-                for i, message in enumerate(messages)
+                for i, message in enumerate(self.history.context_messages)
                 if isinstance(
                     message,
-                    (HumanMessage, AssistantMessage, ToolResult, ToolResultError),
+                    (
+                        HumanMessage,
+                        AssistantMessage,
+                        SummaryMessage,
+                        ToolResult,
+                        ToolResultError,
+                    ),
                 )
             ]
             if len(potential_cache_point_indexes) > 2:
@@ -334,11 +390,7 @@ class ChatSession:
 
         try:
             response = bedrock_client.converse(
-                modelId=(
-                    CHATBOT_MODEL.value
-                    if isinstance(CHATBOT_MODEL, BedrockModel)
-                    else CHATBOT_MODEL
-                ),
+                modelId=self._get_model_id(),
                 system=[
                     {"text": _SYSTEM_PROMPT},
                 ],
@@ -348,7 +400,7 @@ class ChatSession:
                 },
                 inferenceConfig={
                     "temperature": 0.7,
-                    "maxTokens": 2048,
+                    "maxTokens": 4096,
                 },
             )
         except bedrock_client.exceptions.ValidationException as e:
@@ -360,11 +412,12 @@ class ChatSession:
             else:
                 raise e
 
+        log_tokens_usage(response["usage"])
         is_end_turn = False
         output = response["output"]
         stop_reason = response["stopReason"]
         if stop_reason == "max_tokens":
-            raise ChatSessionMaxTokensExceededError(str(response))
+            raise ChatOutputMaxTokensExceededError(str(response))
         elif stop_reason == "tool_use":
             # Expected - we'll handle this below.
             pass
@@ -473,6 +526,45 @@ class ChatSession:
         raise ChatMaxToolCallsExceededError(
             f"Failed to generate next message after {MAX_TOOL_CALLS} tool calls"
         )
+
+
+def create_default_context_reducer_chain(
+    model_id: str,
+    tools_config: dict,
+) -> Iterable[ChatContextReducer]:
+    estimator = TokenCountEstimator(model_id)
+
+    config = ContextReducerConfig(
+        llm_token_limit=CLAUDE_TOKEN_LIMIT if "claude" in model_id else int(100e3),
+        safety_buffer=int(CLAUDE_TOKEN_LIMIT * 0.1),
+        system_message_tokens=estimator.estimate_tokens(_SYSTEM_PROMPT),
+        tool_config_tokens=estimator.estimate_tokens(json.dumps(tools_config)),
+    )
+
+    # Return iterable of reducers: ConversationSummarizer first, then SlidingWindowReducer
+    return [
+        ConversationSummarizer(
+            estimator,
+            config,
+            num_recent_messages_to_keep=5,
+            summarization_model=CHAT_SUMMARIZATION_MODEL,
+        ),
+        SlidingWindowReducer(estimator, config, max_messages=10),
+    ]
+
+
+def log_tokens_usage(response: "TokenUsageTypeDef") -> None:
+    input_tokens = response["inputTokens"]
+    output_tokens = response["outputTokens"]
+    cache_read_input_tokens = response.get("cacheReadInputTokens", 0)
+    cache_creation_input_tokens = response.get("cacheWriteInputTokens", 0)
+    total_input_tokens = (
+        input_tokens + cache_read_input_tokens + cache_creation_input_tokens
+    )
+
+    logger.info(
+        f"Tokens usage: total input tokens: {total_input_tokens}, total output tokens: {output_tokens}"
+    )
 
 
 if __name__ == "__main__":

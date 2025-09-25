@@ -13,5 +13,6 @@
     "channel_id": "C456",
     "thread_ts": "2000.1",
     "is_limited_history": false
-  }
+  },
+  "reduced_history": null
 }

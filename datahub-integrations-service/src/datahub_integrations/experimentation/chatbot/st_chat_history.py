@@ -8,6 +8,7 @@ from datahub_integrations.chat.chat_history import (
     ChatHistory,
     HumanMessage,
     ReasoningMessage,
+    SummaryMessage,
     ToolCallRequest,
     ToolResult,
     ToolResultError,
@@ -82,6 +83,10 @@ def st_chat_history(
                         f"Tool `{message.tool_request.tool_name}` error · {_token_count(str(message.error))}"
                     )
                     st.code(str(message.error))
+        elif isinstance(message, SummaryMessage):
+            with st.chat_message("assistant"):
+                st.caption(f"Summary · {_token_count(message.text)}")
+                st.markdown(message.text)
         else:
             st.error(f"Unknown message type: {type(message)}")
             assert_never(message)

@@ -25,6 +25,7 @@ from datahub_integrations.experimentation.chatbot.judge import (
     chatbot_llm_judge_evaluation,
 )
 from datahub_integrations.experimentation.chatbot.metrics import (
+    context_reduction_applied_metric_fn,
     expected_tool_calls_metric_fn,
     has_valid_links_metric_fn,
     run_tool_eval_metric_fn,
@@ -235,6 +236,11 @@ def run_ai_evaluation(run_name: str, run_description: Optional[str] = None) -> N
                     mlflow.metrics.make_metric(
                         eval_fn=expected_tool_calls_metric_fn,
                         name="expected_tool_calls",
+                        greater_is_better=True,
+                    ),
+                    mlflow.metrics.make_metric(
+                        eval_fn=context_reduction_applied_metric_fn,
+                        name="context_reducers",
                         greater_is_better=True,
                     ),
                 ],

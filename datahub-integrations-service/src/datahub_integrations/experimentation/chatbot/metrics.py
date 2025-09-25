@@ -1,6 +1,8 @@
-from typing import List
+from collections import Counter
+from typing import Counter as CounterType, List
 
 import mlflow.metrics as mlflow_metrics
+import numpy as np
 import pandas as pd
 from loguru import logger
 
@@ -222,6 +224,61 @@ def run_tool_eval_metric_fn(
 
     return mlflow_metrics.MetricValue(
         scores=all_scores,  # type: ignore
+        justifications=all_justifications,
+        aggregate_results=aggregate_results,
+    )
+
+
+def context_reduction_applied_metric_fn(
+    predictions: pd.Series, targets: pd.Series
+) -> mlflow_metrics.MetricValue:
+    """Measure how often context reduction is applied across conversations."""
+    all_scores: List[float] = []
+    all_justifications: List[str] = []
+    reduced_conversations = 0
+    reducer_type_counts: CounterType[str] = Counter()
+    reducer_applications: List[int] = []
+
+    for prediction in predictions:
+        if not prediction:
+            all_scores.append(0.0)
+            all_justifications.append("No chat history to evaluate")
+            continue
+
+        history = ChatHistory.model_validate_json(prediction)
+        num_reducers = history.num_reducers_applied
+
+        if num_reducers > 0:
+            reduced_conversations += 1
+            reducer_applications.append(num_reducers)
+            all_scores.append(1.0)
+            all_justifications.append(
+                f"Context reduction applied: {num_reducers} reducers"
+            )
+
+            # Track reducer types from metadata
+            for reducer_metadata in history.extra_properties.get("reducers", []):
+                reducer_type_counts[
+                    reducer_metadata.get("reducer_name", "unknown")
+                ] += 1
+        else:
+            all_scores.append(0.0)
+            all_justifications.append("No context reduction needed")
+
+    # Build aggregate results
+    aggregate_results = {
+        "num_reduced_conversations": float(reduced_conversations),
+        "typical_num_reducers": (
+            float(np.median(reducer_applications)) if reducer_applications else 0.0
+        ),
+    }
+
+    # Add reducer type counts
+    for reducer_type, count in reducer_type_counts.items():
+        aggregate_results[f"total_{reducer_type}_calls"] = float(count)
+
+    return mlflow_metrics.MetricValue(
+        scores=all_scores,
         justifications=all_justifications,
         aggregate_results=aggregate_results,
     )

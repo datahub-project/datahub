@@ -51,7 +51,7 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
         logger.info(f"Starting experiment for prompt: {case.id}")
         logger.debug(f"Prompt message: {case.message}")
         logger.debug(f"Using instance: {case.instance}")
-        
+
         mlflow.update_current_trace(tags={"prompt_id": case.id})
         # span = mlflow.get_current_active_span()
         # assert span is not None
@@ -60,7 +60,7 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
         logger.debug("Creating DataHub graph connection")
         graph = create_uncached_datahub_graph(key=case.instance)
         client = DataHubClient(graph=graph)
-        
+
         try:
             logger.debug("Setting up chat session")
             history = ChatHistory(messages=[HumanMessage(text=case.message)])
@@ -73,9 +73,11 @@ async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
             )()
 
             logger.info(f"Successfully generated response for prompt: {case.id}")
-            logger.debug(f"Response length: {len(next_message.text) if next_message.text else 0} chars")
+            logger.debug(
+                f"Response length: {len(next_message.text) if next_message.text else 0} chars"
+            )
             logger.debug(f"Number of suggestions: {len(next_message.suggestions)}")
-            
+
             return {
                 "response": next_message.text,
                 "follow_up_suggestions": next_message.suggestions,
@@ -122,10 +124,12 @@ async def process_batch(
     experiment_results_dir: pathlib.Path,
 ) -> List[tuple[Prompt, dict]]:
     """Process a single batch of prompts concurrently."""
-    logger.info(f"Processing batch {batch_idx + 1}/{total_batches} ({len(batch)} prompts)")
-    
+    logger.info(
+        f"Processing batch {batch_idx + 1}/{total_batches} ({len(batch)} prompts)"
+    )
+
     tasks: List[tuple[Prompt, asyncer.SoonValue[dict]]] = []
-    
+
     async with asyncer.create_task_group() as tg:
         for prompt in batch:
             logger.debug(f"Queuing experiment task for prompt: {prompt.id}")
@@ -137,12 +141,12 @@ async def process_batch(
                     ),
                 )
             )
-    
+
     # Collect results from this batch
     batch_results = []
     for prompt, task in tasks:
         batch_results.append((prompt, task.value))
-    
+
     logger.info(f"Completed batch {batch_idx + 1}/{total_batches}")
     return batch_results
 
@@ -152,21 +156,27 @@ async def process_all_batches(
     experiment_results_dir: pathlib.Path,
 ) -> List[tuple[Prompt, dict]]:
     """Process all prompts in batches and return results."""
-    logger.info(f"Starting batched execution of {len(filtered_prompts)} experiments (batch size: {BATCH_SIZE})")
-    
+    logger.info(
+        f"Starting batched execution of {len(filtered_prompts)} experiments (batch size: {BATCH_SIZE})"
+    )
+
     # Split prompts into batches to control parallelism
     prompt_batches = list(more_itertools.chunked(filtered_prompts, BATCH_SIZE))
-    logger.info(f"Split {len(filtered_prompts)} prompts into {len(prompt_batches)} batches")
-    
+    logger.info(
+        f"Split {len(filtered_prompts)} prompts into {len(prompt_batches)} batches"
+    )
+
     all_results = []
-    
+
     for batch_idx, batch in enumerate(prompt_batches):
         batch_results = await process_batch(
             batch, batch_idx, len(prompt_batches), experiment_results_dir
         )
         all_results.extend(batch_results)
-    
-    logger.info(f"All {len(all_results)} tasks have been completed across {len(prompt_batches)} batches")
+
+    logger.info(
+        f"All {len(all_results)} tasks have been completed across {len(prompt_batches)} batches"
+    )
     return all_results
 
 
@@ -174,13 +184,15 @@ async def main(
     prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = None,
 ) -> None:
     # Configure file logging with DEBUG level
-    log_file = experiments_dir / "logs" / f"chatbot_eval_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    log_file = (
+        experiments_dir / "logs" / f"chatbot_eval_{time.strftime('%Y%m%d_%H%M%S')}.log"
+    )
     log_file.parent.mkdir(exist_ok=True)
-    
-    # Remove the default loguru handler (which goes to stderr) 
+
+    # Remove the default loguru handler (which goes to stderr)
     # and replace with our own console handler at INFO level
     logger.remove()
-    
+
     # Add console handler with INFO level (clean output)
     logger.add(
         sink=lambda msg: print(msg, end=""),
@@ -188,7 +200,7 @@ async def main(
         format="{time:HH:mm:ss} | {level: <8} | {message}",
         colorize=True,
     )
-    
+
     # Filter function to add default context values when missing for file logs
     def add_default_context(record):
         if "prompt_id" not in record["extra"]:
@@ -200,16 +212,18 @@ async def main(
     # Add file handler with DEBUG level and detailed format including experiment context
     logger.add(
         log_file,
-        level="DEBUG", 
+        level="DEBUG",
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[prompt_id]:<15} | {extra[instance]:<10} | {name}:{function}:{line} - {message}",
         filter=add_default_context,
         rotation="10 MB",
         retention="7 days",
     )
-    
-    logger.info(f"Starting chatbot evaluation - detailed logs will be written to: {log_file}")
+
+    logger.info(
+        f"Starting chatbot evaluation - detailed logs will be written to: {log_file}"
+    )
     logger.debug("Debug logging enabled for detailed troubleshooting")
-    
+
     filtered_prompts = all_prompts
     if prompt_ids:
         filtered_prompts = [
@@ -241,13 +255,15 @@ async def main(
         )
 
         # Process all prompts in batches
-        task_results = await process_all_batches(filtered_prompts, experiment_results_dir)
-        
+        task_results = await process_all_batches(
+            filtered_prompts, experiment_results_dir
+        )
+
         logger.debug(f"Processing results for {len(task_results)} completed tasks")
         results = []
         successful_tasks = 0
         failed_tasks = 0
-        
+
         for prompt, task_result in task_results:
             results.append(
                 {
@@ -256,7 +272,7 @@ async def main(
                     **task_result,
                 }
             )
-            
+
             # Track success/failure
             if task_result.get("error") is None:
                 successful_tasks += 1
@@ -264,8 +280,10 @@ async def main(
             else:
                 failed_tasks += 1
                 logger.debug(f"Task {prompt.id}: FAILED - {task_result.get('error')}")
-        
-        logger.info(f"Task completion summary: {successful_tasks} successful, {failed_tasks} failed")
+
+        logger.info(
+            f"Task completion summary: {successful_tasks} successful, {failed_tasks} failed"
+        )
         results_df = pd.DataFrame(results)
 
         logger.info("Evaluating results")
@@ -286,7 +304,7 @@ async def main(
         )
         logger.info("Evaluation completed successfully")
         logger.debug(f"Evaluation results: {eval_result}")
-        
+
         logger.debug("Generating analysis notebook")
         try:
             html_path = execute_notebook_save_as_html(
@@ -298,7 +316,7 @@ async def main(
             logger.info(f"Analysis notebook generated: {html_path}")
         except Exception as e:
             logger.error(f"Error executing notebook: {e}")
-        
+
         logger.info(f"Experiment run completed: {run.info.run_name}")
         logger.info(f"Results saved to: {experiment_results_dir}")
         logger.info(f"Detailed logs saved to: {log_file}")

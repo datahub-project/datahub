@@ -48,18 +48,22 @@ class ChatbotInteractionEvent(BaseEvent):
     # TODO: Add slack_email: Optional[str] = None
     message_contents: str
     response_contents: Optional[str] = None
+    response_length: Optional[int] = None
     response_error: Optional[str] = None
     response_generation_duration_sec: float
-    chat_session_id: Optional[str]  # datahub internal
+    chat_session_id: Optional[str] = None  # datahub internal
 
     is_limited_history: Optional[bool] = None
 
     # TODO: referenced_urns: List[str] = Field(default_factory=list)
 
-    num_tool_calls: Optional[int]
-    num_tool_call_errors: Optional[int]
-    num_history_messages: Optional[int]
-    full_history: Optional[str]
+    num_tool_calls: Optional[int] = None
+    num_tool_call_errors: Optional[int] = None
+    num_history_messages: Optional[int] = None
+    full_history: Optional[str] = None
+
+    num_reducers_applied: Optional[int] = None
+    reduction_sequence: Optional[str] = None
 
 
 class ChatbotInteractionFeedbackEvent(BaseEvent):
