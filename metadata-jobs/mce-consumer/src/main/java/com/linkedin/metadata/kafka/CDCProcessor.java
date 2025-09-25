@@ -65,8 +65,7 @@ public class CDCProcessor {
   @Value("${kafka.topic.cdcTopic.name:datahub.datahub.metadata_aspect_v2}")
   private String cdcTopicName;
 
-  private String cdcConsumerGroupId =
-      "generic-cdc-consumer-job-client"; // TODO: Use env var for overrides
+  private String cdcConsumerGroupId = "cdc-consumer-job-client"; // TODO: Use env var for overrides
 
   @PostConstruct
   public void registerConsumerThrottle() {
