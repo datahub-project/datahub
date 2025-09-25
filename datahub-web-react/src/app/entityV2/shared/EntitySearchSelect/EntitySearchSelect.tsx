@@ -23,6 +23,7 @@ import useSelectDropdown from '@components/components/Select/private/hooks/useSe
 import { SelectOption, SelectSizeOptions } from '@components/components/Select/types';
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
@@ -188,14 +189,19 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
     const handleSearchChange = useCallback(
         (value: string) => {
             setSearchQuery(value);
+            const input = addUserFiltersToMultiEntitySearchInput(
+                {
+                    types: entityTypes,
+                    query: value || '*',
+                    start: 0,
+                    count: 10,
+                },
+                entityTypes,
+            );
+
             searchResources({
                 variables: {
-                    input: {
-                        types: entityTypes,
-                        query: value || '*',
-                        start: 0,
-                        count: 10,
-                    },
+                    input,
                 },
             });
         },

@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { mergeArraysOfObjects } from '@app/utils/arrayUtils';
 
@@ -90,14 +91,19 @@ export const EntitySearchValueInput = ({ selectedUrns, entityTypes, mode, label,
     };
 
     const onSearch = (text: string) => {
+        const input = addUserFiltersToMultiEntitySearchInput(
+            {
+                types: entityTypes,
+                query: text,
+                start: 0,
+                count: 10,
+            },
+            entityTypes,
+        );
+
         searchResources({
             variables: {
-                input: {
-                    types: entityTypes,
-                    query: text,
-                    start: 0,
-                    count: 10,
-                },
+                input,
             },
         });
     };
