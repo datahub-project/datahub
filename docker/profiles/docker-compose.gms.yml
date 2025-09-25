@@ -354,7 +354,6 @@ services:
       <<: [*datahub-system-update-service-basepath-env]
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
       DATAHUB_BASE_PATH: "/datahub"
-      DATAHUB_GMS_BASE_PATH: "/datahub"
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
@@ -368,7 +367,6 @@ services:
       <<: [*datahub-system-update-service-basepath-env]
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
       DATAHUB_BASE_PATH: "/datahub"
-      DATAHUB_GMS_BASE_PATH: "/datahub"
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
@@ -497,7 +495,6 @@ services:
       <<: [*datahub-gms-dev-env, *kafka-basepath-env]
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
       DATAHUB_BASE_PATH: "/datahub"
-      DATAHUB_GMS_BASE_PATH: "/datahub"
     healthcheck:
       test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/datahub/health
       start_period: 90s
@@ -515,7 +512,6 @@ services:
       <<: [*datahub-gms-dev-env, *kafka-basepath-env]
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/datahub/schema-registry/api/
       DATAHUB_BASE_PATH: "/datahub"
-      DATAHUB_GMS_BASE_PATH: "/datahub"
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
     healthcheck:
@@ -554,7 +550,7 @@ services:
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: 8080
       DATAHUB_GMS_PROTOCOL: http
-      DATAHUB_GMS_BASE_PATH: /datahub
+      DATAHUB_BASE_PATH: /datahub
     depends_on:
       datahub-gms-debug-basepath-consumers:
         condition: service_healthy

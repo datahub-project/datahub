@@ -94,8 +94,7 @@ ext {
                     profile: 'debug-basepath-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                                   ':metadata-jobs:mce-consumer-job',
-                                                                                  ':metadata-jobs:mae-consumer-job',
-                                                                                  ':datahub-actions'],
+                                                                                  ':metadata-jobs:mae-consumer-job'],
                     isDebug: true,
                     additionalEnv: [
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
