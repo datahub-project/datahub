@@ -58,9 +58,7 @@ def loaded_trino(trino_runner):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_trino_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for trino catalog referring to postgres database
@@ -133,9 +131,7 @@ def test_trino_ingest(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_trino_hive_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline for trino catalog referring to postgres database
     mce_out_file = "trino_hive_mces.json"
     events_file = tmp_path / mce_out_file
@@ -201,7 +197,7 @@ def test_trino_hive_ingest(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_instance_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_trino, test_resources_dir, pytestconfig, tmp_path
 ):
     mce_out_file = "trino_instance_mces.json"
     events_file = tmp_path / mce_out_file
