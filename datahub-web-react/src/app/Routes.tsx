@@ -6,6 +6,7 @@ import AppProviders from '@app/AppProviders';
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
 import { useTrackPageView } from '@app/analytics';
 import { LogIn } from '@app/auth/LogIn';
+import { AdminLogIn } from '@app/auth/AdminLogIn';
 import { ResetCredentials } from '@app/auth/ResetCredentials';
 import { SignUp } from '@app/auth/SignUp';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
@@ -35,6 +36,7 @@ export const Routes = (): JSX.Element => {
 
     return (
         <Switch>
+            <Route path={PageRoutes.ADMIN_LOG_IN} component={AdminLogIn} />
             <Route path={PageRoutes.LOG_IN} component={LogIn} />
             <Route path={PageRoutes.SIGN_UP} component={SignUp} />
             <Route path={PageRoutes.RESET_CREDENTIALS} component={ResetCredentials} />
