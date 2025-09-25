@@ -559,27 +559,37 @@ class Source(Closeable, metaclass=ABCMeta):
         workunit_processors = self.get_workunit_processors()
         workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
 
-        final_workunits = auto_workunit(self.get_workunits_internal())
-        final_workunits = self._merge_workunits(
-            final_workunits,
+        final_workunits = self.get_workunits_internal()
+        merged_workunits = self._merge_workunits(
+            input_workunits=final_workunits,
             is_enabled_method=self.is_profiling_enabled_internal,
             stage=IngestionHighStage.PROFILING,
             method=self.get_profiling_internal,
-            method_name="get_profiling_internal",
+            method_name_to_method_dict={
+                # Have to pass Source.METHOD here to avoid the subclass methods from being passed here
+                # This is a to ensure subclasses have implemented these methods
+                "is_profiling_enabled_internal": Source.is_profiling_enabled_internal,
+                "get_profiling_internal": Source.get_profiling_internal,
+            },
         )
 
-        yield from self._apply_workunit_processors(workunit_processors, final_workunits)
+        yield from self._apply_workunit_processors(
+            workunit_processors, auto_workunit(merged_workunits)
+        )
 
-    def _is_method_defined_not_of_this_class(
-        self, method_name: str, method: Callable
+    def _are_methods_defined_in_subclass(
+        self, method_name_to_method_dict: Dict[str, Callable]
     ) -> bool:
         """
-        We are checking if the method is defined in the subclass and not in the this class.
+        We are checking if the methods are defined in the subclass and not in the this class.
         """
-        return (
-            hasattr(self, method_name)
-            and getattr(self, method_name).__func__ is not method
-        )
+        for method_name, method in method_name_to_method_dict.items():
+            if (
+                hasattr(self, method_name)
+                and getattr(self, method_name).__func__ is method
+            ):
+                return False
+        return True
 
     def _merge_workunits(
         self,
@@ -589,20 +599,17 @@ class Source(Closeable, metaclass=ABCMeta):
         is_enabled_method: Callable,
         stage: IngestionHighStage,
         method: Callable,
-        method_name: str,
+        method_name_to_method_dict: Dict[str, Callable],
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
         """
         Called by get_workunits to merge the other workunits with output of passed input_workunits.
         """
+        if not self._are_methods_defined_in_subclass(method_name_to_method_dict):
+            return input_workunits
         if not is_enabled_method():
             return input_workunits
 
-        workunits = None
-        if self._is_method_defined_not_of_this_class(
-            method_name=method_name,
-            method=method,
-        ):
-            workunits = self._get_workunits_with_timing(stage, method)
+        workunits = self._get_workunits_with_timing(stage, method)
 
         if workunits is None:
             return input_workunits
@@ -621,16 +628,16 @@ class Source(Closeable, metaclass=ABCMeta):
         """
         stage_context = self.get_report().new_high_stage(stage)
         try:
-            stage_context.enter()
+            stage_context.__enter__()
             workunits = auto_workunit(method())
             for workunit in workunits:
                 yield workunit
         finally:
-            stage_context.exit(None, None, None)
+            stage_context.__exit__(None, None, None)
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )
