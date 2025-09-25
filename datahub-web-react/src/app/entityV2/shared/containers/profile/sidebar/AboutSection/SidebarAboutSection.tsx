@@ -70,6 +70,7 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
                 title="Documentation"
                 content={
                     <>
+<<<<<<< HEAD
                         <Tooltip
                             placement="topLeft"
                             title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
@@ -115,6 +116,17 @@ export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
                                 />
                             ),
                         ]}
+=======
+                        {displayedDescription && (
+                            <DescriptionSection
+                                description={displayedDescription}
+                                isExpandable
+                                lineLimit={LINE_LIMIT}
+                            />
+                        )}
+                        {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
+                        {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
+>>>>>>> f38c25dabb96be23ab38e74b6eafccac49cdf3aa
                     </>
                 }
                 extra={
