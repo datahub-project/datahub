@@ -348,15 +348,18 @@ a tag called `USA-ops-team` and `Canada-marketing` will be added to them respect
 
 ### Config Details
 
-| Field              | Required | Type         | Default     | Description                                                        |
-| ------------------ | -------- | ------------ | ----------- | ------------------------------------------------------------------ |
-| `tag_urns`         | ✅       | list[string] |             | List of globalTags urn.                                            |
-| `replace_existing` |          | boolean      | `false`     | Whether to remove globalTags from entity sent by ingestion source. |
-| `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.   |
+| Field              | Required | Type         | Default     | Description                                                                                                             |
+| ------------------ | -------- | ------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `tag_urns`         | ✅       | list[string] |             | List of globalTags urn.                                                                                                 |
+| `replace_existing` |          | boolean      | `false`     | Whether to remove globalTags from entity sent by ingestion source.                                                      |
+| `semantics`        |          | enum         | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                        |
+| `is_container`     |          | bool         | `false`     | Whether to also consider a container or not. If true, then tags will be attached to both the dataset and its container. |
 
-Let’s suppose we’d like to add a set of dataset tags. To do so, we can use the `simple_add_dataset_tags` transformer that’s included in the ingestion framework.
+Let's suppose we'd like to add a set of dataset tags. To do so, we can use the `simple_add_dataset_tags` transformer that's included in the ingestion framework.
 
-The config, which we’d append to our ingestion recipe YAML, would look like this:
+If the is_container field is set to true, the module will not only attach the tags to the matching datasets but will also find and attach containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified tags.
+
+The config, which we'd append to our ingestion recipe YAML, would look like this:
 
 ```yaml
 transformers:
@@ -399,20 +402,34 @@ transformers:
           - "urn:li:tag:NeedsDocumentation"
           - "urn:li:tag:Legacy"
   ```
+- Add tags to dataset and its containers
+  ```yaml
+  transformers:
+    - type: "simple_add_dataset_tags"
+      config:
+        is_container: true
+        semantics: PATCH / OVERWRITE # Based on user
+        tag_urns:
+          - "urn:li:tag:NeedsDocumentation"
+          - "urn:li:tag:Legacy"
+  ```
 
 ## Pattern Add Dataset globalTags
 
 ### Config Details
 
-| Field              | Required | Type                 | Default     | Description                                                                           |
-| ------------------ | -------- | -------------------- | ----------- | ------------------------------------------------------------------------------------- |
-| `tag_pattern`      | ✅       | map[regx, list[urn]] |             | Entity urn with regular expression and list of tags urn apply to matching entity urn. |
-| `replace_existing` |          | boolean              | `false`     | Whether to remove globalTags from entity sent by ingestion source.                    |
-| `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                      |
+| Field              | Required | Type                 | Default     | Description                                                                                                             |
+| ------------------ | -------- | -------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `tag_pattern`      | ✅       | map[regx, list[urn]] |             | Entity urn with regular expression and list of tags urn apply to matching entity urn.                                   |
+| `replace_existing` |          | boolean              | `false`     | Whether to remove globalTags from entity sent by ingestion source.                                                      |
+| `semantics`        |          | enum                 | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                        |
+| `is_container`     |          | bool                 | `false`     | Whether to also consider a container or not. If true, then tags will be attached to both the dataset and its container. |
 
-Let’s suppose we’d like to append a series of tags to specific datasets. To do so, we can use the `pattern_add_dataset_tags` module that’s included in the ingestion framework. This will match the regex pattern to `urn` of the dataset and assign the respective tags urns given in the array.
+Let's suppose we'd like to append a series of tags to specific datasets. To do so, we can use the `pattern_add_dataset_tags` module that's included in the ingestion framework. This will match the regex pattern to `urn` of the dataset and assign the respective tags urns given in the array.
 
-The config, which we’d append to our ingestion recipe YAML, would look like this:
+If the is_container field is set to true, the module will not only attach the tags to the matching datasets but will also find and attach containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified tags.
+
+The config, which we'd append to our ingestion recipe YAML, would look like this:
 
 ```yaml
 transformers:
@@ -462,18 +479,33 @@ transformers:
               ["urn:li:tag:NeedsDocumentation", "urn:li:tag:Legacy"]
             ".*example2.*": ["urn:li:tag:NeedsDocumentation"]
   ```
+- Add tags to dataset and its containers
+  ```yaml
+  transformers:
+    - type: "pattern_add_dataset_tags"
+      config:
+        is_container: true
+        semantics: PATCH
+        tag_pattern:
+          rules:
+            ".*example1.*": ["urn:li:tag:Private"]
+            ".*example2.*": ["urn:li:tag:Public"]
+  ```
 
 ## Add Dataset globalTags
 
 ### Config Details
 
-| Field              | Required | Type                                       | Default     | Description                                                                |
-| ------------------ | -------- | ------------------------------------------ | ----------- | -------------------------------------------------------------------------- |
-| `get_tags_to_add`  | ✅       | callable[[str], list[TagAssociationClass]] |             | A function which takes entity urn as input and return TagAssociationClass. |
-| `replace_existing` |          | boolean                                    | `false`     | Whether to remove globalTags from entity sent by ingestion source.         |
-| `semantics`        |          | enum                                       | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.           |
+| Field              | Required | Type                                       | Default     | Description                                                                                                             |
+| ------------------ | -------- | ------------------------------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `get_tags_to_add`  | ✅       | callable[[str], list[TagAssociationClass]] |             | A function which takes entity urn as input and return TagAssociationClass.                                              |
+| `replace_existing` |          | boolean                                    | `false`     | Whether to remove globalTags from entity sent by ingestion source.                                                      |
+| `semantics`        |          | enum                                       | `OVERWRITE` | Whether to OVERWRITE or PATCH the entity present on DataHub GMS.                                                        |
+| `is_container`     |          | bool                                       | `false`     | Whether to also consider a container or not. If true, then tags will be attached to both the dataset and its container. |
 
 If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
+
+If the is_container field is set to true, the module will not only attach the tags to the matching datasets but will also find and attach containers associated with those datasets. This means that both the datasets and their containers will be associated with the specified tags.
 
 ```yaml
 transformers:
@@ -534,6 +566,15 @@ Finally, you can install and use your custom transformer as [shown here](#instal
     - type: "add_dataset_tags"
       config:
         semantics: PATCH
+        get_tags_to_add: "<your_module>.<your_function>"
+  ```
+- Add tags to dataset and its containers
+  ```yaml
+  transformers:
+    - type: "add_dataset_tags"
+      config:
+        is_container: true
+        semantics: PATCH / OVERWRITE # Based on user
         get_tags_to_add: "<your_module>.<your_function>"
   ```
 
