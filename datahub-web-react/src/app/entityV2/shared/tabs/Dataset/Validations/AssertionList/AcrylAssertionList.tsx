@@ -72,11 +72,17 @@ export const AcrylAssertionList = () => {
     };
 
     useEffect(() => {
+        console.time('combineEntityDataWithSiblings');
         const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
+        console.timeEnd('combineEntityDataWithSiblings');
+        console.time('tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery');
         const assertionsWithMonitorsDetails: AssertionWithMonitorDetails[] =
             tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery(combinedData) ?? [];
+        console.timeEnd('tryExtractMonitorDetailsFromAssertionsWithMonitorsQuery');
         setAssertionMonitorData(assertionsWithMonitorsDetails);
+        console.time('getFilteredAssertions');
         getFilteredAssertions(assertionsWithMonitorsDetails);
+        console.timeEnd('getFilteredAssertions');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
 

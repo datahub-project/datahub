@@ -423,9 +423,8 @@ const assignFilteredAssertionToGroup = (filteredAssertions: AssertionWithDescrip
 
 const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: AssertionListFilter) => {
     const { type, status, source, column } = filter.filterCriteria;
-
     // Apply type, status, and other filters
-    return assertions.filter((assertion: AssertionWithMonitorDetails) => {
+    const filterRes = assertions.filter((assertion: AssertionWithMonitorDetails) => {
         const resultType = assertion.runEvents?.runEvents?.[0]?.result?.type as AssertionResultType;
         const columnId = getColumnIdFromAssertion(assertion) || '';
         const matchesType = type.length === 0 || type.includes(getAssertionType(assertion) as AssertionType);
@@ -438,6 +437,8 @@ const getFilteredAssertions = (assertions: AssertionWithDescription[], filter: A
 
         return matchesType && matchesStatus && matchesOthers && matchesColumn;
     });
+
+    return filterRes;
 };
 
 // Fuse.js setup for search functionality
@@ -457,6 +458,7 @@ export const getFilteredTransformedAssertionData = (
     assertions: AssertionWithMonitorDetails[],
     filter: AssertionListFilter,
 ): AssertionTable => {
+    console.time('getFilteredTransformedAssertionData');
     // Add descriptions to assertions
     const assertionsWithDescription = assertions.map((assertion) => {
         const monitor = assertion.monitor?.relationships?.[0]?.entity;
@@ -487,6 +489,7 @@ export const getFilteredTransformedAssertionData = (
     assertionRawData.searchMatchesCount = searchMatchesCount;
     assertionRawData.filteredCount = getFilteredAssertions(assertionsWithDescription, filter).length;
     assertionRawData.originalFilterOptions = extractFilterOptionListFromAssertions(assertions);
+    console.timeEnd('getFilteredTransformedAssertionData');
     return assertionRawData;
 };
 

@@ -1,12 +1,16 @@
 import { Typography } from 'antd';
-import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import { ColumnType } from 'antd/lib/table';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { ActionsColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
 import { AssertionName } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionName';
 import { AcrylAssertionTagColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Tags/AcrylAssertionTagColumn';
-import { AssertionListFilter } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import {
+    AssertionListFilter,
+    AssertionListTableRow,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
@@ -45,73 +49,108 @@ export const useAssertionsTableColumns = ({
     canEditMonitors,
     refetch,
 }) => {
+    const renderAssertionName = useCallback(
+        (value, record) => <AssertionName key={record.urn} record={record} groupBy={groupBy} contract={contract} />,
+        [groupBy, contract],
+    );
+
+    const renderCategory = useCallback(
+        (value, record) =>
+            !record.groupName &&
+            record?.type && <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>,
+        [],
+    );
+
+    const renderLastRun = useCallback(
+        (value, record) =>
+            !record.groupName && <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>,
+        [],
+    );
+
+    const renderTags = useCallback(
+        (_value, record) =>
+            !record.groupName && <AcrylAssertionTagColumn key={record.urn} record={record} refetch={refetch} />,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
+
+    const renderActions = useCallback(
+        (value, record) => {
+            const isSqlAssertion = record.type === AssertionType.Sql;
+            return (
+                !record.groupName && (
+                    <ActionsColumn
+                        key={record.urn}
+                        assertion={record.assertion}
+                        monitor={record.monitor}
+                        contract={contract}
+                        canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
+                        canEditMonitor={canEditMonitors}
+                        canEditContract
+                        refetch={refetch}
+                        shouldRightAlign
+                        options={{ removeRightPadding: true }}
+                    />
+                )
+            );
+        },
+        [contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch],
+    );
     return useMemo(() => {
-        const columns = [
+        const columns: ColumnType<AssertionListTableRow>[] = [
             {
                 title: 'Name',
                 dataIndex: 'name',
                 key: 'name',
-                render: (record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
-                width: '42%',
-                sorter: (a, b) => {
-                    return a - b;
-                },
+                render: renderAssertionName,
+                width: '45%',
+                // sorter: (a, b) => {
+                //     return a.description.localeCompare(b.description);
+                // },
             },
             {
                 title: 'Category',
                 dataIndex: 'type',
                 key: 'type',
-                render: (record) =>
-                    !record.groupName && <CategoryType>{getAssertionGroupName(record?.type)}</CategoryType>,
+                render: renderCategory,
                 width: '10%',
+                // sorter: (a, b) => {
+                //     return a.description.localeCompare(b.description);
+                // },
             },
             {
                 title: 'Last Run',
                 dataIndex: 'lastEvaluation',
                 key: 'lastEvaluation',
-                render: (record) => {
-                    return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
-                },
+                render: renderLastRun,
                 width: '10%',
-                sorter: (sourceA, sourceB) => {
-                    return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
-                },
+                // sorter: (sourceA, sourceB) => {
+                //     if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
+                //         return 0;
+                //     }
+                //     return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
+                // },
+                // defaultSortOrder: 'descend',
             },
             {
                 title: 'Tags',
                 dataIndex: 'tags',
                 key: 'tags',
                 width: '20%',
-                render: (record) => !record.groupName && <AcrylAssertionTagColumn record={record} refetch={refetch} />,
+                render: renderTags,
             },
             {
                 title: '',
                 dataIndex: '',
                 key: 'actions',
                 width: '15%',
-                render: (record) => {
-                    const isSqlAssertion = record.type === AssertionType.Sql;
-                    return (
-                        !record.groupName && (
-                            <ActionsColumn
-                                assertion={record.assertion}
-                                monitor={record.monitor}
-                                contract={contract}
-                                canEditAssertion={isSqlAssertion ? canEditSqlAssertions : canEditAssertions}
-                                canEditMonitor={canEditMonitors}
-                                canEditContract
-                                refetch={refetch}
-                                shouldRightAlign
-                                options={{ removeRightPadding: true }}
-                            />
-                        )
-                    );
-                },
+                render: renderActions,
             },
         ];
 
         return columns;
-    }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors]);
 };
 
 export const usePinnedAssertionTableHeaderProps = () => {
