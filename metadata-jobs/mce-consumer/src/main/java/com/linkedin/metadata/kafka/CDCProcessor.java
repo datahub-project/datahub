@@ -135,7 +135,8 @@ public class CDCProcessor {
     }
   }
 
-  private void processCDCRecord(final String record) {
+  @com.google.common.annotations.VisibleForTesting
+  void processCDCRecord(final String record) {
     try {
 
       // Parse the Debezium CDC JSON record containing before/after values
@@ -202,8 +203,8 @@ public class CDCProcessor {
     }
   }
 
-  private Optional<MetadataChangeLog> mclFromCDCRecord(JsonNode cdcRecord)
-      throws URISyntaxException {
+  @com.google.common.annotations.VisibleForTesting
+  Optional<MetadataChangeLog> mclFromCDCRecord(JsonNode cdcRecord) throws URISyntaxException {
     JsonNode payload = cdcRecord.get("payload");
     // Step 2: Extract "before" and "after" fields as JsonNode objects
     JsonNode beforeRecord = payload.get("before");
@@ -308,8 +309,9 @@ public class CDCProcessor {
     return Optional.of(mcl);
   }
 
-  private boolean shouldProcessCDCRecord(JsonNode afterRecord, JsonNode beforeRecord) {
-    if (afterRecord == null && beforeRecord != null && beforeRecord.has("version")) {
+  @com.google.common.annotations.VisibleForTesting
+  boolean shouldProcessCDCRecord(JsonNode afterRecord, JsonNode beforeRecord) {
+    if (afterRecord == null && beforeRecord != null) {
       return true; // This is a delete
     }
 

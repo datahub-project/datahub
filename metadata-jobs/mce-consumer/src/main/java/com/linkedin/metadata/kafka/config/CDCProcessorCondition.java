@@ -10,6 +10,7 @@ public class CDCProcessorCondition implements Condition {
   @Override
   public boolean matches(ConditionContext context, @Nonnull AnnotatedTypeMetadata metadata) {
     Environment env = context.getEnvironment();
-    return "true".equals(env.getProperty("mclProcessing.cdcSource.enabled", "false"));
+    return "true".equals(env.getProperty("mclProcessing.cdcSource.enabled", "false"))
+        && "true".equals(env.getProperty("MCE_CONSUMER_ENABLED"));
   }
 }

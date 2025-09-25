@@ -29,7 +29,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 public class CDCConsumerFactory {
 
   @Bean(name = "cdcKafkaConsumer")
-  protected KafkaListenerContainerFactory<?> createCdcConsumerFactory(
+  @com.google.common.annotations.VisibleForTesting
+  KafkaListenerContainerFactory<?> createCdcConsumerFactory(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       KafkaProperties properties) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
