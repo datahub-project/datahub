@@ -14,7 +14,7 @@ import { InferredAssertionPopover } from '@app/entityV2/shared/tabs/Dataset/Vali
 import { extractLatestGeneratedAt, isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
 import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
-import { useBuildAssertionDescriptionLabels } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+import { useBuildAssertionPrimaryLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { SMART_ASSERTION_STALE_IN_DAYS, UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
@@ -69,10 +69,9 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
     const monitorSchedule = monitor?.info?.assertionMonitor?.assertions?.find(
         (assrn) => assrn.assertion.urn === assertion.urn,
     )?.schedule;
-    const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, monitorSchedule, {
+    let name = useBuildAssertionPrimaryLabel(record?.assertion?.info, monitorSchedule, {
         showColumnTag: true,
     });
-    let name = primaryLabel;
 
     // if it is group header then just display group name instead of other fields
     if (groupBy && record.name) {

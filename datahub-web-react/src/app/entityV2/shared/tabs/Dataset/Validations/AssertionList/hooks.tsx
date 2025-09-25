@@ -15,7 +15,7 @@ import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validat
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { AssertionResultType, AssertionType } from '@src/types.generated';
+import { AssertionResultType, AssertionType, DataContract } from '@src/types.generated';
 
 const CategoryType = styled.div`
     font-family: Mulish;
@@ -48,6 +48,15 @@ export const useAssertionsTableColumns = ({
     canEditAssertions,
     canEditMonitors,
     refetch,
+    isEntityReachable,
+}: {
+    groupBy: string;
+    contract: DataContract;
+    canEditSqlAssertions: boolean;
+    canEditAssertions: boolean;
+    canEditMonitors: boolean;
+    refetch: () => void;
+    isEntityReachable: boolean;
 }) => {
     const renderAssertionName = useCallback(
         (value, record) => <AssertionName key={record.urn} record={record} groupBy={groupBy} contract={contract} />,
@@ -90,11 +99,12 @@ export const useAssertionsTableColumns = ({
                         refetch={refetch}
                         shouldRightAlign
                         options={{ removeRightPadding: true }}
+                        isEntityReachable={isEntityReachable}
                     />
                 )
             );
         },
-        [contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch],
+        [contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch, isEntityReachable],
     );
     return useMemo(() => {
         const columns: ColumnType<AssertionListTableRow>[] = [
@@ -104,9 +114,9 @@ export const useAssertionsTableColumns = ({
                 key: 'name',
                 render: renderAssertionName,
                 width: '45%',
-                // sorter: (a, b) => {
-                //     return a.description.localeCompare(b.description);
-                // },
+                sorter: (a, b) => {
+                    return a.description.localeCompare(b.description);
+                },
             },
             {
                 title: 'Category',
@@ -114,9 +124,9 @@ export const useAssertionsTableColumns = ({
                 key: 'type',
                 render: renderCategory,
                 width: '10%',
-                // sorter: (a, b) => {
-                //     return a.description.localeCompare(b.description);
-                // },
+                sorter: (a, b) => {
+                    return a.description.localeCompare(b.description);
+                },
             },
             {
                 title: 'Last Run',
@@ -124,13 +134,13 @@ export const useAssertionsTableColumns = ({
                 key: 'lastEvaluation',
                 render: renderLastRun,
                 width: '10%',
-                // sorter: (sourceA, sourceB) => {
-                //     if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
-                //         return 0;
-                //     }
-                //     return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
-                // },
-                // defaultSortOrder: 'descend',
+                sorter: (sourceA, sourceB) => {
+                    if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
+                        return 0;
+                    }
+                    return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
+                },
+                defaultSortOrder: 'descend',
             },
             {
                 title: 'Tags',

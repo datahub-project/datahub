@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useVT } from 'virtualizedtableforantd4';
 
 import { StyledTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTable';
 import { useAssertionsTableColumns } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
@@ -18,6 +17,7 @@ type Props = {
     canEditAssertions: boolean;
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
+    isEntityReachable: boolean;
 };
 
 export const AcrylAssertionListTable = ({
@@ -28,9 +28,10 @@ export const AcrylAssertionListTable = ({
     canEditAssertions,
     canEditMonitors,
     canEditSqlAssertions,
+    isEntityReachable,
 }: Props) => {
-    const { entityData } = useEntityData();
     const { groupBy } = filter;
+    const { entityData } = useEntityData();
 
     // get columns data from the custom hooks
     const assertionsTableCols = useAssertionsTableColumns({
@@ -40,6 +41,7 @@ export const AcrylAssertionListTable = ({
         canEditAssertions,
         canEditMonitors,
         refetch,
+        isEntityReachable,
     });
 
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
@@ -77,7 +79,6 @@ export const AcrylAssertionListTable = ({
         [assertionData.assertions],
     );
 
-    const [VT] = useVT(() => ({ scroll: { y: 400 } }), []);
     const handleRowClick = useCallback(
         (record) => {
             return {
@@ -92,14 +93,15 @@ export const AcrylAssertionListTable = ({
     return (
         <>
             <StyledTable
+                style={{ paddingBottom: 20 }}
                 columns={assertionsTableCols as any}
                 showSelect
                 dataSource={memoizedData}
                 showHeader
-                components={VT}
-                scroll={{ y: 400 }}
                 pagination={{
-                    pageSize: 25,
+                    pageSize: 50,
+                    position: ['topLeft'],
+                    showSizeChanger: false,
                 }}
                 rowClassName={rowClassName}
                 bordered

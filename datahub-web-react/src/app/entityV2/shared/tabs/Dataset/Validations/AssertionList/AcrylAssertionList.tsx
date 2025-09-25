@@ -28,10 +28,12 @@ import {
 import { AssertionMonitorBuilderDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionMonitorBuilderDrawer';
 import { useOpenAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@app/shared/constants';
 import { TableLoadingSkeleton } from '@src/app/entityV2/shared/TableLoadingSkeleton';
 import { useGetDatasetContractQuery } from '@src/graphql/contract.generated';
 import { DataContract, EntityPrivileges } from '@src/types.generated';
 
+import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 
 const AssertionListContainer = styled.div`
@@ -43,6 +45,10 @@ const AssertionListContainer = styled.div`
  */
 export const AcrylAssertionList = () => {
     const { urn, entityData, entityType } = useEntityData();
+    const { data: ingestionSourceData, loading: ingestionSourceLoading } = useIngestionSourceForEntityQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+    });
 
     const [authorAssertionForEntity, setAuthorAssertionForEntity] = useState<EntityStagedForAssertion>();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -104,10 +110,13 @@ export const AcrylAssertionList = () => {
     const canEditSqlAssertionMonitors = privileges?.canEditSqlAssertionMonitors || false;
 
     const renderListTable = () => {
-        if (loading) {
+        if (loading || ingestionSourceLoading) {
             return <TableLoadingSkeleton />;
         }
         if ((visibleAssertions?.assertions || []).length > 0) {
+            const maybeExecutorId = ingestionSourceData?.ingestionSourceForEntity?.config?.executorId;
+            const isReachable =
+                !maybeExecutorId || maybeExecutorId.toLowerCase().startsWith(EMBEDDED_EXECUTOR_POOL_NAME);
             return (
                 <AcrylAssertionListTable
                     contract={contract}
@@ -117,6 +126,7 @@ export const AcrylAssertionList = () => {
                         refetch();
                         contractRefetch();
                     }}
+                    isEntityReachable={isReachable}
                     canEditAssertions={canEditAssertions}
                     canEditMonitors={canEditMonitors}
                     canEditSqlAssertions={canEditSqlAssertionMonitors}

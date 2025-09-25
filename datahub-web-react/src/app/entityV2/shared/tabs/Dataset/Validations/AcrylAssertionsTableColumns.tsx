@@ -158,6 +158,7 @@ interface ActionsColumnProps {
     options?: {
         removeRightPadding?: boolean;
     };
+    isEntityReachable: boolean;
 }
 
 export function ActionsColumn({
@@ -170,6 +171,7 @@ export function ActionsColumn({
     refetch,
     shouldRightAlign,
     options,
+    isEntityReachable,
 }: ActionsColumnProps) {
     return (
         <ActionButtonContainer removeRightPadding={options?.removeRightPadding}>
@@ -182,6 +184,7 @@ export function ActionsColumn({
                 canEditContract={canEditContract}
                 refetch={refetch}
                 shouldRightAlign={shouldRightAlign}
+                isEntityReachable={isEntityReachable}
             />
         </ActionButtonContainer>
     );
