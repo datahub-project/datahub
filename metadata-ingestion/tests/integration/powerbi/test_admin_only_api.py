@@ -522,7 +522,7 @@ def default_source_config():
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_admin_api(request_mock=requests_mock)
@@ -559,7 +559,7 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_most_config_and_modified_since(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, requests_mock
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 

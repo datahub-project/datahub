@@ -17,7 +17,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
     platform.machine().lower() == "aarch64",
     reason="The hdbcli dependency is not available for aarch64",
 )
-def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 
     with docker_compose_runner(

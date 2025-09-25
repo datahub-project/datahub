@@ -1,4 +1,3 @@
-import datetime
 import json
 import re
 from pathlib import Path
@@ -142,7 +141,6 @@ def test_powerbi_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -185,7 +183,6 @@ def test_powerbi_workspace_type_filter(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -244,7 +241,6 @@ def test_powerbi_ingest_patch_disabled(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -309,7 +305,6 @@ def test_powerbi_platform_instance_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -355,7 +350,6 @@ def test_powerbi_ingest_urn_lower_case(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -402,7 +396,6 @@ def test_override_ownership(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -446,7 +439,6 @@ def test_scan_all_workspaces(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -495,7 +487,6 @@ def test_extract_reports(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -539,7 +530,6 @@ def test_extract_lineage(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -591,7 +581,6 @@ def test_extract_endorsements(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -636,7 +625,6 @@ def test_admin_access_is_not_allowed(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -697,7 +685,6 @@ def test_workspace_container(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -742,7 +729,6 @@ def test_workspace_container(
 def test_access_token_expiry_with_long_expiry(
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -783,7 +769,6 @@ def test_access_token_expiry_with_long_expiry(
 def test_access_token_expiry_with_short_expiry(
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -840,7 +825,7 @@ def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
 def test_dataset_type_mapping_should_set_to_all(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal, pytestconfig, tmp_path, requests_mock
 ):
     """
     Here we don't need to run the pipeline. We need to verify dataset_type_mapping is set to default dataplatform
@@ -875,9 +860,7 @@ def test_dataset_type_mapping_should_set_to_all(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
-def test_dataset_type_mapping_error(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+def test_dataset_type_mapping_error(mock_msal, pytestconfig, tmp_path, requests_mock):
     """
     Here we don't need to run the pipeline. We need to verify if both dataset_type_mapping and server_to_platform_instance
     are set then value error should get raised
@@ -911,9 +894,7 @@ def test_dataset_type_mapping_error(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
-def test_server_to_platform_map(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+def test_server_to_platform_map(mock_msal, pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
     new_config: dict = {
         **default_source_config(),
@@ -1064,7 +1045,6 @@ def test_reports_with_failed_page_request(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     """
@@ -1186,7 +1166,6 @@ def test_independent_datasets_extraction(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1289,7 +1268,6 @@ def test_cll_extraction(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1345,7 +1323,6 @@ def test_cll_extraction_flags(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     register_mock_api(
@@ -1386,7 +1363,6 @@ def test_powerbi_cross_workspace_reference_info_message(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     register_mock_api(
@@ -1520,7 +1496,6 @@ def test_powerbi_app_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     common_app_ingest(
@@ -1550,7 +1525,6 @@ def test_powerbi_app_ingest_info_message(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
-    mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
     pipeline = common_app_ingest(

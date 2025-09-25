@@ -171,7 +171,7 @@ def mock_generic_checkpoint_state():
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
+def test_stateful_ingestion(pytestconfig, tmp_path):
     # test stateful ingestion using dummy source
     state_file_name: str = "checkpoint_state_mces.json"
     golden_state_file_name: str = "golden_test_checkpoint_state.json"
@@ -325,7 +325,7 @@ def test_stateful_ingestion(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_stateful_ingestion_failure(pytestconfig, tmp_path, mock_time):
+def test_stateful_ingestion_failure(pytestconfig, tmp_path):
     # test stateful ingestion using dummy source with pipeline execution failed in second ingestion
     state_file_name: str = "checkpoint_state_mces_failure.json"
     golden_state_file_name: str = "golden_test_checkpoint_state_failure.json"

@@ -58,7 +58,7 @@ def s3_populate(pytestconfig, s3_setup):
 
 
 @pytest.mark.integration
-def test_excel_s3(pytestconfig, s3_populate, tmp_path, mock_time):
+def test_excel_s3(pytestconfig, s3_populate, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/excel"
 
     pipeline = Pipeline.create(

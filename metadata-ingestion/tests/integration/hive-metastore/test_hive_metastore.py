@@ -69,7 +69,6 @@ def test_hive_metastore_ingest(
     test_resources_dir,
     pytestconfig,
     tmp_path,
-    mock_time,
     mode,
     use_catalog_subtype,
     use_dataset_pascalcase_subtype,
@@ -148,7 +147,7 @@ def test_hive_metastore_ingest(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_hive_metastore_instance_ingest(
-    loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_hive_metastore, test_resources_dir, pytestconfig, tmp_path
 ):
     instance = "production_warehouse"
     platform = "hive"

@@ -45,7 +45,7 @@ def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_postgres_ingest_with_db(
-    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+    postgres_runner, pytestconfig, test_resources_dir, tmp_path
 ):
     # Run the metadata ingestion pipeline.
     config_file = (
@@ -66,7 +66,7 @@ def test_postgres_ingest_with_db(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_postgres_ingest_with_all_db(
-    postgres_runner, pytestconfig, test_resources_dir, tmp_path, mock_time
+    postgres_runner, pytestconfig, test_resources_dir, tmp_path
 ):
     # Run the metadata ingestion pipeline.
     config_file = (

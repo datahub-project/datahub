@@ -622,7 +622,7 @@ def test_tableau_ingest_with_platform_instance(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_tableau_stateful(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     output_file_deleted_name: str = "tableau_mces_deleted_stateful.json"

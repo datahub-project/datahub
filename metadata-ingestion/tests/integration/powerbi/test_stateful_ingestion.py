@@ -271,7 +271,7 @@ def ingest(pipeline_name, tmp_path, mock_datahub_graph):
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_powerbi_stateful_ingestion(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock, mock_datahub_graph
+    mock_msal, pytestconfig, tmp_path, requests_mock, mock_datahub_graph
 ):
     register_mock_api_state1(request_mock=requests_mock)
     pipeline1 = ingest("run1", tmp_path, mock_datahub_graph)

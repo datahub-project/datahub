@@ -15,7 +15,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 # `pip install acryl-datahub[feast]` since it allows pydantic > 2
 @pytest.mark.skipif(sys.version_info > (3, 11), reason="Skipped on Python 3.11+")
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
+def test_feast_repository_ingest(pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"
     output_path = tmp_path / "feast_repository_mces.json"
 

@@ -42,7 +42,6 @@ def test_glossary_ingest(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
     enable_auto_id,
     golden_file,
 ):
@@ -76,7 +75,6 @@ def test_single_owner_types(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test basic single owner cases with different ownership types"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -107,7 +105,6 @@ def test_multiple_owners_same_type(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test multiple owners all having the same type"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -140,7 +137,6 @@ def test_multiple_owners_different_types(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test multiple owners with different types"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -173,7 +169,6 @@ def test_custom_ownership_urns(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test custom ownership URNs"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
@@ -204,7 +199,6 @@ def test_url_cleaning(
     mock_datahub_graph_instance,
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     """Test URL cleaning functionality when auto_id is disabled"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"

@@ -166,7 +166,7 @@ def add_mock_method_in_pipeline(pipeline: Pipeline) -> None:
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
-def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, requests_mock):
     test_resources_dir = (
         pytestconfig.rootpath / "tests/integration/powerbi_report_server"
     )
@@ -192,9 +192,7 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
-def test_powerbi_ingest_with_failure(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
+def test_powerbi_ingest_with_failure(mock_msal, pytestconfig, tmp_path, requests_mock):
     test_resources_dir = (
         pytestconfig.rootpath / "tests/integration/powerbi_report_server"
     )

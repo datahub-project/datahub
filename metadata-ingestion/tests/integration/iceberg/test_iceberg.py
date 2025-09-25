@@ -45,9 +45,7 @@ def spark_submit(file_path: str, args: str = "") -> None:
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_multiprocessing_iceberg_ingest(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
-):
+def test_multiprocessing_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
     with docker_compose_runner(
@@ -75,7 +73,7 @@ def test_multiprocessing_iceberg_ingest(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
     with docker_compose_runner(
@@ -102,7 +100,7 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_stateful_ingest(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    docker_compose_runner, pytestconfig, tmp_path, mock_datahub_graph
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg"
     platform_instance = "test_platform_instance"
@@ -216,7 +214,7 @@ def test_iceberg_stateful_ingest(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
     with docker_compose_runner(

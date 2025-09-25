@@ -335,9 +335,7 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_azure_ad_stateful_ingestion(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
-):
+def test_azure_ad_stateful_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     new_recipe = default_recipe(tmp_path)
 
     new_recipe["pipeline_name"] = "azure_ad_execution"

@@ -80,7 +80,7 @@ def get_default_recipe(output_file_path: str) -> Dict[Any, Any]:
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest(pytestconfig, tmp_path, mock_time):
+def test_looker_ingest(pytestconfig, tmp_path):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
@@ -151,7 +151,7 @@ def setup_mock_external_project_view_explore(mocked_client):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
+def test_looker_ingest_external_project_view(pytestconfig, tmp_path):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
@@ -192,7 +192,7 @@ def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
+def test_looker_ingest_joins(pytestconfig, tmp_path):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
@@ -233,7 +233,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
+def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
@@ -696,7 +696,7 @@ def side_effect_query_inline(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
+def test_looker_ingest_allow_pattern(pytestconfig, tmp_path):
     mocked_client = mock.MagicMock()
 
     with mock.patch("looker_sdk.init40") as mock_sdk:
@@ -740,7 +740,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
+def test_looker_ingest_usage_history(pytestconfig, tmp_path):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
@@ -808,7 +808,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_filter_usage_history(pytestconfig, tmp_path, mock_time):
+def test_looker_filter_usage_history(pytestconfig, tmp_path):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
@@ -872,7 +872,7 @@ def test_looker_filter_usage_history(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "looker_mces.json"
     golden_file_name: str = "golden_looker_mces.json"
     output_file_deleted_name: str = "looker_mces_deleted_stateful.json"
@@ -1008,7 +1008,7 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
+def test_independent_look_ingestion_config(pytestconfig, tmp_path):
     """
     if extract_independent_looks is enabled, then stateful_ingestion.enabled should also be enabled
     """
@@ -1026,7 +1026,6 @@ def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
 def ingest_independent_looks(
     pytestconfig: Config,
     tmp_path: Path,
-    mock_time: float,
     mock_datahub_graph: mock.MagicMock,
     skip_personal_folders: bool,
     golden_file_name: str,
@@ -1075,12 +1074,11 @@ def ingest_independent_looks(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_independent_looks_ingest_with_personal_folder(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig, tmp_path, mock_datahub_graph
 ):
     ingest_independent_looks(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
-        mock_time=mock_time,
         mock_datahub_graph=mock_datahub_graph,
         skip_personal_folders=False,
         golden_file_name="golden_test_independent_look_ingest.json",
@@ -1089,12 +1087,11 @@ def test_independent_looks_ingest_with_personal_folder(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_independent_looks_ingest_without_personal_folder(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    pytestconfig, tmp_path, mock_datahub_graph
 ):
     ingest_independent_looks(
         pytestconfig=pytestconfig,
         tmp_path=tmp_path,
-        mock_time=mock_time,
         mock_datahub_graph=mock_datahub_graph,
         skip_personal_folders=True,
         golden_file_name="golden_test_non_personal_independent_look.json",
@@ -1102,9 +1099,7 @@ def test_independent_looks_ingest_without_personal_folder(
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_file_path_in_view_naming_pattern(
-    pytestconfig, tmp_path, mock_time, mock_datahub_graph
-):
+def test_file_path_in_view_naming_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
     new_recipe["source"]["config"]["view_naming_pattern"] = (
@@ -1159,7 +1154,6 @@ def test_file_path_in_view_naming_pattern(
 def test_independent_soft_deleted_looks(
     pytestconfig,
     tmp_path,
-    mock_time,
 ):
     mocked_client = mock.MagicMock()
 
@@ -1283,7 +1277,7 @@ def setup_mock_multi_model_explores(mocked_client):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
+def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path):
     """Test ingestion of dashboard elements with explores from different models."""
     mocked_client = mock.MagicMock()
     output_file = f"{tmp_path}/looker_multi_model_mces.json"
@@ -1341,7 +1335,7 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_upstream_cll(pytestconfig, tmp_path, mock_datahub_graph):
     mocked_client = mock.MagicMock()
 
     with (
@@ -1418,7 +1412,7 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_explore_tags(pytestconfig, tmp_path, mock_datahub_graph):
     mocked_client = mock.MagicMock()
 
     with (
@@ -1583,7 +1577,7 @@ def setup_mock_dashboard_with_folder(mocked_client):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_folder_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
     new_recipe["source"]["config"]["folder_path_pattern"] = {
@@ -1661,7 +1655,7 @@ def setup_mock_explore_with_group_label(mocked_client):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_group_label_tags(pytestconfig, tmp_path, mock_time):
+def test_group_label_tags(pytestconfig, tmp_path):
     """Test that group_label values are correctly extracted and added as tags."""
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init40") as mock_sdk:

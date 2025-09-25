@@ -741,9 +741,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_kafka_connect_snowflake_sink_ingest(
-    pytestconfig, tmp_path, mock_time, requests_mock
-):
+def test_kafka_connect_snowflake_sink_ingest(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
     override_data = {
         "http://localhost:28083/connectors": {

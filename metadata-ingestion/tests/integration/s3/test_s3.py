@@ -173,9 +173,7 @@ s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES
 @pytest.mark.parametrize(
     "source_file_tuple", shared_source_files + s3_source_files, ids=get_descriptive_id
 )
-def test_data_lake_s3_ingest(
-    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
-):
+def test_data_lake_s3_ingest(pytestconfig, s3_populate, source_file_tuple, tmp_path):
     source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
 
@@ -213,7 +211,7 @@ def test_data_lake_s3_ingest(
     "source_file_tuple", shared_source_files, ids=get_descriptive_id
 )
 def test_data_lake_local_ingest(
-    pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
+    pytestconfig, touch_local_files, source_file_tuple, tmp_path
 ):
     source_dir, source_file = source_file_tuple
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
@@ -269,7 +267,7 @@ def test_data_lake_local_ingest(
     )
 
 
-def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
+def test_data_lake_incorrect_config_raises_error(tmp_path):
     ctx = PipelineContext(run_id="test-s3")
 
     # Baseline: valid config

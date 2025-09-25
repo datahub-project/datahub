@@ -8,7 +8,7 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 
 @pytest.mark.integration
-def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
     with docker_compose_runner(
@@ -55,7 +55,7 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
 
 @pytest.mark.integration
-def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 
     with docker_compose_runner(
@@ -104,7 +104,7 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
 
 @pytest.mark.integration
 def test_ldap_ingest_with_email_as_username(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
+    docker_compose_runner, pytestconfig, tmp_path
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/ldap"
 

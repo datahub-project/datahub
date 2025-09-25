@@ -224,7 +224,7 @@ def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tm
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_okta_stateful_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
     output_file_path = f"{tmp_path}/temporary_mces.json"

@@ -13,7 +13,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"
@@ -42,9 +42,7 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_t
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_clickhouse_ingest_uri_form(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
-):
+def test_clickhouse_ingest_uri_form(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"

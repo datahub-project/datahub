@@ -91,7 +91,7 @@ def ldap_ingest_common(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_ldap_stateful(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
+    docker_compose_runner, pytestconfig, tmp_path, mock_datahub_graph
 ):
     golden_file_name: str = "ldap_mces_golden_stateful.json"
     output_file_name: str = "ldap_mces_stateful.json"

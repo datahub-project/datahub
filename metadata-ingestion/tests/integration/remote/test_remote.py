@@ -10,7 +10,7 @@ FROZEN_TIME = "2021-08-24 09:00:00"
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path):
     """
     Using Apache http server to host the files.
     """

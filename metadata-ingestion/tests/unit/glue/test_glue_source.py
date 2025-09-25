@@ -350,7 +350,7 @@ def test_get_databases_filters_by_catalog():
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_glue_stateful(pytestconfig, tmp_path, mock_datahub_graph):
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
         test_resources_dir
     )
