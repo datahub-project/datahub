@@ -1,7 +1,8 @@
 import datetime
+import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Generic, Optional, Type, TypeVar, cast
+from typing import Any, Callable, Generic, List, Optional, Type, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -11,6 +12,8 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUn
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -89,6 +92,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
     config: SinkConfig
     report: SinkReportType
+    _pre_shutdown_callbacks: List[Callable[[], None]]
 
     @classmethod
     def get_config_class(cls) -> Type[SinkConfig]:
@@ -106,6 +110,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
         self.ctx = ctx
         self.config = config
         self.report = self.get_report_class()()
+        self._pre_shutdown_callbacks = []
 
         self.__post_init__()
 
@@ -144,8 +149,28 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     def get_report(self) -> SinkReportType:
         return self.report
 
+    def register_pre_shutdown_callback(self, callback: Callable[[], None]) -> None:
+        """Register a callback to be executed before the sink shuts down.
+
+        This is useful for components that need to send final reports or cleanup
+        operations before the sink's resources are released.
+        """
+        self._pre_shutdown_callbacks.append(callback)
+
     def close(self) -> None:
-        pass
+        """Close the sink and clean up resources.
+
+        This method executes any registered pre-shutdown callbacks before
+        performing the actual shutdown. Subclasses should override this method
+        to provide sink-specific cleanup logic while calling super().close()
+        to ensure callbacks are executed.
+        """
+        # Execute pre-shutdown callbacks before shutdown
+        for callback in self._pre_shutdown_callbacks:
+            try:
+                callback()
+            except Exception as e:
+                logger.warning(f"Pre-shutdown callback failed: {e}", exc_info=True)
 
     def configured(self) -> str:
         """Override this method to output a human-readable and scrubbed version of the configured sink"""
