@@ -23,7 +23,7 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
 )
 from datahub.utilities.urns._urn_base import Urn
 
-FROZEN_TIME = "2021-12-07 07:00:00"
+FROZEN_TIME = "2021-12-07 07:00:00+00:00"
 
 
 class TestSoftDeletedEntitiesCleanup(unittest.TestCase):

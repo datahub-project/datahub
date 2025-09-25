@@ -67,7 +67,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     test_database,
 )
 
-FROZEN_TIME = "2020-04-14 07:00:00"
+FROZEN_TIME = "2020-04-14 07:00:00+00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 

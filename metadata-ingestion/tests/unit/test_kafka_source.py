@@ -557,7 +557,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     assert len(workunits) == 3
 
 
-@time_machine.travel("2023-09-20 10:00:00", tick=False)
+@time_machine.travel("2023-09-20 10:00:00+00:00", tick=False)
 @patch(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,

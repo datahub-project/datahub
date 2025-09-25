@@ -195,7 +195,7 @@ def test_basic_dashboard_patch_builder():
     ],
     ids=["both_timestamps", "no_timestamps", "only_created", "only_modified"],
 )
-@time_machine.travel("2020-04-14 07:00:00", tick=False)
+@time_machine.travel("2020-04-14 07:00:00+00:00", tick=False)
 def test_datajob_patch_builder(created_on, last_modified, expected_actor):
     def make_edge_or_urn(urn: str) -> Union[EdgeClass, str]:
         if created_on or last_modified:

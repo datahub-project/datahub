@@ -42,7 +42,7 @@ def test_operation_circuit_breaker_with_empty_response(pytestconfig):
         assert result is True
 
 
-@time_machine.travel("2022-06-20 05:00:00", tick=False)
+@time_machine.travel("2022-06-20 05:00:00+00:00", tick=False)
 @pytest.mark.integration
 def test_operation_circuit_breaker_with_valid_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
@@ -62,7 +62,7 @@ def test_operation_circuit_breaker_with_valid_response(pytestconfig):
         assert result is False
 
 
-@time_machine.travel("2022-06-21 07:00:00", tick=False)
+@time_machine.travel("2022-06-21 07:00:00+00:00", tick=False)
 @pytest.mark.integration
 def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
