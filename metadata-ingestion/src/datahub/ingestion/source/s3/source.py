@@ -1145,8 +1145,8 @@ class S3Source(StatefulIngestionSourceBase):
 
                     # Extract table name using the ORIGINAL path spec pattern matching (not the modified one)
                     # This uses the compiled regex pattern to extract the table name from the full path
-                    table_name, table_path = path_spec.extract_table_name_and_path(
-                        table_s3_path
+                    table_name, _ = self.extract_table_name_and_path(
+                        path_spec, table_s3_path
                     )
 
                     # Apply table name filtering if configured
